@@ -76,6 +76,58 @@ DART 키는 저장소 설정에 따로 넣어야 합니다.
 
 ---
 
+## 사이트를 수정하고 싶을 때
+
+### 기본 3단계 (모든 수정에 공통)
+
+```bash
+git pull                       # ① 먼저 당겨오기 (자동갱신 봇이 올린 내용 받기)
+#  ... 파일 수정 ...
+git add -A
+git commit -m "무엇을 바꿨는지"
+git push                       # ② 올리면 1~2분 뒤 사이트 자동 반영
+```
+
+> ⚠️ **`git pull` 을 꼭 먼저 하세요.**
+> 자동갱신 봇이 매시간 커밋을 올리기 때문에, 그냥 push 하면
+> `rejected - remote contains work that you do not have` 에러가 납니다.
+> 이미 에러가 났다면 `git pull --rebase` 후 다시 `git push`.
+
+### 어디를 고치면 되나
+
+| 바꾸고 싶은 것 | 파일 | 위치 |
+|---|---|---|
+| 화면·표·색상·섹션 | `public/index.html` | 해당 부분 직접 |
+| **Top/2nd/Beta Pick 수동 지정** | `public/index.html` | `PICK_OVERRIDE` |
+| **이벤트 직접 추가** | `public/index.html` | `MANUAL_EVENTS` |
+| **트렌드 키워드·그룹** | `fetch_trends.py` | `GROUPS` |
+| **갱신 시각** | `.github/workflows/*.yml` | `cron` |
+| 커버리지 종목·추정치 | 유니버스 엑셀 | 수정 후 `rebuild_from_excel.py` |
+
+### 예시 — 트렌드 키워드 바꾸기
+
+`fetch_trends.py` 의 `GROUPS` 를 이렇게 고치고:
+```python
+GROUPS = {
+    "스킨부스터":   ["리쥬란", "리투오", "셀르디엠"],
+    "톡신":        ["나보타", "제오민", "보툴렉스"],   # ← 새 그룹 추가
+}
+```
+```bash
+python fetch_trends.py
+git add -A && git commit -m "트렌드 키워드 추가" && git push
+```
+
+### 되돌리고 싶을 때
+
+```bash
+git log --oneline           # 커밋 목록 확인
+git revert <커밋번호>        # 특정 변경만 취소 (안전)
+```
+또는 Cloudflare → Deployments → 예전 배포의 `⋯` → **Rollback**
+
+---
+
 ## 평소 사용법
 
 ### 커버리지 종목을 바꿨을 때
