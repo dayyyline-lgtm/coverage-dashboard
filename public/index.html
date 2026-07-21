@@ -234,6 +234,14 @@
   .w52 .bar{position:relative;flex:1;height:5px;background:var(--line);border-radius:3px;min-width:64px}
   .w52 .bar i{position:absolute;top:-3px;width:3px;height:11px;background:var(--accent);border-radius:2px}
   .w52 .lbl{font-size:10.5px;color:var(--muted);white-space:nowrap}
+  /* 수출 데이터 칩 */
+  .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chip{font-size:12px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--line);color:var(--muted);transition:all .14s ease}
+  .chip:hover{color:var(--text);border-color:var(--accent)}
+  .chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.active.alt{background:var(--warn);border-color:var(--warn)}
+
   .w52-swap{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:5px;cursor:pointer;
     background:var(--chip);border:1px solid var(--line);color:var(--accent);font-weight:800;font-size:11px}
   .w52-swap:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -374,16 +382,39 @@
 
   <!-- 대체데이터 -->
   <section class="view" data-view="altdata">
-    <h2 class="sec">대체데이터</h2>
-    <p class="sec-desc">아마존 베스트셀러 랭킹 · 수출 통관 데이터 등. <span class="seed">⚠ 샘플/시드 데이터 — 실제 크롤링/관세청 데이터 연결 자리</span></p>
-    <div class="grid2">
-      <div>
-        <div class="sub-h">아마존 뷰티 베스트셀러 (K-Beauty)</div>
-        <div class="tbl-wrap"><table id="amzTable"></table></div>
+    <h2 class="sec">수출 데이터</h2>
+    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 실적.</p>
+
+    <div id="tradeUI">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <div class="seg" id="tradePeriodSeg" style="margin-bottom:0">
+          <button data-p="m" class="active">월별</button>
+          <button data-p="q">분기별</button>
+        </div>
+        <div class="seg" id="tradeViewSeg" style="margin-bottom:0">
+          <button data-v="chart" class="active">차트</button>
+          <button data-v="table">테이블</button>
+        </div>
       </div>
-      <div>
-        <div class="sub-h">라면·화장품 수출 통관 (YoY)</div>
-        <div class="tbl-wrap"><table id="expTable"></table></div>
+      <div class="chip-row" id="tradeItemChips"></div>
+      <div class="chip-row" id="tradeCountryChips" style="margin-bottom:14px"></div>
+
+      <div class="chart-box">
+        <div id="tradeChartTitle" style="text-align:center;font-weight:800;font-size:14px;margin-bottom:2px"></div>
+        <div id="tradeChart"></div>
+        <div class="legend" id="tradeLegend"></div>
+      </div>
+      <div id="tradeTableWrap" class="tbl-wrap" style="display:none;margin-top:4px"><table id="tradeTable"></table></div>
+      <p class="note" id="tradeNote"></p>
+    </div>
+
+    <div id="tradeEmpty" class="chart-box" style="display:none;text-align:center;padding:44px 20px">
+      <div style="font-size:34px;margin-bottom:10px">📦</div>
+      <div style="font-weight:800;font-size:15px;margin-bottom:6px">수출 데이터 수집 대기 중</div>
+      <div style="color:var(--muted);font-size:13px;line-height:1.7">
+        공공데이터포털 <b>관세청_품목별 국가별 수출입실적(GW)</b> 활용신청 후<br>
+        <code>python fetch_trade.py</code> 를 실행하면 이 화면이 채워집니다.<br>
+        <span style="font-size:12px">수집 대상 — 화장품 전체·기초·색조(립/아이/파우더)·마스크팩·라면 × 전체/미국/일본/중국/유럽 9개국</span>
       </div>
     </div>
   </section>
@@ -466,7 +497,7 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 const TABS = [
   ["overview","개요"],["coverage","커버리지 요약"],["valuation","밸류에이션"],
   ["preview","실적 프리뷰"],["calendar","이벤트 캘린더"],["reports","리서치 리포트"],
-  ["trends","트렌드 비교"],["altdata","대체데이터"]
+  ["trends","트렌드 비교"],["altdata","수출 데이터"]
 ];
 const tabsEl = document.getElementById("tabs");
 tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
@@ -871,30 +902,123 @@ window.addEventListener("resize",()=>{
   if(document.querySelector('section[data-view="trends"]').classList.contains("active")) drawTrend();
 });
 
-/* ==== Alt data (SEED) ==== */
-const AMZ=[
-  [1,"메디큐브 Age-R","APR","▲ 2"],[2,"조선미녀 릴리프썬","비상장","▬"],
-  [3,"아누아 어성초 토너","비상장","▲ 5"],[4,"라운드랩 자작나무","비상장","▼ 1"],
-  [5,"메디힐 마스크팩","엘앤씨","▲ 3"],[6,"코스알엑스 스네일","코스알엑스","▼ 2"],
-];
-makeTable(document.getElementById("amzTable"),[
-  {key:"a",label:"순위",l:true,render:r=>"#"+r.a},
-  {key:"b",label:"제품",l:true,render:r=>r.b},
-  {key:"c",label:"관련",l:true,render:r=>r.c},
-  {key:"d",label:"변동",render:r=>{const u=r.d.includes("▲");const dn=r.d.includes("▼");return `<span class="${u?'up':dn?'down':'flat'}">${r.d}</span>`;}},
-], AMZ.map(x=>({a:x[0],b:x[1],c:x[2],d:x[3]})), {key:"a",dir:1});
+/* ==== 수출 데이터 (관세청) ==== */
+const TRADE = {"asOf":"","months":[],"items":[]};
 
-const EXP=[
-  ["라면 (HS 1902)","6월","$ 1.28억","+41%"],["화장품 (HS 3304)","6월","$ 9.7억","+18%"],
-  ["즉석식품","6월","$ 2.1억","+12%"],["미국향 화장품","6월","$ 3.4억","+34%"],
-  ["對중국 화장품","6월","$ 2.2억","-3%"],["對일본 라면","6월","$ 0.31억","+27%"],
-];
-makeTable(document.getElementById("expTable"),[
-  {key:"a",label:"품목",l:true,render:r=>r.a},
-  {key:"b",label:"기준",l:true,render:r=>r.b},
-  {key:"c",label:"금액",render:r=>r.c},
-  {key:"d",label:"YoY",render:r=>{const u=r.d.startsWith("+");return `<span class="${u?'up':'down'}">${r.d}</span>`;}},
-], EXP.map(x=>({a:x[0],b:x[1],c:x[2],d:x[3]})), {key:"a",dir:1});
+(function(){
+  const has = TRADE.items && TRADE.items.length && TRADE.months.length;
+  document.getElementById("tradeUI").style.display   = has ? "" : "none";
+  document.getElementById("tradeEmpty").style.display= has ? "none" : "";
+  if(!has) return;
+
+  let itemIdx=0, cIdx=0, period="m", view="chart";
+  const chips=(el,arr,cls)=>{ el.innerHTML=arr.map((t,i)=>
+    `<button class="chip ${cls||''}" data-i="${i}">${t}</button>`).join(""); };
+
+  chips(document.getElementById("tradeItemChips"), TRADE.items.map(i=>i.label));
+  function countryList(){ return TRADE.items[itemIdx].byCountry.map(c=>c.name); }
+  function paintChips(){
+    document.querySelectorAll("#tradeItemChips .chip").forEach((b,i)=>b.classList.toggle("active",i===itemIdx));
+    document.querySelectorAll("#tradeCountryChips .chip").forEach((b,i)=>b.classList.toggle("active",i===cIdx));
+  }
+
+  /* 월 -> 분기 집계 */
+  function agg(){
+    const it=TRADE.items[itemIdx], c=it.byCountry[cIdx];
+    const M=TRADE.months, V=c.exp;
+    if(period==="m") return {labels:M.map(m=>`${m.slice(2,4)}.${m.slice(4,6)}`), vals:V.slice(), keys:M.slice()};
+    const buckets=new Map();
+    M.forEach((m,i)=>{
+      const q=`${m.slice(0,4)}Q${Math.floor((+m.slice(4,6)-1)/3)+1}`;
+      if(!buckets.has(q)) buckets.set(q,[]);
+      if(V[i]!=null) buckets.get(q).push(V[i]);
+    });
+    const keys=[...buckets.keys()];
+    return {labels:keys.map(k=>`${k.slice(2,4)}.${k.slice(4)}`), keys,
+            vals:keys.map(k=>{const a=buckets.get(k);return a.length?a.reduce((x,y)=>x+y,0):null;})};
+  }
+  /* YoY: 월별은 12개월 전, 분기별은 4분기 전 */
+  function yoyOf(vals){
+    const lag = period==="m" ? 12 : 4;
+    return vals.map((v,i)=> (i>=lag && v!=null && vals[i-lag]) ? (v/vals[i-lag]-1)*100 : null);
+  }
+
+  function draw(){
+    const it=TRADE.items[itemIdx], c=it.byCountry[cIdx];
+    const {labels,vals}=agg(), yoy=yoyOf(vals);
+    document.getElementById("tradeChartTitle").textContent=`${it.label} · ${c.name}`;
+    const box=document.getElementById("tradeChart");
+    const W=box.clientWidth||1000, H=380, pad={l:62,r:56,t:18,b:34};
+    const shown=vals.map(v=>v==null?0:v/1000);           // 천달러 -> 백만달러
+    const maxV=Math.max(...shown,1)*1.15;
+    const ys=v=>H-pad.b-(v/maxV)*(H-pad.t-pad.b);
+    const xs=i=>pad.l+(i+0.5)/labels.length*(W-pad.l-pad.r);
+    const bw=(W-pad.l-pad.r)/labels.length*0.62;
+    const yv=yoy.filter(v=>v!=null);
+    const yMax=yv.length?Math.max(...yv,5)*1.2:100, yMin=yv.length?Math.min(...yv,-5)*1.2:-20;
+    const yy=v=>H-pad.b-((v-yMin)/(yMax-yMin))*(H-pad.t-pad.b);
+    const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+    const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+    let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+    for(let g=0;g<=4;g++){
+      const y=pad.t+(H-pad.t-pad.b)*g/4, v=maxV*(1-g/4), r=yMax-(yMax-yMin)*g/4;
+      s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
+      s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${fmt0(v)}</text>`;
+      s+=`<text x="${W-pad.r+8}" y="${y+4}" font-size="10.5" fill="${mut}">${fmt(r,0)}%</text>`;
+    }
+    labels.forEach((L,i)=>{
+      const h=H-pad.b-ys(shown[i]);
+      s+=`<rect x="${(xs(i)-bw/2).toFixed(1)}" y="${ys(shown[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="var(--warn)" opacity=".75"><title>${L} · ${fmt(shown[i],1)}백만달러${yoy[i]!=null?` · YoY ${sign(yoy[i],1)}%`:''}</title></rect>`;
+      s+=`<text x="${xs(i).toFixed(1)}" y="${H-pad.b+16}" text-anchor="middle" font-size="10" fill="${mut}">${L}</text>`;
+    });
+    const pts=yoy.map((v,i)=>v==null?null:`${xs(i).toFixed(1)},${yy(v).toFixed(1)}`).filter(Boolean);
+    if(pts.length>1) s+=`<polyline points="${pts.join(' ')}" fill="none" stroke="var(--muted)" stroke-width="1.6"/>`;
+    yoy.forEach((v,i)=>{ if(v!=null)
+      s+=`<circle cx="${xs(i).toFixed(1)}" cy="${yy(v).toFixed(1)}" r="3.4" fill="${v>=0?'var(--up)':'var(--down)'}"><title>YoY ${sign(v,1)}%</title></circle>`;});
+    s+=`<text x="16" y="${H/2}" text-anchor="middle" font-size="11" fill="${mut}" transform="rotate(-90 16 ${H/2})">수출액 (백만달러)</text>`;
+    s+="</svg>";
+    box.innerHTML=s;
+    document.getElementById("tradeLegend").innerHTML=
+      `<div class="li"><span class="dot" style="background:var(--warn)"></span>수출액 (백만달러)</div>`+
+      `<div class="li"><span class="dot" style="background:var(--up)"></span>YoY (%)</div>`+
+      `<div class="li" style="margin-left:auto"><small>${it.note}</small></div>`;
+    // 테이블
+    makeTable(document.getElementById("tradeTable"),[
+      {key:"L",label:period==="m"?"월":"분기",l:true,render:r=>r.L},
+      {key:"v",label:"수출액(백만달러)",render:r=>r.v==null?"—":fmt(r.v,1)},
+      {key:"y",label:"YoY",render:r=>r.y==null?"—":`<span class="${cls(r.y)}">${sign(r.y,1)}%</span>`},
+    ], labels.map((L,i)=>({L,v:shown[i]||null,y:yoy[i]})), {key:"L",dir:-1});
+    document.getElementById("tradeNote").innerHTML=
+      `단위 백만달러(FOB 신고금액). YoY는 ${period==="m"?"전년 동월":"전년 동분기"} 대비. `+
+      `유럽 9개국은 ${(TRADE.items[itemIdx].byCountry.find(c=>c.code==="EU9")||{}).members?.join("·")||"영국·프랑스·독일·네덜란드·폴란드·이탈리아·스페인·스웨덴·벨기에"} 합계. `+
+      `수집 ${TRADE.asOf}`;
+  }
+  function rebuildCountry(){ chips(document.getElementById("tradeCountryChips"), countryList(), "alt"); }
+  function refresh(){ paintChips(); draw(); }
+
+  document.getElementById("tradeItemChips").addEventListener("click",e=>{
+    const b=e.target.closest(".chip"); if(!b) return;
+    itemIdx=+b.dataset.i; cIdx=Math.min(cIdx, TRADE.items[itemIdx].byCountry.length-1);
+    rebuildCountry(); refresh();
+  });
+  document.getElementById("tradeCountryChips").addEventListener("click",e=>{
+    const b=e.target.closest(".chip"); if(!b) return; cIdx=+b.dataset.i; refresh();
+  });
+  document.getElementById("tradePeriodSeg").addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return; period=b.dataset.p;
+    document.querySelectorAll("#tradePeriodSeg button").forEach(x=>x.classList.toggle("active",x===b));
+    draw();
+  });
+  document.getElementById("tradeViewSeg").addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return; view=b.dataset.v;
+    document.querySelectorAll("#tradeViewSeg button").forEach(x=>x.classList.toggle("active",x===b));
+    document.querySelector("#tradeUI .chart-box").style.display = view==="chart"?"":"none";
+    document.getElementById("tradeTableWrap").style.display     = view==="table"?"":"none";
+  });
+  rebuildCountry(); refresh();
+  window.addEventListener("resize",()=>{ if(document.querySelector('section[data-view="altdata"]').classList.contains("active")) draw(); });
+  window.__drawTrade=draw;
+})();
 
 /* ==== Stock detail drawer ==== */
 const byName=Object.fromEntries(R.map(r=>[r.name,r]));
