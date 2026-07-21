@@ -24,7 +24,7 @@ try:
 except Exception:
     pass
 
-HTML_PATH = "index.html"
+HTML_PATH = "public/index.html"
 CACHE = "corpcode_cache.json"
 LOOKBACK_DAYS = 120          # 공시 조회 기간
 KEEP_FROM_DAYS = 45          # 캘린더에 남길 과거 범위

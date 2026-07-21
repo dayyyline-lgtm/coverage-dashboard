@@ -17,7 +17,7 @@ index.html 의  const DATA / const FIN  블록이 통째로 갱신됩니다.
 import openpyxl, json, re, sys, os
 
 XLSX = r"C:\Users\user\Desktop\캐리인턴_유니버스_신주현_2 (2) (2) (2).xlsx"
-HTML_PATH = "index.html"
+HTML_PATH = "public/index.html"
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

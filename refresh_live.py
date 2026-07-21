@@ -21,7 +21,7 @@ try:
 except Exception:
     pass
 
-HTML_PATH = "index.html"
+HTML_PATH = "public/index.html"
 UA = {"User-Agent": "Mozilla/5.0"}
 
 # 종목명 → 종목코드 (엑셀 표기와 다른 경우 여기서 교정)

@@ -23,7 +23,7 @@ try:
 except Exception:
     pass
 
-HTML_PATH = "index.html"
+HTML_PATH = "public/index.html"
 
 # ── 네이버 데이터랩 키 ─────────────────────────────────────
 # secrets_local.py (깃에 안 올라감)에서 읽어옵니다.

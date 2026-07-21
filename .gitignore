@@ -22,3 +22,4 @@ venv/
 Thumbs.db
 .DS_Store
 desktop.ini
+build_mdd_screener.py
