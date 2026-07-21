@@ -1,0 +1,51 @@
+name: 트렌드 갱신 (네이버·구글)
+
+on:
+  schedule:
+    # 매주 월요일 한국시간 08:00 (UTC 일 23:00)
+    # 트렌드는 '월 단위' 데이터라 주 1회로 충분합니다.
+    - cron: "0 23 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trends
+  cancel-in-progress: false
+
+jobs:
+  trends:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 의존성 설치
+        run: pip install --quiet requests pytrends
+
+      - name: 트렌드 수집
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: |
+          if [ -z "$NAVER_CLIENT_ID" ]; then
+            echo "NAVER_CLIENT_ID 시크릿이 없습니다. Settings > Secrets 에 등록하세요."
+            exit 1
+          fi
+          python fetch_trends.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git add public/index.html
+            git commit -m "트렌드 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git push
+          fi

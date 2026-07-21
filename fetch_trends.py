@@ -26,11 +26,14 @@ except Exception:
 HTML_PATH = "public/index.html"
 
 # ── 네이버 데이터랩 키 ─────────────────────────────────────
-# secrets_local.py (깃에 안 올라감)에서 읽어옵니다.
+# 우선순위: 환경변수(GitHub Actions) > secrets_local.py(로컬)
+import os
 try:
     from secrets_local import NAVER_CLIENT_ID, NAVER_CLIENT_SECRET
 except ImportError:
     NAVER_CLIENT_ID = NAVER_CLIENT_SECRET = ""
+NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", NAVER_CLIENT_ID)
+NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 
 # ── 비교 그룹: 원하는 만큼 추가/수정 (그룹당 키워드 2~5개) ──
 GROUPS = {
@@ -103,10 +106,22 @@ def fetch_naver(keywords, n_months=12):
     return norm(series), labels
 
 
+def load_existing():
+    """index.html 에 이미 들어있는 TREND 를 읽어온다 (실패한 출처의 값을 보존하기 위함)"""
+    try:
+        html = open(HTML_PATH, encoding="utf-8").read()
+        m = re.search(r"const TREND=(\{.*?\});", html, re.S)
+        return json.loads(m.group(1)) if m else None
+    except Exception:
+        return None
+
+
 def main():
     groups_out = {}
     labels = month_labels(12)
     have = {"naver": False, "google": False}
+    prev = load_existing()
+    prev_groups = (prev or {}).get("groups", {})
 
     for gname, kws in GROUPS.items():
         print(f"\n[{gname}] {kws}")
@@ -132,10 +147,18 @@ def main():
             g["naver"] = None
             print("  네이버 실패:", str(e)[:80])
 
+        # 실패한 출처는 기존에 있던 값을 그대로 보존 (구글이 429로 막혀도 데이터가 사라지지 않음)
+        old = prev_groups.get(gname, {})
+        if not g["google"] and old.get("google") and old.get("products") == kws:
+            g["google"] = old["google"]
+            print("  구글: 기존 값 유지")
+        if not g["naver"] and old.get("naver") and old.get("products") == kws:
+            g["naver"] = old["naver"]
+            print("  네이버: 기존 값 유지")
+
         if not g["google"] and not g["naver"]:
-            print("  !! 이 그룹 수집 실패 -> 건너뜀")
+            print("  !! 이 그룹 수집 실패 & 기존 값 없음 -> 건너뜀")
             continue
-        # 한쪽만 성공하면 다른 쪽도 같은 값으로 채우되, sources 로 실제 출처를 표시
         g["google"] = g["google"] or g["naver"]
         g["naver"] = g["naver"] or g["google"]
         groups_out[gname] = g
@@ -147,16 +170,22 @@ def main():
 
     trend = {"months": labels, "colors": COLORS[:5],
              "sources": have, "groups": groups_out}
-    js = "const TREND=" + json.dumps(trend, ensure_ascii=False) + ";"
 
+    # 값이 그대로면 파일을 건드리지 않는다 (불필요한 커밋·배포 방지)
+    if prev is not None and prev.get("groups") == groups_out and prev.get("months") == labels:
+        print("\n[SKIP] 트렌드 변동 없음 - index.html 그대로 둠")
+        return
+
+    js = "const TREND=" + json.dumps(trend, ensure_ascii=False) + ";"
     html = open(HTML_PATH, encoding="utf-8").read()
-    new, n = re.subn(r"const TREND=\{.*?\n\};", js, html, count=1, flags=re.S)
+    new, n = re.subn(r"const TREND=\{.*?\};", js, html, count=1, flags=re.S)
     if not n:
         print("\n[!] TREND 블록을 찾지 못했습니다. 아래를 직접 붙여넣으세요:\n")
         print(js)
         return
     open(HTML_PATH, "w", encoding="utf-8").write(new)
-    print(f"\n[OK] index.html 갱신 완료 - 그룹 {len(groups_out)}개 실데이터 반영")
+    print(f"\n[OK] index.html 갱신 완료 - 그룹 {len(groups_out)}개 "
+          f"(네이버 {'O' if have['naver'] else 'X'} / 구글 {'O' if have['google'] else 'X'})")
 
 
 if __name__ == "__main__":
