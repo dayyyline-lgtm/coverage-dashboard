@@ -226,6 +226,9 @@
   .w52 .bar{position:relative;flex:1;height:5px;background:var(--line);border-radius:3px;min-width:64px}
   .w52 .bar i{position:absolute;top:-3px;width:3px;height:11px;background:var(--accent);border-radius:2px}
   .w52 .lbl{font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .w52-swap{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:5px;cursor:pointer;
+    background:var(--chip);border:1px solid var(--line);color:var(--accent);font-weight:800;font-size:11px}
+  .w52-swap:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 
   /* polish: sticky name column on wide coverage tables */
   .sector-block table th:nth-child(1),.sector-block table td:nth-child(1){position:sticky;left:0;z-index:2}
@@ -300,12 +303,10 @@
       <div id="scatter"></div>
       <div class="legend" id="scatterLegend"></div>
     </div>
-    <div class="sub-h">밸류에이션 테이블
-      <button id="w52Btn" class="theme-btn" style="margin-left:auto;font-weight:700"
-              title="클릭하면 고점대비 낙폭 → 52주 위치 → 저점대비 반등 순으로 전환">고점대비 낙폭 ▾</button>
-    </div>
+    <div class="sub-h">밸류에이션 테이블</div>
     <div class="tbl-wrap"><table id="valTable"></table></div>
-    <p class="note">낙폭 = 현재가 ÷ 52주 최고가 − 1 (하락률). <b>우측 버튼을 누르면</b> 52주 위치·저점대비 반등으로 전환됩니다.</p>
+    <p class="note">낙폭 = 현재가 ÷ 52주 최고가 − 1 (하락률). 종목은 소섹터 내 <b>시가총액 순</b>.
+      <b>컬럼 제목의 ⇄ 를 누르면</b> 고점대비 낙폭 → 52주 위치 → 저점대비 반등으로 전환됩니다(제목 클릭은 정렬).</p>
   </section>
 
   <!-- 실적 프리뷰 -->
@@ -541,7 +542,8 @@ function makeTable(el, cols, rows, initSort){
       ).join("")+"</tr></thead><tbody>"+
       sorted.map(r=>"<tr>"+cols.map(c=>`<td class="${c.l?'l':''}">${c.render(r)}</td>`).join("")+"</tr>").join("")+
       "</tbody>";
-    el.querySelectorAll("th").forEach(th=>th.onclick=()=>{
+    el.querySelectorAll("th").forEach(th=>th.onclick=(e)=>{
+      if(e && e.target && e.target.closest("[data-w52toggle]")) return;  // 지표 전환 아이콘은 정렬 제외
       const k=th.dataset.k;
       if(k===sortKey) sortDir*=-1; else {sortKey=k; sortDir=(typeof rows[0][k]==="string")?1:-1;}
       render();
@@ -554,14 +556,13 @@ const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${pick
 /* ==== Coverage summary — grouped by sector ==== */
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const covCols = [
-  {key:"rank",label:"#",l:true,render:r=>r.rank},
+  {key:"mktcapJo",label:"시총(조)",l:true,render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
   {key:"name",label:"종목",l:true,render:nmCell},
   {key:"score",label:"투자의견",render:r=>ratingBadge(r.score)},
   {key:"price",label:"현재가",render:r=>won(r.price)},
   {key:"chgPct",label:"등락률",render:r=>r.chgPct==null?"—":`<span class="${cls(r.chgPct)}">${sign(r.chgPct,2)}%</span>`},
   {key:"target",label:"목표가(컨센)",render:r=>won(r.target)},
   {key:"upsideCons",label:"상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
-  {key:"mktcapJo",label:"시총(조)",render:r=>fmt(mcJo(r),1)},
   {key:"perLive",label:"PER",render:r=>r.perLive>0?fmt(r.perLive)+"x":"—"},
   {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
   {key:"divYield",label:"배당%",render:r=>r.divYield>0?fmt(r.divYield)+"%":"—"},
@@ -615,6 +616,7 @@ let w52Mode=0;
 function renderValTable(){
   const M=W52_MODES[w52Mode];
   makeTable(document.getElementById("valTable"),[
+    {key:"mktcapJo",label:"시총(조)",l:true,render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
     {key:"name",label:"종목",l:true,render:nmCell},
     {key:"sector",label:"섹터",l:true,render:r=>r.sector},
     {key:"cnsPer",label:"컨센 PER",render:r=>r.cnsPer>0?fmt(r.cnsPer)+"x":"—"},
@@ -623,19 +625,20 @@ function renderValTable(){
     {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
     {key:"divYield",label:"배당%",render:r=>r.divYield>0?fmt(r.divYield)+"%":"—"},
     {key:"foreign",label:"외국인%",render:r=>r.foreign>0?fmt(r.foreign)+"%":"—"},
-    {key:M.sort,label:M.label,render:M.render},
-    {key:"mktcapJo",label:"시총(조)",render:r=>fmt(mcJo(r),1)},
+    {key:M.sort,label:`${M.label} <span class="w52-swap" data-w52toggle title="클릭하면 지표 전환">⇄</span>`,render:M.render},
     {key:"fairMktcap",label:"적정시총(조)",render:r=>fmt(r.fairMktcap/1000,1)},
     {key:"upsideOwn",label:"당사 상승여력",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
     {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
   ], R, {key:"per26",dir:1});
-  document.getElementById("w52Btn").textContent=`${M.label} ▾`;
 }
 renderValTable();
-document.getElementById("w52Btn").addEventListener("click",()=>{
+// ⇄ 아이콘으로 지표 전환. 캡처 단계에서 가로채므로 정렬로 테이블이 다시 그려져도 계속 동작한다.
+document.getElementById("valTable").addEventListener("click",(e)=>{
+  if(!e.target.closest("[data-w52toggle]")) return;
+  e.stopPropagation();
   w52Mode=(w52Mode+1)%W52_MODES.length;
   renderValTable();
-});
+}, true);
 
 /* ==== Earnings preview / consensus compare ====
    컨센서스 실적 추정치(네이버 재무 API) vs 당사 추정(유니버스 엑셀) */
