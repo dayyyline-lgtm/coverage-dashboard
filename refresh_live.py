@@ -58,6 +58,55 @@ def mktcap_eok(s):
     return tot or None
 
 
+def fetch_consensus(code):
+    """네이버 재무 API에서 컨센서스 추정치를 뽑는다.
+       반환 단위는 십억원 (원본은 억원). EPS/비율은 원본 그대로."""
+    out = {}
+    ITEMS = {"매출액": "rev", "영업이익": "op", "당기순이익": "np",
+             "영업이익률": "opm", "EPS": "eps"}
+
+    def pull(period):
+        d = getj(f"https://m.stock.naver.com/api/stock/{code}/finance/{period}")
+        fi = d["financeInfo"]
+        titles = {t["key"]: t for t in fi["trTitleList"]}
+        rows = {r["title"]: r["columns"] for r in fi["rowList"]}
+        cons_keys = [k for k, t in titles.items() if t.get("isConsensus") == "Y"]
+        act_keys = sorted(k for k, t in titles.items() if t.get("isConsensus") != "Y")
+        if not cons_keys:
+            return None
+        ck = sorted(cons_keys)[0]                    # 가장 이른 컨센 기간
+
+        def grab(key):
+            vals = {}
+            for kor, en in ITEMS.items():
+                v = num((rows.get(kor) or {}).get(key, {}).get("value"))
+                if v is None:
+                    continue
+                vals[en] = v if en in ("opm", "eps") else round(v / 10, 2)  # 억 -> 십억
+            return vals
+
+        res = {"key": ck, "title": titles[ck]["title"], "est": grab(ck)}
+        # 전년 동기(분기) 또는 전년(연간) 실적 -> YoY 계산용
+        if period == "quarter" and len(ck) == 6:
+            prev = str(int(ck[:4]) - 1) + ck[4:]
+        else:
+            prev = str(int(ck[:4]) - 1) + ck[4:]
+        if prev in titles:
+            res["prev"] = grab(prev)
+        elif act_keys:
+            res["prev"] = grab(act_keys[-1])
+        return res
+
+    for period, label in (("annual", "year"), ("quarter", "quarter")):
+        try:
+            r = pull(period)
+            if r:
+                out[label] = r
+        except Exception:
+            pass
+    return out or None
+
+
 def resolve_code(name):
     q = urllib.parse.quote(NAME_FIX.get(name, name))
     d = getj(f"https://m.stock.naver.com/front-api/search/autoComplete?query={q}&target=stock")
@@ -90,6 +139,7 @@ def collect(names):
                 "foreign": num(ti.get("foreignRate")),
                 "consTarget": num(ci.get("priceTargetMean")),
                 "recommMean": num(ci.get("recommMean")),
+                "cons": fetch_consensus(code),      # 컨센서스 실적 추정치
             }
             for r in (d.get("researches") or []):
                 researches.append({"co": nm, "code": code, "broker": r.get("bnm"),
