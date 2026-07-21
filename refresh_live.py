@@ -161,6 +161,36 @@ def collect(names):
     return stocks, researches, events, fails
 
 
+# 커버리지 소섹터 -> 네이버 업종 번호
+SECTOR_MAP = [
+    ("화장품", 266), ("유통", 264), ("미용", 281), ("음식료", 268),
+    ("기획", 285), ("개발", 263), ("레져", 317),
+]
+
+
+def collect_sectors():
+    """커버리지와 대응되는 네이버 업종 등락률"""
+    groups = {}
+    for pg in range(1, 6):
+        try:
+            d = getj(f"https://m.stock.naver.com/api/stocks/industry?page={pg}&pageSize=20")
+        except Exception:
+            break
+        for g in d.get("groups", []):
+            groups[g["no"]] = g
+        if len(groups) >= d.get("totalCount", 0):
+            break
+    out = []
+    for sub, no in SECTOR_MAP:
+        g = groups.get(no)
+        if not g:
+            continue
+        out.append({"sub": sub, "name": g["name"], "chgPct": num(g.get("changeRate")),
+                    "rise": g.get("riseCount"), "fall": g.get("fallCount"),
+                    "n": g.get("totalCount")})
+    return out
+
+
 def collect_market():
     market = {}
     for idx in ["KOSPI", "KOSDAQ"]:
@@ -178,6 +208,10 @@ def collect_market():
                         "CNYKRW": round(fx["KRW"] / fx["CNY"], 1)}
     except Exception as e:
         print("  환율 실패:", e)
+    try:
+        market["sectors"] = collect_sectors()
+    except Exception as e:
+        print("  업종 실패:", e)
     return market
 
 

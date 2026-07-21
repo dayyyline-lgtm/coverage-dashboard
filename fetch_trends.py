@@ -35,11 +35,20 @@ except ImportError:
 NAVER_CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", NAVER_CLIENT_ID)
 NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 
-# ── 비교 그룹: 원하는 만큼 추가/수정 (그룹당 키워드 2~5개) ──
+# ── 비교 그룹 ──────────────────────────────────────────────
+# 네이버(국내)는 한글, 구글(전세계)은 영문 키워드를 쓴다.
+# 국내 브랜드는 한글 검색량이 구글에선 거의 안 잡히기 때문.
 GROUPS = {
-    "스킨부스터":     ["리쥬란", "리투오", "셀르디엠"],
-    "K-뷰티 브랜드":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
+    "스킨부스터": {
+        "naver":  ["리쥬란", "리투오", "셀르디엠"],
+        "google": ["Rejuran", "Rituo", "Celledem"],
+    },
+    "K-뷰티 브랜드": {
+        "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
+        "google": ["medicube", "dalba", "COSRX", "Celimax"],
+    },
 }
+GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
 
 COLORS = ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"]
 
@@ -61,10 +70,11 @@ def norm(series):
     return [[round(v / mx * 100) for v in s] for s in series]
 
 
-def fetch_google(keywords):
+def fetch_google(keywords, geo=None):
     from pytrends.request import TrendReq
-    py = TrendReq(hl="ko-KR", tz=540)
-    py.build_payload(keywords, timeframe="today 12-m", geo="KR")
+    py = TrendReq(hl="en-US", tz=540)
+    py.build_payload(keywords, timeframe="today 12-m",
+                     geo=(GOOGLE_GEO if geo is None else geo))
     df = py.interest_over_time()
     if df.empty:
         raise RuntimeError("응답이 비어있음 (검색량이 너무 적은 키워드일 수 있음)")
@@ -123,18 +133,20 @@ def main():
     prev = load_existing()
     prev_groups = (prev or {}).get("groups", {})
 
-    for gname, kws in GROUPS.items():
-        print(f"\n[{gname}] {kws}")
-        g = {"products": kws}
+    for gname, spec in GROUPS.items():
+        kws_nv = spec["naver"]
+        kws_gg = spec["google"]
+        print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}")
+        g = {"products": kws_nv, "productsGoogle": kws_gg}
         try:
-            g["google"] = fetch_google(kws)
-            print("  구글 트렌드 OK")
+            g["google"] = fetch_google(kws_gg)
+            print(f"  구글 트렌드 OK (geo={GOOGLE_GEO or '전세계'})")
             have["google"] = True
         except Exception as e:
             print("  구글 실패:", str(e)[:80])
             g["google"] = None
         try:
-            nv, lb = fetch_naver(kws)
+            nv, lb = fetch_naver(kws_nv)
             if nv:
                 g["naver"] = nv
                 if lb: labels = lb
@@ -149,18 +161,22 @@ def main():
 
         # 실패한 출처는 기존에 있던 값을 그대로 보존 (구글이 429로 막혀도 데이터가 사라지지 않음)
         old = prev_groups.get(gname, {})
-        if not g["google"] and old.get("google") and old.get("products") == kws:
+        if not g["google"] and old.get("google") and old.get("productsGoogle") == kws_gg:
             g["google"] = old["google"]
             print("  구글: 기존 값 유지")
-        if not g["naver"] and old.get("naver") and old.get("products") == kws:
+        if not g["naver"] and old.get("naver") and old.get("products") == kws_nv:
             g["naver"] = old["naver"]
             print("  네이버: 기존 값 유지")
 
         if not g["google"] and not g["naver"]:
             print("  !! 이 그룹 수집 실패 & 기존 값 없음 -> 건너뜀")
             continue
-        g["google"] = g["google"] or g["naver"]
-        g["naver"] = g["naver"] or g["google"]
+        # 구글 값이 없으면 네이버 값으로 대체하되, 라벨도 한글로 맞춰 오해를 막는다
+        if not g["google"]:
+            g["google"] = g["naver"]
+            g["productsGoogle"] = kws_nv
+        if not g["naver"]:
+            g["naver"] = g["google"]
         groups_out[gname] = g
         time.sleep(2)
 

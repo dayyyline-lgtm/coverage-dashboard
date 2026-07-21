@@ -166,7 +166,12 @@ def main():
                 if dt2:
                     date = dt2
                 title = t2 or "기업설명회(IR)"
+                # IR 중에서도 '실적발표'인지 '일반 IR/컨퍼런스'인지 구분
+                ty = "earn" if any(k in title for k in ("실적", "잠정", "경영성과")) else "ir"
                 time.sleep(0.12)
+            elif ty == "corp":
+                if "배당" in clean:
+                    ty = "div"
             if date < keep_from:
                 continue
             events.append({"co": nm, "code": sc, "date": date,
