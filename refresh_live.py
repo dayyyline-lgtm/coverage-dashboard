@@ -58,6 +58,40 @@ def mktcap_eok(s):
     return tot or None
 
 
+def fetch_returns(code):
+    """일봉으로 1W / 1M / YTD 수익률 계산 (엑셀의 고정값 대신 실시간)"""
+    today = datetime.date.today()
+    start = datetime.date(today.year - 1, 12, 1)
+    url = (f"https://api.stock.naver.com/chart/domestic/item/{code}/day"
+           f"?startDateTime={start:%Y%m%d}0000&endDateTime={today:%Y%m%d}2359")
+    rows = getj(url)
+    pts = []
+    for r in rows:
+        d, c = r.get("localDate"), r.get("closePrice")
+        if d and c:
+            pts.append((d, float(c)))
+    if len(pts) < 2:
+        return {}
+    pts.sort()
+    last_d, last_c = pts[-1]
+
+    def close_on_or_before(target):
+        t = target.strftime("%Y%m%d")
+        prev = [c for d, c in pts if d <= t]
+        return prev[-1] if prev else None
+
+    def pct(base):
+        return round((last_c / base - 1) * 100, 2) if base else None
+
+    ytd_base = next((c for d, c in pts if d >= f"{today.year}0101"), None)
+    return {
+        "ret1w": pct(close_on_or_before(today - datetime.timedelta(days=7))),
+        "ret1m": pct(close_on_or_before(today - datetime.timedelta(days=30))),
+        "ret3m": pct(close_on_or_before(today - datetime.timedelta(days=91))),
+        "retYtd": pct(ytd_base),
+    }
+
+
 def fetch_consensus(code):
     """네이버 재무 API에서 컨센서스 추정치를 뽑는다.
        반환 단위는 십억원 (원본은 억원). EPS/비율은 원본 그대로."""
@@ -140,6 +174,7 @@ def collect(names):
                 "consTarget": num(ci.get("priceTargetMean")),
                 "recommMean": num(ci.get("recommMean")),
                 "cons": fetch_consensus(code),      # 컨센서스 실적 추정치
+                **(fetch_returns(code) or {}),      # 1W/1M/3M/YTD 수익률
             }
             for r in (d.get("researches") or []):
                 researches.append({"co": nm, "code": code, "broker": r.get("bnm"),
