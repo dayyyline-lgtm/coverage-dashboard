@@ -1,0 +1,46 @@
+name: 이벤트 캘린더 갱신 (DART)
+
+on:
+  schedule:
+    # 매일 한국시간 07:30 (UTC 22:30 전일)
+    - cron: "30 22 * * 0-4"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: events
+  cancel-in-progress: false
+
+jobs:
+  events:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: DART 공시 수집
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          if [ -z "$DART_API_KEY" ]; then
+            echo "DART_API_KEY 시크릿이 없습니다. Settings > Secrets 에 등록하세요."
+            exit 1
+          fi
+          python fetch_events.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- index.html; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git add index.html
+            git commit -m "이벤트 캘린더 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git push
+          fi

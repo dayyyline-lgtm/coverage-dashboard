@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coverage Dashboard · 신주현</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2b; --panel2:#1c2536; --line:#26314a;
+    --text:#e6ebf5; --muted:#8b97ad; --muted2:#66728a;
+    --accent:#5b8def; --accent2:#8b5cf6;
+    --up:#ef4b56; --down:#4b8bef; --flat:#8b97ad;
+    --good:#22c55e; --warn:#f59e0b;
+    --chip:#22304a;
+    --shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"]{
+    --bg:#eef1f6; --panel:#ffffff; --panel2:#f5f7fb; --line:#e2e7f0;
+    --text:#141c2e; --muted:#5c6a84; --muted2:#8492a8;
+    --accent:#2f6bde; --accent2:#7c3aed;
+    --up:#e0344a; --down:#2f6bde; --flat:#7a8398;
+    --chip:#eef2fa; --shadow:0 6px 20px rgba(31,45,74,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,sans-serif;
+    font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+
+  /* Header */
+  header.top{
+    position:sticky;top:0;z-index:50;background:rgba(15,20,32,.86);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+  }
+  :root[data-theme="light"] header.top{background:rgba(255,255,255,.86)}
+  .top-inner{display:flex;align-items:center;gap:16px;padding:12px 0}
+  .brand{display:flex;flex-direction:column;line-height:1.2}
+  .brand .t{font-weight:800;font-size:17px;letter-spacing:-.02em}
+  .brand .s{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .meta-pill{font-size:12px;color:var(--muted);background:var(--chip);
+    border:1px solid var(--line);padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .theme-btn{cursor:pointer;background:var(--chip);border:1px solid var(--line);
+    color:var(--text);border-radius:8px;padding:6px 10px;font-size:13px}
+
+  nav.tabs{display:flex;gap:4px;overflow-x:auto;padding:8px 0 0;scrollbar-width:none}
+  nav.tabs::-webkit-scrollbar{display:none}
+  nav.tabs button{
+    white-space:nowrap;background:transparent;border:none;color:var(--muted);
+    font-size:13.5px;font-weight:600;padding:9px 13px;border-radius:8px 8px 0 0;cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  nav.tabs button:hover{color:var(--text)}
+  nav.tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+
+  section.view{display:none;padding:26px 0 60px}
+  section.view.active{display:block}
+  h2.sec{font-size:18px;font-weight:800;letter-spacing:-.02em;margin:2px 0 4px}
+  .sec-desc{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .sub-h{font-size:14px;font-weight:700;color:var(--text);margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+  .sub-h::before{content:"";width:3px;height:15px;background:var(--accent);border-radius:2px}
+
+  /* KPI tiles */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:8px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+  .kpi .v small{font-size:14px;font-weight:600;color:var(--muted);margin-left:3px}
+  .kpi .d{font-size:12px;color:var(--muted);margin-top:4px}
+
+  /* Cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .card .rk{position:absolute;top:14px;right:16px;font-size:34px;font-weight:800;color:var(--line);line-height:1}
+  .card .sect{font-size:11.5px;color:var(--accent);font-weight:700}
+  .card .nm{font-size:17px;font-weight:800;margin:3px 0 2px}
+  .card .th{font-size:12.5px;color:var(--muted);margin:8px 0 12px;min-height:34px}
+  .card .row{display:flex;gap:14px;border-top:1px solid var(--line);padding-top:10px}
+  .card .row .c{flex:1}
+  .card .row .c .lbl{font-size:11px;color:var(--muted)}
+  .card .row .c .val{font-size:15px;font-weight:700}
+
+  /* Tables */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;
+    font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+  thead th{
+    position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:700;
+    text-align:right;padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;font-size:12px;
+  }
+  thead th.l{text-align:left}
+  thead th:hover{color:var(--text)}
+  thead th .ar{opacity:.4;font-size:10px}
+  thead th.sorted .ar{opacity:1;color:var(--accent)}
+  tbody td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--line)}
+  tbody td.l{text-align:left}
+  tbody tr:hover{background:var(--panel2)}
+  tbody tr:last-child td{border-bottom:none}
+  .nm-cell{font-weight:700}
+  .nm-cell .sub{font-size:11px;color:var(--muted);font-weight:500;margin-left:6px}
+  .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
+
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid transparent}
+  .b-strong{background:rgba(34,197,94,.14);color:var(--good);border-color:rgba(34,197,94,.3)}
+  .b-buy{background:rgba(91,141,239,.14);color:var(--accent);border-color:rgba(91,141,239,.3)}
+  .b-hold{background:rgba(139,151,173,.14);color:var(--muted);border-color:rgba(139,151,173,.3)}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:5px}
+  .p-top{background:rgba(239,75,86,.16);color:var(--up)}
+  .p-2nd{background:rgba(245,158,11,.16);color:var(--warn)}
+  .p-beta{background:rgba(139,92,246,.16);color:var(--accent2)}
+
+  .tag-beat{background:rgba(239,75,86,.16);color:var(--up);font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px}
+  .tag-inline{background:rgba(139,151,173,.16);color:var(--muted);font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px}
+  .tag-miss{background:rgba(75,139,239,.16);color:var(--down);font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px}
+
+  /* Chart */
+  .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12px;color:var(--muted)}
+  .legend .li{display:flex;align-items:center;gap:6px}
+  .legend .dot{width:10px;height:10px;border-radius:50%}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  .seed{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--warn);
+    background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);padding:3px 9px;border-radius:999px}
+
+  /* Calendar / reports lists */
+  .list{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .list .item{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--line)}
+  .list .item:last-child{border-bottom:none}
+  .list .item:hover{background:var(--panel2)}
+  .date-chip{flex-shrink:0;width:52px;text-align:center;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:6px 0}
+  .date-chip .m{font-size:10px;color:var(--muted);font-weight:700}
+  .date-chip .d{font-size:17px;font-weight:800;line-height:1}
+  .item .body{flex:1;min-width:0}
+  .item .body .t{font-weight:700;font-size:13.5px}
+  .item .body .s{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+  .ev-type{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;flex-shrink:0}
+  .ev-earn{background:rgba(91,141,239,.16);color:var(--accent)}
+  .ev-reg{background:rgba(34,197,94,.14);color:var(--good)}
+  .ev-corp{background:rgba(245,158,11,.14);color:var(--warn)}
+
+  .trend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .trend-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+  .trend-card .kw{font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .trend-card .kw .chg{font-size:12px;font-weight:700}
+
+  /* sector-grouped coverage */
+  .sector-block{margin-bottom:22px}
+  .sector-band{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;padding:11px 16px;background:var(--panel2);
+    border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px 12px 0 0}
+  .sector-band .s-name{font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .sector-band .s-tag{font-size:11px;color:var(--muted);background:var(--chip);border:1px solid var(--line);padding:2px 8px;border-radius:999px}
+  .sector-band .s-stat{font-size:12px;color:var(--muted)}
+  .sector-block .tbl-wrap{border-radius:0 0 12px 12px;border-top:none;box-shadow:none}
+
+  /* trend compare */
+  .seg{display:inline-flex;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
+  .seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
+  .seg button.active{background:var(--accent);color:#fff}
+  .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
+  .trend-legend .li{display:flex;align-items:center;gap:7px;font-weight:600}
+  .trend-legend .dot{width:11px;height:11px;border-radius:50%}
+  .trend-legend .li small{color:var(--muted);font-weight:500}
+
+  /* calendar grid */
+  .cal-month{margin-bottom:24px}
+  .cal-title{font-weight:800;font-size:15px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .cal-title::before{content:"";width:3px;height:15px;background:var(--accent);border-radius:2px}
+  .cal-scroll{overflow-x:auto}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(74px,1fr));gap:6px}
+  .cal-dow{text-align:center;font-size:11px;color:var(--muted);font-weight:700;padding:2px 0}
+  .cal-dow.sun{color:var(--up)} .cal-dow.sat{color:var(--down)}
+  .cal-cell{min-height:82px;border:1px solid var(--line);border-radius:9px;padding:5px 6px;background:var(--panel);display:flex;flex-direction:column;gap:3px}
+  .cal-cell.empty{background:transparent;border:none}
+  .cal-cell.has{background:var(--panel2)}
+  .cal-cell .dnum{font-size:11px;color:var(--muted);font-weight:700}
+  .cal-cell.sun .dnum{color:var(--up)} .cal-cell.sat .dnum{color:var(--down)}
+  .cal-ev{font-size:10.5px;font-weight:700;padding:2px 5px;border-radius:5px;line-height:1.3;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}
+  .cal-legend{display:flex;gap:14px;margin-bottom:16px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .cal-legend .li{display:flex;align-items:center;gap:6px}
+  .cal-legend .sw{width:11px;height:11px;border-radius:3px}
+
+  /* clickable stock name + detail drawer */
+  .nm-cell.clickable{cursor:pointer}
+  .nm-cell.clickable:hover{color:var(--accent);text-decoration:underline}
+  .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;backdrop-filter:blur(2px)}
+  .drawer-overlay.open{display:block}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(580px,96vw);background:var(--bg);border-left:1px solid var(--line);
+    z-index:101;transform:translateX(100%);transition:transform .22s ease;overflow-y:auto;box-shadow:-14px 0 44px rgba(0,0,0,.45)}
+  .drawer.open{transform:translateX(0)}
+  .drawer-inner{padding:22px 24px 60px;position:relative}
+  .drawer .close{position:absolute;top:14px;right:16px;cursor:pointer;font-size:20px;line-height:1;color:var(--muted);background:var(--chip);border:1px solid var(--line);border-radius:8px;width:32px;height:32px}
+  .drawer .dsec{font-size:12.5px;color:var(--accent);font-weight:700}
+  .drawer .dnm{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:2px 0 2px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .drawer .dthesis{font-size:12.5px;color:var(--muted);margin:4px 0 2px}
+  .val-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0 6px}
+  .val-grid .vg{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .val-grid .vg .l{font-size:11px;color:var(--muted)}
+  .val-grid .vg .v{font-size:15px;font-weight:800;margin-top:3px}
+  .drawer .d-h{font-size:13px;font-weight:700;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+  .drawer .d-h::before{content:"";width:3px;height:14px;background:var(--accent);border-radius:2px}
+  .mini-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .mini-tbl th,.mini-tbl td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  .mini-tbl th{color:var(--muted);font-weight:700;font-size:11.5px;background:var(--panel2)}
+  .mini-tbl td.l,.mini-tbl th.l{text-align:left}
+  .mini-tbl tr.sub-row td{color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--line)}
+  .mini-tbl .ye{color:var(--accent);font-weight:700}
+
+  /* market strip */
+  .mkt-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px 0 0}
+  .mkt{display:flex;align-items:baseline;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 12px}
+  .mkt .n{font-size:11.5px;color:var(--muted);font-weight:700}
+  .mkt .v{font-size:14px;font-weight:800;letter-spacing:-.01em}
+  .mkt .c{font-size:11.5px;font-weight:700}
+  .live-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin-left:auto}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block;animation:pulse 2.2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  /* 52w position bar */
+  .w52{display:flex;align-items:center;gap:7px}
+  .w52 .bar{position:relative;flex:1;height:5px;background:var(--line);border-radius:3px;min-width:64px}
+  .w52 .bar i{position:absolute;top:-3px;width:3px;height:11px;background:var(--accent);border-radius:2px}
+  .w52 .lbl{font-size:10.5px;color:var(--muted);white-space:nowrap}
+
+  /* polish: sticky name column on wide coverage tables */
+  .sector-block table th:nth-child(1),.sector-block table td:nth-child(1){position:sticky;left:0;z-index:2}
+  .sector-block table th:nth-child(2),.sector-block table td:nth-child(2){position:sticky;left:38px;z-index:2;
+    box-shadow:1px 0 0 var(--line)}
+  .sector-block table td:nth-child(-n+2){background:var(--panel)}
+  .sector-block table th:nth-child(-n+2){background:var(--panel2);z-index:4}
+  .sector-block table tbody tr:hover td:nth-child(-n+2){background:var(--panel2)}
+  /* polish: micro-interactions */
+  .kpi,.card,.trend-card{transition:transform .16s ease,border-color .16s ease}
+  .kpi:hover,.card:hover,.trend-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+  tbody tr{transition:background .12s ease}
+  .cal-cell{transition:border-color .14s ease}
+  .cal-cell.has:hover{border-color:var(--accent)}
+  .list .item{transition:background .12s ease}
+  .mkt{transition:border-color .16s ease}
+  .mkt:hover{border-color:var(--accent)}
+  a.ev-type{text-decoration:none}
+
+  footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:12px;text-align:center}
+
+  @media (max-width:820px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .grid2{grid-template-columns:1fr}
+    .brand .s{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="top-inner">
+      <div class="brand">
+        <div class="t">Coverage Dashboard</div>
+        <div class="s">소비재 · 유통 · 미용 · 음식료 · 엔터 · 게임 · 호텔/레저</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="meta-pill" id="metaPill">신주현 애널리스트 · 기준일 2026-07-21</div>
+      <button class="theme-btn" id="themeBtn" title="테마 전환">◐</button>
+    </div>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="mkt-strip" id="mktStrip"></div>
+
+  <!-- 개요 -->
+  <section class="view active" data-view="overview">
+    <h2 class="sec">개요</h2>
+    <p class="sec-desc">커버리지 유니버스 전반의 요약과 섹터별 Top pick. 모든 수치는 <b>당사 추정(E)</b> 및 컨센서스 기준.</p>
+    <div class="kpis" id="kpis"></div>
+    <div class="sub-h">섹터별 Top Pick</div>
+    <div class="cards" id="pickCards"></div>
+  </section>
+
+  <!-- 커버리지 실적 요약 -->
+  <section class="view" data-view="coverage">
+    <h2 class="sec">커버리지 실적 요약</h2>
+    <p class="sec-desc">대섹터별 정리 · <b>종목명 클릭 시 상세(연간·분기 실적, 밸류에이션) 패널</b>. 헤더 클릭 시 섹터 내 정렬. 상승=<span class="up">빨강</span>/하락=<span class="down">파랑</span>.</p>
+    <div id="covGroups"></div>
+    <p class="note">단위 — 시가총액: 조원 · 매출/영업이익: 십억원 · EPS/주가: 원. OPM = 영업이익 ÷ 매출.</p>
+  </section>
+
+  <!-- 밸류에이션 비교 -->
+  <section class="view" data-view="valuation">
+    <h2 class="sec">밸류에이션 비교</h2>
+    <p class="sec-desc">26E PER(x축) 대 컨센서스 상승여력(y축). 버블 크기 = 시가총액, 색 = 섹터.</p>
+    <div class="chart-box">
+      <div id="scatter"></div>
+      <div class="legend" id="scatterLegend"></div>
+    </div>
+    <div class="sub-h">밸류에이션 테이블</div>
+    <div class="tbl-wrap"><table id="valTable"></table></div>
+  </section>
+
+  <!-- 실적 프리뷰 -->
+  <section class="view" data-view="preview">
+    <h2 class="sec">실적 프리뷰 &amp; 컨센 비교</h2>
+    <p class="sec-desc">당사 적정가치 기준 상승여력과 컨센서스 상승여력의 괴리로 판단. 괴리 ±5%p 초과 시
+      <span class="tag-beat">당사 상회</span> / <span class="tag-inline">In-line</span> / <span class="tag-miss">당사 하회</span>.</p>
+    <div class="tbl-wrap"><table id="prevTable"></table></div>
+    <p class="note">참고 사이트의 "영업이익 컨센 대비 Beat/Miss"를 유니버스 데이터(당사 vs 컨센 목표가) 기준으로 구현. 분기 실적 발표 후 실제치로 교체하는 자리.</p>
+  </section>
+
+  <!-- 이벤트 캘린더 -->
+  <section class="view" data-view="calendar">
+    <h2 class="sec">이벤트 캘린더</h2>
+    <p class="sec-desc"><b>DART 전자공시 + 네이버 IR 일정 실수집</b> — 기업설명회(IR)는 공시 원문에서 실제 개최일을 파싱했습니다.
+      종목 칩 클릭 시 상세 패널, 마우스를 올리면 일정 내용이 보입니다.</p>
+    <div class="cal-legend">
+      <div class="li"><span class="sw" style="background:var(--accent)"></span>실적발표 · IR</div>
+      <div class="li"><span class="sw" style="background:var(--good)"></span>규제 / 승인</div>
+      <div class="li"><span class="sw" style="background:var(--warn)"></span>배당 · 자사주 · 증자 등</div>
+    </div>
+    <div id="calendar"></div>
+  </section>
+
+  <!-- 리서치 리포트 -->
+  <section class="view" data-view="reports">
+    <h2 class="sec">리서치 리포트</h2>
+    <p class="sec-desc">커버리지 종목에 대한 <b>증권사 발간 리포트</b> — 네이버 금융에서 실시간 수집. 종목명 클릭 시 상세 패널, "보기"로 원문 이동.</p>
+    <select id="repFilter" class="theme-btn" style="margin-bottom:14px;padding:8px 12px;font-weight:600"></select>
+    <div class="list" id="reports"></div>
+  </section>
+
+  <!-- 트렌드 비교 -->
+  <section class="view" data-view="trends">
+    <h2 class="sec">트렌드 비교 — 스킨부스터</h2>
+    <p class="sec-desc">키워드별 검색 관심도 비교(월간 상대값 0–100). <b>네이버 데이터랩 API + 구글 트렌드에서 실수집</b> ·
+      최근 12개 완결월 기준(진행 중인 달 제외). 그룹·출처는 아래 버튼으로 전환.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="seg" id="trendGroupSeg"></div>
+      <div class="seg" id="trendSeg">
+        <button data-src="naver" class="active">네이버 트렌드</button>
+        <button data-src="google">구글 트렌드</button>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div id="trendChart"></div>
+      <div class="trend-legend" id="trendLegend"></div>
+    </div>
+    <div class="sub-h">최근값 · 전월 대비</div>
+    <div class="tbl-wrap"><table id="trendTable"></table></div>
+    <p class="note">키워드·그룹 변경은 <code>fetch_trends.py</code> 상단 <code>GROUPS</code> 수정 후 재실행.
+      네이버는 국내 검색, 구글은 해외 수요를 반영하므로 두 값의 괴리 자체가 시그널(예: 코스알엑스·달바는 구글 비중이 상대적으로 높음 = 수출 중심).</p>
+  </section>
+
+  <!-- 대체데이터 -->
+  <section class="view" data-view="altdata">
+    <h2 class="sec">대체데이터</h2>
+    <p class="sec-desc">아마존 베스트셀러 랭킹 · 수출 통관 데이터 등. <span class="seed">⚠ 샘플/시드 데이터 — 실제 크롤링/관세청 데이터 연결 자리</span></p>
+    <div class="grid2">
+      <div>
+        <div class="sub-h">아마존 뷰티 베스트셀러 (K-Beauty)</div>
+        <div class="tbl-wrap"><table id="amzTable"></table></div>
+      </div>
+      <div>
+        <div class="sub-h">라면·화장품 수출 통관 (YoY)</div>
+        <div class="tbl-wrap"><table id="expTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer"><div class="drawer-inner" id="drawerInner"></div></aside>
+
+<footer>
+  <div class="wrap">
+    캐리 인턴 · 소비재/호텔/게임/엔터 유니버스 · 애널리스트 신주현 · 기준일 2026-07-21<br>
+    본 페이지는 리서치 참고용이며 투자 권유가 아닙니다. 수치는 당사 추정(E) 및 컨센서스 기준.
+  </div>
+</footer>
+
+<script>
+/* ==== DATA (유니버스 엑셀에서 추출) ==== */
+const DATA = {"asOf": "", "analyst": "신주현", "records": [{"pickLabel": "Top pick", "rank": 1, "pick2": "Top pick", "sector": "소비재", "sub": "화장품", "name": "에이피알", "score": 7.5, "fairMktcap": 23000.0, "upsideOwn": 49.841, "ret1w": 7.19, "ret1m": 6.36, "ret3m": 28.93, "mktcap": 15349.644, "per12mf": 23.9, "per26": 28.54, "per27": 21.41, "rev26": 2724.368, "rev27": 3593.579, "op26": 686.884, "op27": 919.074, "eps26": 14358.0, "eps27": 19148.0, "epsg26": 86.49, "epsg27": 33.28, "price": 371000.0, "target": 516842.0, "upsideCons": 39.311}, {"pickLabel": "2nd pick", "rank": 2, "pick2": "", "sector": "소비재", "sub": "화장품", "name": "아모레퍼시픽", "score": 6.5, "fairMktcap": 9000.0, "upsideOwn": 21.633, "ret1w": 4.37, "ret1m": 19.68, "ret3m": -0.94, "mktcap": 7399.334, "per12mf": 22.86, "per26": 24.66, "per27": 21.72, "rev26": 4597.421, "rev27": 4954.542, "op26": 461.337, "op27": 525.789, "eps26": 5318.0, "eps27": 6040.0, "epsg26": 50.26, "epsg27": 13.57, "price": 121600.0, "target": 167789.0, "upsideCons": 37.984}, {"pickLabel": "Beta pick", "rank": 3, "pick2": "", "sector": "소비재", "sub": "화장품", "name": "LG생활건강", "score": 5.5, "fairMktcap": 5000.0, "upsideOwn": 29.41, "ret1w": 5.31, "ret1m": 12.42, "ret3m": 9.32, "mktcap": 3863.685, "per12mf": 20.24, "per26": 23.52, "per27": 18.27, "rev26": 6273.787, "rev27": 6485.747, "op26": 335.807, "op27": 399.907, "eps26": 11492.0, "eps27": 14550.0, "epsg26": 292.81, "epsg27": 28.75, "price": 247500.0, "target": 272769.0, "upsideCons": 10.21}, {"pickLabel": "", "rank": 4, "pick2": "", "sector": "소비재", "sub": "화장품", "name": "달바글로벌", "score": 6.0, "fairMktcap": 3500.0, "upsideOwn": 21.889, "ret1w": 6.73, "ret1m": -0.65, "ret3m": 42.15, "mktcap": 2871.473, "per12mf": 18.74, "per26": 22.5, "per27": 16.78, "rev26": 755.779, "rev27": 977.6, "op26": 161.786, "op27": 220.014, "eps26": 10228.0, "eps27": 13773.0, "epsg26": 54.91, "epsg27": 34.1, "price": 215000.0, "target": 299615.0, "upsideCons": 39.356}, {"pickLabel": "", "rank": 5, "pick2": "2nd pick", "sector": "소비재", "sub": "화장품", "name": "한국콜마", "score": 7.0, "fairMktcap": 3500.0, "upsideOwn": 28.821, "ret1w": -2.29, "ret1m": 15.68, "ret3m": 54.08, "mktcap": 2716.944, "per12mf": 14.23, "per26": 15.76, "per27": 13.31, "rev26": 3059.58, "rev27": 3365.427, "op26": 311.628, "op27": 359.204, "eps26": 9459.0, "eps27": 11085.0, "epsg26": 37.8, "epsg27": 18.47, "price": 114800.0, "target": 126150.0, "upsideCons": 9.887}, {"pickLabel": "", "rank": 6, "pick2": "", "sector": "소비재", "sub": "화장품", "name": "실리콘투", "score": 6.0, "fairMktcap": 3000.0, "upsideOwn": 18.827, "ret1w": 6.65, "ret1m": 21.64, "ret3m": -1.03, "mktcap": 2524.686, "per12mf": 10.04, "per26": 11.55, "per27": 9.19, "rev26": 1547.912, "rev27": 1941.371, "op26": 272.925, "op27": 345.071, "eps26": 3334.0, "eps27": 4191.0, "epsg26": 27.83, "epsg27": 25.66, "price": 37250.0, "target": 54333.0, "upsideCons": 45.86}, {"pickLabel": "", "rank": 7, "pick2": "", "sector": "소비재", "sub": "화장품", "name": "코스맥스", "score": 6.0, "fairMktcap": 2500.0, "upsideOwn": 20.368, "ret1w": 8.73, "ret1m": 18.14, "ret3m": 1.61, "mktcap": 2076.96, "per12mf": 12.54, "per26": 13.91, "per27": 11.71, "rev26": 2754.244, "rev27": 3088.617, "op26": 232.617, "op27": 274.606, "eps26": 13584.0, "eps27": 16218.0, "epsg26": 21.31, "epsg27": 18.83, "price": 177000.0, "target": 245722.0, "upsideCons": 38.826}, {"pickLabel": "", "rank": 8, "pick2": "Beta pick", "sector": "소비재", "sub": "화장품", "name": "제닉", "score": 8.0, "fairMktcap": 400.0, "upsideOwn": 87.3, "ret1w": 4.08, "ret1m": 19.11, "ret3m": -1.29, "mktcap": 213.561, "per12mf": 7.77, "per26": 10.1, "per27": 6.67, "rev26": 145.45, "rev27": 184.1, "op26": 24.6, "op27": 38.7, "eps26": 0.0, "eps27": 0.0, "epsg26": 11.98, "epsg27": 51.3, "price": 25300.0, "target": 0.0, "upsideCons": null}, {"pickLabel": "", "rank": 9, "pick2": "Top pick", "sector": "소비재", "sub": "유통", "name": "신세계", "score": 7.5, "fairMktcap": 9000.0, "upsideOwn": 40.127, "ret1w": -3.68, "ret1m": -9.93, "ret3m": 118.65, "mktcap": 6422.723, "per12mf": 15.78, "per26": 17.09, "per27": 14.88, "rev26": 7288.2, "rev27": 7559.789, "op26": 758.683, "op27": 848.283, "eps26": 48816.0, "eps27": 56342.0, "epsg26": 2662.09, "epsg27": 14.87, "price": 684000.0, "target": 798333.0, "upsideCons": 16.715}, {"pickLabel": "", "rank": 10, "pick2": "2nd pick", "sector": "소비재", "sub": "유통", "name": "롯데쇼핑", "score": 7.0, "fairMktcap": 7000.0, "upsideOwn": 41.723, "ret1w": 4.36, "ret1m": 2.89, "ret3m": 67.72, "mktcap": 4939.217, "per12mf": 12.02, "per26": 13.13, "per27": 11.34, "rev26": 14271.493, "rev27": 14668.3, "op26": 802.413, "op27": 860.733, "eps26": 14135.0, "eps27": 16133.0, "epsg26": 629.91, "epsg27": 15.74, "price": 172900.0, "target": 220000.0, "upsideCons": 27.241}, {"pickLabel": "", "rank": 11, "pick2": "", "sector": "소비재", "sub": "유통", "name": "현대백화점", "score": 6.5, "fairMktcap": 5000.0, "upsideOwn": 31.513, "ret1w": -1.73, "ret1m": -8.98, "ret3m": 136.01, "mktcap": 3801.894, "per12mf": 11.96, "per26": 13.76, "per27": 10.77, "rev26": 4273.894, "rev27": 4550.294, "op26": 434.529, "op27": 523.659, "eps26": 12422.0, "eps27": 16251.0, "epsg26": 39.59, "epsg27": 27.82, "price": 178300.0, "target": 214882.0, "upsideCons": 20.517}, {"pickLabel": "", "rank": 12, "pick2": "Top pick", "sector": "소비재", "sub": "미용", "name": "파마리서치", "score": 7.5, "fairMktcap": 5000.0, "upsideOwn": 41.336, "ret1w": -0.15, "ret1m": -6.2, "ret3m": 20.53, "mktcap": 3537.675, "per12mf": 16.25, "per26": 18.36, "per27": 15.02, "rev26": 662.643, "rev27": 803.007, "op26": 265.529, "op27": 327.836, "eps26": 18758.0, "eps27": 23160.0, "epsg26": 30.52, "epsg27": 22.21, "price": 311000.0, "target": 481429.0, "upsideCons": 54.8}, {"pickLabel": "", "rank": 13, "pick2": "2nd pick", "sector": "소비재", "sub": "미용", "name": "앨엔씨바이오", "score": 6.5, "fairMktcap": 3000.0, "upsideOwn": 39.045, "ret1w": -3.73, "ret1m": -11.5, "ret3m": 25.0, "mktcap": 2157.576, "per12mf": 45.06, "per26": 70.95, "per27": 36.63, "rev26": 160.467, "rev27": 218.75, "op26": 34.933, "op27": 60.325, "eps26": 1284.0, "eps27": 2347.0, "epsg26": 119.51, "epsg27": 93.68, "price": 77000.0, "target": 0.0, "upsideCons": null}, {"pickLabel": "", "rank": 14, "pick2": "", "sector": "소비재", "sub": "미용", "name": "그래피", "score": 6.5, "fairMktcap": 300.0, "upsideOwn": 48.754, "ret1w": 9.2, "ret1m": 6.24, "ret3m": -52.69, "mktcap": 201.676, "per12mf": 54.33, "per26": -1007.32, "per27": 31.03, "rev26": 35.5, "rev27": 47.4, "op26": 0.3, "op27": 8.3, "eps26": -18.0, "eps27": 582.0, "epsg26": 98.49, "epsg27": 3346.41, "price": 16100.0, "target": 40000.0, "upsideCons": 148.447}, {"pickLabel": "", "rank": 15, "pick2": "Top pick", "sector": "소비재", "sub": "음식료", "name": "삼양식품", "score": 6.5, "fairMktcap": 10000.0, "upsideOwn": 8.633, "ret1w": 9.99, "ret1m": 9.2, "ret3m": 4.98, "mktcap": 9205.344, "per12mf": 14.91, "per26": 16.53, "per27": 13.93, "rev26": 3045.679, "rev27": 3605.393, "op26": 726.379, "op27": 869.821, "eps26": 74228.0, "eps27": 88177.0, "epsg26": 42.99, "epsg27": 18.68, "price": 1091000.0, "target": 1880000.0, "upsideCons": 72.319}, {"pickLabel": "", "rank": 16, "pick2": "", "sector": "소비재", "sub": "음식료", "name": "CJ제일제당", "score": 5.5, "fairMktcap": 3500.0, "upsideOwn": 15.957, "ret1w": 3.14, "ret1m": 8.32, "ret3m": -16.11, "mktcap": 3018.364, "per12mf": 7.65, "per26": 8.43, "per27": 7.17, "rev26": 28544.614, "rev27": 29694.064, "op26": 1292.107, "op27": 1454.25, "eps26": 33951.0, "eps27": 39005.0, "epsg26": 168.2, "epsg27": 17.46, "price": 198100.0, "target": 295833.0, "upsideCons": 49.335}, {"pickLabel": "", "rank": 17, "pick2": "", "sector": "소비재", "sub": "음식료", "name": "농심", "score": 5.5, "fairMktcap": 2500.0, "upsideOwn": 12.914, "ret1w": 2.68, "ret1m": 8.49, "ret3m": -0.41, "mktcap": 2214.082, "per12mf": 11.18, "per26": 11.63, "per27": 10.88, "rev26": 3716.109, "rev27": 3890.873, "op26": 212.064, "op27": 229.273, "eps26": 31211.0, "eps27": 33442.0, "epsg26": 11.91, "epsg27": 6.84, "price": 352500.0, "target": 540000.0, "upsideCons": 53.191}, {"pickLabel": "", "rank": 18, "pick2": "Top pick", "sector": "엔터", "sub": "기획", "name": "하이브", "score": 7.5, "fairMktcap": 15000.0, "upsideOwn": 50.004, "ret1w": 13.17, "ret1m": 20.77, "ret3m": -9.38, "mktcap": 9999.722, "per12mf": 31.86, "per26": 53.17, "per27": 24.79, "rev26": 4382.31, "rev27": 3965.453, "op26": 263.645, "op27": 492.716, "eps26": 4304.0, "eps27": 9332.0, "epsg26": 176.91, "epsg27": 114.52, "price": 213000.0, "target": 374750.0, "upsideCons": 75.939}, {"pickLabel": "", "rank": 19, "pick2": "", "sector": "엔터", "sub": "기획", "name": "JYP Ent.", "score": 6.0, "fairMktcap": 2500.0, "upsideOwn": 29.335, "ret1w": 2.26, "ret1m": 5.84, "ret3m": -7.17, "mktcap": 1932.968, "per12mf": 13.34, "per26": 14.17, "per27": 12.81, "rev26": 886.447, "rev27": 961.294, "op26": 175.635, "op27": 197.618, "eps26": 3840.0, "eps27": 4248.0, "epsg26": -15.01, "epsg27": 10.6, "price": 53200.0, "target": 89176.0, "upsideCons": 67.624}, {"pickLabel": "", "rank": 20, "pick2": "", "sector": "엔터", "sub": "기획", "name": "에스엠", "score": 6.0, "fairMktcap": 2200.0, "upsideOwn": 17.329, "ret1w": 8.05, "ret1m": 15.68, "ret3m": -1.33, "mktcap": 1875.075, "per12mf": 12.63, "per26": 13.66, "per27": 11.99, "rev26": 1284.405, "rev27": 1385.489, "op26": 200.726, "op27": 224.658, "eps26": 6372.0, "eps27": 7298.0, "epsg26": -60.37, "epsg27": 13.96, "price": 76500.0, "target": 128000.0, "upsideCons": 67.32}, {"pickLabel": "", "rank": 21, "pick2": "", "sector": "엔터", "sub": "기획", "name": "와이지엔터", "score": 6.0, "fairMktcap": 1000.0, "upsideOwn": 21.044, "ret1w": 4.49, "ret1m": 6.12, "ret3m": -11.42, "mktcap": 826.144, "per12mf": 14.42, "per26": 14.67, "per27": 14.24, "rev26": 600.521, "rev27": 567.989, "op26": 78.274, "op27": 75.584, "eps26": 3580.0, "eps27": 3617.0, "epsg26": 52.66, "epsg27": 2.96, "price": 42850.0, "target": 73947.0, "upsideCons": 72.572}, {"pickLabel": "", "rank": 22, "pick2": "Top pick", "sector": "게임", "sub": "개발", "name": "크래프톤", "score": 7.5, "fairMktcap": 15000.0, "upsideOwn": 32.699, "ret1w": 4.03, "ret1m": 3.81, "ret3m": 5.15, "mktcap": 11303.769, "per12mf": 9.64, "per26": 10.29, "per27": 9.15, "rev26": 4815.361, "rev27": 5163.583, "op26": 1462.406, "op27": 1576.283, "eps26": 23875.0, "eps27": 26944.0, "epsg26": 54.17, "epsg27": 12.53, "price": 237000.0, "target": 381111.0, "upsideCons": 60.806}, {"pickLabel": "", "rank": 23, "pick2": "2nd pick", "sector": "게임", "sub": "개발", "name": "NC", "score": 6.0, "fairMktcap": 7000.0, "upsideOwn": 27.418, "ret1w": -2.3, "ret1m": -0.97, "ret3m": 21.43, "mktcap": 5493.726, "per12mf": 11.33, "per26": 11.92, "per27": 10.94, "rev26": 2641.989, "rev27": 3002.016, "op26": 504.4, "op27": 593.421, "eps26": 22022.0, "eps27": 23724.0, "epsg26": 33.46, "epsg27": 8.96, "price": 253500.0, "target": 370789.0, "upsideCons": 46.268}, {"pickLabel": "", "rank": 24, "pick2": "", "sector": "게임", "sub": "개발", "name": "펄어비스", "score": 6.0, "fairMktcap": 3000.0, "upsideOwn": 27.811, "ret1w": 2.89, "ret1m": 3.18, "ret3m": -34.93, "mktcap": 2347.22, "per12mf": 9.84, "per26": 6.5, "per27": 15.4, "rev26": 916.111, "rev27": 506.978, "op26": 477.244, "op27": 177.789, "eps26": 5749.0, "eps27": 2424.0, "epsg26": 4489.16, "epsg27": -57.81, "price": 36200.0, "target": 70778.0, "upsideCons": 95.519}, {"pickLabel": "", "rank": 25, "pick2": "", "sector": "게임", "sub": "개발", "name": "시프트업", "score": 6.0, "fairMktcap": 3000.0, "upsideOwn": 41.095, "ret1w": 3.72, "ret1m": 10.18, "ret3m": 13.28, "mktcap": 2126.22, "per12mf": 16.11, "per26": 16.97, "per27": 15.53, "rev26": 206.556, "rev27": 228.256, "op26": 108.4, "op27": 120.789, "eps26": 2136.0, "eps27": 2340.0, "epsg26": -34.48, "epsg27": 9.26, "price": 34600.0, "target": 45700.0, "upsideCons": 32.081}, {"pickLabel": "", "rank": 26, "pick2": "2nd pick", "sector": "호텔", "sub": "레져", "name": "롯데관광개발", "score": 6.0, "fairMktcap": 1800.0, "upsideOwn": 40.146, "ret1w": 5.99, "ret1m": 12.89, "ret3m": 0.12, "mktcap": 1284.377, "per12mf": 11.52, "per26": 16.7, "per27": 9.44, "rev26": 785.092, "rev27": 883.775, "op26": 199.108, "op27": 243.758, "eps26": 964.0, "eps27": 1706.0, "epsg26": 170.92, "epsg27": 76.91, "price": 15330.0, "target": 28333.0, "upsideCons": 84.821}, {"pickLabel": "", "rank": 27, "pick2": "", "sector": "호텔", "sub": "레져", "name": "파라다이스", "score": 6.0, "fairMktcap": 1500.0, "upsideOwn": 20.757, "ret1w": 4.6, "ret1m": -2.83, "ret3m": -8.15, "mktcap": 1242.16, "per12mf": 11.25, "per26": 13.08, "per27": 10.24, "rev26": 1270.342, "rev27": 1385.064, "op26": 186.017, "op27": 223.573, "eps26": 1364.0, "eps27": 1699.0, "epsg26": -0.08, "epsg27": 27.76, "price": 13100.0, "target": 22000.0, "upsideCons": 67.939}, {"pickLabel": "", "rank": 28, "pick2": "", "sector": "호텔", "sub": "레져", "name": "GS피앤엘", "score": 6.5, "fairMktcap": 1000.0, "upsideOwn": 20.493, "ret1w": 11.6, "ret1m": 14.34, "ret3m": 2.57, "mktcap": 829.921, "per12mf": 13.61, "per26": 15.65, "per27": 12.45, "rev26": 603.6, "rev27": 661.78, "op26": 121.54, "op27": 144.32, "eps26": 4080.0, "eps27": 5009.0, "epsg26": 173.81, "epsg27": 25.64, "price": 39450.0, "target": 71600.0, "upsideCons": 81.496}, {"pickLabel": "", "rank": 29, "pick2": "Top pick", "sector": "호텔", "sub": "레져", "name": "서부T&D", "score": 7.0, "fairMktcap": 1000.0, "upsideOwn": 40.033, "ret1w": 8.71, "ret1m": 15.13, "ret3m": -14.47, "mktcap": 714.117, "per12mf": 15.01, "per26": 16.64, "per27": 13.96, "rev26": 293.247, "rev27": 312.4, "op26": 87.407, "op27": 101.948, "eps26": 840.0, "eps27": 1002.0, "epsg26": -44.63, "epsg27": 19.17, "price": 10250.0, "target": 19000.0, "upsideCons": 85.366}], "sectorPicks": [{"rank": 1, "sector": "소비재", "sub": "화장품", "name": "에이피알", "thesis": "아마존 뷰티 랭킹내 SKU ATH, 오프라인 마케팅 본격화에 따른 성장 장기화"}, {"rank": 2, "sector": "소비재", "sub": "유통", "name": "신세계", "thesis": "K자 양극화&인바운드 급증에 따른 매출성장과 수익가시성 동시 증가"}, {"rank": 3, "sector": "소비재", "sub": "미용", "name": "파마리서치", "thesis": "부의 증대로 인한 의료기기 수요 증가와 인바운드 의료관광 수혜"}, {"rank": 4, "sector": "엔터", "sub": "기획", "name": "하이브", "thesis": "하반기 주요 아이돌 활동 재개와 역사적 밸류 하단"}, {"rank": 5, "sector": "게임", "sub": "개발", "name": "크래프톤", "thesis": "중국향 배틀그라운드 매출의 견조한 성장과 서브노티카 신작 기대"}, {"rank": 6, "sector": "호텔", "sub": "레져", "name": "서부T&D", "thesis": "인바운드 관광객 급증에 따른 호텔 매출의 증가와 서울 부동산 기대감"}, {"rank": 7, "sector": "소비재", "sub": "음식료", "name": "삼양식품", "thesis": "K-컬쳐 확산에 따른 견조한 라면 수출 데이터"}]};
+
+const FIN = {"에이피알": {"annual": [{"y": "2024A", "rev": 722.755, "op": 122.706}, {"y": "2025A", "rev": 1527.344, "op": 365.521}, {"y": "2026E", "rev": 2724.368, "op": 686.884}, {"y": "2027E", "rev": 3593.579, "op": 919.074}], "quarters": [{"q": "1Q24", "rev": 148.929, "op": 27.765}, {"q": "2Q24", "rev": 155.494, "op": 28.011}, {"q": "3Q24", "rev": 174.117, "op": 27.243}, {"q": "4Q24", "rev": 244.215, "op": 39.686}, {"q": "1Q25", "rev": 266.033, "op": 54.568}, {"q": "2Q25", "rev": 327.734, "op": 84.552}, {"q": "3Q25", "rev": 385.942, "op": 96.128}, {"q": "4Q25", "rev": 547.635, "op": 130.272}, {"q": "1Q26", "rev": 593.355, "op": 145.567}]}, "아모레퍼시픽": {"annual": [{"y": "2024A", "rev": 3885.2, "op": 220.481}, {"y": "2025A", "rev": 4252.8, "op": 335.827}, {"y": "2026E", "rev": 4597.421, "op": 461.337}, {"y": "2027E", "rev": 4954.542, "op": 525.789}], "quarters": [{"q": "1Q24", "rev": 911.5, "op": 72.676}, {"q": "2Q24", "rev": 904.8, "op": 4.154}, {"q": "3Q24", "rev": 977.2, "op": 65.171}, {"q": "4Q24", "rev": 1091.7, "op": 78.481}, {"q": "1Q25", "rev": 1067.5, "op": 117.73}, {"q": "2Q25", "rev": 1005.0, "op": 73.662}, {"q": "3Q25", "rev": 1016.9, "op": 91.887}, {"q": "4Q25", "rev": 1163.4, "op": 52.548}, {"q": "1Q26", "rev": 1135.8, "op": 126.706}]}, "LG생활건강": {"annual": [{"y": "2024A", "rev": 6811.919, "op": 459.046}, {"y": "2025A", "rev": 6355.5, "op": 170.689}, {"y": "2026E", "rev": 6273.787, "op": 335.807}, {"y": "2027E", "rev": 6485.747, "op": 399.907}], "quarters": [{"q": "1Q24", "rev": 1728.7, "op": 151.034}, {"q": "2Q24", "rev": 1759.7, "op": 158.537}, {"q": "3Q24", "rev": 1713.6, "op": 106.079}, {"q": "4Q24", "rev": 1609.919, "op": 43.396}, {"q": "1Q25", "rev": 1697.8, "op": 142.369}, {"q": "2Q25", "rev": 1604.9, "op": 54.814}, {"q": "3Q25", "rev": 1580.0, "op": 46.195}, {"q": "4Q25", "rev": 1472.8, "op": -72.69}, {"q": "1Q26", "rev": 1576.6, "op": 107.831}]}, "달바글로벌": {"annual": [{"y": "2024A", "rev": 238.705, "op": 43.69}, {"y": "2025A", "rev": 519.735, "op": 101.469}, {"y": "2026E", "rev": 755.779, "op": 161.786}, {"y": "2027E", "rev": 977.6, "op": 220.014}], "quarters": [{"q": "1Q24", "rev": 0.0, "op": 0.0}, {"q": "2Q24", "rev": 69.701, "op": 16.17}, {"q": "3Q24", "rev": 73.672, "op": 14.044}, {"q": "4Q24", "rev": 95.332, "op": 13.477}, {"q": "1Q25", "rev": 113.76, "op": 30.051}, {"q": "2Q25", "rev": 128.373, "op": 29.23}, {"q": "3Q25", "rev": 114.166, "op": 16.652}, {"q": "4Q25", "rev": 163.437, "op": 25.536}, {"q": "1Q26", "rev": 171.242, "op": 45.09}]}, "한국콜마": {"annual": [{"y": "2024A", "rev": 2452.064, "op": 193.85}, {"y": "2025A", "rev": 2722.419, "op": 239.595}, {"y": "2026E", "rev": 3059.58, "op": 311.628}, {"y": "2027E", "rev": 3365.427, "op": 359.204}], "quarters": [{"q": "1Q24", "rev": 574.79, "op": 32.43}, {"q": "2Q24", "rev": 660.271, "op": 71.741}, {"q": "3Q24", "rev": 626.505, "op": 54.54}, {"q": "4Q24", "rev": 590.498, "op": 35.14}, {"q": "1Q25", "rev": 653.086, "op": 59.94}, {"q": "2Q25", "rev": 730.849, "op": 73.477}, {"q": "3Q25", "rev": 683.014, "op": 58.33}, {"q": "4Q25", "rev": 655.47, "op": 47.847}, {"q": "1Q26", "rev": 728.036, "op": 78.886}]}, "실리콘투": {"annual": [{"y": "2024A", "rev": 691.522, "op": 137.575}, {"y": "2025A", "rev": 1116.288, "op": 205.362}, {"y": "2026E", "rev": 1547.912, "op": 272.925}, {"y": "2027E", "rev": 1941.371, "op": 345.071}], "quarters": [{"q": "1Q24", "rev": 149.927, "op": 29.449}, {"q": "2Q24", "rev": 181.361, "op": 38.941}, {"q": "3Q24", "rev": 186.674, "op": 42.596}, {"q": "4Q24", "rev": 173.56, "op": 26.589}, {"q": "1Q25", "rev": 245.677, "op": 47.729}, {"q": "2Q25", "rev": 265.286, "op": 52.182}, {"q": "3Q25", "rev": 299.375, "op": 63.073}, {"q": "4Q25", "rev": 305.95, "op": 42.378}, {"q": "1Q26", "rev": 346.556, "op": 64.54}]}, "코스맥스": {"annual": [{"y": "2024A", "rev": 2166.09, "op": 175.395}, {"y": "2025A", "rev": 2398.758, "op": 195.792}, {"y": "2026E", "rev": 2754.244, "op": 232.617}, {"y": "2027E", "rev": 3088.617, "op": 274.606}], "quarters": [{"q": "1Q24", "rev": 526.802, "op": 45.453}, {"q": "2Q24", "rev": 551.453, "op": 46.712}, {"q": "3Q24", "rev": 529.832, "op": 43.413}, {"q": "4Q24", "rev": 558.002, "op": 39.817}, {"q": "1Q25", "rev": 588.574, "op": 51.346}, {"q": "2Q25", "rev": 623.561, "op": 60.813}, {"q": "3Q25", "rev": 585.617, "op": 42.727}, {"q": "4Q25", "rev": 601.007, "op": 40.906}, {"q": "1Q26", "rev": 682.023, "op": 53.031}]}, "제닉": {"annual": [{"y": "2024A", "rev": 49.908, "op": 6.024}, {"y": "2025A", "rev": 78.198, "op": 14.974}, {"y": "2026E", "rev": 145.45, "op": 24.6}, {"y": "2027E", "rev": 184.1, "op": 38.7}], "quarters": [{"q": "1Q24", "rev": 6.364, "op": -0.579}, {"q": "2Q24", "rev": 8.974, "op": 0.889}, {"q": "3Q24", "rev": 15.131, "op": 2.077}, {"q": "4Q24", "rev": 19.439, "op": 3.637}, {"q": "1Q25", "rev": 17.828, "op": 3.761}, {"q": "2Q25", "rev": 24.649, "op": 5.461}, {"q": "3Q25", "rev": 23.555, "op": 5.648}, {"q": "4Q25", "rev": 12.166, "op": 0.104}, {"q": "1Q26", "rev": 29.356, "op": 3.411}]}, "신세계": {"annual": [{"y": "2024A", "rev": 6570.413, "op": 477.024}, {"y": "2025A", "rev": 6929.499, "op": 479.962}, {"y": "2026E", "rev": 7288.2, "op": 758.683}, {"y": "2027E", "rev": 7559.789, "op": 848.283}], "quarters": [{"q": "1Q24", "rev": 1604.739, "op": 163.0}, {"q": "2Q24", "rev": 1604.389, "op": 117.465}, {"q": "3Q24", "rev": 1540.092, "op": 92.95}, {"q": "4Q24", "rev": 1821.193, "op": 103.608}, {"q": "1Q25", "rev": 1665.84, "op": 132.333}, {"q": "2Q25", "rev": 1693.825, "op": 75.34}, {"q": "3Q25", "rev": 1636.131, "op": 99.753}, {"q": "4Q25", "rev": 1933.703, "op": 172.535}, {"q": "1Q26", "rev": 1847.145, "op": 197.825}]}, "롯데쇼핑": {"annual": [{"y": "2024A", "rev": 13986.578, "op": 473.114}, {"y": "2025A", "rev": 13738.355, "op": 547.037}, {"y": "2026E", "rev": 14271.493, "op": 802.413}, {"y": "2027E", "rev": 14668.3, "op": 860.733}], "quarters": [{"q": "1Q24", "rev": 3513.306, "op": 114.871}, {"q": "2Q24", "rev": 3427.81, "op": 56.055}, {"q": "3Q24", "rev": 3568.353, "op": 154.987}, {"q": "4Q24", "rev": 3477.11, "op": 147.201}, {"q": "1Q25", "rev": 3456.771, "op": 148.236}, {"q": "2Q25", "rev": 3349.696, "op": 40.639}, {"q": "3Q25", "rev": 3410.063, "op": 130.51}, {"q": "4Q25", "rev": 3521.825, "op": 227.652}, {"q": "1Q26", "rev": 3581.595, "op": 252.882}]}, "현대백화점": {"annual": [{"y": "2024A", "rev": 4187.614, "op": 284.042}, {"y": "2025A", "rev": 4230.321, "op": 377.948}, {"y": "2026E", "rev": 4273.894, "op": 434.529}, {"y": "2027E", "rev": 4550.294, "op": 523.659}], "quarters": [{"q": "1Q24", "rev": 951.731, "op": 68.864}, {"q": "2Q24", "rev": 1023.813, "op": 42.838}, {"q": "3Q24", "rev": 1036.834, "op": 64.591}, {"q": "4Q24", "rev": 1175.237, "op": 107.749}, {"q": "1Q25", "rev": 1098.096, "op": 112.463}, {"q": "2Q25", "rev": 1080.286, "op": 86.873}, {"q": "3Q25", "rev": 1010.253, "op": 72.695}, {"q": "4Q25", "rev": 1041.686, "op": 105.917}, {"q": "1Q26", "rev": 950.062, "op": 98.785}]}, "파마리서치": {"annual": [{"y": "2024A", "rev": 350.115, "op": 126.051}, {"y": "2025A", "rev": 536.289, "op": 214.396}, {"y": "2026E", "rev": 662.643, "op": 265.529}, {"y": "2027E", "rev": 803.007, "op": 327.836}], "quarters": [{"q": "1Q24", "rev": 74.716, "op": 26.668}, {"q": "2Q24", "rev": 83.107, "op": 30.761}, {"q": "3Q24", "rev": 89.209, "op": 34.923}, {"q": "4Q24", "rev": 103.083, "op": 33.698}, {"q": "1Q25", "rev": 116.91, "op": 44.734}, {"q": "2Q25", "rev": 140.607, "op": 55.878}, {"q": "3Q25", "rev": 135.427, "op": 61.871}, {"q": "4Q25", "rev": 143.345, "op": 51.914}, {"q": "1Q26", "rev": 146.1, "op": 57.292}]}, "앨엔씨바이오": {"annual": [{"y": "2024A", "rev": 72.034, "op": 3.713}, {"y": "2025A", "rev": 85.476, "op": 4.416}, {"y": "2026E", "rev": 160.467, "op": 34.933}, {"y": "2027E", "rev": 218.75, "op": 60.325}], "quarters": [{"q": "1Q24", "rev": 16.531, "op": 2.021}, {"q": "2Q24", "rev": 17.838, "op": 1.888}, {"q": "3Q24", "rev": 18.541, "op": 0.82}, {"q": "4Q24", "rev": 19.123, "op": -1.016}, {"q": "1Q25", "rev": 17.671, "op": -0.189}, {"q": "2Q25", "rev": 20.581, "op": -0.245}, {"q": "3Q25", "rev": 22.556, "op": 2.896}, {"q": "4Q25", "rev": 24.668, "op": 1.955}, {"q": "1Q26", "rev": 30.295, "op": 5.999}]}, "그래피": {"annual": [{"y": "2024A", "rev": 16.149, "op": -9.194}, {"y": "2025A", "rev": 20.533, "op": -11.054}, {"y": "2026E", "rev": 35.5, "op": 0.3}, {"y": "2027E", "rev": 47.4, "op": 8.3}], "quarters": [{"q": "1Q24", "rev": 1.24, "op": -3.799}, {"q": "2Q24", "rev": 5.231, "op": -1.949}, {"q": "3Q24", "rev": 2.903, "op": -2.381}, {"q": "4Q24", "rev": 6.776, "op": -1.065}, {"q": "1Q25", "rev": 2.274, "op": -3.636}, {"q": "2Q25", "rev": 4.38, "op": -2.523}, {"q": "3Q25", "rev": 3.44, "op": -3.72}, {"q": "4Q25", "rev": 10.44, "op": -1.174}, {"q": "1Q26", "rev": 3.353, "op": -3.189}]}, "삼양식품": {"annual": [{"y": "2024A", "rev": 1728.015, "op": 344.569}, {"y": "2025A", "rev": 2351.785, "op": 524.188}, {"y": "2026E", "rev": 3045.679, "op": 726.379}, {"y": "2027E", "rev": 3605.393, "op": 869.821}], "quarters": [{"q": "1Q24", "rev": 385.749, "op": 80.12}, {"q": "2Q24", "rev": 424.444, "op": 89.468}, {"q": "3Q24", "rev": 438.97, "op": 87.314}, {"q": "4Q24", "rev": 478.853, "op": 87.668}, {"q": "1Q25", "rev": 529.013, "op": 133.988}, {"q": "2Q25", "rev": 553.078, "op": 120.088}, {"q": "3Q25", "rev": 632.016, "op": 130.9}, {"q": "4Q25", "rev": 637.679, "op": 139.212}, {"q": "1Q26", "rev": 714.406, "op": 177.133}]}, "CJ제일제당": {"annual": [{"y": "2024A", "rev": 27239.748, "op": 1455.645}, {"y": "2025A", "rev": 26840.136, "op": 1192.1}, {"y": "2026E", "rev": 28544.614, "op": 1292.107}, {"y": "2027E", "rev": 29694.064, "op": 1454.25}], "quarters": [{"q": "1Q24", "rev": 7215.961, "op": 375.944}, {"q": "2Q24", "rev": 7238.675, "op": 379.566}, {"q": "3Q24", "rev": 7414.278, "op": 411.949}, {"q": "4Q24", "rev": 5370.834, "op": 288.187}, {"q": "1Q25", "rev": 6706.018, "op": 287.634}, {"q": "2Q25", "rev": 7237.176, "op": 353.13}, {"q": "3Q25", "rev": 7439.5, "op": 346.503}, {"q": "4Q25", "rev": 5457.442, "op": 204.833}, {"q": "1Q26", "rev": 7111.12, "op": 238.132}]}, "농심": {"annual": [{"y": "2024A", "rev": 3438.731, "op": 163.074}, {"y": "2025A", "rev": 3514.315, "op": 183.933}, {"y": "2026E", "rev": 3716.109, "op": 212.064}, {"y": "2027E", "rev": 3890.873, "op": 229.273}], "quarters": [{"q": "1Q24", "rev": 872.535, "op": 61.382}, {"q": "2Q24", "rev": 860.699, "op": 43.678}, {"q": "3Q24", "rev": 850.391, "op": 37.602}, {"q": "4Q24", "rev": 855.106, "op": 20.411}, {"q": "1Q25", "rev": 893.036, "op": 56.052}, {"q": "2Q25", "rev": 867.725, "op": 40.152}, {"q": "3Q25", "rev": 871.156, "op": 54.376}, {"q": "4Q25", "rev": 882.398, "op": 33.353}, {"q": "1Q26", "rev": 934.029, "op": 67.425}]}, "하이브": {"annual": [{"y": "2024A", "rev": 2255.649, "op": 184.045}, {"y": "2025A", "rev": 2649.87, "op": 49.318}, {"y": "2026E", "rev": 4382.31, "op": 263.645}, {"y": "2027E", "rev": 3965.453, "op": 492.716}], "quarters": [{"q": "1Q24", "rev": 360.918, "op": 14.384}, {"q": "2Q24", "rev": 640.464, "op": 50.905}, {"q": "3Q24", "rev": 527.848, "op": 54.185}, {"q": "4Q24", "rev": 726.419, "op": 64.572}, {"q": "1Q25", "rev": 500.613, "op": 21.623}, {"q": "2Q25", "rev": 705.65, "op": 65.919}, {"q": "3Q25", "rev": 727.18, "op": -42.198}, {"q": "4Q25", "rev": 716.427, "op": 3.975}, {"q": "1Q26", "rev": 698.348, "op": -196.575}]}, "JYP Ent.": {"annual": [{"y": "2024A", "rev": 601.788, "op": 128.262}, {"y": "2025A", "rev": 821.855, "op": 155.246}, {"y": "2026E", "rev": 886.447, "op": 175.635}, {"y": "2027E", "rev": 961.294, "op": 197.618}], "quarters": [{"q": "1Q24", "rev": 136.502, "op": 33.612}, {"q": "2Q24", "rev": 95.708, "op": 9.342}, {"q": "3Q24", "rev": 170.473, "op": 48.4}, {"q": "4Q24", "rev": 199.104, "op": 36.908}, {"q": "1Q25", "rev": 140.759, "op": 19.628}, {"q": "2Q25", "rev": 215.832, "op": 52.908}, {"q": "3Q25", "rev": 232.626, "op": 40.792}, {"q": "4Q25", "rev": 232.637, "op": 41.918}, {"q": "1Q26", "rev": 185.96, "op": 33.374}]}, "에스엠": {"annual": [{"y": "2024A", "rev": 989.725, "op": 87.297}, {"y": "2025A", "rev": 1174.935, "op": 183.034}, {"y": "2026E", "rev": 1284.405, "op": 200.726}, {"y": "2027E", "rev": 1385.489, "op": 224.658}], "quarters": [{"q": "1Q24", "rev": 220.063, "op": 15.547}, {"q": "2Q24", "rev": 253.881, "op": 24.749}, {"q": "3Q24", "rev": 242.224, "op": 13.333}, {"q": "4Q24", "rev": 273.558, "op": 33.668}, {"q": "1Q25", "rev": 231.427, "op": 32.586}, {"q": "2Q25", "rev": 302.914, "op": 47.611}, {"q": "3Q25", "rev": 321.592, "op": 48.214}, {"q": "4Q25", "rev": 319.002, "op": 54.624}, {"q": "1Q26", "rev": 279.101, "op": 38.599}]}, "와이지엔터": {"annual": [{"y": "2024A", "rev": 364.949, "op": -18.631}, {"y": "2025A", "rev": 545.404, "op": 52.152}, {"y": "2026E", "rev": 600.521, "op": 78.274}, {"y": "2027E", "rev": 567.989, "op": 75.584}], "quarters": [{"q": "1Q24", "rev": 87.344, "op": -5.4}, {"q": "2Q24", "rev": 90.011, "op": -10.933}, {"q": "3Q24", "rev": 83.528, "op": -3.029}, {"q": "4Q24", "rev": 104.067, "op": 0.731}, {"q": "1Q25", "rev": 100.156, "op": 5.321}, {"q": "2Q25", "rev": 100.411, "op": 7.392}, {"q": "3Q25", "rev": 173.071, "op": 23.516}, {"q": "4Q25", "rev": 171.767, "op": 15.922}, {"q": "1Q26", "rev": 147.119, "op": 18.012}]}, "크래프톤": {"annual": [{"y": "2024A", "rev": 2709.774, "op": 1182.488}, {"y": "2025A", "rev": 3326.554, "op": 1054.381}, {"y": "2026E", "rev": 4815.361, "op": 1462.406}, {"y": "2027E", "rev": 5163.583, "op": 1576.283}], "quarters": [{"q": "1Q24", "rev": 665.909, "op": 310.501}, {"q": "2Q24", "rev": 707.023, "op": 332.109}, {"q": "3Q24", "rev": 719.275, "op": 324.42}, {"q": "4Q24", "rev": 617.567, "op": 215.457}, {"q": "1Q25", "rev": 874.184, "op": 457.276}, {"q": "2Q25", "rev": 662.048, "op": 246.063}, {"q": "3Q25", "rev": 870.624, "op": 348.608}, {"q": "4Q25", "rev": 919.698, "op": 2.433}, {"q": "1Q26", "rev": 1371.006, "op": 561.563}]}, "NC": {"annual": [{"y": "2024A", "rev": 1578.123, "op": -109.215}, {"y": "2025A", "rev": 1506.921, "op": 16.078}, {"y": "2026E", "rev": 2641.989, "op": 504.4}, {"y": "2027E", "rev": 3002.016, "op": 593.421}], "quarters": [{"q": "1Q24", "rev": 397.911, "op": 25.723}, {"q": "2Q24", "rev": 368.869, "op": 8.844}, {"q": "3Q24", "rev": 401.937, "op": -14.291}, {"q": "4Q24", "rev": 409.406, "op": -129.491}, {"q": "1Q25", "rev": 360.278, "op": 5.22}, {"q": "2Q25", "rev": 382.392, "op": 15.079}, {"q": "3Q25", "rev": 360.034, "op": -7.467}, {"q": "4Q25", "rev": 404.217, "op": 3.247}, {"q": "1Q26", "rev": 0.0, "op": 113.277}]}, "펄어비스": {"annual": [{"y": "2024A", "rev": 342.385, "op": -12.293}, {"y": "2025A", "rev": 345.105, "op": -1.703}, {"y": "2026E", "rev": 916.111, "op": 477.244}, {"y": "2027E", "rev": 506.978, "op": 177.789}], "quarters": [{"q": "1Q24", "rev": 85.44, "op": 0.588}, {"q": "2Q24", "rev": 81.761, "op": -5.834}, {"q": "3Q24", "rev": 79.453, "op": -9.236}, {"q": "4Q24", "rev": 95.73, "op": 2.19}, {"q": "1Q25", "rev": 63.225, "op": 7.863}, {"q": "2Q25", "rev": 79.562, "op": -11.779}, {"q": "3Q25", "rev": 106.818, "op": 10.618}, {"q": "4Q25", "rev": 95.5, "op": -8.405}, {"q": "1Q26", "rev": 328.499, "op": 212.096}]}, "시프트업": {"annual": [{"y": "2024A", "rev": 224.085, "op": 152.676}, {"y": "2025A", "rev": 294.546, "op": 181.418}, {"y": "2026E", "rev": 206.556, "op": 108.4}, {"y": "2027E", "rev": 228.256, "op": 120.789}], "quarters": [{"q": "1Q24", "rev": 37.376, "op": 25.935}, {"q": "2Q24", "rev": 65.202, "op": 45.007}, {"q": "3Q24", "rev": 58.018, "op": 35.577}, {"q": "4Q24", "rev": 63.489, "op": 46.157}, {"q": "1Q25", "rev": 42.235, "op": 26.251}, {"q": "2Q25", "rev": 112.382, "op": 68.215}, {"q": "3Q25", "rev": 75.499, "op": 49.548}, {"q": "4Q25", "rev": 64.43, "op": 37.403}, {"q": "1Q26", "rev": 47.309, "op": 21.506}]}, "롯데관광개발": {"annual": [{"y": "2024A", "rev": 471.466, "op": 39.007}, {"y": "2025A", "rev": 653.447, "op": 143.328}, {"y": "2026E", "rev": 785.092, "op": 199.108}, {"y": "2027E", "rev": 883.775, "op": 243.758}], "quarters": [{"q": "1Q24", "rev": 106.226, "op": 8.791}, {"q": "2Q24", "rev": 116.078, "op": 5.887}, {"q": "3Q24", "rev": 139.148, "op": 22.164}, {"q": "4Q24", "rev": 110.013, "op": 2.166}, {"q": "1Q25", "rev": 121.947, "op": 13.025}, {"q": "2Q25", "rev": 157.681, "op": 33.114}, {"q": "3Q25", "rev": 186.67, "op": 52.957}, {"q": "4Q25", "rev": 187.148, "op": 44.232}, {"q": "1Q26", "rev": 156.18, "op": 28.785}]}, "파라다이스": {"annual": [{"y": "2024A", "rev": 1072.109, "op": 136.055}, {"y": "2025A", "rev": 1149.867, "op": 155.816}, {"y": "2026E", "rev": 1270.342, "op": 186.017}, {"y": "2027E", "rev": 1385.064, "op": 223.573}], "quarters": [{"q": "1Q24", "rev": 264.77, "op": 48.404}, {"q": "2Q24", "rev": 273.264, "op": 32.009}, {"q": "3Q24", "rev": 268.245, "op": 36.205}, {"q": "4Q24", "rev": 265.83, "op": 19.437}, {"q": "1Q25", "rev": 283.305, "op": 57.276}, {"q": "2Q25", "rev": 284.461, "op": 42.852}, {"q": "3Q25", "rev": 288.247, "op": 39.512}, {"q": "4Q25", "rev": 293.854, "op": 16.177}, {"q": "1Q26", "rev": 293.966, "op": 37.305}]}, "GS피앤엘": {"annual": [{"y": "2024A", "rev": 38.322, "op": -0.038}, {"y": "2025A", "rev": 481.683, "op": 78.023}, {"y": "2026E", "rev": 603.6, "op": 121.54}, {"y": "2027E", "rev": 661.78, "op": 144.32}], "quarters": [{"q": "1Q24", "rev": 0.0, "op": 0.0}, {"q": "2Q24", "rev": 0.0, "op": 0.0}, {"q": "3Q24", "rev": 0.0, "op": 0.0}, {"q": "4Q24", "rev": 38.322, "op": -0.038}, {"q": "1Q25", "rev": 94.476, "op": 15.216}, {"q": "2Q25", "rev": 112.145, "op": 11.564}, {"q": "3Q25", "rev": 121.962, "op": 19.929}, {"q": "4Q25", "rev": 153.1, "op": 31.314}, {"q": "1Q26", "rev": 130.311, "op": 24.162}]}, "서부T&D": {"annual": [{"y": "2024A", "rev": 184.259, "op": 48.003}, {"y": "2025A", "rev": 249.923, "op": 70.294}, {"y": "2026E", "rev": 293.247, "op": 87.407}, {"y": "2027E", "rev": 312.4, "op": 101.948}], "quarters": [{"q": "1Q24", "rev": 41.377, "op": 10.774}, {"q": "2Q24", "rev": 46.938, "op": 8.92}, {"q": "3Q24", "rev": 44.958, "op": 12.417}, {"q": "4Q24", "rev": 50.986, "op": 15.891}, {"q": "1Q25", "rev": 44.576, "op": 12.955}, {"q": "2Q25", "rev": 54.613, "op": 11.208}, {"q": "3Q25", "rev": 70.051, "op": 21.243}, {"q": "4Q25", "rev": 80.683, "op": 24.887}, {"q": "1Q26", "rev": 66.086, "op": 17.787}]}};
+
+const LIVE = {"asOf": "2026-07-21 17:49", "market": {"KOSPI": {"close": 6747.95, "chg": 231.68, "chgPct": 3.56}, "KOSDAQ": {"close": 753.34, "chg": 3.7, "chgPct": 0.49}, "FX": {"USDKRW": 1478.6, "JPYKRW100": 910.1, "CNYKRW": 218.1}}, "stocks": {"에이피알": {"code": "278470", "market": "KOSPI", "price": 365000.0, "chg": -3000.0, "chgPct": -0.82, "mktcapEok": 136649.0, "per": 38.43, "pbr": 26.98, "eps": 9498.0, "cnsPer": 24.2, "cnsEps": 15081.0, "divYield": 1.4, "w52h": 473000.0, "w52l": 165400.0, "foreign": 37.2, "consTarget": 530526.0, "recommMean": 4.0}, "아모레퍼시픽": {"code": "090430", "market": "KOSPI", "price": 119700.0, "chg": 2400.0, "chgPct": 2.05, "mktcapEok": 70016.0, "per": 35.41, "pbr": 1.51, "eps": 3380.0, "cnsPer": 23.13, "cnsEps": 5176.0, "divYield": 1.04, "w52h": 169000.0, "w52l": 94000.0, "foreign": 25.21, "consTarget": 167667.0, "recommMean": 3.94}, "LG생활건강": {"code": "051900", "market": "KOSPI", "price": 245000.0, "chg": 0.0, "chgPct": 0.0, "mktcapEok": 36690.0, "per": null, "pbr": 0.74, "eps": -6520.0, "cnsPer": 21.69, "cnsEps": 11296.0, "divYield": 0.82, "w52h": 336000.0, "w52l": 210000.0, "foreign": 29.36, "consTarget": 268000.0, "recommMean": 3.0}, "달바글로벌": {"code": "483650", "market": "KOSPI", "price": 236000.0, "chg": 19000.0, "chgPct": 8.76, "mktcapEok": 29464.0, "per": 31.78, "pbr": 12.64, "eps": 7425.0, "cnsPer": 22.99, "cnsEps": 10266.0, "divYield": 1.11, "w52h": 276000.0, "w52l": 116100.0, "foreign": 39.53, "consTarget": 305417.0, "recommMean": 4.0}, "한국콜마": {"code": "161890", "market": "KOSPI", "price": 101700.0, "chg": 2200.0, "chgPct": 2.21, "mktcapEok": 24006.0, "per": 15.29, "pbr": 2.56, "eps": 6651.0, "cnsPer": 13.81, "cnsEps": 7365.0, "divYield": 0.85, "w52h": 126700.0, "w52l": 55200.0, "foreign": 39.32, "consTarget": 132526.0, "recommMean": 4.0}, "실리콘투": {"code": "257720", "market": "KOSDAQ", "price": 35650.0, "chg": 1200.0, "chgPct": 3.48, "mktcapEok": 23378.0, "per": 12.7, "pbr": 4.74, "eps": 2808.0, "cnsPer": 10.4, "cnsEps": 3428.0, "divYield": 0.86, "w52h": 56100.0, "w52l": 29850.0, "foreign": 6.69, "consTarget": 55500.0, "recommMean": 4.0}, "코스맥스": {"code": "192820", "market": "KOSPI", "price": 172200.0, "chg": -1400.0, "chgPct": -0.81, "mktcapEok": 19544.0, "per": 12.49, "pbr": 3.34, "eps": 13790.0, "cnsPer": 13.08, "cnsEps": 13166.0, "divYield": 1.92, "w52h": 270500.0, "w52l": 141000.0, "foreign": 37.48, "consTarget": 247389.0, "recommMean": 4.0}, "제닉": {"code": "123330", "market": "KOSDAQ", "price": 25800.0, "chg": -650.0, "chgPct": -2.46, "mktcapEok": 2056.0, "per": 10.91, "pbr": 4.53, "eps": 2365.0, "cnsPer": null, "cnsEps": null, "divYield": null, "w52h": 41200.0, "w52l": 15570.0, "foreign": 1.52, "consTarget": null, "recommMean": null}, "신세계": {"code": "004170", "market": "KOSPI", "price": 562000.0, "chg": 31000.0, "chgPct": 5.84, "mktcapEok": 53082.0, "per": 70.76, "pbr": 1.05, "eps": 7942.0, "cnsPer": 13.75, "cnsEps": 40881.0, "divYield": 0.93, "w52h": 798000.0, "w52l": 160800.0, "foreign": 27.4, "consTarget": 839444.0, "recommMean": 4.0}, "롯데쇼핑": {"code": "023530", "market": "KOSPI", "price": 130400.0, "chg": 3900.0, "chgPct": 3.08, "mktcapEok": 36889.0, "per": 22.55, "pbr": 0.24, "eps": 5782.0, "cnsPer": 9.65, "cnsEps": 13518.0, "divYield": 3.07, "w52h": 211000.0, "w52l": 62700.0, "foreign": 12.98, "consTarget": 225000.0, "recommMean": 4.0}, "현대백화점": {"code": "069960", "market": "KOSPI", "price": 140100.0, "chg": 3700.0, "chgPct": 2.71, "mktcapEok": 30212.0, "per": 15.24, "pbr": 0.66, "eps": 9192.0, "cnsPer": 10.78, "cnsEps": 13000.0, "divYield": 1.54, "w52h": 222000.0, "w52l": 63300.0, "foreign": 25.9, "consTarget": 222529.0, "recommMean": 4.0}, "파마리서치": {"code": "214450", "market": "KOSDAQ", "price": 341500.0, "chg": 14500.0, "chgPct": 4.43, "mktcapEok": 35481.0, "per": 22.43, "pbr": 5.67, "eps": 15228.0, "cnsPer": 17.96, "cnsEps": 19017.0, "divYield": 1.08, "w52h": 713000.0, "w52l": 254500.0, "foreign": 6.63, "consTarget": 494000.0, "recommMean": 4.0}, "앨엔씨바이오": {"code": "290650", "market": "KOSDAQ", "price": 66800.0, "chg": 2600.0, "chgPct": 4.05, "mktcapEok": 18016.0, "per": null, "pbr": 8.11, "eps": -5531.0, "cnsPer": null, "cnsEps": null, "divYield": 0.08, "w52h": 125000.0, "w52l": 26950.0, "foreign": 21.69, "consTarget": null, "recommMean": null}, "그래피": {"code": "318060", "market": "KOSDAQ", "price": 17650.0, "chg": -370.0, "chgPct": -2.05, "mktcapEok": 1972.0, "per": null, "pbr": 10.68, "eps": -1034.0, "cnsPer": null, "cnsEps": null, "divYield": null, "w52h": 69000.0, "w52l": 8210.0, "foreign": 7.53, "consTarget": 40000.0, "recommMean": 4.0}, "삼양식품": {"code": "003230", "market": "KOSPI", "price": 1117000.0, "chg": 64000.0, "chgPct": 6.08, "mktcapEok": 84144.0, "per": 19.35, "pbr": 6.06, "eps": 57735.0, "cnsPer": 14.97, "cnsEps": 74598.0, "divYield": 0.43, "w52h": 1665000.0, "w52l": 981000.0, "foreign": 15.75, "consTarget": 1856429.0, "recommMean": 4.0}, "CJ제일제당": {"code": "097950", "market": "KOSPI", "price": 186200.0, "chg": 2000.0, "chgPct": 1.09, "mktcapEok": 28031.0, "per": null, "pbr": 0.4, "eps": -30721.0, "cnsPer": 7.85, "cnsEps": 23725.0, "divYield": 3.22, "w52h": 255000.0, "w52l": 172600.0, "foreign": 15.43, "consTarget": 293333.0, "recommMean": 4.0}, "농심": {"code": "004370", "market": "KOSPI", "price": 348500.0, "chg": -500.0, "chgPct": -0.14, "mktcapEok": 21198.0, "per": 11.87, "pbr": 0.7, "eps": 29364.0, "cnsPer": 10.92, "cnsEps": 31900.0, "divYield": 1.72, "w52h": 629000.0, "w52l": 319000.0, "foreign": 22.67, "consTarget": 541667.0, "recommMean": 3.92}, "하이브": {"code": "352820", "market": "KOSPI", "price": 198400.0, "chg": -4600.0, "chgPct": -2.27, "mktcapEok": 85515.0, "per": null, "pbr": 2.54, "eps": -10817.0, "cnsPer": 44.5, "cnsEps": 4458.0, "divYield": 0.25, "w52h": 418000.0, "w52l": 172000.0, "foreign": 18.47, "consTarget": 361000.0, "recommMean": 4.0}, "JYP Ent.": {"code": "035900", "market": "KOSDAQ", "price": 44350.0, "chg": -250.0, "chgPct": -0.56, "mktcapEok": 15759.0, "per": 12.78, "pbr": 2.35, "eps": 3469.0, "cnsPer": 11.69, "cnsEps": 3795.0, "divYield": 1.98, "w52h": 105100.0, "w52l": 43500.0, "foreign": 19.12, "consTarget": 84176.0, "recommMean": 4.0}, "에스엠": {"code": "041510", "market": "KOSDAQ", "price": 67100.0, "chg": 0.0, "chgPct": 0.0, "mktcapEok": 15362.0, "per": 11.68, "pbr": 1.54, "eps": 5743.0, "cnsPer": 11.51, "cnsEps": 5831.0, "divYield": 2.41, "w52h": 190000.0, "w52l": 65600.0, "foreign": 32.21, "consTarget": 120647.0, "recommMean": 4.0}, "와이지엔터": {"code": "122870", "market": "KOSDAQ", "price": 38350.0, "chg": -50.0, "chgPct": -0.13, "mktcapEok": 7168.0, "per": 19.64, "pbr": 1.39, "eps": 1953.0, "cnsPer": 13.34, "cnsEps": 2875.0, "divYield": 0.78, "w52h": 109800.0, "w52l": 37700.0, "foreign": 11.75, "consTarget": 68813.0, "recommMean": 4.0}, "크래프톤": {"code": "259960", "market": "KOSPI", "price": 234500.0, "chg": 12000.0, "chgPct": 5.39, "mktcapEok": 108193.0, "per": 12.69, "pbr": 1.4, "eps": 18485.0, "cnsPer": 9.86, "cnsEps": 23790.0, "divYield": 0.96, "w52h": 355000.0, "w52l": 173000.0, "foreign": 43.49, "consTarget": 379444.0, "recommMean": 4.0}, "NC": {"code": "036570", "market": "KOSPI", "price": 213500.0, "chg": 3000.0, "chgPct": 1.43, "mktcapEok": 45996.0, "per": 10.05, "pbr": 1.17, "eps": 21244.0, "cnsPer": 9.81, "cnsEps": 21768.0, "divYield": 0.54, "w52h": 343500.0, "w52l": 176100.0, "foreign": 37.49, "consTarget": 373235.0, "recommMean": 4.0}, "펄어비스": {"code": "263750", "market": "KOSDAQ", "price": 33350.0, "chg": 550.0, "chgPct": 1.68, "mktcapEok": 20958.0, "per": 14.38, "pbr": 2.13, "eps": 2320.0, "cnsPer": 5.82, "cnsEps": 5726.0, "divYield": null, "w52h": 77400.0, "w52l": 29000.0, "foreign": 8.03, "consTarget": 70778.0, "recommMean": 3.89}, "시프트업": {"code": "462870", "market": "KOSPI", "price": 31350.0, "chg": -200.0, "chgPct": -0.63, "mktcapEok": 18416.0, "per": 9.61, "pbr": 1.9, "eps": 3262.0, "cnsPer": 14.54, "cnsEps": 2156.0, "divYield": null, "w52h": 47800.0, "w52l": 27500.0, "foreign": 36.94, "consTarget": 46000.0, "recommMean": 3.8}, "롯데관광개발": {"code": "032350", "market": "KOSPI", "price": 11050.0, "chg": 60.0, "chgPct": 0.55, "mktcapEok": 8810.0, "per": 19.8, "pbr": 2.43, "eps": 558.0, "cnsPer": 11.82, "cnsEps": 935.0, "divYield": null, "w52h": 28250.0, "w52l": 10150.0, "foreign": 22.23, "consTarget": 25667.0, "recommMean": 4.0}, "파라다이스": {"code": "034230", "market": "KOSPI", "price": 9670.0, "chg": -120.0, "chgPct": -1.23, "mktcapEok": 8957.0, "per": 11.18, "pbr": 0.49, "eps": 865.0, "cnsPer": 9.61, "cnsEps": 1006.0, "divYield": 1.55, "w52h": 24000.0, "w52l": 9520.0, "foreign": 7.5, "consTarget": 19417.0, "recommMean": 4.0}, "GS피앤엘": {"code": "499790", "market": "KOSPI", "price": 38700.0, "chg": 200.0, "chgPct": 0.52, "mktcapEok": 7675.0, "per": 32.8, "pbr": 0.89, "eps": 1180.0, "cnsPer": 14.21, "cnsEps": 2723.0, "divYield": 0.9, "w52h": 69900.0, "w52l": 33300.0, "foreign": 10.28, "consTarget": 69833.0, "recommMean": 4.0}, "서부T&D": {"code": "006730", "market": "KOSDAQ", "price": 9490.0, "chg": 120.0, "chgPct": 1.28, "mktcapEok": 6100.0, "per": 7.19, "pbr": 0.57, "eps": 1320.0, "cnsPer": 15.02, "cnsEps": 632.0, "divYield": 1.05, "w52h": 20450.0, "w52l": 8220.0, "foreign": 16.82, "consTarget": 17750.0, "recommMean": 4.0}}, "researches": [{"co": "삼양식품", "code": "003230", "broker": "유안타증권", "title": "이제는 주가가 답할 차례", "date": "20260721", "views": 1289.0}, {"co": "CJ제일제당", "code": "097950", "broker": "유안타증권", "title": "바이오 회복은 시작됐다", "date": "20260721", "views": 1099.0}, {"co": "농심", "code": "004370", "broker": "유안타증권", "title": "해외 성장으로 컨센서스 상회 전망", "date": "20260721", "views": 1023.0}, {"co": "JYP Ent.", "code": "035900", "broker": "유안타증권", "title": "2Q26 컨센서스 하회 전망", "date": "20260721", "views": 1097.0}, {"co": "JYP Ent.", "code": "035900", "broker": "SK증권", "title": "스트레이키즈가 돌아오는 하반기를 기다리며", "date": "20260721", "views": 1257.0}, {"co": "에스엠", "code": "041510", "broker": "신한투자증권", "title": "IP의 완벽한 하모니", "date": "20260721", "views": 1186.0}, {"co": "와이지엔터", "code": "122870", "broker": "유안타증권", "title": "2Q26 IP 활동 공백 불가피", "date": "20260721", "views": 880.0}, {"co": "와이지엔터", "code": "122870", "broker": "iM증권", "title": "하반기 실적 모멘텀 재개 예상", "date": "20260721", "views": 1024.0}, {"co": "아모레퍼시픽", "code": "090430", "broker": "유진투자증권", "title": "2Q26 Preview: its so good", "date": "20260720", "views": 2537.0}, {"co": "실리콘투", "code": "257720", "broker": "한화투자증권", "title": "수요를 만드는 공급자", "date": "20260720", "views": 4155.0}, {"co": "삼양식품", "code": "003230", "broker": "교보증권", "title": "탄탄한 불닭, 여전한 수요", "date": "20260720", "views": 3518.0}, {"co": "하이브", "code": "352820", "broker": "키움증권", "title": "2분기 BTS와 함께 증명될 역대 최대 실적", "date": "20260720", "views": 3316.0}, {"co": "에스엠", "code": "041510", "broker": "키움증권", "title": "2Q 호실적과 하반기 지역 확장 기대", "date": "20260720", "views": 2129.0}, {"co": "와이지엔터", "code": "122870", "broker": "키움증권", "title": "빅뱅의 귀환과 차세대 IP의 증명 시간", "date": "20260720", "views": 2204.0}, {"co": "와이지엔터", "code": "122870", "broker": "SK증권", "title": "어서오십시오 V.I.P", "date": "20260720", "views": 2071.0}, {"co": "코스맥스", "code": "192820", "broker": "신한투자증권", "title": "악재 모두 반영, 시간이 약", "date": "20260716", "views": 4962.0}, {"co": "파마리서치", "code": "214450", "broker": "교보증권", "title": "2Q26 Preview; 저희 잘하고 있어요", "date": "20260716", "views": 7636.0}, {"co": "파마리서치", "code": "214450", "broker": "신한투자증권", "title": "역대 최대 실적 갱신", "date": "20260716", "views": 6357.0}, {"co": "파마리서치", "code": "214450", "broker": "키움증권", "title": "안녕하세요파마립니다잘부탁드립니다", "date": "20260716", "views": 5333.0}, {"co": "JYP Ent.", "code": "035900", "broker": "유진투자증권", "title": "스테이 화력을 보여줘", "date": "20260715", "views": 4623.0}, {"co": "에스엠", "code": "041510", "broker": "유진투자증권", "title": "아시아 프린스에서 북미 프린세스까지", "date": "20260715", "views": 3655.0}, {"co": "와이지엔터", "code": "122870", "broker": "유진투자증권", "title": "Big! Bang!", "date": "20260715", "views": 3900.0}, {"co": "에이피알", "code": "278470", "broker": "유진투자증권", "title": "2Q26 Preview: A++", "date": "20260714", "views": 4730.0}, {"co": "한국콜마", "code": "161890", "broker": "SK증권", "title": "국내 법인 호실적 예상", "date": "20260714", "views": 3838.0}, {"co": "앨엔씨바이오", "code": "290650", "broker": "신한투자증권", "title": "가늠할 수 없는 산업 확장성", "date": "20260714", "views": 3768.0}, {"co": "그래피", "code": "318060", "broker": "미래에셋증권", "title": "레이 인수자금 용도로 추정되는 자금조달 결정", "date": "20260714", "views": 3308.0}, {"co": "하이브", "code": "352820", "broker": "유진투자증권", "title": "팔랑귀 팔랑귀 할 만큼 좋은 실적", "date": "20260714", "views": 4974.0}, {"co": "시프트업", "code": "462870", "broker": "키움증권", "title": "신작 공개를 통한 레벨업", "date": "20260714", "views": 2924.0}, {"co": "한국콜마", "code": "161890", "broker": "유진투자증권", "title": "2Q26 Preview: 사상 최대 실적 갱신 기대", "date": "20260713", "views": 3448.0}, {"co": "코스맥스", "code": "192820", "broker": "유진투자증권", "title": "2Q26 Preview: 선 성수기와 미국 흑전 기대", "date": "20260713", "views": 2920.0}, {"co": "삼양식품", "code": "003230", "broker": "신한투자증권", "title": "숫자가 증명하는 경쟁력", "date": "20260713", "views": 3780.0}, {"co": "농심", "code": "004370", "broker": "교보증권", "title": "예상 대비 선방 중", "date": "20260713", "views": 5209.0}, {"co": "하이브", "code": "352820", "broker": "SK증권", "title": "높아진 실적 기대감, 높아질 주가", "date": "20260713", "views": 3877.0}, {"co": "실리콘투", "code": "257720", "broker": "하나증권", "title": "견조한 유럽, 기대되는 중남미", "date": "20260710", "views": 7504.0}, {"co": "CJ제일제당", "code": "097950", "broker": "신한투자증권", "title": "바이오 회복 국면 진입", "date": "20260710", "views": 5728.0}, {"co": "NC", "code": "036570", "broker": "교보증권", "title": "내년까지 마련된 이익 성장 스토리", "date": "20260710", "views": 8413.0}, {"co": "에이피알", "code": "278470", "broker": "교보증권", "title": "벌써 매출액 7,500억원, 속도 미쳤는데요?", "date": "20260709", "views": 10155.0}, {"co": "에이피알", "code": "278470", "broker": "한화투자증권", "title": "2분기도 서프라이즈", "date": "20260709", "views": 6725.0}, {"co": "에이피알", "code": "278470", "broker": "유안타증권", "title": "미국 역대 최대 실적, 오프라인이 잇는 성장", "date": "20260709", "views": 5508.0}, {"co": "에이피알", "code": "278470", "broker": "SK증권", "title": "압도적인 성장성", "date": "20260709", "views": 3996.0}, {"co": "달바글로벌", "code": "483650", "broker": "유안타증권", "title": "북미·유럽 중심의 성장 지속", "date": "20260709", "views": 6082.0}, {"co": "실리콘투", "code": "257720", "broker": "교보증권", "title": "전 지역 고성장 중", "date": "20260709", "views": 6164.0}, {"co": "JYP Ent.", "code": "035900", "broker": "iM증권", "title": "Stray Kids 컴백을 기다리며", "date": "20260709", "views": 4085.0}, {"co": "크래프톤", "code": "259960", "broker": "미래에셋증권", "title": "여전히 견조한 PUBG 성과", "date": "20260709", "views": 4191.0}, {"co": "NC", "code": "036570", "broker": "하나증권", "title": "현재도, 미래도 밝다", "date": "20260709", "views": 6755.0}, {"co": "달바글로벌", "code": "483650", "broker": "유진투자증권", "title": "2Q26 Preview: 태풍이 지나간 후 맑음", "date": "20260708", "views": 3744.0}, {"co": "코스맥스", "code": "192820", "broker": "SK증권", "title": "변곡점을 통과했다", "date": "20260708", "views": 2874.0}, {"co": "신세계", "code": "004170", "broker": "신한투자증권", "title": "싸워, 높아진 눈높이와 싸워", "date": "20260708", "views": 4902.0}, {"co": "현대백화점", "code": "069960", "broker": "신한투자증권", "title": "주가는 이유없이 오르지 않는다", "date": "20260708", "views": 3443.0}, {"co": "하이브", "code": "352820", "broker": "유안타증권", "title": "2Q26 확신의 실적 개선 구간 진입", "date": "20260708", "views": 5222.0}, {"co": "NC", "code": "036570", "broker": "한화투자증권", "title": "3분기는 비중 확대 구간", "date": "20260708", "views": 5841.0}, {"co": "GS피앤엘", "code": "499790", "broker": "키움증권", "title": "예상보다 빠른 웨스틴 회복, 컨센 상회 전망", "date": "20260708", "views": 2377.0}, {"co": "GS피앤엘", "code": "499790", "broker": "IBK투자증권", "title": "너무나 강해진 펀더멘탈", "date": "20260708", "views": 2102.0}, {"co": "아모레퍼시픽", "code": "090430", "broker": "SK증권", "title": "탑라인 성장 & 마진 개선 구간", "date": "20260707", "views": 3634.0}, {"co": "한국콜마", "code": "161890", "broker": "하나증권", "title": "계속 올라가는 실적 전망", "date": "20260707", "views": 5450.0}, {"co": "코스맥스", "code": "192820", "broker": "교보증권", "title": "해외 Good + 좋아질 일만 남은 한국", "date": "20260707", "views": 4189.0}, {"co": "아모레퍼시픽", "code": "090430", "broker": "유안타증권", "title": "서구권 고성장, 영업이익 시장기대치 부합 전망", "date": "20260706", "views": 3891.0}, {"co": "한국콜마", "code": "161890", "broker": "유안타증권", "title": "실적으로 증명하는 성장", "date": "20260706", "views": 4030.0}, {"co": "코스맥스", "code": "192820", "broker": "한화투자증권", "title": "공룡의 성장은 성장률보다 폭이다", "date": "20260706", "views": 4597.0}, {"co": "JYP Ent.", "code": "035900", "broker": "키움증권", "title": "하반기 증명될 견고한 펀더멘털", "date": "20260706", "views": 3138.0}, {"co": "달바글로벌", "code": "483650", "broker": "신한투자증권", "title": "하반기 갈수록 편하다!", "date": "20260703", "views": 7190.0}, {"co": "시프트업", "code": "462870", "broker": "교보증권", "title": "추정치의 바닥에서 모멘텀 축적 시작", "date": "20260703", "views": 6112.0}, {"co": "아모레퍼시픽", "code": "090430", "broker": "교보증권", "title": "COSRX YoY 30% + 프라임데이 호조 = 밸류 17배?", "date": "20260702", "views": 5855.0}, {"co": "달바글로벌", "code": "483650", "broker": "교보증권", "title": "글로벌로 전진", "date": "20260702", "views": 4769.0}, {"co": "삼양식품", "code": "003230", "broker": "하나증권", "title": "2Q26 Pre: 시장 기대 충족 전망", "date": "20260702", "views": 5935.0}, {"co": "CJ제일제당", "code": "097950", "broker": "DS투자증권", "title": "바이오 실적 호조 속 사업구조 재편 기대", "date": "20260702", "views": 5367.0}, {"co": "농심", "code": "004370", "broker": "하나증권", "title": "2Q26 Pre: 원가 부담 가시화", "date": "20260702", "views": 4230.0}, {"co": "LG생활건강", "code": "051900", "broker": "하나증권", "title": "중장기 성장 여력 확보가 관건", "date": "20260701", "views": 5404.0}, {"co": "한국콜마", "code": "161890", "broker": "교보증권", "title": "이번 성수기 주인공, It’s me", "date": "20260701", "views": 6965.0}, {"co": "서부T&D", "code": "006730", "broker": "키움증권", "title": "매력적인 사업 모델, 높아지는 투자 매력도", "date": "20260701", "views": 5016.0}, {"co": "달바글로벌", "code": "483650", "broker": "하나증권", "title": "달바글로벌: 멀티 브랜드 대기업을 향해 나아가는 중", "date": "20260630", "views": 7065.0}, {"co": "신세계", "code": "004170", "broker": "한화투자증권", "title": "2Q26 Preview : 백화점의 차별적 강세 지속", "date": "20260630", "views": 8188.0}, {"co": "롯데쇼핑", "code": "023530", "broker": "한화투자증권", "title": "2Q26 Preview : 백화점 강세에 더해질 대형마트 모멘텀", "date": "20260630", "views": 6313.0}, {"co": "현대백화점", "code": "069960", "broker": "한화투자증권", "title": "2Q26 Preview : 제자리를 찾았다", "date": "20260630", "views": 6077.0}, {"co": "크래프톤", "code": "259960", "broker": "교보증권", "title": "맺어지는 투자의 결실들", "date": "20260630", "views": 8309.0}, {"co": "크래프톤", "code": "259960", "broker": "하나증권", "title": "매력적인 가격대, 매수 기회", "date": "20260630", "views": 6947.0}, {"co": "크래프톤", "code": "259960", "broker": "유안타증권", "title": "PUBG는 다시 성장하는 중", "date": "20260630", "views": 5743.0}, {"co": "NC", "code": "036570", "broker": "유안타증권", "title": "레거시 IP, 다시 실적을 만들다", "date": "20260630", "views": 6553.0}, {"co": "펄어비스", "code": "263750", "broker": "유안타증권", "title": "흥행 이후를 증명할 시간", "date": "20260630", "views": 7936.0}, {"co": "시프트업", "code": "462870", "broker": "하나증권", "title": "니케의 반등 확인, 하반기 스피릿 공개 기대", "date": "20260630", "views": 4989.0}, {"co": "시프트업", "code": "462870", "broker": "유안타증권", "title": "공백을 버티는 IP 체력", "date": "20260630", "views": 4140.0}, {"co": "아모레퍼시픽", "code": "090430", "broker": "하나증권", "title": "국내 최대 멀티브랜드 화장품 기업의 저력을 드러내는 중", "date": "20260629", "views": 7030.0}, {"co": "신세계", "code": "004170", "broker": "유안타증권", "title": "명품이 끌고, 면세가 밀고 이익 레버리지 본격화", "date": "20260629", "views": 6423.0}, {"co": "현대백화점", "code": "069960", "broker": "유안타증권", "title": "본업 호조, 지누스 정상화 시작", "date": "20260629", "views": 4786.0}, {"co": "서부T&D", "code": "006730", "broker": "IBK투자증권", "title": "Developer!", "date": "20260625", "views": 5569.0}, {"co": "제닉", "code": "123330", "broker": "교보증권", "title": "탐방 노트: 지금은 초호황", "date": "20260624", "views": 7685.0}, {"co": "CJ제일제당", "code": "097950", "broker": "하나증권", "title": "2Q26 Pre: 좋아질 일만 남았다", "date": "20260622", "views": 9737.0}, {"co": "신세계", "code": "004170", "broker": "대신증권", "title": "인바운드 매출 증가에 최대 수혜 기업", "date": "20260618", "views": 12361.0}, {"co": "롯데쇼핑", "code": "023530", "broker": "대신증권", "title": "백화점이 이끌고, 계열사가 따라오고", "date": "20260618", "views": 8473.0}, {"co": "현대백화점", "code": "069960", "broker": "대신증권", "title": "외국인 매출 성장률 가팔라졌다", "date": "20260618", "views": 8676.0}, {"co": "현대백화점", "code": "069960", "broker": "IBK투자증권", "title": "스페이스X급 실적 성장", "date": "20260617", "views": 6502.0}, {"co": "LG생활건강", "code": "051900", "broker": "한화투자증권", "title": "Corporate Day 후기: 예상보다 빠른 이익 정상화 구간", "date": "20260615", "views": 9297.0}, {"co": "신세계", "code": "004170", "broker": "대신증권", "title": "외국인과 내국인 매출 호조의 양 날개로 난다", "date": "20260615", "views": 11113.0}, {"co": "시프트업", "code": "462870", "broker": "키움증권", "title": "시간이 지날수록 유리", "date": "20260615", "views": 6071.0}, {"co": "롯데쇼핑", "code": "023530", "broker": "키움증권", "title": "2Q 기존점 +14%, 목표주가 23만원으로 상향", "date": "20260610", "views": 6373.0}, {"co": "롯데쇼핑", "code": "023530", "broker": "대신증권", "title": "롯데쇼핑 CEO 간담회 후기", "date": "20260609", "views": 6936.0}, {"co": "롯데쇼핑", "code": "023530", "broker": "신한투자증권", "title": "대표이사 간담회 후기, 아직 갈 길이 멀다", "date": "20260609", "views": 7686.0}, {"co": "제닉", "code": "123330", "broker": "하나증권", "title": "역대 최대 매출 경신 중", "date": "20260605", "views": 10358.0}, {"co": "파마리서치", "code": "214450", "broker": "대신증권", "title": "코스닥을 담는다면 이런 종목부터", "date": "20260602", "views": 17816.0}, {"co": "앨엔씨바이오", "code": "290650", "broker": "유안타증권", "title": "Corporate Day 후기: 리투오가 바꾼 수익 구조", "date": "20260601", "views": 13279.0}, {"co": "서부T&D", "code": "006730", "broker": "iM증권", "title": "최대 객실 레버리지 효과 및 자산가치 수익화 가속화", "date": "20260601", "views": 7877.0}, {"co": "LG생활건강", "code": "051900", "broker": "유진투자증권", "title": "1Q26 Review: 여명 직전", "date": "20260529", "views": 9949.0}, {"co": "파라다이스", "code": "034230", "broker": "유안타증권", "title": "주가 부진에 가려진 복합 리조트 성장세", "date": "20260529", "views": 10600.0}, {"co": "실리콘투", "code": "257720", "broker": "유안타증권", "title": "Corporate Day 후기: 글로벌 확장 지속", "date": "20260526", "views": 8274.0}, {"co": "파마리서치", "code": "214450", "broker": "대신증권", "title": "코스닥을 담는다면 이런 종목부터", "date": "20260526", "views": 9140.0}, {"co": "롯데관광개발", "code": "032350", "broker": "신한투자증권", "title": "NDR 후기: 2Q26 순항 중", "date": "20260521", "views": 9141.0}, {"co": "농심", "code": "004370", "broker": "하나증권", "title": "1Q26 Re: 해외법인 수익성 선방", "date": "20260518", "views": 4489.0}, {"co": "농심", "code": "004370", "broker": "한화투자증권", "title": "해외 성장 눈높이 상향", "date": "20260518", "views": 3068.0}, {"co": "서부T&D", "code": "006730", "broker": "하나증권", "title": "호실적에 더해 나진상가 건축 허가도 획득", "date": "20260518", "views": 4185.0}, {"co": "롯데관광개발", "code": "032350", "broker": "하나증권", "title": "롤링 경쟁력 강화로 사상 최대 매출 재개될 것", "date": "20260515", "views": 6931.0}, {"co": "롯데관광개발", "code": "032350", "broker": "유진투자증권", "title": "중요한 건 4월, 5월 시작이 좋다", "date": "20260515", "views": 5804.0}, {"co": "롯데관광개발", "code": "032350", "broker": "키움증권", "title": "사이클 시작, 베팅을 키울 시점", "date": "20260515", "views": 4312.0}, {"co": "실리콘투", "code": "257720", "broker": "SK증권", "title": "유럽에서의 저력을 보여줬다", "date": "20260514", "views": 5664.0}, {"co": "제닉", "code": "123330", "broker": "유안타증권", "title": "26년 호실적을 기대하는 요인", "date": "20260514", "views": 4464.0}, {"co": "삼양식품", "code": "003230", "broker": "한화투자증권", "title": "공급 병목 완화에 따른 추가 성장 기대", "date": "20260514", "views": 10967.0}, {"co": "에스엠", "code": "041510", "broker": "삼성증권", "title": "단단해진 이익 체력", "date": "20260514", "views": 6994.0}, {"co": "NC", "code": "036570", "broker": "한화투자증권", "title": "체질 개선 초입", "date": "20260514", "views": 13896.0}, {"co": "CJ제일제당", "code": "097950", "broker": "한화투자증권", "title": "속도는 더디지만, 방향성은 확인", "date": "20260513", "views": 7258.0}, {"co": "펄어비스", "code": "263750", "broker": "유진투자증권", "title": "26일만에 500만장 판매가 의미하는 바", "date": "20260513", "views": 14563.0}, {"co": "펄어비스", "code": "263750", "broker": "한화투자증권", "title": "이벤트 정점은 지났지만, 프리미엄 밸류는 남을 것", "date": "20260513", "views": 9849.0}, {"co": "펄어비스", "code": "263750", "broker": "DS투자증권", "title": "화려한 역전", "date": "20260513", "views": 8348.0}, {"co": "에스엠", "code": "041510", "broker": "키움증권", "title": "고연차 IP의 성장이 필요한 시점", "date": "20260511", "views": 3689.0}, {"co": "파라다이스", "code": "034230", "broker": "키움증권", "title": "우호적인 매크로 환경 지속, 기대해볼 2분기", "date": "20260511", "views": 5250.0}, {"co": "GS피앤엘", "code": "499790", "broker": "키움증권", "title": "비수기 증명된 이익 레버리지 효과", "date": "20260511", "views": 3495.0}, {"co": "크래프톤", "code": "259960", "broker": "유안타증권", "title": "기다림은 우리편", "date": "20260508", "views": 11271.0}, {"co": "GS피앤엘", "code": "499790", "broker": "IBK투자증권", "title": "이변이 없는 펀더멘탈", "date": "20260508", "views": 3444.0}, {"co": "파라다이스", "code": "034230", "broker": "하나증권", "title": "바닥이 맞습니다", "date": "20260507", "views": 6796.0}, {"co": "파라다이스", "code": "034230", "broker": "유진투자증권", "title": "비수기 끝났다", "date": "20260507", "views": 4876.0}, {"co": "GS피앤엘", "code": "499790", "broker": "하나증권", "title": "비수기에 증명한 구조적 성장", "date": "20260507", "views": 2986.0}, {"co": "LG생활건강", "code": "051900", "broker": "한화투자증권", "title": "이익 눈높이는 상향하되 보수적 접근 필요", "date": "20260504", "views": 7351.0}, {"co": "LG생활건강", "code": "051900", "broker": "교보증권", "title": "나아지는 흐름이지만, 여전히 부담 요인 상존", "date": "20260504", "views": 5329.0}, {"co": "하이브", "code": "352820", "broker": "DS투자증권", "title": "본게임은 이제 시작", "date": "20260430", "views": 23013.0}, {"co": "펄어비스", "code": "263750", "broker": "신한투자증권", "title": "새로운 역사를 썼다", "date": "20260429", "views": 11903.0}, {"co": "롯데관광개발", "code": "032350", "broker": "유안타증권", "title": "추세가 살아 있는 주식", "date": "20260424", "views": 5937.0}, {"co": "파라다이스", "code": "034230", "broker": "SK증권", "title": "귀중한 CAPA 확장", "date": "20260422", "views": 5889.0}, {"co": "서부T&D", "code": "006730", "broker": "SK증권", "title": "호텔은 만실, 숨어있던 디벨로퍼 본능 꿈틀", "date": "20260422", "views": 4860.0}, {"co": "제닉", "code": "123330", "broker": "한국IR협의회", "title": "하이드로겔 마스크팩의 부활", "date": "20260409", "views": 5720.0}, {"co": "앨엔씨바이오", "code": "290650", "broker": "유진투자증권", "title": "오리지널의 힘은 무시할 수 없다", "date": "20260324", "views": 14010.0}, {"co": "앨엔씨바이오", "code": "290650", "broker": "유안타증권", "title": "4Q25 Review: 본업 호조, 순손실은 회계 요인", "date": "20260303", "views": 9388.0}, {"co": "앨엔씨바이오", "code": "290650", "broker": "유안타증권", "title": "신성장동력 중심 성장 기대", "date": "20260127", "views": 10518.0}], "events": [{"co": "하이브", "code": "352820", "date": "2026-07-28", "title": "2026년 2분기 실적발표", "type": "earn"}, {"co": "LG생활건강", "code": "051900", "date": "2026-07-29", "title": "2026년 2분기 경영실적", "type": "earn"}, {"co": "크래프톤", "code": "259960", "date": "2026-07-29", "title": "2026년 2분기 경영실적 발표", "type": "earn"}]};
+
+const DART_EVENTS = [{"co": "아모레퍼시픽", "code": "090430", "date": "2026-06-08", "title": "사업 실적 및 현황 설명", "type": "ir", "src": "DART"}, {"co": "에이피알", "code": "278470", "date": "2026-06-08", "title": "국내/외 컨퍼런스 및 Corporate Day 참가", "type": "ir", "src": "DART"}, {"co": "신세계", "code": "004170", "date": "2026-06-09", "title": "영업(잠정)실적(공정공시)", "type": "earn", "src": "DART"}, {"co": "펄어비스", "code": "263750", "date": "2026-06-09", "title": "주요사항보고서(자기주식취득신탁계약체결결정)", "type": "corp", "src": "DART"}, {"co": "달바글로벌", "code": "483650", "date": "2026-06-10", "title": "자기주식처분결과보고서", "type": "corp", "src": "DART"}, {"co": "롯데쇼핑", "code": "023530", "date": "2026-06-11", "title": "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정", "type": "corp", "src": "DART"}, {"co": "한국콜마", "code": "161890", "date": "2026-06-11", "title": "2026년 1분기 실적 및 주요 경영현황 설명, Q&A", "type": "ir", "src": "DART"}, {"co": "달바글로벌", "code": "483650", "date": "2026-06-12", "title": "당사 경영실적 설명 및 Q&A 진행", "type": "ir", "src": "DART"}, {"co": "코스맥스", "code": "192820", "date": "2026-06-12", "title": "주요 사업 현황 설명", "type": "ir", "src": "DART"}, {"co": "한국콜마", "code": "161890", "date": "2026-06-12", "title": "주요 사업 현황 설명, Q&A", "type": "ir", "src": "DART"}, {"co": "LG생활건강", "code": "051900", "date": "2026-06-16", "title": "2026년 1분기 경영실적 및 주요 경영현황 관련 Q&A 등", "type": "ir", "src": "DART"}, {"co": "롯데쇼핑", "code": "023530", "date": "2026-06-16", "title": "영업실적 설명 및 Q&A 진행", "type": "ir", "src": "DART"}, {"co": "코스맥스", "code": "192820", "date": "2026-06-16", "title": "주요 사업 현황 설명", "type": "ir", "src": "DART"}, {"co": "한국콜마", "code": "161890", "date": "2026-06-16", "title": "2026년 1분기 실적 및 주요 경영현황 설명, Q&A", "type": "ir", "src": "DART"}, {"co": "NC", "code": "036570", "date": "2026-06-17", "title": "기관투자자 대상 사업 현황 설명", "type": "ir", "src": "DART"}, {"co": "신세계", "code": "004170", "date": "2026-06-17", "title": "ㅁ경영실적 및 주요사업 설명 ㅁQ&A 진행", "type": "ir", "src": "DART"}, {"co": "파마리서치", "code": "214450", "date": "2026-06-17", "title": "1. 2026년 1분기 경영실적 리뷰", "type": "ir", "src": "DART"}, {"co": "아모레퍼시픽", "code": "090430", "date": "2026-06-23", "title": "사업 실적 및 현황 설명", "type": "ir", "src": "DART"}, {"co": "코스맥스", "code": "192820", "date": "2026-06-24", "title": "주요 사업 현황 설명", "type": "ir", "src": "DART"}, {"co": "현대백화점", "code": "069960", "date": "2026-06-24", "title": "최근 경영현황 및 전략, 주요 관심사항, 기업가치제고 계획 등에 대한", "type": "ir", "src": "DART"}, {"co": "크래프톤", "code": "259960", "date": "2026-06-26", "title": "자기주식취득결과보고서", "type": "corp", "src": "DART"}, {"co": "파마리서치", "code": "214450", "date": "2026-06-29", "title": "1. 2026년 1분기 경영실적 리뷰", "type": "ir", "src": "DART"}, {"co": "현대백화점", "code": "069960", "date": "2026-06-30", "title": "최근 경영현황 및 전략, 주요 관심사항, 기업가치제고 계획 등에 대한", "type": "ir", "src": "DART"}, {"co": "롯데관광개발", "code": "032350", "date": "2026-07-01", "title": "연결재무제표기준영업(잠정)실적(공정공시)", "type": "earn", "src": "DART"}, {"co": "파라다이스", "code": "034230", "date": "2026-07-02", "title": "연결재무제표기준영업(잠정)실적(공정공시)", "type": "earn", "src": "DART"}, {"co": "펄어비스", "code": "263750", "date": "2026-07-07", "title": "기업가치제고 관련 설명 및 질의응답", "type": "ir", "src": "DART"}, {"co": "한국콜마", "code": "161890", "date": "2026-07-07", "title": "주요 사업 현황 설명, Q&A", "type": "ir", "src": "DART"}, {"co": "신세계", "code": "004170", "date": "2026-07-09", "title": "영업(잠정)실적(공정공시)", "type": "earn", "src": "DART"}, {"co": "그래피", "code": "318060", "date": "2026-07-13", "title": "주요사항보고서(전환사채권발행결정)", "type": "corp", "src": "DART"}, {"co": "서부T&D", "code": "006730", "date": "2026-07-15", "title": "회사소개 및 사업현황, 질의응답", "type": "ir", "src": "DART"}, {"co": "에이피알", "code": "278470", "date": "2026-07-16", "title": "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정", "type": "corp", "src": "DART"}, {"co": "그래피", "code": "318060", "date": "2026-07-21", "title": "증권발행결과(자율공시)              (제3자배정 유상증자-전환우선주)", "type": "corp", "src": "DART"}, {"co": "달바글로벌", "code": "483650", "date": "2026-07-21", "title": "주요사항보고서(자기주식취득신탁계약해지결정)", "type": "corp", "src": "DART"}, {"co": "서부T&D", "code": "006730", "date": "2026-07-22", "title": "회사소개 및 사업현황, 질의응답", "type": "ir", "src": "DART"}, {"co": "달바글로벌", "code": "483650", "date": "2026-07-27", "title": "당사 경영실적 설명 및 Q&A 진행", "type": "ir", "src": "DART"}, {"co": "하이브", "code": "352820", "date": "2026-07-28", "title": "2026년 2분기 경영실적 발표와 질의응답", "type": "ir", "src": "DART"}, {"co": "LG생활건강", "code": "051900", "date": "2026-07-29", "title": "2026년 2분기 경영실적 및 Q&A", "type": "ir", "src": "DART"}, {"co": "크래프톤", "code": "259960", "date": "2026-07-29", "title": "2026년 2분기 및 상반기 경영실적 발표 및 Q&A", "type": "ir", "src": "DART"}, {"co": "크래프톤", "code": "259960", "date": "2026-07-31", "title": "2026년 2분기 및 상반기 주요 경영 현황 및 Q&A", "type": "ir", "src": "DART"}, {"co": "CJ제일제당", "code": "097950", "date": "2026-08-11", "title": "2026년 2분기 경영실적 설명 및 질의응답", "type": "ir", "src": "DART"}, {"co": "달바글로벌", "code": "483650", "date": "2026-08-13", "title": "2026년 2분기 잠정 경영 실적 설명 및 투자자 Q&A", "type": "ir", "src": "DART"}, {"co": "시프트업", "code": "462870", "date": "2026-08-18", "title": "주요 경영 현황 및 질의응답", "type": "ir", "src": "DART"}, {"co": "시프트업", "code": "462870", "date": "2026-08-24", "title": "주요 경영 현황 및 질의응답", "type": "ir", "src": "DART"}];
+
+/* ==== helpers ==== */
+const R = DATA.records;
+const SECTORS = ["소비재","엔터","게임","호텔"];
+const SECTOR_COLORS = {"소비재":"#5b8def","엔터":"#8b5cf6","게임":"#22c55e","호텔":"#f59e0b"};
+const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
+const won = v=> (v===null||v===undefined||v===""||v===0)?"—":Math.round(v).toLocaleString("ko-KR");
+const cls = v=> (v>0?"up":v<0?"down":"flat");
+
+/* merge live market data (네이버 금융 수집) into records */
+R.forEach(r=>{
+  const L=LIVE.stocks[r.name]; if(!L) return;
+  r.code=L.code; r.mkt=L.market;
+  r.price=L.price ?? r.price;                       // 실시간 종가
+  r.chgPct=L.chgPct;                                // 전일 대비 %
+  r.mktcapJo=L.mktcapEok!=null?L.mktcapEok/10000:(r.mktcap/1000);
+  r.perLive=L.per; r.pbr=L.pbr; r.divYield=L.divYield;
+  r.cnsPer=L.cnsPer; r.cnsEps=L.cnsEps;
+  r.w52h=L.w52h; r.w52l=L.w52l; r.foreign=L.foreign;
+  r.recommMean=L.recommMean;
+  if(L.consTarget){ r.target=L.consTarget; }        // 컨센 목표주가(실시간)
+  r.upsideCons=(r.target&&r.price)?(r.target/r.price-1)*100:r.upsideCons;
+  r.w52pos=(L.w52h&&L.w52l&&L.price)?((L.price-L.w52l)/(L.w52h-L.w52l)*100):null;
+});
+const mcJo = r=> r.mktcapJo!=null?r.mktcapJo:r.mktcap/1000;
+const sign = (v,d=1)=> (v===null||v===undefined||v==="")?"—":(v>0?"+":"")+fmt(v,d);
+const opm = r=> (r.rev26>0? r.op26/r.rev26*100 : null);
+function ratingBadge(s){
+  if(s>=7.5) return '<span class="badge b-strong">적극매수</span>';
+  if(s>=6.5) return '<span class="badge b-buy">매수</span>';
+  if(s>=6)   return '<span class="badge b-buy">비중확대</span>';
+  return '<span class="badge b-hold">중립</span>';
+}
+/* ===== Pick 라벨 — 원본 유니버스 엑셀의 pick 열을 그대로 사용 =====
+   pickLabel (엑셀 A열) = 유니버스 대표픽  → ★ 표시
+   pick2     (엑셀 C열) = 소섹터별 픽      → 일반 표시
+   특정 종목만 손으로 바꾸려면 PICK_OVERRIDE 에 추가 (예: {"한국콜마":"Top"}) */
+const PICK_OVERRIDE = {};
+const shortPick = s=> s==="Top pick"?"Top":s==="2nd pick"?"2nd":s==="Beta pick"?"Beta":"";
+const sectorPickOf   = r=> PICK_OVERRIDE[r.name] || shortPick(r.pick2||"");
+const universePickOf = r=> shortPick(r.pickLabel||"");
+function pill(p,star){
+  const t=p==="Beta"?"β":p;
+  if(!p) return "";
+  const c=p==="Top"?"p-top":p==="2nd"?"p-2nd":"p-beta";
+  return `<span class="pill ${c}" title="${star?'유니버스 대표픽':'섹터 픽'} — ${p}">${star?"★":""}${t}</span>`;
+}
+function pickPill(r){ return pill(universePickOf(r),true)+pill(sectorPickOf(r),false); }
+
+/* ==== tabs / routing ==== */
+const TABS = [
+  ["overview","개요"],["coverage","커버리지 요약"],["valuation","밸류에이션"],
+  ["preview","실적 프리뷰"],["calendar","이벤트 캘린더"],["reports","리서치 리포트"],
+  ["trends","트렌드 비교"],["altdata","대체데이터"]
+];
+const tabsEl = document.getElementById("tabs");
+tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
+tabsEl.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const k=b.dataset.k;
+  document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
+  document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
+  if(k==="valuation") drawScatter();
+  if(k==="trends") drawTrend();
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+
+/* ==== theme ==== */
+const themeBtn=document.getElementById("themeBtn");
+themeBtn.addEventListener("click",()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  const next=cur==="light"?"":"light";
+  document.documentElement.setAttribute("data-theme",next);
+  if(document.querySelector('section[data-view="valuation"]').classList.contains("active")) drawScatter();
+});
+
+/* ==== Market strip (지수·환율) ==== */
+(function(){
+  const M=LIVE.market||{}, el=document.getElementById("mktStrip");
+  const idx=(n,o)=> o?`<div class="mkt"><span class="n">${n}</span><span class="v">${fmt(o.close,2)}</span><span class="c ${cls(o.chgPct)}">${sign(o.chgPct,2)}%</span></div>`:"";
+  const fx=(n,v,u="")=> v?`<div class="mkt"><span class="n">${n}</span><span class="v">${fmt(v,1)}${u}</span></div>`:"";
+  const F=M.FX||{};
+  el.innerHTML = idx("KOSPI",M.KOSPI)+idx("KOSDAQ",M.KOSDAQ)+
+    fx("USD/KRW",F.USDKRW)+fx("JPY100",F.JPYKRW100)+fx("CNY",F.CNYKRW)+
+    `<span class="live-badge"><span class="live-dot"></span>네이버 금융·환율 API 수집 · ${LIVE.asOf}</span>`;
+  document.getElementById("metaPill").textContent=`신주현 애널리스트 · 시세 ${LIVE.asOf}`;
+})();
+
+/* ==== KPIs ==== */
+(function(){
+  const n=R.length;
+  const avgUp = R.filter(r=>r.upsideCons!=null).reduce((a,r)=>a+r.upsideCons,0)/R.filter(r=>r.upsideCons!=null).length;
+  const topN = R.filter(r=>sectorPickOf(r)==="Top").length;
+  const avgPer = R.filter(r=>r.per26>0).reduce((a,r)=>a+r.per26,0)/R.filter(r=>r.per26>0).length;
+  const k=[
+    ["커버리지 종목","<b>"+n+"</b>","4개 대섹터 · 7개 소섹터"],
+    ["평균 상승여력","<b class='up'>+"+fmt(avgUp)+"</b><small>%</small>","컨센서스 목표주가 기준"],
+    ["Top Pick","<b>"+topN+"</b>","섹터별 최선호 종목"],
+    ["평균 26E PER","<b>"+fmt(avgPer)+"</b><small>x</small>","적자·이상치 제외"]
+  ];
+  document.getElementById("kpis").innerHTML = k.map(([a,b,c])=>
+    `<div class="kpi"><div class="k">${a}</div><div class="v">${b}</div><div class="d">${c}</div></div>`).join("");
+})();
+
+/* ==== Sector Top Pick cards ==== */
+(function(){
+  const byName = Object.fromEntries(R.map(r=>[r.name,r]));
+  document.getElementById("pickCards").innerHTML = DATA.sectorPicks.map(p=>{
+    const r=byName[p.name]||{};
+    return `<div class="card">
+      <div class="rk">${p.rank}</div>
+      <div class="sect">${p.sector} · ${p.sub}</div>
+      <div class="nm">${p.name} ${ratingBadge(r.score||0)}</div>
+      <div class="th">${p.thesis}</div>
+      <div class="row">
+        <div class="c"><div class="lbl">현재가 / 목표가</div><div class="val">${won(r.price)} → ${won(r.target)}</div></div>
+        <div class="c"><div class="lbl">상승여력</div><div class="val ${cls(r.upsideCons)}">${sign(r.upsideCons)}%</div></div>
+      </div>
+    </div>`;
+  }).join("");
+})();
+
+/* ==== sortable table factory ==== */
+function makeTable(el, cols, rows, initSort){
+  let sortKey=initSort.key, sortDir=initSort.dir;
+  function render(){
+    const sorted=[...rows].sort((a,b)=>{
+      let x=a[sortKey], y=b[sortKey];
+      if(x===null||x===undefined||x==="") x=-Infinity;
+      if(y===null||y===undefined||y==="") y=-Infinity;
+      if(typeof x==="string") return sortDir*x.localeCompare(y,"ko");
+      return sortDir*(x-y);
+    });
+    el.innerHTML =
+      "<thead><tr>"+cols.map(c=>
+        `<th class="${c.l?'l':''} ${c.key===sortKey?'sorted':''}" data-k="${c.key}">${c.label}<span class="ar">${c.key===sortKey?(sortDir>0?'▲':'▼'):'↕'}</span></th>`
+      ).join("")+"</tr></thead><tbody>"+
+      sorted.map(r=>"<tr>"+cols.map(c=>`<td class="${c.l?'l':''}">${c.render(r)}</td>`).join("")+"</tr>").join("")+
+      "</tbody>";
+    el.querySelectorAll("th").forEach(th=>th.onclick=()=>{
+      const k=th.dataset.k;
+      if(k===sortKey) sortDir*=-1; else {sortKey=k; sortDir=(typeof rows[0][k]==="string")?1:-1;}
+      render();
+    });
+  }
+  render();
+}
+const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${pickPill(r)} ${r.name}<span class="sub">${r.sub}</span></span>`;
+
+/* ==== Coverage summary — grouped by sector ==== */
+const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+const covCols = [
+  {key:"rank",label:"#",l:true,render:r=>r.rank},
+  {key:"name",label:"종목",l:true,render:nmCell},
+  {key:"score",label:"투자의견",render:r=>ratingBadge(r.score)},
+  {key:"price",label:"현재가",render:r=>won(r.price)},
+  {key:"chgPct",label:"등락률",render:r=>r.chgPct==null?"—":`<span class="${cls(r.chgPct)}">${sign(r.chgPct,2)}%</span>`},
+  {key:"target",label:"목표가(컨센)",render:r=>won(r.target)},
+  {key:"upsideCons",label:"상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
+  {key:"mktcapJo",label:"시총(조)",render:r=>fmt(mcJo(r),1)},
+  {key:"perLive",label:"PER",render:r=>r.perLive>0?fmt(r.perLive)+"x":"—"},
+  {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
+  {key:"divYield",label:"배당%",render:r=>r.divYield>0?fmt(r.divYield)+"%":"—"},
+  {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
+  {key:"opmv",label:"26E OPM",render:r=>{const v=opm(r);return v!=null?`<span>${fmt(v)}%</span>`:"—";}},
+  {key:"epsg26",label:"26E EPS성장",render:r=>`<span class="${cls(r.epsg26)}">${sign(r.epsg26,0)}%</span>`},
+  {key:"ret3m",label:"3개월",render:r=>`<span class="${cls(r.ret3m)}">${sign(r.ret3m)}%</span>`},
+];
+(function renderCoverageBySector(){
+  const host=document.getElementById("covGroups");
+  host.innerHTML="";
+  SECTORS.forEach(sec=>{
+    const secRows=R.filter(r=>r.sector===sec);
+    const subs=[...new Set(secRows.map(r=>r.sub))];
+    subs.forEach(sub=>{
+      const rows=secRows.filter(r=>r.sub===sub).map(r=>({...r,opmv:opm(r)}));
+      if(!rows.length) return;
+      const aUp=avg(rows.map(r=>r.upsideCons).filter(v=>v!=null));
+      const aPer=avg(rows.map(r=>r.per26).filter(v=>v>0));
+      const c=SECTOR_COLORS[sec];
+      const block=document.createElement("div");
+      block.className="sector-block";
+      block.innerHTML=
+        `<div class="sector-band" style="border-left-color:${c}">
+          <span class="s-name" style="color:${c}">${sec} · ${sub}</span>
+          <span class="s-tag">${rows.length}종목</span>
+          <span class="s-stat" style="margin-left:auto">평균 상승여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
+          <span class="s-stat">평균 26E PER <b>${fmt(aPer)}x</b></span>
+        </div>
+        <div class="tbl-wrap"><table></table></div>`;
+      host.appendChild(block);
+      makeTable(block.querySelector("table"), covCols, rows, {key:"rank",dir:1});
+    });
+  });
+})();
+
+/* ==== Valuation table ==== */
+makeTable(document.getElementById("valTable"),[
+  {key:"name",label:"종목",l:true,render:nmCell},
+  {key:"sector",label:"섹터",l:true,render:r=>r.sector},
+  {key:"perLive",label:"PER(현)",render:r=>r.perLive>0?fmt(r.perLive)+"x":"—"},
+  {key:"cnsPer",label:"컨센 PER",render:r=>r.cnsPer>0?fmt(r.cnsPer)+"x":"—"},
+  {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
+  {key:"per27",label:"27E PER",render:r=> r.per27>0?fmt(r.per27)+"x":"—"},
+  {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
+  {key:"divYield",label:"배당%",render:r=>r.divYield>0?fmt(r.divYield)+"%":"—"},
+  {key:"foreign",label:"외국인%",render:r=>r.foreign>0?fmt(r.foreign)+"%":"—"},
+  {key:"w52pos",label:"52주 위치",render:r=> r.w52pos==null?"—":
+    `<div class="w52"><div class="bar"><i style="left:${Math.max(0,Math.min(100,r.w52pos)).toFixed(0)}%"></i></div><span class="lbl">${fmt(r.w52pos,0)}%</span></div>`},
+  {key:"mktcapJo",label:"시총(조)",render:r=>fmt(mcJo(r),1)},
+  {key:"fairMktcap",label:"적정시총(조)",render:r=>fmt(r.fairMktcap/1000,1)},
+  {key:"upsideOwn",label:"당사 상승여력",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
+  {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
+], R, {key:"per26",dir:1});
+
+/* ==== Earnings preview / consensus compare ==== */
+function beatTag(r){
+  if(r.upsideOwn==null||r.upsideCons==null) return '<span class="tag-inline">N/A</span>';
+  const diff=r.upsideOwn-r.upsideCons;
+  if(diff>5) return '<span class="tag-beat">당사 상회</span>';
+  if(diff<-5) return '<span class="tag-miss">당사 하회</span>';
+  return '<span class="tag-inline">In-line</span>';
+}
+makeTable(document.getElementById("prevTable"),[
+  {key:"name",label:"종목",l:true,render:nmCell},
+  {key:"rev26",label:"26E 매출",render:r=>fmt0(r.rev26)},
+  {key:"rev27",label:"27E 매출",render:r=>fmt0(r.rev27)},
+  {key:"op26",label:"26E 영업익",render:r=>fmt0(r.op26)},
+  {key:"op27",label:"27E 영업익",render:r=>fmt0(r.op27)},
+  {key:"opmv",label:"26E OPM",render:r=>{const v=opm(r);return v!=null?fmt(v)+"%":"—";}},
+  {key:"epsg26",label:"26E EPS성장",render:r=>`<span class="${cls(r.epsg26)}">${sign(r.epsg26,0)}%</span>`},
+  {key:"upsideOwn",label:"당사",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
+  {key:"upsideCons",label:"컨센",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
+  {key:"gap",label:"괴리·판정",render:r=>beatTag(r)},
+], R.map(r=>({...r,opmv:opm(r),gap:(r.upsideOwn!=null&&r.upsideCons!=null)?r.upsideOwn-r.upsideCons:-Infinity})), {key:"gap",dir:-1});
+
+/* ==== Scatter (SVG) ==== */
+function drawScatter(){
+  const box=document.getElementById("scatter");
+  const W=box.clientWidth||1000, H=420, pad={l:52,r:20,t:16,b:44};
+  const pts=R.filter(r=>r.per26>0 && r.per26<60 && r.upsideCons!=null);
+  const xs=pts.map(p=>p.per26), ys=pts.map(p=>p.upsideCons);
+  const xMin=0, xMax=Math.max(...xs)*1.05, yMin=Math.min(0,...ys)-5, yMax=Math.max(...ys)*1.08;
+  const sx=v=>pad.l+(v-xMin)/(xMax-xMin)*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v-yMin)/(yMax-yMin)*(H-pad.t-pad.b);
+  const maxCap=Math.max(...pts.map(p=>mcJo(p)));
+  const rad=p=>6+Math.sqrt(mcJo(p)/maxCap)*22;
+  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+  const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  // grid + y ticks
+  for(let i=0;i<=5;i++){const v=yMin+(yMax-yMin)*i/5;const y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${Math.round(v)}%</text>`;}
+  for(let i=0;i<=6;i++){const v=xMin+(xMax-xMin)*i/6;const x=sx(v);
+    s+=`<text x="${x}" y="${H-pad.b+18}" text-anchor="middle" font-size="11" fill="${mut}">${Math.round(v)}x</text>`;}
+  s+=`<text x="${(W)/2}" y="${H-6}" text-anchor="middle" font-size="12" fill="${mut}">26E PER (배)</text>`;
+  s+=`<text x="14" y="${H/2}" text-anchor="middle" font-size="12" fill="${mut}" transform="rotate(-90 14 ${H/2})">컨센서스 상승여력 (%)</text>`;
+  // zero line
+  s+=`<line x1="${pad.l}" y1="${sy(0)}" x2="${W-pad.r}" y2="${sy(0)}" stroke="${mut}" stroke-dasharray="4 4" stroke-width="1"/>`;
+  pts.forEach(p=>{
+    const c=SECTOR_COLORS[p.sector];
+    s+=`<circle cx="${sx(p.per26)}" cy="${sy(p.upsideCons)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 26E PER ${fmt(p.per26)}x · 상승 ${sign(p.upsideCons)}% · 시총 ${fmt(mcJo(p),1)}조</title></circle>`;
+    s+=`<text x="${sx(p.per26)}" y="${sy(p.upsideCons)-rad(p)-3}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-weight="600">${p.name}</text>`;
+  });
+  s+="</svg>";
+  box.innerHTML=s;
+  document.getElementById("scatterLegend").innerHTML =
+    SECTORS.map(k=>`<div class="li"><span class="dot" style="background:${SECTOR_COLORS[k]}"></span>${k}</div>`).join("")+
+    `<div class="li" style="margin-left:auto">버블 크기 = 시가총액 · PER 60x 초과·적자 종목 제외</div>`;
+}
+window.addEventListener("resize",()=>{
+  if(document.querySelector('section[data-view="valuation"]').classList.contains("active")) drawScatter();
+});
+
+/* ==== Calendar — month grid ====
+   LIVE.events = 네이버 IR 일정 실시간 수집 (refresh_live.py)
+   MANUAL_EVENTS = 직접 추가하는 일정 (규제/기업 이벤트 등) — 여기만 편집하면 됩니다 */
+const MANUAL_EVENTS=[
+  // {d:"2026-08-12", co:"엘앤씨바이오", t:"품목허가 심사", ty:"reg"},
+  // {d:"2026-09-05", co:"그래피",       t:"FDA 510(k) 결과", ty:"reg"},
+];
+const CAL=(function(){
+  const all=[
+    ...(typeof DART_EVENTS!=="undefined"?DART_EVENTS:[]).map(e=>({d:e.date,co:e.co,t:e.title,ty:e.type,src:"DART 공시"})),
+    ...(LIVE.events||[]).map(e=>({d:e.date,co:e.co,t:e.title,ty:e.type,src:"네이버 IR"})),
+    ...MANUAL_EVENTS.map(e=>({...e,src:"직접 입력"})),
+  ].filter(e=>e.d);
+  // 같은 날 같은 종목 중복 제거 (DART 우선)
+  const seen=new Set(), out=[];
+  all.forEach(e=>{const k=e.co+"|"+e.d; if(seen.has(k))return; seen.add(k); out.push(e);});
+  return out.sort((a,b)=>a.d.localeCompare(b.d));
+})();
+const CTYPE={earn:"ev-earn",ir:"ev-earn",reg:"ev-reg",corp:"ev-corp"};
+(function renderCalendar(){
+  const host=document.getElementById("calendar");
+  const dow=["일","월","화","수","목","금","토"];
+  const byMonth={};
+  CAL.forEach(e=>{const k=e.d.slice(0,7);(byMonth[k]=byMonth[k]||[]).push(e);});
+  let html="";
+  Object.keys(byMonth).sort().forEach(k=>{
+    const [y,m]=k.split("-").map(Number);
+    const first=new Date(y,m-1,1).getDay();
+    const days=new Date(y,m,0).getDate();
+    html+=`<div class="cal-month"><div class="cal-title">${y}년 ${m}월</div><div class="cal-scroll"><div class="cal-grid">`;
+    html+=dow.map((d,i)=>`<div class="cal-dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join("");
+    for(let i=0;i<first;i++) html+=`<div class="cal-cell empty"></div>`;
+    for(let day=1;day<=days;day++){
+      const wd=(first+day-1)%7;
+      const evs=byMonth[k].filter(e=>Number(e.d.slice(8,10))===day);
+      html+=`<div class="cal-cell ${wd===0?'sun':wd===6?'sat':''} ${evs.length?'has':''}"><div class="dnum">${day}</div>`+
+        evs.map(e=>`<div class="cal-ev ${CTYPE[e.ty]||'ev-earn'}" data-stock="${e.co}" style="cursor:pointer" title="${e.co} · ${e.t} (${e.src})">${e.co}</div>`).join("")+
+      `</div>`;
+    }
+    html+=`</div></div></div>`;
+  });
+  host.innerHTML=html;
+})();
+
+/* ==== Reports — 네이버 금융 실수집 ==== */
+const REP=(LIVE.researches||[]);
+function renderReports(filter=""){
+  const list=REP.filter(x=>!filter||x.co===filter).slice(0,80);
+  document.getElementById("reports").innerHTML = list.length? list.map(x=>{
+    const m=x.date?x.date.slice(4,6):"", d=x.date?x.date.slice(6,8):"";
+    return `<div class="item">
+      <div class="date-chip"><div class="m">${m}월</div><div class="d">${d}</div></div>
+      <div class="body">
+        <div class="t">${x.title}</div>
+        <div class="s"><span class="nm-cell clickable" data-stock="${x.co}">${x.co}</span> · ${x.broker}${x.views?` · 조회 ${fmt0(x.views)}`:""}</div>
+      </div>
+      <a class="ev-type ev-earn" href="https://m.stock.naver.com/domestic/stock/${x.code}/research" target="_blank" rel="noopener">보기</a>
+    </div>`;
+  }).join("") : `<div class="item"><div class="body"><div class="s">해당 종목의 리포트가 없습니다.</div></div></div>`;
+}
+(function(){
+  const cos=[...new Set(REP.map(x=>x.co))].sort((a,b)=>a.localeCompare(b,"ko"));
+  document.getElementById("repFilter").innerHTML =
+    `<option value="">전체 종목 (${REP.length}건)</option>`+cos.map(c=>`<option value="${c}">${c}</option>`).join("");
+  document.getElementById("repFilter").addEventListener("change",e=>renderReports(e.target.value));
+  renderReports();
+})();
+
+/* ==== Trend comparison — skinboosters (SEED) ==== */
+const TREND={"months": ["7월", "8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월"], "colors": ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"], "sources": {"naver": true, "google": true}, "groups": {"스킨부스터": {"products": ["리쥬란", "리투오", "셀르디엠"], "google": [[63, 66, 52, 74, 64, 100, 64, 76, 71, 68, 62, 49], [5, 16, 13, 22, 21, 23, 23, 26, 27, 25, 32, 26], [0, 0, 0, 0, 0, 4, 6, 1, 2, 3, 7, 4]], "naver": [[81, 75, 100, 72, 72, 71, 75, 66, 75, 68, 64, 52], [12, 15, 46, 33, 35, 42, 42, 39, 41, 44, 39, 44], [0, 0, 3, 6, 6, 6, 7, 8, 9, 10, 8, 8]]}, "K-뷰티 브랜드": {"products": ["메디큐브", "달바", "코스알엑스", "셀리맥스"], "google": [[100, 74, 76, 81, 75, 81, 72, 80, 68, 73, 70, 51], [54, 39, 37, 54, 41, 43, 44, 43, 49, 51, 45, 32], [17, 13, 14, 15, 6, 13, 15, 22, 17, 14, 16, 20], [8, 0, 9, 8, 10, 5, 9, 9, 14, 12, 11, 14]], "naver": [[65, 100, 66, 57, 63, 55, 57, 50, 50, 41, 40, 36], [21, 22, 19, 19, 22, 21, 18, 18, 17, 17, 16, 14], [5, 6, 5, 5, 6, 5, 5, 4, 5, 5, 5, 5], [6, 13, 6, 9, 7, 12, 7, 8, 6, 9, 6, 7]]}}};
+let trendSrc="naver";
+let trendGroup=Object.keys(TREND.groups)[0];
+function drawTrend(){
+  const box=document.getElementById("trendChart"); if(!box) return;
+  const G=TREND.groups[trendGroup];
+  const series=G[trendSrc], M=TREND.months, PRODUCTS=G.products;
+  const W=box.clientWidth||1000, H=360, pad={l:44,r:70,t:16,b:36};
+  const sx=i=>pad.l+i/(M.length-1)*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
+  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+  const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let g=0;g<=4;g++){const v=g*25;const y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${v}</text>`;}
+  M.forEach((m,i)=>{ if(i%1===0) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
+  series.forEach((ser,pi)=>{
+    const c=TREND.colors[pi];
+    const pts=ser.map((v,i)=>`${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
+    s+=`<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    ser.forEach((v,i)=>{ s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
+    const last=ser[ser.length-1];
+    s+=`<text x="${W-pad.r+8}" y="${sy(last)+4}" font-size="12" font-weight="700" fill="${c}">${PRODUCTS[pi]}</text>`;
+  });
+  s+="</svg>";
+  box.innerHTML=s;
+  document.getElementById("trendLegend").innerHTML=
+    PRODUCTS.map((p,i)=>{
+      const ser=series[i], mom=((ser[ser.length-1]/ser[ser.length-2]-1)*100);
+      return `<div class="li"><span class="dot" style="background:${TREND.colors[i]}"></span>${p}
+        <small>최근 ${ser[ser.length-1]} · 전월비 <span class="${cls(mom)}">${sign(mom)}%</span></small></div>`;
+    }).join("")+`<div class="li" style="margin-left:auto"><small>출처: ${trendSrc==='naver'?'네이버 데이터랩':'구글 트렌드(국내)'} · 월간 상대값 0–100 · 진행 중인 달 제외</small></div>`;
+  // table
+  makeTable(document.getElementById("trendTable"),[
+    {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
+    {key:"cur",label:"최근값",render:r=>r.cur},
+    {key:"m3",label:"3개월전",render:r=>r.m3},
+    {key:"mom",label:"전월비",render:r=>`<span class="${cls(r.mom)}">${sign(r.mom)}%</span>`},
+    {key:"q",label:"3개월 변화",render:r=>`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
+  ], PRODUCTS.map((p,i)=>{
+    const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];const q3=ser[ser.length-4];
+    return {p,color:TREND.colors[i],cur,m3:q3,mom:(cur/prev-1)*100,q:(cur/q3-1)*100};
+  }), {key:"cur",dir:-1});
+}
+document.getElementById("trendGroupSeg").innerHTML=Object.keys(TREND.groups)
+  .map((g,i)=>`<button data-grp="${g}" class="${i===0?'active':''}">${g}</button>`).join("");
+document.getElementById("trendGroupSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  trendGroup=b.dataset.grp;
+  document.querySelectorAll("#trendGroupSeg button").forEach(x=>x.classList.toggle("active",x===b));
+  drawTrend();
+});
+document.getElementById("trendSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  trendSrc=b.dataset.src;
+  document.querySelectorAll("#trendSeg button").forEach(x=>x.classList.toggle("active",x===b));
+  drawTrend();
+});
+window.addEventListener("resize",()=>{
+  if(document.querySelector('section[data-view="trends"]').classList.contains("active")) drawTrend();
+});
+
+/* ==== Alt data (SEED) ==== */
+const AMZ=[
+  [1,"메디큐브 Age-R","APR","▲ 2"],[2,"조선미녀 릴리프썬","비상장","▬"],
+  [3,"아누아 어성초 토너","비상장","▲ 5"],[4,"라운드랩 자작나무","비상장","▼ 1"],
+  [5,"메디힐 마스크팩","엘앤씨","▲ 3"],[6,"코스알엑스 스네일","코스알엑스","▼ 2"],
+];
+makeTable(document.getElementById("amzTable"),[
+  {key:"a",label:"순위",l:true,render:r=>"#"+r.a},
+  {key:"b",label:"제품",l:true,render:r=>r.b},
+  {key:"c",label:"관련",l:true,render:r=>r.c},
+  {key:"d",label:"변동",render:r=>{const u=r.d.includes("▲");const dn=r.d.includes("▼");return `<span class="${u?'up':dn?'down':'flat'}">${r.d}</span>`;}},
+], AMZ.map(x=>({a:x[0],b:x[1],c:x[2],d:x[3]})), {key:"a",dir:1});
+
+const EXP=[
+  ["라면 (HS 1902)","6월","$ 1.28억","+41%"],["화장품 (HS 3304)","6월","$ 9.7억","+18%"],
+  ["즉석식품","6월","$ 2.1억","+12%"],["미국향 화장품","6월","$ 3.4억","+34%"],
+  ["對중국 화장품","6월","$ 2.2억","-3%"],["對일본 라면","6월","$ 0.31억","+27%"],
+];
+makeTable(document.getElementById("expTable"),[
+  {key:"a",label:"품목",l:true,render:r=>r.a},
+  {key:"b",label:"기준",l:true,render:r=>r.b},
+  {key:"c",label:"금액",render:r=>r.c},
+  {key:"d",label:"YoY",render:r=>{const u=r.d.startsWith("+");return `<span class="${u?'up':'down'}">${r.d}</span>`;}},
+], EXP.map(x=>({a:x[0],b:x[1],c:x[2],d:x[3]})), {key:"a",dir:1});
+
+/* ==== Stock detail drawer ==== */
+const byName=Object.fromEntries(R.map(r=>[r.name,r]));
+const thesisByName=Object.fromEntries(DATA.sectorPicks.map(p=>[p.name,p.thesis]));
+function openStock(name){
+  const r=byName[name]; if(!r) return;
+  const f=FIN[name]||{annual:[],quarters:[]};
+  const A=f.annual;
+  const yoy=(arr,key,i)=> (i>0 && arr[i-1][key]) ? (arr[i][key]/arr[i-1][key]-1)*100 : null;
+  const opmOf=a=> (a.rev? a.op/a.rev*100 : null);
+  const th=thesisByName[name];
+  let html=`<button class="close" id="drawerClose" title="닫기">×</button>
+    <div class="dsec">${r.sector} · ${r.sub}${r.code?` · ${r.code} ${r.mkt||''}`:''}</div>
+    <div class="dnm">${name} ${ratingBadge(r.score)} ${pickPill(r)}
+      ${r.chgPct!=null?`<span class="c ${cls(r.chgPct)}" style="font-size:14px">${sign(r.chgPct,2)}%</span>`:''}</div>
+    ${th?`<div class="dthesis">${th}</div>`:''}
+    <div class="val-grid">
+      <div class="vg"><div class="l">현재가</div><div class="v">${won(r.price)}</div></div>
+      <div class="vg"><div class="l">목표가(컨센)</div><div class="v">${won(r.target)}</div></div>
+      <div class="vg"><div class="l">상승여력</div><div class="v ${cls(r.upsideCons)}">${sign(r.upsideCons)}%</div></div>
+      <div class="vg"><div class="l">시가총액</div><div class="v">${fmt(mcJo(r),1)}조</div></div>
+      <div class="vg"><div class="l">적정시총(당사)</div><div class="v">${fmt(r.fairMktcap/1000,1)}조</div></div>
+      <div class="vg"><div class="l">당사 상승여력</div><div class="v ${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</div></div>
+      <div class="vg"><div class="l">PER(현)</div><div class="v">${r.perLive>0?fmt(r.perLive)+'x':'—'}</div></div>
+      <div class="vg"><div class="l">PBR</div><div class="v">${r.pbr>0?fmt(r.pbr)+'x':'—'}</div></div>
+      <div class="vg"><div class="l">배당수익률</div><div class="v">${r.divYield>0?fmt(r.divYield)+'%':'—'}</div></div>
+      <div class="vg"><div class="l">26E PER</div><div class="v">${r.per26>0?fmt(r.per26)+'x':'—'}</div></div>
+      <div class="vg"><div class="l">27E PER</div><div class="v">${r.per27>0?fmt(r.per27)+'x':'—'}</div></div>
+      <div class="vg"><div class="l">외국인 보유</div><div class="v">${r.foreign>0?fmt(r.foreign)+'%':'—'}</div></div>
+    </div>
+    ${r.w52pos!=null?`<div class="d-h">52주 레인지</div>
+      <div class="w52" style="gap:10px">
+        <span class="lbl">${won(r.w52l)}</span>
+        <div class="bar" style="height:7px"><i style="left:${Math.max(0,Math.min(100,r.w52pos)).toFixed(0)}%;height:15px;top:-4px"></i></div>
+        <span class="lbl">${won(r.w52h)}</span>
+        <span class="lbl" style="font-weight:700;color:var(--accent)">${fmt(r.w52pos,0)}%</span>
+      </div>`:''}
+    <div class="d-h">연간 실적 추이 (십억 원)</div>
+    <table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join('')}</tr></thead><tbody>
+      <tr><td class="l">매출액</td>${A.map(a=>`<td>${fmt0(a.rev)}</td>`).join('')}</tr>
+      <tr class="sub-row"><td class="l">매출 YoY</td>${A.map((a,i)=>{const v=yoy(A,'rev',i);return `<td>${v==null?'—':`<span class="${cls(v)}">${sign(v,0)}%</span>`}</td>`;}).join('')}</tr>
+      <tr><td class="l">영업이익</td>${A.map(a=>`<td>${fmt0(a.op)}</td>`).join('')}</tr>
+      <tr class="sub-row"><td class="l">영업이익률</td>${A.map(a=>{const v=opmOf(a);return `<td>${v==null?'—':fmt(v)+'%'}</td>`;}).join('')}</tr>
+      <tr class="sub-row"><td class="l">영업익 YoY</td>${A.map((a,i)=>{const v=yoy(A,'op',i);return `<td>${v==null?'—':`<span class="${cls(v)}">${sign(v,0)}%</span>`}</td>`;}).join('')}</tr>
+      <tr><td class="l">EPS(원)</td><td>—</td><td>—</td><td>${fmt0(r.eps26)}</td><td>${fmt0(r.eps27)}</td></tr>
+      <tr class="sub-row"><td class="l">EPS 증가율</td><td>—</td><td>—</td>${['epsg26','epsg27'].map(k=>`<td><span class="${cls(r[k])}">${sign(r[k],0)}%</span></td>`).join('')}</tr>
+    </tbody></table>
+    <div class="d-h">분기 실적 추이 — 매출(막대)·OPM(선)</div><div id="qChart"></div>
+    ${(()=>{const rs=(LIVE.researches||[]).filter(x=>x.co===name).slice(0,6);
+      return rs.length?`<div class="d-h">최근 증권사 리포트</div>
+      <table class="mini-tbl"><tbody>${rs.map(x=>`<tr>
+        <td class="l">${x.date?`${x.date.slice(4,6)}/${x.date.slice(6,8)}`:''}</td>
+        <td class="l" style="white-space:normal">${x.title}</td>
+        <td class="l" style="color:var(--muted)">${x.broker}</td></tr>`).join('')}</tbody></table>`:'';})()}
+    <p class="note">2024A·2025A는 실적, 2026E·2027E는 추정(당사·컨센). 분기는 1Q24~1Q26 실적, 단위 십억 원.
+      현재가·PER·PBR·배당·52주·외국인·컨센 목표주가는 네이버 금융 실시간 수집(${LIVE.asOf}).</p>`;
+  document.getElementById("drawerInner").innerHTML=html;
+  drawQuarter(f.quarters);
+  document.getElementById("drawerClose").onclick=closeDrawer;
+  document.getElementById("drawer").classList.add("open");
+  document.getElementById("drawerOverlay").classList.add("open");
+}
+function closeDrawer(){
+  document.getElementById("drawer").classList.remove("open");
+  document.getElementById("drawerOverlay").classList.remove("open");
+}
+function drawQuarter(qs){
+  const box=document.getElementById("qChart"); if(!box||!qs.length) return;
+  const W=box.clientWidth||520, H=220, pad={l:8,r:8,t:14,b:26};
+  const maxRev=Math.max(...qs.map(q=>q.rev))||1;
+  const bw=(W-pad.l-pad.r)/qs.length*0.6;
+  const sx=i=>pad.l+(i+0.5)/qs.length*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v/maxRev)*(H-pad.t-pad.b);
+  const opms=qs.map(q=>q.rev?q.op/q.rev*100:0);
+  const maxOpm=Math.max(...opms,1)*1.25;
+  const syo=v=>H-pad.b-(v/maxOpm)*(H-pad.t-pad.b);
+  const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let g=0;g<=3;g++){const y=pad.t+(H-pad.t-pad.b)*g/3;s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;}
+  qs.forEach((q,i)=>{
+    const x=sx(i);const est=q.q.includes('E');
+    s+=`<rect x="${(x-bw/2).toFixed(1)}" y="${sy(q.rev).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H-pad.b-sy(q.rev)).toFixed(1)}" rx="2" fill="var(--accent)" opacity="${est?0.4:0.85}"><title>${q.q} 매출 ${fmt0(q.rev)} · OPM ${fmt(opms[i])}%</title></rect>`;
+    s+=`<text x="${x.toFixed(1)}" y="${H-pad.b+15}" text-anchor="middle" font-size="9.5" fill="${mut}">${q.q}</text>`;
+  });
+  const line=qs.map((q,i)=>`${sx(i).toFixed(1)},${syo(opms[i]).toFixed(1)}`).join(" ");
+  s+=`<polyline points="${line}" fill="none" stroke="var(--up)" stroke-width="2"/>`;
+  qs.forEach((q,i)=>{s+=`<circle cx="${sx(i).toFixed(1)}" cy="${syo(opms[i]).toFixed(1)}" r="2.6" fill="var(--up)"/>`;});
+  s+="</svg>";
+  box.innerHTML=s;
+}
+document.getElementById("drawerOverlay").addEventListener("click",closeDrawer);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();});
+document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");if(el)openStock(el.dataset.stock);});
+</script>
+</body>
+</html>

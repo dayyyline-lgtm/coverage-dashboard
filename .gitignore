@@ -1,0 +1,24 @@
+# 원본 모델/자료는 올리지 않음 (사내 자료)
+*.xlsx
+*.xlsm
+*.xls
+*.pdf
+*.docx
+
+# API 키 (절대 커밋 금지)
+secrets_local.py
+.env
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 에디터/도구 설정
+.claude/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini

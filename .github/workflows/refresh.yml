@@ -1,0 +1,42 @@
+name: 시세 자동 갱신
+
+on:
+  schedule:
+    # UTC 00~09시 = 한국시간 09~18시, 평일 매시 정각에 실행
+    # 24시간 내내 돌리려면 아래 줄을 "0 * * * *" 로 바꾸세요.
+    - cron: "0 0-9 * * 1-5"
+  workflow_dispatch: {}   # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@v4
+
+      - name: 파이썬 준비
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 시세·리포트·일정 재수집
+        run: python refresh_live.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- index.html; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git add index.html
+            git commit -m "시세 자동 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git push
+          fi
