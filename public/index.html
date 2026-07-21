@@ -594,7 +594,7 @@ const covCols = [
         </div>
         <div class="tbl-wrap"><table></table></div>`;
       host.appendChild(block);
-      makeTable(block.querySelector("table"), covCols, rows, {key:"rank",dir:1});
+      makeTable(block.querySelector("table"), covCols, rows, {key:"mktcapJo",dir:-1});
     });
   });
 })();
@@ -629,7 +629,7 @@ function renderValTable(){
     {key:"fairMktcap",label:"적정시총(조)",render:r=>fmt(r.fairMktcap/1000,1)},
     {key:"upsideOwn",label:"당사 상승여력",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
     {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
-  ], R, {key:"per26",dir:1});
+  ], R, {key:"mktcapJo",dir:-1});
 }
 renderValTable();
 // ⇄ 아이콘으로 지표 전환. 캡처 단계에서 가로채므로 정렬로 테이블이 다시 그려져도 계속 동작한다.
@@ -666,6 +666,7 @@ function beatTag(r){
   return '<span class="tag-inline">In-line</span>';
 }
 makeTable(document.getElementById("prevTable"),[
+  {key:"mktcapJo",label:"시총(조)",l:true,render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
   {key:"name",label:"종목",l:true,render:nmCell},
   {key:"qTitle",label:"분기",l:true,render:r=>r.qTitle?`<span class="ye">${r.qTitle}E</span>`:"—"},
   {key:"qRev",label:"컨센 매출",render:r=>fmt0(r.qRev)},
@@ -677,7 +678,7 @@ makeTable(document.getElementById("prevTable"),[
   {key:"consOp26",label:"26E 영업익(컨센)",render:r=>fmt0(r.consOp26)},
   {key:"opGap",label:"괴리",render:r=>r.opGap==null?"—":`<span class="${cls(r.opGap)}">${sign(r.opGap,1)}%</span>`},
   {key:"beat",label:"판정",render:r=>beatTag(r)},
-], R, {key:"opGap",dir:-1});
+], R, {key:"mktcapJo",dir:-1});
 
 /* ==== Scatter (SVG) ==== */
 function drawScatter(){
