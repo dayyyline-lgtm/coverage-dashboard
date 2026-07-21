@@ -39,9 +39,10 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 # 네이버(국내)는 한글, 구글(전세계)은 영문 키워드를 쓴다.
 # 국내 브랜드는 한글 검색량이 구글에선 거의 안 잡히기 때문.
 GROUPS = {
+    # 리투오 = re2o, 셀르디엠 = CellREDM (한스바이오메드 ECM 스킨부스터)
     "스킨부스터": {
         "naver":  ["리쥬란", "리투오", "셀르디엠"],
-        "google": ["Rejuran", "Rituo", "Celledem"],
+        "google": ["Rejuran", "re2o", "CellREDM"],
     },
     "K-뷰티 브랜드": {
         "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
