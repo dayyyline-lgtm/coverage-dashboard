@@ -152,6 +152,26 @@ def main():
             "market": market, "stocks": stocks, "researches": researches,
             "events": events}
 
+    # 수집 시각(asOf)만 바뀐 경우는 저장하지 않는다.
+    # -> 장 마감 후·주말·공휴일에 불필요한 커밋/배포가 쌓이는 것을 막는다.
+    old = None
+    m_old = re.search(r"const LIVE = (\{.*?\});", html, re.S)
+    if m_old:
+        try:
+            old = json.loads(m_old.group(1))
+        except json.JSONDecodeError:
+            old = None
+    if old is not None:
+        def strip(d):
+            # asOf(수집시각)와 리포트 조회수는 계속 변하므로 비교에서 제외
+            out = {k: v for k, v in d.items() if k != "asOf"}
+            out["researches"] = [{k: v for k, v in r.items() if k != "views"}
+                                 for r in d.get("researches", [])]
+            return out
+        if strip(old) == strip(live):
+            print(f"\n[SKIP] 시세·리포트·일정 변동 없음 - index.html 그대로 둠 ({live['asOf']})")
+            return
+
     new_block = "const LIVE = " + json.dumps(live, ensure_ascii=False) + ";"
     new_html, n = re.subn(r"const LIVE = \{.*?\};", new_block, html, count=1, flags=re.S)
     if not n:
