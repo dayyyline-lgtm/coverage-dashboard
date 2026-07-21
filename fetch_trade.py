@@ -23,7 +23,7 @@ except Exception:
 
 HTML_PATH = "public/index.html"
 API = "https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList"
-MONTHS = 13          # 최근 N개월 (YoY 비교 위해 13개월)
+MONTHS = 24          # 최근 N개월 (12개월씩 2회 조회, YoY 계산용)
 
 try:
     from secrets_local import DATA_GO_KR_KEY
@@ -71,37 +71,76 @@ def yymm_range(n):
     return out
 
 
-def call(hs, cnty, start, end):
-    p = {"serviceKey": DATA_GO_KR_KEY, "strtYymm": start, "endYymm": end, "hsSgn": hs}
-    if cnty:
-        p["cntyCd"] = cnty
+def call_bulk(hs_prefix, start, end):
+    """국가/세부HS 미지정으로 한 번에 받아온다 (국가 x 세부HS x 월 전체)"""
+    p = {"serviceKey": DATA_GO_KR_KEY, "strtYymm": start, "endYymm": end, "hsSgn": hs_prefix}
     url = API + "?" + urllib.parse.urlencode(p, safe="")
     raw = urllib.request.urlopen(
-        urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=30).read()
+        urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read()
     root = ET.fromstring(raw)
-    # 오류 응답 확인
-    msg = root.findtext(".//errMsg") or root.findtext(".//resultMsg") or ""
-    if msg and "정상" not in msg and "NORMAL" not in msg.upper():
-        raise RuntimeError(msg[:80])
-    rows = []
+    msg = root.findtext(".//resultMsg") or ""
+    if msg and "정상" not in msg:
+        raise RuntimeError(msg[:70])
+    out = []
     for it in root.iter("item"):
         g = lambda t: (it.findtext(t) or "").strip()
-        def num(t):
-            v = g(t).replace(",", "")
-            try: return float(v)
-            except ValueError: return None
-        rows.append({"ym": g("year"), "expDlr": num("expDlr"), "impDlr": num("impDlr"),
-                     "expWgt": num("expWgt"), "balPayments": num("balPayments")})
-    return [r for r in rows if r["ym"] and re.fullmatch(r"\d{6}", r["ym"])]
+        ym, hs, cd = g("year"), g("hsCd"), g("statCd")
+        if not re.fullmatch(r"\d{4}\.\d{2}", ym):   # '총계' 행 제외
+            continue
+        if not hs.isdigit() or not re.fullmatch(r"[A-Z]{2}", cd):
+            continue
+        v = g("expDlr").replace(",", "")
+        try: exp = float(v)
+        except ValueError: continue
+        out.append((ym.replace(".", ""), hs, cd, exp))
+    return out
+
+
+def windows(months):
+    """API가 1년 이내만 허용 -> 12개월씩 쪼갠다"""
+    return [months[i:i + 12] for i in range(0, len(months), 12)]
 
 
 def main():
     if not DATA_GO_KR_KEY:
-        print("DATA_GO_KR_KEY 가 없습니다. secrets_local.py 에 넣어주세요."); sys.exit(1)
+        print("DATA_GO_KR_KEY 가 없습니다."); sys.exit(1)
 
     months = yymm_range(MONTHS)
-    start, end = months[0], months[-1]
-    print(f"조회 기간 {start} ~ {end}")
+    prefixes = sorted({i["hs"][:4] if len(i["hs"]) > 4 else i["hs"] for i in ITEMS})
+    print(f"조회 {months[0]} ~ {months[-1]} · HS {prefixes}")
+
+    # (월, hs, 국가) -> 수출액
+    raw = {}
+    for pref in prefixes:
+        for w in windows(months):
+            try:
+                rows = call_bulk(pref, w[0], w[-1])
+                for ym, hs, cd, exp in rows:
+                    raw[(ym, hs, cd)] = raw.get((ym, hs, cd), 0) + exp
+                print(f"  HS {pref} {w[0]}~{w[-1]}: {len(rows):,}건")
+            except Exception as e:
+                print(f"  HS {pref} {w[0]}~{w[-1]} 실패: {str(e)[:60]}")
+            time.sleep(0.4)
+
+    if not raw:
+        print("\n수집 실패. index.html 은 그대로 둡니다."); sys.exit(1)
+
+    eu_codes = [c for c, _ in EUROPE]
+
+    def series(hs_spec, country):
+        out = []
+        for m in months:
+            tot = 0.0; hit = False
+            for (ym, hs, cd), v in raw.items():
+                if ym != m: continue
+                if not hs.startswith(hs_spec): continue
+                if country == "":                     pass
+                elif country == "EU9":
+                    if cd not in eu_codes: continue
+                elif cd != country:                   continue
+                tot += v; hit = True
+            out.append(round(tot, 1) if hit else None)
+        return out
 
     out = {"asOf": datetime.datetime.now(
                datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M"),
@@ -110,42 +149,26 @@ def main():
     for item in ITEMS:
         entry = {"hs": item["hs"], "label": item["label"], "note": item["note"], "byCountry": []}
         for c in COUNTRIES:
-            try:
-                rows = call(item["hs"], c["cd"], start, end)
-                by = {r["ym"]: r["expDlr"] for r in rows}
-                series = [by.get(m) for m in months]
-                entry["byCountry"].append({"code": c["cd"], "name": c["name"], "exp": series})
-                last = next((v for v in reversed(series) if v), None)
-                print(f"  {item['label']:<12} {c['name']:<4} 최근 {last if last else '-'} 천달러")
-            except Exception as e:
-                print(f"  {item['label']:<12} {c['name']:<4} 실패: {str(e)[:60]}")
-            time.sleep(0.25)
-
-        # 유럽 9개국 합계
-        eu_rows = [c for c in entry["byCountry"]
-                   if any(e["cd"] == c["code"] and e.get("eu") for e in COUNTRIES)]
-        if eu_rows:
-            total = []
-            for i in range(len(months)):
-                vals = [r["exp"][i] for r in eu_rows if r["exp"][i] is not None]
-                total.append(sum(vals) if vals else None)
-            entry["byCountry"].append({"code": "EU9", "name": "유럽 9개국", "exp": total,
-                                       "members": [n for _, n in EUROPE]})
-            last = next((v for v in reversed(total) if v), None)
-            print(f"  {item['label']:<12} 유럽9  합계 {last if last else '-'} 천달러")
+            code = "EU9" if c.get("eu") else c["cd"]
+            if c.get("eu"):
+                continue                              # 개별 유럽국은 합계로만
+            entry["byCountry"].append({"code": c["cd"], "name": c["name"],
+                                       "exp": series(item["hs"], c["cd"])})
+        entry["byCountry"].append({"code": "EU9", "name": "유럽 9개국",
+                                   "exp": series(item["hs"], "EU9"),
+                                   "members": [n for _, n in EUROPE]})
+        for c, n in EUROPE:
+            entry["byCountry"].append({"code": c, "name": n, "exp": series(item["hs"], c)})
+        last = next((v for v in reversed(entry["byCountry"][0]["exp"]) if v), None)
+        print(f"  {item['label']:<12} 전체 최근 {last/1e6 if last else 0:,.1f} 백만달러")
         out["items"].append(entry)
-
-    if not any(c.get("exp") for i in out["items"] for c in i["byCountry"]):
-        print("\n수집된 데이터가 없습니다. index.html 은 그대로 둡니다."); sys.exit(1)
 
     block = "const TRADE = " + json.dumps(out, ensure_ascii=False) + ";"
     html = open(HTML_PATH, encoding="utf-8").read()
-    if "const TRADE =" in html:
-        html = re.sub(r"const TRADE = \{.*?\};", block, html, count=1, flags=re.S)
-    else:
-        html = html.replace("/* ==== helpers ==== */", block + "\n\n/* ==== helpers ==== */", 1)
+    html = re.sub(r"const TRADE = \{.*?\};", block, html, count=1, flags=re.S)
     open(HTML_PATH, "w", encoding="utf-8").write(html)
-    print(f"\n[OK] 수출 데이터 반영 완료 ({len(out['items'])}개 품목)")
+    print(f"\n[OK] 수출 데이터 반영 - {len(out['items'])}개 품목 x "
+          f"{len(out['items'][0]['byCountry'])}개 국가")
 
 
 if __name__ == "__main__":
