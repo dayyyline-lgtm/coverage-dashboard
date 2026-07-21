@@ -300,8 +300,12 @@
       <div id="scatter"></div>
       <div class="legend" id="scatterLegend"></div>
     </div>
-    <div class="sub-h">밸류에이션 테이블</div>
+    <div class="sub-h">밸류에이션 테이블
+      <button id="w52Btn" class="theme-btn" style="margin-left:auto;font-weight:700"
+              title="클릭하면 고점대비 낙폭 → 52주 위치 → 저점대비 반등 순으로 전환">고점대비 낙폭 ▾</button>
+    </div>
     <div class="tbl-wrap"><table id="valTable"></table></div>
+    <p class="note">낙폭 = 현재가 ÷ 52주 최고가 − 1 (하락률). <b>우측 버튼을 누르면</b> 52주 위치·저점대비 반등으로 전환됩니다.</p>
   </section>
 
   <!-- 실적 프리뷰 -->
@@ -418,6 +422,8 @@ R.forEach(r=>{
   if(L.consTarget){ r.target=L.consTarget; }        // 컨센 목표주가(실시간)
   r.upsideCons=(r.target&&r.price)?(r.target/r.price-1)*100:r.upsideCons;
   r.w52pos=(L.w52h&&L.w52l&&L.price)?((L.price-L.w52l)/(L.w52h-L.w52l)*100):null;
+  r.mdd=(L.w52h&&L.price)?((L.price/L.w52h-1)*100):null;        // 52주 고점 대비 낙폭
+  r.rebound=(L.w52l&&L.price)?((L.price/L.w52l-1)*100):null;    // 52주 저점 대비 반등
 });
 const mcJo = r=> r.mktcapJo!=null?r.mktcapJo:r.mktcap/1000;
 const sign = (v,d=1)=> (v===null||v===undefined||v==="")?"—":(v>0?"+":"")+fmt(v,d);
@@ -442,7 +448,8 @@ function pill(p,star){
   const c=p==="Top"?"p-top":p==="2nd"?"p-2nd":"p-beta";
   return `<span class="pill ${c}" title="${star?'유니버스 대표픽':'섹터 픽'} — ${p}">${star?"★":""}${t}</span>`;
 }
-function pickPill(r){ return pill(universePickOf(r),true)+pill(sectorPickOf(r),false); }
+// 소섹터별 픽만 표시 (엑셀 A열의 유니버스 대표픽은 화장품에만 있어 혼동 -> 미표시)
+function pickPill(r){ return pill(sectorPickOf(r),false); }
 
 /* ==== tabs / routing ==== */
 const TABS = [
@@ -592,23 +599,43 @@ const covCols = [
 })();
 
 /* ==== Valuation table ==== */
-makeTable(document.getElementById("valTable"),[
-  {key:"name",label:"종목",l:true,render:nmCell},
-  {key:"sector",label:"섹터",l:true,render:r=>r.sector},
-  {key:"perLive",label:"PER(현)",render:r=>r.perLive>0?fmt(r.perLive)+"x":"—"},
-  {key:"cnsPer",label:"컨센 PER",render:r=>r.cnsPer>0?fmt(r.cnsPer)+"x":"—"},
-  {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
-  {key:"per27",label:"27E PER",render:r=> r.per27>0?fmt(r.per27)+"x":"—"},
-  {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
-  {key:"divYield",label:"배당%",render:r=>r.divYield>0?fmt(r.divYield)+"%":"—"},
-  {key:"foreign",label:"외국인%",render:r=>r.foreign>0?fmt(r.foreign)+"%":"—"},
-  {key:"w52pos",label:"52주 위치",render:r=> r.w52pos==null?"—":
-    `<div class="w52"><div class="bar"><i style="left:${Math.max(0,Math.min(100,r.w52pos)).toFixed(0)}%"></i></div><span class="lbl">${fmt(r.w52pos,0)}%</span></div>`},
-  {key:"mktcapJo",label:"시총(조)",render:r=>fmt(mcJo(r),1)},
-  {key:"fairMktcap",label:"적정시총(조)",render:r=>fmt(r.fairMktcap/1000,1)},
-  {key:"upsideOwn",label:"당사 상승여력",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
-  {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
-], R, {key:"per26",dir:1});
+/* 52주 컬럼: 낙폭(MDD) ↔ 52주 위치 ↔ 저점대비 반등 토글 */
+const W52_MODES=[
+  {k:"mdd",     label:"고점대비 낙폭", sort:"mdd",
+   render:r=> r.mdd==null?"—":
+     `<div class="w52"><div class="bar"><i style="left:0;width:${Math.min(100,Math.abs(r.mdd)).toFixed(0)}%;height:5px;top:0;border-radius:3px;background:var(--down);opacity:.5"></i></div>`+
+     `<span class="lbl ${cls(r.mdd)}" style="font-weight:700">${fmt(r.mdd,1)}%</span></div>`},
+  {k:"w52pos",  label:"52주 위치", sort:"w52pos",
+   render:r=> r.w52pos==null?"—":
+     `<div class="w52"><div class="bar"><i style="left:${Math.max(0,Math.min(100,r.w52pos)).toFixed(0)}%"></i></div><span class="lbl">${fmt(r.w52pos,0)}%</span></div>`},
+  {k:"rebound", label:"저점대비 반등", sort:"rebound",
+   render:r=> r.rebound==null?"—":`<span class="up" style="font-weight:700">${sign(r.rebound,0)}%</span>`},
+];
+let w52Mode=0;
+function renderValTable(){
+  const M=W52_MODES[w52Mode];
+  makeTable(document.getElementById("valTable"),[
+    {key:"name",label:"종목",l:true,render:nmCell},
+    {key:"sector",label:"섹터",l:true,render:r=>r.sector},
+    {key:"cnsPer",label:"컨센 PER",render:r=>r.cnsPer>0?fmt(r.cnsPer)+"x":"—"},
+    {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
+    {key:"per27",label:"27E PER",render:r=> r.per27>0?fmt(r.per27)+"x":"—"},
+    {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
+    {key:"divYield",label:"배당%",render:r=>r.divYield>0?fmt(r.divYield)+"%":"—"},
+    {key:"foreign",label:"외국인%",render:r=>r.foreign>0?fmt(r.foreign)+"%":"—"},
+    {key:M.sort,label:M.label,render:M.render},
+    {key:"mktcapJo",label:"시총(조)",render:r=>fmt(mcJo(r),1)},
+    {key:"fairMktcap",label:"적정시총(조)",render:r=>fmt(r.fairMktcap/1000,1)},
+    {key:"upsideOwn",label:"당사 상승여력",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
+    {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
+  ], R, {key:"per26",dir:1});
+  document.getElementById("w52Btn").textContent=`${M.label} ▾`;
+}
+renderValTable();
+document.getElementById("w52Btn").addEventListener("click",()=>{
+  w52Mode=(w52Mode+1)%W52_MODES.length;
+  renderValTable();
+});
 
 /* ==== Earnings preview / consensus compare ====
    컨센서스 실적 추정치(네이버 재무 API) vs 당사 추정(유니버스 엑셀) */
