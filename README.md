@@ -44,7 +44,7 @@ git push -u origin main
 4. 빌드 설정 — **아무것도 건드리지 말고 비워두세요**
    - Framework preset: `None`
    - Build command: (비움)
-   - Build output directory: `/`
+   - Build output directory: **`public`** ← 이것만 꼭 입력
 5. **Save and Deploy**
 
 1~2분 뒤 `https://coverage-dashboard-xxx.pages.dev` 주소가 나옵니다. **끝입니다.**
@@ -71,8 +71,12 @@ DART 키는 저장소 설정에 따로 넣어야 합니다.
 
 성공하면 이후로는 손댈 일이 없습니다.
 
-> 시세를 24시간 내내 갱신하려면 `.github/workflows/refresh.yml` 의
-> `cron: "0 0-9 * * 1-5"` 를 `cron: "0 * * * *"` 로 바꾸세요.
+> ⚠️ GitHub 자체 예약(`schedule:`)은 이 저장소에서 발동하지 않아,
+> **Cloudflare Worker의 Cron Trigger**가 대신 실행시킵니다 (`cloudflare-worker/설정방법.md`).
+> 갱신 시각을 바꾸려면 GitHub의 cron이 아니라 **Worker의 Trigger Events**를 수정하세요.
+>
+> 지금 당장 갱신하고 싶으면 아무 기기에서나 이 주소를 열면 됩니다:
+> <https://coverage-cron.dayyyline.workers.dev/?wf=refresh.yml>
 
 ---
 
@@ -171,13 +175,14 @@ GitHub Actions에서 쓰려면 저장소 Secrets에 `DART_API_KEY` 를 등록하
 
 | 파일 | 역할 |
 |---|---|
-| `index.html` | 대시보드 본체 (데이터가 안에 내장된 단일 파일) |
+| `public/index.html` | 대시보드 본체 (데이터가 안에 내장된 단일 파일) |
 | `refresh_live.py` | 시세·멀티플·리포트 수집 → `LIVE` 블록 갱신 |
 | `fetch_events.py` | DART 공시·IR 일정 → `DART_EVENTS` 블록 갱신 |
 | `rebuild_from_excel.py` | 유니버스 엑셀 → `DATA`/`FIN` 블록 재생성 |
 | `fetch_trends.py` | 네이버/구글 트렌드 → `TREND` 블록 갱신 |
 | `secrets_local.py` | API 키 (**커밋 안 됨**) |
 | `.github/workflows/` | 시세 매시간 · 이벤트 매일 자동 갱신 |
+| `cloudflare-worker/` | 갱신을 실제로 발동시키는 Cron 트리거 |
 
 ## 데이터 출처
 
