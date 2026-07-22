@@ -303,7 +303,7 @@
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 실적 요약</h2>
     <p class="sec-desc">대섹터별 정리 · <b>종목명 클릭 시 상세(연간·분기 실적, 밸류에이션) 패널</b>. 헤더 클릭 시 섹터 내 정렬. 상승=<span class="up">빨강</span>/하락=<span class="down">파랑</span>.</p>
-    <div id="covGroups"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button id="xlsxBtn" class="theme-btn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">단위 — 시가총액: 조원 · 매출/영업이익: 십억원 · EPS/주가: 원. OPM = 영업이익 ÷ 매출.</p>
   </section>
 
@@ -1132,6 +1132,109 @@ function drawQuarter(qs){
 document.getElementById("drawerOverlay").addEventListener("click",closeDrawer);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();});
 document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");if(el)openStock(el.dataset.stock);});
+
+/* ==== 엑셀(.xlsx) 내보내기 — 유니버스 시트 양식 ==== */
+(function(){
+  // --- 최소 XLSX 라이터 (압축 없이 ZIP STORE) ---
+  const enc=new TextEncoder();
+  let CRC=null;
+  function crc32(buf){
+    if(!CRC){ CRC=new Uint32Array(256);
+      for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CRC[n]=c>>>0;} }
+    let c=0xFFFFFFFF;
+    for(let i=0;i<buf.length;i++) c=CRC[(c^buf[i])&0xFF]^(c>>>8);
+    return (c^0xFFFFFFFF)>>>0;
+  }
+  function zip(files){
+    const parts=[],central=[]; let off=0;
+    const u16=v=>[v&255,(v>>8)&255], u32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>24)&255];
+    files.forEach(f=>{
+      const name=enc.encode(f.name), data=f.data, crc=crc32(data);
+      const lh=[...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),
+                ...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)];
+      parts.push(new Uint8Array(lh),name,data);
+      central.push([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),
+                    ...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),
+                    ...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]);
+      central.push(name);
+      off+=lh.length+name.length+data.length;
+    });
+    const cd=[]; central.forEach(c=>cd.push(c instanceof Uint8Array?c:new Uint8Array(c)));
+    let cdLen=0; cd.forEach(c=>cdLen+=c.length);
+    const end=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),
+      ...u16(files.length),...u16(files.length),...u32(cdLen),...u32(off),...u16(0)]);
+    return new Blob([...parts,...cd,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  const esc=v=>String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  function sheetXml(rows){
+    const col=i=>{let s="",n=i+1;while(n){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;};
+    const body=rows.map((r,ri)=>{
+      const cells=r.map((v,ci)=>{
+        if(v===null||v===undefined||v==="") return "";
+        const ref=col(ci)+(ri+1);
+        if(typeof v==="number" && isFinite(v)) return `<c r="${ref}" s="${ri<4?1:0}"><v>${v}</v></c>`;
+        return `<c r="${ref}" t="inlineStr" s="${ri<4?1:0}"><is><t>${esc(v)}</t></is></c>`;
+      }).join("");
+      return `<row r="${ri+1}">${cells}</row>`;
+    }).join("");
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${body}</sheetData></worksheet>`;
+  }
+  function buildXlsx(rows,sheetName){
+    const F=(n,str)=>({name:n,data:enc.encode(str)});
+    return zip([
+      F("[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`),
+      F("_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
+      F("xl/workbook.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${esc(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`),
+      F("xl/_rels/workbook.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
+      F("xl/styles.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEEF2FA"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs></styleSheet>`),
+      F("xl/worksheets/sheet1.xml",sheetXml(rows)),
+    ]);
+  }
+
+  // --- 유니버스 시트 양식으로 행 구성 ---
+  function buildRows(){
+    const rows=[];
+    rows.push([`소비재/호텔/게임/엔터 Universe 구성_${DATA.analyst||""}`]);
+    rows.push([`시세 기준 ${LIVE.asOf}`]);
+    rows.push([]);
+    rows.push(["","","","","점수","견적(십억원)","상승여력(%)","기간별 수익률","","",
+               "시가총액(십억원)","PER(배)","","","매출액(십억원)","","영업이익(십억원)","",
+               "순이익(십억원)","EPS(원)","","EPS 증가율(%)","","현재주가(원)","목표주가(원)","상승여력(%)"]);
+    rows.push(["대섹터","소섹터","분류","종목","","","","1W","1M","YTD","",
+               "12MF","26E","27E","26E","27E","26E","27E","26E","26E","27E","26E","27E","","컨센서스",""]);
+    const ORD={Top:0,"2nd":1,Beta:2,"":3};
+    const sorted=[...R].sort((a,b)=>
+      (a.sector||"").localeCompare(b.sector||"","ko") ||
+      (a.sub||"").localeCompare(b.sub||"","ko") ||
+      (mcJo(b)-mcJo(a)));
+    sorted.forEach(r=>{
+      rows.push([r.sector,r.sub,sectorPickOf(r)||"",r.name,
+        r.score, r.fairMktcap, r.upsideOwn,
+        r.ret1w, r.ret1m, r.retYtd,
+        mcJo(r)*1000,
+        r.per12mf, r.per26, r.per27,
+        r.rev26, r.rev27, r.op26, r.op27, r.np26,
+        r.eps26, r.eps27, r.epsg26, r.epsg27,
+        r.price, r.target, r.upsideCons]);
+    });
+    return rows;
+  }
+
+  const btn=document.getElementById("xlsxBtn");
+  if(!btn) return;
+  btn.addEventListener("click",()=>{
+    try{
+      const blob=buildXlsx(buildRows(),"Universe");
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=`커버리지_유니버스_${(LIVE.asOf||"").slice(0,10)}.xlsx`;
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+    }catch(e){ alert("엑셀 생성 실패: "+e.message); }
+  });
+})();
+
 </script>
 </body>
 </html>
