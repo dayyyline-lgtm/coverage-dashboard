@@ -1252,7 +1252,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {g:"상승 여력 (%)",  s:"", w:15.0, get:r=>r.upsideOwn, nf:"n1", fill:r=>hPct(r.upsideOwn)},
     {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
     {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
-    {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
+    {                   s:"YTD", w:7.0, get:r=>r.retYtd, nf:"n1", fill:r=>hPct(r.retYtd)},
     {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"n1", fill:r=>scale(r.mdd,-60,0)},
     {g:"반등 (%)", s:"52주 저점", w:11.5, get:r=>r.rebound, nf:"n1", fill:r=>scale(r.rebound,0,150)},
     {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
