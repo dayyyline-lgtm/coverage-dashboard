@@ -1245,10 +1245,11 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {s:"종목",   w:13.0, get:r=>r.name,   center:1},
     {g:"점수",          s:"", w:7.5,  get:r=>r.score,      nf:"n1", fill:r=>hScore(r.score)},
     {g:"견적 (십억 원)", s:"", w:13.5, get:r=>r.fairMktcap, nf:"n0"},
-    {g:"상승 여력 (%)",  s:"", w:13.5, f:(rw)=>"(J"+rw+"/O"+rw+"-1)*100", nf:"n1", heat:r=>hPct(r.upsideOwn)},
+    {g:"상승 여력 (%)",  s:"", w:13.5, get:r=>r.upsideOwn, nf:"n1", fill:r=>hPct(r.upsideOwn)},
     {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
     {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
     {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
+    {g:"낙폭 (%)", s:"52주 고점", w:10.5, get:r=>r.mdd, nf:"n1", fill:r=>scale(r.mdd,-60,0)},
     {g:"시가총액 (십억 원)", s:"", w:17.5, get:r=>mcJo(r)*1000, nf:"n0"},
     {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
     {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"n1"},
@@ -1263,7 +1264,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", fill:r=>hPct(r.epsg27)},
     {g:"현재 주가 (원)", s:"", w:14.5, get:r=>r.price,  nf:"n0"},
     {g:"목표주가 (원)",  s:"컨센서스", w:13.5, get:r=>r.target, nf:"n0"},
-    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:16.0, f:(rw)=>'IF(AB'+rw+'=0,"",(AB'+rw+'/AA'+rw+'-1)*100)', nf:"n1", heat:r=>hPct(r.upsideCons)},
+    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:16.0, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
   ];
   const N=C.length, OFF=3;                 // D열 = index 3
   const gStart=[],gEnd=[];
@@ -1300,13 +1301,16 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     // 데이터
     const sorted=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999));
     sorted.forEach((r,idx)=>{
-      const ri=5+idx, xlRow=ri+1, last=(idx===sorted.length-1);
+      const ri=5+idx, last=(idx===sorted.length-1), prev=idx>0?sorted[idx-1]:null;
+      // 대섹터 바뀌면 굵은선, 소섹터만 바뀌면 얇은선, 같으면 선 없음
+      let top;
+      if(!prev) top="medium";
+      else if(prev.sector!==r.sector) top="medium";
+      else if(prev.sub!==r.sub) top="thin";
       C.forEach((c,i)=>{
-        const bd={l:L(i),r:Rr(i),t:"thin"};
+        const bd={l:L(i),r:Rr(i),t:top};
         if(last) bd.bo="medium";
-        const fillC = c.f ? (c.heat?c.heat(r):null) : (c.fill?c.fill(r):null);
-        const st=ST({nf:c.nf,fill:fillC,center:!!c.center,bd:bd});
-        if(c.f){ put(ri,OFF+i,{f:c.f(xlRow), s:st}); return; }
+        const st=ST({nf:c.nf,fill:(c.fill?c.fill(r):null),center:!!c.center,bd:bd});
         let v=c.get(r,idx);
         if(v===null||v===undefined||(typeof v==="number"&&!isFinite(v))) v="";
         put(ri,OFF+i,{v:v, s:st});
