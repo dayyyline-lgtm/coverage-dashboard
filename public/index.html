@@ -1208,9 +1208,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   function ST(o){
     o=o||{};
     const b=o.bd||{};
-    const key=[o.nf||"g",o.fill||"",b.l||"",b.r||"",b.t||"",b.bo||"",o.bold?1:0,o.center?1:0,o.wrap?1:0,o.white?1:0].join("|");
+    const key=[o.nf||"g",o.fill||"",b.l||"",b.r||"",b.t||"",b.bo||"",o.bold?1:0,o.center?1:0,o.wrap?1:0,o.white?1:0,o.left?1:0].join("|");
     if(xfIdx[key]!==undefined) return xfIdx[key];
-    const al=(o.center||o.wrap)?'<alignment'+(o.center?' horizontal="center" vertical="center"':'')+(o.wrap?' wrapText="1"':'')+'/>':'';
+    const al=(o.center||o.wrap||o.left)?'<alignment'+(o.left?' horizontal="left" vertical="center"':(o.center?' horizontal="center" vertical="center"':''))+(o.wrap?' wrapText="1"':'')+'/>':'';
     xfs.push('<xf numFmtId="'+NF[o.nf||"g"]+'" fontId="'+(o.white?2:(o.bold?1:0))+'" fillId="'+FILL(o.fill)+'" borderId="'+BORDER(b)+'" xfId="0"'
       +' applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"'+(al?' applyAlignment="1"':'')+'>'+al+'</xf>');
     return (xfIdx[key]=xfs.length-1);
@@ -1222,7 +1222,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
     +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
-    +'<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
+    +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
     +'<fills count="'+fills.length+'">'+fills.join("")+'</fills>'
     +'<borders count="'+borders.length+'">'+borders.join("")+'</borders>'
     +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
@@ -1282,9 +1282,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     put(1,OFF,{f:"TODAY()", s:ST({nf:"dt",center:1})});
     merges.push(cn(OFF)+"2:"+cn(OFF+2)+"2");
     // 3행 제목 밴드 (표 전체 폭)
-    for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,white:1,center:1})});
+    for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,white:1,left:1})});
     put(2,OFF,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||""),
-               s:ST({fill:TITLE_BG,white:1,center:1})});
+               s:ST({fill:TITLE_BG,white:1,left:1})});
     merges.push(cn(OFF)+"3:"+cn(OFF+N-1)+"3");
     // 4행 그룹헤더 / 5행 소제목
     for(let i=0;i<N;i++){
@@ -1321,16 +1321,34 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   }
 
   /* EPS 증가율 데이터 막대 (0~200% 기준, 200%에서 꽉 참) */
+  let barExt=[];
   function cfBars(totalRows){
     const last=totalRows; if(last<6) return "";
-    let out="";
+    let out=""; barExt=[];
     C.forEach((c,i)=>{
       if(!c.bar) return;
       const L=cn(OFF+i);
+      const gid="{2E5B4C1"+(i%10)+"-9F3A-4D2E-B7A1-5C8E4F"+(700+i)+"}";
+      barExt.push('<x14:conditionalFormatting xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main">'
+        +'<x14:cfRule type="dataBar" id="'+gid+'">'
+        +'<x14:dataBar minLength="0" maxLength="100" gradient="0" border="1" direction="leftToRight" '
+        +'negativeBarColorSameAsPositive="0" negativeBarBorderColorSameAsPositive="0" axisPosition="automatic">'
+        +'<x14:cfvo type="num"><xm:f>0</xm:f></x14:cfvo>'
+        +'<x14:cfvo type="num"><xm:f>200</xm:f></x14:cfvo>'
+        +'<x14:borderColor rgb="FF5B8FD4"/>'
+        +'<x14:negativeFillColor rgb="FFF4B8B8"/>'
+        +'<x14:negativeBorderColor rgb="FFD46A6A"/>'
+        +'<x14:axisColor rgb="FFD0D0D0"/>'
+        +'</x14:dataBar></x14:cfRule>'
+        +'<xm:sqref>'+L+'6:'+L+last+'</xm:sqref></x14:conditionalFormatting>');
       out+='<conditionalFormatting sqref="'+L+'6:'+L+last+'">'
          +'<cfRule type="dataBar" priority="'+(i+1)+'">'
          +'<dataBar showValue="1"><cfvo type="num" val="0"/><cfvo type="num" val="200"/>'
-         +'<color rgb="FF638EC6"/></dataBar></cfRule></conditionalFormatting>';
+         +'<color rgb="FFAFC9E8"/></dataBar>'
+         +'<extLst><ext uri="{B025F937-C7B1-47D3-B67F-A62EFF666E3E}" '
+         +'xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main">'
+         +'<x14:id>'+gid+'</x14:id></ext></extLst>'
+         +'</cfRule></conditionalFormatting>';
     });
     return out;
   }
@@ -1348,7 +1366,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
         if(typeof v==="number"&&isFinite(v)) return '<c r="'+ref+'" s="'+st+'"><v>'+v+'</v></c>';
         return '<c r="'+ref+'" t="inlineStr" s="'+st+'"><is><t>'+esc(v)+'</t></is></c>';
       }).join("");
-      const h=(ri===2)?' ht="24" customHeight="1"':(ri===3)?' ht="30" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
+      const h=(ri>=2&&ri<=4)?' ht="18.75" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
       return cells?'<row r="'+(ri+1)+'"'+h+'>'+cells+'</row>':"";
     }).join("");
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -1358,6 +1376,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
       +'<sheetFormatPr defaultRowHeight="16.5"/><cols>'+cols+'</cols><sheetData>'+body+'</sheetData>'
       +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(m=>'<mergeCell ref="'+m+'"/>').join("")+'</mergeCells>':"")
       +cfBars(rows.length)
+      +(barExt.length?'<extLst><ext uri="{78C0D931-6437-407d-A8EE-F0AAD7539E65}" '
+        +'xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main">'
+        +'<x14:conditionalFormattings>'+barExt.join("")+'</x14:conditionalFormattings></ext></extLst>':"")
       +'</worksheet>';
   }
 
