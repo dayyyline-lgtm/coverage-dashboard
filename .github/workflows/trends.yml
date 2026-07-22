@@ -47,5 +47,6 @@ jobs:
           else
             git add public/index.html
             git commit -m "트렌드 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git pull --rebase
             git push
           fi
