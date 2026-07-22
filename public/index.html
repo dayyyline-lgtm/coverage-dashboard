@@ -1184,7 +1184,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   const SEC_FILL={"소비재":"FF83CCEB","엔터":"FFF2CEEF","게임":"FFDAF2D0","호텔":"FFD0D0D0"};
   const RED =["FFFDF4F3","FFFCEEED","FFF9E1DF","FFF6C6C7","FFEE9D9E"];
   const BLUE=["FFF3F8FB","FFE7F0F6","FFDCE9F2","FFD0E1EE","FFBBD5E8"];
-  const TITLE_BG="FFC9C9C9", HDR1="FFDEDEDE", HDR2="FFF4F4F4", LINE="FF808080", LINE2="FF404040";
+  const TITLE_BG="FF1F4E79", HDR1="FFDEDEDE", HDR2="FFF4F4F4", LINE="FF808080", LINE2="FF404040";
 
   /* ---------- 스타일 레지스트리 ---------- */
   const fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'];
@@ -1207,10 +1207,10 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   function ST(o){
     o=o||{};
     const b=o.bd||{};
-    const key=[o.nf||"g",o.fill||"",b.l||"",b.r||"",b.t||"",b.bo||"",o.bold?1:0,o.center?1:0,o.wrap?1:0].join("|");
+    const key=[o.nf||"g",o.fill||"",b.l||"",b.r||"",b.t||"",b.bo||"",o.bold?1:0,o.center?1:0,o.wrap?1:0,o.white?1:0].join("|");
     if(xfIdx[key]!==undefined) return xfIdx[key];
     const al=(o.center||o.wrap)?'<alignment'+(o.center?' horizontal="center" vertical="center"':'')+(o.wrap?' wrapText="1"':'')+'/>':'';
-    xfs.push('<xf numFmtId="'+NF[o.nf||"g"]+'" fontId="'+(o.bold?1:0)+'" fillId="'+FILL(o.fill)+'" borderId="'+BORDER(b)+'" xfId="0"'
+    xfs.push('<xf numFmtId="'+NF[o.nf||"g"]+'" fontId="'+(o.white?2:(o.bold?1:0))+'" fillId="'+FILL(o.fill)+'" borderId="'+BORDER(b)+'" xfId="0"'
       +' applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"'+(al?' applyAlignment="1"':'')+'>'+al+'</xf>');
     return (xfIdx[key]=xfs.length-1);
   }
@@ -1219,8 +1219,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   const styleXml=()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
-    +'<fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font>'
-    +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts>'
+    +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
+    +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
+    +'<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
     +'<fills count="'+fills.length+'">'+fills.join("")+'</fills>'
     +'<borders count="'+borders.length+'">'+borders.join("")+'</borders>'
     +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
@@ -1242,13 +1243,13 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {s:"대섹터", w:9.0,  get:r=>r.sector, fill:r=>SEC_FILL[r.sector], center:1},
     {s:"소섹터", w:7.5,  get:r=>r.sub,    center:1},
     {s:"종목",   w:13.0, get:r=>r.name,   center:1},
-    {g:"점수",          s:"", w:6.4,  get:r=>r.score,      nf:"n1", fill:r=>hScore(r.score)},
-    {g:"견적 (십억 원)", s:"", w:11.5, get:r=>r.fairMktcap, nf:"n0"},
-    {g:"상승 여력 (%)",  s:"", w:11.5, f:(rw)=>"(J"+rw+"/O"+rw+"-1)*100", nf:"n1", heat:r=>hPct(r.upsideOwn)},
+    {g:"점수",          s:"", w:7.5,  get:r=>r.score,      nf:"n1", fill:r=>hScore(r.score)},
+    {g:"견적 (십억 원)", s:"", w:13.5, get:r=>r.fairMktcap, nf:"n0"},
+    {g:"상승 여력 (%)",  s:"", w:13.5, f:(rw)=>"(J"+rw+"/O"+rw+"-1)*100", nf:"n1", heat:r=>hPct(r.upsideOwn)},
     {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
     {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
     {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
-    {g:"시가총액 (십억 원)", s:"", w:12.5, get:r=>mcJo(r)*1000, nf:"n0"},
+    {g:"시가총액 (십억 원)", s:"", w:17.5, get:r=>mcJo(r)*1000, nf:"n0"},
     {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
     {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"n1"},
     {              s:"27E",  w:7.2, get:r=>r.per27,   nf:"n1"},
@@ -1260,9 +1261,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
     {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", fill:r=>hPct(r.epsg26)},
     {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", fill:r=>hPct(r.epsg27)},
-    {g:"현재 주가 (원)", s:"", w:13.0, get:r=>r.price,  nf:"n0"},
-    {g:"목표주가 (원)",  s:"컨센서스", w:12.5, get:r=>r.target, nf:"n0"},
-    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:13.0, f:(rw)=>'IF(AB'+rw+'=0,"",(AB'+rw+'/AA'+rw+'-1)*100)', nf:"n1", heat:r=>hPct(r.upsideCons)},
+    {g:"현재 주가 (원)", s:"", w:14.5, get:r=>r.price,  nf:"n0"},
+    {g:"목표주가 (원)",  s:"컨센서스", w:13.5, get:r=>r.target, nf:"n0"},
+    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:16.0, f:(rw)=>'IF(AB'+rw+'=0,"",(AB'+rw+'/AA'+rw+'-1)*100)', nf:"n1", heat:r=>hPct(r.upsideCons)},
   ];
   const N=C.length, OFF=3;                 // D열 = index 3
   const gStart=[],gEnd=[];
@@ -1279,9 +1280,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     put(1,OFF,{f:"TODAY()", s:ST({nf:"dt",center:1})});
     merges.push(cn(OFF)+"2:"+cn(OFF+2)+"2");
     // 3행 제목 밴드 (표 전체 폭)
-    for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,bold:1,center:1})});
+    for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,white:1,center:1})});
     put(2,OFF,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||""),
-               s:ST({fill:TITLE_BG,bold:1,center:1})});
+               s:ST({fill:TITLE_BG,white:1,center:1})});
     merges.push(cn(OFF)+"3:"+cn(OFF+N-1)+"3");
     // 4행 그룹헤더 / 5행 소제목
     for(let i=0;i<N;i++){
@@ -1327,7 +1328,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
         if(typeof v==="number"&&isFinite(v)) return '<c r="'+ref+'" s="'+st+'"><v>'+v+'</v></c>';
         return '<c r="'+ref+'" t="inlineStr" s="'+st+'"><is><t>'+esc(v)+'</t></is></c>';
       }).join("");
-      const h=(ri===3)?' ht="30" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
+      const h=(ri===2)?' ht="24" customHeight="1"':(ri===3)?' ht="30" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
       return cells?'<row r="'+(ri+1)+'"'+h+'>'+cells+'</row>':"";
     }).join("");
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
