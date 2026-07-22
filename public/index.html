@@ -1203,7 +1203,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     borders.push('<border>'+e("left",b.l)+e("right",b.r)+e("top",b.t)+e("bottom",b.bo)+'<diagonal/></border>');
     return (bIdx[key]=borders.length-1);
   }
-  const NF={g:0,n1:164,n0:3,nd:165,dt:14};
+  const NF={g:0,n1:164,n0:3,nd:165,dt:166};
   const xfs=[],xfIdx={};
   function ST(o){
     o=o||{};
@@ -1219,7 +1219,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
   const styleXml=()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
+    +'<numFmts count="3"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/></numFmts>'
     +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
@@ -1245,27 +1245,27 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {s:"소섹터", w:7.5,  get:r=>r.sub,    center:1},
     {s:"종목",   w:13.0, get:r=>r.name,   center:1},
     {g:"점수",          s:"", w:7.5,  get:r=>r.score,      nf:"n1", fill:r=>hScore(r.score)},
-    {g:"시가총액 (십억 원)", s:"", w:17.5, get:r=>mcJo(r)*1000, nf:"n0"},
-    {g:"견적 (십억 원)", s:"", w:13.5, get:r=>r.fairMktcap, nf:"n0"},
-    {g:"상승 여력 (%)",  s:"", w:13.5, get:r=>r.upsideOwn, nf:"n1", fill:r=>hPct(r.upsideOwn)},
+    {g:"시가총액 (십억 원)", s:"", w:21.0, get:r=>mcJo(r)*1000, nf:"n0"},
+    {g:"견적 (십억 원)", s:"", w:17.0, get:r=>r.fairMktcap, nf:"n0"},
+    {g:"상승 여력 (%)",  s:"", w:15.0, get:r=>r.upsideOwn, nf:"n1", fill:r=>hPct(r.upsideOwn)},
     {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
     {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
     {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
-    {g:"낙폭 (%)", s:"52주 고점", w:10.5, get:r=>r.mdd, nf:"n1", fill:r=>scale(r.mdd,-60,0)},
+    {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"n1", fill:r=>scale(r.mdd,-60,0)},
     {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
     {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"n1"},
     {              s:"27E",  w:7.2, get:r=>r.per27,   nf:"n1"},
     {g:"매출액 (십억 원)", s:"26E", w:9.8, get:r=>r.rev26, nf:"nd"},
     {                      s:"27E", w:9.8, get:r=>r.rev27, nf:"nd"},
-    {g:"영업이익 (십억 원)", s:"26E", w:9.2, get:r=>r.op26, nf:"nd"},
-    {                        s:"27E", w:9.2, get:r=>r.op27, nf:"nd"},
+    {g:"영업이익 (십억 원)", s:"26E", w:10.6, get:r=>r.op26, nf:"nd"},
+    {                        s:"27E", w:10.6, get:r=>r.op27, nf:"nd"},
     {g:"EPS (원)", s:"26E", w:9.0, get:r=>r.eps26, nf:"n0"},
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
     {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", bar:1},
     {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", bar:1},
-    {g:"현재 주가 (원)", s:"", w:14.5, get:r=>r.price,  nf:"n0"},
-    {g:"목표주가 (원)",  s:"컨센서스", w:13.5, get:r=>r.target, nf:"n0"},
-    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:16.0, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
+    {g:"현재 주가 (원)", s:"", w:17.0, get:r=>r.price,  nf:"n0"},
+    {g:"목표주가 (원)",  s:"컨센서스", w:16.5, get:r=>r.target, nf:"n0"},
+    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:19.5, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
   ];
   const N=C.length, OFF=3;                 // D열 = index 3
   const gStart=[],gEnd=[];
@@ -1278,9 +1278,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     const put=(r,c,v)=>{ (rows[r]=rows[r]||[])[c]=v; };
     const L=i=>gStart[i]?"medium":undefined, Rr=i=>gEnd[i]?"medium":undefined;
     // 2행 날짜 (3칸 병합해 ### 방지)
-    for(let i=0;i<3;i++) put(1,OFF+i,{v:"", s:ST({nf:"dt",center:1})});
-    put(1,OFF,{f:"TODAY()", s:ST({nf:"dt",center:1})});
-    merges.push(cn(OFF)+"2:"+cn(OFF+2)+"2");
+    for(let i=0;i<5;i++) put(1,OFF+i,{v:"", s:ST({nf:"dt",left:1})});
+    put(1,OFF,{f:"TODAY()", s:ST({nf:"dt",left:1})});
+    merges.push(cn(OFF)+"2:"+cn(OFF+4)+"2");
     // 3행 제목 밴드 (표 전체 폭)
     for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,white:1,left:1})});
     put(2,OFF,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||""),
@@ -1290,9 +1290,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     for(let i=0;i<N;i++){
       // 4행: 짙은 음영(그룹) / 5행: 밝은 음영(소제목) — 두 행은 항상 분리
       put(3,OFF+i,{v:(C[i].g!==undefined?C[i].g:""),
-        s:ST({fill:HDR1,bold:1,center:1,wrap:1,bd:{l:L(i),r:Rr(i),t:"medium",bo:"thin"}})});
+        s:ST({fill:HDR1,bold:1,center:1,bd:{l:L(i),r:Rr(i),t:"medium",bo:"thin"}})});
       put(4,OFF+i,{v:(C[i].s||""),
-        s:ST({fill:HDR2,bold:1,center:1,wrap:1,bd:{l:L(i),r:Rr(i),bo:"double"}})});
+        s:ST({fill:HDR2,bold:1,center:1,bd:{l:L(i),r:Rr(i),bo:"double"}})});
     }
     for(let i=0;i<N;i++){
       if(!gStart[i]) continue;
@@ -1328,7 +1328,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     C.forEach((c,i)=>{
       if(!c.bar) return;
       const L=cn(OFF+i);
-      const gid="{2E5B4C1"+(i%10)+"-9F3A-4D2E-B7A1-5C8E4F"+(700+i)+"}";
+      const gid="{DB0E1C"+String(i).padStart(2,"0")+"-1111-4222-8333-"+String(i).padStart(12,"0")+"}";
       barExt.push('<x14:conditionalFormatting xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main">'
         +'<x14:cfRule type="dataBar" id="'+gid+'">'
         +'<x14:dataBar minLength="0" maxLength="100" gradient="0" border="1" direction="leftToRight" '
