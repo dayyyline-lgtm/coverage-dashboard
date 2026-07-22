@@ -1245,6 +1245,13 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   }
   const hPct=v=>scale(v,-40,40), hScore=v=>scale(v,5,8);
 
+  /* ---------- 데이터 막대 설정 ----------
+     min~max 구간이 막대 0~100% 길이. 값이 음수인 열은 축이 오른쪽에 서고
+     막대가 왼쪽으로 자라므로 neg 계열 색을 같이 지정한다. */
+  const BAR_EPS ={min:0,   max:200, fill:"FFAFC9E8", line:"FF5B8FD4", neg:"FFF4B8B8", negLine:"FFD46A6A"};  // 0~200%
+  const BAR_DOWN={min:-60, max:0,   fill:"FFB9CFEA", line:"FF4A7EBB", neg:"FFB9CFEA", negLine:"FF4A7EBB"};  // 낙폭 : 파란 막대
+  const BAR_UP  ={min:0,   max:150, fill:"FFF3B9B9", line:"FFC0504D", neg:"FFF3B9B9", negLine:"FFC0504D"};  // 반등 : 빨간 막대
+
   /* ---------- 컬럼 (D열부터) ---------- */
   const FULL={Top:"Top pick","2nd":"2nd pick",Beta:"Beta pick"};
   const C=[
@@ -1260,8 +1267,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
     {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
     {                   s:"YTD", w:7.0, get:r=>r.retYtd, nf:"n1", fill:r=>hPct(r.retYtd)},
-    {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"n1", fill:r=>scale(r.mdd,-60,0)},
-    {g:"반등 (%)", s:"52주 저점", w:11.5, get:r=>r.rebound, nf:"n1", fill:r=>scale(r.rebound,0,150)},
+    {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"n1", bar:BAR_DOWN},
+    {g:"반등 (%)", s:"52주 저점", w:11.5, get:r=>r.rebound, nf:"n1", bar:BAR_UP},
     {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
     {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"n1"},
     {              s:"27E",  w:7.2, get:r=>r.per27,   nf:"n1"},
@@ -1273,8 +1280,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {                      s:"27E", w:10.6, get:r=>r.np27, nf:"nd"},
     {g:"EPS (원)", s:"26E", w:9.0, get:r=>r.eps26, nf:"n0"},
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
-    {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", bar:1},
-    {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", bar:1},
+    {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", bar:BAR_EPS},
+    {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", bar:BAR_EPS},
     {g:"현재 주가 (원)", s:"", w:17.0, get:r=>r.price,  nf:"n0"},
     {g:"목표주가 (원)",  s:"컨센서스", w:16.5, get:r=>r.target, nf:"n0"},
     {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:19.5, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
@@ -1355,31 +1362,32 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     return {rows,merges};
   }
 
-  /* EPS 증가율 데이터 막대 (0~200% 기준, 200%에서 꽉 참) */
+  /* 데이터 막대 (EPS 증가율 · 낙폭 · 반등) */
   let barExt=[];
   function cfBars(totalRows){
     const last=totalRows; if(last<6) return "";
     let out=""; barExt=[];
     C.forEach((c,i)=>{
-      if(!c.bar) return;
+      const b=c.bar; if(!b) return;
       const L=cn(OFF+i);
       const gid="{DB0E1C"+String(i).padStart(2,"0")+"-1111-4222-8333-"+String(i).padStart(12,"0")+"}";
       barExt.push('<x14:conditionalFormatting xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main">'
         +'<x14:cfRule type="dataBar" id="'+gid+'">'
         +'<x14:dataBar minLength="0" maxLength="100" gradient="0" border="1" direction="leftToRight" '
         +'negativeBarColorSameAsPositive="0" negativeBarBorderColorSameAsPositive="0" axisPosition="automatic">'
-        +'<x14:cfvo type="num"><xm:f>0</xm:f></x14:cfvo>'
-        +'<x14:cfvo type="num"><xm:f>200</xm:f></x14:cfvo>'
-        +'<x14:borderColor rgb="FF5B8FD4"/>'
-        +'<x14:negativeFillColor rgb="FFF4B8B8"/>'
-        +'<x14:negativeBorderColor rgb="FFD46A6A"/>'
+        +'<x14:cfvo type="num"><xm:f>'+b.min+'</xm:f></x14:cfvo>'
+        +'<x14:cfvo type="num"><xm:f>'+b.max+'</xm:f></x14:cfvo>'
+        +'<x14:fillColor rgb="'+b.fill+'"/>'
+        +'<x14:borderColor rgb="'+b.line+'"/>'
+        +'<x14:negativeFillColor rgb="'+b.neg+'"/>'
+        +'<x14:negativeBorderColor rgb="'+b.negLine+'"/>'
         +'<x14:axisColor rgb="FFD0D0D0"/>'
         +'</x14:dataBar></x14:cfRule>'
         +'<xm:sqref>'+L+'6:'+L+last+'</xm:sqref></x14:conditionalFormatting>');
       out+='<conditionalFormatting sqref="'+L+'6:'+L+last+'">'
          +'<cfRule type="dataBar" priority="'+(i+1)+'">'
-         +'<dataBar showValue="1"><cfvo type="num" val="0"/><cfvo type="num" val="200"/>'
-         +'<color rgb="FFAFC9E8"/></dataBar>'
+         +'<dataBar showValue="1"><cfvo type="num" val="'+b.min+'"/><cfvo type="num" val="'+b.max+'"/>'
+         +'<color rgb="'+b.fill+'"/></dataBar>'
          +'<extLst><ext uri="{B025F937-C7B1-47D3-B67F-A62EFF666E3E}" '
          +'xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main">'
          +'<x14:id>'+gid+'</x14:id></ext></extLst>'
