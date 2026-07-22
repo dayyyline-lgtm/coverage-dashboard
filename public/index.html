@@ -1273,10 +1273,32 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     if(C[i].g!==undefined){ while(j+1<N && !("g" in C[j+1])) j++; }
     for(let k=i;k<=j;k++){gStart[k]=(k===i);gEnd[k]=(k===j);} i=j+1;}}
 
+  /* 내용 길이에 맞춘 열 너비 계산 (한글 2, 그 외 1) */
+  let AUTOW=null;
+  const wlen=t=>[...String(t==null?"":t)].reduce((a,ch)=>a+(/[ᄀ-ᇿ㄰-㆏가-힣]/.test(ch)?2:1),0);
+  function fmtLen(v,nf){
+    if(v===null||v===undefined||v==="") return 0;
+    if(typeof v!=="number") return wlen(v);
+    if(nf==="n0") return Math.round(v).toLocaleString("en-US").length;
+    if(nf==="nd") return Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1}).length+(v<0?1:0);
+    if(nf==="n1") return v.toFixed(1).length;
+    return wlen(v);
+  }
+  function calcWidths(sorted){
+    AUTOW=C.map((c,i)=>{
+      if(c.g==="점수") return c.w;                    // 점수는 기존 폭 유지
+      let need=wlen(c.s||"");
+      if(c.g!==undefined && gStart[i] && gEnd[i]) need=Math.max(need,wlen(c.g));  // 단독 그룹은 제목도 수용
+      sorted.forEach((r,idx)=>{ need=Math.max(need,fmtLen(c.get(r,idx),c.nf)); });
+      return Math.max(6, Math.min(24, need+3));
+    });
+  }
+
   function build(){
     const rows=[],merges=[];
     const put=(r,c,v)=>{ (rows[r]=rows[r]||[])[c]=v; };
     const L=i=>gStart[i]?"medium":undefined, Rr=i=>gEnd[i]?"medium":undefined;
+    const Li=i=>gStart[i]?"medium":"thin";   // 내부 구분선(5행·데이터행)
     // 2행 날짜 (3칸 병합해 ### 방지)
     for(let i=0;i<5;i++) put(1,OFF+i,{v:"", s:ST({nf:"dt",left:1})});
     put(1,OFF,{f:"TODAY()", s:ST({nf:"dt",left:1})});
@@ -1292,7 +1314,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
       put(3,OFF+i,{v:(C[i].g!==undefined?C[i].g:""),
         s:ST({fill:HDR1,bold:1,center:1,bd:{l:L(i),r:Rr(i),t:"medium",bo:"thin"}})});
       put(4,OFF+i,{v:(C[i].s||""),
-        s:ST({fill:HDR2,bold:1,center:1,bd:{l:L(i),r:Rr(i),bo:"double"}})});
+        s:ST({fill:HDR2,bold:1,center:1,bd:{l:Li(i),r:Rr(i),bo:"double"}})});
     }
     for(let i=0;i<N;i++){
       if(!gStart[i]) continue;
@@ -1301,6 +1323,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     }
     // 데이터
     const sorted=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999));
+    calcWidths(sorted);
     sorted.forEach((r,idx)=>{
       const ri=5+idx, last=(idx===sorted.length-1), prev=idx>0?sorted[idx-1]:null;
       // 대섹터 바뀌면 굵은선, 소섹터만 바뀌면 얇은선, 같으면 선 없음
@@ -1309,9 +1332,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
       else if(prev.sector!==r.sector) top="medium";
       else if(prev.sub!==r.sub) top="thin";
       C.forEach((c,i)=>{
-        const bd={l:L(i),r:Rr(i),t:top};
+        const bd={l:Li(i),r:Rr(i),t:top};
         if(last) bd.bo="medium";
-        const st=ST({nf:c.nf,fill:(c.fill?c.fill(r):null),center:!!c.center,bd:bd});
+        const st=ST({nf:c.nf,fill:(c.fill?c.fill(r):null),center:1,bd:bd});
         let v=c.get(r,idx);
         if(v===null||v===undefined||(typeof v==="number"&&!isFinite(v))) v="";
         put(ri,OFF+i,{v:v, s:st});
@@ -1355,7 +1378,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
   function sheetXml(rows,merges){
     const cols='<col min="1" max="3" width="2.5" customWidth="1"/>'
-      +C.map((c,i)=>'<col min="'+(OFF+i+1)+'" max="'+(OFF+i+1)+'" width="'+c.w+'" customWidth="1"/>').join("");
+      +C.map((c,i)=>'<col min="'+(OFF+i+1)+'" max="'+(OFF+i+1)+'" width="'+((AUTOW&&AUTOW[i])||c.w)+'" customWidth="1"/>').join("");
     const body=rows.map((r,ri)=>{
       const cells=(r||[]).map((cell,ci)=>{
         if(cell===null||cell===undefined) return "";
