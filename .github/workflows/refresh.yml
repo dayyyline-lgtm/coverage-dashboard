@@ -33,6 +33,9 @@ jobs:
       - name: 시세·리포트·일정 재수집
         run: python refresh_live.py
 
+      - name: 종목 뉴스 재수집
+        run: python fetch_news.py || echo "뉴스 수집 건너뜀(네이버 응답 이상)"
+
       - name: 변경분 커밋
         run: |
           git config user.name  "github-actions[bot]"

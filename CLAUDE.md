@@ -16,6 +16,7 @@
 | `FIN` | 연간·분기 실적 | `rebuild_from_excel.py` |
 | `LIVE` | 시세·컨센·리포트·섹터지수·환율 | `refresh_live.py` |
 | `DART_EVENTS` | 공시·IR 일정 | `fetch_events.py` |
+| `NEWS` | 종목별 뉴스 | `fetch_news.py` |
 | `TREND` | 네이버·구글 검색 트렌드 | `fetch_trends.py` |
 | `TRADE` / `TRADE_PRELIM` | 화장품 수출입 | `fetch_trade.py` |
 

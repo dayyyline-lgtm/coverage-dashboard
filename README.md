@@ -178,6 +178,7 @@ GitHub Actions에서 쓰려면 저장소 Secrets에 `DART_API_KEY` 를 등록하
 | `public/index.html` | 대시보드 본체 (데이터가 안에 내장된 단일 파일) |
 | `refresh_live.py` | 시세·멀티플·리포트 수집 → `LIVE` 블록 갱신 |
 | `fetch_events.py` | DART 공시·IR 일정 → `DART_EVENTS` 블록 갱신 |
+| `fetch_news.py` | 종목별 뉴스 → `NEWS` 블록 갱신 (네이버 금융, 키 불필요) |
 | `rebuild_from_excel.py` | 유니버스 엑셀 → `DATA`/`FIN` 블록 재생성 |
 | `fetch_trends.py` | 네이버/구글 트렌드 → `TREND` 블록 갱신 |
 | `secrets_local.py` | API 키 (**커밋 안 됨**) |
