@@ -1151,7 +1151,7 @@ document.getElementById("drawerOverlay").addEventListener("click",closeDrawer);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();});
 document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");if(el)openStock(el.dataset.stock);});
 
-/* ==== 엑셀(.xlsx) 내보내기 — 원본 Universe 시트 양식 정밀 재현 ==== */
+/* ==== 엑셀(.xlsx) 내보내기 — Universe 시트 양식 (D열 시작 / 상승여력 수식) ==== */
 (function(){
   const enc=new TextEncoder();
   let CRC=null;
@@ -1180,189 +1180,168 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   const esc=v=>String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const cn=i=>{let s="",n=i+1;while(n){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;};
 
-  /* ---------- 팔레트 (원본에서 추출) ---------- */
+  /* ---------- 색 ---------- */
   const SEC_FILL={"소비재":"FF83CCEB","엔터":"FFF2CEEF","게임":"FFDAF2D0","호텔":"FFD0D0D0"};
-  const RED =["FFFDF4F3","FFFCEEED","FFF9E1DF","FFF6C6C7","FFEE9D9E"];  // 약→강
+  const RED =["FFFDF4F3","FFFCEEED","FFF9E1DF","FFF6C6C7","FFEE9D9E"];
   const BLUE=["FFF3F8FB","FFE7F0F6","FFDCE9F2","FFD0E1EE","FFBBD5E8"];
-  const TITLE_BG="FF4F81BD", HDR_BG="FFF2F2F2", LINE="FFA6A6A6";
+  const HDR1="FFE8E8E8", HDR2="FFF2F2F2", LINE="FF808080", LINE2="FF404040";
 
   /* ---------- 스타일 레지스트리 ---------- */
   const fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'];
   const fillIdx={};
-  function FILL(rgb){
-    if(!rgb) return 0;
-    if(fillIdx[rgb]!==undefined) return fillIdx[rgb];
+  const FILL=rgb=>{ if(!rgb) return 0; if(fillIdx[rgb]!==undefined) return fillIdx[rgb];
     fills.push('<fill><patternFill patternType="solid"><fgColor rgb="'+rgb+'"/><bgColor indexed="64"/></patternFill></fill>');
-    return (fillIdx[rgb]=fills.length-1);
-  }
+    return (fillIdx[rgb]=fills.length-1); };
   const borders=['<border><left/><right/><top/><bottom/><diagonal/></border>'];
   const bIdx={};
-  function BORDER(spec){                       // spec: 'T','B','L','R' 조합
-    if(!spec) return 0;
-    const key=spec.split("").sort().join("");
+  function BORDER(b){                       // {l,r,t,bo} = 'thin'|'medium'|'double'|undefined
+    const key=[b.l||"",b.r||"",b.t||"",b.bo||""].join("|");
+    if(key==="|||") return 0;
     if(bIdx[key]!==undefined) return bIdx[key];
-    const e=s=>spec.includes(s)?'<'+s+' style="thin"><color rgb="'+LINE+'"/></'+s+'>':'<'+s+'/>';
-    borders.push('<border>'+['left','right','top','bottom'].map(t=>{
-      const f={left:'L',right:'R',top:'T',bottom:'B'}[t];
-      return spec.includes(f)?'<'+t+' style="thin"><color rgb="'+LINE+'"/></'+t+'>':'<'+t+'/>';
-    }).join("")+'<diagonal/></border>');
+    const e=(tag,st)=>st?'<'+tag+' style="'+st+'"><color rgb="'+(st==="thin"?LINE:LINE2)+'"/></'+tag+'>':'<'+tag+'/>';
+    borders.push('<border>'+e("left",b.l)+e("right",b.r)+e("top",b.t)+e("bottom",b.bo)+'<diagonal/></border>');
     return (bIdx[key]=borders.length-1);
   }
-  const NF={g:0,n1:164,n0:3,nd:165};
-  const xfs=[]; const xfIdx={};
-  function ST(o){                              // {nf,fill,bd,bold,center,white,wrap}
-    const k=[o.nf||"g",o.fill||"",o.bd||"",o.bold?1:0,o.center?1:0,o.white?1:0,o.wrap?1:0].join("|");
-    if(xfIdx[k]!==undefined) return xfIdx[k];
-    const fi=FILL(o.fill), bi=BORDER(o.bd), fn=o.white?2:(o.bold?1:0);
+  const NF={g:0,n1:164,n0:3,nd:165,dt:14};
+  const xfs=[],xfIdx={};
+  function ST(o){
+    o=o||{};
+    const b=o.bd||{};
+    const key=[o.nf||"g",o.fill||"",b.l||"",b.r||"",b.t||"",b.bo||"",o.bold?1:0,o.center?1:0,o.wrap?1:0].join("|");
+    if(xfIdx[key]!==undefined) return xfIdx[key];
     const al=(o.center||o.wrap)?'<alignment'+(o.center?' horizontal="center" vertical="center"':'')+(o.wrap?' wrapText="1"':'')+'/>':'';
-    xfs.push('<xf numFmtId="'+NF[o.nf||"g"]+'" fontId="'+fn+'" fillId="'+fi+'" borderId="'+bi+'" xfId="0"'
-      +' applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"'+(al?' applyAlignment="1"':'')+'>'
-      +al+'</xf>');
-    return (xfIdx[k]=xfs.length-1);
+    xfs.push('<xf numFmtId="'+NF[o.nf||"g"]+'" fontId="'+(o.bold?1:0)+'" fillId="'+FILL(o.fill)+'" borderId="'+BORDER(b)+'" xfId="0"'
+      +' applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"'+(al?' applyAlignment="1"':'')+'>'+al+'</xf>');
+    return (xfIdx[key]=xfs.length-1);
   }
-  ST({});                                      // 0번 = 기본
+  ST({});
 
-  function styleXml(){
-    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-      +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-      +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
-      +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
-      +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
-      +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
-      +'<fills count="'+fills.length+'">'+fills.join("")+'</fills>'
-      +'<borders count="'+borders.length+'">'+borders.join("")+'</borders>'
-      +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-      +'<cellXfs count="'+xfs.length+'">'+xfs.join("")+'</cellXfs></styleSheet>';
-  }
+  const styleXml=()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
+    +'<fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font>'
+    +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts>'
+    +'<fills count="'+fills.length+'">'+fills.join("")+'</fills>'
+    +'<borders count="'+borders.length+'">'+borders.join("")+'</borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="'+xfs.length+'">'+xfs.join("")+'</cellXfs></styleSheet>';
 
-  /* ---------- 값 → 색 (3색 스케일) ---------- */
-  function scale(v,lo,hi,invert){
+  /* ---------- 조건부 강조 ---------- */
+  function scale(v,lo,hi){
     if(v===null||v===undefined||!isFinite(v)) return null;
-    let t=(v-lo)/(hi-lo); t=Math.max(0,Math.min(1,t));
-    if(invert) t=1-t;
-    if(t>=0.5){ const i=Math.min(4,Math.floor((t-0.5)*10)); return RED[i]; }
-    const i=Math.min(4,Math.floor((0.5-t)*10)); return BLUE[i];
+    let t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+    return t>=0.5 ? RED[Math.min(4,Math.floor((t-0.5)*10))] : BLUE[Math.min(4,Math.floor((0.5-t)*10))];
   }
-  const heatPct=v=>scale(v,-40,40);            // 수익률·상승여력
-  const heatScore=v=>scale(v,5,8);             // 점수
-  const heatMdd=v=>scale(v,-60,0);             // 낙폭(음수)
+  const hPct=v=>scale(v,-40,40), hScore=v=>scale(v,5,8);
 
-  /* ---------- 컬럼 정의 (g:그룹, s:소제목) ---------- */
+  /* ---------- 컬럼 (D열부터) ---------- */
+  const FULL={Top:"Top pick","2nd":"2nd pick",Beta:"Beta pick"};
   const C=[
-    {s:"",       w:4.2,  get:(r,i)=>i+1,            nf:"g",  center:1},
-    {s:"",       w:9.4,  get:r=>FULL[sectorPickOf(r)]||"", center:1},
-    {s:"대섹터", w:12.4, get:r=>r.sector, fill:r=>SEC_FILL[r.sector], center:1},
+    {s:"",       w:4.2,  get:(r,i)=>i+1,                     center:1},
+    {s:"",       w:9.4,  get:r=>FULL[sectorPickOf(r)]||"",   center:1},
+    {s:"대섹터", w:9.0,  get:r=>r.sector, fill:r=>SEC_FILL[r.sector], center:1},
     {s:"소섹터", w:7.5,  get:r=>r.sub,    center:1},
     {s:"종목",   w:13.0, get:r=>r.name,   center:1},
-    {g:"점수",           s:"", w:5.6,  get:r=>r.score,      nf:"n1", fill:r=>heatScore(r.score)},
-    {g:"견적 (십억 원)",  s:"", w:14.2, get:r=>r.fairMktcap, nf:"n0"},
-    {g:"상승 여력 (%)",   s:"", w:14.0, get:r=>r.upsideOwn,  nf:"n1", fill:r=>heatPct(r.upsideOwn)},
-    {g:"기간별 수익률", s:"1w",  w:6.4, get:r=>r.ret1w,  nf:"n1", fill:r=>heatPct(r.ret1w)},
-    {                   s:"1m",  w:7.5, get:r=>r.ret1m,  nf:"n1", fill:r=>heatPct(r.ret1m)},
-    {                   s:"3m",  w:7.1, get:r=>r.ret3m,  nf:"n1", fill:r=>heatPct(r.ret3m)},
-    {                   s:"YTD", w:7.1, get:r=>r.retYtd, nf:"n1", fill:r=>heatPct(r.retYtd)},
-    {g:"낙폭 (%)", s:"52주 고점", w:9.5, get:r=>r.mdd,   nf:"n1", fill:r=>heatMdd(r.mdd)},
-    {g:"시가총액 (십억 원)", s:"", w:17.1, get:r=>mcJo(r)*1000, nf:"n0"},
+    {g:"점수",          s:"", w:5.6,  get:r=>r.score,      nf:"n1", fill:r=>hScore(r.score)},
+    {g:"견적 (십억 원)", s:"", w:12.5, get:r=>r.fairMktcap, nf:"n0"},
+    {g:"상승 여력 (%)",  s:"", w:12.5, f:(rw)=>"(J"+rw+"/O"+rw+"-1)*100", nf:"n1", heat:r=>hPct(r.upsideOwn)},
+    {g:"기간별 수익률", s:"1w", w:6.4, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
+    {                   s:"1m", w:6.4, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
+    {                   s:"3m", w:6.4, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
+    {g:"시가총액 (십억 원)", s:"", w:14.5, get:r=>mcJo(r)*1000, nf:"n0"},
     {g:"PER (배)", s:"12MF", w:6.9, get:r=>r.per12mf, nf:"n1"},
-    {              s:"26E",  w:8.5, get:r=>r.per26,   nf:"n1"},
-    {              s:"27E",  w:5.6, get:r=>r.per27,   nf:"n1"},
+    {              s:"26E",  w:6.9, get:r=>r.per26,   nf:"n1"},
+    {              s:"27E",  w:6.9, get:r=>r.per27,   nf:"n1"},
     {g:"매출액 (십억 원)", s:"26E", w:9.2, get:r=>r.rev26, nf:"nd"},
     {                      s:"27E", w:9.2, get:r=>r.rev27, nf:"nd"},
-    {g:"영업이익 (십억 원)", s:"26E", w:8.1, get:r=>r.op26, nf:"nd"},
-    {                        s:"27E", w:8.1, get:r=>r.op27, nf:"nd"},
-    {g:"순이익 (십억 원)",   s:"26E", w:8.1, get:r=>r.np26, nf:"nd"},
-    {g:"EPS (원)", s:"26E", w:7.8, get:r=>r.eps26, nf:"n0"},
-    {              s:"27E", w:7.8, get:r=>r.eps27, nf:"n0"},
-    {g:"EPS 증가율", s:"26E", w:7.8, get:r=>r.epsg26, nf:"n1", fill:r=>heatPct(r.epsg26)},
-    {                s:"27E", w:7.8, get:r=>r.epsg27, nf:"n1", fill:r=>heatPct(r.epsg27)},
-    {g:"현재 주가 (원)", s:"종가",      w:15.1, get:r=>r.price,      nf:"n0"},
-    {g:"목표주가 (원)",  s:"컨센서스",  w:13.5, get:r=>r.target,     nf:"n0"},
-    {g:"상승여력 (%)",   s:"종가 대비", w:13.1, get:r=>r.upsideCons, nf:"n1", fill:r=>heatPct(r.upsideCons)},
+    {g:"영업이익 (십억 원)", s:"26E", w:8.6, get:r=>r.op26, nf:"nd"},
+    {                        s:"27E", w:8.6, get:r=>r.op27, nf:"nd"},
+    {g:"EPS (원)", s:"26E", w:8.4, get:r=>r.eps26, nf:"n0"},
+    {              s:"27E", w:8.4, get:r=>r.eps27, nf:"n0"},
+    {g:"EPS 증가율", s:"26E", w:8.0, get:r=>r.epsg26, nf:"n1", fill:r=>hPct(r.epsg26)},
+    {                s:"27E", w:8.0, get:r=>r.epsg27, nf:"n1", fill:r=>hPct(r.epsg27)},
+    {g:"현재 주가 (원)", s:"기준일",   w:12.5, get:r=>r.price,  nf:"n0"},
+    {g:"목표주가 (원)",  s:"컨센서스", w:12.5, get:r=>r.target, nf:"n0"},
+    {g:"상승여력 (%)",   s:"종가 대비",w:12.0, f:(rw)=>'IF(AB'+rw+'=0,"",(AB'+rw+'/AA'+rw+'-1)*100)', nf:"n1", heat:r=>hPct(r.upsideCons)},
   ];
-  const FULL={Top:"Top pick","2nd":"2nd pick",Beta:"Beta pick"};
-  const N=C.length;
-  /* 그룹 경계: 각 열이 속한 그룹의 시작/끝 */
+  const N=C.length, OFF=3;                 // D열 = index 3
   const gStart=[],gEnd=[];
-  {
-    let i=0;
-    while(i<N){
-      let j=i;
-      if(C[i].g!==undefined){ while(j+1<N && C[j+1].g===undefined && C[j+1].s!==undefined && !("g" in C[j+1])) j++; }
-      for(let k=i;k<=j;k++){ gStart[k]=(k===i); gEnd[k]=(k===j); }
-      i=j+1;
-    }
-  }
-  const edge=i=>(gStart[i]?"L":"")+(gEnd[i]?"R":"");
+  {let i=0;while(i<N){let j=i;
+    if(C[i].g!==undefined){ while(j+1<N && !("g" in C[j+1])) j++; }
+    for(let k=i;k<=j;k++){gStart[k]=(k===i);gEnd[k]=(k===j);} i=j+1;}}
 
   function build(){
     const rows=[],merges=[];
     const put=(r,c,v)=>{ (rows[r]=rows[r]||[])[c]=v; };
-    const OFF=1;                                   // A열 비우고 B열부터
-    // 2행: 기준일
-    put(1,OFF+2,{v:(LIVE.asOf||"").slice(0,10), s:ST({center:1})});
-    // 3행: 제목 밴드
-    for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,white:1,center:1})});
-    put(2,OFF+2,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||""), s:ST({fill:TITLE_BG,white:1,center:1})});
-    merges.push(cn(OFF)+"3:"+cn(OFF+N-1)+"3");
-    // 4행: 그룹 헤더 / 5행: 소제목
+    const L=i=>gStart[i]?"medium":undefined, Rr=i=>gEnd[i]?"medium":undefined;
+    // 2행 날짜
+    put(1,OFF,{f:"TODAY()", s:ST({nf:"dt",center:1})});
+    // 3행 제목
+    put(2,OFF+2,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||""), s:ST({bold:1})});
+    // 4행 그룹헤더 / 5행 소제목
     for(let i=0;i<N;i++){
-      const c=C[i];
-      put(3,OFF+i,{v:(c.g!==undefined?c.g:""), s:ST({fill:HDR_BG,bold:1,center:1,wrap:1,bd:edge(i)})});
-      put(4,OFF+i,{v:(c.s||""),                 s:ST({bold:1,center:1,bd:edge(i)+"B"})});
+      put(3,OFF+i,{v:(C[i].g!==undefined?C[i].g:""),
+        s:ST({fill:HDR1,bold:1,center:1,wrap:1,bd:{l:L(i),r:Rr(i),t:"medium"}})});
+      put(4,OFF+i,{v:(C[i].s||""),
+        s:ST({fill:HDR2,bold:1,center:1,bd:{l:L(i),r:Rr(i),bo:"double"}})});
     }
-    // 그룹 헤더 병합
     for(let i=0;i<N;i++){
       if(!gStart[i]) continue;
       let j=i; while(j+1<N && !gStart[j+1]) j++;
       if(j>i) merges.push(cn(OFF+i)+"4:"+cn(OFF+j)+"4");
-      if(j===i && !C[i].s) merges.push(cn(OFF+i)+"4:"+cn(OFF+i)+"5");
+      else if(!C[i].s) merges.push(cn(OFF+i)+"4:"+cn(OFF+i)+"5");
     }
     // 데이터
     const sorted=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999));
     sorted.forEach((r,idx)=>{
-      const ri=5+idx;
+      const ri=5+idx, xlRow=ri+1, last=(idx===sorted.length-1);
       C.forEach((c,i)=>{
+        const bd={l:L(i),r:Rr(i),t:"thin"};
+        if(last) bd.bo="medium";
+        const fillC = c.f ? (c.heat?c.heat(r):null) : (c.fill?c.fill(r):null);
+        const st=ST({nf:c.nf,fill:fillC,center:!!c.center,bd:bd});
+        if(c.f){ put(ri,OFF+i,{f:c.f(xlRow), s:st}); return; }
         let v=c.get(r,idx);
         if(v===null||v===undefined||(typeof v==="number"&&!isFinite(v))) v="";
-        put(ri,OFF+i,{v:v, s:ST({nf:c.nf, fill:(c.fill?c.fill(r):null),
-                                 center:!!c.center, bd:edge(i)+"T"})});
+        put(ri,OFF+i,{v:v, s:st});
       });
     });
     return {rows,merges};
   }
 
   function sheetXml(rows,merges){
-    const cols='<col min="1" max="1" width="2.0" customWidth="1"/>'
-      +C.map((c,i)=>'<col min="'+(i+2)+'" max="'+(i+2)+'" width="'+c.w+'" customWidth="1"/>').join("");
+    const cols='<col min="1" max="3" width="2.5" customWidth="1"/>'
+      +C.map((c,i)=>'<col min="'+(OFF+i+1)+'" max="'+(OFF+i+1)+'" width="'+c.w+'" customWidth="1"/>').join("");
     const body=rows.map((r,ri)=>{
       const cells=(r||[]).map((cell,ci)=>{
         if(cell===null||cell===undefined) return "";
-        const v=cell.v, st=cell.s||0, ref=cn(ci)+(ri+1);
+        const st=cell.s||0, ref=cn(ci)+(ri+1);
+        if(cell.f!==undefined) return '<c r="'+ref+'" s="'+st+'"><f>'+esc(cell.f)+'</f></c>';
+        const v=cell.v;
         if(v===""||v===null||v===undefined) return '<c r="'+ref+'" s="'+st+'"/>';
         if(typeof v==="number"&&isFinite(v)) return '<c r="'+ref+'" s="'+st+'"><v>'+v+'</v></c>';
         return '<c r="'+ref+'" t="inlineStr" s="'+st+'"><is><t>'+esc(v)+'</t></is></c>';
       }).join("");
-      const h=(ri===2)?' ht="20" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
+      const h=(ri===3)?' ht="30" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
       return cells?'<row r="'+(ri+1)+'"'+h+'>'+cells+'</row>':"";
     }).join("");
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
       +'<sheetViews><sheetView showGridLines="0" workbookViewId="0">'
       +'<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
-      +'<sheetFormatPr defaultRowHeight="16.5"/>'
-      +'<cols>'+cols+'</cols><sheetData>'+body+'</sheetData>'
+      +'<sheetFormatPr defaultRowHeight="16.5"/><cols>'+cols+'</cols><sheetData>'+body+'</sheetData>'
       +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(m=>'<mergeCell ref="'+m+'"/>').join("")+'</mergeCells>':"")
       +'</worksheet>';
   }
 
   function buildXlsx(){
     const {rows,merges}=build();
-    const sh=sheetXml(rows,merges);              // 스타일 등록이 먼저 끝나야 함
+    const sh=sheetXml(rows,merges);
     const F=(n,t)=>({name:n,data:enc.encode(t)});
     return zip([
       F("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'),
       F("_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
-      F("xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Universe" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+      F("xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Universe" sheetId="1" r:id="rId1"/></sheets><calcPr fullCalcOnLoad="1"/></workbook>'),
       F("xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'),
       F("xl/styles.xml",styleXml()),
       F("xl/worksheets/sheet1.xml",sh),
