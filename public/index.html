@@ -1330,10 +1330,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
       }
     }
     // 데이터
-    const sorted=R.slice().sort((a,b)=>
-      SECTORS_ORDER.indexOf(a.sector)-SECTORS_ORDER.indexOf(b.sector)
-      || (a.sub||"").localeCompare(b.sub||"","ko")
-      || (mcJo(b)-mcJo(a)));
+    // 원본 시트와 동일한 순서(유니버스 순번)
+    const sorted=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999));
     sorted.forEach((r,idx)=>{
       const ri=3+idx;
       COLS.forEach((c,ci)=>{
