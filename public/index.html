@@ -608,6 +608,8 @@ function makeTable(el, cols, rows, initSort){
   render();
 }
 const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${pickPill(r)} ${r.name}<span class="sub">${r.sub}</span></span>`;
+/* 분류 컬럼이 따로 있는 표(커버리지)에서는 픽 배지를 빼서 중복을 없앤다 */
+const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${r.name}<span class="sub">${r.sub}</span></span>`;
 
 /* ==== Coverage summary — grouped by sector ==== */
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
@@ -615,7 +617,7 @@ const covCols = [
   {key:"sector",label:"대분류",l:true,render:r=>`<span style="color:${SECTOR_COLORS[r.sector]};font-weight:700">${r.sector}</span>`},
   {key:"sub",label:"소분류",l:true,render:r=>r.sub},
   {key:"pickSort",label:"분류",l:true,render:r=>pickPill(r)||`<span style="color:var(--muted2)">—</span>`},
-  {key:"name",label:"종목",l:true,render:nmCell},
+  {key:"name",label:"종목",l:true,render:nmCellPlain},
   {key:"score",label:"점수",render:r=>r.score==null?"—":`<b>${fmt(r.score,1)}</b>`},
   {key:"mktcapJo",label:"시총(조)",render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
   {key:"fairMktcap",label:"견적(조)",render:r=>r.fairMktcap?fmt(r.fairMktcap/1000,1):"—"},
