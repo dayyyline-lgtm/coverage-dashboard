@@ -1261,8 +1261,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {                        s:"27E", w:9.2, get:r=>r.op27, nf:"nd"},
     {g:"EPS (원)", s:"26E", w:9.0, get:r=>r.eps26, nf:"n0"},
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
-    {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", fill:r=>hPct(r.epsg26)},
-    {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", fill:r=>hPct(r.epsg27)},
+    {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", bar:1},
+    {                s:"27E", w:8.6, get:r=>r.epsg27, nf:"n1", bar:1},
     {g:"현재 주가 (원)", s:"", w:14.5, get:r=>r.price,  nf:"n0"},
     {g:"목표주가 (원)",  s:"컨센서스", w:13.5, get:r=>r.target, nf:"n0"},
     {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:16.0, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
@@ -1320,6 +1320,21 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     return {rows,merges};
   }
 
+  /* EPS 증가율 데이터 막대 (0~200% 기준, 200%에서 꽉 참) */
+  function cfBars(totalRows){
+    const last=totalRows; if(last<6) return "";
+    let out="";
+    C.forEach((c,i)=>{
+      if(!c.bar) return;
+      const L=cn(OFF+i);
+      out+='<conditionalFormatting sqref="'+L+'6:'+L+last+'">'
+         +'<cfRule type="dataBar" priority="'+(i+1)+'">'
+         +'<dataBar showValue="1"><cfvo type="num" val="0"/><cfvo type="num" val="200"/>'
+         +'<color rgb="FF638EC6"/></dataBar></cfRule></conditionalFormatting>';
+    });
+    return out;
+  }
+
   function sheetXml(rows,merges){
     const cols='<col min="1" max="3" width="2.5" customWidth="1"/>'
       +C.map((c,i)=>'<col min="'+(OFF+i+1)+'" max="'+(OFF+i+1)+'" width="'+c.w+'" customWidth="1"/>').join("");
@@ -1339,9 +1354,10 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
       +'<sheetViews><sheetView showGridLines="0" workbookViewId="0">'
-      +'<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+      +'<pane xSplit="8" ySplit="5" topLeftCell="I6" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
       +'<sheetFormatPr defaultRowHeight="16.5"/><cols>'+cols+'</cols><sheetData>'+body+'</sheetData>'
       +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(m=>'<mergeCell ref="'+m+'"/>').join("")+'</mergeCells>':"")
+      +cfBars(rows.length)
       +'</worksheet>';
   }
 
