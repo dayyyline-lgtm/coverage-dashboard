@@ -1448,7 +1448,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     try{
       const a=document.createElement("a");
       a.href=URL.createObjectURL(buildXlsx());
-      a.download="커버리지_유니버스_"+(LIVE.asOf||"").slice(0,10)+".xlsx";
+      const d=((LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10)).replace(/-/g,"");
+      a.download=(DATA.analyst||"신주현")+"_소비재_커버리지_"+d+".xlsx";
       document.body.appendChild(a); a.click();
       setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
     }catch(e){ alert("엑셀 생성 실패: "+e.message); }
