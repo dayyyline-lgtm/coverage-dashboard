@@ -379,7 +379,8 @@
   <!-- 대체데이터 -->
   <section class="view" data-view="altdata">
     <h2 class="sec">수출 데이터</h2>
-    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 실적.</p>
+    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>.
+      <span class="seed" id="tradeAsOfBadge"></span></p>
 
     <div id="tradeUI">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -922,6 +923,12 @@ const TRADE = {"asOf": "2026-07-22 07:54", "months": ["202407", "202408", "20240
   document.getElementById("tradeUI").style.display   = has ? "" : "none";
   document.getElementById("tradeEmpty").style.display= has ? "none" : "";
   if(!has) return;
+  (function(){
+    const last=TRADE.months[TRADE.months.length-1];
+    const ym=`${last.slice(0,4)}년 ${+last.slice(4,6)}월`;
+    document.getElementById("tradeAsOfBadge").textContent=
+      `확정치 ${ym}까지 · 당월 잠정치는 미포함`;
+  })();
 
   let itemIdx=0, cIdx=0, period="m", view="chart";
   const chips=(el,arr,cls)=>{ el.innerHTML=arr.map((t,i)=>
