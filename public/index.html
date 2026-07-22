@@ -1151,7 +1151,7 @@ document.getElementById("drawerOverlay").addEventListener("click",closeDrawer);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();});
 document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");if(el)openStock(el.dataset.stock);});
 
-/* ==== 엑셀(.xlsx) 내보내기 — 원본 Universe 시트 양식 ==== */
+/* ==== 엑셀(.xlsx) 내보내기 — 원본 Universe 시트 양식 정밀 재현 ==== */
 (function(){
   const enc=new TextEncoder();
   let CRC=null;
@@ -1180,177 +1180,201 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   const esc=v=>String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const cn=i=>{let s="",n=i+1;while(n){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;};
 
-  /* ---------- 색 팔레트 ---------- */
-  const SECTOR_FILL={"소비재":"FFDCE6F1","엔터":"FFF2DCDB","게임":"FFEBF1DE","호텔":"FFE4DFEC"};
-  const REDS =["FFFDECEC","FFFBD9D9","FFF8C4C4","FFF5AFAF","FFF29A9A"];
-  const BLUES=["FFECF1FD","FFD9E2FB","FFC4D2F8","FFAFC2F5","FF9AB2F2"];
-  const SECTORS_ORDER=["소비재","엔터","게임","호텔"];
+  /* ---------- 팔레트 (원본에서 추출) ---------- */
+  const SEC_FILL={"소비재":"FF83CCEB","엔터":"FFF2CEEF","게임":"FFDAF2D0","호텔":"FFD0D0D0"};
+  const RED =["FFFDF4F3","FFFCEEED","FFF9E1DF","FFF6C6C7","FFEE9D9E"];  // 약→강
+  const BLUE=["FFF3F8FB","FFE7F0F6","FFDCE9F2","FFD0E1EE","FFBBD5E8"];
+  const TITLE_BG="FF4F81BD", HDR_BG="FFF2F2F2", LINE="FFA6A6A6";
 
-  /* fills: 0 none,1 gray,2 header,3 title, 4~7 sector, 8~12 red, 13~17 blue */
-  const FILLS=['<fill><patternFill patternType="none"/></fill>',
-               '<fill><patternFill patternType="gray125"/></fill>',
-               '<fill><patternFill patternType="solid"><fgColor rgb="FFDDE5F0"/><bgColor indexed="64"/></patternFill></fill>',
-               '<fill><patternFill patternType="solid"><fgColor rgb="FFEBF1DE"/><bgColor indexed="64"/></patternFill></fill>']
-    .concat(SECTORS_ORDER.map(s=>'<fill><patternFill patternType="solid"><fgColor rgb="'+SECTOR_FILL[s]+'"/><bgColor indexed="64"/></patternFill></fill>'))
-    .concat(REDS.map(c=>'<fill><patternFill patternType="solid"><fgColor rgb="'+c+'"/><bgColor indexed="64"/></patternFill></fill>'))
-    .concat(BLUES.map(c=>'<fill><patternFill patternType="solid"><fgColor rgb="'+c+'"/><bgColor indexed="64"/></patternFill></fill>'));
+  /* ---------- 스타일 레지스트리 ---------- */
+  const fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'];
+  const fillIdx={};
+  function FILL(rgb){
+    if(!rgb) return 0;
+    if(fillIdx[rgb]!==undefined) return fillIdx[rgb];
+    fills.push('<fill><patternFill patternType="solid"><fgColor rgb="'+rgb+'"/><bgColor indexed="64"/></patternFill></fill>');
+    return (fillIdx[rgb]=fills.length-1);
+  }
+  const borders=['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+  const bIdx={};
+  function BORDER(spec){                       // spec: 'T','B','L','R' 조합
+    if(!spec) return 0;
+    const key=spec.split("").sort().join("");
+    if(bIdx[key]!==undefined) return bIdx[key];
+    const e=s=>spec.includes(s)?'<'+s+' style="thin"><color rgb="'+LINE+'"/></'+s+'>':'<'+s+'/>';
+    borders.push('<border>'+['left','right','top','bottom'].map(t=>{
+      const f={left:'L',right:'R',top:'T',bottom:'B'}[t];
+      return spec.includes(f)?'<'+t+' style="thin"><color rgb="'+LINE+'"/></'+t+'>':'<'+t+'/>';
+    }).join("")+'<diagonal/></border>');
+    return (bIdx[key]=borders.length-1);
+  }
+  const NF={g:0,n1:164,n0:3,nd:165};
+  const xfs=[]; const xfIdx={};
+  function ST(o){                              // {nf,fill,bd,bold,center,white,wrap}
+    const k=[o.nf||"g",o.fill||"",o.bd||"",o.bold?1:0,o.center?1:0,o.white?1:0,o.wrap?1:0].join("|");
+    if(xfIdx[k]!==undefined) return xfIdx[k];
+    const fi=FILL(o.fill), bi=BORDER(o.bd), fn=o.white?2:(o.bold?1:0);
+    const al=(o.center||o.wrap)?'<alignment'+(o.center?' horizontal="center" vertical="center"':'')+(o.wrap?' wrapText="1"':'')+'/>':'';
+    xfs.push('<xf numFmtId="'+NF[o.nf||"g"]+'" fontId="'+fn+'" fillId="'+fi+'" borderId="'+bi+'" xfId="0"'
+      +' applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"'+(al?' applyAlignment="1"':'')+'>'
+      +al+'</xf>');
+    return (xfIdx[k]=xfs.length-1);
+  }
+  ST({});                                      // 0번 = 기본
 
-  /* cellXfs
-     0 기본 / 1 헤더 / 2 제목 / 3 n1 / 4 n0 / 5 nd / 6 가운데문자
-     7~10 섹터색 문자 / 11~15 n1+red / 16~20 n1+blue */
-  const XF=[];
-  const B='borderId="1" applyBorder="1"';
-  XF.push('<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>');
-  XF.push('<xf numFmtId="0" fontId="1" fillId="0" '+B+' xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>');
-  XF.push('<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>');
-  XF.push('<xf numFmtId="164" fontId="0" fillId="0" '+B+' xfId="0" applyNumberFormat="1"/>');
-  XF.push('<xf numFmtId="3"   fontId="0" fillId="0" '+B+' xfId="0" applyNumberFormat="1"/>');
-  XF.push('<xf numFmtId="165" fontId="0" fillId="0" '+B+' xfId="0" applyNumberFormat="1"/>');
-  XF.push('<xf numFmtId="0" fontId="0" fillId="0" '+B+' xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf>');
-  SECTORS_ORDER.forEach((s,i)=>XF.push('<xf numFmtId="0" fontId="0" fillId="'+(4+i)+'" '+B+' xfId="0" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf>'));
-  for(let i=0;i<5;i++) XF.push('<xf numFmtId="164" fontId="0" fillId="'+(8+i)+'" '+B+' xfId="0" applyNumberFormat="1" applyFill="1"/>');
-  for(let i=0;i<5;i++) XF.push('<xf numFmtId="164" fontId="0" fillId="'+(13+i)+'" '+B+' xfId="0" applyNumberFormat="1" applyFill="1"/>');
-
-  const STYLES='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-   +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-   +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
-   +'<fonts count="3"><font><sz val="10"/><name val="맑은 고딕"/></font>'
-   +'<font><b/><sz val="10"/><name val="맑은 고딕"/></font>'
-   +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts>'
-   +'<fills count="'+FILLS.length+'">'+FILLS.join("")+'</fills>'
-   +'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'
-   +'<border><left style="thin"><color rgb="FF9E9E9E"/></left><right style="thin"><color rgb="FF9E9E9E"/></right>'
-   +'<top style="thin"><color rgb="FF9E9E9E"/></top><bottom style="thin"><color rgb="FF9E9E9E"/></bottom><diagonal/></border></borders>'
-   +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-   +'<cellXfs count="'+XF.length+'">'+XF.join("")+'</cellXfs></styleSheet>';
-
-  /* 빈 셀도 테두리 유지 */
-  const S_HDR=1,S_TITLE=2,S_N1=3,S_N0=4,S_ND=5,S_CT=6;
-  const S_SECTOR=s=>7+Math.max(0,SECTORS_ORDER.indexOf(s));
-  function heat(v,mode){                     // 값 크기에 따른 색 단계
-    if(v===null||v===undefined||!isFinite(v)) return S_N1;
-    const a=Math.abs(v);
-    const lv=a>=60?4:a>=35?3:a>=20?2:a>=8?1:0;
-    if(mode==="neg") return 16+lv;           // 낙폭: 항상 파랑
-    return (v>=0?11:16)+lv;                  // 양수 빨강 / 음수 파랑
+  function styleXml(){
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      +'<numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
+      +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
+      +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
+      +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
+      +'<fills count="'+fills.length+'">'+fills.join("")+'</fills>'
+      +'<borders count="'+borders.length+'">'+borders.join("")+'</borders>'
+      +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+      +'<cellXfs count="'+xfs.length+'">'+xfs.join("")+'</cellXfs></styleSheet>';
   }
 
-  /* ---------- 컬럼 정의 ---------- */
-  const COLS=[
-    {sub:"#",     w:4.5,  get:(r,i)=>i+1,               st:()=>S_CT},
-    {sub:"분류",  w:10.5, get:r=>fullPick(r),           st:()=>S_CT},
-    {sub:"대섹터",w:8.5,  get:r=>r.sector,              st:r=>S_SECTOR(r.sector)},
-    {sub:"소섹터",w:8.5,  get:r=>r.sub,                 st:r=>S_SECTOR(r.sector)},
-    {sub:"종목",  w:14.5, get:r=>r.name,                st:()=>S_CT},
-    {g:"점수",              sub:"", w:6.5,  get:r=>r.score,      st:()=>S_N1},
-    {g:"견적 (십억 원)",     sub:"", w:12.5, get:r=>r.fairMktcap, st:()=>S_N0},
-    {g:"상승 여력 (%)",      sub:"", w:11,   get:r=>r.upsideOwn,  st:r=>heat(r.upsideOwn)},
-    {g:"기간별 수익률", sub:"1w",  w:6.6, get:r=>r.ret1w,  st:r=>heat(r.ret1w)},
-    {                   sub:"1m",  w:6.6, get:r=>r.ret1m,  st:r=>heat(r.ret1m)},
-    {                   sub:"3m",  w:6.6, get:r=>r.ret3m,  st:r=>heat(r.ret3m)},
-    {                   sub:"YTD", w:6.6, get:r=>r.retYtd, st:r=>heat(r.retYtd)},
-    {g:"낙폭 (%)", sub:"52주 고점", w:9.5, get:r=>r.mdd,   st:r=>heat(r.mdd,"neg")},
-    {g:"시가총액 (십억 원)", sub:"", w:13,  get:r=>mcJo(r)*1000, st:()=>S_N0},
-    {g:"PER (배)", sub:"12MF", w:7, get:r=>r.per12mf, st:()=>S_N1},
-    {              sub:"26E",  w:7, get:r=>r.per26,   st:()=>S_N1},
-    {              sub:"27E",  w:7, get:r=>r.per27,   st:()=>S_N1},
-    {g:"매출액 (십억 원)", sub:"26E", w:10.5, get:r=>r.rev26, st:()=>S_ND},
-    {                      sub:"27E", w:10.5, get:r=>r.rev27, st:()=>S_ND},
-    {g:"영업이익 (십억 원)", sub:"26E", w:10.5, get:r=>r.op26, st:()=>S_ND},
-    {                        sub:"27E", w:10.5, get:r=>r.op27, st:()=>S_ND},
-    {g:"순이익 (십억 원)",   sub:"26E", w:10.5, get:r=>r.np26, st:()=>S_ND},
-    {g:"EPS (원)", sub:"26E", w:9, get:r=>r.eps26, st:()=>S_N0},
-    {              sub:"27E", w:9, get:r=>r.eps27, st:()=>S_N0},
-    {g:"EPS 증가율", sub:"26E", w:8.5, get:r=>r.epsg26, st:r=>heat(r.epsg26)},
-    {                sub:"27E", w:8.5, get:r=>r.epsg27, st:r=>heat(r.epsg27)},
-    {g:"현재 주가 (원)", sub:"종가",     w:11, get:r=>r.price,  st:()=>S_N0},
-    {g:"목표주가 (원)",  sub:"컨센서스", w:11, get:r=>r.target, st:()=>S_N0},
-    {g:"상승여력 (%)",   sub:"종가 대비",w:10, get:r=>r.upsideCons, st:r=>heat(r.upsideCons)},
+  /* ---------- 값 → 색 (3색 스케일) ---------- */
+  function scale(v,lo,hi,invert){
+    if(v===null||v===undefined||!isFinite(v)) return null;
+    let t=(v-lo)/(hi-lo); t=Math.max(0,Math.min(1,t));
+    if(invert) t=1-t;
+    if(t>=0.5){ const i=Math.min(4,Math.floor((t-0.5)*10)); return RED[i]; }
+    const i=Math.min(4,Math.floor((0.5-t)*10)); return BLUE[i];
+  }
+  const heatPct=v=>scale(v,-40,40);            // 수익률·상승여력
+  const heatScore=v=>scale(v,5,8);             // 점수
+  const heatMdd=v=>scale(v,-60,0);             // 낙폭(음수)
+
+  /* ---------- 컬럼 정의 (g:그룹, s:소제목) ---------- */
+  const C=[
+    {s:"",       w:4.2,  get:(r,i)=>i+1,            nf:"g",  center:1},
+    {s:"",       w:9.4,  get:r=>FULL[sectorPickOf(r)]||"", center:1},
+    {s:"대섹터", w:12.4, get:r=>r.sector, fill:r=>SEC_FILL[r.sector], center:1},
+    {s:"소섹터", w:7.5,  get:r=>r.sub,    center:1},
+    {s:"종목",   w:13.0, get:r=>r.name,   center:1},
+    {g:"점수",           s:"", w:5.6,  get:r=>r.score,      nf:"n1", fill:r=>heatScore(r.score)},
+    {g:"견적 (십억 원)",  s:"", w:14.2, get:r=>r.fairMktcap, nf:"n0"},
+    {g:"상승 여력 (%)",   s:"", w:14.0, get:r=>r.upsideOwn,  nf:"n1", fill:r=>heatPct(r.upsideOwn)},
+    {g:"기간별 수익률", s:"1w",  w:6.4, get:r=>r.ret1w,  nf:"n1", fill:r=>heatPct(r.ret1w)},
+    {                   s:"1m",  w:7.5, get:r=>r.ret1m,  nf:"n1", fill:r=>heatPct(r.ret1m)},
+    {                   s:"3m",  w:7.1, get:r=>r.ret3m,  nf:"n1", fill:r=>heatPct(r.ret3m)},
+    {                   s:"YTD", w:7.1, get:r=>r.retYtd, nf:"n1", fill:r=>heatPct(r.retYtd)},
+    {g:"낙폭 (%)", s:"52주 고점", w:9.5, get:r=>r.mdd,   nf:"n1", fill:r=>heatMdd(r.mdd)},
+    {g:"시가총액 (십억 원)", s:"", w:17.1, get:r=>mcJo(r)*1000, nf:"n0"},
+    {g:"PER (배)", s:"12MF", w:6.9, get:r=>r.per12mf, nf:"n1"},
+    {              s:"26E",  w:8.5, get:r=>r.per26,   nf:"n1"},
+    {              s:"27E",  w:5.6, get:r=>r.per27,   nf:"n1"},
+    {g:"매출액 (십억 원)", s:"26E", w:9.2, get:r=>r.rev26, nf:"nd"},
+    {                      s:"27E", w:9.2, get:r=>r.rev27, nf:"nd"},
+    {g:"영업이익 (십억 원)", s:"26E", w:8.1, get:r=>r.op26, nf:"nd"},
+    {                        s:"27E", w:8.1, get:r=>r.op27, nf:"nd"},
+    {g:"순이익 (십억 원)",   s:"26E", w:8.1, get:r=>r.np26, nf:"nd"},
+    {g:"EPS (원)", s:"26E", w:7.8, get:r=>r.eps26, nf:"n0"},
+    {              s:"27E", w:7.8, get:r=>r.eps27, nf:"n0"},
+    {g:"EPS 증가율", s:"26E", w:7.8, get:r=>r.epsg26, nf:"n1", fill:r=>heatPct(r.epsg26)},
+    {                s:"27E", w:7.8, get:r=>r.epsg27, nf:"n1", fill:r=>heatPct(r.epsg27)},
+    {g:"현재 주가 (원)", s:"종가",      w:15.1, get:r=>r.price,      nf:"n0"},
+    {g:"목표주가 (원)",  s:"컨센서스",  w:13.5, get:r=>r.target,     nf:"n0"},
+    {g:"상승여력 (%)",   s:"종가 대비", w:13.1, get:r=>r.upsideCons, nf:"n1", fill:r=>heatPct(r.upsideCons)},
   ];
   const FULL={Top:"Top pick","2nd":"2nd pick",Beta:"Beta pick"};
-  function fullPick(r){ return FULL[sectorPickOf(r)]||""; }
+  const N=C.length;
+  /* 그룹 경계: 각 열이 속한 그룹의 시작/끝 */
+  const gStart=[],gEnd=[];
+  {
+    let i=0;
+    while(i<N){
+      let j=i;
+      if(C[i].g!==undefined){ while(j+1<N && C[j+1].g===undefined && C[j+1].s!==undefined && !("g" in C[j+1])) j++; }
+      for(let k=i;k<=j;k++){ gStart[k]=(k===i); gEnd[k]=(k===j); }
+      i=j+1;
+    }
+  }
+  const edge=i=>(gStart[i]?"L":"")+(gEnd[i]?"R":"");
+
+  function build(){
+    const rows=[],merges=[];
+    const put=(r,c,v)=>{ (rows[r]=rows[r]||[])[c]=v; };
+    const OFF=1;                                   // A열 비우고 B열부터
+    // 2행: 기준일
+    put(1,OFF+2,{v:(LIVE.asOf||"").slice(0,10), s:ST({center:1})});
+    // 3행: 제목 밴드
+    for(let i=0;i<N;i++) put(2,OFF+i,{v:"", s:ST({fill:TITLE_BG,white:1,center:1})});
+    put(2,OFF+2,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||""), s:ST({fill:TITLE_BG,white:1,center:1})});
+    merges.push(cn(OFF)+"3:"+cn(OFF+N-1)+"3");
+    // 4행: 그룹 헤더 / 5행: 소제목
+    for(let i=0;i<N;i++){
+      const c=C[i];
+      put(3,OFF+i,{v:(c.g!==undefined?c.g:""), s:ST({fill:HDR_BG,bold:1,center:1,wrap:1,bd:edge(i)})});
+      put(4,OFF+i,{v:(c.s||""),                 s:ST({bold:1,center:1,bd:edge(i)+"B"})});
+    }
+    // 그룹 헤더 병합
+    for(let i=0;i<N;i++){
+      if(!gStart[i]) continue;
+      let j=i; while(j+1<N && !gStart[j+1]) j++;
+      if(j>i) merges.push(cn(OFF+i)+"4:"+cn(OFF+j)+"4");
+      if(j===i && !C[i].s) merges.push(cn(OFF+i)+"4:"+cn(OFF+i)+"5");
+    }
+    // 데이터
+    const sorted=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999));
+    sorted.forEach((r,idx)=>{
+      const ri=5+idx;
+      C.forEach((c,i)=>{
+        let v=c.get(r,idx);
+        if(v===null||v===undefined||(typeof v==="number"&&!isFinite(v))) v="";
+        put(ri,OFF+i,{v:v, s:ST({nf:c.nf, fill:(c.fill?c.fill(r):null),
+                                 center:!!c.center, bd:edge(i)+"T"})});
+      });
+    });
+    return {rows,merges};
+  }
 
   function sheetXml(rows,merges){
-    const cols=COLS.map((c,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+c.w+'" customWidth="1"/>').join("");
+    const cols='<col min="1" max="1" width="2.0" customWidth="1"/>'
+      +C.map((c,i)=>'<col min="'+(i+2)+'" max="'+(i+2)+'" width="'+c.w+'" customWidth="1"/>').join("");
     const body=rows.map((r,ri)=>{
       const cells=(r||[]).map((cell,ci)=>{
-        const v0=(typeof cell==="object"&&cell!==null)?cell.v:cell;
-        const st=(typeof cell==="object"&&cell!==null)?(cell.s||0):0;
-        const ref=cn(ci)+(ri+1);
-        const v=(cell===null||cell===undefined)?"":v0;
-        if(v===null||v===undefined||v==="") return st?'<c r="'+ref+'" s="'+st+'"/>':"";
+        if(cell===null||cell===undefined) return "";
+        const v=cell.v, st=cell.s||0, ref=cn(ci)+(ri+1);
+        if(v===""||v===null||v===undefined) return '<c r="'+ref+'" s="'+st+'"/>';
         if(typeof v==="number"&&isFinite(v)) return '<c r="'+ref+'" s="'+st+'"><v>'+v+'</v></c>';
         return '<c r="'+ref+'" t="inlineStr" s="'+st+'"><is><t>'+esc(v)+'</t></is></c>';
       }).join("");
-      return cells?'<row r="'+(ri+1)+'">'+cells+'</row>':"";
+      const h=(ri===2)?' ht="20" customHeight="1"':(ri>=5?' ht="17.25" customHeight="1"':'');
+      return cells?'<row r="'+(ri+1)+'"'+h+'>'+cells+'</row>':"";
     }).join("");
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-      +'<sheetViews><sheetView workbookViewId="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+      +'<sheetViews><sheetView showGridLines="0" workbookViewId="0">'
+      +'<pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+      +'<sheetFormatPr defaultRowHeight="16.5"/>'
       +'<cols>'+cols+'</cols><sheetData>'+body+'</sheetData>'
       +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(m=>'<mergeCell ref="'+m+'"/>').join("")+'</mergeCells>':"")
       +'</worksheet>';
   }
-  function buildXlsx(rows,merges){
+
+  function buildXlsx(){
+    const {rows,merges}=build();
+    const sh=sheetXml(rows,merges);              // 스타일 등록이 먼저 끝나야 함
     const F=(n,t)=>({name:n,data:enc.encode(t)});
     return zip([
       F("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'),
       F("_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
       F("xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Universe" sheetId="1" r:id="rId1"/></sheets></workbook>'),
       F("xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'),
-      F("xl/styles.xml",STYLES),
-      F("xl/worksheets/sheet1.xml",sheetXml(rows,merges)),
+      F("xl/styles.xml",styleXml()),
+      F("xl/worksheets/sheet1.xml",sh),
     ]);
-  }
-
-  function build(){
-    const rows=[],merges=[];
-    const put=(ri,ci,v)=>{ (rows[ri]=rows[ri]||[])[ci]=v; };
-    // 1행: 제목 (전 컬럼 병합)
-    put(0,0,{v:"소비재/호텔/게임/엔터 Universe 구성_"+(DATA.analyst||"")+"   ("+(LIVE.asOf||"").slice(0,10)+" 기준)",s:S_TITLE});
-    for(let i=1;i<COLS.length;i++) put(0,i,{v:"",s:S_TITLE});
-    merges.push("A1:"+cn(COLS.length-1)+"1");
-    // 2행: 그룹 헤더 / 3행: 소헤더
-    let i=0;
-    while(i<COLS.length){
-      const c=COLS[i];
-      if(c.g!==undefined){
-        let j=i; while(j+1<COLS.length && COLS[j+1].g===undefined && COLS[j+1].sub!==undefined && !COLS[j+1].hasOwnProperty("g")) j++;
-        // 그룹 폭: 다음 g 정의 전까지
-        let k=i; while(k+1<COLS.length && !COLS[k+1].hasOwnProperty("g")) k++;
-        put(1,i,{v:c.g,s:S_HDR});
-        for(let x=i+1;x<=k;x++) put(1,x,{v:"",s:S_HDR});
-        if(k>i) merges.push(cn(i)+"2:"+cn(k)+"2");
-        if(!c.sub) merges.push(cn(i)+"2:"+cn(i)+"3");
-        for(let x=i;x<=k;x++) put(2,x,{v:COLS[x].sub||"",s:S_HDR});
-        i=k+1;
-      }else{
-        put(1,i,{v:"",s:S_HDR});
-        put(2,i,{v:c.sub||"",s:S_HDR});
-        merges.push(cn(i)+"2:"+cn(i)+"3");
-        i++;
-      }
-    }
-    // 데이터
-    // 원본 시트와 동일한 순서(유니버스 순번)
-    const sorted=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999));
-    sorted.forEach((r,idx)=>{
-      const ri=3+idx;
-      COLS.forEach((c,ci)=>{
-        const v=c.get(r,idx);
-        put(ri,ci,{v:(v===null||v===undefined||(typeof v==="number"&&!isFinite(v)))?"":v, s:c.st(r)});
-      });
-    });
-    return {rows,merges};
   }
 
   const btn=document.getElementById("xlsxBtn");
   if(!btn) return;
   btn.addEventListener("click",function(){
     try{
-      const {rows,merges}=build();
       const a=document.createElement("a");
-      a.href=URL.createObjectURL(buildXlsx(rows,merges));
+      a.href=URL.createObjectURL(buildXlsx());
       a.download="커버리지_유니버스_"+(LIVE.asOf||"").slice(0,10)+".xlsx";
       document.body.appendChild(a); a.click();
       setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
