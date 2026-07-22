@@ -466,6 +466,7 @@ R.forEach(r=>{
   // 26E 순이익 (컨센서스)
   const cy=(L.cons||{}).year;
   r.np26=cy&&cy.est?cy.est.np:null;
+  r.np27=(r.np26&&r.eps26&&r.eps27)?r.np26*(r.eps27/r.eps26):null;
   if(L.consTarget){ r.target=L.consTarget; }        // 컨센 목표주가(실시간)
   r.upsideCons=(r.target&&r.price)?(r.target/r.price-1)*100:r.upsideCons;
   r.w52pos=(L.w52h&&L.w52l&&L.price)?((L.price-L.w52l)/(L.w52h-L.w52l)*100):null;
@@ -621,6 +622,7 @@ const covCols = [
   {key:"rev26",label:"26E 매출",render:r=>fmt0(r.rev26)},
   {key:"op26",label:"26E 영업익",render:r=>fmt0(r.op26)},
   {key:"np26",label:"26E 순익",render:r=>fmt0(r.np26)},
+  {key:"np27",label:"27E 순익",render:r=>fmt0(r.np27)},
   {key:"eps26",label:"26E EPS",render:r=>fmt0(r.eps26)},
   {key:"epsg26",label:"EPS 증가율",render:r=>`<span class="${cls(r.epsg26)}">${sign(r.epsg26,0)}%</span>`},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
@@ -1252,6 +1254,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
     {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
     {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"n1", fill:r=>scale(r.mdd,-60,0)},
+    {g:"반등 (%)", s:"52주 저점", w:11.5, get:r=>r.rebound, nf:"n1", fill:r=>scale(r.rebound,0,150)},
     {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
     {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"n1"},
     {              s:"27E",  w:7.2, get:r=>r.per27,   nf:"n1"},
@@ -1259,6 +1262,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {                      s:"27E", w:9.8, get:r=>r.rev27, nf:"nd"},
     {g:"영업이익 (십억 원)", s:"26E", w:10.6, get:r=>r.op26, nf:"nd"},
     {                        s:"27E", w:10.6, get:r=>r.op27, nf:"nd"},
+    {g:"순이익 (십억 원)", s:"26E", w:10.6, get:r=>r.np26, nf:"nd"},
+    {                      s:"27E", w:10.6, get:r=>r.np27, nf:"nd"},
     {g:"EPS (원)", s:"26E", w:9.0, get:r=>r.eps26, nf:"n0"},
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
     {g:"EPS 증가율", s:"26E", w:8.6, get:r=>r.epsg26, nf:"n1", bar:1},
