@@ -280,6 +280,7 @@
       </div>
       <div class="spacer"></div>
       <div class="meta-pill" id="metaPill">신주현 · 기준일 2026-07-21</div>
+      <button class="theme-btn xlsxBtn" title="유니버스 엑셀 다운로드" style="font-weight:700">⬇ 엑셀</button>
       <button class="theme-btn" id="themeBtn" title="테마 전환">◐</button>
     </div>
     <nav class="tabs" id="tabs"></nav>
@@ -295,6 +296,15 @@
     <h2 class="sec">개요</h2>
     <p class="sec-desc">커버리지 유니버스 전반의 요약과 섹터별 Top pick. 모든 수치는 <b>당사 추정(E)</b> 및 컨센서스 기준.</p>
     <div class="kpis" id="kpis"></div>
+    <div style="margin:18px 0 4px">
+      <button class="xlsxBtn" style="width:100%;padding:16px;border-radius:12px;cursor:pointer;
+        background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;
+        font-size:15px;font-weight:800;letter-spacing:-.01em;box-shadow:var(--shadow)">
+        ⬇  유니버스 엑셀(.xlsx) 다운로드
+        <span style="display:block;font-size:12px;font-weight:600;opacity:.85;margin-top:4px">
+          29종목 · 실시간 시세 반영 · 원본 시트 양식</span>
+      </button>
+    </div>
     <div class="sub-h">섹터별 Top Pick</div>
     <div class="cards" id="pickCards"></div>
   </section>
@@ -303,7 +313,7 @@
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 실적 요약</h2>
     <p class="sec-desc">대섹터별 정리 · <b>종목명 클릭 시 상세(연간·분기 실적, 밸류에이션) 패널</b>. 헤더 클릭 시 섹터 내 정렬. 상승=<span class="up">빨강</span>/하락=<span class="down">파랑</span>.</p>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button id="xlsxBtn" class="theme-btn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">단위 — 시가총액: 조원 · 매출/영업이익: 십억원 · EPS/주가: 원. OPM = 영업이익 ÷ 매출.</p>
   </section>
 
@@ -620,11 +630,15 @@ const covCols = [
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
   {key:"retYtd",label:"YTD",render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
   {key:"rev26",label:"26E 매출",render:r=>fmt0(r.rev26)},
+  {key:"rev27",label:"27E 매출",render:r=>fmt0(r.rev27)},
   {key:"op26",label:"26E 영업익",render:r=>fmt0(r.op26)},
+  {key:"op27",label:"27E 영업익",render:r=>fmt0(r.op27)},
   {key:"np26",label:"26E 순익",render:r=>fmt0(r.np26)},
   {key:"np27",label:"27E 순익",render:r=>fmt0(r.np27)},
   {key:"eps26",label:"26E EPS",render:r=>fmt0(r.eps26)},
-  {key:"epsg26",label:"EPS 증가율",render:r=>`<span class="${cls(r.epsg26)}">${sign(r.epsg26,0)}%</span>`},
+  {key:"eps27",label:"27E EPS",render:r=>fmt0(r.eps27)},
+  {key:"epsg26",label:"26E EPS성장",render:r=>`<span class="${cls(r.epsg26)}">${sign(r.epsg26,0)}%</span>`},
+  {key:"epsg27",label:"27E EPS성장",render:r=>`<span class="${cls(r.epsg27)}">${sign(r.epsg27,0)}%</span>`},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
   {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
   {key:"per27",label:"27E PER",render:r=> r.per27>0?fmt(r.per27)+"x":"—"},
@@ -1424,9 +1438,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     ]);
   }
 
-  const btn=document.getElementById("xlsxBtn");
-  if(!btn) return;
-  btn.addEventListener("click",function(){
+  const btns=[...document.querySelectorAll(".xlsxBtn")];
+  if(!btns.length) return;
+  btns.forEach(btn=>btn.addEventListener("click",function(){
     try{
       const a=document.createElement("a");
       a.href=URL.createObjectURL(buildXlsx());
@@ -1434,7 +1448,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
       document.body.appendChild(a); a.click();
       setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
     }catch(e){ alert("엑셀 생성 실패: "+e.message); }
-  });
+  }));
 })();
 
 </script>
