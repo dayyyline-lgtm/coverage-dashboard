@@ -41,9 +41,14 @@ export default {
     const token = env.GH_TOKEN;
     if (!token) { console.log("GH_TOKEN 시크릿이 없습니다"); return; }
 
-    // 07:30 KST(=22:30 UTC)에는 DART 이벤트도 함께
+    // 07:30 KST(=22:30 UTC) 슬롯 → DART 이벤트.
+    // 그중 일요일 22:30 UTC = 한국시간 월요일 07:30 이므로 트렌드도 같이 돌린다.
+    // (트렌드 전용 Cron Trigger를 따로 추가하지 않아도 되게 하기 위함)
     const isEventSlot = event.cron.startsWith("30 22");
     const jobs = isEventSlot ? ["events.yml"] : ["refresh.yml"];
+    if (isEventSlot && new Date(event.scheduledTime).getUTCDay() === 0) {
+      jobs.push("trends.yml");
+    }
 
     for (const wf of jobs) {
       const r = await dispatch(wf, token);
