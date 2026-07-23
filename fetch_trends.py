@@ -81,6 +81,16 @@ GROUPS = {
         ],
         "freq": "week",
     },
+    # 아이온2(NC) 국가별 — 나라별 현지 표기. 한국은 한글, 그 외는 라틴 표기가 검색량이 잡힘
+    "아이온2 국가별": {
+        "geos": [
+            {"label": "한국", "geo": "KR", "kw": "아이온2"},
+            {"label": "일본", "geo": "JP", "kw": "AION2"},
+            {"label": "대만", "geo": "TW", "kw": "AION2"},
+            {"label": "미국", "geo": "US", "kw": "AION 2"},
+        ],
+        "freq": "week",
+    },
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
 
@@ -113,7 +123,7 @@ def _gt():
     global _GT
     if _GT is None:
         from trendspy import Trends
-        _GT = Trends(request_delay=2.0)
+        _GT = Trends(request_delay=3.5)   # 요청 간격 — 낮추면 429 발생
     return _GT
 
 
