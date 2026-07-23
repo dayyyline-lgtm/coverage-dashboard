@@ -41,12 +41,17 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 GROUPS = {
     # 리투오 = re2o, 셀르디엠 = CellREDM (한스바이오메드 ECM 스킨부스터)
     "스킨부스터": {
-        "naver":  ["리쥬란", "리투오", "셀르디엠", "쿨로아600"],
-        "google": ["Rejuran", "re2o", "CellREDM", "쿨로아600"],
+        "naver":  ["리쥬란", "리투오", "셀르디엠"],
+        "google": ["Rejuran", "re2o", "CellREDM"],
     },
     "K-뷰티 브랜드": {
         "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
         "google": ["medicube", "dalba", "COSRX", "Celimax"],
+    },
+    # 신제품 단독 추이 (대형 키워드와 섞으면 0으로 눌려 별도 카테고리로 둠)
+    "쿨로아600": {
+        "naver":  ["쿨로아600"],
+        "google": ["쿨로아600"],
     },
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
@@ -105,13 +110,17 @@ def fetch_naver(keywords, n_months=12):
     r.raise_for_status()
     results = r.json()["results"]
 
-    # 키워드마다 빠진 달이 있으므로 period 기준으로 합집합 축을 만든다
+    # 고정 12개월 축(진행 중인 달 제외)에 맞춘다. 그룹마다 축 길이가 달라지면
+    # 전역 months 를 덮어써서 다른 그룹 차트가 깨지므로, 축을 항상 동일하게 고정.
+    # 데이터가 없는 달(신제품 출시 전 등)은 0 으로 채운다.
+    first = datetime.date.today().replace(day=1)
+    axis = []
+    for i in range(n_months, 0, -1):
+        y, m = first.year, first.month - i
+        while m <= 0:
+            m += 12; y -= 1
+        axis.append(f"{y:04d}-{m:02d}")
     per_kw = [{d["period"][:7]: d["ratio"] for d in g["data"]} for g in results]
-    axis = sorted({p for m in per_kw for p in m})
-    cur = end.strftime("%Y-%m")
-    axis = [p for p in axis if p != cur]          # 진행 중인 달 제외
-    axis = axis[-n_months:]
-
     series = [[m.get(p, 0) for p in axis] for m in per_kw]
     labels = [f"{int(p.split('-')[1])}월" for p in axis]
     return norm(series), labels
