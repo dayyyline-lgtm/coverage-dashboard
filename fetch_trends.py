@@ -38,6 +38,10 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 # ── 비교 그룹 ──────────────────────────────────────────────
 # 네이버(국내)는 한글, 구글(전세계)은 영문 키워드를 쓴다.
 # 국내 브랜드는 한글 검색량이 구글에선 거의 안 잡히기 때문.
+# 아이온2 한국·대만 출시일(2025-11-19) 이후 주 수 — 구글 12개월 한도라 52주로 상한
+AION_LAUNCH = datetime.date(2025, 11, 19)
+AION_WEEKS = max(8, min(52, (datetime.date.today() - AION_LAUNCH).days // 7 + 1))
+
 # freq = date(일별) / week(주별) / month(월별) · n = 표시 구간 수 (기본: 주52)
 GROUPS = {
     # 리투오 = re2o, 셀르디엠 = CellREDM (한스바이오메드 ECM 스킨부스터)
@@ -81,20 +85,25 @@ GROUPS = {
         ],
         "freq": "week",
     },
-    # 아이온2(NC) 국가별 — 나라별 현지 표기. 한국은 한글, 그 외는 라틴 표기가 검색량이 잡힘
+    # 아이온2(NC) 국가별 — 한국·대만 2025-11-19 출시, 북미·남미·유럽·일본은 2026-09 예정.
+    # 표기: 한국은 한글, 그 외는 라틴. 기간은 출시 직후부터(아래 AION_WEEKS 자동 계산)
     "아이온2 국가별": {
         "geos": [
-            {"label": "한국", "geo": "KR", "kw": "아이온2"},
-            {"label": "일본", "geo": "JP", "kw": "AION2"},
-            {"label": "대만", "geo": "TW", "kw": "AION2"},
-            {"label": "미국", "geo": "US", "kw": "AION 2"},
+            {"label": "한국(출시)",  "geo": "KR", "kw": "아이온2"},
+            {"label": "대만(출시)",  "geo": "TW", "kw": "AION2"},
+            {"label": "일본",       "geo": "JP", "kw": "AION2"},
+            {"label": "미국",       "geo": "US", "kw": "AION 2"},
+            {"label": "독일",       "geo": "DE", "kw": "AION 2"},
+            {"label": "브라질",     "geo": "BR", "kw": "AION 2"},
         ],
         "freq": "week",
+        "n": AION_WEEKS,
     },
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
 
-COLORS = ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"]
+# 시리즈 색 (최대 8개 — 국가별 그룹이 6개까지 늘어남). Rose Pine 계열의 구분 잘 되는 색
+COLORS = ["#c4a7e7", "#f6c177", "#9ccfd8", "#eb6f92", "#a6da95", "#3e8fb0", "#ea9a97", "#c9a227"]
 
 
 def month_labels(n=12):
@@ -346,7 +355,7 @@ def main():
         print("\n수집된 그룹이 없습니다. index.html 은 그대로 둡니다.")
         return
 
-    trend = {"months": labels, "colors": COLORS[:5],
+    trend = {"months": labels, "colors": COLORS,
              "sources": have, "groups": groups_out}
 
     # 값이 그대로면 파일을 건드리지 않는다 (불필요한 커밋·배포 방지)
