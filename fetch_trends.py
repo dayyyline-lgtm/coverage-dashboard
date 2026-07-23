@@ -48,11 +48,12 @@ GROUPS = {
         "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
         "google": ["medicube", "dalba", "COSRX", "Celimax"],
     },
-    # 신제품 단독 추이 — 출시 직후라 최근 3개월만 (대형 키워드와 섞으면 0으로 눌림)
+    # 신제품 단독 추이 — 출시 직후라 최근 1개월을 '일별'로 자세히 (대형 키워드와 섞으면 0으로 눌림)
     "쿨로아600": {
         "naver":  ["쿨로아600"],
         "google": ["쿨로아600"],
-        "months": 3,
+        "daily":  True,
+        "days":   30,
     },
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
@@ -77,29 +78,30 @@ def norm(series):
     return [[round(v / mx * 100) for v in s] for s in series]
 
 
-def fetch_google(keywords, geo=None, n_months=12):
+def fetch_google(keywords, geo=None, n=12, daily=False):
     from pytrends.request import TrendReq
     py = TrendReq(hl="en-US", tz=540)
-    py.build_payload(keywords, timeframe="today 12-m",
+    py.build_payload(keywords, timeframe=("today 1-m" if daily else "today 12-m"),
                      geo=(GOOGLE_GEO if geo is None else geo))
     df = py.interest_over_time()
     if df.empty:
         raise RuntimeError("응답이 비어있음 (검색량이 너무 적은 키워드일 수 있음)")
-    df = df[keywords].resample("MS").mean().tail(n_months)
+    df = df[keywords].tail(n) if daily else df[keywords].resample("MS").mean().tail(n)
     return norm([df[k].tolist() for k in keywords])
 
 
-def fetch_naver(keywords, n_months=12):
-    """네이버 데이터랩. 월 축을 공통으로 맞추고, 진행 중인 달은 제외."""
+def fetch_naver(keywords, n=12, daily=False):
+    """네이버 데이터랩. daily=True 면 일 단위(최근 n일), 아니면 월 단위(최근 n개월).
+       축을 고정 길이로 맞춰(전역 축을 덮지 않게) 빠진 구간은 0 으로 채운다."""
     import requests
     if not (NAVER_CLIENT_ID and NAVER_CLIENT_SECRET):
         return None, None
     end = datetime.date.today()
-    start = end - datetime.timedelta(days=400)
+    start = end - datetime.timedelta(days=(n + 5) if daily else 400)
     body = {
         "startDate": start.strftime("%Y-%m-%d"),
         "endDate": end.strftime("%Y-%m-%d"),
-        "timeUnit": "month",
+        "timeUnit": "date" if daily else "month",
         "keywordGroups": [{"groupName": k, "keywords": [k]} for k in keywords],
     }
     r = requests.post(
@@ -111,19 +113,25 @@ def fetch_naver(keywords, n_months=12):
     r.raise_for_status()
     results = r.json()["results"]
 
-    # 고정 12개월 축(진행 중인 달 제외)에 맞춘다. 그룹마다 축 길이가 달라지면
-    # 전역 months 를 덮어써서 다른 그룹 차트가 깨지므로, 축을 항상 동일하게 고정.
-    # 데이터가 없는 달(신제품 출시 전 등)은 0 으로 채운다.
-    first = datetime.date.today().replace(day=1)
-    axis = []
-    for i in range(n_months, 0, -1):
-        y, m = first.year, first.month - i
-        while m <= 0:
-            m += 12; y -= 1
-        axis.append(f"{y:04d}-{m:02d}")
-    per_kw = [{d["period"][:7]: d["ratio"] for d in g["data"]} for g in results]
+    if daily:
+        # 최근 n일(오늘 제외). period = YYYY-MM-DD
+        axis = [(end - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+                for i in range(n, 0, -1)]
+        per_kw = [{d["period"]: d["ratio"] for d in g["data"]} for g in results]
+        labels = [f"{int(p[5:7])}/{int(p[8:10])}" for p in axis]
+    else:
+        # 고정 n개월 축(진행 중인 달 제외). period = YYYY-MM
+        first = end.replace(day=1)
+        axis = []
+        for i in range(n, 0, -1):
+            y, m = first.year, first.month - i
+            while m <= 0:
+                m += 12; y -= 1
+            axis.append(f"{y:04d}-{m:02d}")
+        per_kw = [{d["period"][:7]: d["ratio"] for d in g["data"]} for g in results]
+        labels = [f"{int(p.split('-')[1])}월" for p in axis]
+
     series = [[m.get(p, 0) for p in axis] for m in per_kw]
-    labels = [f"{int(p.split('-')[1])}월" for p in axis]
     return norm(series), labels
 
 
@@ -147,21 +155,23 @@ def main():
     for gname, spec in GROUPS.items():
         kws_nv = spec["naver"]
         kws_gg = spec["google"]
-        nm = spec.get("months", 12)               # 그룹별 표시 기간(개월)
-        print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({nm}개월)")
-        g = {"products": kws_nv, "productsGoogle": kws_gg, "months": month_labels(nm)}
+        daily = spec.get("daily", False)
+        n = spec.get("days", 30) if daily else spec.get("months", 12)
+        print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({n}{'일 일별' if daily else '개월'})")
+        g = {"products": kws_nv, "productsGoogle": kws_gg, "daily": daily,
+             "months": month_labels(n if not daily else 12)}
         try:
-            g["google"] = fetch_google(kws_gg, n_months=nm)
+            g["google"] = fetch_google(kws_gg, n=n, daily=daily)
             print(f"  구글 트렌드 OK (geo={GOOGLE_GEO or '전세계'})")
             have["google"] = True
         except Exception as e:
             print("  구글 실패:", str(e)[:80])
             g["google"] = None
         try:
-            nv, lb = fetch_naver(kws_nv, n_months=nm)
+            nv, lb = fetch_naver(kws_nv, n=n, daily=daily)
             if nv:
                 g["naver"] = nv
-                if lb: g["months"] = lb           # 그룹 자체 월 축(전역 축을 덮지 않음)
+                if lb: g["months"] = lb           # 그룹 자체 축(전역 축을 덮지 않음)
                 have["naver"] = True
                 print("  네이버 데이터랩 OK")
             else:
@@ -174,7 +184,7 @@ def main():
         # 실패한 출처는 기존에 있던 값을 그대로 보존 (구글이 429로 막혀도 데이터가 사라지지 않음)
         # 단, 표시 기간(길이)이 바뀌었으면 옛 값을 쓰지 않는다(길이 불일치 방지)
         old = prev_groups.get(gname, {})
-        old_ok = old.get("months") and len(old["months"]) == nm
+        old_ok = old.get("months") and len(old["months"]) == n
         if not g["google"] and old_ok and old.get("google") and old.get("productsGoogle") == kws_gg:
             g["google"] = old["google"]
             print("  구글: 기존 값 유지")
