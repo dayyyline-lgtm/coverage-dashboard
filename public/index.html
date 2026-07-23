@@ -154,6 +154,10 @@
 
   /* sector-grouped coverage */
   .sector-block{margin-bottom:22px}
+  /* 뉴스: 종목 블록을 한 줄에 둘씩 */
+  .news-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .news-grid .sector-block{margin-bottom:0}
+  @media (max-width:820px){ .news-grid{grid-template-columns:1fr} }
   .sector-band{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;padding:11px 16px;background:var(--panel2);
     border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px 12px 0 0}
   .sector-band .s-name{font-weight:800;font-size:15px;letter-spacing:-.01em}
@@ -1019,14 +1023,15 @@ function renderReports(filter=""){
     if(curCo)       list=list.filter(x=>x.co.includes(curCo));
     else if(curSec) list=list.filter(x=>secsOf(x).includes(curSec));
 
-    host.innerHTML="";
+    host.innerHTML=""; host.classList.remove("news-grid");
     if(!list.length){ host.innerHTML=`<div class="list"><div class="item"><div class="body"><div class="s">해당하는 뉴스가 없습니다.</div></div></div></div>`; return; }
 
-    // 종목이 지정되면 그냥 목록, 아니면 종목별로 묶어서 표시
+    // 종목이 지정되면 그냥 목록, 아니면 종목별로 2열 그리드
     if(curCo){
       host.innerHTML=`<div class="list">${list.map(itemHtml).join("")}</div>`;
       return;
     }
+    host.classList.add("news-grid");   // 종목 블록을 한 줄에 둘씩
     // 커버리지 순서대로 종목마다 한 블록 (선택 섹터로 좁힘). 한 기사가 여러 종목이면 각 종목 밑에 표시.
     R.filter(r=> !curSec || r.sector===curSec).forEach(r=>{
       const rows=list.filter(x=> x.co.includes(r.name));
