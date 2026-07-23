@@ -1070,13 +1070,13 @@ function renderReports(filter=""){
 })();
 
 /* ==== Trend comparison — skinboosters (SEED) ==== */
-const TREND={"months": ["7월", "8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월"], "colors": ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"], "sources": {"naver": true, "google": true}, "groups": {"스킨부스터": {"products": ["리쥬란", "리투오", "셀르디엠"], "productsGoogle": ["Rejuran", "re2o", "CellREDM"], "google": [[62, 61, 60, 72, 64, 64, 62, 98, 100, 90, 86, 71], [0, 1, 1, 2, 2, 1, 1, 3, 2, 3, 4, 3], [0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0]], "naver": [[81, 75, 100, 72, 72, 71, 75, 66, 75, 68, 64, 52], [12, 15, 46, 33, 35, 42, 42, 39, 41, 44, 39, 44], [0, 0, 3, 6, 6, 6, 7, 8, 9, 10, 8, 8]]}, "K-뷰티 브랜드": {"products": ["메디큐브", "달바", "코스알엑스", "셀리맥스"], "productsGoogle": ["medicube", "dalba", "COSRX", "Celimax"], "google": [[47, 43, 46, 58, 58, 62, 62, 82, 100, 86, 89, 74], [2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 3, 4], [31, 32, 31, 30, 24, 24, 25, 40, 49, 38, 28, 21], [10, 12, 12, 13, 11, 13, 13, 15, 18, 17, 16, 18]], "naver": [[65, 100, 66, 57, 63, 55, 57, 50, 50, 41, 40, 36], [21, 22, 19, 19, 22, 21, 18, 18, 17, 17, 16, 14], [5, 6, 5, 5, 6, 5, 5, 4, 5, 5, 5, 5], [6, 13, 6, 9, 7, 12, 7, 8, 6, 9, 6, 7]]}, "쿨로아600": {"products": ["쿨로아600"], "productsGoogle": ["쿨로아600"], "google": [[5, 100]], "naver": [[0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 100]]}}};
+const TREND={"months": ["8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월", "7월"], "colors": ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"], "sources": {"naver": true, "google": true}, "groups": {"스킨부스터": {"products": ["리쥬란", "리투오", "셀르디엠"], "productsGoogle": ["Rejuran", "re2o", "CellREDM"], "months": ["7월", "8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월"], "google": [[62, 61, 60, 72, 64, 64, 62, 98, 100, 90, 86, 71], [0, 1, 1, 2, 2, 1, 1, 3, 2, 3, 4, 3], [0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0]], "naver": [[81, 75, 100, 72, 72, 71, 75, 66, 75, 68, 64, 52], [12, 15, 46, 33, 35, 42, 42, 39, 41, 44, 39, 44], [0, 0, 3, 6, 6, 6, 7, 8, 9, 10, 8, 8]]}, "K-뷰티 브랜드": {"products": ["메디큐브", "달바", "코스알엑스", "셀리맥스"], "productsGoogle": ["medicube", "dalba", "COSRX", "Celimax"], "months": ["7월", "8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월"], "google": [[47, 43, 46, 58, 58, 62, 62, 82, 100, 86, 89, 74], [2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 3, 4], [31, 32, 31, 30, 24, 24, 25, 40, 49, 38, 28, 21], [10, 12, 12, 13, 11, 13, 13, 15, 18, 17, 16, 18]], "naver": [[65, 100, 66, 57, 63, 55, 57, 50, 50, 41, 40, 36], [21, 22, 19, 19, 22, 21, 18, 18, 17, 17, 16, 14], [5, 6, 5, 5, 6, 5, 5, 4, 5, 5, 5, 5], [6, 13, 6, 9, 7, 12, 7, 8, 6, 9, 6, 7]]}, "쿨로아600": {"products": ["쿨로아600"], "productsGoogle": ["쿨로아600"], "months": ["4월", "5월", "6월"], "google": [[5, 0, 100]], "naver": [[5, 0, 100]]}}};
 let trendSrc="naver";
 let trendGroup=Object.keys(TREND.groups)[0];
 function drawTrend(){
   const box=document.getElementById("trendChart"); if(!box) return;
   const G=TREND.groups[trendGroup];
-  const series=G[trendSrc], M=TREND.months;
+  const series=G[trendSrc], M=G.months||TREND.months;
   // 구글은 영문 키워드로 수집하므로 라벨도 출처에 맞춰 표시
   const PRODUCTS=(trendSrc==="google" && G.productsGoogle) ? G.productsGoogle : G.products;
   const W=box.clientWidth||1000, H=360, pad={l:44,r:70,t:16,b:36};
@@ -1115,12 +1115,13 @@ function drawTrend(){
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"cur",label:"최근값",render:r=>r.cur},
-    {key:"m3",label:"3개월전",render:r=>r.m3},
+    {key:"m3",label:"3개월전",render:r=>r.m3==null?"—":r.m3},
     {key:"mom",label:"전월비",render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom)}%</span>`},
     {key:"q",label:"3개월 변화",render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
   ], PRODUCTS.map((p,i)=>{
-    const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];const q3=ser[ser.length-4];
-    return {p,color:TREND.colors[i],cur,m3:q3,mom:prev>0?(cur/prev-1)*100:null,q:q3>0?(cur/q3-1)*100:null};
+    const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];
+    const q3=ser.length>=4?ser[ser.length-4]:null;
+    return {p,color:TREND.colors[i],cur,m3:q3,mom:prev>0?(cur/prev-1)*100:null,q:(q3>0)?(cur/q3-1)*100:null};
   }), {key:"cur",dir:-1});
 }
 document.getElementById("trendGroupSeg").innerHTML=Object.keys(TREND.groups)
