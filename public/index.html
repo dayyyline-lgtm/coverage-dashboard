@@ -335,7 +335,8 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 실적 요약</h2>
-    <p class="sec-desc">대섹터별 정리 · <b>종목명 클릭 시 상세(연간·분기 실적, 밸류에이션) 패널</b>. 헤더 클릭 시 섹터 내 정렬. 상승=<span class="up">빨강</span>/하락=<span class="down">파랑</span>.</p>
+    <p class="sec-desc">대섹터별 정리 · <b>종목명 클릭 시 상세(연간·분기 실적, 밸류에이션) 패널</b>. 헤더 클릭 시 섹터 내 정렬. 상승=<span class="up">빨강</span>/하락=<span class="down">파랑</span>.<br>
+      <b>26E 매출·영업익·순익·EPS·PER·EPS성장(25→26)은 컨센서스(네이버 금융 실시간)</b>, 27E는 당사 추정(엑셀). 점수·견적·Pick만 당사 지정. EPS성장은 전년 적자 시 <span class="up">흑전</span>/<span class="down">적전·적지</span>로 표기.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">단위 — 시가총액: 조원 · 매출/영업이익: 십억원 · EPS/주가: 원. OPM = 영업이익 ÷ 매출.</p>
   </section>
@@ -493,6 +494,16 @@ const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleS
 const won = v=> (v===null||v===undefined||v===""||v===0)?"—":Math.round(v).toLocaleString("ko-KR");
 const cls = v=> (v>0?"up":v<0?"down":"flat");
 
+/* EPS 성장률: 전년이 적자면 흑전/적전/적지로 (숫자 대신 라벨) */
+function epsGrowth(prev,cur){
+  if(prev==null||cur==null) return {n:null,t:null};
+  if(prev>0&&cur>0) return {n:(cur/prev-1)*100,t:null};
+  if(prev<0&&cur>0) return {n:null,t:"흑전"};
+  if(prev>0&&cur<0) return {n:null,t:"적전"};
+  if(prev<0&&cur<0) return {n:null,t:"적지"};
+  return {n:null,t:null};
+}
+
 /* merge live market data (네이버 금융 수집) into records */
 R.forEach(r=>{
   const L=LIVE.stocks[r.name]; if(!L) return;
@@ -510,10 +521,25 @@ R.forEach(r=>{
   if(L.ret3m!=null) r.ret3m=L.ret3m;
   r.ret6m=L.ret6m; r.ret1y=L.ret1y;
   r.retYtd=L.retYtd;
-  // 26E 순이익 (컨센서스)
+
+  /* ===== 26E = 컨센서스(API)로 전환 · 27E = 당사 추정(엑셀) 유지 =====
+     27E 컨센은 무료 API에 없어(네이버·FnGuide 모두 26E 1개년만) 27E는 엑셀 값 사용 */
   const cy=(L.cons||{}).year;
-  r.np26=cy&&cy.est?cy.est.np:null;
-  r.np27=(r.np26&&r.eps26&&r.eps27)?r.np26*(r.eps27/r.eps26):null;
+  if(cy&&cy.est){
+    const e=cy.est;
+    if(e.rev!=null) r.rev26=e.rev;                  // 십억 원 (fetch에서 억→십억 변환됨)
+    if(e.op!=null)  r.op26 =e.op;
+    if(e.eps!=null) r.eps26=e.eps;                  // 원
+    r.np26 = e.np!=null? e.np : null;               // 컨센 순이익
+    r.per26=(e.eps>0&&r.price)? r.price/e.eps : null;   // 컨센 EPS 기준 PER
+    const g=epsGrowth(cy.prev?cy.prev.eps:null, e.eps); // 25(실적)→26(컨센)
+    r.epsg26=g.n; r.epsg26t=g.t;
+  } else { r.np26=null; }
+  // 27E — 엑셀 당사 추정(rev27/op27/eps27/epsg27)은 그대로, 파생값만 라이브 반영
+  r.per27=(r.eps27>0&&r.price)? r.price/r.eps27 : r.per27;   // 당사 EPS · 라이브 주가
+  r.np27=(r.np26&&r.eps26&&r.eps27)? r.np26*(r.eps27/r.eps26) : null;
+  r.per12mf=(L.cnsPer>0)? L.cnsPer : r.per12mf;    // 12MF PER = 컨센(API)
+
   if(L.consTarget){ r.target=L.consTarget; }        // 컨센 목표주가(실시간)
   r.upsideCons=(r.target&&r.price)?(r.target/r.price-1)*100:r.upsideCons;
   r.w52pos=(L.w52h&&L.w52l&&L.price)?((L.price-L.w52l)/(L.w52h-L.w52l)*100):null;
@@ -522,6 +548,12 @@ R.forEach(r=>{
 });
 const mcJo = r=> r.mktcapJo!=null?r.mktcapJo:r.mktcap/1000;
 const sign = (v,d=1)=> (v===null||v===undefined||v==="")?"—":(v>0?"+":"")+fmt(v,d);
+/* EPS 성장률 셀: 숫자면 색+%, 전년 적자면 흑전/적전/적지 배지 */
+function growthCell(n,t){
+  if(t){ const c=t==="흑전"?"up":"down"; return `<span class="${c}" title="전년 적자 기준">${t}</span>`; }
+  if(n==null) return "—";
+  return `<span class="${cls(n)}">${sign(n,0)}%</span>`;
+}
 const opm = r=> (r.rev26>0? r.op26/r.rev26*100 : null);
 function ratingBadge(s){
   if(s>=7.5) return '<span class="badge b-strong">적극매수</span>';
@@ -679,8 +711,8 @@ const covCols = [
   {key:"np27",label:"27E 순익",render:r=>fmt0(r.np27)},
   {key:"eps26",label:"26E EPS",render:r=>fmt0(r.eps26)},
   {key:"eps27",label:"27E EPS",render:r=>fmt0(r.eps27)},
-  {key:"epsg26",label:"EPS성장 25→26",render:r=>`<span class="${cls(r.epsg26)}">${sign(r.epsg26,0)}%</span>`},
-  {key:"epsg27",label:"EPS성장 26→27",render:r=>`<span class="${cls(r.epsg27)}">${sign(r.epsg27,0)}%</span>`},
+  {key:"epsg26",label:"EPS성장 25→26",render:r=>growthCell(r.epsg26,r.epsg26t)},
+  {key:"epsg27",label:"EPS성장 26→27",render:r=>growthCell(r.epsg27,r.epsg27t)},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
   {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
   {key:"per27",label:"27E PER",render:r=> r.per27>0?fmt(r.per27)+"x":"—"},
@@ -1284,7 +1316,7 @@ function openStock(name){
       <tr class="sub-row"><td class="l">영업이익률</td>${A.map(a=>{const v=opmOf(a);return `<td>${v==null?'—':fmt(v)+'%'}</td>`;}).join('')}</tr>
       <tr class="sub-row"><td class="l">영업익 YoY</td>${A.map((a,i)=>{const v=yoy(A,'op',i);return `<td>${v==null?'—':`<span class="${cls(v)}">${sign(v,0)}%</span>`}</td>`;}).join('')}</tr>
       <tr><td class="l">EPS(원)</td><td>—</td><td>—</td><td>${fmt0(r.eps26)}</td><td>${fmt0(r.eps27)}</td></tr>
-      <tr class="sub-row"><td class="l">EPS 증가율</td><td>—</td><td>—</td>${['epsg26','epsg27'].map(k=>`<td><span class="${cls(r[k])}">${sign(r[k],0)}%</span></td>`).join('')}</tr>
+      <tr class="sub-row"><td class="l">EPS 증가율</td><td>—</td><td>—</td><td>${growthCell(r.epsg26,r.epsg26t)}</td><td>${growthCell(r.epsg27,r.epsg27t)}</td></tr>
     </tbody></table>
     <div class="d-h">분기 실적 추이 — 매출(막대)·OPM(선)</div><div id="qChart"></div>
     ${(()=>{const rs=(LIVE.researches||[]).filter(x=>x.co===name).slice(0,6);
@@ -1456,8 +1488,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {                      s:"27E", w:10.6, get:r=>r.np27, nf:"nd"},
     {g:"EPS (원)", s:"26E", w:9.0, get:r=>r.eps26, nf:"n0"},
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
-    {g:"EPS 증가율", s:"25→26", w:8.8, get:r=>r.epsg26, nf:"n1", bar:BAR_EPS},
-    {                s:"26→27", w:8.8, get:r=>r.epsg27, nf:"n1", bar:BAR_EPS},
+    {g:"EPS 증가율", s:"25→26", w:8.8, get:r=>r.epsg26!=null?r.epsg26:(r.epsg26t||null), nf:"n1", bar:BAR_EPS},
+    {                s:"26→27", w:8.8, get:r=>r.epsg27!=null?r.epsg27:(r.epsg27t||null), nf:"n1", bar:BAR_EPS},
     {g:"현재 주가 (원)", s:"", w:17.0, get:r=>r.price,  nf:"n0"},
     {g:"목표주가 (원)",  s:"컨센서스", w:16.5, get:r=>r.target, nf:"n0"},
     {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:19.5, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
