@@ -250,6 +250,23 @@
   .mini-tbl tr.sub-row td{color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--line)}
   .mini-tbl .ye{color:var(--accent);font-weight:700}
 
+  /* 개요 요약 패널 */
+  .ov-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media (max-width:1100px){ .ov-grid{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:760px){ .ov-grid{grid-template-columns:1fr} }
+  .ov-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow)}
+  .ov-panel .h{font-size:12.5px;font-weight:800;display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .ov-panel .h::before{content:"";width:3px;height:13px;background:var(--accent);border-radius:2px}
+  .ov-panel .h small{margin-left:auto;font-weight:600;color:var(--muted2);font-size:11px}
+  .ov-row{display:flex;align-items:center;gap:8px;padding:6.5px 0;border-bottom:1px solid var(--line);font-size:12.5px;cursor:pointer}
+  .ov-row:last-child{border-bottom:none}
+  .ov-row .rk{width:13px;flex-shrink:0;color:var(--muted2);font-size:11px;font-weight:700}
+  .ov-row .dt{width:38px;flex-shrink:0;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .ov-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+  .ov-row:hover .nm{color:var(--accent)}
+  .ov-row .v{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ov-empty{font-size:12px;color:var(--muted2);padding:6px 0}
+
   /* market strip — 항상 한 줄(넘치면 가로 스크롤). 두 줄로 접히지 않게 nowrap */
   .mkt-strip{display:flex;flex-wrap:nowrap;gap:5px;align-items:center;padding:14px 0 0;
     overflow-x:auto;scrollbar-width:none}
@@ -336,8 +353,10 @@
   <!-- 개요 -->
   <section class="view active" data-view="overview">
     <h2 class="sec">개요</h2>
-    <p class="sec-desc">커버리지 유니버스 전반의 요약과 섹터별 Top pick. 모든 수치는 <b>당사 추정(E)</b> 및 컨센서스 기준.</p>
+    <p class="sec-desc">커버리지 전반 요약과 섹터별 Top pick. 종목명 클릭 시 상세.</p>
     <div class="kpis" id="kpis"></div>
+    <div class="sub-h">한눈에 보기</div>
+    <div class="ov-grid" id="ovPanels"></div>
     <div class="sub-h">섹터별 Top Pick</div>
     <div class="cards" id="pickCards"></div>
   </section>
@@ -995,6 +1014,39 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
     html+=`</div></div></div>`;
   });
   host.innerHTML=html;
+})();
+
+/* ==== 개요 "한눈에 보기" 패널 — 상승여력 / 낙폭 / 다가오는 일정 ====
+   CAL 이 위에서 정의된 뒤에 실행되어야 하므로 캘린더 다음에 둔다. */
+(function(){
+  const host=document.getElementById("ovPanels"); if(!host) return;
+  const top=(key,dir,n=6)=>R.filter(r=>r[key]!=null&&isFinite(r[key]))
+    .sort((a,b)=>(a[key]-b[key])*dir).slice(0,n);
+  const rows=(list,val)=> list.length
+    ? list.map((r,i)=>`<div class="ov-row" data-stock="${r.name}" title="${r.name} 상세">
+         <span class="rk">${i+1}</span><span class="nm">${r.name}</span>${val(r)}</div>`).join("")
+    : `<div class="ov-empty">데이터 없음</div>`;
+  const panel=(title,note,body)=>`<div class="ov-panel"><div class="h">${title}<small>${note}</small></div>${body}</div>`;
+
+  // 1) 컨센 상승여력 상위
+  const p1=panel("상승여력 상위","컨센 목표주가",
+    rows(top("upsideCons",-1), r=>`<span class="v ${cls(r.upsideCons)}">${sign(r.upsideCons,0)}%</span>`));
+  // 2) 52주 고점대비 낙폭 상위(가장 많이 빠진 순)
+  const p2=panel("52주 낙폭 상위","저가 매수 후보",
+    rows(top("mdd",1), r=>`<span class="v down">${fmt(r.mdd,0)}%</span>`));
+  // 3) 다가오는 일정 (실적발표 우선)
+  const today=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
+  const up=CAL.filter(e=>e.d>=today).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,6);
+  const p3=panel("다가오는 일정","DART · IR",
+    up.length? up.map(e=>{
+      const dd=Math.round((new Date(e.d)-new Date(today))/86400000);
+      return `<div class="ov-row" data-stock="${e.co}" title="${e.t}">
+        <span class="dt">${e.d.slice(5).replace("-","/")}</span>
+        <span class="nm">${e.co}</span>
+        <span class="v" style="color:var(--muted)">${dd===0?"D-DAY":"D-"+dd}</span></div>`;
+    }).join("") : `<div class="ov-empty">예정된 일정이 없습니다</div>`);
+
+  host.innerHTML=p1+p2+p3;
 })();
 
 /* ==== Reports — 네이버 금융 실수집 ==== */
