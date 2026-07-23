@@ -338,7 +338,7 @@
     <p class="sec-desc">대섹터별 정리 · <b>종목명 클릭 시 상세(연간·분기 실적, 밸류에이션) 패널</b>. 헤더 클릭 시 섹터 내 정렬. 상승=<span class="up">빨강</span>/하락=<span class="down">파랑</span>.<br>
       <b>26E 매출·영업익·순익·EPS·PER·EPS성장(25→26)은 컨센서스(네이버 금융 실시간)</b>, 27E는 당사 추정(엑셀). 점수·견적·Pick만 당사 지정. EPS성장은 전년 적자 시 <span class="up">흑전</span>/<span class="down">적전·적지</span>로 표기.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
-    <p class="note">단위 — 시가총액: 조원 · 매출/영업이익: 십억원 · EPS/주가: 원. OPM = 영업이익 ÷ 매출.</p>
+    <p class="note">단위 — 시가총액·견적·매출·영업이익·순이익: <b>억 원</b> · EPS/주가: 원. OPM = 영업이익 ÷ 매출.</p>
   </section>
 
   <!-- 밸류에이션 비교 -->
@@ -361,7 +361,7 @@
     <p class="sec-desc">다가오는 분기 <b>컨센서스 실적</b>(네이버 실수집)과, 연간 26E 영업이익의 <b>당사 추정 vs 컨센 괴리</b>.
       괴리 ±5% 초과 시 <span class="tag-beat">당사 상회</span> / <span class="tag-inline">In-line</span> / <span class="tag-miss">당사 하회</span>.</p>
     <div class="tbl-wrap"><table id="prevTable"></table></div>
-    <p class="note">단위 십억 원. 분기 컨센·연간 컨센은 네이버 금융 재무 API에서 자동 수집(추정치 변경 시 자동 반영),
+    <p class="note">단위 억 원. 분기 컨센·연간 컨센은 네이버 금융 재무 API에서 자동 수집(추정치 변경 시 자동 반영),
       당사 26E 영업이익은 유니버스 엑셀 기준. 괴리 = 당사 ÷ 컨센 − 1 (양수면 당사가 더 공격적).</p>
   </section>
 
@@ -493,6 +493,8 @@ const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocale
 const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
 const won = v=> (v===null||v===undefined||v===""||v===0)?"—":Math.round(v).toLocaleString("ko-KR");
 const cls = v=> (v>0?"up":v<0?"down":"flat");
+/* 모든 금액 단위를 억으로 통일 · m=배율(십억→억은 10, 조→억은 10000) */
+const eok = (v,m=10)=> (v===null||v===undefined||v==="")?"—":Math.round(v*m).toLocaleString("ko-KR");
 
 /* EPS 성장률: 전년이 적자면 흑전/적전/적지로 (숫자 대신 라벨) */
 function epsGrowth(prev,cur){
@@ -698,8 +700,8 @@ const covCols = [
   {key:"pickSort",label:"분류",l:true,render:r=>pickPill(r)||`<span style="color:var(--muted2)">—</span>`},
   {key:"name",label:"종목",l:true,render:nmCellPlain},
   {key:"score",label:"점수",render:r=>r.score==null?"—":`<b>${fmt(r.score,1)}</b>`},
-  {key:"mktcapJo",label:"시총(조)",render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
-  {key:"fairMktcap",label:"견적(조)",render:r=>r.fairMktcap?fmt(r.fairMktcap/1000,1):"—"},
+  {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
+  {key:"fairMktcap",label:"견적(억)",render:r=>eok(r.fairMktcap,10)},
   {key:"upsideOwn",label:"상승여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
   {key:"ret1w",label:"1W",render:r=>r.ret1w==null?"—":`<span class="${cls(r.ret1w)}">${sign(r.ret1w,1)}%</span>`},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
@@ -707,14 +709,14 @@ const covCols = [
   {key:"ret6m",label:"6M",render:r=>r.ret6m==null?"—":`<span class="${cls(r.ret6m)}">${sign(r.ret6m,1)}%</span>`},
   {key:"ret1y",label:"1Y",render:r=>r.ret1y==null?"—":`<span class="${cls(r.ret1y)}">${sign(r.ret1y,1)}%</span>`},
   {key:"retYtd",label:"YTD",render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
-  {key:"rev26",label:"26E 매출",render:r=>fmt0(r.rev26)},
-  {key:"rev27",label:"27E 매출",render:r=>fmt0(r.rev27)},
+  {key:"rev26",label:"26E 매출",render:r=>eok(r.rev26)},
+  {key:"rev27",label:"27E 매출",render:r=>eok(r.rev27)},
   {key:"revYoY26",label:"26E 매출YoY",render:r=>r.revYoY26==null?"—":`<span class="${cls(r.revYoY26)}">${sign(r.revYoY26,0)}%</span>`},
   {key:"revYoY27",label:"27E 매출YoY",render:r=>r.revYoY27==null?"—":`<span class="${cls(r.revYoY27)}">${sign(r.revYoY27,0)}%</span>`},
-  {key:"op26",label:"26E 영업익",render:r=>fmt0(r.op26)},
-  {key:"op27",label:"27E 영업익",render:r=>fmt0(r.op27)},
-  {key:"np26",label:"26E 순익",render:r=>fmt0(r.np26)},
-  {key:"np27",label:"27E 순익",render:r=>fmt0(r.np27)},
+  {key:"op26",label:"26E 영업익",render:r=>eok(r.op26)},
+  {key:"op27",label:"27E 영업익",render:r=>eok(r.op27)},
+  {key:"np26",label:"26E 순익",render:r=>eok(r.np26)},
+  {key:"np27",label:"27E 순익",render:r=>eok(r.np27)},
   {key:"eps26",label:"26E EPS",render:r=>fmt0(r.eps26)},
   {key:"eps27",label:"27E EPS",render:r=>fmt0(r.eps27)},
   {key:"epsg26",label:"EPS성장 25→26",render:r=>growthCell(r.epsg26,r.epsg26t)},
@@ -773,7 +775,7 @@ let w52Mode=0;
 function renderValTable(){
   const M=W52_MODES[w52Mode];
   makeTable(document.getElementById("valTable"),[
-    {key:"mktcapJo",label:"시총(조)",l:true,render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
+    {key:"mktcapJo",label:"시총(억)",l:true,render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
     {key:"name",label:"종목",l:true,render:nmCell},
     {key:"sector",label:"섹터",l:true,render:r=>r.sector},
     {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
@@ -781,7 +783,7 @@ function renderValTable(){
     {key:"pbr",label:"PBR",render:r=>r.pbr>0?fmt(r.pbr)+"x":"—"},
     {key:"foreign",label:"외국인%",render:r=>r.foreign>0?fmt(r.foreign)+"%":"—"},
     {key:M.sort,label:`${M.label} <span class="w52-swap" data-w52toggle title="클릭하면 지표 전환">⇄</span>`,render:M.render},
-    {key:"fairMktcap",label:"적정시총(조)",render:r=>fmt(r.fairMktcap/1000,1)},
+    {key:"fairMktcap",label:"적정시총(억)",render:r=>eok(r.fairMktcap,10)},
     {key:"upsideOwn",label:"당사 상승여력",render:r=>`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</span>`},
     {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
   ], R, {key:"mktcapJo",dir:-1});
@@ -821,16 +823,16 @@ function beatTag(r){
   return '<span class="tag-inline">In-line</span>';
 }
 makeTable(document.getElementById("prevTable"),[
-  {key:"mktcapJo",label:"시총(조)",l:true,render:r=>`<b>${fmt(mcJo(r),1)}</b>`},
+  {key:"mktcapJo",label:"시총(억)",l:true,render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
   {key:"name",label:"종목",l:true,render:nmCell},
   {key:"qTitle",label:"분기",l:true,render:r=>r.qTitle?`<span class="ye">${r.qTitle}E</span>`:"—"},
-  {key:"qRev",label:"컨센 매출",render:r=>fmt0(r.qRev)},
+  {key:"qRev",label:"컨센 매출",render:r=>eok(r.qRev)},
   {key:"qRevYoY",label:"YoY",render:r=>r.qRevYoY==null?"—":`<span class="${cls(r.qRevYoY)}">${sign(r.qRevYoY,0)}%</span>`},
-  {key:"qOp",label:"컨센 영업익",render:r=>fmt0(r.qOp)},
+  {key:"qOp",label:"컨센 영업익",render:r=>eok(r.qOp)},
   {key:"qOpYoY",label:"YoY",render:r=>r.qOpYoY==null?"—":`<span class="${cls(r.qOpYoY)}">${sign(r.qOpYoY,0)}%</span>`},
   {key:"qOpm",label:"OPM",render:r=>r.qOpm==null?"—":fmt(r.qOpm)+"%"},
-  {key:"op26",label:"26E 영업익(당사)",render:r=>fmt0(r.op26)},
-  {key:"consOp26",label:"26E 영업익(컨센)",render:r=>fmt0(r.consOp26)},
+  {key:"op26",label:"26E 영업익(당사)",render:r=>eok(r.op26)},
+  {key:"consOp26",label:"26E 영업익(컨센)",render:r=>eok(r.consOp26)},
   {key:"opGap",label:"괴리",render:r=>r.opGap==null?"—":`<span class="${cls(r.opGap)}">${sign(r.opGap,1)}%</span>`},
   {key:"beat",label:"판정",render:r=>beatTag(r)},
 ], R, {key:"mktcapJo",dir:-1});
@@ -861,7 +863,7 @@ function drawScatter(){
   s+=`<line x1="${pad.l}" y1="${sy(0)}" x2="${W-pad.r}" y2="${sy(0)}" stroke="${mut}" stroke-dasharray="4 4" stroke-width="1"/>`;
   pts.forEach(p=>{
     const c=SECTOR_COLORS[p.sector];
-    s+=`<circle cx="${sx(p.per26)}" cy="${sy(p.upsideCons)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 26E PER ${fmt(p.per26)}x · 상승 ${sign(p.upsideCons)}% · 시총 ${fmt(mcJo(p),1)}조</title></circle>`;
+    s+=`<circle cx="${sx(p.per26)}" cy="${sy(p.upsideCons)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 26E PER ${fmt(p.per26)}x · 상승 ${sign(p.upsideCons)}% · 시총 ${eok(mcJo(p),10000)}억</title></circle>`;
     s+=`<text x="${sx(p.per26)}" y="${sy(p.upsideCons)-rad(p)-3}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-weight="600">${p.name}</text>`;
   });
   s+="</svg>";
@@ -1068,7 +1070,7 @@ function renderReports(filter=""){
 })();
 
 /* ==== Trend comparison — skinboosters (SEED) ==== */
-const TREND={"months": ["7월", "8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월"], "colors": ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"], "sources": {"naver": true, "google": true}, "groups": {"스킨부스터": {"products": ["리쥬란", "리투오", "셀르디엠"], "productsGoogle": ["Rejuran", "re2o", "CellREDM"], "google": [[62, 61, 60, 73, 63, 64, 62, 95, 100, 91, 84, 69], [0, 1, 1, 1, 2, 1, 1, 2, 3, 3, 4, 3], [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0]], "naver": [[81, 75, 100, 72, 72, 71, 75, 66, 75, 68, 64, 52], [12, 15, 46, 33, 35, 42, 42, 39, 41, 44, 39, 44], [0, 0, 3, 6, 6, 6, 7, 8, 9, 10, 8, 8]]}, "K-뷰티 브랜드": {"products": ["메디큐브", "달바", "코스알엑스", "셀리맥스"], "productsGoogle": ["medicube", "dalba", "COSRX", "Celimax"], "google": [[47, 43, 46, 60, 58, 63, 63, 83, 100, 88, 90, 73], [2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 3, 4], [31, 32, 31, 31, 23, 25, 25, 41, 50, 37, 28, 21], [11, 11, 13, 13, 11, 14, 13, 16, 18, 17, 16, 18]], "naver": [[65, 100, 66, 57, 63, 55, 57, 50, 50, 41, 40, 36], [21, 22, 19, 19, 22, 21, 18, 18, 17, 17, 16, 14], [5, 6, 5, 5, 6, 5, 5, 4, 5, 5, 5, 5], [6, 13, 6, 9, 7, 12, 7, 8, 6, 9, 6, 7]]}}};
+const TREND={"months": ["7월", "8월", "9월", "10월", "11월", "12월", "1월", "2월", "3월", "4월", "5월", "6월"], "colors": ["#5b8def", "#ef4b56", "#22c55e", "#f59e0b", "#8b5cf6"], "sources": {"naver": true, "google": false}, "groups": {"스킨부스터": {"products": ["리쥬란", "리투오", "셀르디엠", "쿨로아600"], "productsGoogle": ["리쥬란", "리투오", "셀르디엠", "쿨로아600"], "google": [[81, 75, 100, 72, 72, 71, 75, 66, 75, 68, 64, 52], [12, 15, 46, 33, 35, 42, 42, 39, 41, 44, 39, 44], [0, 0, 3, 6, 6, 6, 7, 8, 9, 10, 8, 8], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], "naver": [[81, 75, 100, 72, 72, 71, 75, 66, 75, 68, 64, 52], [12, 15, 46, 33, 35, 42, 42, 39, 41, 44, 39, 44], [0, 0, 3, 6, 6, 6, 7, 8, 9, 10, 8, 8], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]}, "K-뷰티 브랜드": {"products": ["메디큐브", "달바", "코스알엑스", "셀리맥스"], "productsGoogle": ["medicube", "dalba", "COSRX", "Celimax"], "google": [[47, 43, 46, 60, 58, 63, 63, 83, 100, 88, 90, 73], [2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 3, 4], [31, 32, 31, 31, 23, 25, 25, 41, 50, 37, 28, 21], [11, 11, 13, 13, 11, 14, 13, 16, 18, 17, 16, 18]], "naver": [[65, 100, 66, 57, 63, 55, 57, 50, 50, 41, 40, 36], [21, 22, 19, 19, 22, 21, 18, 18, 17, 17, 16, 14], [5, 6, 5, 5, 6, 5, 5, 4, 5, 5, 5, 5], [6, 13, 6, 9, 7, 12, 7, 8, 6, 9, 6, 7]]}}};
 let trendSrc="naver";
 let trendGroup=Object.keys(TREND.groups)[0];
 function drawTrend(){
@@ -1099,9 +1101,10 @@ function drawTrend(){
   box.innerHTML=s;
   document.getElementById("trendLegend").innerHTML=
     PRODUCTS.map((p,i)=>{
-      const ser=series[i], mom=((ser[ser.length-1]/ser[ser.length-2]-1)*100);
+      const ser=series[i], base=ser[ser.length-2];
+      const mom=(base>0)?((ser[ser.length-1]/base-1)*100):null;
       return `<div class="li"><span class="dot" style="background:${TREND.colors[i]}"></span>${p}
-        <small>최근 ${ser[ser.length-1]} · 전월비 <span class="${cls(mom)}">${sign(mom)}%</span></small></div>`;
+        <small>최근 ${ser[ser.length-1]} · 전월비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}</small></div>`;
     }).join("")+(function(){
       const real=(TREND.sources||{})[trendSrc]!==false;
       if(trendSrc==="google" && !real)
@@ -1113,11 +1116,11 @@ function drawTrend(){
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"cur",label:"최근값",render:r=>r.cur},
     {key:"m3",label:"3개월전",render:r=>r.m3},
-    {key:"mom",label:"전월비",render:r=>`<span class="${cls(r.mom)}">${sign(r.mom)}%</span>`},
-    {key:"q",label:"3개월 변화",render:r=>`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
+    {key:"mom",label:"전월비",render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom)}%</span>`},
+    {key:"q",label:"3개월 변화",render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
   ], PRODUCTS.map((p,i)=>{
     const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];const q3=ser[ser.length-4];
-    return {p,color:TREND.colors[i],cur,m3:q3,mom:(cur/prev-1)*100,q:(cur/q3-1)*100};
+    return {p,color:TREND.colors[i],cur,m3:q3,mom:prev>0?(cur/prev-1)*100:null,q:q3>0?(cur/q3-1)*100:null};
   }), {key:"cur",dir:-1});
 }
 document.getElementById("trendGroupSeg").innerHTML=Object.keys(TREND.groups)
@@ -1299,8 +1302,8 @@ function openStock(name){
       <div class="vg"><div class="l">현재가</div><div class="v">${won(r.price)}</div></div>
       <div class="vg"><div class="l">목표가(컨센)</div><div class="v">${won(r.target)}</div></div>
       <div class="vg"><div class="l">상승여력</div><div class="v ${cls(r.upsideCons)}">${sign(r.upsideCons)}%</div></div>
-      <div class="vg"><div class="l">시가총액</div><div class="v">${fmt(mcJo(r),1)}조</div></div>
-      <div class="vg"><div class="l">적정시총(당사)</div><div class="v">${fmt(r.fairMktcap/1000,1)}조</div></div>
+      <div class="vg"><div class="l">시가총액</div><div class="v">${eok(mcJo(r),10000)}억</div></div>
+      <div class="vg"><div class="l">적정시총(당사)</div><div class="v">${eok(r.fairMktcap,10)}억</div></div>
       <div class="vg"><div class="l">당사 상승여력</div><div class="v ${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</div></div>
       <div class="vg"><div class="l">PER(현)</div><div class="v">${r.perLive>0?fmt(r.perLive)+'x':'—'}</div></div>
       <div class="vg"><div class="l">TTM PBR</div><div class="v">${r.pbr>0?fmt(r.pbr)+'x':'—'}</div></div>
@@ -1317,11 +1320,11 @@ function openStock(name){
         <span class="lbl">${won(r.w52h)}</span>
         <span class="lbl" style="font-weight:700;color:var(--accent)">${fmt(r.w52pos,0)}%</span>
       </div>`:''}
-    <div class="d-h">연간 실적 추이 (십억 원)</div>
+    <div class="d-h">연간 실적 추이 (억 원)</div>
     <table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join('')}</tr></thead><tbody>
-      <tr><td class="l">매출액</td>${A.map(a=>`<td>${fmt0(a.rev)}</td>`).join('')}</tr>
+      <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join('')}</tr>
       <tr class="sub-row"><td class="l">매출 YoY</td>${A.map((a,i)=>{const v=yoy(A,'rev',i);return `<td>${v==null?'—':`<span class="${cls(v)}">${sign(v,0)}%</span>`}</td>`;}).join('')}</tr>
-      <tr><td class="l">영업이익</td>${A.map(a=>`<td>${fmt0(a.op)}</td>`).join('')}</tr>
+      <tr><td class="l">영업이익</td>${A.map(a=>`<td>${eok(a.op)}</td>`).join('')}</tr>
       <tr class="sub-row"><td class="l">영업이익률</td>${A.map(a=>{const v=opmOf(a);return `<td>${v==null?'—':fmt(v)+'%'}</td>`;}).join('')}</tr>
       <tr class="sub-row"><td class="l">영업익 YoY</td>${A.map((a,i)=>{const v=yoy(A,'op',i);return `<td>${v==null?'—':`<span class="${cls(v)}">${sign(v,0)}%</span>`}</td>`;}).join('')}</tr>
       <tr><td class="l">EPS(원)</td><td>—</td><td>—</td><td>${fmt0(r.eps26)}</td><td>${fmt0(r.eps27)}</td></tr>
@@ -1334,7 +1337,7 @@ function openStock(name){
         <td class="l">${x.date?`${x.date.slice(4,6)}/${x.date.slice(6,8)}`:''}</td>
         <td class="l" style="white-space:normal">${x.title}</td>
         <td class="l" style="color:var(--muted)">${x.broker}</td></tr>`).join('')}</tbody></table>`:'';})()}
-    <p class="note">2024A·2025A는 실적, 2026E·2027E는 추정(당사·컨센). 분기는 1Q24~1Q26 실적, 단위 십억 원.
+    <p class="note">2024A·2025A는 실적, 2026E·2027E는 추정(당사·컨센). 분기는 1Q24~1Q26 실적, 단위 억 원.
       현재가·PER·PBR·배당·52주·외국인·컨센 목표주가는 네이버 금융 실시간 수집(${LIVE.asOf}).</p>`;
   document.getElementById("drawerInner").innerHTML=html;
   drawQuarter(f.quarters);
@@ -1362,7 +1365,7 @@ function drawQuarter(qs){
   for(let g=0;g<=3;g++){const y=pad.t+(H-pad.t-pad.b)*g/3;s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;}
   qs.forEach((q,i)=>{
     const x=sx(i);const est=q.q.includes('E');
-    s+=`<rect x="${(x-bw/2).toFixed(1)}" y="${sy(q.rev).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H-pad.b-sy(q.rev)).toFixed(1)}" rx="2" fill="var(--accent)" opacity="${est?0.4:0.85}"><title>${q.q} 매출 ${fmt0(q.rev)} · OPM ${fmt(opms[i])}%</title></rect>`;
+    s+=`<rect x="${(x-bw/2).toFixed(1)}" y="${sy(q.rev).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H-pad.b-sy(q.rev)).toFixed(1)}" rx="2" fill="var(--accent)" opacity="${est?0.4:0.85}"><title>${q.q} 매출 ${eok(q.rev)}억 · OPM ${fmt(opms[i])}%</title></rect>`;
     s+=`<text x="${x.toFixed(1)}" y="${H-pad.b+15}" text-anchor="middle" font-size="9.5" fill="${mut}">${q.q}</text>`;
   });
   const line=qs.map((q,i)=>`${sx(i).toFixed(1)},${syo(opms[i]).toFixed(1)}`).join(" ");
@@ -1426,7 +1429,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     borders.push('<border>'+e("left",b.l)+e("right",b.r)+e("top",b.t)+e("bottom",b.bo)+'<diagonal/></border>');
     return (bIdx[key]=borders.length-1);
   }
-  const NF={g:0,n1:164,n0:3,nd:165,dt:166};
+  const NF={g:0,n1:164,n0:3,nd:165,dt:166,pct:167,mult:168};
   const xfs=[],xfIdx={};
   function ST(o){
     o=o||{};
@@ -1442,7 +1445,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
   const styleXml=()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<numFmts count="3"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/></numFmts>'
+    +'<numFmts count="5"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/><numFmt numFmtId="167" formatCode="0.0&quot;%&quot;"/><numFmt numFmtId="168" formatCode="0.0&quot;x&quot;"/></numFmts>'
     +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
@@ -1475,37 +1478,37 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     {s:"소섹터", w:7.5,  get:r=>r.sub,    center:1},
     {s:"종목",   w:13.0, get:r=>r.name,   center:1},
     {g:"점수",          s:"", w:7.5,  get:r=>r.score,      nf:"n1", fill:r=>hScore(r.score)},
-    {g:"시가총액 (십억 원)", s:"", w:21.0, get:r=>mcJo(r)*1000, nf:"n0"},
-    {g:"견적 (십억 원)", s:"", w:17.0, get:r=>r.fairMktcap, nf:"n0"},
-    {g:"상승 여력 (%)",  s:"", w:15.0, get:r=>r.upsideOwn, nf:"n1", fill:r=>hPct(r.upsideOwn)},
-    {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"n1", fill:r=>hPct(r.ret1w)},
-    {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"n1", fill:r=>hPct(r.ret1m)},
-    {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"n1", fill:r=>hPct(r.ret3m)},
-    {                   s:"6m", w:7.0, get:r=>r.ret6m, nf:"n1", fill:r=>hPct(r.ret6m)},
-    {                   s:"1y", w:7.0, get:r=>r.ret1y, nf:"n1", fill:r=>hPct(r.ret1y)},
-    {                   s:"YTD", w:7.0, get:r=>r.retYtd, nf:"n1", fill:r=>hPct(r.retYtd)},
-    {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"n1", bar:BAR_DOWN},
-    {g:"반등 (%)", s:"52주 저점", w:11.5, get:r=>r.rebound, nf:"n1", bar:BAR_UP},
-    {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"n1"},
-    {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"n1"},
-    {              s:"27E",  w:7.2, get:r=>r.per27,   nf:"n1"},
-    {g:"PBR (배)", s:"TTM", w:7.6, get:r=>r.pbr,   nf:"n1"},
-    {              s:"26E", w:7.2, get:r=>r.pbr26, nf:"n1"},
-    {g:"매출액 (십억 원)", s:"26E", w:9.8, get:r=>r.rev26, nf:"nd"},
-    {                      s:"27E", w:9.8, get:r=>r.rev27, nf:"nd"},
-    {g:"매출 YoY (%)", s:"26E", w:8.6, get:r=>r.revYoY26, nf:"n1", fill:r=>hPct(r.revYoY26)},
-    {                  s:"27E", w:8.6, get:r=>r.revYoY27, nf:"n1", fill:r=>hPct(r.revYoY27)},
-    {g:"영업이익 (십억 원)", s:"26E", w:10.6, get:r=>r.op26, nf:"nd"},
-    {                        s:"27E", w:10.6, get:r=>r.op27, nf:"nd"},
-    {g:"순이익 (십억 원)", s:"26E", w:10.6, get:r=>r.np26, nf:"nd"},
-    {                      s:"27E", w:10.6, get:r=>r.np27, nf:"nd"},
+    {g:"시가총액 (억 원)", s:"", w:15.0, get:r=>mcJo(r)*10000, nf:"n0"},
+    {g:"견적 (억 원)", s:"", w:13.0, get:r=>r.fairMktcap!=null?r.fairMktcap*10:null, nf:"n0"},
+    {g:"상승 여력 (%)",  s:"", w:15.0, get:r=>r.upsideOwn, nf:"pct", fill:r=>hPct(r.upsideOwn)},
+    {g:"기간별 수익률", s:"1w", w:7.0, get:r=>r.ret1w, nf:"pct", fill:r=>hPct(r.ret1w)},
+    {                   s:"1m", w:7.0, get:r=>r.ret1m, nf:"pct", fill:r=>hPct(r.ret1m)},
+    {                   s:"3m", w:7.0, get:r=>r.ret3m, nf:"pct", fill:r=>hPct(r.ret3m)},
+    {                   s:"6m", w:7.0, get:r=>r.ret6m, nf:"pct", fill:r=>hPct(r.ret6m)},
+    {                   s:"1y", w:7.0, get:r=>r.ret1y, nf:"pct", fill:r=>hPct(r.ret1y)},
+    {                   s:"YTD", w:7.0, get:r=>r.retYtd, nf:"pct", fill:r=>hPct(r.retYtd)},
+    {g:"낙폭 (%)", s:"52주 고점", w:11.5, get:r=>r.mdd, nf:"pct", bar:BAR_DOWN},
+    {g:"반등 (%)", s:"52주 저점", w:11.5, get:r=>r.rebound, nf:"pct", bar:BAR_UP},
+    {g:"PER (배)", s:"12MF", w:7.6, get:r=>r.per12mf, nf:"mult"},
+    {              s:"26E",  w:7.2, get:r=>r.per26,   nf:"mult"},
+    {              s:"27E",  w:7.2, get:r=>r.per27,   nf:"mult"},
+    {g:"PBR (배)", s:"TTM", w:7.6, get:r=>r.pbr,   nf:"mult"},
+    {              s:"26E", w:7.2, get:r=>r.pbr26, nf:"mult"},
+    {g:"매출액 (억 원)", s:"26E", w:11.0, get:r=>r.rev26!=null?r.rev26*10:null, nf:"n0"},
+    {                    s:"27E", w:11.0, get:r=>r.rev27!=null?r.rev27*10:null, nf:"n0"},
+    {g:"매출 YoY (%)", s:"26E", w:8.6, get:r=>r.revYoY26, nf:"pct", fill:r=>hPct(r.revYoY26)},
+    {                  s:"27E", w:8.6, get:r=>r.revYoY27, nf:"pct", fill:r=>hPct(r.revYoY27)},
+    {g:"영업이익 (억 원)", s:"26E", w:11.0, get:r=>r.op26!=null?r.op26*10:null, nf:"n0"},
+    {                      s:"27E", w:11.0, get:r=>r.op27!=null?r.op27*10:null, nf:"n0"},
+    {g:"순이익 (억 원)", s:"26E", w:11.0, get:r=>r.np26!=null?r.np26*10:null, nf:"n0"},
+    {                    s:"27E", w:11.0, get:r=>r.np27!=null?r.np27*10:null, nf:"n0"},
     {g:"EPS (원)", s:"26E", w:9.0, get:r=>r.eps26, nf:"n0"},
     {              s:"27E", w:9.0, get:r=>r.eps27, nf:"n0"},
-    {g:"EPS 증가율", s:"25→26", w:8.8, get:r=>r.epsg26!=null?r.epsg26:(r.epsg26t||null), nf:"n1", bar:BAR_EPS},
-    {                s:"26→27", w:8.8, get:r=>r.epsg27!=null?r.epsg27:(r.epsg27t||null), nf:"n1", bar:BAR_EPS},
+    {g:"EPS 증가율", s:"25→26", w:8.8, get:r=>r.epsg26!=null?r.epsg26:(r.epsg26t||null), nf:"pct", bar:BAR_EPS},
+    {                s:"26→27", w:8.8, get:r=>r.epsg27!=null?r.epsg27:(r.epsg27t||null), nf:"pct", bar:BAR_EPS},
     {g:"현재 주가 (원)", s:"", w:17.0, get:r=>r.price,  nf:"n0"},
     {g:"목표주가 (원)",  s:"컨센서스", w:16.5, get:r=>r.target, nf:"n0"},
-    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:19.5, get:r=>r.upsideCons, nf:"n1", fill:r=>hPct(r.upsideCons)},
+    {g:"상승여력 (%)",   s:"컨센서스 기준 산출",w:19.5, get:r=>r.upsideCons, nf:"pct", fill:r=>hPct(r.upsideCons)},
   ];
   const N=C.length, OFF=3;                 // D열 = index 3
   const gStart=[],gEnd=[];
