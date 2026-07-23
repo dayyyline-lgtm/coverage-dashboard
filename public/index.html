@@ -350,13 +350,13 @@
   <!-- 밸류에이션 비교 -->
   <section class="view" data-view="valuation">
     <h2 class="sec">밸류에이션 비교</h2>
-    <p class="sec-desc">26E PER(x축) 대 컨센서스 상승여력(y축). 버블 크기 = 시가총액, 색 = 세부 카테고리.</p>
+    <p class="sec-desc">12MF PER(x축) 대 컨센서스 상승여력(y축). 버블 크기 = 시가총액, 색 = 세부 카테고리.</p>
     <div class="chart-box">
       <div id="scatter"></div>
       <div class="legend" id="scatterLegend"></div>
     </div>
-    <div class="sub-h">밸류에이션 상세 (배수 · 실적추정)</div>
-    <div class="tbl-wrap"><table id="valTable"></table></div>
+    <div class="sub-h">밸류에이션 상세 (배수 · 실적추정) — 카테고리별</div>
+    <div id="valGroups"></div>
     <p class="note"><b>26E는 컨센서스(네이버 실시간)</b>, 27E는 당사 추정. EPS성장은 전년 적자 시 <span class="up">흑전</span>/<span class="down">적전·적지</span>. 단위 — 매출·영업익·순익: 억 원 · EPS/목표주가: 원.<br>
       맨 오른쪽 컬럼 제목의 <b>⇄</b> 를 누르면 고점대비 낙폭 → 52주 위치 → 저점대비 반등으로 전환됩니다. 헤더 클릭은 정렬.</p>
   </section>
@@ -780,10 +780,9 @@ const W52_MODES=[
 let w52Mode=0;
 function renderValTable(){
   const M=W52_MODES[w52Mode];
-  makeTable(document.getElementById("valTable"),[
+  const cols=[
     {key:"name",label:"종목",l:true,render:nmCell},
     {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
-    {key:"sector",label:"섹터",l:true,render:r=>r.sub},
     {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
     {key:"per26",label:"26E PER",render:r=> r.per26>0?fmt(r.per26)+"x":"—"},
     {key:"per27",label:"27E PER",render:r=> r.per27>0?fmt(r.per27)+"x":"—"},
@@ -804,11 +803,30 @@ function renderValTable(){
     {key:"target",label:"목표주가",render:r=>won(r.target)},
     {key:"upsideCons",label:"컨센 상승여력",render:r=>`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons)}%</span>`},
     {key:M.sort,label:`${M.label} <span class="w52-swap" data-w52toggle title="클릭하면 지표 전환">⇄</span>`,render:M.render},
-  ], R, {key:"mktcapJo",dir:-1});
+  ];
+  // 커버리지 요약과 동일하게 대섹터 → 소분류(구획) 밴드로 나눠 표시
+  const host=document.getElementById("valGroups"); host.innerHTML="";
+  SECTORS.forEach(sec=>{
+    const secRows=R.filter(r=>r.sector===sec);
+    [...new Set(secRows.map(r=>r.sub))].forEach(sub=>{
+      const rows=secRows.filter(r=>r.sub===sub);
+      if(!rows.length) return;
+      const aPer=avg(rows.map(r=>r.per12mf).filter(v=>v>0));
+      const c=SECTOR_COLORS[sec];
+      const block=document.createElement("div"); block.className="sector-block";
+      block.innerHTML=`<div class="sector-band" style="border-left-color:${c}">
+          <span class="s-name" style="color:${c}">${sec} · ${sub}</span>
+          <span class="s-tag">${rows.length}종목</span>
+          <span class="s-stat" style="margin-left:auto">평균 12MF PER <b>${fmt(aPer)}x</b></span>
+        </div><div class="tbl-wrap" style="border-radius:0 0 12px 12px;border-top:none"><table></table></div>`;
+      host.appendChild(block);
+      makeTable(block.querySelector("table"), cols, rows, {key:"mktcapJo",dir:-1});
+    });
+  });
 }
 renderValTable();
 // ⇄ 아이콘으로 지표 전환. 캡처 단계에서 가로채므로 정렬로 테이블이 다시 그려져도 계속 동작한다.
-document.getElementById("valTable").addEventListener("click",(e)=>{
+document.getElementById("valGroups").addEventListener("click",(e)=>{
   if(!e.target.closest("[data-w52toggle]")) return;
   e.stopPropagation();
   w52Mode=(w52Mode+1)%W52_MODES.length;
@@ -859,8 +877,8 @@ makeTable(document.getElementById("prevTable"),[
 function drawScatter(){
   const box=document.getElementById("scatter");
   const W=box.clientWidth||1000, H=420, pad={l:52,r:20,t:16,b:44};
-  const pts=R.filter(r=>r.per26>0 && r.per26<60 && r.upsideCons!=null);
-  const xs=pts.map(p=>p.per26), ys=pts.map(p=>p.upsideCons);
+  const pts=R.filter(r=>r.per12mf>0 && r.per12mf<60 && r.upsideCons!=null);
+  const xs=pts.map(p=>p.per12mf), ys=pts.map(p=>p.upsideCons);
   const xMin=0, xMax=Math.max(...xs)*1.05, yMin=Math.min(0,...ys)-5, yMax=Math.max(...ys)*1.08;
   const sx=v=>pad.l+(v-xMin)/(xMax-xMin)*(W-pad.l-pad.r);
   const sy=v=>H-pad.b-(v-yMin)/(yMax-yMin)*(H-pad.t-pad.b);
@@ -875,14 +893,14 @@ function drawScatter(){
     s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${Math.round(v)}%</text>`;}
   for(let i=0;i<=6;i++){const v=xMin+(xMax-xMin)*i/6;const x=sx(v);
     s+=`<text x="${x}" y="${H-pad.b+18}" text-anchor="middle" font-size="11" fill="${mut}">${Math.round(v)}x</text>`;}
-  s+=`<text x="${(W)/2}" y="${H-6}" text-anchor="middle" font-size="12" fill="${mut}">26E PER (배)</text>`;
+  s+=`<text x="${(W)/2}" y="${H-6}" text-anchor="middle" font-size="12" fill="${mut}">12MF PER (배)</text>`;
   s+=`<text x="14" y="${H/2}" text-anchor="middle" font-size="12" fill="${mut}" transform="rotate(-90 14 ${H/2})">컨센서스 상승여력 (%)</text>`;
   // zero line
   s+=`<line x1="${pad.l}" y1="${sy(0)}" x2="${W-pad.r}" y2="${sy(0)}" stroke="${mut}" stroke-dasharray="4 4" stroke-width="1"/>`;
   pts.forEach(p=>{
     const c=catColor(CAT_OF[p.name]);
-    s+=`<circle cx="${sx(p.per26)}" cy="${sy(p.upsideCons)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 26E PER ${fmt(p.per26)}x · 상승 ${sign(p.upsideCons)}% · 시총 ${eok(mcJo(p),10000)}억</title></circle>`;
-    s+=`<text x="${sx(p.per26)}" y="${sy(p.upsideCons)-rad(p)-3}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-weight="600">${p.name}</text>`;
+    s+=`<circle cx="${sx(p.per12mf)}" cy="${sy(p.upsideCons)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 12MF PER ${fmt(p.per12mf)}x · 상승 ${sign(p.upsideCons)}% · 시총 ${eok(mcJo(p),10000)}억</title></circle>`;
+    s+=`<text x="${sx(p.per12mf)}" y="${sy(p.upsideCons)-rad(p)-3}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-weight="600">${p.name}</text>`;
   });
   s+="</svg>";
   box.innerHTML=s;
