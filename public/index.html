@@ -102,6 +102,8 @@
   tbody tr:hover{background:var(--panel2)}
   tbody tr:last-child td{border-bottom:none}
   .nm-cell{font-weight:700}
+  .nm-cell .nm{font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
+  .nm-cell.clickable:hover .nm{color:var(--accent)}
   .nm-cell .sub{font-size:11px;color:var(--muted);font-weight:500;margin-left:6px}
   .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
 
@@ -248,8 +250,11 @@
   .mini-tbl tr.sub-row td{color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--line)}
   .mini-tbl .ye{color:var(--accent);font-weight:700}
 
-  /* market strip — 간결하게 (촘촘한 칩) */
-  .mkt-strip{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:14px 0 0}
+  /* market strip — 항상 한 줄(넘치면 가로 스크롤). 두 줄로 접히지 않게 nowrap */
+  .mkt-strip{display:flex;flex-wrap:nowrap;gap:5px;align-items:center;padding:14px 0 0;
+    overflow-x:auto;scrollbar-width:none}
+  .mkt-strip::-webkit-scrollbar{display:none}
+  .mkt{flex-shrink:0}
   .mkt{display:flex;align-items:baseline;gap:5px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 9px;cursor:pointer}
   a.mkt:hover .n{color:var(--accent)}
   .mkt .n{font-size:11px;color:var(--muted);font-weight:700}
@@ -340,11 +345,9 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
-    <p class="sec-desc">소섹터별 <b>한눈에 보는 요약</b> — 점수·시총·견적·상승여력·낙폭·수익률. <b>종목명 클릭 시 상세 패널</b>, 헤더 클릭 시 정렬.
-      상세 배수·실적추정(PER/PBR·매출/영업익/EPS·성장률)은 <b>밸류에이션 탭</b>으로 옮겼습니다.<br>
-      점수·견적·Pick은 당사 지정 · 견적 = 당사 적정시총, 상승여력 = 견적 ÷ 시총 − 1 · 낙폭 = 52주 고점 대비.</p>
+    <p class="sec-desc">점수·시총·견적·상승여력·모멘텀을 한눈에. 배수·실적추정은 밸류에이션 탭. <b>종목명 클릭</b> 시 상세.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
-    <p class="note">단위 — 시가총액·견적: <b>억 원</b> · 상승여력·낙폭·수익률: %. 엑셀 다운로드에는 배수·실적추정까지 전부 포함됩니다.</p>
+    <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
 
   <!-- 밸류에이션 비교 -->
@@ -357,8 +360,7 @@
     </div>
     <div class="sub-h">밸류에이션 상세 (배수 · 실적추정) — 카테고리별</div>
     <div id="valGroups"></div>
-    <p class="note"><b>26E는 컨센서스(네이버 실시간)</b>, 27E는 당사 추정. EPS성장은 전년 적자 시 <span class="up">흑전</span>/<span class="down">적전·적지</span>. 단위 — 매출·영업익·순익: 억 원 · EPS/목표주가: 원.<br>
-      맨 오른쪽 컬럼 제목의 <b>⇄</b> 를 누르면 고점대비 낙폭 → 52주 위치 → 저점대비 반등으로 전환됩니다. 헤더 클릭은 정렬.</p>
+    <p class="note">26E = 컨센, 27E = 당사 추정 · 단위 매출·영업익·순익 억 원. 맨 오른쪽 <b>⇄</b> 로 낙폭↔52주위치↔반등 전환.</p>
   </section>
 
   <!-- 실적 프리뷰 -->
@@ -714,9 +716,9 @@ function makeTable(el, cols, rows, initSort){
   }
   render();
 }
-const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${pickPill(r)} ${r.name}<span class="sub">${r.sub}</span></span>`;
+const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${pickPill(r)} <span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
 /* 분류 컬럼이 따로 있는 표(커버리지)에서는 픽 배지를 빼서 중복을 없앤다 */
-const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${r.name}<span class="sub">${r.sub}</span></span>`;
+const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}"><span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
 
 /* ==== Coverage summary — grouped by sector ==== */
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
