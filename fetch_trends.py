@@ -49,9 +49,11 @@ GROUPS = {
         "google": ["medicube", "dalba", "COSRX", "Celimax"],
     },
     # 신제품 단독 추이 — 출시 직후라 최근 1개월을 '일별'로 자세히 (대형 키워드와 섞으면 0으로 눌림)
+    # 구글은 전세계로 보면 검색량 부족으로 비니 한국(KR)으로 좁히고, 키워드도 '쿨로아'로 넓혀 신호 확보
     "쿨로아600": {
         "naver":  ["쿨로아600"],
-        "google": ["쿨로아600"],
+        "google": ["쿨로아"],
+        "geo":    "KR",
         "daily":  True,
         "days":   30,
     },
@@ -160,9 +162,11 @@ def main():
         print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({n}{'일 일별' if daily else '개월'})")
         g = {"products": kws_nv, "productsGoogle": kws_gg, "daily": daily,
              "months": month_labels(n if not daily else 12)}
+        geo = spec.get("geo", GOOGLE_GEO)
+        g["geo"] = geo
         try:
-            g["google"] = fetch_google(kws_gg, n=n, daily=daily)
-            print(f"  구글 트렌드 OK (geo={GOOGLE_GEO or '전세계'})")
+            g["google"] = fetch_google(kws_gg, geo=geo, n=n, daily=daily)
+            print(f"  구글 트렌드 OK (geo={geo or '전세계'})")
             have["google"] = True
         except Exception as e:
             print("  구글 실패:", str(e)[:80])
