@@ -68,6 +68,19 @@ GROUPS = {
         "freq":   "date",
         "n":      30,
     },
+    # 티니핑 국가별 관심도 — 나라마다 현지 명칭+현지 geo 로 따로 조회(구글만).
+    # 각국 자체 0~100 스케일이라 '추이(언제 떴나)' 비교용, 절대 크기 비교는 불가.
+    # 중국은 구글이 차단돼 데이터가 거의 없음(참고). 유럽은 데이터가 가장 많은 영국 기준.
+    "티니핑 국가별": {
+        "geos": [
+            {"label": "미국",      "geo": "US", "kw": "Teenieping"},
+            {"label": "일본",      "geo": "JP", "kw": "ティーニーピン"},
+            {"label": "중국",      "geo": "CN", "kw": "奇妙萌可"},
+            {"label": "러시아",    "geo": "RU", "kw": "Тинипин"},
+            {"label": "유럽(영국)", "geo": "GB", "kw": "Teenieping"},
+        ],
+        "freq": "week",
+    },
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
 
@@ -94,23 +107,31 @@ def norm(series):
 # 표시 단위: date=일별, week=주별, month=월별
 GTF = {"date": "today 3-m", "week": "today 12-m", "month": "today 12-m"}
 
+# trendspy 공유 인스턴스 — request_delay 로 요청 간격을 벌려 429(자가 rate-limit) 방지
+_GT = None
+def _gt():
+    global _GT
+    if _GT is None:
+        from trendspy import Trends
+        _GT = Trends(request_delay=2.0)
+    return _GT
 
-def fetch_google(keywords, geo=None, freq="week", n=52):
-    """구글 트렌드. trendspy 사용 — pytrends 는 구글의 2025 봇차단(429)에 낡아서 깨지므로 교체함.
-       (trendspy 는 신형 API·쿠키/동의 처리를 지원해 서버 IP 에서도 통과)"""
-    from trendspy import Trends
-    err = None
-    for attempt in range(3):                       # 간헐 실패 시 백오프 재시도
+
+def _google_df(keywords, geo, freq):
+    """구글 트렌드 원자료(DataFrame) — 429 시 백오프 재시도."""
+    for attempt in range(3):
         try:
-            df = Trends().interest_over_time(
-                keywords, timeframe=GTF.get(freq, "today 12-m"),
-                geo=(GOOGLE_GEO if geo is None else geo))
-            break
-        except Exception as e:
-            err = e
+            return _gt().interest_over_time(
+                keywords, timeframe=GTF.get(freq, "today 12-m"), geo=geo)
+        except Exception:
             if attempt < 2:
                 time.sleep(20 * (attempt + 1)); continue
             raise
+
+
+def fetch_google(keywords, geo=None, freq="week", n=52):
+    """구글 트렌드. trendspy 사용 — pytrends 는 구글의 2025 봇차단(429)에 낡아서 깨지므로 교체함."""
+    df = _google_df(keywords, GOOGLE_GEO if geo is None else geo, freq)
     if df is None or df.empty:
         raise RuntimeError("응답이 비어있음 (검색량이 너무 적은 키워드일 수 있음)")
     if "isPartial" in df.columns:                 # 진행 중인 구간 제외
@@ -121,6 +142,35 @@ def fetch_google(keywords, geo=None, freq="week", n=52):
     df = df.tail(n)
     labels = [f"{d.month}월" if freq == "month" else f"{d.month}/{d.day}" for d in df.index]
     return norm([df[k].tolist() for k in keywords]), labels
+
+
+def fetch_google_geos(geos, freq="week", n=52):
+    """같은 대상을 나라마다 '현지 명칭 + 현지 geo'로 따로 조회.
+       각국은 구글이 자체 0~100 으로 정규화하므로 국가 간 절대 비교는 불가, 추이(모양)만 비교."""
+    series, labels = [], None
+    for spec in geos:
+        df = _google_df([spec["kw"]], spec["geo"], freq)
+        if df is None or df.empty:
+            s = None
+        else:
+            if "isPartial" in df.columns:
+                df = df[~df["isPartial"].astype(bool)]
+            col = df[spec["kw"]]
+            if freq == "month":
+                col = col.resample("MS").mean()
+            col = col.tail(n)
+            if labels is None:
+                labels = [f"{d.month}월" if freq == "month" else f"{d.month}/{d.day}"
+                          for d in col.index]
+            s = [round(v) for v in col.tolist()]     # 구글 원본 0~100 유지(재정규화 안 함)
+        series.append(s)
+    if labels is None:
+        raise RuntimeError("모든 국가 조회 실패")
+    # 실패(None)한 국가는 0 으로, 길이는 공통으로 맞춘다
+    L = min([len(labels)] + [len(s) for s in series if s])
+    labels = labels[-L:]
+    series = [(s[-L:] if s else [0] * L) for s in series]
+    return series, labels
 
 
 def fetch_naver(keywords, freq="week", n=52):
@@ -193,10 +243,35 @@ def main():
 
     FREQ_KO = {"date": "일별", "week": "주별", "month": "월별"}
     for gname, spec in GROUPS.items():
-        kws_nv = spec["naver"]
-        kws_gg = spec["google"]
         freq = spec.get("freq", "week")
         n = spec.get("n", {"date": 30, "week": 52, "month": 12}[freq])
+
+        # ── 국가별 그룹 (구글만, 나라마다 현지명+현지 geo) ──────────────
+        if "geos" in spec:
+            labs = [x["label"] for x in spec["geos"]]
+            print(f"\n[{gname}]  국가별 {[x['geo'] for x in spec['geos']]}  ({FREQ_KO[freq]} {n})")
+            g = {"products": labs, "productsGoogle": labs, "freq": freq,
+                 "geo": "multi", "multi": True, "months": []}
+            try:
+                g["google"], g["months"] = fetch_google_geos(spec["geos"], freq=freq, n=n)
+                g["naver"] = g["google"]          # 해외 → 네이버 없음, 동일 데이터
+                have["google"] = True
+                nz = [sum(1 for v in s if v > 0) for s in g["google"]]
+                print(f"  구글 국가별 OK · 0아닌값 {nz}")
+            except Exception as e:
+                print("  구글 국가별 실패:", str(e)[:80])
+                old = prev_groups.get(gname, {})
+                if old.get("google"):
+                    g.update({k: old[k] for k in ("google", "naver", "months") if k in old})
+                    print("  기존 값 유지")
+                else:
+                    continue
+            groups_out[gname] = g
+            time.sleep(6)
+            continue
+
+        kws_nv = spec["naver"]
+        kws_gg = spec["google"]
         print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({FREQ_KO[freq]} {n})")
         g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
         geo = spec.get("geo", GOOGLE_GEO)
