@@ -349,7 +349,7 @@
   <!-- 밸류에이션 비교 -->
   <section class="view" data-view="valuation">
     <h2 class="sec">밸류에이션 비교</h2>
-    <p class="sec-desc">26E PER(x축) 대 컨센서스 상승여력(y축). 버블 크기 = 시가총액, 색 = 섹터.</p>
+    <p class="sec-desc">26E PER(x축) 대 컨센서스 상승여력(y축). 버블 크기 = 시가총액, 색 = 세부 카테고리.</p>
     <div class="chart-box">
       <div id="scatter"></div>
       <div class="legend" id="scatterLegend"></div>
@@ -390,9 +390,10 @@
   <!-- 리서치 리포트 -->
   <section class="view" data-view="reports">
     <h2 class="sec">리서치 리포트</h2>
-    <p class="sec-desc">커버리지 종목에 대한 <b>증권사 발간 리포트</b> — 네이버 금융에서 실시간 수집. 종목명 클릭 시 상세 패널, "보기"로 원문 이동.</p>
-    <select id="repFilter" class="theme-btn" style="margin-bottom:14px;padding:8px 12px;font-weight:600"></select>
-    <div class="list" id="reports"></div>
+    <p class="sec-desc">커버리지 종목에 대한 <b>증권사 발간 리포트</b> — 네이버 금융에서 실시간 수집. <b>종목별</b>로 묶어 최신 3건씩(상단 섹터 버튼으로 좁히기). 종목명 클릭 시 상세 패널, "보기"로 원문 이동.</p>
+    <div class="seg" id="repSeg"></div>
+    <select id="repFilter" class="theme-btn" style="margin:0 0 14px 8px;padding:8px 12px;font-weight:600"></select>
+    <div id="repGroups"></div>
   </section>
 
   <!-- 뉴스 -->
@@ -494,6 +495,19 @@ const DART_EVENTS = [{"co": "아모레퍼시픽", "code": "090430", "date": "202
 const R = DATA.records;
 const SECTORS = ["소비재","엔터","게임","호텔"];
 const SECTOR_COLORS = {"소비재":"#c4a7e7","엔터":"#eb6f92","게임":"#9ccfd8","호텔":"#f6c177"};
+
+/* 카테고리 = 소분류가 여럿인 대섹터(소비재)는 소분류로 쪼개고, 나머지는 대섹터 그대로.
+   뉴스·리포트 필터, 스캐터 색 구분에 공용으로 쓴다. */
+const _subsBySec={};
+R.forEach(r=>{ (_subsBySec[r.sector]=_subsBySec[r.sector]||new Set()).add(r.sub); });
+const CAT_OF={};
+R.forEach(r=>{ CAT_OF[r.name]= _subsBySec[r.sector].size>1 ? r.sub : r.sector; });
+const CATS=[];
+SECTORS.forEach(sec=>{ const subs=[..._subsBySec[sec]];
+  if(subs.length>1) subs.forEach(s=>CATS.push(s)); else CATS.push(sec); });
+const CAT_COLORS={"화장품":"#c4a7e7","유통":"#9ccfd8","미용":"#ebbcba","음식료":"#f6c177",
+  "엔터":"#eb6f92","게임":"#3e8fb0","호텔":"#a6da95"};
+const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#908caa";
 const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
 const won = v=> (v===null||v===undefined||v===""||v===0)?"—":Math.round(v).toLocaleString("ko-KR");
@@ -873,14 +887,14 @@ function drawScatter(){
   // zero line
   s+=`<line x1="${pad.l}" y1="${sy(0)}" x2="${W-pad.r}" y2="${sy(0)}" stroke="${mut}" stroke-dasharray="4 4" stroke-width="1"/>`;
   pts.forEach(p=>{
-    const c=SECTOR_COLORS[p.sector];
+    const c=catColor(CAT_OF[p.name]);
     s+=`<circle cx="${sx(p.per26)}" cy="${sy(p.upsideCons)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 26E PER ${fmt(p.per26)}x · 상승 ${sign(p.upsideCons)}% · 시총 ${eok(mcJo(p),10000)}억</title></circle>`;
     s+=`<text x="${sx(p.per26)}" y="${sy(p.upsideCons)-rad(p)-3}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-weight="600">${p.name}</text>`;
   });
   s+="</svg>";
   box.innerHTML=s;
   document.getElementById("scatterLegend").innerHTML =
-    SECTORS.map(k=>`<div class="li"><span class="dot" style="background:${SECTOR_COLORS[k]}"></span>${k}</div>`).join("")+
+    CATS.map(k=>`<div class="li"><span class="dot" style="background:${catColor(k)}"></span>${k}</div>`).join("")+
     `<div class="li" style="margin-left:auto">버블 크기 = 시가총액 · PER 60x 초과·적자 종목 제외</div>`;
 }
 window.addEventListener("resize",()=>{
@@ -971,9 +985,11 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
 
 /* ==== Reports — 네이버 금융 실수집 ==== */
 const REP=(LIVE.researches||[]);
-function renderReports(filter=""){
-  const list=REP.filter(x=>!filter||x.co===filter).slice(0,80);
-  document.getElementById("reports").innerHTML = list.length? list.map(x=>{
+/* 리포트 — 뉴스와 동일: 종목별 2열 그리드, 종목당 최신 3건, 카테고리(소비재 세분) 세그먼트 */
+(function(){
+  const host=document.getElementById("repGroups"); if(!host) return;
+  const PER=3;
+  const repItem=x=>{
     const m=x.date?x.date.slice(4,6):"", d=x.date?x.date.slice(6,8):"";
     return `<div class="item">
       <div class="date-chip"><div class="m">${m}월</div><div class="d">${d}</div></div>
@@ -983,14 +999,55 @@ function renderReports(filter=""){
       </div>
       <a class="ev-type ev-earn" href="https://m.stock.naver.com/domestic/stock/${x.code}/research" target="_blank" rel="noopener">보기</a>
     </div>`;
-  }).join("") : `<div class="item"><div class="body"><div class="s">해당 종목의 리포트가 없습니다.</div></div></div>`;
-}
-(function(){
-  const cos=[...new Set(REP.map(x=>x.co))].sort((a,b)=>a.localeCompare(b,"ko"));
-  document.getElementById("repFilter").innerHTML =
-    `<option value="">전체 종목 (${REP.length}건)</option>`+cos.map(c=>`<option value="${c}">${c}</option>`).join("");
-  document.getElementById("repFilter").addEventListener("change",e=>renderReports(e.target.value));
-  renderReports();
+  };
+  let curCat="", curCo="";
+  function render(){
+    host.innerHTML=""; host.classList.remove("news-grid");
+    if(curCo){
+      const list=REP.filter(x=>x.co===curCo);
+      host.innerHTML=list.length?`<div class="list">${list.map(repItem).join("")}</div>`
+        :`<div class="list"><div class="item"><div class="body"><div class="s">해당 종목의 리포트가 없습니다.</div></div></div></div>`;
+      return;
+    }
+    host.classList.add("news-grid");
+    let any=false;
+    R.filter(r=> !curCat || CAT_OF[r.name]===curCat).forEach(r=>{
+      const rows=REP.filter(x=>x.co===r.name).slice(0,PER);
+      if(!rows.length) return;
+      any=true;
+      const c=catColor(CAT_OF[r.name]);
+      const block=document.createElement("div"); block.className="sector-block";
+      block.innerHTML=
+        `<div class="sector-band" style="border-left-color:${c}">
+           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${r.name}</span>
+           <span class="s-tag">${r.sector} · ${r.sub}</span>
+           <span class="s-tag" style="margin-left:auto">${rows.length}건</span>
+         </div>
+         <div class="list" style="border-radius:0 0 12px 12px;border-top:none">${rows.map(repItem).join("")}</div>`;
+      host.appendChild(block);
+    });
+    if(!any) host.innerHTML=`<div class="list"><div class="item"><div class="body"><div class="s">해당하는 리포트가 없습니다.</div></div></div></div>`;
+  }
+  // 카테고리 세그먼트
+  const seg=document.getElementById("repSeg");
+  const catCount=Object.fromEntries(CATS.map(s=>[s, REP.filter(x=>CAT_OF[x.co]===s).length]));
+  seg.innerHTML=`<button data-cat="" class="active">전체 ${REP.length}</button>`
+    +CATS.map(s=>`<button data-cat="${s}">${s} ${catCount[s]||0}</button>`).join("");
+  seg.addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    curCat=b.dataset.cat; curCo="";
+    seg.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+    fillStocks(); sel.value=""; render();
+  });
+  // 종목 드롭다운
+  const sel=document.getElementById("repFilter");
+  function fillStocks(){
+    const pool = curCat? R.filter(r=>CAT_OF[r.name]===curCat).map(r=>r.name) : R.map(r=>r.name);
+    const cos=[...new Set(REP.map(x=>x.co).filter(c=>pool.includes(c)))].sort((a,b)=>a.localeCompare(b,"ko"));
+    sel.innerHTML=`<option value="">${curCat||"전체"} · 종목 전체</option>`+cos.map(c=>`<option value="${c}">${c}</option>`).join("");
+  }
+  sel.addEventListener("change",e=>{ curCo=e.target.value; render(); });
+  fillStocks(); render();
 })();
 
 /* ==== 뉴스 — 대분류 섹터로 나누고 소분류별로 묶어 표시 ==== */
@@ -1002,16 +1059,7 @@ function renderReports(filter=""){
   const SEC_OF={}, SUB_OF={};
   R.forEach(r=>{ SEC_OF[r.name]=r.sector; SUB_OF[r.name]=r.sub; });
   const secsOf=x=>[...new Set(x.co.map(c=>SEC_OF[c]).filter(Boolean))];
-
-  // 카테고리 = 소분류가 여럿인 대섹터(소비재)는 소분류로 쪼개고, 나머지는 대섹터 그대로
-  const subsBySec={};
-  R.forEach(r=>{ (subsBySec[r.sector]=subsBySec[r.sector]||new Set()).add(r.sub); });
-  const CAT_OF={};
-  R.forEach(r=>{ CAT_OF[r.name]= subsBySec[r.sector].size>1 ? r.sub : r.sector; });
-  const CATS=[];
-  SECTORS.forEach(sec=>{ const subs=[...subsBySec[sec]];
-    if(subs.length>1) subs.forEach(s=>CATS.push(s)); else CATS.push(sec); });
-  const catsOf=x=>[...new Set(x.co.map(c=>CAT_OF[c]).filter(Boolean))];
+  const catsOf=x=>[...new Set(x.co.map(c=>CAT_OF[c]).filter(Boolean))];  // 공용 CAT_OF 사용
 
   const label=d=>{ const m=/(\d{4})-(\d{2})-(\d{2})/.exec(d||""); return m?`${m[2]}/${m[3]}`:""; };
   const itemHtml=x=>{
