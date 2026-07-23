@@ -99,7 +99,8 @@ def fetch_consensus(code):
        반환 단위는 십억원 (원본은 억원). EPS/비율은 원본 그대로."""
     out = {}
     ITEMS = {"매출액": "rev", "영업이익": "op", "당기순이익": "np",
-             "영업이익률": "opm", "EPS": "eps"}
+             "영업이익률": "opm", "EPS": "eps", "BPS": "bps", "PBR": "pbr"}
+    RATIO = ("opm", "eps", "bps", "pbr")   # 억→십억 변환 제외 (원/배 단위)
 
     def pull(period):
         d = getj(f"https://m.stock.naver.com/api/stock/{code}/finance/{period}")
@@ -118,7 +119,7 @@ def fetch_consensus(code):
                 v = num((rows.get(kor) or {}).get(key, {}).get("value"))
                 if v is None:
                     continue
-                vals[en] = v if en in ("opm", "eps") else round(v / 10, 2)  # 억 -> 십억
+                vals[en] = v if en in RATIO else round(v / 10, 2)  # 억 -> 십억
             return vals
 
         res = {"key": ck, "title": titles[ck]["title"], "est": grab(ck)}
