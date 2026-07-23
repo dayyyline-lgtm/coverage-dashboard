@@ -246,7 +246,8 @@
 
   /* market strip */
   .mkt-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:16px 0 0}
-  .mkt{display:flex;align-items:baseline;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 12px}
+  .mkt{display:flex;align-items:baseline;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer}
+  a.mkt:hover .n{color:var(--accent)}
   .mkt .n{font-size:11.5px;color:var(--muted);font-weight:700}
   .mkt .v{font-size:14px;font-weight:800;letter-spacing:-.01em}
   .mkt .c{font-size:11.5px;font-weight:700}
@@ -614,10 +615,16 @@ themeBtn.addEventListener("click",()=>{
 /* ==== Market strip (지수·환율) ==== */
 (function(){
   const M=LIVE.market||{}, el=document.getElementById("mktStrip");
-  const idx=(n,o)=> o?`<div class="mkt mkt-ref"><span class="n">${n}</span><span class="v">${fmt(o.close,2)}</span><span class="c ${cls(o.chgPct)}">${sign(o.chgPct,2)}%</span></div>`:"";
-  const fx=(n,v)=> v?`<div class="mkt mkt-ref"><span class="n">${n}</span><span class="v">${fmt(v,1)}</span></div>`:"";
-  const sec=s=>`<div class="mkt mkt-sec" title="${s.name} · 상승 ${s.rise} / 하락 ${s.fall} (${s.n}종목)">
-      <span class="n">${s.sub}</span><span class="c ${cls(s.chgPct)}" style="font-size:14px;font-weight:800">${sign(s.chgPct,2)}%</span></div>`;
+  // 지수 산출 원본(네이버 금융) 링크
+  const SEC_NO={화장품:266,유통:264,미용:281,음식료:268,레져:317};
+  const A=(href,cls,title,inner)=>`<a class="${cls}" href="${href}" target="_blank" rel="noopener" title="${title}" style="text-decoration:none;color:inherit">${inner}</a>`;
+  const idx=(n,o)=> o?A(`https://finance.naver.com/sise/sise_index.naver?code=${n}`,"mkt mkt-ref",`${n} 지수 (네이버 금융)`,
+      `<span class="n">${n}</span><span class="v">${fmt(o.close,2)}</span><span class="c ${cls(o.chgPct)}">${sign(o.chgPct,2)}%</span>`):"";
+  const fx=(n,v)=> v?A(`https://finance.naver.com/marketindex/`,"mkt mkt-ref",`${n} 환율 (네이버 금융)`,
+      `<span class="n">${n}</span><span class="v">${fmt(v,1)}</span>`):"";
+  const sec=s=>A(`https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no=${s.no||SEC_NO[s.sub]||''}`,
+      "mkt mkt-sec",`${s.name} 업종 · 상승 ${s.rise} / 하락 ${s.fall} (${s.n}종목) · 네이버 금융`,
+      `<span class="n">${s.sub}</span><span class="c ${cls(s.chgPct)}" style="font-size:14px;font-weight:800">${sign(s.chgPct,2)}%</span>`);
   const F=M.FX||{};
   el.innerHTML =
     `<span class="strip-label">커버리지 섹터</span>`+

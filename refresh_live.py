@@ -222,7 +222,7 @@ def collect_sectors():
         g = groups.get(no)
         if not g:
             continue
-        out.append({"sub": sub, "name": g["name"], "chgPct": num(g.get("changeRate")),
+        out.append({"sub": sub, "name": g["name"], "no": no, "chgPct": num(g.get("changeRate")),
                     "rise": g.get("riseCount"), "fall": g.get("fallCount"),
                     "n": g.get("totalCount")})
     return out
