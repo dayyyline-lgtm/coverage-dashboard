@@ -550,6 +550,7 @@ R.forEach(r=>{
      27E 컨센은 무료 API에 없어(네이버·FnGuide 모두 26E 1개년만) 27E는 엑셀 값 사용 */
   const cy=(L.cons||{}).year, pv=cy?cy.prev:null;
   r.pbr=L.pbr;                                      // TTM PBR (실시간)
+  r.rev26own=r.rev26; r.op26own=r.op26;             // 당사 추정(엑셀 원본) — 컨센으로 덮기 전 보존(실적 프리뷰 괴리용)
   if(cy&&cy.est){
     const e=cy.est;
     if(e.rev!=null) r.rev26=e.rev;                  // 십억 원 (fetch에서 억→십억 변환됨)
@@ -844,7 +845,7 @@ R.forEach(r=>{
   const consOp=r.cy&&r.cy.est?r.cy.est.op:null;
   r.consOp26=consOp;
   r.consRev26=r.cy&&r.cy.est?r.cy.est.rev:null;
-  r.opGap=(consOp&&r.op26)?((r.op26/consOp-1)*100):null;
+  r.opGap=(consOp&&r.op26own)?((r.op26own/consOp-1)*100):null;   // 당사(엑셀) ÷ 컨센 − 1
   // 다가오는 분기 컨센
   r.qTitle=r.cq?r.cq.title.replace(/\.$/,''):null;
   r.qRev=r.cq&&r.cq.est?r.cq.est.rev:null;
@@ -861,16 +862,16 @@ function beatTag(r){
   return '<span class="tag-inline">In-line</span>';
 }
 makeTable(document.getElementById("prevTable"),[
-  {key:"mktcapJo",label:"시총(억)",l:true,render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
   {key:"name",label:"종목",l:true,render:nmCell},
+  {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
   {key:"qTitle",label:"분기",l:true,render:r=>r.qTitle?`<span class="ye">${r.qTitle}E</span>`:"—"},
   {key:"qRev",label:"컨센 매출",render:r=>eok(r.qRev)},
   {key:"qRevYoY",label:"YoY",render:r=>r.qRevYoY==null?"—":`<span class="${cls(r.qRevYoY)}">${sign(r.qRevYoY,0)}%</span>`},
   {key:"qOp",label:"컨센 영업익",render:r=>eok(r.qOp)},
   {key:"qOpYoY",label:"YoY",render:r=>r.qOpYoY==null?"—":`<span class="${cls(r.qOpYoY)}">${sign(r.qOpYoY,0)}%</span>`},
   {key:"qOpm",label:"OPM",render:r=>r.qOpm==null?"—":fmt(r.qOpm)+"%"},
-  {key:"op26",label:"26E 영업익(당사)",render:r=>eok(r.op26)},
-  {key:"consOp26",label:"26E 영업익(컨센)",render:r=>eok(r.consOp26)},
+  {key:"rev26own",label:"당사 매출(26E)",render:r=>eok(r.rev26own)},
+  {key:"op26own",label:"당사 영업익(26E)",render:r=>eok(r.op26own)},
   {key:"opGap",label:"괴리",render:r=>r.opGap==null?"—":`<span class="${cls(r.opGap)}">${sign(r.opGap,1)}%</span>`},
   {key:"beat",label:"판정",render:r=>beatTag(r)},
 ], R, {key:"mktcapJo",dir:-1});
