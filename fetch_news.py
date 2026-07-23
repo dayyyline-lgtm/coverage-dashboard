@@ -23,9 +23,12 @@ except Exception:
 HTML_PATH = "public/index.html"
 UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://finance.naver.com/"}
 
-PER_STOCK = 5      # 종목당 최대 기사 수
-TOTAL_MAX = 160    # 전체 상한 (파일 크기 관리)
+PER_STOCK = 3      # 종목당 최대 기사 수 (중복 제거 후)
+TOTAL_MAX = 120    # 전체 상한 (파일 크기 관리)
 PAUSE = 0.25       # 요청 간격 (초)
+SIM = 0.45         # 제목 유사도 임계값(글자 2-gram 겹침계수). 이상이면 재탕으로 보고 하나만 남김.
+                   # 재탕 기사(≈0.8+)는 확실히 제거, 완전히 다른 기사(≈0.1-)는 보존.
+                   # 더 공격적으로 걸러려면 낮추되(예 0.35) 멀쩡한 기사까지 지울 위험이 커진다.
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -34,6 +37,43 @@ def clean(s):
     """태그 제거 + HTML 엔티티 복원"""
     s = re.sub(r"<[^>]+>", "", s)
     return htmlmod.unescape(s).replace("\xa0", " ").strip()
+
+
+def _norm(t):
+    """제목을 비교용으로 정규화 — 괄호·문장부호·공백 제거."""
+    t = re.sub(r"\[[^\]]*\]|\([^)]*\)|【[^】]*】|<[^>]*>", "", t)
+    return re.sub(r"[^\w가-힣]", "", t).lower()
+
+
+def _ngrams(t, n=2):
+    """글자 2-gram 집합 — 한국어 조사/띄어쓰기 차이에 강하다(단어 비교보다 견고)."""
+    s = _norm(t)
+    return {s[i:i + n] for i in range(len(s) - n + 1)} if len(s) >= n else ({s} if s else set())
+
+
+def _similar(a, b):
+    """두 제목이 사실상 같은 내용인가 — 정규화 포함관계 또는 글자 2-gram 겹침계수."""
+    na, nb = _norm(a), _norm(b)
+    if na and nb and (na == nb or na in nb or nb in na):
+        return True
+    ga, gb = _ngrams(a), _ngrams(b)
+    if not ga or not gb:
+        return False
+    inter = len(ga & gb)
+    # 겹침계수(min 기준): 한 제목의 핵심이 다른 제목에 상당부분 포함되면 같은 사안으로 봄
+    return inter / min(len(ga), len(gb)) >= SIM
+
+
+def dedupe(arts, limit):
+    """비슷한 제목(같은 사안 재탕)을 걸러 서로 다른 기사만 limit 개 남긴다."""
+    kept = []
+    for a in arts:
+        if any(_similar(a["t"], k["t"]) for k in kept):
+            continue
+        kept.append(a)
+        if len(kept) >= limit:
+            break
+    return kept
 
 
 def fetch_stock_news(code):
@@ -80,7 +120,7 @@ def main():
         if not code:
             fail.append(name + "(코드없음)"); continue
         try:
-            arts = fetch_stock_news(code)[:PER_STOCK]
+            arts = dedupe(fetch_stock_news(code), PER_STOCK)   # 유사 기사 제거 후 상위 3
             ok += 1
         except Exception as e:
             fail.append(f"{name}({type(e).__name__})"); continue
