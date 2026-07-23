@@ -59,9 +59,9 @@ def mktcap_eok(s):
 
 
 def fetch_returns(code):
-    """일봉으로 1W / 1M / YTD 수익률 계산 (엑셀의 고정값 대신 실시간)"""
+    """일봉으로 1W / 1M / 3M / 6M / 1Y / YTD 수익률 계산 (엑셀 고정값 대신 실시간)"""
     today = datetime.date.today()
-    start = datetime.date(today.year - 1, 12, 1)
+    start = today - datetime.timedelta(days=400)   # 1년 수익률을 위해 13개월치 확보
     url = (f"https://api.stock.naver.com/chart/domestic/item/{code}/day"
            f"?startDateTime={start:%Y%m%d}0000&endDateTime={today:%Y%m%d}2359")
     rows = getj(url)
@@ -88,6 +88,8 @@ def fetch_returns(code):
         "ret1w": pct(close_on_or_before(today - datetime.timedelta(days=7))),
         "ret1m": pct(close_on_or_before(today - datetime.timedelta(days=30))),
         "ret3m": pct(close_on_or_before(today - datetime.timedelta(days=91))),
+        "ret6m": pct(close_on_or_before(today - datetime.timedelta(days=182))),
+        "ret1y": pct(close_on_or_before(today - datetime.timedelta(days=365))),
         "retYtd": pct(ytd_base),
     }
 
