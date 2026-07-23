@@ -94,30 +94,24 @@ def norm(series):
 # 표시 단위: date=일별, week=주별, month=월별
 GTF = {"date": "today 3-m", "week": "today 12-m", "month": "today 12-m"}
 
-# 브라우저 User-Agent — 없으면 구글이 python-requests 를 봇으로 감지해 429 로 즉시 차단한다
-GUA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-
 
 def fetch_google(keywords, geo=None, freq="week", n=52):
-    from pytrends.request import TrendReq
+    """구글 트렌드. trendspy 사용 — pytrends 는 구글의 2025 봇차단(429)에 낡아서 깨지므로 교체함.
+       (trendspy 는 신형 API·쿠키/동의 처리를 지원해 서버 IP 에서도 통과)"""
+    from trendspy import Trends
     err = None
-    for attempt in range(3):                       # 429 시 백오프 재시도
+    for attempt in range(3):                       # 간헐 실패 시 백오프 재시도
         try:
-            py = TrendReq(hl="ko", tz=540,
-                          requests_args={"headers": {"User-Agent": GUA,
-                                                     "Accept-Language": "ko-KR,ko;q=0.9"}})
-            py.build_payload(keywords, timeframe=GTF.get(freq, "today 12-m"),
-                             geo=(GOOGLE_GEO if geo is None else geo))
-            df = py.interest_over_time()
+            df = Trends().interest_over_time(
+                keywords, timeframe=GTF.get(freq, "today 12-m"),
+                geo=(GOOGLE_GEO if geo is None else geo))
             break
         except Exception as e:
             err = e
-            if "429" in str(e) and attempt < 2:
-                time.sleep(25 * (attempt + 1))     # 25s, 50s
-                continue
+            if attempt < 2:
+                time.sleep(20 * (attempt + 1)); continue
             raise
-    if df.empty:
+    if df is None or df.empty:
         raise RuntimeError("응답이 비어있음 (검색량이 너무 적은 키워드일 수 있음)")
     if "isPartial" in df.columns:                 # 진행 중인 구간 제외
         df = df[~df["isPartial"].astype(bool)]

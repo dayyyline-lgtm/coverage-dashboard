@@ -65,9 +65,9 @@ DART 키는 저장소 설정에 따로 넣어야 합니다.
 | `이벤트 캘린더 갱신 (DART)` | 평일 아침 07:30 | 공시·IR 일정 | `DART_API_KEY` |
 | `트렌드 갱신` | 매주 월 08:00 | 네이버·구글 검색 트렌드 | `NAVER_CLIENT_ID`<br>`NAVER_CLIENT_SECRET` |
 
-> 구글 트렌드는 서버 IP가 종종 429로 차단됩니다. 그때는 **기존 구글 값을 유지**하고
-> 네이버만 갱신하므로 데이터가 사라지지 않습니다. 구글 값을 확실히 새로 받으려면
-> 개인 PC에서 `python fetch_trends.py` 를 돌리고 push 하세요.
+> 구글 트렌드는 **trendspy** 로 수집합니다(구버전 pytrends 는 구글 봇차단에 막혀 교체함).
+> 혹시 구글이 실패해도 **기존 구글 값을 유지**하고 네이버만 갱신하므로 데이터가 사라지지 않습니다.
+> 수동으로 지금 갱신하려면 PC에서 `트렌드갱신.bat` 더블클릭(또는 `python fetch_trends.py`).
 
 성공하면 이후로는 손댈 일이 없습니다.
 
@@ -145,10 +145,10 @@ git add -A && git commit -m "유니버스 변경" && git push
 푸시하면 Cloudflare가 자동으로 재배포합니다.
 
 ### 트렌드 실데이터 채우기
-구글 트렌드는 서버 IP가 차단되므로 **개인 PC에서** 실행해야 합니다.
+`트렌드갱신.bat` 더블클릭이 가장 간단합니다. 수동 명령은:
 
 ```bash
-pip install pytrends requests
+pip install trendspy requests
 python fetch_trends.py
 git add -A && git commit -m "트렌드 갱신" && git push
 ```
