@@ -225,6 +225,9 @@
     background:color-mix(in srgb, var(--up) 18%, transparent);color:var(--up)}
 
   /* clickable stock name + detail drawer */
+  /* 표 안의 링크 셀 (리포트·뉴스) */
+  .cell-link{color:var(--accent);font-weight:700;text-decoration:none;border-bottom:1px dotted currentColor}
+  .cell-link:hover{color:var(--text);border-bottom-style:solid}
   .nm-cell.clickable{cursor:pointer}
   .nm-cell.clickable:hover{color:var(--accent);text-decoration:underline}
   .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:none;backdrop-filter:blur(2px)}
@@ -392,7 +395,8 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
-    <p class="sec-desc">밸류(PER 12MF·26E·27E)·성장(영업익)·수급(외국인)·관심도(리포트)를 한 줄로. <b>종목명 클릭</b> 시 상세, 리포트 건수에 마우스를 올리면 조회수 1위 리포트.</p>
+    <p class="sec-desc">밸류(PER 12MF·26E·27E)·성장(영업익)·수급(외국인)을 한 줄로. <b>종목명 클릭</b> 시 상세 ·
+      <b>리포트</b>는 최근 1개월 조회수 1위(숫자=조회수), <b>뉴스</b>는 최근 3일 최신 기사 — 누르면 원문으로 이동.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
@@ -773,6 +777,14 @@ const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}"><
 
 /* ==== Coverage summary — grouped by sector ==== */
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+/* 리포트/뉴스 셀 — 리포트는 최근 1개월 조회수 1위, 뉴스는 최근 3일 최신 기사.
+   (네이버 금융 뉴스는 조회수를 제공하지 않아 뉴스는 조회수 대신 최신순) */
+const _asOf=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
+const _ago=d=>{const t=new Date(_asOf); t.setDate(t.getDate()-d); return t.toISOString().slice(0,10);};
+const CUT_REP=_ago(30).replace(/-/g,"");   // 리포트 date = YYYYMMDD
+const CUT_NEWS=_ago(3);                    // 뉴스 d = YYYY-MM-DD HH:MM
+const attr=s=>String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+
 /* 커버리지 요약 = 당사 뷰 vs 시장 뷰 + 밸류·성장·모멘텀 핵심.
    PER/PBR 전체, 매출·영업익·순익·EPS 상세는 밸류에이션 탭에 있음. */
 const covCols = [
@@ -789,7 +801,10 @@ const covCols = [
   {key:"foreign",label:"외국인",hm:1,render:r=>r.foreign>0?fmt(r.foreign,1)+"%":"—"},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
   {key:"retYtd",label:"YTD",hm:1,render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
-  {key:"repN",label:"리포트",hm:1,render:r=>r.repN?`<span title="${(r.repTop||'').replace(/"/g,'')}">${r.repN}건</span>`:"—"},
+  {key:"repViews",label:"리포트",hm:1,render:r=>r.repUrl
+    ? `<a class="cell-link" href="${r.repUrl}" target="_blank" rel="noopener" title="${attr(r.repTip)}">${fmt0(r.repViews)}</a>` : "—"},
+  {key:"newsD",label:"뉴스",hm:1,render:r=>r.newsUrl
+    ? `<a class="cell-link" href="${r.newsUrl}" target="_blank" rel="noopener" title="${attr(r.newsTip)}">${r.newsD}</a>` : "—"},
 ];
 // 분류 정렬용 가중치 (Top > 2nd > Beta > 없음)
 const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
@@ -802,12 +817,20 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
     subs.forEach(sub=>{
       const rows=secRows.filter(r=>r.sub===sub)
         .map(r=>{
-          // 증권사 리포트 관심도 — 건수 + 조회수 1위 제목(툴팁)
-          const rp=(LIVE.researches||[]).filter(x=>x.co===r.name);
-          const topRep=rp.slice().sort((a,b)=>(b.views||0)-(a.views||0))[0];
+          // 리포트: 최근 1개월 중 조회수 1위 (클릭 시 해당 종목 리포트 페이지)
+          const rp=(LIVE.researches||[]).filter(x=>x.co===r.name && (x.date||"")>=CUT_REP);
+          const tRep=rp.slice().sort((a,b)=>(b.views||0)-(a.views||0))[0];
+          // 뉴스: 최근 3일 중 최신 기사 (네이버가 뉴스 조회수를 안 줘서 최신순)
+          const nw=((typeof NEWS!=="undefined"&&NEWS.items)?NEWS.items:[])
+            .filter(x=>x.co.includes(r.name) && (x.d||"")>=CUT_NEWS);
+          const tNews=nw.slice().sort((a,b)=>b.d.localeCompare(a.d))[0];
           return {...r, opmv:opm(r), pickSort:PICK_ORDER[sectorPickOf(r)]||0,
-            repN:rp.length,
-            repTop:topRep?`조회 ${fmt0(topRep.views)} · ${topRep.title} (${topRep.broker})`:""};
+            repViews:tRep?(tRep.views||0):null,
+            repUrl:tRep?`https://m.stock.naver.com/domestic/stock/${tRep.code}/research`:null,
+            repTip:tRep?`최근 1개월 조회수 1위 · 조회 ${fmt0(tRep.views)}\n${tRep.title} (${tRep.broker}, ${tRep.date.slice(4,6)}/${tRep.date.slice(6,8)})`:"",
+            newsD:tNews?tNews.d.slice(5,10).replace("-","/"):null,
+            newsUrl:tNews?tNews.u:null,
+            newsTip:tNews?`최근 3일 최신 뉴스\n${tNews.t} (${tNews.s})`:""};
         });
       if(!rows.length) return;
       const aUp=avg(rows.map(r=>r.upsideOwn).filter(v=>v!=null));
