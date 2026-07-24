@@ -38,10 +38,6 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 # ── 비교 그룹 ──────────────────────────────────────────────
 # 네이버(국내)는 한글, 구글(전세계)은 영문 키워드를 쓴다.
 # 국내 브랜드는 한글 검색량이 구글에선 거의 안 잡히기 때문.
-# 아이온2 한국·대만 출시일(2025-11-19) 이후 주 수 — 구글 12개월 한도라 52주로 상한
-AION_LAUNCH = datetime.date(2025, 11, 19)
-AION_WEEKS = max(8, min(52, (datetime.date.today() - AION_LAUNCH).days // 7 + 1))
-
 # freq = date(일별) / week(주별) / month(월별) · n = 표시 구간 수 (기본: 주52)
 GROUPS = {
     # 리투오 = re2o, 셀르디엠 = CellREDM (한스바이오메드 ECM 스킨부스터)
@@ -54,14 +50,6 @@ GROUPS = {
         "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
         "google": ["medicube", "dalba", "COSRX", "Celimax"],
         "freq":   "week",
-    },
-    # SAMG(티니핑) vs 경쟁 캐릭터 IP — 자사 IP끼리가 아니라 피어와 비교, 최근 6개월(26주)
-    "캐릭터 IP 경쟁": {
-        "naver":  ["티니핑", "또봇", "신비아파트", "콩순이"],
-        "google": ["티니핑", "또봇", "신비아파트", "콩순이"],
-        "geo":    "KR",
-        "freq":   "week",
-        "n":      26,
     },
     # 신제품 단독 추이 — 출시 직후라 최근 30일을 '일별'로 자세히 (대형 키워드와 섞으면 0으로 눌림)
     # 구글은 전세계로 보면 검색량 부족으로 비니 한국(KR)으로 좁히고, 키워드도 '쿨로아'로 넓혀 신호 확보
@@ -97,7 +85,7 @@ GROUPS = {
             {"label": "브라질",     "geo": "BR", "kw": "AION 2"},
         ],
         "freq": "week",
-        "n": AION_WEEKS,
+        "n": 13,        # 최근 3개월(13주)
     },
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
