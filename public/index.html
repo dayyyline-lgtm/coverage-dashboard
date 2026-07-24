@@ -324,6 +324,26 @@
     .grid2{grid-template-columns:1fr}
     .brand .s{display:none}
   }
+  /* ── 모바일 ── 헤더 한 줄이 넘쳐 페이지 전체가 가로로 밀리던 문제 해결 */
+  @media (max-width:640px){
+    .wrap{padding:0 14px}
+    .top-inner{gap:8px;padding:10px 0}
+    .brand{min-width:0;flex-shrink:1}
+    .brand .t{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .meta-pill{display:none}          /* 수집 시각은 상단 스트립 툴팁에 있음 */
+    .xlsxBtn{padding:6px 10px !important;font-size:12px !important;margin-left:8px !important}
+    nav.tabs button{font-size:12.5px;padding:8px 10px}
+    .kpis{grid-template-columns:repeat(2,1fr);gap:10px}
+    .kpi{padding:12px 13px}
+    .kpi .v{font-size:21px}
+    .cards{grid-template-columns:1fr}   /* Top Pick 카드 1열 (320px 최소폭 때문에 깨지던 것) */
+    h2.sec{font-size:16px}
+    .sec-desc,.note{font-size:12px}
+    .sector-band{padding:9px 12px;gap:6px 10px}
+    .sector-band .s-name{font-size:13.5px}
+    .list .item{padding:11px 13px;gap:10px}
+    footer{padding:18px 0;font-size:11.5px}
+  }
 </style>
 </head>
 <body>
