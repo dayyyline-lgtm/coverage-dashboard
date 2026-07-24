@@ -392,7 +392,7 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
-    <p class="sec-desc">밸류(PER·PEG)·성장(영업익·EPS)·수급(배당·외국인)·관심도(리포트)를 한 줄로. <b>종목명 클릭</b> 시 상세, 리포트 건수에 마우스를 올리면 조회수 1위 리포트.</p>
+    <p class="sec-desc">밸류(PER 12MF·26E·27E)·성장(영업익)·수급(외국인)·관심도(리포트)를 한 줄로. <b>종목명 클릭</b> 시 상세, 리포트 건수에 마우스를 올리면 조회수 1위 리포트.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
@@ -783,10 +783,9 @@ const covCols = [
   {key:"fairMktcap",label:"견적(억)",render:r=>eok(r.fairMktcap,10)},
   {key:"upsideOwn",label:"당사 여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
+  {key:"per26",label:"26E PER",render:r=>r.per26>0?fmt(r.per26)+"x":"—"},
+  {key:"per27",label:"27E PER",hm:1,render:r=>r.per27>0?fmt(r.per27)+"x":"—"},
   {key:"opg26",label:"영업익성장 26E",render:r=>growthCell(r.opg26,r.opg26t)},
-  {key:"epsg26",label:"EPS성장 26E",render:r=>growthCell(r.epsg26,r.epsg26t)},
-  {key:"pegv",label:"PEG",hm:1,render:r=>r.pegv==null?"—":`<span class="${r.pegv<1?'up':''}">${fmt(r.pegv,2)}</span>`},
-  {key:"divYield",label:"배당",hm:1,render:r=>r.divYield>0?fmt(r.divYield,1)+"%":"—"},
   {key:"foreign",label:"외국인",hm:1,render:r=>r.foreign>0?fmt(r.foreign,1)+"%":"—"},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
   {key:"retYtd",label:"YTD",hm:1,render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
@@ -803,13 +802,11 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
     subs.forEach(sub=>{
       const rows=secRows.filter(r=>r.sub===sub)
         .map(r=>{
-          // PEG = 12MF PER ÷ EPS성장률(25→26). 성장률이 양수일 때만 의미 있음
-          const peg=(r.per12mf>0 && r.epsg26>0)? r.per12mf/r.epsg26 : null;
           // 증권사 리포트 관심도 — 건수 + 조회수 1위 제목(툴팁)
           const rp=(LIVE.researches||[]).filter(x=>x.co===r.name);
           const topRep=rp.slice().sort((a,b)=>(b.views||0)-(a.views||0))[0];
           return {...r, opmv:opm(r), pickSort:PICK_ORDER[sectorPickOf(r)]||0,
-            pegv:peg, repN:rp.length,
+            repN:rp.length,
             repTop:topRep?`조회 ${fmt0(topRep.views)} · ${topRep.title} (${topRep.broker})`:""};
         });
       if(!rows.length) return;
