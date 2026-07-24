@@ -485,7 +485,7 @@
   <!-- 대체데이터 -->
   <section class="view" data-view="altdata">
     <h2 class="sec">수출 데이터</h2>
-    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>.
+    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>. <b>종목</b>을 고르면 그 종목 관련 품목만 보입니다.
       <span class="seed" id="tradeAsOfBadge"></span></p>
 
     <div id="tradeUI">
@@ -498,6 +498,8 @@
           <button data-v="chart" class="active">차트</button>
           <button data-v="table">테이블</button>
         </div>
+        <select id="tradeStock" class="theme-btn" style="padding:8px 12px;font-weight:600"
+          title="종목을 고르면 그 종목과 관련된 수출 품목만 보여줍니다"></select>
       </div>
       <div class="chip-row" id="tradeItemChips"></div>
       <div class="chip-row" id="tradeCountryChips" style="margin-bottom:14px"></div>
@@ -620,6 +622,11 @@ R.forEach(r=>{
   r.per27=(r.eps27>0&&r.price)? r.price/r.eps27 : r.per27;   // 당사 EPS · 라이브 주가
   r.np27=(r.np26&&r.eps26&&r.eps27)? r.np26*(r.eps27/r.eps26) : null;
   r.revYoY27=(r.rev26>0&&r.rev27>0)? (r.rev27/r.rev26-1)*100 : null;   // 26컨센→27당사
+  const go27=epsGrowth(r.op26, r.op27);            // 영업익 26(컨센)→27(당사)
+  r.opg27=go27.n; r.opg27t=go27.t;
+  // 커버리지 표에 쓰는 영업익 성장 = 26·27 평균 (둘 다 숫자일 때만, 흑전 등은 라벨 유지)
+  r.opgAvg=(r.opg26!=null&&r.opg27!=null)? (r.opg26+r.opg27)/2 : null;
+  r.opgAvgT=(r.opgAvg==null)? (r.opg26t||r.opg27t||null) : null;
   r.per12mf=(L.cnsPer>0)? L.cnsPer : r.per12mf;    // 12MF PER = 컨센(API)
 
   if(L.consTarget){ r.target=L.consTarget; }        // 컨센 목표주가(실시간)
@@ -797,7 +804,7 @@ const covCols = [
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
   {key:"per26",label:"26E PER",render:r=>r.per26>0?fmt(r.per26)+"x":"—"},
   {key:"per27",label:"27E PER",hm:1,render:r=>r.per27>0?fmt(r.per27)+"x":"—"},
-  {key:"opg26",label:"영업익성장 26E",render:r=>growthCell(r.opg26,r.opg26t)},
+  {key:"opgAvg",label:"영업익성장 26·27평균",render:r=>growthCell(r.opgAvg,r.opgAvgT)},
   {key:"foreign",label:"외국인",hm:1,render:r=>r.foreign>0?fmt(r.foreign,1)+"%":"—"},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
   {key:"retYtd",label:"YTD",hm:1,render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
@@ -1400,6 +1407,39 @@ const TRADE = {"asOf": "2026-07-24 07:56", "months": ["202407", "202408", "20240
     document.querySelectorAll("#tradeItemChips .chip").forEach((b,i)=>b.classList.toggle("active",i===itemIdx));
     document.querySelectorAll("#tradeCountryChips .chip").forEach((b,i)=>b.classList.toggle("active",i===cIdx));
   }
+
+  /* ── 종목별 관련 수출 품목 ──────────────────────────────
+     소분류 기준 매핑 + 품목이 다른 종목은 예외로 지정 */
+  const REL_BY_SUB={
+    "화장품":["화장품 전체","기초","색조-립","색조-아이","색조-파우더","마스크팩류"],
+    "미용":  ["창상피복재","창상피복재-접착성","창상피복재-기타"],
+    "음식료":["라면"],
+  };
+  const REL_BY_STOCK={ "CJ제일제당":[] };   // 라면 업체가 아니라 관련 품목 없음
+  const relItems=nm=>{ const r=R.find(x=>x.name===nm); if(!r) return null;
+    return REL_BY_STOCK[nm] || REL_BY_SUB[r.sub] || []; };
+
+  (function initStockSel(){
+    const sel=document.getElementById("tradeStock"); if(!sel) return;
+    const named=R.filter(r=>(relItems(r.name)||[]).length);   // 관련 품목이 있는 종목만
+    sel.innerHTML=`<option value="">전체 품목 보기</option>`
+      +named.map(r=>`<option value="${r.name}">${r.name} · ${r.sub}</option>`).join("");
+    sel.addEventListener("change",e=>{
+      const nm=e.target.value;
+      const rel=nm?relItems(nm):null;
+      const btns=[...document.querySelectorAll("#tradeItemChips .chip")];
+      btns.forEach((b,i)=>{
+        const show=!rel||rel.includes(TRADE.items[i].label);
+        b.style.display=show?"":"none";
+      });
+      // 현재 선택 품목이 숨겨졌으면 관련 품목 첫 번째로 이동
+      if(rel && !rel.includes(TRADE.items[itemIdx].label)){
+        const first=TRADE.items.findIndex(it=>rel.includes(it.label));
+        if(first>=0){ itemIdx=first; cIdx=0; chips(document.getElementById("tradeCountryChips"), countryList(), "alt"); }
+      }
+      paintChips(); draw();
+    });
+  })();
 
   /* 월 -> 분기 집계 */
   function agg(){
