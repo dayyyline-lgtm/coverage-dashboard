@@ -797,7 +797,33 @@ const _asOf=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
 const _ago=d=>{const t=new Date(_asOf); t.setDate(t.getDate()-d); return t.toISOString().slice(0,10);};
 const CUT_REP=_ago(30).replace(/-/g,"");   // 리포트 date = YYYYMMDD
 const CUT_NEWS=_ago(3);                    // 뉴스 d = YYYY-MM-DD HH:MM
+const CUT_NEWS_LINK=_ago(30);              // 커버리지 요약 뉴스 링크: 제목에 종목명 포함 조건이라 창을 넉넉히
 const attr=s=>String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+
+/* 커버리지 요약 뉴스 링크용 — 제목에 종목명(또는 대표 브랜드)이 들어간 기사만 연결.
+   범용 시황기사(그 종목 피드에 뜨지만 제목엔 종목명이 없는)를 걸러낸다. */
+const NEWS_ALIAS={
+  "에이피알":["에이피알","APR","메디큐브"], "아모레퍼시픽":["아모레퍼시픽","아모레"],
+  "LG생활건강":["LG생활건강","LG생건","엘지생활건강","엘지생건"],
+  "달바글로벌":["달바글로벌","달바","dalba"], "한국콜마":["한국콜마","콜마"],
+  "실리콘투":["실리콘투"], "코스맥스":["코스맥스"], "제닉":["제닉"],
+  "신세계":["신세계"], "롯데쇼핑":["롯데쇼핑","롯데백화점","롯데마트"], "현대백화점":["현대백화점"],
+  "파마리서치":["파마리서치","리쥬란","콘쥬란"],
+  "앨엔씨바이오":["앨엔씨바이오","엘앤씨바이오","엘앤씨","앨엔씨","메가덤"], "그래피":["그래피"],
+  "삼양식품":["삼양식품","불닭"], "CJ제일제당":["CJ제일제당","씨제이제일제당","비비고","햇반","고메"],
+  "농심":["농심","신라면","새우깡"],
+  "하이브":["하이브","HYBE","BTS","방탄"], "JYP Ent.":["JYP","제이와이피"],
+  "에스엠":["에스엠","SM엔터"], "와이지엔터":["와이지엔터","와이지","YG엔터"],
+  "크래프톤":["크래프톤","배틀그라운드","배그","PUBG","펍지"],
+  "NC":["엔씨소프트","엔씨","리니지"], "펄어비스":["펄어비스","검은사막","붉은사막"],
+  "시프트업":["시프트업","니케","스텔라블레이드"],
+  "롯데관광개발":["롯데관광개발","롯데관광"], "파라다이스":["파라다이스"],
+  "GS피앤엘":["GS피앤엘","지에스피앤엘"], "서부T&D":["서부T&D","서부티앤디"],
+};
+const _newsTitleHit=(title,name)=>{
+  const al=NEWS_ALIAS[name]||[name], t=String(title||"").toLowerCase();
+  return al.some(a=>t.includes(a.toLowerCase()));
+};
 
 /* 커버리지 요약 = 당사 뷰 vs 시장 뷰 + 밸류·성장·모멘텀 핵심.
    PER/PBR 전체, 매출·영업익·순익·EPS 상세는 밸류에이션 탭에 있음. */
@@ -834,9 +860,10 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
           // 리포트: 최근 1개월 중 조회수 1위 (클릭 시 해당 종목 리포트 페이지)
           const rp=(LIVE.researches||[]).filter(x=>x.co===r.name && (x.date||"")>=CUT_REP);
           const tRep=rp.slice().sort((a,b)=>(b.views||0)-(a.views||0))[0];
-          // 뉴스: 최근 3일 중 최신 기사 (네이버가 뉴스 조회수를 안 줘서 최신순)
+          // 뉴스: 그 종목 피드 + 제목에 종목명/대표브랜드가 든 기사만, 최근 30일 중 최신
+          //       (범용 시황기사 배제 — 종목명이 제목에 없으면 연결 안 함)
           const nw=((typeof NEWS!=="undefined"&&NEWS.items)?NEWS.items:[])
-            .filter(x=>x.co.includes(r.name) && (x.d||"")>=CUT_NEWS);
+            .filter(x=>x.co.includes(r.name) && (x.d||"")>=CUT_NEWS_LINK && _newsTitleHit(x.t,r.name));
           const tNews=nw.slice().sort((a,b)=>b.d.localeCompare(a.d))[0];
           return {...r, opmv:opm(r), pickSort:PICK_ORDER[sectorPickOf(r)]||0,
             repViews:tRep?(tRep.views||0):null,
@@ -844,7 +871,7 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
             repTip:tRep?`최근 1개월 조회수 1위 · 조회 ${fmt0(tRep.views)}\n${tRep.title} (${tRep.broker}, ${tRep.date.slice(4,6)}/${tRep.date.slice(6,8)})`:"",
             newsD:tNews?tNews.d.slice(5,10).replace("-","/"):null,
             newsUrl:tNews?tNews.u:null,
-            newsTip:tNews?`최근 3일 최신 뉴스\n${tNews.t} (${tNews.s})`:""};
+            newsTip:tNews?`제목에 종목명 포함된 최신 뉴스\n${tNews.t} (${tNews.s})`:""};
         });
       if(!rows.length) return;
       const aUp=avg(rows.map(r=>r.upsideOwn).filter(v=>v!=null));
