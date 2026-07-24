@@ -391,7 +391,7 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
-    <p class="sec-desc">점수·견적·상승여력과 기간별 수익률. 배수·실적추정 상세는 밸류에이션 탭. <b>종목명 클릭</b> 시 상세.</p>
+    <p class="sec-desc">밸류(PER·PEG)·성장(영업익·EPS)·수급(배당·외국인)·관심도(리포트)를 한 줄로. <b>종목명 클릭</b> 시 상세, 리포트 건수에 마우스를 올리면 조회수 1위 리포트.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
@@ -605,6 +605,8 @@ R.forEach(r=>{
     r.np26 = e.np!=null? e.np : null;               // 컨센 순이익
     r.per26=(e.eps>0&&r.price)? r.price/e.eps : null;   // 컨센 EPS 기준 PER
     r.pbr26=(e.bps>0&&r.price)? r.price/e.bps : null;   // 컨센 BPS 기준 26E PBR
+    const go=epsGrowth(pv?pv.op:null, e.op);        // 영업익 25(실적)→26(컨센) = 어닝 그로스
+    r.opg26=go.n; r.opg26t=go.t;
     const g=epsGrowth(pv?pv.eps:null, e.eps);       // 25(실적)→26(컨센)
     r.epsg26=g.n; r.epsg26t=g.t;
     r.revYoY26=(pv&&pv.rev>0&&e.rev!=null)? (e.rev/pv.rev-1)*100 : null;   // 25실적→26컨센
@@ -779,13 +781,14 @@ const covCols = [
   {key:"fairMktcap",label:"견적(억)",render:r=>eok(r.fairMktcap,10)},
   {key:"upsideOwn",label:"당사 여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
-  {key:"mdd",label:"낙폭",render:r=>r.mdd==null?"—":`<span class="down">${fmt(r.mdd,1)}%</span>`},
-  {key:"ret1w",label:"1W",render:r=>r.ret1w==null?"—":`<span class="${cls(r.ret1w)}">${sign(r.ret1w,1)}%</span>`},
+  {key:"opg26",label:"영업익성장 26E",render:r=>growthCell(r.opg26,r.opg26t)},
+  {key:"epsg26",label:"EPS성장 26E",render:r=>growthCell(r.epsg26,r.epsg26t)},
+  {key:"pegv",label:"PEG",render:r=>r.pegv==null?"—":`<span class="${r.pegv<1?'up':''}">${fmt(r.pegv,2)}</span>`},
+  {key:"divYield",label:"배당",render:r=>r.divYield>0?fmt(r.divYield,1)+"%":"—"},
+  {key:"foreign",label:"외국인",render:r=>r.foreign>0?fmt(r.foreign,1)+"%":"—"},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
-  {key:"ret3m",label:"3M",render:r=>r.ret3m==null?"—":`<span class="${cls(r.ret3m)}">${sign(r.ret3m,1)}%</span>`},
-  {key:"ret6m",label:"6M",render:r=>r.ret6m==null?"—":`<span class="${cls(r.ret6m)}">${sign(r.ret6m,1)}%</span>`},
-  {key:"ret1y",label:"1Y",render:r=>r.ret1y==null?"—":`<span class="${cls(r.ret1y)}">${sign(r.ret1y,1)}%</span>`},
   {key:"retYtd",label:"YTD",render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
+  {key:"repN",label:"리포트",render:r=>r.repN?`<span title="${(r.repTop||'').replace(/"/g,'')}">${r.repN}건</span>`:"—"},
 ];
 // 분류 정렬용 가중치 (Top > 2nd > Beta > 없음)
 const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
@@ -797,7 +800,16 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
     const subs=[...new Set(secRows.map(r=>r.sub))];
     subs.forEach(sub=>{
       const rows=secRows.filter(r=>r.sub===sub)
-        .map(r=>({...r,opmv:opm(r),pickSort:PICK_ORDER[sectorPickOf(r)]||0}));
+        .map(r=>{
+          // PEG = 12MF PER ÷ EPS성장률(25→26). 성장률이 양수일 때만 의미 있음
+          const peg=(r.per12mf>0 && r.epsg26>0)? r.per12mf/r.epsg26 : null;
+          // 증권사 리포트 관심도 — 건수 + 조회수 1위 제목(툴팁)
+          const rp=(LIVE.researches||[]).filter(x=>x.co===r.name);
+          const topRep=rp.slice().sort((a,b)=>(b.views||0)-(a.views||0))[0];
+          return {...r, opmv:opm(r), pickSort:PICK_ORDER[sectorPickOf(r)]||0,
+            pegv:peg, repN:rp.length,
+            repTop:topRep?`조회 ${fmt0(topRep.views)} · ${topRep.title} (${topRep.broker})`:""};
+        });
       if(!rows.length) return;
       const aUp=avg(rows.map(r=>r.upsideOwn).filter(v=>v!=null));
       const aScore=avg(rows.map(r=>r.score).filter(v=>v!=null));
