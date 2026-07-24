@@ -364,7 +364,7 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
-    <p class="sec-desc">점수·시총·견적·상승여력·모멘텀을 한눈에. 배수·실적추정은 밸류에이션 탭. <b>종목명 클릭</b> 시 상세.</p>
+    <p class="sec-desc">당사 뷰(점수·견적) vs 시장 뷰(컨센) + 밸류·성장·모멘텀. 배수·실적추정 상세는 밸류에이션 탭. <b>종목명 클릭</b> 시 상세.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
@@ -742,14 +742,19 @@ const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}"><
 
 /* ==== Coverage summary — grouped by sector ==== */
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
-/* 커버리지 요약 = 간결(매력도+모멘텀). 배수·실적추정 상세는 밸류에이션 탭으로 이동. */
+/* 커버리지 요약 = 당사 뷰 vs 시장 뷰 + 밸류·성장·모멘텀 핵심.
+   PER/PBR 전체, 매출·영업익·순익·EPS 상세는 밸류에이션 탭에 있음. */
 const covCols = [
   {key:"pickSort",label:"분류",l:true,render:r=>pickPill(r)||`<span style="color:var(--muted2)">—</span>`},
   {key:"name",label:"종목",l:true,render:nmCellPlain},
   {key:"score",label:"점수",render:r=>r.score==null?"—":`<b>${fmt(r.score,1)}</b>`},
   {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
   {key:"fairMktcap",label:"견적(억)",render:r=>eok(r.fairMktcap,10)},
-  {key:"upsideOwn",label:"상승여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
+  {key:"upsideOwn",label:"당사 여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
+  {key:"upsideCons",label:"컨센 여력",render:r=>r.upsideCons==null?"—":`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons,1)}%</span>`},
+  {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
+  {key:"revYoY26",label:"26E 매출YoY",render:r=>r.revYoY26==null?"—":`<span class="${cls(r.revYoY26)}">${sign(r.revYoY26,0)}%</span>`},
+  {key:"opmv",label:"26E OPM",render:r=>r.opmv==null?"—":fmt(r.opmv,1)+"%"},
   {key:"mdd",label:"낙폭",render:r=>r.mdd==null?"—":`<span class="down">${fmt(r.mdd,1)}%</span>`},
   {key:"ret1w",label:"1W",render:r=>r.ret1w==null?"—":`<span class="${cls(r.ret1w)}">${sign(r.ret1w,1)}%</span>`},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
@@ -769,6 +774,7 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
       if(!rows.length) return;
       const aUp=avg(rows.map(r=>r.upsideCons).filter(v=>v!=null));
       const aScore=avg(rows.map(r=>r.score).filter(v=>v!=null));
+      const aPer=avg(rows.map(r=>r.per12mf).filter(v=>v>0));
       const c=SECTOR_COLORS[sec];
       const block=document.createElement("div");
       block.className="sector-block";
@@ -777,7 +783,8 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
           <span class="s-name" style="color:${c}">${sec} · ${sub}</span>
           <span class="s-tag">${rows.length}종목</span>
           <span class="s-stat" style="margin-left:auto">평균 점수 <b>${fmt(aScore,1)}</b></span>
-          <span class="s-stat">평균 상승여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
+          <span class="s-stat">평균 12MF PER <b>${fmt(aPer)}x</b></span>
+          <span class="s-stat">평균 컨센여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
         </div>
         <div class="tbl-wrap"><table></table></div>`;
       host.appendChild(block);
