@@ -97,6 +97,8 @@
   thead th:hover{color:var(--text)}
   thead th .ar{opacity:.4;font-size:10px}
   thead th.sorted .ar{opacity:1;color:var(--accent)}
+  /* 헤더 보조설명 — 아랫줄로 내려 컬럼 폭을 줄인다 */
+  thead th .th-sub{display:block;font-size:9.5px;font-weight:600;color:var(--muted2);letter-spacing:-.02em;margin-top:1px}
   tbody td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--line)}
   tbody td.l{text-align:left}
   tbody tr:hover{background:var(--panel2)}
@@ -804,7 +806,7 @@ const covCols = [
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
   {key:"per26",label:"26E PER",render:r=>r.per26>0?fmt(r.per26)+"x":"—"},
   {key:"per27",label:"27E PER",hm:1,render:r=>r.per27>0?fmt(r.per27)+"x":"—"},
-  {key:"opgAvg",label:"영업익성장 26·27평균",render:r=>growthCell(r.opgAvg,r.opgAvgT)},
+  {key:"opgAvg",label:`OP성장<span class="th-sub">26·27평균</span>`,render:r=>growthCell(r.opgAvg,r.opgAvgT)},
   {key:"foreign",label:"외국인",hm:1,render:r=>r.foreign>0?fmt(r.foreign,1)+"%":"—"},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
   {key:"retYtd",label:"YTD",hm:1,render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
