@@ -364,7 +364,7 @@
   <!-- 커버리지 실적 요약 -->
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
-    <p class="sec-desc">당사 뷰(점수·견적) vs 시장 뷰(컨센) + 밸류·성장·모멘텀. 배수·실적추정 상세는 밸류에이션 탭. <b>종목명 클릭</b> 시 상세.</p>
+    <p class="sec-desc">점수·견적·상승여력과 기간별 수익률. 배수·실적추정 상세는 밸류에이션 탭. <b>종목명 클릭</b> 시 상세.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
@@ -751,13 +751,13 @@ const covCols = [
   {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
   {key:"fairMktcap",label:"견적(억)",render:r=>eok(r.fairMktcap,10)},
   {key:"upsideOwn",label:"당사 여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
-  {key:"upsideCons",label:"컨센 여력",render:r=>r.upsideCons==null?"—":`<span class="${cls(r.upsideCons)}">${sign(r.upsideCons,1)}%</span>`},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
-  {key:"revYoY26",label:"26E 매출YoY",render:r=>r.revYoY26==null?"—":`<span class="${cls(r.revYoY26)}">${sign(r.revYoY26,0)}%</span>`},
-  {key:"opmv",label:"26E OPM",render:r=>r.opmv==null?"—":fmt(r.opmv,1)+"%"},
   {key:"mdd",label:"낙폭",render:r=>r.mdd==null?"—":`<span class="down">${fmt(r.mdd,1)}%</span>`},
   {key:"ret1w",label:"1W",render:r=>r.ret1w==null?"—":`<span class="${cls(r.ret1w)}">${sign(r.ret1w,1)}%</span>`},
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
+  {key:"ret3m",label:"3M",render:r=>r.ret3m==null?"—":`<span class="${cls(r.ret3m)}">${sign(r.ret3m,1)}%</span>`},
+  {key:"ret6m",label:"6M",render:r=>r.ret6m==null?"—":`<span class="${cls(r.ret6m)}">${sign(r.ret6m,1)}%</span>`},
+  {key:"ret1y",label:"1Y",render:r=>r.ret1y==null?"—":`<span class="${cls(r.ret1y)}">${sign(r.ret1y,1)}%</span>`},
   {key:"retYtd",label:"YTD",render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
 ];
 // 분류 정렬용 가중치 (Top > 2nd > Beta > 없음)
@@ -772,7 +772,7 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
       const rows=secRows.filter(r=>r.sub===sub)
         .map(r=>({...r,opmv:opm(r),pickSort:PICK_ORDER[sectorPickOf(r)]||0}));
       if(!rows.length) return;
-      const aUp=avg(rows.map(r=>r.upsideCons).filter(v=>v!=null));
+      const aUp=avg(rows.map(r=>r.upsideOwn).filter(v=>v!=null));
       const aScore=avg(rows.map(r=>r.score).filter(v=>v!=null));
       const aPer=avg(rows.map(r=>r.per12mf).filter(v=>v>0));
       const c=SECTOR_COLORS[sec];
@@ -784,7 +784,7 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
           <span class="s-tag">${rows.length}종목</span>
           <span class="s-stat" style="margin-left:auto">평균 점수 <b>${fmt(aScore,1)}</b></span>
           <span class="s-stat">평균 12MF PER <b>${fmt(aPer)}x</b></span>
-          <span class="s-stat">평균 컨센여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
+          <span class="s-stat">평균 당사여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
         </div>
         <div class="tbl-wrap"><table></table></div>`;
       host.appendChild(block);
