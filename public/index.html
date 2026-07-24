@@ -310,6 +310,9 @@
   .chip:hover{color:var(--text);border-color:var(--accent)}
   .chip.active{background:var(--accent);border-color:var(--accent);color:var(--onacc)}
   .chip.active.alt{background:var(--warn);border-color:var(--warn);color:var(--onacc)}
+  /* 주력 시장(★) — 선택 안 됐을 때도 눈에 띄게 */
+  .chip.key{border-color:color-mix(in srgb,var(--warn) 55%,transparent);color:var(--text)}
+  .chip.key.active{color:var(--onacc)}
 
   .w52-swap{display:inline-block;margin-left:5px;padding:1px 5px;border-radius:5px;cursor:pointer;
     background:var(--chip);border:1px solid var(--line);color:var(--accent);font-weight:800;font-size:11px}
@@ -487,11 +490,14 @@
   <!-- 대체데이터 -->
   <section class="view" data-view="altdata">
     <h2 class="sec">수출 데이터</h2>
-    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>. <b>종목</b>을 고르면 그 종목 관련 품목만 보입니다.
+    <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>. <b>종목을 먼저 고르면</b> 그 종목의 관련 HS 품목과 주력 수출시장이 정리됩니다.
       <span class="seed" id="tradeAsOfBadge"></span></p>
 
     <div id="tradeUI">
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <label for="tradeStock" style="font-weight:800;font-size:13px;color:var(--muted)">종목</label>
+        <select id="tradeStock" class="theme-btn" style="padding:9px 14px;font-weight:700;font-size:13.5px"
+          title="종목을 고르면 관련 수출 품목과 주력 시장(★)이 표시됩니다"></select>
         <div class="seg" id="tradePeriodSeg" style="margin-bottom:0">
           <button data-p="m" class="active">월별</button>
           <button data-p="q">분기별</button>
@@ -500,9 +506,8 @@
           <button data-v="chart" class="active">차트</button>
           <button data-v="table">테이블</button>
         </div>
-        <select id="tradeStock" class="theme-btn" style="padding:8px 12px;font-weight:600"
-          title="종목을 고르면 그 종목과 관련된 수출 품목만 보여줍니다"></select>
       </div>
+      <div id="tradeCoNote" style="display:none;font-size:12.5px;color:var(--muted);background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);border-radius:8px;padding:8px 12px;margin-bottom:10px"></div>
       <div class="chip-row" id="tradeItemChips"></div>
       <div class="chip-row" id="tradeCountryChips" style="margin-bottom:14px"></div>
 
@@ -1410,37 +1415,74 @@ const TRADE = {"asOf": "2026-07-24 07:56", "months": ["202407", "202408", "20240
     document.querySelectorAll("#tradeCountryChips .chip").forEach((b,i)=>b.classList.toggle("active",i===cIdx));
   }
 
-  /* ── 종목별 관련 수출 품목 ──────────────────────────────
-     소분류 기준 매핑 + 품목이 다른 종목은 예외로 지정 */
-  const REL_BY_SUB={
-    "화장품":["화장품 전체","기초","색조-립","색조-아이","색조-파우더","마스크팩류"],
-    "미용":  ["창상피복재","창상피복재-접착성","창상피복재-기타"],
-    "음식료":["라면"],
+  /* ── 종목별 수출 프로필 ────────────────────────────────
+     items: 관련 관세 HS 품목(라벨) · mkt: 주력 수출시장(국가코드, 우선순위순) · note: 한줄 설명
+     시장 비중은 공개 IR·언론(2025) 기준의 상대적 주력도 — 절대 비중이 아니라 '어디 위주로 파는가' 표시용 */
+  const ALL_COS=["화장품 전체","기초","색조-립","색조-아이","색조-파우더","마스크팩류"];
+  const WOUND =["창상피복재","창상피복재-접착성","창상피복재-기타"];
+  const CO_TRADE={
+    "에이피알":   {items:ALL_COS,                     mkt:["US","JP"],       note:"메디큐브 등 브랜드 수출 — 미국·일본 중심"},
+    "아모레퍼시픽":{items:ALL_COS,                     mkt:["US","JP","CN"],  note:"미국·일본 확대, 중국 비중은 축소 흐름"},
+    "LG생활건강": {items:ALL_COS,                     mkt:["CN","US","JP"],  note:"해외 중 중국 비중 최대, 북미·일본 성장"},
+    "달바글로벌":  {items:["화장품 전체","기초"],        mkt:["JP","US","EU9"], note:"선케어·앰플 — 일본이 최대, 북미·유럽 확장"},
+    "한국콜마":   {items:["화장품 전체","기초","색조-립","색조-아이","색조-파우더"], mkt:["US","CN"], note:"ODM — 미국·중국 현지생산 및 수출"},
+    "실리콘투":   {items:ALL_COS,                     mkt:["US","EU9"],      note:"K뷰티 역직구 — 미국 최대, 유럽·신흥국 급증"},
+    "코스맥스":   {items:["화장품 전체","기초","색조-립","색조-아이","색조-파우더"], mkt:["CN","US"], note:"ODM — 중국·미국 현지생산 및 수출"},
+    "제닉":      {items:["마스크팩류","화장품 전체"],   mkt:["CN","US"],       note:"마스크팩 ODM — 중국·미국"},
+    "파마리서치": {items:WOUND,                        mkt:["JP","EU9","US"], note:"리쥬란 — 일본·서유럽 중심, 브라질·미국 진출 준비"},
+    "앨엔씨바이오":{items:WOUND,                        mkt:["CN"],            note:"메가덤 등 조직수복 소재 — 중국 확장"},
+    "삼양식품":   {items:["라면"],                     mkt:["US","CN","EU9"], note:"불닭 — 미국·중국 양대 시장, 유럽 확대"},
+    "농심":      {items:["라면"],                     mkt:["US","CN","JP"],  note:"신라면 — 북미·중국·일본 (현지 생산 병행)"},
   };
-  const REL_BY_STOCK={ "CJ제일제당":[] };   // 라면 업체가 아니라 관련 품목 없음
-  const relItems=nm=>{ const r=R.find(x=>x.name===nm); if(!r) return null;
-    return REL_BY_STOCK[nm] || REL_BY_SUB[r.sub] || []; };
+  const coOf=nm=>CO_TRADE[nm]||null;
+  const relItems=nm=>{ const c=CO_TRADE[nm]; return c?c.items:[]; };   // 없으면 [] (수출 관련 없음)
+
+  let curMkts=[];   // 현재 종목의 주력 시장(국가코드) — 국가 칩 ★ 표시에 사용
+
+  /* 국가 칩에 주력 시장 ★ 표시 */
+  function markMarkets(){
+    const bc=TRADE.items[itemIdx].byCountry;
+    [...document.querySelectorAll("#tradeCountryChips .chip")].forEach((b,i)=>{
+      const code=(bc[i]||{}).code, isKey=curMkts.includes(code);
+      b.classList.toggle("key",isKey);
+      const nm=(bc[i]||{}).name||b.textContent.replace(/^★\s*/,"");
+      b.textContent=(isKey?"★ ":"")+nm;
+    });
+  }
+
+  /* 종목 선택 -> 관련 HS 품목 필터 + 주력 시장 표시 */
+  function applyCompany(nm){
+    const co=nm?coOf(nm):null, rel=co?co.items:null;
+    [...document.querySelectorAll("#tradeItemChips .chip")].forEach((b,i)=>{
+      b.style.display=(!rel||rel.includes(TRADE.items[i].label))?"":"none";
+    });
+    if(rel && !rel.includes(TRADE.items[itemIdx].label)){   // 선택 품목이 숨으면 관련 첫 품목으로
+      const first=TRADE.items.findIndex(it=>rel.includes(it.label));
+      if(first>=0) itemIdx=first;
+    }
+    curMkts=co?co.mkt:[];
+    rebuildCountry();                                       // 국가 칩 재생성 + ★ 표시
+    const bc=TRADE.items[itemIdx].byCountry;
+    if(curMkts.length){                                     // 주력 시장(1순위) 자동 선택
+      const pi=bc.findIndex(c=>c.code===curMkts[0]); cIdx=pi>=0?pi:0;
+    }
+    const noteEl=document.getElementById("tradeCoNote");
+    if(co){
+      const names=curMkts.map(cd=>(bc.find(c=>c.code===cd)||{}).name).filter(Boolean);
+      noteEl.innerHTML=`<b>${nm}</b> · ${co.note}　<span style="color:var(--muted2)">주력 시장 ★ ${names.join(" · ")}</span>`;
+      noteEl.style.display="";
+    } else noteEl.style.display="none";
+    paintChips(); draw();
+  }
 
   (function initStockSel(){
     const sel=document.getElementById("tradeStock"); if(!sel) return;
-    const named=R.filter(r=>(relItems(r.name)||[]).length);   // 관련 품목이 있는 종목만
+    const order={"화장품":0,"미용":1,"음식료":2};
+    const named=R.filter(r=>(relItems(r.name)||[]).length)   // 관련 품목이 있는 종목만
+                 .sort((a,b)=>(order[a.sub]??9)-(order[b.sub]??9));
     sel.innerHTML=`<option value="">전체 품목 보기</option>`
       +named.map(r=>`<option value="${r.name}">${r.name} · ${r.sub}</option>`).join("");
-    sel.addEventListener("change",e=>{
-      const nm=e.target.value;
-      const rel=nm?relItems(nm):null;
-      const btns=[...document.querySelectorAll("#tradeItemChips .chip")];
-      btns.forEach((b,i)=>{
-        const show=!rel||rel.includes(TRADE.items[i].label);
-        b.style.display=show?"":"none";
-      });
-      // 현재 선택 품목이 숨겨졌으면 관련 품목 첫 번째로 이동
-      if(rel && !rel.includes(TRADE.items[itemIdx].label)){
-        const first=TRADE.items.findIndex(it=>rel.includes(it.label));
-        if(first>=0){ itemIdx=first; cIdx=0; chips(document.getElementById("tradeCountryChips"), countryList(), "alt"); }
-      }
-      paintChips(); draw();
-    });
+    sel.addEventListener("change",e=>applyCompany(e.target.value));
   })();
 
   /* 월 -> 분기 집계 */
@@ -1524,7 +1566,7 @@ const TRADE = {"asOf": "2026-07-24 07:56", "months": ["202407", "202408", "20240
       `유럽 9개국은 ${(TRADE.items[itemIdx].byCountry.find(c=>c.code==="EU9")||{}).members?.join("·")||"영국·프랑스·독일·네덜란드·폴란드·이탈리아·스페인·스웨덴·벨기에"} 합계. `+
       `수집 ${TRADE.asOf}`;
   }
-  function rebuildCountry(){ chips(document.getElementById("tradeCountryChips"), countryList(), "alt"); }
+  function rebuildCountry(){ chips(document.getElementById("tradeCountryChips"), countryList(), "alt"); markMarkets(); }
   function refresh(){ paintChips(); draw(); }
 
   document.getElementById("tradeItemChips").addEventListener("click",e=>{
