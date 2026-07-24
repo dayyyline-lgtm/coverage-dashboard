@@ -802,9 +802,9 @@ const covCols = [
   {key:"ret1m",label:"1M",render:r=>r.ret1m==null?"—":`<span class="${cls(r.ret1m)}">${sign(r.ret1m,1)}%</span>`},
   {key:"retYtd",label:"YTD",hm:1,render:r=>r.retYtd==null?"—":`<span class="${cls(r.retYtd)}">${sign(r.retYtd,1)}%</span>`},
   {key:"repViews",label:"리포트",hm:1,render:r=>r.repUrl
-    ? `<a class="cell-link" href="${r.repUrl}" target="_blank" rel="noopener" title="${attr(r.repTip)}">${fmt0(r.repViews)}</a>` : "—"},
+    ? `<a class="cell-link" href="${r.repUrl}" target="_blank" rel="noopener" title="${attr(r.repTip)}">보기</a>` : "—"},
   {key:"newsD",label:"뉴스",hm:1,render:r=>r.newsUrl
-    ? `<a class="cell-link" href="${r.newsUrl}" target="_blank" rel="noopener" title="${attr(r.newsTip)}">${r.newsD}</a>` : "—"},
+    ? `<a class="cell-link" href="${r.newsUrl}" target="_blank" rel="noopener" title="${attr(r.newsTip)}">보기</a>` : "—"},
 ];
 // 분류 정렬용 가중치 (Top > 2nd > Beta > 없음)
 const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
