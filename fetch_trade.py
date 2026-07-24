@@ -23,7 +23,16 @@ except Exception:
 
 HTML_PATH = "public/index.html"
 API = "https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList"
+SIGUNGU_API = "https://apis.data.go.kr/1220000/sigunguperprlstperacrs/getSigunguPerPrlstPerAcrs"
 MONTHS = 24          # 최근 N개월 (12개월씩 2회 조회, YoY 계산용)
+
+# 지역(시군구) 프록시 품목 — 전용 HS가 없어 국가별 통계로는 안 잡히는 종목을 '제조지역'으로 포착.
+#   수출은 「제조장소 우편번호」 기준이라, 파마리서치 강릉공장의 기타화장품(330499)=리쥬란·필러가
+#   강릉시로 잡힌다. 도(강원) 단위는 원주 등 타 화장품 공장과 혼재하므로 반드시 시(강릉)로 좁힌다.
+REGION_ITEMS = [
+    {"label": "리쥬란(강릉 기타화장품)", "hs": "330499", "sidoCd": "51", "sgg": "강릉",
+     "note": "파마리서치 강릉공장 · 기타화장품(330499) 제조지 기준 = 리쥬란·필러 프록시 (전용 HS 없음)"},
+]
 
 try:
     from secrets_local import DATA_GO_KR_KEY
@@ -103,6 +112,31 @@ def windows(months):
     return [months[i:i + 12] for i in range(0, len(months), 12)]
 
 
+def fetch_sigungu_series(hs, sido_cd, sgg, months):
+    """시군구 월별 수출액(달러) 시계열을 months 축에 맞춰 반환. 시군구 API는 월별(priodTitle)로 응답."""
+    ym2v = {}
+    for y in sorted({m[:4] for m in months}):          # 연 경계 누락 방지 — 연도별 조회
+        p = {"serviceKey": DATA_GO_KR_KEY, "strtYymm": f"{y}01", "endYymm": f"{y}12",
+             "hsSgn": hs, "sidoCd": sido_cd}
+        url = SIGUNGU_API + "?" + urllib.parse.urlencode(p, safe="")
+        try:
+            raw = urllib.request.urlopen(
+                urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read()
+        except Exception as e:
+            print(f"  시군구 {y} 실패: {str(e)[:50]}"); continue
+        for it in ET.fromstring(raw).iter("item"):
+            g = lambda t: (it.findtext(t) or "").strip()
+            if sgg in g("sggNm") and g("hsSgn") == hs:
+                ym = g("priodTitle").replace(".", "")   # 2024.05 -> 202405
+                if re.fullmatch(r"\d{6}", ym):
+                    try:
+                        ym2v[ym] = ym2v.get(ym, 0.0) + float(g("expUsdAmt").replace(",", "")) * 1000  # 천달러->달러
+                    except ValueError:
+                        pass
+        time.sleep(0.4)
+    return [round(ym2v[m], 1) if m in ym2v else None for m in months]
+
+
 def main():
     if not DATA_GO_KR_KEY:
         print("DATA_GO_KR_KEY 가 없습니다."); sys.exit(1)
@@ -164,6 +198,15 @@ def main():
         last = next((v for v in reversed(entry["byCountry"][0]["exp"]) if v), None)
         print(f"  {item['label']:<12} 전체 최근 {last/1e6 if last else 0:,.1f} 백만달러")
         out["items"].append(entry)
+
+    # 지역(시군구) 프록시 품목 — 단일 지역 시계열(국가 구분 없음)
+    for ri in REGION_ITEMS:
+        exp = fetch_sigungu_series(ri["hs"], ri["sidoCd"], ri["sgg"], months)
+        last = next((v for v in reversed(exp) if v), None)
+        print(f"  {ri['label']:<20} {ri['sgg']} 최근 {last/1e6 if last else 0:,.1f} 백만달러")
+        out["items"].append({"hs": ri["hs"], "label": ri["label"], "note": ri["note"],
+                             "region": True,
+                             "byCountry": [{"code": "", "name": ri["sgg"], "exp": exp}]})
 
     block = "const TRADE = " + json.dumps(out, ensure_ascii=False) + ";"
     html = open(HTML_PATH, encoding="utf-8").read()
