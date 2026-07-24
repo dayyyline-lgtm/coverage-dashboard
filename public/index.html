@@ -1526,9 +1526,11 @@ const TRADE = {"asOf": "2026-07-24 07:56", "months": ["202407", "202408", "20240
     const ys=v=>H-pad.b-(v/maxV)*(H-pad.t-pad.b);
     const xs=i=>pad.l+(i+0.5)/labels.length*(W-pad.l-pad.r);
     const bw=(W-pad.l-pad.r)/labels.length*0.62;
-    const yv=yoy.filter(v=>v!=null);
-    const yMax=yv.length?Math.max(...yv,5)*1.2:100, yMin=yv.length?Math.min(...yv,-5)*1.2:-20;
-    const yy=v=>H-pad.b-((v-yMin)/(yMax-yMin))*(H-pad.t-pad.b);
+    // YoY 축은 고정 -60~+180% (스텝 60) — 종목·국가·품목을 바꿔도 기울기 기준이 동일하게.
+    // 범위를 벗어나는 값(소국 기저효과 등)은 가장자리에 삼각형으로 표시한다.
+    const yMin=-60, yMax=180;
+    const clampY=v=>Math.max(yMin,Math.min(yMax,v));
+    const yy=v=>H-pad.b-((clampY(v)-yMin)/(yMax-yMin))*(H-pad.t-pad.b);
     const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
     const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
     let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
@@ -1545,8 +1547,16 @@ const TRADE = {"asOf": "2026-07-24 07:56", "months": ["202407", "202408", "20240
     });
     const pts=yoy.map((v,i)=>v==null?null:`${xs(i).toFixed(1)},${yy(v).toFixed(1)}`).filter(Boolean);
     if(pts.length>1) s+=`<polyline points="${pts.join(' ')}" fill="none" stroke="var(--muted)" stroke-width="1.6"/>`;
-    yoy.forEach((v,i)=>{ if(v!=null)
-      s+=`<circle cx="${xs(i).toFixed(1)}" cy="${yy(v).toFixed(1)}" r="3.4" fill="${v>=0?'var(--up)':'var(--down)'}"><title>YoY ${sign(v,1)}%</title></circle>`;});
+    yoy.forEach((v,i)=>{ if(v==null) return;
+      const cx=+xs(i).toFixed(1), cy=+yy(v).toFixed(1), col=v>=0?'var(--up)':'var(--down)';
+      if(v>yMax||v<yMin){   // 축 밖 — 방향 삼각형(캐럿)
+        const up=v>yMax;
+        const tri=up?`M${cx-4.5},${cy+4} L${cx+4.5},${cy+4} L${cx},${cy-3.5} Z`
+                    :`M${cx-4.5},${cy-4} L${cx+4.5},${cy-4} L${cx},${cy+3.5} Z`;
+        s+=`<path d="${tri}" fill="${col}"><title>YoY ${sign(v,1)}% (축 범위 밖)</title></path>`;
+      } else {
+        s+=`<circle cx="${cx}" cy="${cy}" r="3.4" fill="${col}"><title>YoY ${sign(v,1)}%</title></circle>`;
+      }});
     s+=`<text x="16" y="${H/2}" text-anchor="middle" font-size="11" fill="${mut}" transform="rotate(-90 16 ${H/2})">수출액 (백만달러)</text>`;
     s+="</svg>";
     box.innerHTML=s;
@@ -1562,7 +1572,8 @@ const TRADE = {"asOf": "2026-07-24 07:56", "months": ["202407", "202408", "20240
       {key:"y",label:"YoY",render:r=>r.y==null?"—":`<span class="${cls(r.y)}">${sign(r.y,1)}%</span>`},
     ], labels.map((L,i)=>({L,v:shown[i]||null,y:yoy[i]})), {key:"L",dir:-1});
     document.getElementById("tradeNote").innerHTML=
-      `단위 백만달러(FOB 신고금액). YoY는 ${period==="m"?"전년 동월":"전년 동분기"} 대비. `+
+      `단위 백만달러(FOB 신고금액). YoY는 ${period==="m"?"전년 동월":"전년 동분기"} 대비, `+
+      `<b>축 -60~+180% 고정</b>(비교 일관성 · 범위 밖은 ▲▼로 표시). `+
       `유럽 9개국은 ${(TRADE.items[itemIdx].byCountry.find(c=>c.code==="EU9")||{}).members?.join("·")||"영국·프랑스·독일·네덜란드·폴란드·이탈리아·스페인·스웨덴·벨기에"} 합계. `+
       `수집 ${TRADE.asOf}`;
   }
