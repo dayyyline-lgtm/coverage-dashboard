@@ -28,20 +28,37 @@
 엑셀 파이프라인(`rebuild_from_excel.py`)은 폐지했다. **`index.html` 이 원본**이고,
 종목 추가·견적 변경 등은 사용자가 말로 지시하면 내가 직접 `DATA` 를 편집한다.
 
-`DATA` 에는 **재무 숫자를 일절 두지 않는다.** 남은 필드는 이게 전부다:
+`DATA` 필드는 이게 전부다:
 
 ```
-rank · pick2 · sector · sub · name · score · fairMktcap
+rank · pick2 · sector · sub · name · score · fairMktcap · rev27 · op27 · eps27
 ```
 
-`fairMktcap`(견적 시총, 십억원)만 당사 입력이고 **나머지 숫자는 전부 API** 다.
-`score`·`pick2`·`sector`/`sub` 는 재무데이터가 아니라 분류·판단이라 남긴다.
+**API로 구할 수 있는 값은 절대 `DATA` 에 넣지 말 것.** 남은 건 두 종류뿐이다.
 
-**엑셀에서 가져온 재무데이터는 견적 말고 아무것도 참고하지 말 것.**
-사용자가 명시적으로 추가를 지시하기 전까지 이 원칙을 깨지 말 것.
+1. **분류·판단** — `sector`/`sub`·`score`·`pick2`·`rank`, 그리고 `fairMktcap`(견적 시총, 십억원)
+2. **27E 컨센(엑셀)** — `rev27`·`op27`·`eps27`.
+   무료 API 는 26E 1개년까지만 준다(네이버·FnGuide 공통). 27E 는 엑셀이 유일한 출처다.
+
 제거한 것: `price` `target` `upsideCons` `mktcap` `upsideOwn` `ret1w/1m/3m`
-`eps26` `epsg26` `per26` `per12mf` `per27` `rev26` `op26`
-`rev27` `op27` `eps27` `epsg27` `pickLabel`, 그리고 `FIN` 상수 전체.
+`eps26` `epsg26` `per26` `per12mf` `rev26` `op26` `pickLabel`, 그리고 `FIN` 상수 전체.
+
+### 파생값은 반드시 페이지에서 계산한다
+
+엑셀에도 `per27`·`epsg27` 같은 파생값 열이 있지만 **쓰지 않는다.**
+엑셀 작성 시점의 주가·컨센에 고정돼 있어 시간이 지나면 틀리기 때문이다.
+(`upsideOwn` 이 그렇게 29종목 전부 틀렸던 전례가 있다.)
+
+병합 블록에서 계산하는 것:
+
+| 값 | 식 |
+|---|---|
+| `per27` | 라이브 주가 ÷ `eps27` |
+| `np27` | `np26`(컨센) × (`eps27`/`eps26`) |
+| `revYoY27` | `rev27` ÷ `rev26`(컨센) − 1 |
+| `epsg27` | `eps26`(컨센) → `eps27` 성장률 |
+| `opg27` | `op26`(컨센) → `op27` 성장률 |
+| `upsideOwn` | `fairMktcap` ÷ (`mktcapEok`/10) − 1 |
 
 ### 연간·분기 실적 = `LIVE.cons.series`
 
@@ -55,8 +72,8 @@ rank · pick2 · sector · sub · name · score · fairMktcap
 
 `est`/`prev` 는 하위호환으로 남아 있으나 **새 코드는 `series` 를 쓸 것.**
 
-**27E 는 없다.** 무료 API 는 26E 1개년까지만 준다. 예전엔 엑셀 당사 추정으로
-27E 컬럼을 채웠지만 전부 제거했다. 되살리려면 사용자에게 27E 입력을 받아야 한다.
+**27E 는 `series` 에 없다.** 상세 패널 연간표는 API `series`(2023A~2026E) 뒤에
+`DATA` 의 `rev27`·`op27`·`eps27` 을 2027E 열로 덧붙여 5개 기간을 만든다.
 
 `upsideOwn`(당사 상승여력)이 대표적 사고 사례다. 엑셀 작성 시점 값이 그대로 박혀 있어
 29종목 전부 틀린 숫자를 표시했다(평균 +31.9% vs 실제 +51.5%).
