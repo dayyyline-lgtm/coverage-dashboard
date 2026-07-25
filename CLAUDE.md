@@ -12,8 +12,8 @@
 
 | 상수 | 내용 | 갱신 스크립트 |
 |---|---|---|
-| `DATA` | 유니버스(종목·점수·견적·추정치·Pick) | `rebuild_from_excel.py` |
-| `FIN` | 연간·분기 실적 | `rebuild_from_excel.py` |
+| `DATA` | 유니버스(종목·섹터·점수·견적·27E 추정·Pick) | **없음 — 직접 편집** |
+| `FIN` | 연간·분기 실적 | **없음 — 직접 편집** |
 | `LIVE` | 시세·컨센·리포트·섹터지수·환율 | `refresh_live.py` |
 | `DART_EVENTS` | 공시·IR 일정 | `fetch_events.py` |
 | `NEWS` | 종목별 뉴스 | `fetch_news.py` |
@@ -22,6 +22,29 @@
 
 각 스크립트는 **해당 블록만 정규식으로 교체**하므로 서로 덮어쓰지 않는다.
 데이터 변동이 없으면 파일을 건드리지 않는다(Cloudflare 무료 빌드 500회/월 절약).
+
+### DATA 는 엑셀에서 오지 않는다 (2026-07-26 ~)
+
+엑셀 파이프라인(`rebuild_from_excel.py`)은 폐지했다. **`index.html` 이 원본**이고,
+종목 추가·견적 변경 등은 사용자가 말로 지시하면 내가 직접 `DATA` 를 편집한다.
+
+`DATA` 에는 **API로 못 구하는 값만** 둔다:
+
+```
+pickLabel · rank · pick2 · sector · sub · name · score · fairMktcap
+rev26 · op26        (당사 26E 추정 — rev26own/op26own 로 보존돼 컨센 괴리 계산에 쓰임)
+rev27 · op27 · eps27 · epsg27   (27E 당사 추정 — 무료 API에 27E 컨센이 없음)
+```
+
+**시세·시총·컨센·PER·수익률·목표주가·상승여력을 `DATA` 에 넣지 말 것.**
+전부 `LIVE` 에서 매번 재계산한다. 엑셀 시절 남아 있던 고정값
+(`price` `target` `upsideCons` `mktcap` `upsideOwn` `ret1w/1m/3m`
+`eps26` `epsg26` `per26` `per12mf` `per27`)은 제거했다.
+
+`upsideOwn`(당사 상승여력)이 대표적 사고 사례다. 엑셀 작성 시점 값이 그대로 박혀 있어
+29종목 전부 틀린 숫자를 표시했다(평균 +31.9% vs 실제 +51.5%).
+지금은 병합 블록에서 `fairMktcap ÷ (mktcapEok/10) − 1` 로 계산한다.
+**단위 주의: `fairMktcap` 은 십억원, `LIVE` 의 `mktcapEok` 은 억원이다.**
 
 `public/` 만 배포된다. 스크립트·README는 루트에 있어 공개되지 않는다.
 
