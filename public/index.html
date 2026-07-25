@@ -641,6 +641,10 @@ R.forEach(r=>{
   r.w52pos=(L.w52h&&L.w52l&&L.price)?((L.price-L.w52l)/(L.w52h-L.w52l)*100):null;
   r.mdd=(L.w52h&&L.price)?((L.price/L.w52h-1)*100):null;        // 52주 고점 대비 낙폭
   r.rebound=(L.w52l&&L.price)?((L.price/L.w52l-1)*100):null;    // 52주 저점 대비 반등
+  /* 당사 상승여력 = 견적시총 / 실시간 시총 − 1.
+     엑셀의 upsideOwn·mktcap은 작성 시점에 고정된 값이라 쓰지 않는다.
+     단위: fairMktcap 십억원, mktcapEok 억원 → /10 으로 맞춤 */
+  if(r.fairMktcap>0&&L.mktcapEok>0) r.upsideOwn=(r.fairMktcap/(L.mktcapEok/10)-1)*100;
 });
 const mcJo = r=> r.mktcapJo!=null?r.mktcapJo:r.mktcap/1000;
 const sign = (v,d=1)=> (v===null||v===undefined||v==="")?"—":(v>0?"+":"")+fmt(v,d);
