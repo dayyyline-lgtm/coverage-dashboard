@@ -107,11 +107,10 @@ def fetch_consensus(code):
         fi = d["financeInfo"]
         titles = {t["key"]: t for t in fi["trTitleList"]}
         rows = {r["title"]: r["columns"] for r in fi["rowList"]}
-        cons_keys = [k for k, t in titles.items() if t.get("isConsensus") == "Y"]
+        cons_keys = sorted(k for k, t in titles.items() if t.get("isConsensus") == "Y")
         act_keys = sorted(k for k, t in titles.items() if t.get("isConsensus") != "Y")
-        if not cons_keys:
+        if not titles:
             return None
-        ck = sorted(cons_keys)[0]                    # 가장 이른 컨센 기간
 
         def grab(key):
             vals = {}
@@ -122,16 +121,34 @@ def fetch_consensus(code):
                 vals[en] = v if en in RATIO else round(v / 10, 2)  # 억 -> 십억
             return vals
 
-        res = {"key": ck, "title": titles[ck]["title"], "est": grab(ck)}
-        # 전년 동기(분기) 또는 전년(연간) 실적 -> YoY 계산용
-        if period == "quarter" and len(ck) == 6:
-            prev = str(int(ck[:4]) - 1) + ck[4:]
-        else:
-            prev = str(int(ck[:4]) - 1) + ck[4:]
-        if prev in titles:
-            res["prev"] = grab(prev)
-        elif act_keys:
-            res["prev"] = grab(act_keys[-1])
+        # ---- 전체 기간 시계열 ----
+        # 예전엔 컨센 1개 기간만 뽑고 나머지를 버렸다. 그 탓에 실적표/분기차트가
+        # 엑셀(FIN)에 의존했다. 이제 API가 주는 모든 기간을 그대로 담는다.
+        #   annual  : 2023A · 2024A · 2025A · 2026E
+        #   quarter : 1Q25 ~ 1Q26 실적 + 2Q26 컨센
+        # e=True 면 컨센 추정치, False 면 확정 실적.
+        series = []
+        for k in sorted(titles):
+            vals = grab(k)
+            if not vals:
+                continue
+            series.append({"k": k, "t": titles[k]["title"],
+                           "e": titles[k].get("isConsensus") == "Y", **vals})
+        if not series:
+            return None
+        res = {"series": series}
+
+        # ---- 하위호환: 기존 est/prev 유지 ----
+        # 컨센이 아예 없는 종목(소형주)도 series 는 채워서 반환한다.
+        # 예전 코드는 여기서 None 을 뱉어 실적까지 통째로 버렸다.
+        if cons_keys:
+            ck = cons_keys[0]                        # 가장 이른 컨센 기간
+            res.update(key=ck, title=titles[ck]["title"], est=grab(ck))
+            prev = str(int(ck[:4]) - 1) + ck[4:]     # 전년(동기)
+            if prev in titles:
+                res["prev"] = grab(prev)
+            elif act_keys:
+                res["prev"] = grab(act_keys[-1])
         return res
 
     for period, label in (("annual", "year"), ("quarter", "quarter")):
