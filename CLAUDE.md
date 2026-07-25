@@ -28,18 +28,35 @@
 엑셀 파이프라인(`rebuild_from_excel.py`)은 폐지했다. **`index.html` 이 원본**이고,
 종목 추가·견적 변경 등은 사용자가 말로 지시하면 내가 직접 `DATA` 를 편집한다.
 
-`DATA` 에는 **API로 못 구하는 값만** 둔다:
+`DATA` 에는 **재무 숫자를 일절 두지 않는다.** 남은 필드는 이게 전부다:
 
 ```
-pickLabel · rank · pick2 · sector · sub · name · score · fairMktcap
-rev26 · op26        (당사 26E 추정 — rev26own/op26own 로 보존돼 컨센 괴리 계산에 쓰임)
-rev27 · op27 · eps27 · epsg27   (27E 당사 추정 — 무료 API에 27E 컨센이 없음)
+rank · pick2 · sector · sub · name · score · fairMktcap
 ```
 
-**시세·시총·컨센·PER·수익률·목표주가·상승여력을 `DATA` 에 넣지 말 것.**
-전부 `LIVE` 에서 매번 재계산한다. 엑셀 시절 남아 있던 고정값
-(`price` `target` `upsideCons` `mktcap` `upsideOwn` `ret1w/1m/3m`
-`eps26` `epsg26` `per26` `per12mf` `per27`)은 제거했다.
+`fairMktcap`(견적 시총, 십억원)만 당사 입력이고 **나머지 숫자는 전부 API** 다.
+`score`·`pick2`·`sector`/`sub` 는 재무데이터가 아니라 분류·판단이라 남긴다.
+
+**엑셀에서 가져온 재무데이터는 견적 말고 아무것도 참고하지 말 것.**
+사용자가 명시적으로 추가를 지시하기 전까지 이 원칙을 깨지 말 것.
+제거한 것: `price` `target` `upsideCons` `mktcap` `upsideOwn` `ret1w/1m/3m`
+`eps26` `epsg26` `per26` `per12mf` `per27` `rev26` `op26`
+`rev27` `op27` `eps27` `epsg27` `pickLabel`, 그리고 `FIN` 상수 전체.
+
+### 연간·분기 실적 = `LIVE.cons.series`
+
+`refresh_live.py` 가 네이버 재무 API의 **전 기간**을 담는다.
+원소: `{k:"202412", t:"2024.12.", e:컨센여부, rev, op, np, opm, eps, bps, pbr}`
+
+| | 범위 |
+|---|---|
+| `cons.year.series` | 2023A · 2024A · 2025A · 2026E |
+| `cons.quarter.series` | 1Q25~1Q26 실적 + 2Q26 컨센 |
+
+`est`/`prev` 는 하위호환으로 남아 있으나 **새 코드는 `series` 를 쓸 것.**
+
+**27E 는 없다.** 무료 API 는 26E 1개년까지만 준다. 예전엔 엑셀 당사 추정으로
+27E 컬럼을 채웠지만 전부 제거했다. 되살리려면 사용자에게 27E 입력을 받아야 한다.
 
 `upsideOwn`(당사 상승여력)이 대표적 사고 사례다. 엑셀 작성 시점 값이 그대로 박혀 있어
 29종목 전부 틀린 숫자를 표시했다(평균 +31.9% vs 실제 +51.5%).
