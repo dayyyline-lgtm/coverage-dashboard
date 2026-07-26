@@ -71,6 +71,45 @@ def matched(name):
     return None
 
 
+def fetch_booking():
+    """실시간 예매율 (KOFIC 통계 페이지).
+
+       OpenAPI 는 예매 정보를 주지 않는다. 개봉 전 관객은 예매에서만 보이므로
+       공개 통계 페이지를 파싱한다. 세션 쿠키를 먼저 받아야 표가 채워져 온다
+       (쿠키 없이 POST 하면 껍데기만 온다).
+
+       표 구조: <tr> 안에 td 8개
+         순위 · 영화명 · 개봉일 · 예매율 · 예매매출 · 누적매출 · 예매관객 · 누적관객
+       화면 구조가 바뀌면 조용히 빈 결과가 되므로 실패해도 본 수집은 계속한다."""
+    import http.cookiejar
+    base = "https://www.kobis.or.kr/kobis/business/stat/boxs/findRealTicketList.do"
+    cj = http.cookiejar.CookieJar()
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    hdr = [("User-Agent", UA["User-Agent"]), ("Referer", base),
+           ("X-Requested-With", "XMLHttpRequest")]
+    op.addheaders = hdr
+    op.open(base, timeout=30).read()                       # 세션 발급
+    body = urllib.parse.urlencode({"loadEnd": 0, "searchType": "real"}).encode()
+    html = op.open(urllib.request.Request(base, data=body), timeout=30).read().decode("utf-8", "replace")
+
+    strip = re.compile(r"<[^>]*>")
+    out = []
+    for chunk in html.split("<tr ")[1:]:
+        cells = [strip.sub("", c).strip() for c in chunk.split("</td>")]
+        cells = [c for c in cells if c]
+        if len(cells) < 8:
+            continue
+        name = cells[1]
+        if not matched(name):
+            continue
+        num = lambda s: int(re.sub(r"[^\d]", "", s) or 0)
+        out.append({"nm": name, "openDt": cells[2],
+                    "rate": float(re.sub(r"[^\d.]", "", cells[3]) or 0),
+                    "bookAmt": num(cells[4]), "accAmt": num(cells[5]),
+                    "book": num(cells[6]), "acc": num(cells[7])})
+    return out
+
+
 def main():
     if not KEY:
         print("KOBIS_KEY 가 없습니다."); sys.exit(1)
@@ -100,10 +139,13 @@ def main():
             dates.append(d.strftime("%Y%m%d"))
             d += datetime.timedelta(days=1)
     todo = [x for x in dates if x not in scanned][:MAX_BACKFILL]
+    # 훑을 박스오피스 날짜가 없어도 여기서 끝내면 안 된다 —
+    # 예매율은 개봉 전에도 매일 바뀌므로 아래에서 따로 받아야 한다.
     if not todo:
-        print(f"새로 훑을 날짜 없음 (누적 {len(scanned)}일 완료)"); return
-    print(f"훑을 날짜 {len(todo)}일 ({todo[0]}~{todo[-1]}) · 남은 구간 "
-          f"{max(0, len([x for x in dates if x not in scanned]) - len(todo))}일")
+        print(f"새로 훑을 박스오피스 날짜 없음 (누적 {len(scanned)}일 완료)")
+    else:
+        print(f"훑을 날짜 {len(todo)}일 ({todo[0]}~{todo[-1]}) · 남은 구간 "
+              f"{max(0, len([x for x in dates if x not in scanned]) - len(todo))}일")
 
     hit = 0
     for dt in todo:
@@ -138,8 +180,20 @@ def main():
     if not movies:
         print(f"{len(todo)}일 훑음 · 대상 영화 없음 (미개봉이거나 Top10 밖)")
 
+    # 실시간 예매 — 개봉 전 관객은 여기서만 보인다. 매 실행마다 한 점씩 쌓는다.
+    booking = dict(old.get("booking") or {})
+    try:
+        for b in fetch_booking():
+            pts = [p for p in (booking.get(b["nm"]) or []) if p["d"] != today.strftime("%Y-%m-%d")]
+            pts.append({"d": today.strftime("%Y-%m-%d"), "rate": b["rate"],
+                        "book": b["book"], "acc": b["acc"]})
+            booking[b["nm"]] = pts[-180:]
+            print(f"  [예매] {b['nm']} · 예매율 {b['rate']}% · 예매 {b['book']:,}명 · 누적 {b['acc']:,}명")
+    except Exception as e:
+        print(f"  예매율 수집 실패(본 수집은 계속): {type(e).__name__} {str(e)[:90]}")
+
     out = {"asOf": today.strftime("%Y-%m-%d"),
-           "movies": movies,
+           "movies": movies, "booking": booking,
            # 자르면 잘린 날짜를 다음 실행이 또 훑어 백필이 끝나지 않는다.
            # 구간이 유한(WINDOWS)이라 무한정 커지지 않으므로 전부 남긴다.
            "scanned": sorted(scanned)}
