@@ -442,8 +442,8 @@
   <!-- 실적 프리뷰 -->
   <section class="view" data-view="preview">
     <h2 class="sec">실적 프리뷰 &amp; 컨센 비교</h2>
-    <p class="sec-desc">다가오는 분기 <b>컨센서스 실적</b>(네이버 실수집)과, 연간 26E 영업이익의 <b>당사 추정 vs 컨센 괴리</b>.
-      괴리 ±5% 초과 시 <span class="tag-beat">당사 상회</span> / <span class="tag-inline">In-line</span> / <span class="tag-miss">당사 하회</span>.</p>
+    <p class="sec-desc">다가오는 분기 <b>컨센서스 실적</b>(네이버 수집)과 연간 26E 컨센.
+      <b>실적발표가 임박한 순</b>으로 정렬됩니다 — 발표일이 안 잡힌 종목은 뒤로 갑니다. 헤더를 누르면 다른 기준으로 정렬할 수 있습니다.</p>
     <div class="tbl-wrap"><table id="prevTable"></table></div>
     <p class="note">단위 억 원. 분기 컨센·연간 컨센은 네이버 금융 재무 API에서 자동 수집(추정치 변경 시 자동 반영),
       당사 26E 영업이익은 유니버스 엑셀 기준. 괴리 = 당사 ÷ 컨센 − 1 (양수면 당사가 더 공격적).</p>
@@ -1126,18 +1126,6 @@ R.forEach(r=>{
   r.qRevYoY=(pq&&pq.rev&&r.qRev)?((r.qRev/pq.rev-1)*100):null;
   r.qOpYoY=(pq&&pq.op&&r.qOp)?((r.qOp/pq.op-1)*100):null;
 });
-makeTable(document.getElementById("prevTable"),[
-  {key:"name",label:"종목",l:true,render:nmCell},
-  {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
-  {key:"qTitle",label:"분기",l:true,render:r=>r.qTitle?`<span class="ye">${r.qTitle}E</span>`:"—"},
-  {key:"qRev",label:"컨센 매출",render:r=>eok(r.qRev)},
-  {key:"qRevYoY",label:"YoY",render:r=>r.qRevYoY==null?"—":`<span class="${cls(r.qRevYoY)}">${sign(r.qRevYoY,0)}%</span>`},
-  {key:"qOp",label:"컨센 영업익",render:r=>eok(r.qOp)},
-  {key:"qOpYoY",label:"YoY",render:r=>r.qOpYoY==null?"—":`<span class="${cls(r.qOpYoY)}">${sign(r.qOpYoY,0)}%</span>`},
-  {key:"qOpm",label:"OPM",render:r=>r.qOpm==null?"—":fmt(r.qOpm)+"%"},
-  {key:"consRev26",label:"26E 매출",render:r=>eok(r.consRev26)},
-  {key:"consOp26",label:"26E 영업익",render:r=>eok(r.consOp26)},
-], R, {key:"mktcapJo",dir:-1});
 
 /* ==== Scatter (SVG) ==== */
 function drawScatter(){
@@ -1198,6 +1186,37 @@ const CAL=(function(){
   all.forEach(e=>{const k=e.co+"|"+e.d; if(seen.has(k))return; seen.add(k); out.push(e);});
   return out.sort((a,b)=>a.d.localeCompare(b.d));
 })();
+/* 실적 프리뷰 표 — 발표가 임박한 순.
+   CAL 이 여기서야 만들어지므로 표 렌더링도 여기서 한다(위 R.forEach 는 값 계산만).
+   발표일이 안 잡힌 종목은 뒤로 보낸다. */
+(function renderPreview(){
+  const today=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
+  const nextEarn={};
+  CAL.filter(e=>e.ty==="earn" && e.d>=today).forEach(e=>{
+    if(!nextEarn[e.co] || e.d<nextEarn[e.co]) nextEarn[e.co]=e.d;
+  });
+  R.forEach(r=>{
+    r.earnD=nextEarn[r.name]||null;
+    r.earnSort=r.earnD||"9999-99-99";        // 미정은 항상 뒤로
+    r.earnDday=r.earnD? Math.round((new Date(r.earnD)-new Date(today))/864e5) : null;
+  });
+  makeTable(document.getElementById("prevTable"),[
+    {key:"name",label:"종목",l:true,render:nmCell},
+    {key:"earnSort",label:"실적발표",l:true,render:r=>r.earnD
+      ? `<span class="ye">${r.earnD.slice(5).replace("-","/")}</span>`
+        +`<span class="th-sub" style="margin-left:5px">${r.earnDday===0?"D-DAY":"D-"+r.earnDday}</span>`
+      : "—"},
+    {key:"qTitle",label:"분기",l:true,render:r=>r.qTitle?`<span class="ye">${r.qTitle}E</span>`:"—"},
+    {key:"qRev",label:"컨센 매출",render:r=>eok(r.qRev)},
+    {key:"qRevYoY",label:"YoY",render:r=>r.qRevYoY==null?"—":`<span class="${cls(r.qRevYoY)}">${sign(r.qRevYoY,0)}%</span>`},
+    {key:"qOp",label:"컨센 영업익",render:r=>eok(r.qOp)},
+    {key:"qOpYoY",label:"YoY",render:r=>r.qOpYoY==null?"—":`<span class="${cls(r.qOpYoY)}">${sign(r.qOpYoY,0)}%</span>`},
+    {key:"qOpm",label:"OPM",render:r=>r.qOpm==null?"—":fmt(r.qOpm)+"%"},
+    {key:"consRev26",label:"26E 매출",render:r=>eok(r.consRev26)},
+    {key:"consOp26",label:"26E 영업익",render:r=>eok(r.consOp26)},
+  ], R, {key:"earnSort",dir:1});
+})();
+
 const CTYPE={earn:"ev-earn",ir:"ev-ir",reg:"ev-reg",corp:"ev-corp",div:"ev-div"};
 const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인",corp:"기업행동",div:"배당"};
 
