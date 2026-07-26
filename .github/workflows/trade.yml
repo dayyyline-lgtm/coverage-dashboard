@@ -1,0 +1,49 @@
+name: 수출입 갱신 (관세청)
+
+on:
+  schedule:
+    # 매월 5일·20일 한국시간 07:00 (UTC 전일 22:00)
+    # 관세청은 월 단위 확정치라 자주 돌 이유가 없다. 다만 잠정치(10일 단위)가
+    # 중간에 갱신되므로 월 2회로 잡았다.
+    - cron: "0 22 4,19 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trade
+  cancel-in-progress: false
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 수출입 수집
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          if [ -z "$DATA_GO_KR_KEY" ]; then
+            echo "DATA_GO_KR_KEY 시크릿이 없습니다."
+            exit 1
+          fi
+          python fetch_trade.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git add public/index.html
+            git commit -m "수출입 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git pull --rebase
+            git push
+          fi
