@@ -1822,24 +1822,51 @@ function renderMovie(){
     note.textContent=soon.length?"개봉하면 일별·누적 관객수가 자동으로 쌓입니다.":"";
     return;
   }
-  box.innerHTML=`<div class="sm-grid">${mine.map(([nm,mv])=>{
-    const ds=mv.days||[], last=ds[ds.length-1];
-    const W=300,H=110,pad={l:6,r:6,t:10,b:16};
-    const mx=Math.max(...ds.map(p=>p.acc),1);
-    const sx=i=>pad.l+i/Math.max(1,ds.length-1)*(W-pad.l-pad.r);
-    const sy=v=>H-pad.b-(v/mx)*(H-pad.t-pad.b);
-    const line=ds.map((p,i)=>`${sx(i).toFixed(1)},${sy(p.acc).toFixed(1)}`).join(" ");
-    return `<div class="sm-cell">
-      <div class="sm-h"><span class="dot" style="background:var(--accent)"></span>${nm}
-        <span class="src">누적 관객</span>
-        <span class="v">${fmt0(last?last.acc:0)}</span></div>
-      <div class="shop-kv">${mv.openDt||""} 개봉 · ${ds.length}일차
-        ${last?` · 당일 ${fmt0(last.audi)}명 · ${last.rank}위 · 스크린 ${fmt0(last.scrn)}`:""}</div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">
-        <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>
-    </div>`;}).join("")}</div>`;
-  note.textContent=`${M.asOf} 기준 · KOBIS 영화관입장권통합전산망 확정치 · `
-    +`일별 Top10 기준이라 순위 밖으로 밀리면 그날부터 끊긴다(누적은 마지막 값 유지)`;
+  /* 개봉 N일차 축으로 겹쳐 그린다 — 개봉일이 다른 작품끼리는 달력 날짜로 겹치면
+     비교가 안 된다. D+0 = 개봉일. 시사회 관객이 있으면 음수 일차로 나온다. */
+  const dnum=s=>new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8));
+  const COL=["#c4a7e7","#eb6f92","#9ccfd8"];
+  const runs=mine.map(([nm,mv],i)=>{
+    const op=dnum((mv.openDt||"").replace(/-/g,"")||mv.days[0].d);
+    return {nm, color:COL[i%COL.length], openDt:mv.openDt,
+      pts:(mv.days||[]).map(p=>({x:Math.round((dnum(p.d)-op)/864e5), ...p}))};
+  }).filter(r=>r.pts.length);
+  const upcoming=(MOVIE_UPCOMING||[]).filter(x=>x.stock===trendStock
+    && !runs.some(r=>r.nm===x.title));
+
+  const W=680,H=230,pad={l:52,r:12,t:12,b:26};
+  const xs=runs.flatMap(r=>r.pts.map(p=>p.x));
+  const x0=Math.min(...xs,0), x1=Math.max(...xs,1);
+  const ymax=Math.max(...runs.flatMap(r=>r.pts.map(p=>p.acc)),1);
+  const sx=v=>pad.l+(v-x0)/Math.max(1,x1-x0)*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
+  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+  const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let g=0;g<=4;g++){const v=ymax*g/4, y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
+    s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${Math.round(v/10000)}만</text>`;}
+  for(let t=0;t<=5;t++){const v=Math.round(x0+(x1-x0)*t/5);
+    s+=`<text x="${sx(v)}" y="${H-pad.b+16}" text-anchor="middle" font-size="10.5" fill="${mut}">D${v>=0?"+":""}${v}</text>`;}
+  runs.forEach(r=>{
+    s+=`<path d="${r.pts.map((p,i)=>(i?"L":"M")+sx(p.x).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}"
+         fill="none" stroke="${r.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    const e=r.pts[r.pts.length-1];
+    s+=`<circle cx="${sx(e.x)}" cy="${sy(e.acc)}" r="3.2" fill="${r.color}"/>`;
+  });
+  s+="</svg>";
+  box.innerHTML=s+`<div class="trend-legend">`+runs.map(r=>{
+      const e=r.pts[r.pts.length-1];
+      return `<div class="li"><span class="dot" style="background:${r.color}"></span>${r.nm}
+        <small>${r.openDt} 개봉 · D+${e.x} 누적 <b>${fmt0(e.acc)}</b>명</small></div>`;
+    }).join("")
+    +upcoming.map(x=>{
+      const d=Math.ceil((new Date(x.open)-new Date((LIVE.asOf||"").slice(0,10)))/864e5);
+      return `<div class="li" style="opacity:.75"><span class="dot" style="background:${mut}"></span>${x.title}
+        <small>${x.open} 개봉 · ${d>0?"D-"+d:"개봉"} — 개봉하면 이 축에 겹쳐 그려집니다</small></div>`;
+    }).join("")+`</div>`;
+  note.textContent=`${M.asOf} 기준 · KOBIS 확정치 · x축은 개봉 N일차라 개봉일이 달라도 페이스를 겹쳐 볼 수 있다 · `
+    +`일별 Top10 기준이라 순위 밖으로 밀리면 끊긴다(누적은 마지막 값 유지) · 개봉 전 시사회는 음수 일차`;
 }
 /* 개봉 예정작 — 수집이 시작되기 전에도 D-day 를 보여주려고 손으로 적어둔다 */
 const MOVIE_UPCOMING=[
