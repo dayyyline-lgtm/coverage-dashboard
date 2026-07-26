@@ -183,13 +183,26 @@ SEC_TOP_N = 20            # 업종지수를 구성할 시총 상위 종목 수
 
 
 def fetch_industry_members(no):
-    """네이버 업종 구성종목 -> (상위 N개 [(코드, 시총억)], 업종 전체 시총)"""
-    d = getj(f"https://m.stock.naver.com/api/stocks/industry/{no}")
-    rows = []
-    for s in (d.get("stocks") or []):
-        code, mv = s.get("itemCode"), num(s.get("marketValue"))   # marketValue = 억원
-        if code and mv:
-            rows.append((code, mv))
+    """네이버 업종 구성종목 전체 -> (시총 상위 N개 [(코드, 시총억)], 업종 전체 시총)
+
+       페이지네이션 주의:
+         - pageSize 는 최대 100. 그보다 크면 빈 응답이 온다.
+         - page 없이 pageSize 만 주면 100개까지만 나온다. 나머지는 page=2.. 로 받는다.
+       기본 호출(파라미터 없음)은 20개만 주는데 시총순이 아니라 사실상 임의 표본이라
+       그대로 쓰면 업종 대표주가 통째로 빠진다.
+       (미용 105종목에서 파마리서치·클래시스가 빠지고 소형주만 잡혔던 적이 있다)"""
+    rows, page = [], 1
+    while page <= 6:                      # 안전장치 — 업종당 최대 600종목
+        d = getj(f"https://m.stock.naver.com/api/stocks/industry/{no}?page={page}&pageSize=100")
+        got = d.get("stocks") or []
+        for s in got:
+            code, mv = s.get("itemCode"), num(s.get("marketValue"))   # marketValue = 억원
+            if code and mv:
+                rows.append((code, mv))
+        if len(got) < 100:
+            break
+        page += 1
+        time.sleep(0.2)
     rows.sort(key=lambda x: -x[1])
     return rows[:SEC_TOP_N], sum(x[1] for x in rows)
 
