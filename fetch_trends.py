@@ -46,9 +46,11 @@ GROUPS = {
         "google": ["Rejuran", "re2o", "CellREDM"],
         "freq":   "week",
     },
+    # 달바 구글 키워드는 d'Alba(정식 표기). 'dalba' 로 조회하면 이탈리아 Alba 지역·성씨와
+    # 섞인다 — 두 표기의 상관이 0.28 로 사실상 다른 것을 잡고 있었다.
     "K-뷰티 브랜드": {
         "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
-        "google": ["medicube", "dalba", "COSRX", "Celimax"],
+        "google": ["medicube", "d'Alba", "COSRX", "Celimax"],
         "freq":   "week",
     },
     # 국산 변신로봇 완구 IP 3파전 — 헬로카봇·메탈카드봇(초이락) vs 또봇(영실업).
@@ -58,18 +60,6 @@ GROUPS = {
     "변신로봇 IP": {
         "naver":  ["헬로카봇", "메탈카드봇", "또봇"],
         "freq":   "week",
-    },
-    # [임시] 달바 표기 후보 — 구글에서 dalba 가 2~4 로 평평해 표기 오류가 의심된다.
-    # 정식 브랜드명은 d'Alba(아포스트로피). 따로 조회해 어느 표기가 실검색을 잡는지 본다.
-    "달바 표기 테스트": {
-        "geos": [
-            {"label": "dalba(전세계)",  "geo": "",   "kw": "dalba"},
-            {"label": "dAlba(전세계)",  "geo": "",   "kw": "d'Alba"},
-            {"label": "달바(전세계)",    "geo": "",   "kw": "달바"},
-            {"label": "dAlba(일본)",    "geo": "JP", "kw": "ダルバ"},
-            {"label": "dAlba(미국)",    "geo": "US", "kw": "d'Alba"},
-        ],
-        "freq": "week",
     },
     # 일본 티니핑 — 시리즈(ティニピン) vs 극장판 캐릭터(ハチュピン).
     # 표기 후보를 실측해 고른 값이다(52주 중 유효 주):

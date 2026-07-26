@@ -175,6 +175,12 @@
   .seg button.active{background:var(--accent);color:var(--onacc)}
   .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
   .trend-legend .li{display:flex;align-items:center;gap:7px;font-weight:600}
+  /* 국가별처럼 계열마다 스케일·출처가 다른 건 겹치지 않고 격자로 나눠 그린다 */
+  .sm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .sm-cell{border:1px solid var(--line);border-radius:12px;padding:10px 12px 6px}
+  .sm-h{display:flex;align-items:baseline;gap:6px;font-size:13px;font-weight:700;margin-bottom:2px}
+  .sm-h .src{font-size:11px;font-weight:600;color:var(--muted)}
+  .sm-h .v{margin-left:auto;font-size:15px}
   .trend-legend .dot{width:11px;height:11px;border-radius:50%}
   .trend-legend .li small{color:var(--muted);font-weight:500}
 
@@ -1618,11 +1624,19 @@ function drawTrend(){
             month:{u:"전월",back:"3개월",n:3,g:"월간",p:"달"}})[FREQ];
   // 구글은 영문 키워드로 수집하므로 라벨도 출처에 맞춰 표시
   const PRODUCTS=(trendSrc==="google" && G.productsGoogle) ? G.productsGoogle : G.products;
+  const gc0=getComputedStyle(document.documentElement).getPropertyValue('--line');
+  const mut0=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  /* 계열마다 스케일·출처가 다른 그룹(국가별)은 겹쳐 그리면 크기를 비교할 수 있는 것처럼
+     읽힌다. 실제로는 각자 자기 최대값이 100 이라 비교가 불가능하다. 격자로 나눠 그린다. */
+  if(G.multi){
+    drawTrendGrid(box, G, PRODUCTS, series, M, gc0, mut0);
+    fillTrendLegendTable(G, PRODUCTS, series, M, U);
+    return;
+  }
   const W=box.clientWidth||1000, H=360, pad={l:44,r:70,t:16,b:36};
   const sx=i=>pad.l+i/(M.length-1)*(W-pad.l-pad.r);
   const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
-  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
-  const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  const gc=gc0, mut=mut0;
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
   for(let g=0;g<=4;g++){const v=g*25;const y=sy(v);
     s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
@@ -1639,6 +1653,35 @@ function drawTrend(){
   });
   s+="</svg>";
   box.innerHTML=s;
+  fillTrendLegendTable(G, PRODUCTS, series, M, U);
+}
+
+/* 국가별 격자 — 계열마다 미니 차트 하나씩.
+   겹쳐 그리면 '러시아가 한국보다 높다' 처럼 읽히지만 각자 자기 최대가 100 이라
+   그런 비교는 성립하지 않는다. 나눠 그려서 모양만 견주게 한다. */
+function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
+  const W=300, H=110, pad={l:6,r:6,t:10,b:16};
+  const sx=i=>pad.l+i/Math.max(1,M.length-1)*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
+  box.innerHTML=`<div class="sm-grid">`+PRODUCTS.map((p,i)=>{
+    const ser=series[i]||[], c=TREND.colors[i], last=ser[ser.length-1];
+    const src=(G.srcOf||[])[i];
+    let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" preserveAspectRatio="none">`;
+    [0,50,100].forEach(v=>{ s+=`<line x1="${pad.l}" y1="${sy(v)}" x2="${W-pad.r}" y2="${sy(v)}" stroke="${gc}"/>`; });
+    s+=`<polyline points="${ser.map((v,j)=>`${sx(j).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}"
+         fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
+    // x축은 양끝만 — 칸이 좁아 다 넣으면 뭉갠다
+    s+=`<text x="${pad.l}" y="${H-3}" font-size="9" fill="${mut}">${M[0]||""}</text>`;
+    s+=`<text x="${W-pad.r}" y="${H-3}" text-anchor="end" font-size="9" fill="${mut}">${M[M.length-1]||""}</text>`;
+    s+="</svg>";
+    return `<div class="sm-cell">
+      <div class="sm-h"><span class="dot" style="background:${c}"></span>${p}
+        ${src?`<span class="src">${src}</span>`:""}
+        <span class="v" style="color:${c}">${last==null?"—":last}</span></div>${s}</div>`;
+  }).join("")+`</div>`;
+}
+
+function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   document.getElementById("trendLegend").innerHTML=
     PRODUCTS.map((p,i)=>{
       const ser=series[i], base=ser[ser.length-2];
