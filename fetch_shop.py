@@ -72,13 +72,14 @@ def fetch_rakuten(query):
     if not (RAKUTEN_APP_ID and RAKUTEN_ACCESS_KEY):
         return None
     p = urllib.parse.urlencode({
-        "applicationId": RAKUTEN_APP_ID,
+        "applicationId": RAKUTEN_APP_ID, "accessKey": RAKUTEN_ACCESS_KEY,
         "keyword": query, "hits": 30, "sort": "-reviewCount"})
-    # accessKey 는 쿼리·헤더 둘 다 받는다고 하나 헤더 쪽이 정석이다.
+    # accessKey 는 쿼리 또는 헤더로 받는다. 헤더 이름이 문서마다 달라
+    # 양쪽 다 실어 보낸다(x-rakuten-access-key 는 400 을 받았다).
     # Referer 는 앱 등록의 Allowed websites 검사를 통과하기 위해 붙인다.
     req = urllib.request.Request(f"{RK_URL}?{p}", headers={
         **UA, "Referer": "https://coverage-dashboard.pages.dev/",
-        "Accept": "application/json", "x-rakuten-access-key": RAKUTEN_ACCESS_KEY})
+        "Accept": "application/json", "accessKey": RAKUTEN_ACCESS_KEY})
     try:
         raw = urllib.request.urlopen(req, timeout=25).read().decode("utf-8")
     except urllib.error.HTTPError as e:
