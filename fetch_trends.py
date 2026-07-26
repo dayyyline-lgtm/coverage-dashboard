@@ -222,7 +222,8 @@ def fetch_yandex(phrase, freq="week", n=52):
         raise RuntimeError(f"Wordstat {r.status_code}: "
                            + " ".join(r.text.split())[:300])
     d = r.json()
-    rows = d.get("dynamics") or d.get("items") or d.get("result") or []
+    # 실제 응답 키는 results — [{"date":"2025-07-21T00:00:00Z","count":"4124","share":0.00017}, ...]
+    rows = d.get("results") or d.get("dynamics") or d.get("items") or []
     pairs = []
     for it in rows:
         # 카운트는 protobuf int64 라 문자열로 온다
