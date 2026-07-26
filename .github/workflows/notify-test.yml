@@ -1,0 +1,21 @@
+name: 알림 연결 테스트 (텔레그램)
+
+# 수동 전용 — 봇이 살아 있는지, 토큰·chat_id 가 맞는지 확인할 때 실행한다.
+# 실적 발표를 기다리지 않고 발송 경로만 점검하는 용도.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 테스트 메시지 발송
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFY_TEST: "1"
+        run: python notify.py

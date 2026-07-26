@@ -48,6 +48,14 @@ def main():
     if not (TOKEN and CHAT):
         print("텔레그램 시크릿 없음 - 건너뜀"); return
 
+    # 실제 실적이 나올 때까지 기다렸다가 버그를 발견하면 늦다.
+    # notify-test 워크플로로 언제든 연결 상태만 확인할 수 있게 해 둔다.
+    if os.environ.get("NOTIFY_TEST"):
+        r = send("🔔 <b>연결 테스트</b>\n커버리지 대시보드 알림이 정상 연결됐습니다.\n"
+                 "실적 발표가 감지되면 컨센 대비 서프라이즈를 이 채널로 보냅니다.")
+        print("테스트 발송:", "성공" if r.get("ok") else f"실패 {str(r)[:150]}")
+        return
+
     html = open(HTML_PATH, encoding="utf-8").read()
     m = re.search(r"const LIVE = (\{.*?\});", html, re.S)
     if not m:
