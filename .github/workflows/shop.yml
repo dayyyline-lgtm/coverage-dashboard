@@ -1,0 +1,46 @@
+name: 쇼핑 수요 갱신 (와일드베리즈·라쿠텐)
+
+on:
+  schedule:
+    # 매주 월요일 한국시간 08:30 (UTC 일 23:30)
+    # 두 API 모두 '현재 스냅샷'만 주므로 주 1회 찍어 시계열을 직접 쌓는다.
+    - cron: "30 23 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
+
+jobs:
+  shop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 쇼핑 수요 수집
+        env:
+          # 와일드베리즈(러시아)는 인증이 없다. 라쿠텐만 키가 필요하고,
+          # 키가 없으면 일본 계열만 건너뛰고 러시아는 그대로 수집된다.
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+        run: python fetch_shop.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git add public/index.html
+            git commit -m "쇼핑 수요 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git pull --rebase
+            git push
+          fi
