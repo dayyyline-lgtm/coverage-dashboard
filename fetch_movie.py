@@ -30,11 +30,15 @@ UA = {"User-Agent": "Mozilla/5.0"}
 WATCH = [
     {"stock": "SAMG엔터", "match": ["하츄핑", "티니핑"]},
 ]
-# 개봉일 이전은 훑어봐야 헛수고다. 대상 영화의 가장 이른 개봉일부터만 본다.
-#   사랑의 하츄핑            2024-08 개봉 · 누적 124만
-#   사랑의 하츄핑2(고래보석)  2026-08-05 개봉
-FROM_DATE = "20260801"
-MAX_BACKFILL = 40      # 한 번에 훑을 최대 날짜 수
+# 훑을 구간 — 개봉 전후만 본다. 그 밖은 호출 낭비다.
+#   1편 사랑의 하츄핑           2024-08 개봉 · 누적 124만  <- 2편 비교 기준선
+#   2편 사랑의 하츄핑2(고래보석) 2026-08-05 개봉
+# 1편 구간을 채워 둬야 2편을 '개봉 N일차' 기준으로 겹쳐 볼 수 있다.
+WINDOWS = [
+    ("20240801", "20241110"),   # 1편 (개봉~장기상영)
+    ("20260801", None),         # 2편 (None = 어제까지)
+]
+MAX_BACKFILL = 40      # 한 번에 훑을 최대 날짜 수 (남은 구간은 다음 실행이 이어받음)
 
 
 def getj(url, timeout=60, tries=3):
@@ -85,18 +89,21 @@ def main():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     today = datetime.datetime.now(kst).date()
     # 어제까지가 확정치다. 오늘 자료는 아직 안 나온다.
-    start = datetime.datetime.strptime(FROM_DATE, "%Y%m%d").date()
-    end = today - datetime.timedelta(days=1)
-    if end < start:
-        print(f"개봉 전 — {FROM_DATE} 부터 수집 시작 (오늘 {today})"); return
+    yesterday = today - datetime.timedelta(days=1)
     dates = []
-    d = end
-    while d >= start:
-        dates.append(d.strftime("%Y%m%d"))
-        d -= datetime.timedelta(days=1)
+    for a, b in WINDOWS:
+        s = datetime.datetime.strptime(a, "%Y%m%d").date()
+        e = yesterday if b is None else datetime.datetime.strptime(b, "%Y%m%d").date()
+        e = min(e, yesterday)                     # 미래 날짜는 자료가 없다
+        d = s
+        while d <= e:
+            dates.append(d.strftime("%Y%m%d"))
+            d += datetime.timedelta(days=1)
     todo = [x for x in dates if x not in scanned][:MAX_BACKFILL]
     if not todo:
-        print("새로 훑을 날짜 없음"); return
+        print(f"새로 훑을 날짜 없음 (누적 {len(scanned)}일 완료)"); return
+    print(f"훑을 날짜 {len(todo)}일 ({todo[0]}~{todo[-1]}) · 남은 구간 "
+          f"{max(0, len([x for x in dates if x not in scanned]) - len(todo))}일")
 
     hit = 0
     for dt in todo:
@@ -133,7 +140,9 @@ def main():
 
     out = {"asOf": today.strftime("%Y-%m-%d"),
            "movies": movies,
-           "scanned": sorted(scanned)[-500:]}     # 날짜 목록이 무한정 커지지 않게
+           # 자르면 잘린 날짜를 다음 실행이 또 훑어 백필이 끝나지 않는다.
+           # 구간이 유한(WINDOWS)이라 무한정 커지지 않으므로 전부 남긴다.
+           "scanned": sorted(scanned)}
     block = "const MOVIE = " + json.dumps(out, ensure_ascii=False) + ";\n"
     if m:
         html = html[:m.start()] + block + html[m.end():]
