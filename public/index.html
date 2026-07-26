@@ -393,6 +393,12 @@
     <div class="kpis" id="kpis"></div>
     <div class="sub-h">한눈에 보기</div>
     <div class="ov-grid" id="ovPanels"></div>
+    <div class="sub-h" id="secTrendTitle">섹터 지수 — 코스피 대비</div>
+    <div class="chart-box">
+      <div id="secTrendChart"></div>
+      <div class="trend-legend" id="secTrendLegend"></div>
+    </div>
+    <p class="note" id="secTrendNote"></p>
     <div class="sub-h">섹터별 Top Pick</div>
     <div class="cards" id="pickCards"></div>
   </section>
@@ -775,6 +781,67 @@ themeBtn.addEventListener("click",()=>{
     </div>`;
   }).join("");
 })();
+
+/* ==== 개요: 소섹터 지수 — 코스피 대비 초과수익률 ====
+   refresh_live.py 가 소섹터별 등가중 수익률에서 코스피 수익률을 빼 둔 값(LIVE.sectorTrend).
+   그래서 0 선이 곧 코스피고, 선이 위에 있으면 시장을 이긴 구간이다. */
+function drawSectorTrend(){
+  const box=document.getElementById("secTrendChart"); if(!box) return;
+  const leg=document.getElementById("secTrendLegend"), note=document.getElementById("secTrendNote");
+  const ST=LIVE.sectorTrend;
+  if(!ST||!ST.subs||!Object.keys(ST.subs).length){
+    box.innerHTML=`<div class="ov-empty">섹터 추이 데이터가 아직 없습니다. 다음 시세 갱신 후 표시됩니다.</div>`;
+    leg.innerHTML=""; note.textContent=""; return;
+  }
+  // 커버리지 표와 같은 순서로 (SECTORS -> 등장 순 소섹터)
+  const order=[]; SECTORS.forEach(sec=>R.filter(r=>r.sector===sec)
+    .forEach(r=>{ if(ST.subs[r.sub] && !order.includes(r.sub)) order.push(r.sub); }));
+  Object.keys(ST.subs).forEach(s=>{ if(!order.includes(s)) order.push(s); });
+
+  const D=ST.dates, W=box.clientWidth||1000, H=340, pad={l:50,r:14,t:14,b:28};
+  const vals=[0];
+  order.forEach(s=>ST.subs[s].v.forEach(v=>{ if(v!=null) vals.push(v); }));
+  const lo=Math.min(...vals), hi=Math.max(...vals), gap=(hi-lo)*0.12||1;
+  const yMin=lo-gap, yMax=hi+gap;
+  const sx=i=>pad.l+i/Math.max(1,D.length-1)*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v-yMin)/(yMax-yMin)*(H-pad.t-pad.b);
+  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+  const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  const md=d=>`${+d.slice(4,6)}/${+d.slice(6,8)}`;
+
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let i=0;i<=4;i++){ const v=yMin+(yMax-yMin)*i/4, y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
+    s+=`<text x="${pad.l-7}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${sign(v,0)}%</text>`; }
+  // 코스피 = 0 기준선
+  s+=`<line x1="${pad.l}" y1="${sy(0)}" x2="${W-pad.r}" y2="${sy(0)}" stroke="${mut}" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  s+=`<text x="${W-pad.r-4}" y="${sy(0)-6}" text-anchor="end" font-size="10.5" fill="${mut}">코스피</text>`;
+  const ticks=Math.min(6,D.length);
+  for(let t=0;t<ticks;t++){ const i=Math.round(t*(D.length-1)/(ticks-1||1));
+    s+=`<text x="${sx(i)}" y="${H-pad.b+16}" text-anchor="middle" font-size="10.5" fill="${mut}">${md(D[i])}</text>`; }
+  order.forEach(sub=>{
+    const v=ST.subs[sub].v, c=catColor(CAT_COLORS[sub]?sub:(R.find(r=>r.sub===sub)||{}).sector||sub);
+    let d="",pen=false;
+    v.forEach((y,i)=>{ if(y==null){pen=false;return;} d+=(pen?"L":"M")+sx(i).toFixed(1)+","+sy(y).toFixed(1)+" "; pen=true; });
+    s+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
+  });
+  s+="</svg>";
+  box.innerHTML=s;
+
+  leg.innerHTML=order.map(sub=>{
+    const v=ST.subs[sub].v, last=[...v].reverse().find(x=>x!=null);
+    const c=catColor(CAT_COLORS[sub]?sub:(R.find(r=>r.sub===sub)||{}).sector||sub);
+    return `<div class="li"><span class="dot" style="background:${c}"></span>${sub}
+      <b class="${cls(last)}" style="margin-left:4px">${sign(last,1)}%</b></div>`;
+  }).join("");
+  const b=ST.base;
+  note.textContent=`커버리지 종목 등가중 · ${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)} 기준 코스피 대비 초과수익률(%p) · `
+    +order.map(sub=>`${sub} ${ST.subs[sub].n}종목`).join(" · ");
+}
+drawSectorTrend();
+window.addEventListener("resize",()=>{
+  if(document.querySelector('section[data-view="overview"]').classList.contains("active")) drawSectorTrend();
+});
 
 /* ==== sortable table factory ==== */
 function makeTable(el, cols, rows, initSort){

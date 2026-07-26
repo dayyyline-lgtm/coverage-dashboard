@@ -161,6 +161,71 @@ def fetch_consensus(code):
     return out or None
 
 
+TREND_DAYS = 130          # 약 6개월치 일봉
+
+
+def fetch_daily(base_url, count=TREND_DAYS):
+    """일봉 종가 {YYYYMMDD: 종가} — 지수·종목 공통(priceInfos 형식)"""
+    d = getj(f"{base_url}?periodType=dayCandle&count={count}")
+    infos = d.get("priceInfos") if isinstance(d, dict) else d
+    out = {}
+    for p in (infos or []):
+        c = num(p.get("closePrice"))
+        if c:
+            out[str(p.get("localDate"))] = c
+    return out
+
+
+def collect_sector_trend(records, stocks):
+    """소섹터별 등가중 지수를 '코스피 대비 초과수익률(%)'로 만든다.
+
+       각 종목의 기준일 대비 수익률을 소섹터 안에서 평균낸 뒤 코스피 수익률을 뺀다.
+       따라서 코스피가 0 인 수평선이 되고, 선이 위에 있으면 시장을 이긴 것이다.
+       기준일 종가가 없는 종목(신규상장 등)은 지수에서 빼야 수익률이 왜곡되지 않는다."""
+    try:
+        kospi = fetch_daily("https://api.stock.naver.com/chart/domestic/index/KOSPI")
+    except Exception as e:
+        print(f"  섹터 추이 건너뜀(코스피 실패: {type(e).__name__})")
+        return None
+    if len(kospi) < 20:
+        print(f"  섹터 추이 건너뜀(코스피 {len(kospi)}일치뿐)")
+        return None
+
+    dates = sorted(kospi)
+    base = dates[0]
+    by_sub, skipped = {}, []
+    for r in records:
+        code = (stocks.get(r["name"]) or {}).get("code")
+        if not code:
+            continue
+        try:
+            s = fetch_daily(f"https://api.stock.naver.com/chart/domestic/item/{code}")
+        except Exception:
+            skipped.append(r["name"]); continue
+        if s.get(base):
+            by_sub.setdefault(r["sub"], []).append(s)
+        else:
+            skipped.append(r["name"])       # 기준일 데이터 없음
+        time.sleep(0.25)
+
+    subs = {}
+    for sub, arr in by_sub.items():
+        line = []
+        for d in dates:
+            rets = [x[d] / x[base] - 1 for x in arr if x.get(d)]
+            if rets:
+                line.append(round((sum(rets) / len(rets) - (kospi[d] / kospi[base] - 1)) * 100, 2))
+            else:
+                line.append(None)
+        subs[sub] = {"n": len(arr), "v": line}
+
+    if not subs:
+        return None
+    print(f"  섹터 추이 {len(subs)}개 소섹터 / {len(dates)}일"
+          + (f" (제외 {len(skipped)}: {', '.join(skipped[:4])})" if skipped else ""))
+    return {"dates": dates, "base": base, "subs": subs}
+
+
 def resolve_code(name):
     q = urllib.parse.quote(NAME_FIX.get(name, name))
     d = getj(f"https://m.stock.naver.com/front-api/search/autoComplete?query={q}&target=stock")
@@ -277,11 +342,13 @@ def main():
     m = re.search(r"const DATA = (\{.*?\});\n", html, re.S)
     if not m:
         print("index.html 에서 DATA 블록을 찾지 못했습니다."); sys.exit(1)
-    names = [r["name"] for r in json.loads(m.group(1))["records"]]
+    records = json.loads(m.group(1))["records"]
+    names = [r["name"] for r in records]
     print(f"커버리지 {len(names)}종목 수집 시작…")
 
     stocks, researches, events, fails = collect(names)
     market = collect_market()
+    sector_trend = collect_sector_trend(records, stocks)
     researches.sort(key=lambda x: x["date"] or "", reverse=True)
     events.sort(key=lambda x: x["date"] or "")
 
@@ -290,6 +357,8 @@ def main():
     live = {"asOf": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M"),
             "market": market, "stocks": stocks, "researches": researches,
             "events": events}
+    if sector_trend:
+        live["sectorTrend"] = sector_trend
 
     # 수집 시각(asOf)만 바뀐 경우는 저장하지 않는다.
     # -> 장 마감 후·주말·공휴일에 불필요한 커밋/배포가 쌓이는 것을 막는다.
