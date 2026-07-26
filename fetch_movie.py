@@ -83,14 +83,26 @@ def fetch_booking():
        화면 구조가 바뀌면 조용히 빈 결과가 되므로 실패해도 본 수집은 계속한다."""
     import http.cookiejar
     base = "https://www.kobis.or.kr/kobis/business/stat/boxs/findRealTicketList.do"
-    cj = http.cookiejar.CookieJar()
-    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-    hdr = [("User-Agent", UA["User-Agent"]), ("Referer", base),
-           ("X-Requested-With", "XMLHttpRequest")]
-    op.addheaders = hdr
-    op.open(base, timeout=30).read()                       # 세션 발급
     body = urllib.parse.urlencode({"loadEnd": 0, "searchType": "real"}).encode()
-    html = op.open(urllib.request.Request(base, data=body), timeout=30).read().decode("utf-8", "replace")
+    # 깃허브 러너에서 KOBIS 응답이 아주 느리다(30초로는 타임아웃). 넉넉히 잡고 재시도한다.
+    last = None
+    html = None
+    for attempt in range(3):
+        try:
+            cj = http.cookiejar.CookieJar()
+            op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+            op.addheaders = [("User-Agent", UA["User-Agent"]), ("Referer", base),
+                             ("X-Requested-With", "XMLHttpRequest")]
+            op.open(base, timeout=90).read()               # 세션 발급
+            html = op.open(urllib.request.Request(base, data=body),
+                           timeout=90).read().decode("utf-8", "replace")
+            break
+        except Exception as e:
+            last = e
+            if attempt < 2:
+                time.sleep(5 * (attempt + 1))
+    if html is None:
+        raise last
 
     strip = re.compile(r"<[^>]*>")
     out = []
