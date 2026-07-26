@@ -395,8 +395,9 @@ def main():
             time.sleep(6)
             continue
 
-        kws_nv = spec["naver"]
+        # 해외 전용 그룹은 naver 키가 없다 — 구글 키워드를 라벨로 재사용한다
         kws_gg = spec["google"]
+        kws_nv = spec.get("naver", kws_gg)
         print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({FREQ_KO[freq]} {n})")
         g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
         geo = spec.get("geo", GOOGLE_GEO)
@@ -410,7 +411,9 @@ def main():
             print("  구글 실패:", str(e)[:80])
             g["google"] = None
         try:
-            nv, lb = fetch_naver(kws_nv, freq=freq, n=n)
+            # naver 키가 없는 해외 전용 그룹은 국내 검색을 조회하지 않는다.
+            # 일본어·키릴 키워드를 데이터랩에 넣으면 엉뚱한 값이 잡힐 수 있다.
+            nv, lb = fetch_naver(kws_nv, freq=freq, n=n) if "naver" in spec else (None, None)
             if nv:
                 g["naver"] = nv
                 if lb: g["months"] = lb           # 그룹 자체 축(네이버 우선)
