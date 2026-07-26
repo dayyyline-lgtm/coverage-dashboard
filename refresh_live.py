@@ -425,6 +425,15 @@ def main():
     researches.sort(key=lambda x: x["date"] or "", reverse=True)
     events.sort(key=lambda x: x["date"] or "")
 
+    # 직전 LIVE — 변경 비교용 + 컨센 스냅샷 이어받기용
+    old = None
+    m_prev = re.search(r"const LIVE = (\{.*?\});", html, re.S)
+    if m_prev:
+        try:
+            old = json.loads(m_prev.group(1))
+        except json.JSONDecodeError:
+            old = None
+
     # GitHub Actions(UTC)에서 돌아도 한국시간으로 표기
     kst = datetime.timezone(datetime.timedelta(hours=9))
     live = {"asOf": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M"),
@@ -433,15 +442,23 @@ def main():
     if sector_trend:
         live["sectorTrend"] = sector_trend
 
+    # ---- 분기 컨센 스냅샷 ----
+    # 실적이 발표되면 그 분기는 API 에서 '실적'으로 덮이고 컨센 값이 사라진다.
+    # 나중에 '실제 vs 컨센 서프라이즈'를 계산하려면 발표 전에 받아 둔 컨센이 필요하다.
+    # 매 실행마다 현재 컨센 분기를 기록해 두고, 발표 후에도 그 값을 남긴다.
+    snap = dict((old or {}).get("consSnap") or {})
+    for nm, st in stocks.items():
+        q = ((st.get("cons") or {}).get("quarter") or {})
+        est, key = q.get("est") or {}, q.get("key")
+        if key and (est.get("rev") is not None or est.get("op") is not None):
+            per = dict(snap.get(nm) or {})
+            per[key] = {"rev": est.get("rev"), "op": est.get("op")}
+            snap[nm] = per
+    if snap:
+        live["consSnap"] = snap
+
     # 수집 시각(asOf)만 바뀐 경우는 저장하지 않는다.
     # -> 장 마감 후·주말·공휴일에 불필요한 커밋/배포가 쌓이는 것을 막는다.
-    old = None
-    m_old = re.search(r"const LIVE = (\{.*?\});", html, re.S)
-    if m_old:
-        try:
-            old = json.loads(m_old.group(1))
-        except json.JSONDecodeError:
-            old = None
     if old is not None:
         def strip(d):
             # asOf(수집시각)와 리포트 조회수는 계속 변하므로 비교에서 제외
