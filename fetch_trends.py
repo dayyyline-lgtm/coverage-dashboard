@@ -199,9 +199,12 @@ def fetch_yandex(phrase, freq="week", n=52):
               "month": "PERIOD_MONTHLY"}.get(freq, "PERIOD_WEEKLY")
     end = _period_end(freq)
     span = {"date": n, "week": n * 7, "month": n * 31}.get(freq, n * 7)
+    # fromDate/toDate 는 protobuf Timestamp 라 RFC3339 여야 한다.
+    # 'YYYY-MM-DD' 로 보내면 400 (Invalid time format) 이 떨어진다.
+    ts = lambda d: d.strftime("%Y-%m-%dT00:00:00Z")
     body = {"folderId": YANDEX_FOLDER_ID, "phrase": phrase, "period": period,
-            "fromDate": (end - datetime.timedelta(days=span)).strftime("%Y-%m-%d"),
-            "toDate": end.strftime("%Y-%m-%d")}
+            "fromDate": ts(end - datetime.timedelta(days=span)),
+            "toDate": ts(end)}
     r = requests.post(WORDSTAT_URL, json=body, timeout=30,
                       headers={"Authorization": f"Api-Key {YANDEX_API_KEY}"})
     if r.status_code != 200:
