@@ -401,7 +401,7 @@
   <section class="view" data-view="coverage">
     <h2 class="sec">커버리지 요약</h2>
     <p class="sec-desc">밸류(PER 12MF·26E·27E)·성장(영업익)·수급(외국인)을 한 줄로. <b>종목명 클릭</b> 시 상세 ·
-      <b>리포트</b>는 최근 1개월 조회수 1위(숫자=조회수), <b>뉴스</b>는 최근 3일 최신 기사 — 누르면 원문으로 이동.</p>
+      <b>리포트</b>·<b>뉴스</b>는 오늘 → 3일 → 1주일 → 1개월 순으로 창을 넓혀가며 찾는다(리포트는 조회수 1위, 뉴스는 최신). 없으면 빈칸 — 누르면 원문으로 이동.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="theme-btn xlsxBtn" style="font-weight:700">⬇ 엑셀(.xlsx) 다운로드</button></div><div id="covGroups"></div>
     <p class="note">시총·견적: 억 원 · 상승여력 = 견적÷시총−1 · 낙폭 = 52주 고점 대비. 엑셀엔 배수·추정치까지 전부 포함.</p>
   </section>
@@ -458,7 +458,7 @@
   <!-- 뉴스 -->
   <section class="view" data-view="news">
     <h2 class="sec">뉴스</h2>
-    <p class="sec-desc">커버리지 종목 관련 <b>최신 뉴스</b> — 네이버 금융에서 수집. <b>종목별</b>로 묶어 보여줍니다(상단 섹터 버튼으로 좁히기 가능). 제목 클릭 시 원문 이동, 종목명 클릭 시 상세 패널.</p>
+    <p class="sec-desc">커버리지 종목 관련 <b>최신 뉴스</b> — 네이버 금융에서 수집, <b>종목당 최신 3건</b>. <b>종목별</b>로 묶어 보여줍니다(상단 섹터 버튼으로 좁히기 가능). 제목 클릭 시 원문 이동, 종목명 클릭 시 상세 패널.</p>
     <div class="seg" id="newsSeg"></div>
     <select id="newsFilter" class="theme-btn" style="margin:0 0 14px 8px;padding:8px 12px;font-weight:600"></select>
     <div id="newsGroups"></div>
@@ -1242,7 +1242,17 @@ const REP=(LIVE.researches||[]);
 /* ==== 뉴스 — 대분류 섹터로 나누고 소분류별로 묶어 표시 ==== */
 (function(){
   const host=document.getElementById("newsGroups"); if(!host) return;
-  const NW=(typeof NEWS!=="undefined" && NEWS.items)?NEWS.items:[];
+  const ALL=(typeof NEWS!=="undefined" && NEWS.items)?NEWS.items:[];
+  /* 표시는 종목당 최신 3건까지.
+     수집(fetch_news.py PER_STOCK)은 넉넉히 하지만 그건 커버리지 표의 뉴스 링크
+     — 제목에 종목명이 든 기사를 찾아내는 용도 — 이고, 뉴스 탭은 3건만 보여준다.
+     세그먼트 건수도 이 걸러진 집합 기준이라 화면과 숫자가 어긋나지 않는다. */
+  const NEWS_PER=3;
+  const byDateDesc=(a,b)=>String(b.d).localeCompare(String(a.d));
+  const keep=new Set();
+  R.forEach(r=>ALL.filter(x=>x.co.includes(r.name)).sort(byDateDesc)
+                  .slice(0,NEWS_PER).forEach(x=>keep.add(x)));
+  const NW=ALL.filter(x=>keep.has(x));   // 원본 정렬(최신순) 유지
 
   // 종목명 → 섹터/소분류 (한 기사가 여러 종목·섹터에 걸릴 수 있음)
   const SEC_OF={}, SUB_OF={};
@@ -1275,13 +1285,14 @@ const REP=(LIVE.researches||[]);
 
     // 종목이 지정되면 그냥 목록, 아니면 종목별로 2열 그리드
     if(curCo){
-      host.innerHTML=`<div class="list">${list.map(itemHtml).join("")}</div>`;
+      host.innerHTML=`<div class="list">${list.slice().sort(byDateDesc).slice(0,NEWS_PER).map(itemHtml).join("")}</div>`;
       return;
     }
     host.classList.add("news-grid");   // 종목 블록을 한 줄에 둘씩
     // 커버리지 순서대로 종목마다 한 블록 (선택 카테고리로 좁힘). 한 기사가 여러 종목이면 각 종목 밑에 표시.
     R.filter(r=> !curCat || CAT_OF[r.name]===curCat).forEach(r=>{
-      const rows=list.filter(x=> x.co.includes(r.name));
+      // 한 기사가 여러 종목에 걸리면 다른 종목 몫으로 남은 게 섞일 수 있어 여기서도 3건으로 자른다
+      const rows=list.filter(x=> x.co.includes(r.name)).sort(byDateDesc).slice(0,NEWS_PER);
       if(!rows.length) return;
       const c=SECTOR_COLORS[r.sector];
       const block=document.createElement("div");
