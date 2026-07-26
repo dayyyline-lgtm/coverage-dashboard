@@ -1249,22 +1249,31 @@ const MY_EST = {
     : r.myOpGap<-5? '<span class="tag-miss">당사 하회</span>'
     : '<span class="tag-inline">In-line</span>';
 
-  /* ---- 발표완료: 당사 추정을 넣어둔 분기 중 이미 실적이 나온 것 ----
-     컨센은 발표되면 API 에서 사라지므로 LIVE.consSnap(발표 전 스냅샷)을 쓴다. */
+  /* ---- 발표완료 ----
+     기준은 '발표 전 컨센 스냅샷(LIVE.consSnap)이 있고 그 분기가 실적으로 확정된 것'.
+     컨센은 발표되면 API 에서 사라지므로 스냅샷이 유일한 비교 대상이다.
+     당사 추정(MY_EST)은 있으면 오차·승자까지 얹고, 없어도 서프라이즈는 나온다. */
   const done=[];
   R.forEach(r=>{
     const series=(((LIVE.stocks[r.name]||{}).cons||{}).quarter||{}).series||[];
     const snap=(LIVE.consSnap||{})[r.name]||{};
-    Object.keys(MY_EST[r.name]||{}).forEach(k=>{
-      const raw=k.replace(".","");
+    const myAll=MY_EST[r.name]||{};
+    const quarters=new Set([...Object.keys(snap),
+                            ...Object.keys(myAll).map(k=>k.replace(".",""))]);
+    quarters.forEach(raw=>{
       const act=series.find(s=>s.k===raw && !s.e);     // 실적으로 확정된 분기만
       if(!act) return;
-      const est=MY_EST[r.name][k], cons=snap[raw]||null;
-      const myErr=gap(est.op,act.op), csErr=cons?gap(cons.op,act.op):null;
+      const cons=snap[raw]||null;
+      const est=myAll[`${raw.slice(0,4)}.${raw.slice(4,6)}`]||null;
+      if(!cons && !est) return;                        // 비교 대상이 하나도 없으면 제외
+      const myErr=est?gap(est.op,act.op):null;
+      const csErr=cons?gap(cons.op,act.op):null;
       done.push({...r, dqRaw:raw, dq:qLab(raw),
-        actRev:act.rev, actOp:act.op, myRev:est.rev, myOp:est.op,
-        consOp:cons?cons.op:null,
-        myErrRev:gap(est.rev,act.rev), myErrOp:myErr,
+        actRev:act.rev, actOp:act.op,
+        myRev:est?est.rev:null, myOp:est?est.op:null,
+        consRev:cons?cons.rev:null, consOp:cons?cons.op:null,
+        myErrRev:est?gap(est.rev,act.rev):null, myErrOp:myErr,
+        surpRev:cons?gap(act.rev,cons.rev):null,
         surpOp:cons?gap(act.op,cons.op):null,
         win:(myErr==null||csErr==null)?null:(Math.abs(myErr)<Math.abs(csErr)?"당사":"컨센")});
     });
@@ -1291,13 +1300,13 @@ const MY_EST = {
       {key:"name",label:"종목",l:true,render:nmCell},
       {key:"dqRaw",label:"분기",l:true,render:r=>`<span class="ye">${r.dq}</span>`},
       {key:"actRev",label:"실제 매출",render:r=>`<b>${eok(r.actRev)}</b>`},
-      {key:"myRev",label:"당사",render:r=>eok(r.myRev)},
-      {key:"myErrRev",label:"내 오차",render:r=>absCell(r.myErrRev)},
+      {key:"consRev",label:"컨센",render:r=>eok(r.consRev)},
+      {key:"surpRev",label:"서프라이즈",render:r=>pctCell(r.surpRev)},
       {key:"actOp",label:"실제 영업익",render:r=>`<b>${eok(r.actOp)}</b>`},
-      {key:"myOp",label:"당사",render:r=>eok(r.myOp)},
-      {key:"myErrOp",label:"내 오차",render:r=>absCell(r.myErrOp)},
       {key:"consOp",label:"컨센",render:r=>eok(r.consOp)},
       {key:"surpOp",label:"서프라이즈",render:r=>pctCell(r.surpOp)},
+      {key:"myOp",label:"당사 영업익",render:r=>eok(r.myOp)},
+      {key:"myErrOp",label:"내 오차",render:r=>absCell(r.myErrOp)},
       {key:"win",label:"승자",render:r=>r.win==null?"—"
         :r.win==="당사"?'<span class="tag-beat">당사 ✓</span>':'<span class="tag-inline">컨센</span>'},
     ]};
@@ -1313,10 +1322,12 @@ const MY_EST = {
         +(n? `당사 추정 ${n}/${R.length}종목 입력됨.` : `아직 당사 추정이 없습니다 — MY_EST 에 넣으면 괴리·판정이 채워집니다.`);
     }else{
       const w=done.filter(x=>x.win==="당사").length, tot=done.filter(x=>x.win).length;
-      note.textContent=`단위 억 원 · 내 오차 = 당사 ÷ 실제 − 1 (±3% 이내면 초록) · 서프라이즈 = 실제 ÷ 컨센 − 1 · `
+      const snapN=Object.keys(LIVE.consSnap||{}).length;
+      note.textContent=`단위 억 원 · 서프라이즈 = 실제 ÷ 컨센 − 1 · 내 오차 = 당사 ÷ 실제 − 1 (±3% 이내면 초록) · `
         +(done.length
-          ? (tot? `승자 판정 ${tot}건 중 당사 우세 ${w}건.` : `컨센 스냅샷이 쌓이는 대로 승자 판정이 붙습니다.`)
-          : `당사 추정을 넣어둔 분기가 발표되면 여기에 쌓입니다.`);
+          ? (tot? `승자 판정 ${tot}건 중 당사 우세 ${w}건.`
+                : `당사 추정(MY_EST)을 넣으면 컨센과 누가 더 근접했는지도 집계됩니다.`)
+          : `발표 전 컨센을 ${snapN}종목 저장해 뒀습니다. 그 분기가 발표되면 여기에 서프라이즈가 쌓입니다.`);
     }
   }
   document.getElementById("prevViewSeg").addEventListener("click",e=>{
