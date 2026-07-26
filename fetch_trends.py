@@ -479,6 +479,11 @@ def main():
         #   google 키 없음 = 국내 전용(구글에선 잡음만 잡히는 국내 브랜드)
         kws_nv = spec.get("naver") or spec.get("google")
         kws_gg = spec.get("google") or spec.get("naver")
+        # 어느 출처가 진짜인지는 스펙이 정한다.
+        # 수집 결과로 판단하면, 아래 '기존 값 유지' 폴백이 지난번에 복사해 둔
+        # 가짜 구글 계열을 되살려 놓아 단일 출처인 걸 놓친다(only 가 안 붙는다).
+        spec_only = ("naver" if "google" not in spec
+                     else "google" if "naver" not in spec else None)
         print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({FREQ_KO[freq]} {n})")
         g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
         geo = spec.get("geo", GOOGLE_GEO)
@@ -538,6 +543,10 @@ def main():
         elif not g["naver"]:
             g["naver"] = g["google"]
             g["only"] = "google"
+        if spec_only:
+            g["only"] = spec_only          # 스펙이 단일 출처면 그게 최종
+            if spec_only == "naver":
+                g["productsGoogle"] = kws_nv
 
         # 축 길이 정합 — 출처마다 길이가 다르면 뒤에서 잘라 공통 길이로 맞춘다
         L = min([len(g["months"] or [999])] +

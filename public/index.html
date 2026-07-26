@@ -1708,9 +1708,15 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
         return `<div class="li" style="margin-left:auto"><small>출처: ${s} · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b></small></div>`;
       }
       const gGeo=G.geo==="KR"?'국내':(G.geo?G.geo:'전세계');
-      const src=trendSrc==='naver'?'네이버 데이터랩(국내)':`구글 트렌드(${gGeo})`;
+      // srcOf 가 있으면 그게 실제 출처다. only:"google" 은 '출처 전환 없음' 표시일 뿐이라
+      // 그대로 읽으면 얀덱스 데이터를 '구글 트렌드'로 잘못 적게 된다.
+      const only1=(G.srcOf && [...new Set(G.srcOf)].length===1) ? G.srcOf[0] : null;
+      const src=only1 ? `${only1}(${gGeo})`
+        : (trendSrc==='naver'?'네이버 데이터랩(국내)':`구글 트렌드(${gGeo})`);
       const solo=G.only?` · 이 주제는 ${src} 만 유효해 출처 전환 없음`:"";
-      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100 · 진행 중인 ${U.p} 제외${solo}</small></div>`;
+      // 얀덱스는 절대 검색수라 100 이 몇 건인지 밝혀야 크기 감각이 산다
+      const pk=G.peak?` · 100 = 주당 ${fmt0(G.peak)}건`:"";
+      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100${pk} · 진행 중인 ${U.p} 제외${solo}</small></div>`;
     })();
   // table — 표시 단위에 맞춰 라벨/기준 전환
   const back=U.n, uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
