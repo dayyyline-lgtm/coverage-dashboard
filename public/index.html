@@ -1756,8 +1756,9 @@ function renderShop(){
     if(!pts||!pts.length) return;
     const last=pts[pts.length-1], prev=pts.length>1?pts[pts.length-2]:null;
     const d=(prev&&prev.rev>0)?((last.rev/prev.rev-1)*100):null;   // 리뷰 증가율 = 판매 대리지표
-    cells.push(`<div class="sm-cell">
-      <div class="sm-h"><span class="dot" style="background:var(--accent)"></span>${t.label}
+    cells.push(`<div class="sm-cell"${t.comp?' style="opacity:.82"':''}>
+      <div class="sm-h"><span class="dot" style="background:var(--${t.comp?'muted':'accent'})"></span>${t.label}
+        ${t.comp?`<span class="src">경쟁 · ${t.comp}</span>`:""}
         <span class="src">${SHOP_SRC[src].country} · ${SHOP_SRC[src].name}</span>
         <span class="v">${fmt0(last.rev)}</span></div>
       <div class="shop-kv">리뷰 누적 <b>${fmt0(last.rev)}</b>

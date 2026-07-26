@@ -39,6 +39,10 @@ TARGETS = [
      "wb": "Металкардбот", "rk": "メタルカードボット"},
     {"stock": "SAMG엔터",   "label": "티니핑",
      "wb": "Тинипин",        "rk": "ティニピン"},
+    # 경쟁 IP — 러시아 완구 점유율 변화를 보려면 같이 재야 한다.
+    # 얀덱스 검색에선 또봇이 1위인데 국내 네이버에선 3위다(시장마다 순위가 뒤집힌다).
+    {"stock": "SAMG엔터", "label": "또봇",     "wb": "Тобот",        "comp": "영실업"},
+    {"stock": "SAMG엔터", "label": "헬로카봇", "wb": "Хелло Карбот", "comp": "초이락"},
     {"stock": "에이피알",   "label": "메디큐브",  "rk": "メディキューブ"},
     {"stock": "달바글로벌", "label": "달바",      "rk": "d'Alba"},
     {"stock": "파마리서치", "label": "리쥬란",    "rk": "リジュラン"},
@@ -128,8 +132,7 @@ def main():
                 continue
             if not r:
                 fail.append(f"{sid}(빈결과)"); continue
-            if src == "rk":
-                time.sleep(1.2)          # 라쿠텐은 연속 호출 시 429 가 난다
+            time.sleep(1.2 if src == "rk" else 4)   # 둘 다 연속 호출하면 429 가 난다
             pts = [p for p in (series.get(sid) or []) if p.get("d") != today]  # 같은 날 재실행 시 덮어씀
             pts.append({"d": today, **r})
             series[sid] = pts[-120:]                                          # 최대 120점 보관
