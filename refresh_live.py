@@ -161,7 +161,8 @@ def fetch_consensus(code):
     return out or None
 
 
-TREND_DAYS = 22           # 약 1개월치 일봉(거래일 기준)
+TREND_DAYS = 65           # 3개월치를 담아두고, 1개월 보기는 화면에서 잘라 쓴다
+TREND_SHORT = 22          # 1개월 = 최근 22거래일
 
 
 def fetch_daily(base_url):
@@ -226,9 +227,28 @@ def collect_sector_trend(sectors):
         print(f"  섹터 추이 건너뜀(코스피 {len(kospi)}일치뿐)")
         return None
 
+    try:
+        kosdaq = fetch_daily("https://api.stock.naver.com/chart/domestic/index/KOSDAQ")
+    except Exception:
+        kosdaq = {}
+
     dates = sorted(kospi)[-TREND_DAYS:]     # API 가 count 를 무시하므로 여기서 자른다
     base = dates[0]
-    subs = {}
+
+    def level(series):
+        """시총가중 지수 레벨(기준일=100). 초과수익률로 굳혀 두면 기간을 못 바꾸므로
+           레벨로 저장하고, 어느 구간을 볼지는 화면에서 다시 기준을 잡는다."""
+        out = []
+        for d in dates:
+            top, bot = 0.0, 0.0
+            for cap, px in series:
+                if px.get(d):
+                    top += cap * px[d] / px[base]
+                    bot += cap
+            out.append(round(top / bot * 100, 3) if bot else None)
+        return out
+
+    idx, meta, universe = {}, {}, []
     for s in sectors:
         no, sub = s.get("no"), s.get("sub")
         if not no or not sub:
@@ -249,24 +269,34 @@ def collect_sector_trend(sectors):
         if not series:
             print(f"  {sub}: 유효 종목 없음"); continue
 
-        line = []
-        for d in dates:
-            top, bot = 0.0, 0.0
-            for cap, px in series:
-                if px.get(d):
-                    top += cap * (px[d] / px[base] - 1)
-                    bot += cap
-            line.append(round((top / bot - (kospi[d] / kospi[base] - 1)) * 100, 2) if bot else None)
+        idx[sub] = level(series)
         cov = sum(c for c, _ in series)
-        subs[sub] = {"n": len(series),
-                     "cov": round(cov / total_cap * 100) if total_cap else None,
-                     "name": s.get("name"), "v": line}
-        print(f"  {sub}({s.get('name')}) {len(series)}종목 · 업종시총 {subs[sub]['cov']}% 커버")
+        meta[sub] = {"n": len(series), "name": s.get("name"),
+                     "cov": round(cov / total_cap * 100) if total_cap else None}
+        universe += series          # 소비재(커버리지 전체) 통합 지수용
+        print(f"  {sub}({s.get('name')}) {len(series)}종목 · 업종시총 {meta[sub]['cov']}% 커버")
 
-    if not subs:
+    if not idx:
         return None
-    print(f"  섹터 추이 {len(subs)}개 업종 / {len(dates)}일")
-    return {"dates": dates, "base": base, "topN": SEC_TOP_N, "subs": subs}
+
+    # 커버리지 유니버스 전체를 하나로 — 7개 업종 구성종목을 시총가중으로 합친다
+    idx["소비재"] = level(universe)
+    meta["소비재"] = {"n": len(universe), "name": "커버리지 7개 업종 합산", "cov": None}
+
+    def index_level(src):
+        if not src or not src.get(base):
+            return None
+        return [round(src[d] / src[base] * 100, 3) if src.get(d) else None for d in dates]
+
+    for nm, src in (("코스피", kospi), ("코스닥", kosdaq)):
+        lv = index_level(src)
+        if lv:
+            idx[nm] = lv
+            meta[nm] = {"n": None, "name": nm, "cov": None}
+
+    print(f"  섹터 추이 {len(idx)}개 계열 / {len(dates)}일")
+    return {"dates": dates, "base": base, "topN": SEC_TOP_N,
+            "shortDays": TREND_SHORT, "idx": idx, "meta": meta}
 
 
 def resolve_code(name):
