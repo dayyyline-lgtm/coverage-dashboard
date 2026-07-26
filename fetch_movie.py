@@ -139,6 +139,22 @@ def main():
 
     kst = datetime.timezone(datetime.timedelta(hours=9))
     today = datetime.datetime.now(kst).date()
+
+    # ---- 실시간 예매 (맨 먼저) ----
+    # 매일 바뀌는 값이라 과거 백필보다 우선이다. 뒤에 두면 백필이 길어질 때
+    # 여기까지 도달하지 못하고 실행이 끝나 버린다(실제로 그래서 계속 놓쳤다).
+    booking = dict(old.get("booking") or {})
+    ts = today.strftime("%Y-%m-%d")
+    try:
+        for b in fetch_booking():
+            pts = [p for p in (booking.get(b["nm"]) or []) if p["d"] != ts]
+            pts.append({"d": ts, "rate": b["rate"], "book": b["book"], "acc": b["acc"]})
+            booking[b["nm"]] = pts[-180:]
+            print(f"  [예매] {b['nm']} · 예매율 {b['rate']}% · "
+                  f"예매 {b['book']:,}명 · 누적 {b['acc']:,}명")
+    except Exception as e:
+        print(f"  예매율 수집 실패(본 수집은 계속): {type(e).__name__} {str(e)[:90]}")
+
     # 어제까지가 확정치다. 오늘 자료는 아직 안 나온다.
     yesterday = today - datetime.timedelta(days=1)
     dates = []
@@ -160,11 +176,20 @@ def main():
               f"{max(0, len([x for x in dates if x not in scanned]) - len(todo))}일")
 
     hit = 0
+    recent = (today - datetime.timedelta(days=3)).strftime("%Y%m%d")
     for dt in todo:
         try:
             rows = daily(dt)
         except Exception as e:
-            print(f"  {dt} 실패: {str(e)[:70]}")
+            # 실패를 scanned 에 안 넣으면 그 날짜를 매 실행마다 다시 시도한다.
+            # 타임아웃 1건이 90초x3회라 실패가 쌓이면 실행이 40분까지 늘어나고,
+            # 뒤에 있는 예매 수집은 아예 도달하지 못한다.
+            # 지난 자료는 다시 바뀌지 않으므로 포기 처리한다. 최근 3일만 재시도.
+            if dt < recent:
+                scanned.add(dt)
+                print(f"  {dt} 실패(포기): {str(e)[:60]}")
+            else:
+                print(f"  {dt} 실패(다음에 재시도): {str(e)[:60]}")
             continue
         scanned.add(dt)
         for r in rows:
@@ -191,18 +216,6 @@ def main():
 
     if not movies:
         print(f"{len(todo)}일 훑음 · 대상 영화 없음 (미개봉이거나 Top10 밖)")
-
-    # 실시간 예매 — 개봉 전 관객은 여기서만 보인다. 매 실행마다 한 점씩 쌓는다.
-    booking = dict(old.get("booking") or {})
-    try:
-        for b in fetch_booking():
-            pts = [p for p in (booking.get(b["nm"]) or []) if p["d"] != today.strftime("%Y-%m-%d")]
-            pts.append({"d": today.strftime("%Y-%m-%d"), "rate": b["rate"],
-                        "book": b["book"], "acc": b["acc"]})
-            booking[b["nm"]] = pts[-180:]
-            print(f"  [예매] {b['nm']} · 예매율 {b['rate']}% · 예매 {b['book']:,}명 · 누적 {b['acc']:,}명")
-    except Exception as e:
-        print(f"  예매율 수집 실패(본 수집은 계속): {type(e).__name__} {str(e)[:90]}")
 
     out = {"asOf": today.strftime("%Y-%m-%d"),
            "movies": movies, "booking": booking,
