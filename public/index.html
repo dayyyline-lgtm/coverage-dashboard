@@ -531,6 +531,10 @@
     <div class="sub-h" id="shopTitle">해외 쇼핑몰 수요</div>
     <div id="shopBox"></div>
     <p class="note" id="shopNote"></p>
+
+    <div class="sub-h" id="movieTitle">극장 흥행</div>
+    <div id="movieBox"></div>
+    <p class="note" id="movieNote"></p>
   </section>
 
   <!-- 대체데이터 -->
@@ -1790,6 +1794,58 @@ function renderShop(){
     : "";
 }
 
+/* ==== 극장 흥행 (MOVIE) ====
+   관객수는 KOBIS 확정치라 추정이 필요 없다. SAMG 는 극장판이 실적 변수라
+   누적 관객수 추이가 곧 분기 실적의 선행 지표다.
+   일별 박스오피스가 Top10 만 주므로 순위 밖으로 밀리면 그날부터 끊긴다. */
+function renderMovie(){
+  const box=document.getElementById("movieBox"); if(!box) return;
+  const note=document.getElementById("movieNote");
+  const M=(typeof MOVIE!=="undefined")?MOVIE:null;
+  if(!trendStock){
+    box.innerHTML=`<div class="ov-empty">종목을 고르면 관련 극장 흥행이 표시됩니다.</div>`;
+    note.textContent=""; return;
+  }
+  const mine=Object.entries((M||{}).movies||{}).filter(([,v])=>v.stock===trendStock);
+  if(!mine.length){
+    // 개봉 전이면 '없다'가 아니라 '아직'이라고 말해야 오해가 없다
+    const soon=(MOVIE_UPCOMING||[]).filter(x=>x.stock===trendStock);
+    box.innerHTML=soon.length
+      ? `<div class="sm-grid">${soon.map(x=>{
+          const d=Math.ceil((new Date(x.open)-new Date((LIVE.asOf||"").slice(0,10)))/864e5);
+          return `<div class="sm-cell"><div class="sm-h">${x.title}
+            <span class="src">개봉 예정</span>
+            <span class="v">${d>0?"D-"+d:"개봉"}</span></div>
+            <div class="shop-kv">${x.open} 개봉${x.prev?` · 전작 누적 <b>${fmt0(x.prev)}</b>명`:""}</div></div>`;
+        }).join("")}</div>`
+      : `<div class="ov-empty">${trendStock} 은(는) 극장 흥행 추적 대상이 아닙니다.</div>`;
+    note.textContent=soon.length?"개봉하면 일별·누적 관객수가 자동으로 쌓입니다.":"";
+    return;
+  }
+  box.innerHTML=`<div class="sm-grid">${mine.map(([nm,mv])=>{
+    const ds=mv.days||[], last=ds[ds.length-1];
+    const W=300,H=110,pad={l:6,r:6,t:10,b:16};
+    const mx=Math.max(...ds.map(p=>p.acc),1);
+    const sx=i=>pad.l+i/Math.max(1,ds.length-1)*(W-pad.l-pad.r);
+    const sy=v=>H-pad.b-(v/mx)*(H-pad.t-pad.b);
+    const line=ds.map((p,i)=>`${sx(i).toFixed(1)},${sy(p.acc).toFixed(1)}`).join(" ");
+    return `<div class="sm-cell">
+      <div class="sm-h"><span class="dot" style="background:var(--accent)"></span>${nm}
+        <span class="src">누적 관객</span>
+        <span class="v">${fmt0(last?last.acc:0)}</span></div>
+      <div class="shop-kv">${mv.openDt||""} 개봉 · ${ds.length}일차
+        ${last?` · 당일 ${fmt0(last.audi)}명 · ${last.rank}위 · 스크린 ${fmt0(last.scrn)}`:""}</div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">
+        <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>
+    </div>`;}).join("")}</div>`;
+  note.textContent=`${M.asOf} 기준 · KOBIS 영화관입장권통합전산망 확정치 · `
+    +`일별 Top10 기준이라 순위 밖으로 밀리면 그날부터 끊긴다(누적은 마지막 값 유지)`;
+}
+/* 개봉 예정작 — 수집이 시작되기 전에도 D-day 를 보여주려고 손으로 적어둔다 */
+const MOVIE_UPCOMING=[
+  {stock:"SAMG엔터", title:"사랑의 하츄핑 2: 고래보석의 전설", open:"2026-08-05", prev:1240000},
+];
+
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
 function renderTrendSegs(){
   document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
@@ -1824,14 +1880,14 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend(); renderShop();
+  renderTrendSegs(); drawTrend(); renderShop(); renderMovie();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop();
+  renderTrendSegs(); drawTrend(); renderShop(); renderMovie();
 });
-renderTrendSegs(); renderShop();
+renderTrendSegs(); renderShop(); renderMovie();
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
