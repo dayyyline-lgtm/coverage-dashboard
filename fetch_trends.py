@@ -65,7 +65,8 @@ GROUPS = {
     "메탈카드봇 국가별": {
         "geos": [
             {"label": "한국",   "geo": "KR", "kw": "메탈카드봇"},
-            {"label": "러시아", "geo": "RU", "kw": "Метал Кард Бот"},
+            # 러시아는 얀덱스 점유가 구글보다 높아 Wordstat 으로 받는다(키 없으면 자동 스킵)
+            {"label": "러시아", "geo": "RU", "kw": "Метал Кард Бот", "src": "yandex"},
         ],
         "freq": "week",
     },
@@ -86,7 +87,8 @@ GROUPS = {
             {"label": "미국",      "geo": "US", "kw": "Teenieping"},
             {"label": "일본",      "geo": "JP", "kw": "ティーニーピン"},
             {"label": "중국",      "geo": "CN", "kw": "奇妙萌可"},
-            {"label": "러시아",    "geo": "RU", "kw": "Тинипин"},
+            # 구글 러시아로는 52주 중 8주만 잡혔다. 얀덱스가 러시아 점유가 높아 신호가 진하다.
+            {"label": "러시아",    "geo": "RU", "kw": "Тинипин", "src": "yandex"},
             {"label": "유럽(영국)", "geo": "GB", "kw": "Teenieping"},
         ],
         "freq": "week",
@@ -169,11 +171,83 @@ def fetch_google(keywords, geo=None, freq="week", n=52):
     return norm([df[k].tolist() for k in keywords]), labels
 
 
+YANDEX_API_KEY = os.environ.get("YANDEX_API_KEY", "")
+YANDEX_FOLDER_ID = os.environ.get("YANDEX_FOLDER_ID", "")
+WORDSTAT_URL = "https://searchapi.api.cloud.yandex.net/v2/wordstat/dynamics"
+
+
+def _period_end(freq, today=None):
+    """Wordstat 은 toDate 가 '해당 기간의 마지막 날'이어야 한다.
+       주별이면 직전 일요일, 월별이면 지난달 말일 (진행 중인 구간은 빼는 셈)."""
+    d = today or datetime.date.today()
+    if freq == "month":
+        return d.replace(day=1) - datetime.timedelta(days=1)
+    if freq == "week":
+        return d - datetime.timedelta(days=d.weekday() + 1)      # 월=0 … 직전 일요일
+    return d - datetime.timedelta(days=1)
+
+
+def fetch_yandex(phrase, freq="week", n=52):
+    """얀덱스 Wordstat 시계열 (Yandex Cloud Search API v2).
+       러시아는 얀덱스 점유가 구글보다 높아 같은 키워드도 신호가 훨씬 진하다.
+       키가 없으면 None -> 호출한 쪽에서 그 국가만 건너뛴다.
+       반환값은 구글 계열과 섞어 그리므로 0~100 으로 맞춰 돌려준다."""
+    if not (YANDEX_API_KEY and YANDEX_FOLDER_ID):
+        return None, None
+    import requests
+    period = {"date": "PERIOD_DAILY", "week": "PERIOD_WEEKLY",
+              "month": "PERIOD_MONTHLY"}.get(freq, "PERIOD_WEEKLY")
+    end = _period_end(freq)
+    span = {"date": n, "week": n * 7, "month": n * 31}.get(freq, n * 7)
+    body = {"folderId": YANDEX_FOLDER_ID, "phrase": phrase, "period": period,
+            "fromDate": (end - datetime.timedelta(days=span)).strftime("%Y-%m-%d"),
+            "toDate": end.strftime("%Y-%m-%d")}
+    r = requests.post(WORDSTAT_URL, json=body, timeout=30,
+                      headers={"Authorization": f"Api-Key {YANDEX_API_KEY}"})
+    if r.status_code != 200:
+        raise RuntimeError(f"Wordstat {r.status_code}: {r.text[:200]}")
+    d = r.json()
+    rows = d.get("dynamics") or d.get("items") or d.get("result") or []
+    pairs = []
+    for it in rows:
+        # 카운트는 protobuf int64 라 문자열로 온다
+        v = it.get("count", it.get("value", it.get("count7", 0)))
+        dt = it.get("date") or it.get("period") or ""
+        try:
+            pairs.append((str(dt), float(v)))
+        except (TypeError, ValueError):
+            continue
+    if not pairs:
+        raise RuntimeError(f"Wordstat 응답에 시계열이 없음: {str(d)[:200]}")
+    pairs = pairs[-n:]
+    top = max(v for _, v in pairs) or 1
+    vals = [round(v / top * 100) for _, v in pairs]
+    labels = []
+    for dt, _ in pairs:
+        p = dt[:10].split("-")
+        labels.append(f"{int(p[1])}월" if freq == "month" else f"{int(p[1])}/{int(p[2])}")
+    return vals, labels
+
+
 def fetch_google_geos(geos, freq="week", n=52):
     """같은 대상을 나라마다 '현지 명칭 + 현지 geo'로 따로 조회.
-       각국은 구글이 자체 0~100 으로 정규화하므로 국가 간 절대 비교는 불가, 추이(모양)만 비교."""
+       각국은 자체 0~100 으로 정규화되므로 국가 간 절대 비교는 불가, 추이(모양)만 비교.
+       spec 에 "src":"yandex" 가 있으면 그 나라만 얀덱스 Wordstat 으로 받는다."""
     series, labels = [], None
     for spec in geos:
+        if spec.get("src") == "yandex":
+            try:
+                s, lb = fetch_yandex(spec["kw"], freq, n)
+                if s:
+                    series.append(s)
+                    if labels is None:
+                        labels = lb
+                    continue
+                print(f"    {spec['label']}: 얀덱스 키 없음 - 건너뜀")
+            except Exception as e:
+                print(f"    {spec['label']}: 얀덱스 실패({e}) - 건너뜀")
+            series.append(None)
+            continue
         df = _google_df([spec["kw"]], spec["geo"], freq)
         if df is None or df.empty:
             s = None
