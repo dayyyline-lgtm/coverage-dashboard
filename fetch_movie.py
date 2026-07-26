@@ -30,13 +30,26 @@ UA = {"User-Agent": "Mozilla/5.0"}
 WATCH = [
     {"stock": "SAMG엔터", "match": ["하츄핑", "티니핑"]},
 ]
-MAX_BACKFILL = 60      # 한 번에 훑을 최대 날짜 수
-LOOKBACK_DAYS = 400    # 처음 시작할 때 거슬러 올라갈 한도
+# 개봉일 이전은 훑어봐야 헛수고다. 대상 영화의 가장 이른 개봉일부터만 본다.
+#   사랑의 하츄핑            2024-08 개봉 · 누적 124만
+#   사랑의 하츄핑2(고래보석)  2026-08-05 개봉
+FROM_DATE = "20260801"
+MAX_BACKFILL = 40      # 한 번에 훑을 최대 날짜 수
 
 
-def getj(url, timeout=20):
-    req = urllib.request.Request(url, headers=UA)
-    return json.loads(urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8"))
+def getj(url, timeout=60, tries=3):
+    """KOBIS 는 깃허브 러너에서 응답이 느려 20초로는 절반이 타임아웃난다.
+       넉넉히 잡고 재시도한다."""
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            return json.loads(urllib.request.urlopen(req, timeout=timeout).read().decode("utf-8"))
+        except Exception as e:
+            last = e
+            if i < tries - 1:
+                time.sleep(3 * (i + 1))
+    raise last
 
 
 def daily(dt):
@@ -72,9 +85,16 @@ def main():
     kst = datetime.timezone(datetime.timedelta(hours=9))
     today = datetime.datetime.now(kst).date()
     # 어제까지가 확정치다. 오늘 자료는 아직 안 나온다.
-    dates = [(today - datetime.timedelta(days=i)).strftime("%Y%m%d")
-             for i in range(1, LOOKBACK_DAYS + 1)]
-    todo = [d for d in dates if d not in scanned][:MAX_BACKFILL]
+    start = datetime.datetime.strptime(FROM_DATE, "%Y%m%d").date()
+    end = today - datetime.timedelta(days=1)
+    if end < start:
+        print(f"개봉 전 — {FROM_DATE} 부터 수집 시작 (오늘 {today})"); return
+    dates = []
+    d = end
+    while d >= start:
+        dates.append(d.strftime("%Y%m%d"))
+        d -= datetime.timedelta(days=1)
+    todo = [x for x in dates if x not in scanned][:MAX_BACKFILL]
     if not todo:
         print("새로 훑을 날짜 없음"); return
 
