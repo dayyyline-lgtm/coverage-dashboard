@@ -181,6 +181,8 @@
   .sm-h{display:flex;align-items:baseline;gap:6px;font-size:13px;font-weight:700;margin-bottom:2px}
   .sm-h .src{font-size:11px;font-weight:600;color:var(--muted)}
   .sm-h .v{margin-left:auto;font-size:15px}
+  .shop-kv{font-size:12px;color:var(--muted);line-height:1.7;padding:2px 0 4px}
+  .shop-kv b{color:var(--text);font-size:13px}
   .trend-legend .dot{width:11px;height:11px;border-radius:50%}
   .trend-legend .li small{color:var(--muted);font-weight:500}
 
@@ -525,6 +527,10 @@
     <div class="tbl-wrap"><table id="trendTable"></table></div>
     <p class="note">네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널.
       키워드는 <code>fetch_trends.py</code>의 <code>GROUPS</code>, 종목 연결은 <code>TREND_STOCK</code>.</p>
+
+    <div class="sub-h" id="shopTitle">해외 쇼핑몰 수요</div>
+    <div id="shopBox"></div>
+    <p class="note" id="shopNote"></p>
   </section>
 
   <!-- 대체데이터 -->
@@ -1627,11 +1633,34 @@ function drawTrend(){
   const PRODUCTS=(trendSrc==="google" && G.productsGoogle) ? G.productsGoogle : G.products;
   const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
   const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
-  /* 모든 주제를 계열별 미니 차트 격자로 그린다.
-     겹쳐 그리면 (1) 국가별처럼 각자 자기 최대가 100 인 계열을 크기 비교 가능한 것처럼
-     읽게 되고 (2) 한 계열이 100 을 먹으면 나머지가 바닥에 붙어 추이를 못 읽는다
-     (달바가 메디큐브에 눌려 3~4 로 평평했던 경우). 나눠 그리면 둘 다 사라진다. */
-  drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut);
+  /* 국가별(multi)만 격자로 나눈다 — 계열마다 자기 최대가 100 인 별도 정규화라
+     겹쳐 놓으면 크기를 비교할 수 있는 것처럼 읽히기 때문.
+     반대로 브랜드 비교 그룹은 한 스케일로 같이 정규화돼 있어, 겹쳐 그리는 것 자체가
+     정보다(메디큐브가 달바의 10배라는 사실). 그건 겹친 채로 둔다. */
+  if(G.multi){
+    drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut);
+    fillTrendLegendTable(G, PRODUCTS, series, M, U);
+    return;
+  }
+  const W=box.clientWidth||1000, H=360, pad={l:44,r:70,t:16,b:36};
+  const sx=i=>pad.l+i/(M.length-1)*(W-pad.l-pad.r);
+  const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let g=0;g<=4;g++){const v=g*25;const y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${v}</text>`;}
+  const step=Math.max(1,Math.ceil(M.length/12));   // 라벨이 빽빽하면 솎아낸다(일별 대응)
+  M.forEach((m,i)=>{ if(i%step===0 || i===M.length-1) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
+  series.forEach((ser,pi)=>{
+    const c=TREND.colors[pi];
+    const pts=ser.map((v,i)=>`${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
+    s+=`<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    ser.forEach((v,i)=>{ s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
+    const last=ser[ser.length-1];
+    s+=`<text x="${W-pad.r+8}" y="${sy(last)+4}" font-size="12" font-weight="700" fill="${c}">${PRODUCTS[pi]}</text>`;
+  });
+  s+="</svg>";
+  box.innerHTML=s;
   fillTrendLegendTable(G, PRODUCTS, series, M, U);
 }
 
@@ -1699,6 +1728,46 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
     return {p,color:TREND.colors[i],cur,m3:bk,mom:prev>0?(cur/prev-1)*100:null,q:(bk>0)?(cur/bk-1)*100:null};
   }), {key:"cur",dir:-1});
 }
+/* ==== 해외 쇼핑몰 수요 (SHOP) ====
+   검색 트렌드가 '관심'이라면 이쪽은 '팔리고 있나'다. 리뷰는 구매자만 남기므로
+   주간 증가분이 판매 대리지표가 된다. 생산지가 아니라 그 나라에서 팔린 것을 재므로
+   중국에서 만들어 러시아로 직수출되는 물량도 러시아 쪽에 잡힌다.
+   두 API 다 과거를 안 줘서 주 1회 한 점씩 쌓는다 — 처음엔 점 하나뿐이다. */
+const SHOP_SRC={wb:{name:"와일드베리즈",country:"러시아"},rk:{name:"라쿠텐",country:"일본"}};
+function renderShop(){
+  const box=document.getElementById("shopBox"); if(!box) return;
+  const note=document.getElementById("shopNote");
+  const S=(typeof SHOP!=="undefined")?SHOP:null;
+  if(!S||!S.series||!trendStock){
+    box.innerHTML=`<div class="ov-empty">${!trendStock?"종목을 고르면 해당 종목의 해외 쇼핑몰 수요가 표시됩니다."
+      :"수집된 쇼핑몰 데이터가 없습니다."}</div>`;
+    note.textContent=""; return;
+  }
+  const mine=(S.targets||[]).filter(t=>t.stock===trendStock);
+  const cells=[];
+  mine.forEach(t=>Object.keys(SHOP_SRC).forEach(src=>{
+    const pts=S.series[`${t.label}|${src}`];
+    if(!pts||!pts.length) return;
+    const last=pts[pts.length-1], prev=pts.length>1?pts[pts.length-2]:null;
+    const d=(prev&&prev.rev>0)?((last.rev/prev.rev-1)*100):null;   // 리뷰 증가율 = 판매 대리지표
+    cells.push(`<div class="sm-cell">
+      <div class="sm-h"><span class="dot" style="background:var(--accent)"></span>${t.label}
+        <span class="src">${SHOP_SRC[src].country} · ${SHOP_SRC[src].name}</span>
+        <span class="v">${fmt0(last.rev)}</span></div>
+      <div class="shop-kv">리뷰 누적 <b>${fmt0(last.rev)}</b>
+        · 상품 ${last.n}개 · 평점 ${last.rating==null?"—":last.rating}
+        · ${d==null?`<span class="th-sub">추이는 다음 수집부터</span>`
+                   :`전주비 <span class="${cls(d)}">${sign(d,1)}%</span>`}</div>
+    </div>`);
+  }));
+  box.innerHTML=cells.length?`<div class="sm-grid">${cells.join("")}</div>`
+    :`<div class="ov-empty">${trendStock} 은(는) 아직 추적 대상이 아닙니다.</div>`;
+  note.textContent=cells.length
+    ? `${S.asOf} 기준 · 리뷰는 구매자만 남기므로 누적 리뷰 증가분이 판매 대리지표 · `
+      +`주 1회 수집이라 시계열은 쌓이는 중 · 대상 편집은 fetch_shop.py 의 TARGETS`
+    : "";
+}
+
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
 function renderTrendSegs(){
   document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
@@ -1733,14 +1802,14 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend();
+  renderTrendSegs(); drawTrend(); renderShop();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend();
+  renderTrendSegs(); drawTrend(); renderShop();
 });
-renderTrendSegs();
+renderTrendSegs(); renderShop();
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
