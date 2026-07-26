@@ -532,9 +532,19 @@
     <div id="shopBox"></div>
     <p class="note" id="shopNote"></p>
 
-    <div class="sub-h" id="movieTitle">극장 흥행</div>
-    <div id="movieBox"></div>
+  </section>
+
+  <!-- 극장 흥행 -->
+  <section class="view" data-view="boxoffice">
+    <h2 class="sec">극장 흥행</h2>
+    <p class="sec-desc">SAMG엔터 극장판 관객 추이. <b>x축은 개봉 N일차</b>라 개봉일이 달라도 페이스를 겹쳐 볼 수 있습니다.
+      KOBIS 확정치라 추정 오차가 없습니다.</p>
+    <div class="chart-box">
+      <div id="movieBox"></div>
+    </div>
     <p class="note" id="movieNote"></p>
+    <div class="sub-h" id="movieTblTitle">일별 상세</div>
+    <div class="tbl-wrap"><table id="movieTable"></table></div>
   </section>
 
   <!-- 대체데이터 -->
@@ -736,7 +746,7 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 const TABS = [
   ["overview","개요"],["coverage","커버리지 요약"],["valuation","밸류에이션"],
   ["preview","실적 프리뷰"],["calendar","이벤트 캘린더"],["news","뉴스"],["reports","리서치 리포트"],
-  ["trends","트렌드 비교"],["altdata","수출 데이터"]
+  ["trends","트렌드 비교"],["boxoffice","극장 흥행"],["altdata","수출 데이터"]
 ];
 const tabsEl = document.getElementById("tabs");
 tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
@@ -747,6 +757,7 @@ tabsEl.addEventListener("click",e=>{
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
   if(k==="valuation") drawScatter();
   if(k==="trends") drawTrend();
+  if(k==="boxoffice") renderMovie();
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
@@ -1794,47 +1805,35 @@ function renderShop(){
     : "";
 }
 
-/* ==== 극장 흥행 (MOVIE) ====
-   관객수는 KOBIS 확정치라 추정이 필요 없다. SAMG 는 극장판이 실적 변수라
-   누적 관객수 추이가 곧 분기 실적의 선행 지표다.
+/* 개봉 예정작 — 수집이 시작되기 전에도 D-day 를 보여주려고 손으로 적어둔다 */
+const MOVIE_UPCOMING=[
+  {stock:"SAMG엔터", title:"사랑의 하츄핑 2: 고래보석의 전설", open:"2026-08-05", prev:1240000},
+];
+
+/* ==== 극장 흥행 탭 ====
+   관객수는 KOBIS 확정치라 추정 오차가 없다. SAMG 는 극장판이 분기 실적 변수라
+   누적 관객 페이스가 곧 선행 지표다.
+   x축을 '개봉 N일차'로 잡아야 개봉일이 2년 차이 나는 1편·2편을 겹쳐 볼 수 있다.
    일별 박스오피스가 Top10 만 주므로 순위 밖으로 밀리면 그날부터 끊긴다. */
+const MOVIE_COLORS=["#c4a7e7","#eb6f92","#9ccfd8"];
 function renderMovie(){
   const box=document.getElementById("movieBox"); if(!box) return;
   const note=document.getElementById("movieNote");
+  const tbl=document.getElementById("movieTable");
   const M=(typeof MOVIE!=="undefined")?MOVIE:null;
-  if(!trendStock){
-    box.innerHTML=`<div class="ov-empty">종목을 고르면 관련 극장 흥행이 표시됩니다.</div>`;
-    note.textContent=""; return;
-  }
-  const mine=Object.entries((M||{}).movies||{}).filter(([,v])=>v.stock===trendStock);
-  if(!mine.length){
-    // 개봉 전이면 '없다'가 아니라 '아직'이라고 말해야 오해가 없다
-    const soon=(MOVIE_UPCOMING||[]).filter(x=>x.stock===trendStock);
-    box.innerHTML=soon.length
-      ? `<div class="sm-grid">${soon.map(x=>{
-          const d=Math.ceil((new Date(x.open)-new Date((LIVE.asOf||"").slice(0,10)))/864e5);
-          return `<div class="sm-cell"><div class="sm-h">${x.title}
-            <span class="src">개봉 예정</span>
-            <span class="v">${d>0?"D-"+d:"개봉"}</span></div>
-            <div class="shop-kv">${x.open} 개봉${x.prev?` · 전작 누적 <b>${fmt0(x.prev)}</b>명`:""}</div></div>`;
-        }).join("")}</div>`
-      : `<div class="ov-empty">${trendStock} 은(는) 극장 흥행 추적 대상이 아닙니다.</div>`;
-    note.textContent=soon.length?"개봉하면 일별·누적 관객수가 자동으로 쌓입니다.":"";
-    return;
-  }
-  /* 개봉 N일차 축으로 겹쳐 그린다 — 개봉일이 다른 작품끼리는 달력 날짜로 겹치면
-     비교가 안 된다. D+0 = 개봉일. 시사회 관객이 있으면 음수 일차로 나온다. */
   const dnum=s=>new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8));
-  const COL=["#c4a7e7","#eb6f92","#9ccfd8"];
-  const runs=mine.map(([nm,mv],i)=>{
+  const runs=Object.entries((M||{}).movies||{}).map(([nm,mv],i)=>{
     const op=dnum((mv.openDt||"").replace(/-/g,"")||mv.days[0].d);
-    return {nm, color:COL[i%COL.length], openDt:mv.openDt,
+    return {nm, stock:mv.stock, color:MOVIE_COLORS[i%MOVIE_COLORS.length], openDt:mv.openDt,
       pts:(mv.days||[]).map(p=>({x:Math.round((dnum(p.d)-op)/864e5), ...p}))};
   }).filter(r=>r.pts.length);
-  const upcoming=(MOVIE_UPCOMING||[]).filter(x=>x.stock===trendStock
-    && !runs.some(r=>r.nm===x.title));
 
-  const W=680,H=230,pad={l:52,r:12,t:12,b:26};
+  if(!runs.length){
+    box.innerHTML=`<div class="ov-empty">수집된 극장 데이터가 없습니다.</div>`;
+    note.textContent=""; tbl.innerHTML=""; return;
+  }
+
+  const W=900,H=300,pad={l:58,r:14,t:14,b:28};
   const xs=runs.flatMap(r=>r.pts.map(p=>p.x));
   const x0=Math.min(...xs,0), x1=Math.max(...xs,1);
   const ymax=Math.max(...runs.flatMap(r=>r.pts.map(p=>p.acc)),1);
@@ -1845,33 +1844,62 @@ function renderMovie(){
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
   for(let g=0;g<=4;g++){const v=ymax*g/4, y=sy(v);
     s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
-    s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${Math.round(v/10000)}만</text>`;}
-  for(let t=0;t<=5;t++){const v=Math.round(x0+(x1-x0)*t/5);
-    s+=`<text x="${sx(v)}" y="${H-pad.b+16}" text-anchor="middle" font-size="10.5" fill="${mut}">D${v>=0?"+":""}${v}</text>`;}
+    s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${(v/10000).toFixed(0)}만</text>`;}
+  // 개봉일(D+0) 세로선 — 시사회 구간과 본 개봉을 눈으로 가른다
+  if(x0<0){ s+=`<line x1="${sx(0)}" y1="${pad.t}" x2="${sx(0)}" y2="${H-pad.b}" stroke="${mut}" stroke-dasharray="4 4"/>`; }
+  for(let t=0;t<=6;t++){const v=Math.round(x0+(x1-x0)*t/6);
+    s+=`<text x="${sx(v)}" y="${H-pad.b+17}" text-anchor="middle" font-size="11" fill="${mut}">D${v>=0?"+":""}${v}</text>`;}
   runs.forEach(r=>{
     s+=`<path d="${r.pts.map((p,i)=>(i?"L":"M")+sx(p.x).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}"
-         fill="none" stroke="${r.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
-    const e=r.pts[r.pts.length-1];
-    s+=`<circle cx="${sx(e.x)}" cy="${sy(e.acc)}" r="3.2" fill="${r.color}"/>`;
+         fill="none" stroke="${r.color}" stroke-width="2.6" stroke-linejoin="round"/>`;
+    r.pts.forEach(p=>{ s+=`<circle cx="${sx(p.x)}" cy="${sy(p.acc)}" r="2.4" fill="${r.color}"><title>${r.nm} D${p.x>=0?"+":""}${p.x} · 누적 ${fmt0(p.acc)} · 당일 ${fmt0(p.audi)}</title></circle>`; });
   });
   s+="</svg>";
+  const upcoming=(MOVIE_UPCOMING||[]).filter(x=>!runs.some(r=>r.nm===x.title));
   box.innerHTML=s+`<div class="trend-legend">`+runs.map(r=>{
       const e=r.pts[r.pts.length-1];
       return `<div class="li"><span class="dot" style="background:${r.color}"></span>${r.nm}
-        <small>${r.openDt} 개봉 · D+${e.x} 누적 <b>${fmt0(e.acc)}</b>명</small></div>`;
-    }).join("")
+        <small>${r.openDt} 개봉 · D+${e.x} 누적 <b>${fmt0(e.acc)}</b>명</small></div>`;}).join("")
     +upcoming.map(x=>{
       const d=Math.ceil((new Date(x.open)-new Date((LIVE.asOf||"").slice(0,10)))/864e5);
       return `<div class="li" style="opacity:.75"><span class="dot" style="background:${mut}"></span>${x.title}
-        <small>${x.open} 개봉 · ${d>0?"D-"+d:"개봉"} — 개봉하면 이 축에 겹쳐 그려집니다</small></div>`;
-    }).join("")+`</div>`;
-  note.textContent=`${M.asOf} 기준 · KOBIS 확정치 · x축은 개봉 N일차라 개봉일이 달라도 페이스를 겹쳐 볼 수 있다 · `
-    +`일별 Top10 기준이라 순위 밖으로 밀리면 끊긴다(누적은 마지막 값 유지) · 개봉 전 시사회는 음수 일차`;
+        <small>${x.open} 개봉 · ${d>0?"D-"+d:"개봉"} — 개봉하면 이 축에 겹쳐 그려집니다</small></div>`;}).join("")
+    +`</div>`;
+  note.textContent=`${M.asOf} 기준 · KOBIS 영화관입장권통합전산망 확정치 · `
+    +`x축 D+0 = 개봉일(음수는 개봉 전 시사회) · 일별 Top10 기준이라 순위 밖으로 밀리면 끊긴다(누적은 마지막 값 유지)`;
+
+  /* 일별 표 — 여러 편이면 D+N 으로 나란히 놓아 같은 시점끼리 견주게 한다 */
+  const base=runs[0];
+  const rows=base.pts.map(p=>{
+    const row={x:p.x, d:p.d, audi:p.audi, acc:p.acc, scrn:p.scrn, rank:p.rank,
+               sales:p.sales, _nm:base.nm};
+    runs.slice(1).forEach((r,i)=>{
+      const q=r.pts.find(z=>z.x===p.x);
+      row["acc"+(i+1)]=q?q.acc:null;
+      row["gap"+(i+1)]=(q&&p.acc)?((q.acc/p.acc-1)*100):null;
+    });
+    return row;
+  }).slice().reverse();          // 최근이 위로
+  const cols=[
+    {key:"x",label:"일차",l:true,render:r=>`<span class="ye">D${r.x>=0?"+":""}${r.x}</span>`},
+    {key:"d",label:"날짜",l:true,render:r=>`${r.d.slice(4,6)}/${r.d.slice(6,8)}`},
+    {key:"audi",label:"당일 관객",render:r=>fmt0(r.audi)},
+    {key:"acc",label:`누적 (${base.nm.length>10?base.nm.slice(0,9)+"…":base.nm})`,render:r=>`<b>${fmt0(r.acc)}</b>`},
+    {key:"rank",label:"순위",render:r=>r.rank?r.rank+"위":"—"},
+    {key:"scrn",label:"스크린",render:r=>fmt0(r.scrn)},
+    {key:"sales",label:"매출(백만)",render:r=>fmt0(Math.round(r.sales/1e6))},
+  ];
+  runs.slice(1).forEach((r,i)=>{
+    cols.push({key:"acc"+(i+1),label:`누적 (${r.nm.length>10?r.nm.slice(0,9)+"…":r.nm})`,
+               render:x=>fmt0(x["acc"+(i+1)])});
+    cols.push({key:"gap"+(i+1),label:"차이",
+               render:x=>x["gap"+(i+1)]==null?"—"
+                 :`<span class="${cls(x["gap"+(i+1)])}">${sign(x["gap"+(i+1)],1)}%</span>`});
+  });
+  makeTable(tbl, cols, rows, {key:"x",dir:-1});
+  const tt=document.getElementById("movieTblTitle");
+  if(tt) tt.textContent=`일별 상세 — ${runs.map(r=>r.nm).join(" vs ")}`;
 }
-/* 개봉 예정작 — 수집이 시작되기 전에도 D-day 를 보여주려고 손으로 적어둔다 */
-const MOVIE_UPCOMING=[
-  {stock:"SAMG엔터", title:"사랑의 하츄핑 2: 고래보석의 전설", open:"2026-08-05", prev:1240000},
-];
 
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
 function renderTrendSegs(){
@@ -1907,14 +1935,14 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend(); renderShop(); renderMovie();
+  renderTrendSegs(); drawTrend(); renderShop();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderMovie();
+  renderTrendSegs(); drawTrend(); renderShop();
 });
-renderTrendSegs(); renderShop(); renderMovie();
+renderTrendSegs(); renderShop();
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
