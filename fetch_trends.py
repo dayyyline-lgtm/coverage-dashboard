@@ -198,17 +198,29 @@ def fetch_yandex(phrase, freq="week", n=52):
     period = {"date": "PERIOD_DAILY", "week": "PERIOD_WEEKLY",
               "month": "PERIOD_MONTHLY"}.get(freq, "PERIOD_WEEKLY")
     end = _period_end(freq)
-    span = {"date": n, "week": n * 7, "month": n * 31}.get(freq, n * 7)
+    # 시작일도 기간 경계에 맞아야 한다. 주별은 반드시 월요일이어야 하고
+    # (아니면 400 "The from field value should be Monday"), 월별은 1일이어야 한다.
+    # end 가 일요일이므로 7의 배수를 빼면 또 일요일이 된다 -> 하루를 덜 빼서 월요일로 맞춘다.
+    if freq == "week":
+        start = end - datetime.timedelta(days=n * 7 - 1)
+    elif freq == "month":
+        y, mth = end.year, end.month - (n - 1)
+        while mth <= 0:
+            y -= 1; mth += 12
+        start = datetime.date(y, mth, 1)
+    else:
+        start = end - datetime.timedelta(days=n - 1)
     # fromDate/toDate 는 protobuf Timestamp 라 RFC3339 여야 한다.
     # 'YYYY-MM-DD' 로 보내면 400 (Invalid time format) 이 떨어진다.
     ts = lambda d: d.strftime("%Y-%m-%dT00:00:00Z")
     body = {"folderId": YANDEX_FOLDER_ID, "phrase": phrase, "period": period,
-            "fromDate": ts(end - datetime.timedelta(days=span)),
-            "toDate": ts(end)}
+            "fromDate": ts(start), "toDate": ts(end)}
     r = requests.post(WORDSTAT_URL, json=body, timeout=30,
                       headers={"Authorization": f"Api-Key {YANDEX_API_KEY}"})
     if r.status_code != 200:
-        raise RuntimeError(f"Wordstat {r.status_code}: {r.text[:200]}")
+        # 오류 본문이 여러 줄 JSON 이라 그대로 찍으면 로그에서 잘린다 -> 한 줄로 눌러 남긴다
+        raise RuntimeError(f"Wordstat {r.status_code}: "
+                           + " ".join(r.text.split())[:300])
     d = r.json()
     rows = d.get("dynamics") or d.get("items") or d.get("result") or []
     pairs = []
