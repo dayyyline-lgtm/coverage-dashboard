@@ -15,7 +15,7 @@
 생산지가 어디든 '그 나라에서 팔린 것'만 잡히므로,
 중국에서 만들어 러시아로 직접 나가는 물량도 러시아 쪽에 반영된다.
 """
-import urllib.request, urllib.parse, json, re, sys, os, datetime
+import urllib.request, urllib.parse, json, re, sys, os, time, datetime
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -71,15 +71,16 @@ def fetch_rakuten(query):
        Referer 를 앱 등록 도메인으로 맞춘다(Allowed websites 검사 대비)."""
     if not (RAKUTEN_APP_ID and RAKUTEN_ACCESS_KEY):
         return None
+    # 앱 등록의 Allowed websites 를 검사한다. 헤더만으로는 403
+    # REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING 이 떨어져 쿼리로도 같이 보낸다.
+    ref = "https://coverage-dashboard.pages.dev/"
     p = urllib.parse.urlencode({
         "applicationId": RAKUTEN_APP_ID, "accessKey": RAKUTEN_ACCESS_KEY,
+        "httpReferrer": ref,
         "keyword": query, "hits": 30, "sort": "-reviewCount"})
-    # accessKey 는 쿼리 또는 헤더로 받는다. 헤더 이름이 문서마다 달라
-    # 양쪽 다 실어 보낸다(x-rakuten-access-key 는 400 을 받았다).
-    # Referer 는 앱 등록의 Allowed websites 검사를 통과하기 위해 붙인다.
     req = urllib.request.Request(f"{RK_URL}?{p}", headers={
-        **UA, "Referer": "https://coverage-dashboard.pages.dev/",
-        "Accept": "application/json", "accessKey": RAKUTEN_ACCESS_KEY})
+        **UA, "Referer": ref, "Accept": "application/json",
+        "accessKey": RAKUTEN_ACCESS_KEY})
     try:
         raw = urllib.request.urlopen(req, timeout=25).read().decode("utf-8")
     except urllib.error.HTTPError as e:
@@ -127,6 +128,8 @@ def main():
                 continue
             if not r:
                 fail.append(f"{sid}(빈결과)"); continue
+            if src == "rk":
+                time.sleep(1.2)          # 라쿠텐은 연속 호출 시 429 가 난다
             pts = [p for p in (series.get(sid) or []) if p.get("d") != today]  # 같은 날 재실행 시 덮어씀
             pts.append({"d": today, **r})
             series[sid] = pts[-120:]                                          # 최대 120점 보관
