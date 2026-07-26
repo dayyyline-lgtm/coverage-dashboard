@@ -161,7 +161,7 @@ def fetch_consensus(code):
     return out or None
 
 
-TREND_DAYS = 65           # 약 3개월치 일봉(거래일 기준)
+TREND_DAYS = 22           # 약 1개월치 일봉(거래일 기준)
 
 
 def fetch_daily(base_url):
