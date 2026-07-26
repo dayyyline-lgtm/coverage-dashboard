@@ -36,7 +36,7 @@ RK_URL = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
 # 검색어가 틀리면 0 이 찍히므로 트렌드 때와 같은 원칙: 현지 정식명을 쓴다.
 TARGETS = [
     {"stock": "SAMG엔터",   "label": "메탈카드봇",
-     "wb": "Метал Кард Бот", "rk": "メタルカードボット"},
+     "wb": "Металкардбот", "rk": "メタルカードボット"},
     {"stock": "SAMG엔터",   "label": "티니핑",
      "wb": "Тинипин",        "rk": "ティニピン"},
     {"stock": "에이피알",   "label": "메디큐브",  "rk": "メディキューブ"},
