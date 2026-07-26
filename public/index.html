@@ -579,7 +579,8 @@ SECTORS.forEach(sec=>{ const subs=[..._subsBySec[sec]];
 /* 대섹터에 소섹터가 하나뿐이면 카테고리 = 대섹터명("엔터"), 여럿이면 소섹터명("기획"·"IP").
    지금 엔터는 기획 하나라 "엔터"가 쓰이지만, 소섹터를 늘리면 즉시 갈리므로 양쪽 다 넣어둔다. */
 const CAT_COLORS={"화장품":"#c4a7e7","유통":"#9ccfd8","미용":"#ebbcba","음식료":"#f6c177",
-  "엔터":"#eb6f92","기획":"#eb6f92","IP":"#c76b98","게임":"#3e8fb0","호텔":"#a6da95"};
+  "엔터":"#eb6f92","기획":"#eb6f92","IP":"#c76b98","게임":"#3e8fb0","호텔":"#a6da95",
+  "레져":"#a6da95"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
 const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#908caa";
 const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
@@ -793,9 +794,8 @@ function drawSectorTrend(){
     box.innerHTML=`<div class="ov-empty">섹터 추이 데이터가 아직 없습니다. 다음 시세 갱신 후 표시됩니다.</div>`;
     leg.innerHTML=""; note.textContent=""; return;
   }
-  // 커버리지 표와 같은 순서로 (SECTORS -> 등장 순 소섹터)
-  const order=[]; SECTORS.forEach(sec=>R.filter(r=>r.sector===sec)
-    .forEach(r=>{ if(ST.subs[r.sub] && !order.includes(r.sub)) order.push(r.sub); }));
+  // 상단 티커와 같은 순서 (LIVE.market.sectors = 네이버 업종 순)
+  const order=((LIVE.market||{}).sectors||[]).map(s=>s.sub).filter(s=>ST.subs[s]);
   Object.keys(ST.subs).forEach(s=>{ if(!order.includes(s)) order.push(s); });
 
   const D=ST.dates, W=box.clientWidth||1000, H=340, pad={l:50,r:14,t:14,b:28};
@@ -835,8 +835,11 @@ function drawSectorTrend(){
       <b class="${cls(last)}" style="margin-left:4px">${sign(last,1)}%</b></div>`;
   }).join("");
   const b=ST.base;
-  note.textContent=`커버리지 종목 등가중 · ${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)} 기준 코스피 대비 초과수익률(%p) · `
-    +order.map(sub=>`${sub} ${ST.subs[sub].n}종목`).join(" · ");
+  note.textContent=`네이버 업종 시총 상위 ${ST.topN||20}종목 시총가중 · `
+    +`${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)} 기준 코스피 대비 초과수익률(%p) · `
+    +order.map(sub=>{const t=ST.subs[sub];
+        return `${sub}${t.name&&t.name!==sub?`(${t.name})`:""} ${t.n}종목`
+             +(t.cov!=null?`·업종시총 ${t.cov}%`:"");}).join(" · ");
 }
 drawSectorTrend();
 window.addEventListener("resize",()=>{

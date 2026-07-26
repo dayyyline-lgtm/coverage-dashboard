@@ -164,9 +164,12 @@ def fetch_consensus(code):
 TREND_DAYS = 65           # 약 3개월치 일봉(거래일 기준)
 
 
-def fetch_daily(base_url, count=TREND_DAYS):
-    """일봉 종가 {YYYYMMDD: 종가} — 지수·종목 공통(priceInfos 형식)"""
-    d = getj(f"{base_url}?periodType=dayCandle&count={count}")
+def fetch_daily(base_url):
+    """일봉 종가 {YYYYMMDD: 종가} — 지수·종목 공통(priceInfos 형식).
+
+       주의: 이 API 는 count 파라미터를 무시하고 늘 같은 구간(약 110거래일)을 돌려준다.
+       count=5 로 줄여도 시작일이 그대로다. 기간 제한은 호출한 쪽에서 잘라야 한다."""
+    d = getj(f"{base_url}?periodType=dayCandle")
     infos = d.get("priceInfos") if isinstance(d, dict) else d
     out = {}
     for p in (infos or []):
@@ -176,12 +179,31 @@ def fetch_daily(base_url, count=TREND_DAYS):
     return out
 
 
-def collect_sector_trend(records, stocks):
-    """소섹터별 등가중 지수를 '코스피 대비 초과수익률(%)'로 만든다.
+SEC_TOP_N = 20            # 업종지수를 구성할 시총 상위 종목 수
 
-       각 종목의 기준일 대비 수익률을 소섹터 안에서 평균낸 뒤 코스피 수익률을 뺀다.
-       따라서 코스피가 0 인 수평선이 되고, 선이 위에 있으면 시장을 이긴 것이다.
-       기준일 종가가 없는 종목(신규상장 등)은 지수에서 빼야 수익률이 왜곡되지 않는다."""
+
+def fetch_industry_members(no):
+    """네이버 업종 구성종목 -> (상위 N개 [(코드, 시총억)], 업종 전체 시총)"""
+    d = getj(f"https://m.stock.naver.com/api/stocks/industry/{no}")
+    rows = []
+    for s in (d.get("stocks") or []):
+        code, mv = s.get("itemCode"), num(s.get("marketValue"))   # marketValue = 억원
+        if code and mv:
+            rows.append((code, mv))
+    rows.sort(key=lambda x: -x[1])
+    return rows[:SEC_TOP_N], sum(x[1] for x in rows)
+
+
+def collect_sector_trend(sectors):
+    """네이버 업종지수를 '코스피 대비 초과수익률(%p)' 시계열로 만든다.
+
+       네이버는 업종지수의 과거 시계열을 공개하지 않는다(모바일·레거시 API 모두 없음).
+       그래서 업종 구성종목의 일봉으로 시총가중 지수를 직접 만든다.
+       업종 전체는 최대 105종목이라 매번 받으면 과하고(요청 폭주로 멈춘 전례가 있다)
+       시총가중에서는 상위 종목이 지수를 사실상 지배하므로 상위 SEC_TOP_N 개만 쓴다.
+       cov(업종 시총 대비 커버 비율)를 같이 담아 근사 수준을 드러낸다.
+
+       코스피 수익률을 빼므로 0 이 곧 코스피고, 선이 위면 시장을 이긴 구간이다."""
     try:
         kospi = fetch_daily("https://api.stock.naver.com/chart/domestic/index/KOSPI")
     except Exception as e:
@@ -191,39 +213,47 @@ def collect_sector_trend(records, stocks):
         print(f"  섹터 추이 건너뜀(코스피 {len(kospi)}일치뿐)")
         return None
 
-    dates = sorted(kospi)
+    dates = sorted(kospi)[-TREND_DAYS:]     # API 가 count 를 무시하므로 여기서 자른다
     base = dates[0]
-    by_sub, skipped = {}, []
-    for r in records:
-        code = (stocks.get(r["name"]) or {}).get("code")
-        if not code:
+    subs = {}
+    for s in sectors:
+        no, sub = s.get("no"), s.get("sub")
+        if not no or not sub:
             continue
         try:
-            s = fetch_daily(f"https://api.stock.naver.com/chart/domestic/item/{code}")
+            members, total_cap = fetch_industry_members(no)
         except Exception:
-            skipped.append(r["name"]); continue
-        if s.get(base):
-            by_sub.setdefault(r["sub"], []).append(s)
-        else:
-            skipped.append(r["name"])       # 기준일 데이터 없음
-        time.sleep(0.25)
+            print(f"  {sub}: 구성종목 조회 실패"); continue
+        series = []
+        for code, cap in members:
+            try:
+                px = fetch_daily(f"https://api.stock.naver.com/chart/domestic/item/{code}")
+            except Exception:
+                continue
+            if px.get(base):          # 기준일 종가가 없으면(신규상장 등) 수익률이 왜곡된다
+                series.append((cap, px))
+            time.sleep(0.2)
+        if not series:
+            print(f"  {sub}: 유효 종목 없음"); continue
 
-    subs = {}
-    for sub, arr in by_sub.items():
         line = []
         for d in dates:
-            rets = [x[d] / x[base] - 1 for x in arr if x.get(d)]
-            if rets:
-                line.append(round((sum(rets) / len(rets) - (kospi[d] / kospi[base] - 1)) * 100, 2))
-            else:
-                line.append(None)
-        subs[sub] = {"n": len(arr), "v": line}
+            top, bot = 0.0, 0.0
+            for cap, px in series:
+                if px.get(d):
+                    top += cap * (px[d] / px[base] - 1)
+                    bot += cap
+            line.append(round((top / bot - (kospi[d] / kospi[base] - 1)) * 100, 2) if bot else None)
+        cov = sum(c for c, _ in series)
+        subs[sub] = {"n": len(series),
+                     "cov": round(cov / total_cap * 100) if total_cap else None,
+                     "name": s.get("name"), "v": line}
+        print(f"  {sub}({s.get('name')}) {len(series)}종목 · 업종시총 {subs[sub]['cov']}% 커버")
 
     if not subs:
         return None
-    print(f"  섹터 추이 {len(subs)}개 소섹터 / {len(dates)}일"
-          + (f" (제외 {len(skipped)}: {', '.join(skipped[:4])})" if skipped else ""))
-    return {"dates": dates, "base": base, "subs": subs}
+    print(f"  섹터 추이 {len(subs)}개 업종 / {len(dates)}일")
+    return {"dates": dates, "base": base, "topN": SEC_TOP_N, "subs": subs}
 
 
 def resolve_code(name):
@@ -348,7 +378,7 @@ def main():
 
     stocks, researches, events, fails = collect(names)
     market = collect_market()
-    sector_trend = collect_sector_trend(records, stocks)
+    sector_trend = collect_sector_trend((market or {}).get("sectors") or [])
     researches.sort(key=lambda x: x["date"] or "", reverse=True)
     events.sort(key=lambda x: x["date"] or "")
 
