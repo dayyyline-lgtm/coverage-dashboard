@@ -1868,37 +1868,44 @@ function renderMovie(){
   note.textContent=`${M.asOf} 기준 · KOBIS 영화관입장권통합전산망 확정치 · `
     +`x축 D+0 = 개봉일(음수는 개봉 전 시사회) · 일별 Top10 기준이라 순위 밖으로 밀리면 끊긴다(누적은 마지막 값 유지)`;
 
-  /* 일별 표 — 여러 편이면 D+N 으로 나란히 놓아 같은 시점끼리 견주게 한다 */
-  const base=runs[0];
-  const rows=base.pts.map(p=>{
-    const row={x:p.x, d:p.d, audi:p.audi, acc:p.acc, scrn:p.scrn, rank:p.rank,
-               sales:p.sales, _nm:base.nm};
-    runs.slice(1).forEach((r,i)=>{
-      const q=r.pts.find(z=>z.x===p.x);
-      row["acc"+(i+1)]=q?q.acc:null;
-      row["gap"+(i+1)]=(q&&p.acc)?((q.acc/p.acc-1)*100):null;
+  /* 일별 표 — 같은 D+N 을 한 행에 놓아 편끼리 바로 견준다.
+     미개봉작도 열을 미리 만들어 둔다. 지금은 비어 있지만 개봉하면 그 자리가 채워져서,
+     '무엇과 무엇을 비교하게 되는지'가 지금부터 보인다.
+     시사회(음수 일차)도 그대로 싣는다 — 1편은 D-4 부터 관객이 있었다. */
+  const short=n=>n.length>9?n.slice(0,8)+"…":n;
+  const series=[...runs.map(r=>({nm:r.nm, pts:r.pts, live:true})),
+                ...upcoming.map(u=>({nm:u.title, pts:[], live:false}))];
+  const allX=[...new Set(runs.flatMap(r=>r.pts.map(p=>p.x)))].sort((a,b)=>a-b);
+  const rows=allX.map(x=>{
+    const row={x};
+    series.forEach((sr,i)=>{
+      const q=sr.pts.find(z=>z.x===x);
+      row["d"+i]=q?q.d:null; row["a"+i]=q?q.audi:null; row["c"+i]=q?q.acc:null;
+      row["r"+i]=q?q.rank:null; row["s"+i]=q?q.scrn:null;
     });
+    if(series.length>1 && row.c0)
+      row.gap=(row.c1!=null)?((row.c1/row.c0-1)*100):null;
     return row;
-  }).slice().reverse();          // 최근이 위로
-  const cols=[
-    {key:"x",label:"일차",l:true,render:r=>`<span class="ye">D${r.x>=0?"+":""}${r.x}</span>`},
-    {key:"d",label:"날짜",l:true,render:r=>`${r.d.slice(4,6)}/${r.d.slice(6,8)}`},
-    {key:"audi",label:"당일 관객",render:r=>fmt0(r.audi)},
-    {key:"acc",label:`누적 (${base.nm.length>10?base.nm.slice(0,9)+"…":base.nm})`,render:r=>`<b>${fmt0(r.acc)}</b>`},
-    {key:"rank",label:"순위",render:r=>r.rank?r.rank+"위":"—"},
-    {key:"scrn",label:"스크린",render:r=>fmt0(r.scrn)},
-    {key:"sales",label:"매출(백만)",render:r=>fmt0(Math.round(r.sales/1e6))},
-  ];
-  runs.slice(1).forEach((r,i)=>{
-    cols.push({key:"acc"+(i+1),label:`누적 (${r.nm.length>10?r.nm.slice(0,9)+"…":r.nm})`,
-               render:x=>fmt0(x["acc"+(i+1)])});
-    cols.push({key:"gap"+(i+1),label:"차이",
-               render:x=>x["gap"+(i+1)]==null?"—"
-                 :`<span class="${cls(x["gap"+(i+1)])}">${sign(x["gap"+(i+1)],1)}%</span>`});
   });
-  makeTable(tbl, cols, rows, {key:"x",dir:-1});
+  const cols=[{key:"x",label:"일차",l:true,
+    render:r=>`<span class="ye">D${r.x>=0?"+":""}${r.x}</span>`
+      +(r.x<0?`<span class="th-sub" style="margin-left:4px">시사회</span>`:"")}];
+  series.forEach((sr,i)=>{
+    cols.push({key:"d"+i,label:`${short(sr.nm)} 날짜`,l:true,
+      render:r=>r["d"+i]?`${r["d"+i].slice(4,6)}/${r["d"+i].slice(6,8)}`:"—"});
+    cols.push({key:"a"+i,label:"당일",render:r=>r["a"+i]==null?"—":fmt0(r["a"+i])});
+    cols.push({key:"c"+i,label:"누적",render:r=>r["c"+i]==null?"—":`<b>${fmt0(r["c"+i])}</b>`});
+    if(sr.live){
+      cols.push({key:"r"+i,label:"순위",render:r=>r["r"+i]?r["r"+i]+"위":"—"});
+      cols.push({key:"s"+i,label:"스크린",render:r=>r["s"+i]==null?"—":fmt0(r["s"+i])});
+    }
+  });
+  if(series.length>1)
+    cols.push({key:"gap",label:"누적 차이",
+      render:r=>r.gap==null?"—":`<span class="${cls(r.gap)}">${sign(r.gap,1)}%</span>`});
+  makeTable(tbl, cols, rows, {key:"x",dir:1});     // 개봉 순서대로(오름차순)
   const tt=document.getElementById("movieTblTitle");
-  if(tt) tt.textContent=`일별 상세 — ${runs.map(r=>r.nm).join(" vs ")}`;
+  if(tt) tt.textContent=`일별 상세 — ${series.map(s=>s.nm+(s.live?"":" (개봉 예정)")).join(" vs ")}`;
 }
 
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
