@@ -497,11 +497,13 @@
   <!-- 트렌드 비교 -->
   <section class="view" data-view="trends">
     <h2 class="sec">트렌드 비교</h2>
-    <p class="sec-desc"><b>종목</b>을 고르면 그 종목과 엮인 검색 트렌드가 나옵니다. <b>네이버(국내)</b>·<b>구글(해외)</b> 전환 가능, 상대값 0–100.</p>
+    <p class="sec-desc"><b>종목을 누르면</b> 그 종목과 엮인 검색 트렌드가 나옵니다. 상대값 0–100.
+      출처는 주제마다 다릅니다 — 국내 키워드는 네이버·구글 둘 다, 해외 국가별은 구글(러시아는 얀덱스)뿐이라
+      <b>선택할 게 있을 때만 출처 버튼이 뜹니다.</b></p>
     <div class="trend-ctl">
       <div class="ctl-row"><span class="ctl-label">종목</span><div class="seg" id="trendGroupSeg"></div></div>
       <div class="ctl-row" id="trendTopicRow" style="display:none"><span class="ctl-label">주제</span><div class="seg" id="trendTopicSeg"></div></div>
-      <div class="ctl-row"><span class="ctl-label">출처</span>
+      <div class="ctl-row" id="trendSrcRow" style="display:none"><span class="ctl-label">출처</span>
         <div class="seg" id="trendSeg">
           <button data-src="naver" class="active">네이버</button>
           <button data-src="google">구글</button>
@@ -1591,11 +1593,23 @@ const TREND_STOCK={
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
-let trendStock=TREND_STOCKS[0]||"";
-let trendGroup=topicsOf(trendStock)[0]||Object.keys(TREND.groups)[0];
+/* 처음엔 아무 종목도 고르지 않은 상태 — 눌러야 그래프가 나온다 */
+let trendStock="", trendGroup="";
+/* 그 주제가 실제로 가진 출처만 남긴다.
+   only 가 붙어 있으면 반대쪽은 같은 값을 복사해 둔 것이라 눌러도 그래프가 안 바뀐다. */
+const srcOfGroup=G=> G && G.only ? [G.only] : ["naver","google"];
 function drawTrend(){
   const box=document.getElementById("trendChart"); if(!box) return;
   const G=TREND.groups[trendGroup];
+  if(!G){                                   // 종목 미선택 상태
+    box.innerHTML=`<div class="ov-empty">위에서 <b>종목</b>을 고르면 트렌드가 표시됩니다.</div>`;
+    document.getElementById("trendLegend").innerHTML="";
+    const tb=document.getElementById("trendTable"); if(tb) tb.innerHTML="";
+    const tt=document.getElementById("trendTblTitle"); if(tt) tt.textContent="";
+    return;
+  }
+  const avail=srcOfGroup(G);
+  if(!avail.includes(trendSrc)) trendSrc=avail[0];   // 없는 출처가 선택돼 있으면 되돌린다
   const series=G[trendSrc], M=G.months||TREND.months;
   // 표시 단위(일/주/월)별 용어 — 하위호환: 옛 daily 플래그도 인식
   const FREQ=G.freq||(G.daily?"date":"month");
@@ -1629,17 +1643,21 @@ function drawTrend(){
     PRODUCTS.map((p,i)=>{
       const ser=series[i], base=ser[ser.length-2];
       const mom=(base>0)?((ser[ser.length-1]/base-1)*100):null;
-      return `<div class="li"><span class="dot" style="background:${TREND.colors[i]}"></span>${p}
+      // 계열마다 출처가 섞인 그룹에서만 출처를 붙인다(러시아=얀덱스 같은 경우)
+      const mixed=G.srcOf && new Set(G.srcOf).size>1;
+      const tag=mixed?` <small class="th-sub">${G.srcOf[i]}</small>`:"";
+      return `<div class="li"><span class="dot" style="background:${TREND.colors[i]}"></span>${p}${tag}
         <small>최근 ${ser[ser.length-1]} · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}</small></div>`;
     }).join("")+(function(){
-      const real=(TREND.sources||{})[trendSrc]!==false;
-      if(G.multi)
-        return `<div class="li" style="margin-left:auto"><small>출처: 구글 트렌드 · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b></small></div>`;
-      if(trendSrc==="google" && !real)
-        return `<div class="li" style="margin-left:auto"><small class="seed">⚠ 구글 트렌드 수집 실패(서버 차단) — 네이버 값 표시 중. 개인 PC에서 트렌드갱신.bat 실행 시 실데이터로 교체</small></div>`;
+      if(G.multi){
+        // 계열마다 출처가 다를 수 있다(러시아는 얀덱스). 있는 그대로 적는다.
+        const s=[...new Set(G.srcOf||["구글"])].join("·");
+        return `<div class="li" style="margin-left:auto"><small>출처: ${s} · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b></small></div>`;
+      }
       const gGeo=G.geo==="KR"?'국내':(G.geo?G.geo:'전세계');
       const src=trendSrc==='naver'?'네이버 데이터랩(국내)':`구글 트렌드(${gGeo})`;
-      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100 · 진행 중인 ${U.p} 제외</small></div>`;
+      const solo=G.only?` · 이 주제는 ${src} 만 유효해 출처 전환 없음`:"";
+      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100 · 진행 중인 ${U.p} 제외${solo}</small></div>`;
     })();
   // table — 표시 단위에 맞춰 라벨/기준 전환
   const back=U.n, uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
@@ -1670,10 +1688,22 @@ function renderTrendSegs(){
     row.style.display="none";
     document.getElementById("trendTopicSeg").innerHTML="";
   }
+  // 출처 줄 — 그 주제가 실제로 두 출처를 다 가질 때만 띄운다.
+  // 예전엔 항상 떠 있어서, 해외 국가별 주제에서 '네이버'를 눌러도
+  // 구글 값을 복사해 둔 탓에 같은 그래프가 나왔다.
+  const G=TREND.groups[trendGroup], avail=srcOfGroup(G);
+  const srow=document.getElementById("trendSrcRow");
+  if(G && avail.length>1){
+    srow.style.display="";
+    document.querySelectorAll("#trendSeg button").forEach(x=>
+      x.classList.toggle("active", x.dataset.src===trendSrc));
+  }else{
+    srow.style.display="none";
+  }
   // 주제 줄이 숨겨져 있어도 지금 보는 게 뭔지 알 수 있게 제목으로 남긴다
-  const kw=(TREND.groups[trendGroup]||{}).products||[];
-  document.getElementById("trendTopicNow").textContent=
-    `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "");
+  const kw=(G||{}).products||[];
+  document.getElementById("trendTopicNow").textContent= !trendStock ? ""
+    : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "");
 }
 document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;

@@ -53,9 +53,10 @@ GROUPS = {
     },
     # 국산 변신로봇 완구 IP 3파전 — 헬로카봇·메탈카드봇(초이락) vs 또봇(영실업).
     # 국내 검색이라 네이버가 실신호, 구글 글로벌은 거의 0(영문명은 참고용).
+    # 구글은 뺐다 — 영문명 전세계 조회라 값이 2~8 수준의 잡음이고 국내 3파전과 무관하다.
+    # 국내 완구 경쟁이 논점이므로 네이버가 유일한 실신호다.
     "변신로봇 IP": {
         "naver":  ["헬로카봇", "메탈카드봇", "또봇"],
-        "google": ["Hello Carbot", "Metal Cardbot", "Tobot"],
         "freq":   "week",
     },
     # 일본 티니핑 — 시리즈(ティニピン) vs 극장판 캐릭터(ハチュピン).
@@ -83,10 +84,10 @@ GROUPS = {
     },
     # 신제품 단독 추이 — 출시 직후라 최근 30일을 '일별'로 자세히 (대형 키워드와 섞으면 0으로 눌림)
     # 구글은 전세계로 보면 검색량 부족으로 비니 한국(KR)으로 좁히고, 키워드도 '쿨로아'로 넓혀 신호 확보
+    # 구글은 뺐다 — 30일 중 8일만 값이 잡혀 0 이 줄줄이 찍혔다.
+    # 출시 직후 국내 신제품이라 구글 검색량 자체가 임계 미만이다. 네이버만 본다.
     "쿨로아600": {
         "naver":  ["쿨로아600"],
-        "google": ["쿨로아"],
-        "geo":    "KR",
         "freq":   "date",
         "n":      30,
     },
@@ -98,7 +99,9 @@ GROUPS = {
             {"label": "미국",      "geo": "US", "kw": "Teenieping"},
             # ティーニーピン(장음 표기)은 검색량 0. 현지에선 ティニピン 으로 줄여 쓴다.
             {"label": "일본",      "geo": "JP", "kw": "ティニピン"},
-            {"label": "중국",      "geo": "CN", "kw": "奇妙萌可"},
+            # 중국은 뺐다 — 구글이 차단된 시장이라 52주 중 2주만 잡혔다(사실상 0).
+            # 본토 검색은 바이두 지수뿐인데 공식 API 가 없어 수집 경로가 없다.
+            # 억지로 두면 '중국 관심도 0' 으로 오독된다. 중국은 수출 데이터로 볼 것.
             # 구글 러시아로는 52주 중 8주만 잡혔다. 얀덱스가 러시아 점유가 높아 신호가 진하다.
             {"label": "러시아",    "geo": "RU", "kw": "Тинипин", "src": "yandex"},
             {"label": "유럽(영국)", "geo": "GB", "kw": "Teenieping"},
@@ -385,13 +388,20 @@ def main():
             labs = [x["label"] for x in spec["geos"]]
             print(f"\n[{gname}]  국가별 {[x['geo'] for x in spec['geos']]}  ({FREQ_KO[freq]} {n})")
             g = {"products": labs, "productsGoogle": labs, "freq": freq,
-                 "geo": "multi", "multi": True, "months": []}
+                 "geo": "multi", "multi": True, "months": [],
+                 # 해외 검색이라 네이버 데이터가 없다. 예전엔 구글 값을 네이버 자리에
+                 # 복사해 둬서 화면에서 '네이버'를 눌러도 구글 값이 나왔다.
+                 # only 를 달아 두면 화면에서 출처 전환 버튼 자체를 감춘다.
+                 "only": "google",
+                 # 계열별 실제 출처 — 러시아는 얀덱스라 '구글'로 뭉뚱그리면 거짓말이 된다
+                 "srcOf": ["얀덱스" if x.get("src") == "yandex" else "구글"
+                           for x in spec["geos"]]}
             try:
                 g["google"], g["months"] = fetch_google_geos(spec["geos"], freq=freq, n=n)
-                g["naver"] = g["google"]          # 해외 → 네이버 없음, 동일 데이터
+                g["naver"] = g["google"]          # 렌더 호환용(화면은 only 를 보고 구글만 쓴다)
                 have["google"] = True
                 nz = [sum(1 for v in s if v > 0) for s in g["google"]]
-                print(f"  구글 국가별 OK · 0아닌값 {nz}")
+                print(f"  국가별 OK · 0아닌값 {nz} · 출처 {g['srcOf']}")
             except Exception as e:
                 print("  구글 국가별 실패:", str(e)[:80])
                 old = prev_groups.get(gname, {})
@@ -404,18 +414,25 @@ def main():
             time.sleep(6)
             continue
 
-        # 해외 전용 그룹은 naver 키가 없다 — 구글 키워드를 라벨로 재사용한다
-        kws_gg = spec["google"]
-        kws_nv = spec.get("naver", kws_gg)
+        # 출처를 한쪽만 쓰는 그룹이 있다.
+        #   naver 키 없음  = 해외 전용(현지어 키워드)
+        #   google 키 없음 = 국내 전용(구글에선 잡음만 잡히는 국내 브랜드)
+        kws_nv = spec.get("naver") or spec.get("google")
+        kws_gg = spec.get("google") or spec.get("naver")
         print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({FREQ_KO[freq]} {n})")
         g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
         geo = spec.get("geo", GOOGLE_GEO)
         g["geo"] = geo
         gg_labels = None
         try:
-            g["google"], gg_labels = fetch_google(kws_gg, geo=geo, freq=freq, n=n)
-            print(f"  구글 트렌드 OK (geo={geo or '전세계'})")
-            have["google"] = True
+            # google 키가 없는 국내 전용 그룹은 구글을 조회하지 않는다.
+            # 국내 브랜드를 영문·전세계로 조회하면 무관한 검색이 섞여 잡음만 남는다.
+            if "google" in spec:
+                g["google"], gg_labels = fetch_google(kws_gg, geo=geo, freq=freq, n=n)
+                print(f"  구글 트렌드 OK (geo={geo or '전세계'})")
+                have["google"] = True
+            else:
+                g["google"] = None
         except Exception as e:
             print("  구글 실패:", str(e)[:80])
             g["google"] = None
@@ -452,12 +469,15 @@ def main():
         if not g["google"] and not g["naver"]:
             print("  !! 이 그룹 수집 실패 & 기존 값 없음 -> 건너뜀")
             continue
-        # 구글 값이 없으면 네이버 값으로 대체하되, 라벨도 한글로 맞춰 오해를 막는다
+        # 한쪽 출처가 없으면 다른 쪽 값으로 채우되, 어느 쪽이 진짜인지 only 에 남긴다.
+        # 그래야 화면에서 없는 출처 버튼을 눌러 같은 그래프를 보는 일이 없다.
         if not g["google"]:
             g["google"] = g["naver"]
             g["productsGoogle"] = kws_nv
-        if not g["naver"]:
+            g["only"] = "naver"
+        elif not g["naver"]:
             g["naver"] = g["google"]
+            g["only"] = "google"
 
         # 축 길이 정합 — 출처마다 길이가 다르면 뒤에서 잘라 공통 길이로 맞춘다
         L = min([len(g["months"] or [999])] +
