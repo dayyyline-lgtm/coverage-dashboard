@@ -56,9 +56,18 @@ GROUPS = {
     # 국산 변신로봇 완구 IP 3파전 — 헬로카봇·메탈카드봇(초이락) vs 또봇(영실업).
     # 국내 검색이라 네이버가 실신호, 구글 글로벌은 거의 0(영문명은 참고용).
     # 구글은 뺐다 — 영문명 전세계 조회라 값이 2~8 수준의 잡음이고 국내 3파전과 무관하다.
-    # 국내 완구 경쟁이 논점이므로 네이버가 유일한 실신호다.
+    # 국내는 네이버가 유일한 실신호다.
     "변신로봇 IP": {
         "naver":  ["헬로카봇", "메탈카드봇", "또봇"],
+        "freq":   "week",
+    },
+    # 같은 3파전을 러시아에서. 얀덱스는 절대 검색수를 주므로 세 IP 의 크기를
+    # 진짜로 비교할 수 있다(구글 트렌드는 상대값이라 불가).
+    # 현지 표기: 또봇=Тобот, 헬로카봇=Карбот(러시아 방영명 «Карбот»),
+    #            메탈카드봇=Металкардбот(붙여쓰기가 실검색어)
+    "변신로봇 IP 러시아": {
+        "yandex": ["Тобот", "Карбот", "Металкардбот"],
+        "labels": ["또봇", "헬로카봇", "메탈카드봇"],
         "freq":   "week",
     },
     # 메탈카드봇 수출국 추이 — 나라마다 현지 표기로 따로 조회.
@@ -193,7 +202,7 @@ def _period_end(freq, today=None):
     return d - datetime.timedelta(days=1)
 
 
-def fetch_yandex(phrase, freq="week", n=52):
+def fetch_yandex(phrase, freq="week", n=52, raw=False):
     """얀덱스 Wordstat 시계열 (Yandex Cloud Search API v2).
        러시아는 얀덱스 점유가 구글보다 높아 같은 키워드도 신호가 훨씬 진하다.
        키가 없으면 None -> 호출한 쪽에서 그 국가만 건너뛴다.
@@ -242,13 +251,45 @@ def fetch_yandex(phrase, freq="week", n=52):
     if not pairs:
         raise RuntimeError(f"Wordstat 응답에 시계열이 없음: {str(d)[:200]}")
     pairs = pairs[-n:]
-    top = max(v for _, v in pairs) or 1
-    vals = [round(v / top * 100) for _, v in pairs]
     labels = []
     for dt, _ in pairs:
         p = dt[:10].split("-")
         labels.append(f"{int(p[1])}월" if freq == "month" else f"{int(p[1])}/{int(p[2])}")
-    return vals, labels
+    # raw=True 면 절대 검색수를 그대로 준다.
+    # 여러 키워드를 견줄 땐 각자 0~100 으로 눌러버리면 크기 비교가 사라지므로,
+    # 호출한 쪽에서 다 모은 뒤 공통 최대값으로 한 번에 정규화해야 한다.
+    if raw:
+        return [v for _, v in pairs], labels
+    top = max(v for _, v in pairs) or 1
+    return [round(v / top * 100) for _, v in pairs], labels
+
+
+def fetch_yandex_group(keywords, freq="week", n=52):
+    """얀덱스로 여러 키워드를 한 번에 견준다.
+
+       얀덱스는 절대 검색수를 주므로, 구글과 달리 '누가 더 큰가'를 진짜로 비교할 수 있다.
+       단 키워드마다 따로 0~100 으로 눌러버리면 그 장점이 사라진다.
+       그래서 전부 원본으로 받아 두고 공통 최대값 하나로 같이 정규화한다."""
+    raws, labels = [], None
+    for kw in keywords:
+        try:
+            v, lb = fetch_yandex(kw, freq, n, raw=True)
+        except Exception as e:
+            print(f"    {kw}: 얀덱스 실패({str(e)[:80]})")
+            raws.append(None); continue
+        if not v:
+            raws.append(None); continue
+        raws.append(v)
+        if labels is None:
+            labels = lb
+    if labels is None:
+        raise RuntimeError("모든 키워드 조회 실패")
+    L = min([len(labels)] + [len(v) for v in raws if v])
+    labels = labels[-L:]
+    top = max((max(v[-L:]) for v in raws if v), default=0) or 1
+    peak = int(top)
+    series = [([round(x / top * 100) for x in v[-L:]] if v else [0] * L) for v in raws]
+    return series, labels, peak
 
 
 def fetch_google_geos(geos, freq="week", n=52):
@@ -373,6 +414,32 @@ def main():
     for gname, spec in GROUPS.items():
         freq = spec.get("freq", "week")
         n = spec.get("n", {"date": 30, "week": 52, "month": 12}[freq])
+
+        # ── 얀덱스 비교 그룹 (러시아, 절대 검색수라 크기 비교 가능) ──────
+        if "yandex" in spec:
+            kws = spec["yandex"]; labs = spec.get("labels", kws)
+            print(f"\n[{gname}]  얀덱스{kws}  ({FREQ_KO[freq]} {n})")
+            g = {"products": labs, "productsGoogle": labs, "freq": freq,
+                 "geo": "RU", "months": [], "only": "google",
+                 "srcOf": ["얀덱스"] * len(kws)}
+            try:
+                g["google"], g["months"], peak = fetch_yandex_group(kws, freq=freq, n=n)
+                g["naver"] = g["google"]      # 렌더 호환용(화면은 only 를 보고 구글칸만 쓴다)
+                g["peak"] = peak              # 100 이 실제 몇 건인지 — 각주로 띄운다
+                have["google"] = True
+                nz = [sum(1 for v in s if v > 0) for s in g["google"]]
+                print(f"  얀덱스 OK · 0아닌값 {nz} · 최대 {peak:,}건/주")
+            except Exception as e:
+                print("  얀덱스 실패:", str(e)[:120])
+                old = prev_groups.get(gname) or {}
+                if old.get("google"):
+                    g["google"] = old["google"]; g["naver"] = old["google"]
+                    g["months"] = old.get("months", []); g["peak"] = old.get("peak")
+                    print("  기존 값 유지")
+                else:
+                    print("  !! 건너뜀"); continue
+            groups_out[gname] = g
+            continue
 
         # ── 국가별 그룹 (구글만, 나라마다 현지명+현지 geo) ──────────────
         if "geos" in spec:
