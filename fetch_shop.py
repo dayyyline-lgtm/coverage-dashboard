@@ -72,11 +72,19 @@ def fetch_rakuten(query):
     if not (RAKUTEN_APP_ID and RAKUTEN_ACCESS_KEY):
         return None
     p = urllib.parse.urlencode({
-        "applicationId": RAKUTEN_APP_ID, "accessKey": RAKUTEN_ACCESS_KEY,
+        "applicationId": RAKUTEN_APP_ID,
         "keyword": query, "hits": 30, "sort": "-reviewCount"})
-    req = urllib.request.Request(f"{RK_URL}?{p}",
-                                 headers={**UA, "Referer": "https://coverage-dashboard.pages.dev/"})
-    d = json.loads(urllib.request.urlopen(req, timeout=25).read().decode("utf-8"))
+    # accessKey 는 쿼리·헤더 둘 다 받는다고 하나 헤더 쪽이 정석이다.
+    # Referer 는 앱 등록의 Allowed websites 검사를 통과하기 위해 붙인다.
+    req = urllib.request.Request(f"{RK_URL}?{p}", headers={
+        **UA, "Referer": "https://coverage-dashboard.pages.dev/",
+        "Accept": "application/json", "x-rakuten-access-key": RAKUTEN_ACCESS_KEY})
+    try:
+        raw = urllib.request.urlopen(req, timeout=25).read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        body = " ".join((e.read().decode("utf-8", "replace") or "").split())[:300]
+        raise RuntimeError(f"HTTP {e.code}: {body}")
+    d = json.loads(raw)
     items = [x.get("Item", x) for x in (d.get("Items") or [])]
     if not items:
         return None
@@ -113,7 +121,9 @@ def main():
             try:
                 r = fn(t[key])
             except Exception as e:
-                fail.append(f"{sid}({type(e).__name__})"); continue
+                fail.append(f"{sid}({type(e).__name__})")
+                print(f"  {sid:<22} 실패: {str(e)[:280]}")
+                continue
             if not r:
                 fail.append(f"{sid}(빈결과)"); continue
             pts = [p for p in (series.get(sid) or []) if p.get("d") != today]  # 같은 날 재실행 시 덮어씀
