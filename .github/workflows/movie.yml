@@ -1,0 +1,42 @@
+name: 영화 흥행 갱신 (KOBIS)
+
+on:
+  schedule:
+    # 매일 한국시간 10:00 (UTC 01:00) — 전날 확정치가 오전에 올라온다
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: movie
+  cancel-in-progress: false
+
+jobs:
+  movie:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 박스오피스 수집
+        env:
+          KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
+        run: python fetch_movie.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git add public/index.html
+            git commit -m "영화 흥행 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git pull --rebase
+            git push
+          fi

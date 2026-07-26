@@ -100,10 +100,18 @@ def call_bulk(hs_prefix, start, end):
             continue
         if not hs.isdigit() or not re.fullmatch(r"[A-Z]{2}", cd):
             continue
-        v = g("expDlr").replace(",", "")
-        try: exp = float(v)
-        except ValueError: continue
-        out.append((ym.replace(".", ""), hs, cd, exp))
+        # 금액만 쓰다가 중량도 같이 받는다 — 금액÷중량 = 수출단가(ASP).
+        # 화장품은 물량보다 단가가 마진을 좌우해서, 금액이 빠질 때
+        # '물량만 준 건지 단가까지 무너진 건지' 를 이걸로 가른다.
+        try:
+            exp = float(g("expDlr").replace(",", ""))
+        except ValueError:
+            continue
+        try:
+            wgt = float(g("expWgt").replace(",", ""))
+        except ValueError:
+            wgt = 0.0
+        out.append((ym.replace(".", ""), hs, cd, exp, wgt))
     return out
 
 
@@ -145,14 +153,15 @@ def main():
     prefixes = sorted({i["hs"][:4] if len(i["hs"]) > 4 else i["hs"] for i in ITEMS})
     print(f"조회 {months[0]} ~ {months[-1]} · HS {prefixes}")
 
-    # (월, hs, 국가) -> 수출액
+    # (월, hs, 국가) -> [수출액, 수출중량]
     raw = {}
     for pref in prefixes:
         for w in windows(months):
             try:
                 rows = call_bulk(pref, w[0], w[-1])
-                for ym, hs, cd, exp in rows:
-                    raw[(ym, hs, cd)] = raw.get((ym, hs, cd), 0) + exp
+                for ym, hs, cd, exp, wgt in rows:
+                    cur = raw.get((ym, hs, cd)) or [0.0, 0.0]
+                    raw[(ym, hs, cd)] = [cur[0] + exp, cur[1] + wgt]
                 print(f"  HS {pref} {w[0]}~{w[-1]}: {len(rows):,}건")
             except Exception as e:
                 print(f"  HS {pref} {w[0]}~{w[-1]} 실패: {str(e)[:60]}")
@@ -163,10 +172,12 @@ def main():
 
     eu_codes = [c for c, _ in EUROPE]
 
-    def series(hs_spec, country):
+    def series(hs_spec, country, what="exp"):
+        """what: exp=수출액(달러) · asp=수출단가(달러/kg)
+           단가는 월별 합계끼리 나눈다 — 품목·국가를 합칠 때 가중평균이 되도록."""
         out = []
         for m in months:
-            tot = 0.0; hit = False
+            tot = 0.0; wt = 0.0; hit = False
             for (ym, hs, cd), v in raw.items():
                 if ym != m: continue
                 if not hs.startswith(hs_spec): continue
@@ -174,8 +185,13 @@ def main():
                 elif country == "EU9":
                     if cd not in eu_codes: continue
                 elif cd != country:                   continue
-                tot += v; hit = True
-            out.append(round(tot, 1) if hit else None)
+                tot += v[0]; wt += v[1]; hit = True
+            if not hit:
+                out.append(None)
+            elif what == "asp":
+                out.append(round(tot / wt, 2) if wt > 0 else None)
+            else:
+                out.append(round(tot, 1))
         return out
 
     out = {"asOf": datetime.datetime.now(
@@ -189,12 +205,15 @@ def main():
             if c.get("eu"):
                 continue                              # 개별 유럽국은 합계로만
             entry["byCountry"].append({"code": c["cd"], "name": c["name"],
-                                       "exp": series(item["hs"], c["cd"])})
+                                       "exp": series(item["hs"], c["cd"]),
+                                       "asp": series(item["hs"], c["cd"], "asp")})
         entry["byCountry"].append({"code": "EU9", "name": "유럽 9개국",
                                    "exp": series(item["hs"], "EU9"),
+                                   "asp": series(item["hs"], "EU9", "asp"),
                                    "members": [n for _, n in EUROPE]})
         for c, n in EUROPE:
-            entry["byCountry"].append({"code": c, "name": n, "exp": series(item["hs"], c)})
+            entry["byCountry"].append({"code": c, "name": n, "exp": series(item["hs"], c),
+                                       "asp": series(item["hs"], c, "asp")})
         last = next((v for v in reversed(entry["byCountry"][0]["exp"]) if v), None)
         print(f"  {item['label']:<12} 전체 최근 {last/1e6 if last else 0:,.1f} 백만달러")
         out["items"].append(entry)
