@@ -31,6 +31,11 @@ jobs:
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          # 선택 — 없으면 해당 국가 계열만 건너뛰고 나머지는 정상 수집한다.
+          # 바이두: 중국 본토 검색(구글이 차단돼 대안이 없음)
+          # 얀덱스: 러시아 검색(구글보다 점유율이 높음)
+          BAIDU_COOKIE: ${{ secrets.BAIDU_COOKIE }}
+          YANDEX_COOKIE: ${{ secrets.YANDEX_COOKIE }}
         run: |
           if [ -z "$NAVER_CLIENT_ID" ]; then
             echo "NAVER_CLIENT_ID 시크릿이 없습니다. Settings > Secrets 에 등록하세요."
