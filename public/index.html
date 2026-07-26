@@ -1602,6 +1602,9 @@ const TREND_STOCK={
   "리센스메디컬":["쿨로아600"],        // 쿨로아
   "SAMG엔터":["티니핑 국가별","변신로봇 IP","변신로봇 IP 러시아","메탈카드봇 국가별"],
   "NC":["아이온2 국가별"],
+  "크래프톤":["배틀그라운드(크래프톤)"],
+  "펄어비스":["펄어비스 IP"],
+  "시프트업":["시프트업 IP"],
 };
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
