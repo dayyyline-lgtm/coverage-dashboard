@@ -281,8 +281,15 @@ def fetch_google_geos(geos, freq="week", n=52):
                 print(f"    {spec['label']}: 얀덱스 실패({e}) - 건너뜀")
             series.append(None)
             continue
-        df = _google_df([spec["kw"]], spec["geo"], freq)
-        if df is None or df.empty:
+        try:
+            df = _google_df([spec["kw"]], spec["geo"], freq)
+        except Exception as e:
+            print(f"    {spec['label']}: 구글 실패({str(e)[:60]}) - 건너뜀")
+            series.append(None); continue
+        # 검색량이 너무 적으면 구글이 그 키워드 컬럼을 아예 빼고 준다.
+        # 그대로 df[kw] 하면 KeyError 로 그룹 전체가 죽으므로 여기서 걸러낸다.
+        if df is None or df.empty or spec["kw"] not in df.columns:
+            print(f"    {spec['label']}: 검색량 부족 - 건너뜀")
             s = None
         else:
             if "isPartial" in df.columns:
