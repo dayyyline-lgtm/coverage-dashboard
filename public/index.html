@@ -539,6 +539,7 @@
     <h2 class="sec">극장 흥행</h2>
     <p class="sec-desc">SAMG엔터 극장판 관객 추이. <b>x축은 개봉 N일차</b>라 개봉일이 달라도 페이스를 겹쳐 볼 수 있습니다.
       KOBIS 확정치라 추정 오차가 없습니다.</p>
+    <div id="movieBooking"></div>
     <div class="chart-box">
       <div id="movieBox"></div>
     </div>
@@ -1807,8 +1808,60 @@ function renderShop(){
 
 /* 개봉 예정작 — 수집이 시작되기 전에도 D-day 를 보여주려고 손으로 적어둔다 */
 const MOVIE_UPCOMING=[
-  {stock:"SAMG엔터", title:"사랑의 하츄핑 2: 고래보석의 전설", open:"2026-08-05", prev:1240000},
+  // title 은 KOBIS 표기와 정확히 같아야 한다 — 개봉 후 박스오피스에 같은 이름으로
+  // 잡히는데, 다르면 '예정작'과 '집계작'이 따로 떠서 두 줄이 된다.
+  {stock:"SAMG엔터", title:"사랑의 하츄핑: 고래보석의 전설", open:"2026-08-05", prev:1240000},
 ];
+
+/* ==== 실시간 예매 ====
+   개봉 전에는 박스오피스가 아무것도 주지 않는다(순위에 없으니까).
+   그 구간에서 유일하게 움직이는 숫자가 예매다 — 예매관객은 개봉일 스코어의 선행 지표고,
+   누적관객은 시사회 실적이다. 매 실행마다 한 점씩 쌓이므로 증분(전일 대비)이 핵심.
+   1편 기준선: 개봉 4일 전 시사회 누적 30,553명 → 개봉일 107,156명 → 최종 121만명. */
+function renderBooking(){
+  const el=document.getElementById("movieBooking"); if(!el) return;
+  const B=((typeof MOVIE!=="undefined")&&MOVIE.booking)||{};
+  const names=Object.keys(B).filter(n=>(B[n]||[]).length);
+  if(!names.length){ el.innerHTML=""; return; }
+  const up=Object.fromEntries((MOVIE_UPCOMING||[]).map(x=>[x.title,x]));
+  let h=`<div class="sub-h">실시간 예매</div>`;
+  names.forEach(nm=>{
+    const pts=B[nm], last=pts[pts.length-1], prev=pts.length>1?pts[pts.length-2]:null;
+    const u=up[nm];
+    const dday=u? Math.ceil((new Date(u.open)-new Date(last.d))/864e5) : null;
+    // 증분은 점이 2개 이상 쌓여야 나온다. 첫날은 '수집 시작'으로 두고 빈 값을 보여준다.
+    const delta=(k)=> prev? `<span class="${cls(last[k]-prev[k])}">${sign(last[k]-prev[k],k==="rate"?1:0)}${k==="rate"?"%p":"명"} 전일비</span>`
+                          : `전일 대비는 내일부터`;
+    h+=`<div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi"><div class="k">${nm}</div>
+        <div class="v">${dday!=null?(dday>0?"D-"+dday:"개봉"):"—"}</div>
+        <div class="d">${u?u.open+" 개봉":""}</div></div>
+      <div class="kpi"><div class="k">예매율</div>
+        <div class="v">${fmt(last.rate,1)}<small>%</small></div>
+        <div class="d">${delta("rate")}</div></div>
+      <div class="kpi"><div class="k">예매관객</div>
+        <div class="v">${fmt0(last.book)}<small>명</small></div>
+        <div class="d">${delta("book")}</div></div>
+      <div class="kpi"><div class="k">누적관객 (시사회)</div>
+        <div class="v">${fmt0(last.acc)}<small>명</small></div>
+        <div class="d">${delta("acc")}</div></div>
+    </div>`;
+    if(pts.length>1){
+      h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
+        <th class="l">날짜</th><th>예매율</th><th>예매관객</th><th>증분</th><th>누적관객</th></tr></thead><tbody>`
+        +pts.slice().reverse().map((p,i,ar)=>{
+          const q=ar[i+1];   // 역순이라 다음 원소가 전일
+          return `<tr><td class="l">${p.d.slice(5)}</td><td>${fmt(p.rate,1)}%</td>
+            <td>${fmt0(p.book)}</td>
+            <td>${q?`<span class="${cls(p.book-q.book)}">${sign(p.book-q.book,0)}</span>`:"—"}</td>
+            <td>${fmt0(p.acc)}</td></tr>`;}).join("")
+        +`</tbody></table></div>`;
+    }
+  });
+  h+=`<p class="note">KOBIS 실시간 예매 · 하루 1회(10시 KST) 적립 — 개봉 전 유일한 실시간 지표입니다.
+      1편 기준선: 개봉 4일 전 시사회 누적 30,553명 → 개봉일 107,156명 → 최종 1,212,652명.</p>`;
+  el.innerHTML=h;
+}
 
 /* ==== 극장 흥행 탭 ====
    관객수는 KOBIS 확정치라 추정 오차가 없다. SAMG 는 극장판이 분기 실적 변수라
@@ -1820,6 +1873,7 @@ function renderMovie(){
   const box=document.getElementById("movieBox"); if(!box) return;
   const note=document.getElementById("movieNote");
   const tbl=document.getElementById("movieTable");
+  renderBooking();          // 박스오피스가 비어도(개봉 전) 예매는 나와야 한다
   const M=(typeof MOVIE!=="undefined")?MOVIE:null;
   const dnum=s=>new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8));
   const runs=Object.entries((M||{}).movies||{}).map(([nm,mv],i)=>{
