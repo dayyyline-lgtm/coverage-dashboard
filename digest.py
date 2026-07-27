@@ -113,6 +113,11 @@ def _notable(tr):
     return rows
 
 
+def _arw(c):
+    """등락 방향 — 한국식 색(상승 빨강·하락 파랑). 텔레그램은 이모지로만 색이 되므로 네모+삼각형."""
+    return "🟥▲" if c > 0 else "🟦▼"
+
+
 def _cat(rec, name):
     r = rec.get(name)
     if not r:
@@ -311,7 +316,7 @@ def build(html, alerts_only=False):
     if movers:
         c, nm = movers[0]
         rs = _why(nm)
-        pts.append(f"{'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
+        pts.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
 
     out = []
     if pts:
@@ -346,7 +351,7 @@ def build(html, alerts_only=False):
         for c, nm in movers[:6]:
             cat = _cat(rec, nm)
             rs = _why(nm)
-            base = f"· {'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" <i>{cat}</i>" if cat else "")
+            base = f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f" <i>{cat}</i>" if cat else "")
             lines.append(base + (f"\n   └ {rs}" if rs else ""))
         extra = f"\n<i>…외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
         out.append(f"<b>📈 전일 시세 급변 (±{CHG_ALERT:.0f}%+)</b>\n" + "\n".join(lines) + extra)
