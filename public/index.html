@@ -2725,6 +2725,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   const man=v=>v==null?"—":(v>=10000?(v/10000).toFixed(v>=1000000?0:1)+"만":fmt0(v));
   const parseD=s=>{ const d=String(s).replace(/-/g,""); return new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)); };
   const dayN=(d,open)=>Math.round((parseD(d)-open)/864e5);
+  const fmtDate=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
 
   // 하츄핑 극장판들 — 개봉일 순. days 있는 것만(개봉 후)
   const movies=Object.entries(MV.movies||{})
@@ -2739,7 +2740,11 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     const W=512,H=214,pad={l:44,r:42,t:14,b:28};
     const S=[prev,cur].filter(Boolean).map((m,i)=>({m, c:i?"var(--accent2)":"var(--accent)",
       pts:m.days.map(x=>({n:dayN(x.d,m.open), acc:x.acc, audi:x.audi, d:x.d})).filter(p=>p.n>=0)}));
-    const maxDay=Math.max(1,...S.flatMap(s=>s.pts.map(p=>p.n)));
+    // 2편이 개봉하면 '개봉 N일차'를 같은 눈금에서 겹쳐 페이스를 비교한다.
+    // 1편 전체(D+74)로 그리면 2편 초반이 왼쪽에 뭉쳐 안 보이므로, 창을 2편 진행범위로 좁히고 1편도 같이 자른다.
+    const fullMax=Math.max(1,...S.flatMap(s=>s.pts.map(p=>p.n)));
+    const maxDay=cur ? Math.min(fullMax, Math.max(1,...cur.days.map(x=>dayN(x.d,cur.open)))+2) : fullMax;
+    S.forEach(se=>se.pts=se.pts.filter(p=>p.n<=maxDay));   // 비교 창으로 정렬 절단
     const maxV=Math.max(1,...S.flatMap(s=>s.pts.map(p=>p.acc)))*1.08;
     const maxA=Math.max(1,...S.flatMap(s=>s.pts.map(p=>p.audi)))*1.15;
     const xs=n=>pad.l+n/maxDay*(W-pad.l-pad.r);
@@ -2758,12 +2763,18 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     S.forEach(se=>se.pts.forEach(p=>{ const h=(H-pad.b)-yA(p.audi);
       s+=`<rect x="${(xs(p.n)-bw/2).toFixed(1)}" y="${yA(p.audi).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" fill="${se.c}" opacity=".24"><title>D+${p.n} (${p.d.slice(4,6)}/${p.d.slice(6,8)}) · 당일 ${man(p.audi)}</title></rect>`; }));
     // 누적선(앞)
-    S.forEach(se=>{
+    S.forEach((se,si)=>{
+      const tag=S.length>1?(si?"2편 ":"1편 "):"";
       s+=`<polyline points="${se.pts.map(p=>`${xs(p.n).toFixed(1)},${ys(p.acc).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.c}" stroke-width="2.4" stroke-linejoin="round"/>`;
-      se.pts.forEach(p=>s+=`<circle cx="${xs(p.n).toFixed(1)}" cy="${ys(p.acc).toFixed(1)}" r="1.6" fill="${se.c}"><title>D+${p.n} (${p.d.slice(4,6)}/${p.d.slice(6,8)}) · 누적 ${man(p.acc)} · 당일 ${man(p.audi)}</title></circle>`);
+      se.pts.forEach(p=>s+=`<circle cx="${xs(p.n).toFixed(1)}" cy="${ys(p.acc).toFixed(1)}" r="1.6" fill="${se.c}"><title>${tag}D+${p.n} (${p.d.slice(4,6)}/${p.d.slice(6,8)}) · 누적 ${man(p.acc)} · 당일 ${man(p.audi)}</title></circle>`);
       const last=se.pts[se.pts.length-1];
-      s+=`<text x="${xs(last.n)-4}" y="${ys(last.acc)-7}" text-anchor="end" font-size="11" font-weight="800" fill="${se.c}">${man(last.acc)}</text>`;
+      s+=`<text x="${xs(last.n)-4}" y="${ys(last.acc)-7}" text-anchor="end" font-size="11" font-weight="800" fill="${se.c}">${tag}${man(last.acc)}</text>`;
     });
+    // 2편 비교 모드 범례
+    if(S.length>1){
+      s+=`<rect x="${pad.l+6}" y="4" width="9" height="9" rx="2" fill="var(--accent)"/><text x="${pad.l+18}" y="12" font-size="9.5" fill="${mut}">1편</text>`;
+      s+=`<rect x="${pad.l+48}" y="4" width="9" height="9" rx="2" fill="var(--accent2)"/><text x="${pad.l+60}" y="12" font-size="9.5" fill="${mut}">2편</text>`;
+    }
     s+=`<text x="${pad.l-6}" y="10" text-anchor="end" font-size="9" fill="${mut}">누적</text>`;
     s+=`<text x="${W-pad.r+5}" y="10" font-size="9" fill="${mut}">당일▮</text>`;
     s+="</svg>"; box.innerHTML=s;
@@ -2802,7 +2813,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     const bkKey=Object.keys(MV.booking||{}).find(k=>k!==prev.nm);
     if(cur){
       const la=cur.days[cur.days.length-1];
-      nextEl.innerHTML=`🎬 <b>${cur.nm}</b> · 개봉 ${cur.open.toISOString().slice(0,10)} · 누적 <b>${man(la.acc)}</b> (D+${dayN(la.d,cur.open)}) · 목표 150만`;
+      nextEl.innerHTML=`🎬 <b>${cur.nm}</b> · 개봉 ${fmtDate(cur.open)} · 누적 <b>${man(la.acc)}</b> (D+${dayN(la.d,cur.open)}) · 목표 150만`;
     } else if(bkKey && (MV.booking[bkKey]||[]).length){
       const b=MV.booking[bkKey][MV.booking[bkKey].length-1];
       const dd=Math.ceil((new Date(2026,7,5)-new Date())/864e5);
@@ -2810,7 +2821,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     } else {
       nextEl.innerHTML=`🔜 <b>사랑의 하츄핑2: 고래보석의 전설</b> 2026-08-05 개봉 · 목표 150만 <span>(더벨)</span>`;
     }
-    subEl.textContent="KOBIS 일별 확정 관객 · 막대=당일(우축) · 선=누적(좌축) · x축 개봉 N일차";
+    subEl.textContent=cur
+      ? "1편 vs 2편 · 같은 개봉 N일차(D+)로 정렬해 페이스 비교 · 선=누적, 막대=당일"
+      : "KOBIS 일별 확정 관객 · 막대=당일(우축) · 선=누적(좌축) · x축 개봉 N일차";
     srcEl.textContent=`자료: KOBIS 영화관입장권통합전산망 · ${MV.asOf||""}`;
     // 개봉 전 2편 예매 추이 미니차트 (개봉 후엔 위 곡선에 합류하므로 숨김)
     const bkEl=document.getElementById("samgBooking");
