@@ -11,7 +11,10 @@
     악재선반영 판정, _surprise) > 그 밖의 공시 > 뉴스 헤드라인 > 트렌드 동반 > 섹터 전반.
     외부 API 는 쓰지 않는다. 근거가 하나도 없으면 아무 말도 붙이지 않는다(지어내지 않는다).
   - 카테고리: 소비재는 세부(화장품/미용/음식료/유통), 엔터·게임·호텔은 섹터.
-  - 방향은 ▲(상승, 한국식 빨강)·▼(하락) 로.
+  - 방향은 색 하나로만 (🔴상승·🔵하락, 한국식). 부호가 이미 방향을 말하므로 기호를 겹치지 않는다.
+  - 줄이 넘치면 텔레그램이 다음 줄을 왼쪽 끝에 붙여 들여쓰기가 깨진다.
+    그래서 폭(REASON_W·LABEL_W)을 정해 놓고 애초에 안 넘치게 자른다.
+    자리 맞춤이 필요한 줄은 <code> 로 감싼다 — 밖은 가변폭이라 칸이 안 맞는다.
 
   python digest.py            # 전송
   python digest.py --dry-run  # 출력만
@@ -29,6 +32,10 @@ NOTABLE_WOW = 15      # 트렌드 '의미있는' 전주비(%)
 NOTABLE_BASE = 15     # 트렌드 기저(이 미만은 노이즈)
 SPIKE = 30            # 급등/급락 태그
 STREAK_MIN = 4        # 연속추세 태그(주)
+# 폭(표시 칸 수). 텔레그램은 줄이 넘치면 다음 줄을 왼쪽 끝에 붙여 버려서
+# 들여쓴 이유 줄이 두 줄이 되는 순간 모양이 무너진다. 애초에 안 넘치게 자른다.
+REASON_W = 32         # 급변 이유 한 줄(들여쓰기 4칸 + 32 = 모바일 한 줄에 들어감)
+LABEL_W = 12          # 트렌드 계열 이름 칸 (넘치면 자른다)
 BLK = "▁▂▃▄▅▆▇█"
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -103,6 +110,19 @@ def _w(s):
 def _pad(s, n, right=False):
     sp = " " * max(0, n - _w(s))
     return (sp + s) if right else (s + sp)
+
+
+def _cut(s, n):
+    """표시 폭 n 칸으로 자른다. 글자 수로 자르면 한글이 섞였을 때 두 배로 길어져
+       텔레그램에서 줄이 넘치고, 넘친 줄은 들여쓰기를 잃고 왼쪽 끝으로 붙는다."""
+    if not s or _w(s) <= n:
+        return s
+    out = ""
+    for c in s:
+        if _w(out + c) > n - 1:
+            break
+        out += c
+    return out + "…"
 
 
 def _spark(s, n=10):
@@ -189,7 +209,7 @@ def _news(items, name, cut):
         return None
     cand.sort(key=lambda x: x.get("d", ""), reverse=True)
     t = cand[0]["t"]
-    return t[:36] + "…" if len(t) > 37 else t
+    return _cut(t, REASON_W)
 
 
 _QLAST = {3: 31, 6: 30, 9: 30, 12: 31}
@@ -321,15 +341,17 @@ def build(html, alerts_only=False):
         disc = [e for e in evs if e.get("co") == nm
                 and news_cut <= e.get("date", "") <= today.isoformat()]
         head = _news(nitems, nm, news_cut)
+        # 한 줄에 하나만 담는다. 예전엔 '공시: … · 뉴스헤드라인…' 처럼 둘을 이어 붙여
+        # 줄이 넘쳤고, 넘친 줄은 들여쓰기를 잃고 왼쪽 끝에 붙어 모양이 깨졌다.
         if any(e.get("type") == "earn" for e in disc):
             sur = _surprise(live, nm, chg_of.get(nm, 0), today)
             if sur:
-                return sur                                   # 실제치 vs 컨센이 잡히면 그 해석이 이유
-            return f"실적발표 · {head}" if head else "실적발표"  # 발표됐지만 실제치 아직(데이터 랙)
+                return _cut(sur, REASON_W)                   # 실제치 vs 컨센이 잡히면 그 해석이 이유
+            return "실적발표" if not head else _cut(f"실적발표 · {head}", REASON_W)
         if disc:                                             # 실적 외 공시(IR·계약 등)
-            kinds = {e.get("title") or e.get("type") for e in disc}
-            return f"공시: {list(kinds)[0]}" + (f" · {head}" if head else "")
-        return head or _trend_move(nm) or _sector_move(nm)
+            kinds = [e.get("title") or e.get("type") for e in disc]
+            return _cut(f"공시: {kinds[0]}", REASON_W)
+        return head or _trend_move(nm) or _cut(_sector_move(nm) or "", REASON_W) or None
 
     # 오늘의 포인트
     pts = []
@@ -341,10 +363,8 @@ def build(html, alerts_only=False):
                if r["w"] is not None and abs(r["w"]) >= SPIKE and r["last"] >= NOTABLE_BASE), None)
     if sp:
         pts.append(f"<b>{sp['stock']}</b> {sp['kw']} 트렌드 {sp['w']:+.0f}%")
-    if movers:
-        c, nm = movers[0]
-        rs = _why(nm)
-        pts.append(f"<b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
+    # 급변 1위는 여기 안 적는다 — 바로 아래 '전일 급변' 첫 줄과 똑같은 내용이라
+    # 같은 문장이 두 번 나오고, 이유까지 달면 줄이 넘쳐 줄바꿈이 깨진다.
 
     # ── 본문 ───────────────────────────────────────────────
     # 이모지는 섹션 머리에 1개씩만. 본문 줄에는 색(등락)만 쓴다.
@@ -361,7 +381,7 @@ def build(html, alerts_only=False):
             cat = _cat(rec, nm)
             rs = _why(nm)
             lines.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f"  <i>{cat}</i>" if cat else "")
-                         + (f"\n     {rs}" if rs else ""))
+                         + (f"\n    {rs}" if rs else ""))
         extra = f"\n<i>외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
         out.append(f"<b>📈 전일 급변</b> <i>(±{CHG_ALERT:.0f}%)</i>\n" + "\n".join(lines) + extra)
 
@@ -376,35 +396,43 @@ def build(html, alerts_only=False):
             key = (r["stock"], r["group"])
             if key != cur:
                 cur = key
-                blocks.append({"head": f"<b>{r['stock']}</b> · {r['group']}", "rows": []})
-            # 출처는 라벨에 붙인다 — <code> 안에서는 기울임이 안 먹는다.
-            src = f"({r['src']})" if r["src"] and r["src"] != "구글" else ""
+                blocks.append({"stock": r["stock"], "group": r["group"], "rows": []})
             # 얀덱스는 절대 검색수라 '주당 몇 건'을 그대로 쓴다. 나머지는 0~100 상대값.
-            lvl = (f"주당 {round(r['last'] / 100 * r['peak']):,}건"
+            lvl = (f"{round(r['last'] / 100 * r['peak']):,}건"
                    if r["peak"] else f"{r['last']:.0f}/100")
             blocks[-1]["rows"].append({
-                "label": r["kw"] + src,
+                "label": _cut(r["kw"], LABEL_W),
+                "src": r["src"] if r["src"] and r["src"] != "구글" else "",
                 "spark": _spark(r["s"]),
                 "lvl": lvl,
                 "wow": "" if r["w"] is None else f"{r['w']:+.0f}%",
-                "tail": f" · {abs(r['streak'])}주 연속" if abs(r["streak"]) >= STREAK_MIN else ""})
+                "tail": f" {abs(r['streak'])}주 연속" if abs(r["streak"]) >= STREAK_MIN else ""})
+
+        # 자리는 레터 전체에서 한 번만 잡는다.
+        # 그룹마다 따로 맞추면 그룹이 바뀔 때마다 막대 시작점이 밀려서,
+        # 겹쳐 보라고 넣은 스파크라인이 오히려 들쭉날쭉해 보인다.
+        rows = [x for b in blocks for x in b["rows"]]
+        lw = max(_w(x["label"]) for x in rows)
+        vw = max(_w(x["lvl"]) for x in rows)
+        ww = max(_w(x["wow"]) for x in rows)
 
         lines = []
         for b in blocks:
             if lines:
                 lines.append("")                       # 그룹 사이 한 줄 띄움
-            lines.append(b["head"])
-            # 막대가 같은 칸에서 시작해야 눈으로 겹쳐 볼 수 있다.
-            # 라벨은 왼쪽 정렬로 폭을 채우고, 수치는 오른쪽 정렬로 자릿수를 맞춘다.
-            # 한 줄 전체를 <code> 로 감싸야 고정폭이 적용된다(밖은 가변폭이라 어긋난다).
-            lw = max(_w(x["label"]) for x in b["rows"])
-            vw = max(_w(x["lvl"]) for x in b["rows"])
-            ww = max(_w(x["wow"]) for x in b["rows"])
+            # 그룹 안에서 출처가 하나면 머리에 적는다 — 줄마다 (네이버) 를 달면
+            # 라벨 칸이 그만큼 넓어져서 막대가 오른쪽으로 밀린다.
+            srcs = {x["src"] for x in b["rows"]}
+            one = srcs.pop() if len(srcs) == 1 else None
+            lines.append(f"<b>{b['stock']}</b> · {b['group']}"
+                         + (f" <i>{one}</i>" if one else ""))
             for x in b["rows"]:
-                lines.append("<code>" + _pad(x["label"], lw) + "  " + x["spark"]
-                             + "  " + _pad(x["lvl"], vw, True)
-                             + ("  " + _pad(x["wow"], ww, True) if ww else "")
-                             + "</code>" + x["tail"])
+                lab = x["label"] if one is not None else (
+                    _cut(f"{x['label']}({x['src']})", LABEL_W) if x["src"] else x["label"])
+                lines.append("<code>" + _pad(lab, lw) + " " + x["spark"]
+                             + " " + _pad(x["lvl"], vw, True)
+                             + (" " + _pad(x["wow"], ww, True) if ww else "")
+                             + x["tail"] + "</code>")
         out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
     # 임박 일정
