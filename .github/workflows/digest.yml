@@ -21,4 +21,9 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python digest.py ${{ github.event.inputs.mode == 'alerts' && '--alerts' || '' }} || echo "다이제스트 건너뜀"
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "alerts" ]; then
+            python digest.py --alerts
+          else
+            python digest.py
+          fi

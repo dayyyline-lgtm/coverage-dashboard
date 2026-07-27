@@ -229,7 +229,8 @@ def main():
         print("─" * 52); print(re.sub(r"<[^>]+>", "", msg)); print("─" * 52)
         print(f"(dry-run · {len(msg)}자)")
     else:
-        telegram_send.send(msg)
+        if not telegram_send.send(msg):
+            sys.exit(1)
 
 
 if __name__ == "__main__":

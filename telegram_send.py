@@ -7,7 +7,7 @@
 
 토큰이 없으면 조용히 아무것도 안 하고 False 를 돌려준다(수집 파이프라인을 막지 않게).
 """
-import os, json, urllib.request, urllib.parse, sys
+import os, json, urllib.request, urllib.parse, urllib.error, sys
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -28,24 +28,42 @@ def configured():
 
 def send(text, chat_id=None, parse_mode="HTML", silent=False):
     """텔레그램 sendMessage. 성공 True / 미설정·실패 False.
-       parse_mode=HTML 이라 <b> 굵게, <code> 등만 쓰면 된다(마크다운 이스케이프 지옥 회피)."""
+       실패하면 이유(API 에러 본문)를 로그로 남기고, HTML 파싱 실패면 평문으로 재시도한다."""
     cid = chat_id or CHAT_ID
-    if not (BOT_TOKEN and cid):
-        print("[telegram] 토큰/챗ID 미설정 — 전송 생략")
-        return False
+    if not BOT_TOKEN:
+        print("[telegram] BOT_TOKEN 미설정 — 전송 생략"); return False
+    if not cid:
+        print("[telegram] CHAT_ID 미설정 — 전송 생략"); return False
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = urllib.parse.urlencode({
-        "chat_id": cid, "text": text[:4096], "parse_mode": parse_mode,
-        "disable_web_page_preview": "true", "disable_notification": "true" if silent else "false",
-    }).encode()
-    try:
-        r = urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=20)
-        ok = json.loads(r.read()).get("ok", False)
-        print("[telegram] 전송", "성공" if ok else "실패")
-        return ok
-    except Exception as e:
-        print("[telegram] 전송 실패:", str(e)[:120])
-        return False
+
+    def _post(pm):
+        payload = {"chat_id": cid, "text": text[:4096], "disable_web_page_preview": "true"}
+        if pm:
+            payload["parse_mode"] = pm
+        if silent:
+            payload["disable_notification"] = "true"
+        data = urllib.parse.urlencode(payload).encode()
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=20)
+            return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "replace")
+            print(f"[telegram] HTTP {e.code}: {' '.join(body.split())[:220]}")
+            try:
+                return json.loads(body)
+            except Exception:
+                return {"ok": False}
+        except Exception as e:
+            print(f"[telegram] 오류: {str(e)[:150]}")
+            return {"ok": False}
+
+    res = _post(parse_mode)
+    if not res.get("ok") and parse_mode:          # HTML 파싱 오류 등 → 평문으로 재시도
+        print("[telegram] 재시도(평문)")
+        res = _post(None)
+    ok = bool(res.get("ok"))
+    print("[telegram] 전송", "성공" if ok else f"실패 {str(res)[:150]}")
+    return ok
 
 
 def get_chat_id():
