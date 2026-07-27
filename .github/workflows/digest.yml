@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "digest(전체) 또는 alerts(짧게)"
+        description: "digest(전체) · alerts(짧게) · dry(발송 없이 본문만 출력)"
         default: "digest"
 
 jobs:
@@ -22,8 +22,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          if [ "${{ github.event.inputs.mode }}" = "alerts" ]; then
-            python digest.py --alerts
-          else
-            python digest.py
-          fi
+          case "${{ github.event.inputs.mode }}" in
+            alerts) python digest.py --alerts ;;
+            # 발송 없이 본문만 로그에 찍는다. 정렬이 어긋날 때 실제로 나가는
+            # 문자열을 그대로 봐야 원인을 잡을 수 있다(눈으로 캡처만 보면 못 잡는다).
+            dry)    python digest.py --dry-run ;;
+            *)      python digest.py ;;
+          esac
