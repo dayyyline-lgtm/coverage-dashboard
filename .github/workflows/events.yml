@@ -22,10 +22,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      # (선택) ANTHROPIC_API_KEY 시크릿을 넣으면 급변 이유를 Claude 웹서치로 추론. 없으면 규칙기반으로 돈다.
-      - name: 의존성 설치(선택)
-        run: python -m pip install --quiet anthropic || echo "anthropic 미설치 - 규칙기반으로 진행"
-
       - name: DART 공시 수집
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -62,7 +58,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python digest.py || echo "데일리 레터 건너뜀"
 
       # 수출 데이터가 새 월로 갱신됐으면 그때 1번만(상태파일 trade_sent.json 로 중복 방지)

@@ -4,12 +4,12 @@
 (실적 서프라이즈=notify.py, 월간 수출=trade_digest.py 가 담당. 여긴 매일 요약.)
 
 원칙:
-  - 검색 트렌드: 소비재 브랜드/제품처럼 '검색=수요 선행'인 것 위주. 게임 국가별 자가정규화(0~100)
-    노이즈는 뺀다. '의미있게 움직인' 것만(전주비 기준 명시).
-  - 시세 급변(전일)엔 '왜 움직였나'를 준다. 실적발표면 실제치 vs consSnap 컨센을 계산해
-    상회/하회 × 주가방향으로 호실적반영/부진/셀온/악재선반영까지 판정(_surprise).
-    발표 전이면 관련 뉴스 헤드라인. ANTHROPIC_API_KEY 를 넣으면 Claude(웹서치)로 추론
-    (analyze.py)하지만, 안 넣어도 규칙기반으로 조용히 돈다.
+  - 트렌드 데이터: TRACK 이 정한 계열만. 고정(pin) 은 매일, 나머지는 의미있게 움직였을 때만.
+    같은 (종목, 그룹) 은 한 블록으로 묶어 서로 비교되게 찍는다.
+  - 시세 급변(전일)엔 '왜 움직였나'를 준다. 근거가 센 순서로:
+    실적발표(실제치 vs consSnap 컨센 → 상회/하회 × 주가방향으로 호실적반영/부진/셀온/
+    악재선반영 판정, _surprise) > 그 밖의 공시 > 뉴스 헤드라인 > 트렌드 동반 > 섹터 전반.
+    외부 API 는 쓰지 않는다. 근거가 하나도 없으면 아무 말도 붙이지 않는다(지어내지 않는다).
   - 카테고리: 소비재는 세부(화장품/미용/음식료/유통), 엔터·게임·호텔은 섹터.
   - 방향은 ▲(상승, 한국식 빨강)·▼(하락) 로.
 
@@ -19,28 +19,44 @@
 """
 import re, json, sys, datetime
 import telegram_send
-import analyze
+
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 CHG_ALERT = 5.0
 EVENT_DAYS = 7
 NOTABLE_WOW = 15      # 트렌드 '의미있는' 전주비(%)
-NOTABLE_BASE = 15     # 검색량 기저(이 미만은 노이즈)
+NOTABLE_BASE = 15     # 트렌드 기저(이 미만은 노이즈)
 SPIKE = 30            # 급등/급락 태그
 STREAK_MIN = 4        # 연속추세 태그(주)
 BLK = "▁▂▃▄▅▆▇█"
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 
-# 검색이 실적 선행지표인 '내 종목 단일 키워드'만. (아이온2·티니핑 국가별은 노이즈라 데일리 제외)
+# 레터에 올릴 계열 — (종목, 트렌드 그룹, 계열, 고정)
+#   고정=True  : 움직임과 무관하게 매일 싣는다(매일 보고 싶다고 지정한 것)
+#   고정=False : '의미있게 움직였을 때'만 (NOTABLE_WOW / STREAK_MIN)
+# 연속으로 같은 (종목, 그룹) 이면 한 블록으로 묶여 서로 비교되게 찍힌다.
+#
+# 뺀 것: 배틀그라운드(크래프톤)·니케(시프트업).
+#   둘 다 수년째 서비스 중이라 검색이 평탄하고, 움직여도 업데이트/이벤트라
+#   실적 방향과 이어지지 않는다. 매일 볼 값이 아니다.
 TRACK = [
-    ("파마리서치", "스킨부스터", "리쥬란"),
-    ("에이피알", "K-뷰티 브랜드", "메디큐브"),
-    ("달바글로벌", "K-뷰티 브랜드", "달바"),
-    ("리센스메디컬", "쿨로아600", "쿨로아600"),
-    ("크래프톤", "배틀그라운드(크래프톤)", "배틀그라운드"),
-    ("펄어비스", "펄어비스 IP", "붉은사막"),
-    ("시프트업", "시프트업 IP", "니케"),
+    # 스킨부스터 3파전 — 리쥬란 단독으로 보면 '리쥬란이 빠진 건지 카테고리가
+    # 빠진 건지'를 못 가른다. 경쟁 IP 와 나란히 놔야 점유 변화가 읽힌다.
+    ("파마리서치", "스킨부스터", "리쥬란",   True),
+    ("파마리서치", "스킨부스터", "리투오",   True),
+    ("파마리서치", "스킨부스터", "셀르디엠", True),
+    ("에이피알",   "K-뷰티 브랜드", "메디큐브", False),
+    ("달바글로벌", "K-뷰티 브랜드", "달바",     False),
+    ("리센스메디컬", "쿨로아600", "쿨로아600",  False),
+    # 티니핑 국내(네이버) — 극장판 2편 개봉(8/5) 앞이라 홈마켓 관심이 곧 예매로 이어진다
+    ("SAMG엔터", "티니핑 국가별", "한국", True),
+    # 메탈카드봇 러시아(얀덱스) — 얀덱스는 절대 검색수를 줘서 크기 비교가 되는 유일한 소스
+    ("SAMG엔터", "변신로봇 IP 러시아", "메탈카드봇", True),
+    ("펄어비스", "펄어비스 IP", "붉은사막", False),
+    # NC 신작(2026 하반기) — 일본 타깃 서브컬처라 일본 검색이 본 신호
+    ("NC", "아스트라에 오라티오", "한국",       False),
+    ("NC", "아스트라에 오라티오", "일본(약칭)", False),
 ]
 
 
@@ -96,20 +112,32 @@ def _series(gobj, kw):
 
 
 def _notable(tr):
-    """의미있게 움직인 트렌드만 (전주비 큰/연속추세). (종목, 키워드, 시계열, wow, streak)."""
+    """레터에 실을 계열. dict 리스트로 돌려준다.
+       고정(pin)은 무조건, 나머지는 의미있게 움직였을 때만.
+       순서는 TRACK 순서를 유지한다 — 같은 그룹끼리 붙어 있어야 비교로 읽힌다."""
     groups = tr.get("groups") or {}
     rows = []
-    for stock, gname, kw in TRACK:
+    for stock, gname, kw, pin in TRACK:
         g = groups.get(gname)
         s = _series(g, kw) if g else None
         if not s:
             continue
         last, w, st = _last(s), _wow(s), _streak(s)
-        if last is None or last < NOTABLE_BASE:
+        if last is None:
             continue
-        if (w is not None and abs(w) >= NOTABLE_WOW) or abs(st) >= STREAK_MIN:
-            rows.append((stock, kw, s, w, st))
-    rows.sort(key=lambda r: abs(r[3] or 0), reverse=True)
+        if not pin:
+            if last < NOTABLE_BASE:
+                continue
+            if not ((w is not None and abs(w) >= NOTABLE_WOW) or abs(st) >= STREAK_MIN):
+                continue
+        rows.append({"stock": stock, "group": gname, "kw": kw, "s": s,
+                     "w": w, "streak": st, "pin": pin, "last": last,
+                     # 얀덱스 그룹만 절대 검색수를 준다(peak=100 에 해당하는 실제 건수).
+                     # 0~100 상대값끼리 크기를 비교하면 거짓말이 되므로 이때만 실수치를 쓴다.
+                     "peak": (g or {}).get("peak"),
+                     "src": ((g or {}).get("srcOf") or [None] * 99)[
+                         ((g or {}).get("products") or []).index(kw)
+                         if kw in ((g or {}).get("products") or []) else 0]})
     return rows
 
 
@@ -148,39 +176,6 @@ def _news(items, name, cut):
     cand.sort(key=lambda x: x.get("d", ""), reverse=True)
     t = cand[0]["t"]
     return t[:36] + "…" if len(t) > 37 else t
-
-
-def _news_all(items, name, cut, k=4):
-    """LLM 근거용 — 창 내 관련 헤드라인 여러 개(최신순)."""
-    cand = [x for x in items if _match(x, name) and x.get("d", "")[:10] >= cut]
-    cand.sort(key=lambda x: x.get("d", ""), reverse=True)
-    return " / ".join(f"({x['d'][5:10]}) {x['t']}" for x in cand[:k]) if cand else ""
-
-
-def _disc(evs, name, cut, today):
-    """LLM 근거용 — 창 내(직전 영업일~오늘) 이 종목 공시/실적 일정."""
-    lo, hi = cut, today.isoformat()
-    ds = [e for e in evs if e.get("co") == name and lo <= e.get("date", "") <= hi]
-    ds.sort(key=lambda e: e.get("date", ""), reverse=True)
-    out = [f"{e['date']} [{'실적' if e.get('type') == 'earn' else 'IR/공시'}] {e.get('title', '')}"
-           for e in ds[:4]]
-    return " / ".join(out)
-
-
-def _cons(live, name):
-    """LLM 근거용 — 컨센 스냅샷(당분기 매출·영익)과 밸류에이션. 실적 재료 해석에 쓴다."""
-    s = (live.get("stocks") or {}).get(name) or {}
-    snap = (live.get("consSnap") or {}).get(name) or {}
-    parts = []
-    if snap:
-        q, v = sorted(snap.items())[-1]
-        parts.append(f"{q[:4]}.{q[4:]} 컨센 매출 {v.get('rev')}십억·영익 {v.get('op')}십억")
-    if s.get("price") and s.get("consTarget"):
-        up = (s["consTarget"] / s["price"] - 1) * 100
-        parts.append(f"현재가 {s['price']:,.0f}·컨센목표 {s['consTarget']:,.0f}({up:+.0f}%)")
-    if s.get("cnsPer"):
-        parts.append(f"12MF PER {s['cnsPer']:.1f}배")
-    return " · ".join(parts)
 
 
 _QLAST = {3: 31, 6: 30, 9: 30, 12: 31}
@@ -276,32 +271,51 @@ def build(html, alerts_only=False):
                     key=lambda x: -abs(x[0]))
     notable = _notable(tr)
 
-    # 급변 종목 '왜' 추론 — 공시·컨센·뉴스를 근거로 Claude(웹서치)가 한 줄. 상위 6종목만.
-    # API 미설정/실패면 reasons 는 비고, _why() 가 뉴스 헤드라인으로 폴백한다.
-    reasons = {}
-    if not alerts_only and analyze.available():
-        for c, nm in movers[:6]:
-            reasons[nm] = analyze.reason(
-                nm, c, _cat(rec, nm), today.isoformat(),
-                _disc(evs, nm, news_cut, today), _cons(live, nm),
-                _news_all(nitems, nm, news_cut))
-
     chg_of = {nm: c for c, nm in movers}
 
-    def _rule_why(nm):
-        """키 없이 도는 규칙기반 이유. 실적발표면 '컨센 대비 상회/하회 × 주가방향'으로
-           호실적반영/부진/셀온/악재선반영까지 판정(_surprise). 발표 전이면 헤드라인."""
+    # 같은 카테고리가 통째로 움직였는지 — 개별 재료가 없을 때의 기본 설명.
+    # 종목 뉴스가 없다고 '이유 없음'으로 두면, 실은 섹터 전반이 움직인 날을 놓친다.
+    def _sector_move(nm):
+        cat = _cat(rec, nm)
+        if not cat:
+            return None
+        peers = [n for n, r in rec.items() if _cat(rec, n) == cat and n != nm]
+        chgs = [(live.get("stocks") or {}).get(n, {}).get("chgPct") for n in peers]
+        chgs = [c for c in chgs if c is not None]
+        if len(chgs) < 3:
+            return None
+        me = chg_of.get(nm, 0)
+        same = [c for c in chgs if (c > 0) == (me > 0) and abs(c) >= 1.5]
+        if len(same) < len(chgs) * 0.6:
+            return None
+        return f"{cat} 섹터 전반 {'강세' if me > 0 else '약세'}(동반 {len(same)}/{len(chgs)}종목)"
+
+    # 그 종목의 트렌드가 같은 방향으로 튀었는지 — 수요 쪽 근거가 되는 유일한 자체 데이터
+    def _trend_move(nm):
+        for r in notable:
+            if r["stock"] != nm or r["w"] is None or abs(r["w"]) < SPIKE:
+                continue
+            if (r["w"] > 0) == (chg_of.get(nm, 0) > 0):
+                return f"{r['kw']} 트렌드 전주비 {r['w']:+.0f}% 동반"
+        return None
+
+    def _why(nm):
+        """키 없이 도는 규칙기반 이유. 근거가 센 순서로 본다.
+           실적 > 그 밖의 공시 > 뉴스 헤드라인 > 트렌드 동반 > 섹터 전반.
+           (예전엔 Claude API 로 추론했으나 키를 쓰지 않기로 해서 규칙만 남겼다.
+            지어내지 않는 게 원칙이라, 아무 근거도 없으면 아무 말도 붙이지 않는다.)"""
+        disc = [e for e in evs if e.get("co") == nm
+                and news_cut <= e.get("date", "") <= today.isoformat()]
         head = _news(nitems, nm, news_cut)
-        disc = [e for e in evs if e.get("co") == nm and news_cut <= e.get("date", "") <= today.isoformat()]
         if any(e.get("type") == "earn" for e in disc):
             sur = _surprise(live, nm, chg_of.get(nm, 0), today)
             if sur:
                 return sur                                   # 실제치 vs 컨센이 잡히면 그 해석이 이유
             return f"실적발표 · {head}" if head else "실적발표"  # 발표됐지만 실제치 아직(데이터 랙)
-        return head
-
-    def _why(nm):
-        return reasons.get(nm) or _rule_why(nm)
+        if disc:                                             # 실적 외 공시(IR·계약 등)
+            kinds = {e.get("title") or e.get("type") for e in disc}
+            return f"공시: {list(kinds)[0]}" + (f" · {head}" if head else "")
+        return head or _trend_move(nm) or _sector_move(nm)
 
     # 오늘의 포인트
     pts = []
@@ -309,10 +323,11 @@ def build(html, alerts_only=False):
               and (datetime.date.fromisoformat(x["date"]) - today).days <= 1][:2]:
         dd = (datetime.date.fromisoformat(e["date"]) - today).days
         pts.append(f"📊 {'오늘' if not dd else '내일'} <b>{e['co']}</b> 실적발표")
-    sp = next((r for r in notable if r[3] is not None and abs(r[3]) >= SPIKE), None)
+    sp = next((r for r in notable
+               if r["w"] is not None and abs(r["w"]) >= SPIKE and r["last"] >= NOTABLE_BASE), None)
     if sp:
-        st, kw, s, w, _s = sp
-        pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: <b>{st}</b> {kw} 전주비 {w:+.0f}%")
+        pts.append(f"{'🔥' if sp['w'] > 0 else '❄️'} 트렌드 {'급등' if sp['w'] > 0 else '급락'}: "
+                   f"<b>{sp['stock']}</b> {sp['kw']} 전주비 {sp['w']:+.0f}%")
     if movers:
         c, nm = movers[0]
         rs = _why(nm)
@@ -322,19 +337,30 @@ def build(html, alerts_only=False):
     if pts:
         out.append("<b>〈오늘의 포인트〉</b>\n" + "\n".join("• " + p for p in pts))
 
-    # 검색 트렌드 — 의미있게 움직인 것만(전주비), 최근 10주 추이
+    # 트렌드 데이터 — 고정 계열은 매일, 나머지는 의미있게 움직였을 때만. 최근 10주 추이.
+    # (종목, 그룹)이 같으면 한 블록으로 묶는다 — 리쥬란/리투오/셀르디엠처럼
+    #  나란히 놓여야 '누가 뺏겼나'가 보이는 것들이 있다.
     if not alerts_only and notable:
-        lines = []
-        for st, kw, s, w, streak in notable[:5]:
+        lines, cur = [], None
+        for r in notable:
+            key = (r["stock"], r["group"])
+            if key != cur:
+                cur = key
+                lines.append(f"▸ <b>{r['stock']}</b> · {r['group']}")
             tag = []
-            if w is not None and abs(w) >= SPIKE:
-                tag.append("🔥급등" if w > 0 else "❄️급락")
-            if abs(streak) >= STREAK_MIN:
-                tag.append(f"{'↗' if streak > 0 else '↘'}{abs(streak)}주")
+            if r["w"] is not None and abs(r["w"]) >= SPIKE:
+                tag.append("🔥급등" if r["w"] > 0 else "❄️급락")
+            if abs(r["streak"]) >= STREAK_MIN:
+                tag.append(f"{'↗' if r['streak'] > 0 else '↘'}{abs(r['streak'])}주")
             tg = (" " + "·".join(tag)) if tag else ""
-            wtxt = "" if w is None else f" 전주비 {w:+.0f}%"
-            lines.append(f"· <b>{st}</b> {kw} <code>{_spark(s)}</code>{wtxt}{tg}")
-        out.append("<b>📊 검색 트렌드</b> <i>(수요 선행 · 전주비, 최근 10주)</i>\n" + "\n".join(lines))
+            wtxt = "" if r["w"] is None else f" {r['w']:+.0f}%"
+            # 얀덱스는 절대 검색수라 '주당 몇 건'을 그대로 쓴다. 나머지는 0~100 상대값.
+            lvl = (f" 주당 {round(r['last'] / 100 * r['peak']):,}건"
+                   if r["peak"] else f" {r['last']:.0f}/100")
+            src = f" <i>({r['src']})</i>" if r["src"] and r["src"] != "구글" else ""
+            lines.append(f"  · {r['kw']}{src} <code>{_spark(r['s'])}</code>{lvl}{wtxt}{tg}")
+        out.append("<b>📊 트렌드 데이터</b> <i>(수요 선행 · 전주비, 최근 10주)</i>\n"
+                   + "\n".join(lines))
 
     # 임박 일정
     if soon:
