@@ -93,6 +93,8 @@ GROUPS = {
     # 중국은 구글이 차단돼 데이터가 거의 없음(참고). 유럽은 데이터가 가장 많은 영국 기준.
     "티니핑 국가별": {
         "geos": [
+            # 한국은 홈마켓 — 네이버 데이터랩(국내 검색 실신호). 각국 자체 0~100이라 추이 비교용.
+            {"label": "한국",      "geo": "KR", "kw": "티니핑", "src": "naver"},
             {"label": "미국",      "geo": "US", "kw": "Teenieping"},
             # ティーニーピン(장음 표기)은 검색량 0. 현지에선 ティニピン 으로 줄여 쓴다.
             {"label": "일본",      "geo": "JP", "kw": "ティニピン"},
@@ -327,6 +329,19 @@ def fetch_google_geos(geos, freq="week", n=52):
                 print(f"    {spec['label']}: 얀덱스 실패({e}) - 건너뜀")
             series.append(None)
             continue
+        if spec.get("src") == "naver":       # 한국은 네이버 데이터랩(국내 검색 실신호)
+            try:
+                nv, lb = fetch_naver([spec["kw"]], freq, n)
+                if nv and nv[0]:
+                    series.append(nv[0])
+                    if labels is None:
+                        labels = lb
+                    continue
+                print(f"    {spec['label']}: 네이버 값 없음 - 건너뜀")
+            except Exception as e:
+                print(f"    {spec['label']}: 네이버 실패({str(e)[:60]}) - 건너뜀")
+            series.append(None)
+            continue
         try:
             df = _google_df([spec["kw"]], spec["geo"], freq)
         except Exception as e:
@@ -467,8 +482,8 @@ def main():
                  # 복사해 둬서 화면에서 '네이버'를 눌러도 구글 값이 나왔다.
                  # only 를 달아 두면 화면에서 출처 전환 버튼 자체를 감춘다.
                  "only": "google",
-                 # 계열별 실제 출처 — 러시아는 얀덱스라 '구글'로 뭉뚱그리면 거짓말이 된다
-                 "srcOf": ["얀덱스" if x.get("src") == "yandex" else "구글"
+                 # 계열별 실제 출처 — 러시아=얀덱스, 한국=네이버. '구글'로 뭉뚱그리면 거짓말이 된다
+                 "srcOf": [{"yandex": "얀덱스", "naver": "네이버"}.get(x.get("src"), "구글")
                            for x in spec["geos"]]}
             try:
                 g["google"], g["months"] = fetch_google_geos(spec["geos"], freq=freq, n=n)
