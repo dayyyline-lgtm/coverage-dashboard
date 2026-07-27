@@ -142,8 +142,10 @@ def _notable(tr):
 
 
 def _arw(c):
-    """등락 방향 — 한국식 색(상승 빨강·하락 파랑). 텔레그램은 이모지로만 색이 되므로 네모+삼각형."""
-    return "🟥▲" if c > 0 else "🟦▼"
+    """등락 방향 — 한국식 색(상승 빨강·하락 파랑).
+       텔레그램은 이모지로만 색을 낼 수 있다. 예전엔 네모+삼각형을 겹쳐 썼는데
+       기호가 둘이라 지저분했다. 부호(+/-)가 이미 방향을 말하므로 색 하나면 충분하다."""
+    return "🔴" if c > 0 else "🔵"
 
 
 def _cat(rec, name):
@@ -326,16 +328,30 @@ def build(html, alerts_only=False):
     sp = next((r for r in notable
                if r["w"] is not None and abs(r["w"]) >= SPIKE and r["last"] >= NOTABLE_BASE), None)
     if sp:
-        pts.append(f"{'🔥' if sp['w'] > 0 else '❄️'} 트렌드 {'급등' if sp['w'] > 0 else '급락'}: "
-                   f"<b>{sp['stock']}</b> {sp['kw']} 전주비 {sp['w']:+.0f}%")
+        pts.append(f"{sp['stock']} {sp['kw']} 트렌드 {sp['w']:+.0f}%")
     if movers:
         c, nm = movers[0]
         rs = _why(nm)
-        pts.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
+        pts.append(f"{nm} {c:+.1f}%" + (f" — {rs}" if rs else ""))
 
+    # ── 본문 ───────────────────────────────────────────────
+    # 이모지는 섹션 머리에 1개씩만. 본문 줄에는 색(등락)만 쓴다.
+    # 예전엔 줄마다 🟥▲ / 🔥급등 / ↗4주 가 겹쳐 붙어 읽는 데 방해가 됐다.
+    # 부호와 숫자가 이미 방향·세기를 말하므로 기호를 더 얹지 않는다.
     out = []
     if pts:
-        out.append("<b>〈오늘의 포인트〉</b>\n" + "\n".join("• " + p for p in pts))
+        out.append("<b>오늘의 포인트</b>\n" + "\n".join("• " + p for p in pts))
+
+    # 전일 시세 급변 — 가장 먼저. 오늘 당장 대응할 게 있다면 여기다.
+    if movers:
+        lines = []
+        for c, nm in movers[:6]:
+            cat = _cat(rec, nm)
+            rs = _why(nm)
+            lines.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f"  <i>{cat}</i>" if cat else "")
+                         + (f"\n     {rs}" if rs else ""))
+        extra = f"\n<i>외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
+        out.append(f"<b>📈 전일 급변</b> <i>(±{CHG_ALERT:.0f}%)</i>\n" + "\n".join(lines) + extra)
 
     # 트렌드 데이터 — 고정 계열은 매일, 나머지는 의미있게 움직였을 때만. 최근 10주 추이.
     # (종목, 그룹)이 같으면 한 블록으로 묶는다 — 리쥬란/리투오/셀르디엠처럼
@@ -346,57 +362,49 @@ def build(html, alerts_only=False):
             key = (r["stock"], r["group"])
             if key != cur:
                 cur = key
-                lines.append(f"▸ <b>{r['stock']}</b> · {r['group']}")
-            tag = []
-            if r["w"] is not None and abs(r["w"]) >= SPIKE:
-                tag.append("🔥급등" if r["w"] > 0 else "❄️급락")
-            if abs(r["streak"]) >= STREAK_MIN:
-                tag.append(f"{'↗' if r['streak'] > 0 else '↘'}{abs(r['streak'])}주")
-            tg = (" " + "·".join(tag)) if tag else ""
-            wtxt = "" if r["w"] is None else f" {r['w']:+.0f}%"
+                if lines:
+                    lines.append("")                  # 그룹 사이 한 줄 띄움
+                lines.append(f"<b>{r['stock']}</b> · {r['group']}")
             # 얀덱스는 절대 검색수라 '주당 몇 건'을 그대로 쓴다. 나머지는 0~100 상대값.
-            lvl = (f" 주당 {round(r['last'] / 100 * r['peak']):,}건"
-                   if r["peak"] else f" {r['last']:.0f}/100")
-            src = f" <i>({r['src']})</i>" if r["src"] and r["src"] != "구글" else ""
-            lines.append(f"  · {r['kw']}{src} <code>{_spark(r['s'])}</code>{lvl}{wtxt}{tg}")
-        out.append("<b>📊 트렌드 데이터</b> <i>(수요 선행 · 전주비, 최근 10주)</i>\n"
-                   + "\n".join(lines))
+            lvl = (f"주당 {round(r['last'] / 100 * r['peak']):,}건"
+                   if r["peak"] else f"{r['last']:.0f}/100")
+            bits = [lvl]
+            if r["w"] is not None:
+                bits.append(f"{r['w']:+.0f}%")
+            if abs(r["streak"]) >= STREAK_MIN:
+                bits.append(f"{abs(r['streak'])}주 연속")
+            src = f" <i>{r['src']}</i>" if r["src"] and r["src"] != "구글" else ""
+            lines.append(f"     {r['kw']}{src}  <code>{_spark(r['s'])}</code>  " + " · ".join(bits))
+        out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:
         lines = []
         for e in soon[:6]:
             dd = (datetime.date.fromisoformat(e["date"]) - today).days
-            tag = "📊실적" if e["type"] == "earn" else "🎤IR"
-            lines.append(f"· {e['date'][5:]} {'오늘' if not dd else 'D-'+str(dd)} {tag} <b>{e['co']}</b>")
+            lines.append(f"     {e['date'][5:]}  {'오늘' if not dd else 'D-'+str(dd)}  "
+                         f"{'실적' if e['type'] == 'earn' else 'IR'}  <b>{e['co']}</b>")
         out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
 
-    # 전일 시세 급변 — 카테고리 + 관련 뉴스(이유)
-    if movers:
+    # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
+    bk = [(nm, p) for nm, p in (mv.get("booking") or {}).items() if p]
+    if bk:
         lines = []
-        for c, nm in movers[:6]:
-            cat = _cat(rec, nm)
-            rs = _why(nm)
-            base = f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f" <i>{cat}</i>" if cat else "")
-            lines.append(base + (f"\n   └ {rs}" if rs else ""))
-        extra = f"\n<i>…외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
-        out.append(f"<b>📈 전일 시세 급변 (±{CHG_ALERT:.0f}%+)</b>\n" + "\n".join(lines) + extra)
-
-    # 예매
-    for nm, ptsB in (mv.get("booking") or {}).items():
-        if not ptsB:
-            continue
-        p, prev = ptsB[-1], (ptsB[-2] if len(ptsB) > 1 else None)
-        dr = f" ({p['rate']-prev['rate']:+.1f}%p)" if prev else " (수집 시작)"
-        out.append(f"<b>🎬 {nm.split(':')[0]}</b> · 예매율 <b>{p['rate']}%</b>{dr} · 예매 {p['book']:,}명")
+        for nm, ptsB in bk:
+            p, prv = ptsB[-1], (ptsB[-2] if len(ptsB) > 1 else None)
+            dr = f" ({p['rate']-prv['rate']:+.1f}%p)" if prv else " (수집 시작)"
+            lines.append(f"     <b>{nm.split(':')[0]}</b>  예매율 {p['rate']}%{dr}  "
+                         f"예매 {p['book']:,}명")
+        out.append("<b>🎬 예매</b>\n" + "\n".join(lines))
 
     if alerts_only:
-        keep = [b for b in out if not b.startswith("<b>📊 검색")]
-        head = f"⏰ <b>커버리지 알림</b> · {today:%m/%d}({WD[today.weekday()]})"
+        keep = [b for b in out if not b.startswith("<b>📊")]
+        head = f"<b>커버리지 알림</b> · {today:%m/%d}({WD[today.weekday()]})"
         return (head + "\n\n" + "\n\n".join(keep)) if keep else ""
 
-    head = f"🗞 <b>커버리지 데일리</b> · {today:%m/%d}({WD[today.weekday()]})"
-    return head + "\n\n" + ("\n\n".join(out) if out else "특이사항 없음.") + "\n\n<i>coverage-dashboard.pages.dev</i>"
+    head = f"<b>커버리지 데일리</b> · {today:%m/%d}({WD[today.weekday()]})"
+    return (head + "\n\n" + ("\n\n".join(out) if out else "특이사항 없음.")
+            + "\n\n<i>coverage-dashboard.pages.dev</i>")
 
 
 def main():

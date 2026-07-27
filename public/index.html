@@ -2498,7 +2498,13 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     borders.push('<border>'+e("left",b.l)+e("right",b.r)+e("top",b.t)+e("bottom",b.bo)+'<diagonal/></border>');
     return (bIdx[key]=borders.length-1);
   }
-  const NF={g:0,n1:164,n0:3,nd:165,dt:166,pct:167,mult:168};
+  /* pct = 엑셀의 진짜 백분율 서식(0.0%).
+     예전엔 0.0"%" — 숫자 뒤에 % 글자만 붙인 가짜였다. 보기엔 똑같이 "35.6%" 지만
+     셀 값이 35.6 이라, 그 칸으로 수식을 걸면 100배 틀린 답이 나오고
+     수식 입력줄에 35.625913591223515 가 떠서 화면 표시와 어긋났다.
+     이제 값을 0.356 으로 넣고 서식이 %를 만든다 — 표시는 같고 계산이 맞는다. */
+  const NF={g:0,n1:164,n0:3,nd:165,dt:166,pct:169,mult:168};
+  const PCT_SCALE=0.01;                     // pct 열 값 변환 계수 (35.6 -> 0.356)
   const xfs=[],xfIdx={};
   function ST(o){
     o=o||{};
@@ -2514,7 +2520,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
   const styleXml=()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<numFmts count="5"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/><numFmt numFmtId="167" formatCode="0.0&quot;%&quot;"/><numFmt numFmtId="168" formatCode="0.0&quot;x&quot;"/></numFmts>'
+    +'<numFmts count="5"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/><numFmt numFmtId="169" formatCode="0.0%"/><numFmt numFmtId="168" formatCode="0.0&quot;x&quot;"/></numFmts>'
     +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
@@ -2534,9 +2540,11 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   /* ---------- 데이터 막대 설정 ----------
      min~max 구간이 막대 0~100% 길이. 값이 음수인 열은 축이 오른쪽에 서고
      막대가 왼쪽으로 자라므로 neg 계열 색을 같이 지정한다. */
-  const BAR_EPS ={min:0,   max:200, fill:"FFAFC9E8", line:"FF5B8FD4", neg:"FFF4B8B8", negLine:"FFD46A6A"};  // 0~200%
-  const BAR_DOWN={min:-60, max:0,   fill:"FFB9CFEA", line:"FF4A7EBB", neg:"FFB9CFEA", negLine:"FF4A7EBB"};  // 낙폭 : 파란 막대
-  const BAR_UP  ={min:0,   max:150, fill:"FFF3B9B9", line:"FFC0504D", neg:"FFF3B9B9", negLine:"FFC0504D"};  // 반등 : 빨간 막대
+  // 막대가 걸리는 열은 전부 pct 서식이라, 셀 값이 소수(0.35=35%)다.
+  // min/max 도 같은 단위여야 한다 — 200 으로 두면 막대가 영원히 안 찬다.
+  const BAR_EPS ={min:0,    max:2,   fill:"FFAFC9E8", line:"FF5B8FD4", neg:"FFF4B8B8", negLine:"FFD46A6A"};  // 0~200%
+  const BAR_DOWN={min:-0.6, max:0,   fill:"FFB9CFEA", line:"FF4A7EBB", neg:"FFB9CFEA", negLine:"FF4A7EBB"};  // 낙폭 : 파란 막대
+  const BAR_UP  ={min:0,    max:1.5, fill:"FFF3B9B9", line:"FFC0504D", neg:"FFF3B9B9", negLine:"FFC0504D"};  // 반등 : 빨간 막대
 
   /* ---------- 컬럼 (D열부터) ---------- */
   const FULL={Top:"Top pick","2nd":"2nd pick",Beta:"Beta pick"};
@@ -2649,6 +2657,9 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
         const st=ST({nf:c.nf,fill:(c.fill?c.fill(r):null),center:1,bd:bd});
         let v=c.get(r,idx);
         if(v===null||v===undefined||(typeof v==="number"&&!isFinite(v))) v="";
+        // 백분율 열은 엑셀 규약대로 소수로 넣는다(35.6 -> 0.356). 서식이 %를 붙인다.
+        // 조건부 서식(fill/bar)은 위에서 원본 값으로 이미 계산했으니 순서를 바꾸면 안 된다.
+        if(c.nf==="pct"&&typeof v==="number") v*=PCT_SCALE;
         put(ri,OFF+i,{v:v, s:st});
       });
     });
