@@ -34,7 +34,7 @@ SPIKE = 30            # 급등/급락 태그
 STREAK_MIN = 4        # 연속추세 태그(주)
 # 폭(표시 칸 수). 텔레그램은 줄이 넘치면 다음 줄을 왼쪽 끝에 붙여 버려서
 # 들여쓴 이유 줄이 두 줄이 되는 순간 모양이 무너진다. 애초에 안 넘치게 자른다.
-REASON_W = 32         # 급변 이유 한 줄(들여쓰기 4칸 + 32 = 모바일 한 줄에 들어감)
+REASON_W = 36         # 급변 이유 한 줄(들여쓰기 4 + 아이콘 2 + 36 = 모바일 한 줄에 들어감)
 LABEL_W = 12          # 트렌드 계열 이름 칸 (넘치면 자른다)
 MOVERS_MAX = 5        # 급변 목록에 적을 종목 수. 더 늘리면 훑는 눈이 지친다
 BLK = "▁▂▃▄▅▆▇█"
@@ -435,7 +435,7 @@ def build(html, alerts_only=False):
         same = [c for c in chgs if (c > 0) == (me > 0) and abs(c) >= 1.5]
         if len(same) < len(chgs) * 0.6:
             return None
-        return f"{cat} 섹터 전반 {'강세' if me > 0 else '약세'}(동반 {len(same)}/{len(chgs)}종목)"
+        return f"{cat} 업종 동반 {'강세' if me > 0 else '약세'} ({len(same)}/{len(chgs)}종목)"
 
     # 그 종목의 트렌드가 같은 방향으로 튀었는지 — 수요 쪽 근거가 되는 유일한 자체 데이터
     def _trend_move(nm):
@@ -460,8 +460,8 @@ def build(html, alerts_only=False):
             sur = _surprise(live, nm, chg_of.get(nm, 0), today)
             if sur:
                 return "📊 " + _cut(sur, REASON_W)           # 실제치 vs 컨센이 잡히면 그 해석이 이유
-            # head 에는 _gist 가 이미 아이콘을 붙여 놨다. 앞에 📊 를 또 달면 아이콘이 겹친다.
-            return "📊 실적발표" if not head else f"📊 실적발표 {head}"
+            # head 에는 _gist 가 아이콘을 붙여 놨다. 여기선 📊 하나로 충분하니 떼어 낸다.
+            return "📊 실적발표" if not head else "📊 실적발표 · " + head.split(" ", 1)[-1]
         if disc:                                             # 실적 외 공시(IR·계약 등)
             return "📄 " + _cut(disc[0].get("title") or "공시", REASON_W)
         if head:
