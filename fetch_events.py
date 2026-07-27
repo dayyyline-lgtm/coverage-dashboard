@@ -35,6 +35,18 @@ except ImportError:
     DART_API_KEY = ""
 DART_API_KEY = os.environ.get("DART_API_KEY", DART_API_KEY)
 
+def _is_earn_title(t):
+    """기업설명회(IR) 제목이 '분기 실적발표'인가. 일반 IR(설명·Q&A·리뷰)과 구분.
+       - '잠정'/'실적발표' 는 확정 실적 공시 → earn
+       - 특정 'N분기' + '경영실적/실적 발표' → 실적 콜 → earn
+       - '리뷰', 분기 없는 '경영실적 설명·Q&A', '사업/영업실적 설명' 등은 일반 IR → ir """
+    if "리뷰" in t:
+        return False
+    if "잠정" in t or "실적발표" in t:
+        return True
+    return bool(re.search(r"\d\s*분기", t)) and ("경영실적" in t or "실적 발표" in t)
+
+
 # 캘린더에 넣을 공시 (키워드 -> 표시타입)
 INCLUDE = [
     (("기업설명회",), "ir"),
@@ -166,8 +178,9 @@ def main():
                 if dt2:
                     date = dt2
                 title = t2 or "기업설명회(IR)"
-                # IR 중에서도 '실적발표'인지 '일반 IR/컨퍼런스'인지 구분
-                ty = "earn" if any(k in title for k in ("실적", "잠정", "경영성과")) else "ir"
+                # IR 중 '분기 실적발표'만 earn. '경영실적 설명·Q&A·리뷰' 등 일반 IR/NDR 은 ir.
+                #   (제목에 '실적'만 들어가도 승격시키던 탓에 IR 설명회가 실적발표로 오분류됐다)
+                ty = "earn" if _is_earn_title(title) else "ir"
                 time.sleep(0.12)
             elif ty == "corp":
                 if "배당" in clean:
