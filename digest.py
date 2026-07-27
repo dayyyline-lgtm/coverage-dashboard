@@ -25,7 +25,6 @@ NOTABLE_WOW = 15      # 트렌드 '의미있는' 전주비(%)
 NOTABLE_BASE = 15     # 검색량 기저(이 미만은 노이즈)
 SPIKE = 30            # 급등/급락 태그
 STREAK_MIN = 4        # 연속추세 태그(주)
-NEWS_DAYS = 3         # 시세 이유로 붙일 뉴스 최신성(일)
 BLK = "▁▂▃▄▅▆▇█"
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -117,13 +116,19 @@ def _cat(rec, name):
     return r.get("sub", "") if r.get("sector") == "소비재" else r.get("sector", "")
 
 
-def _news(items, name, asof, days):
-    """종목명이 '제목'에 든 최신 기사 제목(최근 days일). 없으면 None."""
-    try:
-        cut = (datetime.date.fromisoformat(asof[:10]) - datetime.timedelta(days=days)).isoformat()
-    except Exception:
-        cut = ""
-    cand = [x for x in items if name in (x.get("t") or "") and (x.get("d", "") >= cut)]
+def _prev_bday(d):
+    """직전 영업일 — 등락(직전 세션 결과)에 인과가 될 수 있는 뉴스 창의 시작점.
+       화~금: 전 영업일=어제. 월: 전 영업일=금요일(주말 갭 포함)."""
+    x = d - datetime.timedelta(days=1)
+    while x.weekday() >= 5:
+        x -= datetime.timedelta(days=1)
+    return x
+
+
+def _news(items, name, cut):
+    """종목명이 '제목'에 들고, 날짜가 cut(직전 영업일) 이후인 최신 기사. 없으면 None.
+       cut 밖(오래된) 기사는 이번 등락과 인과가 없으므로 붙이지 않는다."""
+    cand = [x for x in items if name in (x.get("t") or "") and x.get("d", "")[:10] >= cut]
     if not cand:
         return None
     cand.sort(key=lambda x: x.get("d", ""), reverse=True)
@@ -140,7 +145,8 @@ def build(html, alerts_only=False):
     data = _const(html, "DATA") or {"records": []}
     news = _const(html, "NEWS") or {"items": []}
     rec = {r["name"]: r for r in data.get("records", [])}
-    nitems, nasof = news.get("items") or [], news.get("asOf") or today.isoformat()
+    nitems = news.get("items") or []
+    news_cut = _prev_bday(today).isoformat()   # 이 등락과 인과 가능한 뉴스 창 시작(직전 영업일)
 
     end = (today + datetime.timedelta(days=EVENT_DAYS)).isoformat()
     soon = sorted([e for e in evs if e.get("type") in ("earn", "ir")
@@ -162,7 +168,7 @@ def build(html, alerts_only=False):
         pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: <b>{st}</b> {kw} 전주비 {w:+.0f}%")
     if movers:
         c, nm = movers[0]
-        rs = _news(nitems, nm, nasof, NEWS_DAYS)
+        rs = _news(nitems, nm, news_cut)
         pts.append(f"{'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
 
     out = []
@@ -197,7 +203,7 @@ def build(html, alerts_only=False):
         lines = []
         for c, nm in movers[:6]:
             cat = _cat(rec, nm)
-            rs = _news(nitems, nm, nasof, NEWS_DAYS)
+            rs = _news(nitems, nm, news_cut)
             base = f"· {'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" <i>{cat}</i>" if cat else "")
             lines.append(base + (f"\n   └ {rs}" if rs else ""))
         extra = f"\n<i>…외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
