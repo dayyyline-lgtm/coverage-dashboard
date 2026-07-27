@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-텔레그램 데일리 레터 — 대시보드 데이터를 하루 한 번, 간결하게 요약+해석.
-(실적 서프라이즈=notify.py, 월간 수출=trade_digest.py 가 따로 담당. 여긴 매일 요약.)
+텔레그램 데일리 레터 — 중요한 신호만 간결하게.
+(실적 서프라이즈=notify.py, 월간 수출=trade_digest.py 가 담당. 여긴 매일 요약.)
 
-원칙: 내 커버 종목 신호만. 경쟁사 키워드·피어그룹·수출(월데이터)은 넣지 않는다.
-추이는 스파크라인(▁▂▃▅▇)으로 한눈에.
+원칙:
+  - 검색 트렌드: 소비재 브랜드/제품처럼 '검색=수요 선행'인 것 위주. 게임 국가별 자가정규화(0~100)
+    노이즈는 뺀다. '의미있게 움직인' 것만(전주비 기준 명시).
+  - 시세 급변(전일)엔 관련 뉴스 헤드라인을 붙여 '왜 움직였나'를 준다.
+  - 카테고리: 소비재는 세부(화장품/미용/음식료/유통), 엔터·게임·호텔은 섹터.
+  - 방향은 ▲(상승, 한국식 빨강)·▼(하락) 로.
 
   python digest.py            # 전송
   python digest.py --dry-run  # 출력만
-  python digest.py --alerts   # 일정·시세·예매만(짧게)
+  python digest.py --alerts   # 일정·시세만(짧게)
 """
 import re, json, sys, datetime
 import telegram_send
@@ -17,13 +21,15 @@ HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 CHG_ALERT = 5.0
 EVENT_DAYS = 7
-SPIKE = 25
-STREAK_MIN = 3
-FLOOR = 5
+NOTABLE_WOW = 15      # 트렌드 '의미있는' 전주비(%)
+NOTABLE_BASE = 15     # 검색량 기저(이 미만은 노이즈)
+SPIKE = 30            # 급등/급락 태그
+STREAK_MIN = 4        # 연속추세 태그(주)
+NEWS_DAYS = 3         # 시세 이유로 붙일 뉴스 최신성(일)
 BLK = "▁▂▃▄▅▆▇█"
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 
-# 커버 종목이 '자기 키워드'로 있는 트렌드 그룹만 (경쟁사·피어 제외). kw=None → 국가별(대표국가 자동).
+# 검색이 실적 선행지표인 '내 종목 단일 키워드'만. (아이온2·티니핑 국가별은 노이즈라 데일리 제외)
 TRACK = [
     ("파마리서치", "스킨부스터", "리쥬란"),
     ("에이피알", "K-뷰티 브랜드", "메디큐브"),
@@ -32,8 +38,6 @@ TRACK = [
     ("크래프톤", "배틀그라운드(크래프톤)", "배틀그라운드"),
     ("펄어비스", "펄어비스 IP", "붉은사막"),
     ("시프트업", "시프트업 IP", "니케"),
-    ("NC", "아이온2 국가별", None),
-    ("SAMG엔터", "티니핑 국가별", None),
 ]
 
 
@@ -80,15 +84,6 @@ def _spark(s, n=10):
     return "".join(BLK[min(7, int((v - lo) / (hi - lo) * 7 + 0.5))] for v in c)
 
 
-def _tags(w, st):
-    t = []
-    if w is not None and abs(w) >= SPIKE:
-        t.append("🔥급등" if w > 0 else "❄️급락")
-    if abs(st) >= STREAK_MIN:
-        t.append(f"{'↗' if st > 0 else '↘'}{abs(st)}주")
-    return "·".join(t)
-
-
 def _series(gobj, kw):
     prods = gobj.get("products") or []
     ser = gobj.get("naver") or gobj.get("google") or []
@@ -97,44 +92,43 @@ def _series(gobj, kw):
     return None
 
 
-def _country_head(gobj):
-    prods = gobj.get("products") or []
-    ser = gobj.get("naver") or gobj.get("google") or []
-    best = None
-    for i, p in enumerate(prods):
-        if i >= len(ser):
-            continue
-        last = _last(ser[i])
-        if last is None or last < FLOOR:
-            continue
-        w = _wow(ser[i])
-        key = (abs(w) if w is not None else 0, last)
-        if best is None or key > best[0]:
-            best = (key, (p, ser[i]))
-    return best[1] if best else None
-
-
-def _track_rows(tr):
-    """(종목, 표시라벨, 시계열) 리스트. 신호 없는 건 제외, 전주비 큰 순."""
+def _notable(tr):
+    """의미있게 움직인 트렌드만 (전주비 큰/연속추세). (종목, 키워드, 시계열, wow, streak)."""
     groups = tr.get("groups") or {}
     rows = []
     for stock, gname, kw in TRACK:
         g = groups.get(gname)
-        if not g:
+        s = _series(g, kw) if g else None
+        if not s:
             continue
-        if kw is None:
-            h = _country_head(g)
-            if not h:
-                continue
-            lab, s = f"{gname.replace(' 국가별', '')} {h[0]}", h[1]
-        else:
-            s = _series(g, kw)
-            if not s or (_last(s) or 0) < FLOOR:
-                continue
-            lab = kw
-        rows.append((stock, lab, s))
-    rows.sort(key=lambda r: abs(_wow(r[2]) or 0), reverse=True)
+        last, w, st = _last(s), _wow(s), _streak(s)
+        if last is None or last < NOTABLE_BASE:
+            continue
+        if (w is not None and abs(w) >= NOTABLE_WOW) or abs(st) >= STREAK_MIN:
+            rows.append((stock, kw, s, w, st))
+    rows.sort(key=lambda r: abs(r[3] or 0), reverse=True)
     return rows
+
+
+def _cat(rec, name):
+    r = rec.get(name)
+    if not r:
+        return ""
+    return r.get("sub", "") if r.get("sector") == "소비재" else r.get("sector", "")
+
+
+def _news(items, name, asof, days):
+    """종목명이 '제목'에 든 최신 기사 제목(최근 days일). 없으면 None."""
+    try:
+        cut = (datetime.date.fromisoformat(asof[:10]) - datetime.timedelta(days=days)).isoformat()
+    except Exception:
+        cut = ""
+    cand = [x for x in items if name in (x.get("t") or "") and (x.get("d", "") >= cut)]
+    if not cand:
+        return None
+    cand.sort(key=lambda x: x.get("d", ""), reverse=True)
+    t = cand[0]["t"]
+    return t[:36] + "…" if len(t) > 37 else t
 
 
 def build(html, alerts_only=False):
@@ -144,7 +138,9 @@ def build(html, alerts_only=False):
     evs = _const(html, "DART_EVENTS", "[") or []
     mv = _const(html, "MOVIE") or {}
     data = _const(html, "DATA") or {"records": []}
-    sub = {r["name"]: r.get("sub", "") for r in data.get("records", [])}
+    news = _const(html, "NEWS") or {"items": []}
+    rec = {r["name"]: r for r in data.get("records", [])}
+    nitems, nasof = news.get("items") or [], news.get("asOf") or today.isoformat()
 
     end = (today + datetime.timedelta(days=EVENT_DAYS)).isoformat()
     soon = sorted([e for e in evs if e.get("type") in ("earn", "ir")
@@ -152,7 +148,7 @@ def build(html, alerts_only=False):
     movers = sorted([(s.get("chgPct"), nm) for nm, s in (live.get("stocks") or {}).items()
                      if s.get("chgPct") is not None and abs(s["chgPct"]) >= CHG_ALERT],
                     key=lambda x: -abs(x[0]))
-    trows = _track_rows(tr)
+    notable = _notable(tr)
 
     # 오늘의 포인트
     pts = []
@@ -160,29 +156,32 @@ def build(html, alerts_only=False):
               and (datetime.date.fromisoformat(x["date"]) - today).days <= 1][:2]:
         dd = (datetime.date.fromisoformat(e["date"]) - today).days
         pts.append(f"📊 {'오늘' if not dd else '내일'} <b>{e['co']}</b> 실적발표")
-    for st, lab, s in trows:
-        w = _wow(s)
-        if w is not None and abs(w) >= SPIKE:
-            pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: <b>{st}</b> {lab} {w:+.0f}%")
-            break
+    sp = next((r for r in notable if r[3] is not None and abs(r[3]) >= SPIKE), None)
+    if sp:
+        st, kw, s, w, _s = sp
+        pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: <b>{st}</b> {kw} 전주비 {w:+.0f}%")
     if movers:
         c, nm = movers[0]
-        pts.append(f"{'📈' if c > 0 else '📉'} 시세: <b>{nm}</b> {c:+.1f}%"
-                   + (f" 외 {len(movers)-1}" if len(movers) > 1 else ""))
+        rs = _news(nitems, nm, nasof, NEWS_DAYS)
+        pts.append(f"{'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
 
     out = []
     if pts:
         out.append("<b>〈오늘의 포인트〉</b>\n" + "\n".join("• " + p for p in pts))
 
-    # 검색 트렌드 (내 종목 키워드 · 스파크라인 · 전주비)
-    if not alerts_only and trows:
+    # 검색 트렌드 — 의미있게 움직인 것만(전주비), 최근 10주 추이
+    if not alerts_only and notable:
         lines = []
-        for st, lab, s in trows:
-            w, tg = _wow(s), _tags(_wow(s) or 0, _streak(s))
-            wtxt = "" if w is None else f" {w:+.0f}%"
-            tgt = f" {tg}" if tg else ""
-            lines.append(f"· <b>{st}</b> {lab} <code>{_spark(s)}</code>{wtxt}{tgt}")
-        out.append("<b>📊 검색 트렌드</b> <i>(내 종목 키워드, 최근 10주)</i>\n" + "\n".join(lines))
+        for st, kw, s, w, streak in notable[:5]:
+            tag = []
+            if w is not None and abs(w) >= SPIKE:
+                tag.append("🔥급등" if w > 0 else "❄️급락")
+            if abs(streak) >= STREAK_MIN:
+                tag.append(f"{'↗' if streak > 0 else '↘'}{abs(streak)}주")
+            tg = (" " + "·".join(tag)) if tag else ""
+            wtxt = "" if w is None else f" 전주비 {w:+.0f}%"
+            lines.append(f"· <b>{st}</b> {kw} <code>{_spark(s)}</code>{wtxt}{tg}")
+        out.append("<b>📊 검색 트렌드</b> <i>(수요 선행 · 전주비, 최근 10주)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:
@@ -193,12 +192,16 @@ def build(html, alerts_only=False):
             lines.append(f"· {e['date'][5:]} {'오늘' if not dd else 'D-'+str(dd)} {tag} <b>{e['co']}</b>")
         out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
 
-    # 시세 급변 (섹터 태그, 한 줄씩, 상위 6)
+    # 전일 시세 급변 — 카테고리 + 관련 뉴스(이유)
     if movers:
-        lines = [f"· {'🔴' if c > 0 else '🔵'} <b>{nm}</b> {c:+.1f}%"
-                 + (f" <i>{sub[nm]}</i>" if sub.get(nm) else "") for c, nm in movers[:6]]
+        lines = []
+        for c, nm in movers[:6]:
+            cat = _cat(rec, nm)
+            rs = _news(nitems, nm, nasof, NEWS_DAYS)
+            base = f"· {'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" <i>{cat}</i>" if cat else "")
+            lines.append(base + (f"\n   └ {rs}" if rs else ""))
         extra = f"\n<i>…외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
-        out.append(f"<b>📈 시세 급변 (±{CHG_ALERT:.0f}%+)</b>\n" + "\n".join(lines) + extra)
+        out.append(f"<b>📈 전일 시세 급변 (±{CHG_ALERT:.0f}%+)</b>\n" + "\n".join(lines) + extra)
 
     # 예매
     for nm, ptsB in (mv.get("booking") or {}).items():
