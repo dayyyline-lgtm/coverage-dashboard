@@ -29,9 +29,12 @@ MONTHS = 24          # 최근 N개월 (12개월씩 2회 조회, YoY 계산용)
 # 지역(시군구) 프록시 품목 — 전용 HS가 없어 국가별 통계로는 안 잡히는 종목을 '제조지역'으로 포착.
 #   수출은 「제조장소 우편번호」 기준이라, 파마리서치 강릉공장의 기타화장품(330499)=리쥬란·필러가
 #   강릉시로 잡힌다. 도(강원) 단위는 원주 등 타 화장품 공장과 혼재하므로 반드시 시(강릉)로 좁힌다.
+#   시군구 API 는 HS 6자리 필수. 여러 세부코드는 합산한다.
 REGION_ITEMS = [
-    {"label": "리쥬란(강릉 기타화장품)", "hs": "330499", "sidoCd": "51", "sgg": "강릉",
+    {"label": "리쥬란(강릉 기타화장품)", "hs": ["330499"], "sidoCd": "51", "sgg": "강릉",
      "note": "파마리서치 강릉공장 · 기타화장품(330499) 제조지 기준 = 리쥬란·필러 프록시 (전용 HS 없음)"},
+    {"label": "창상피복재(안성)", "hs": ["300510", "300590"], "sidoCd": "41", "sgg": "안성",
+     "note": "티앤엘 안성공장 · 창상피복재(하이드로콜로이드 여드름패치, 300510+590) 제조지 기준 프록시. 안성이 경기 300590 압도적 1위"},
 ]
 
 try:
@@ -120,28 +123,30 @@ def windows(months):
     return [months[i:i + 12] for i in range(0, len(months), 12)]
 
 
-def fetch_sigungu_series(hs, sido_cd, sgg, months):
-    """시군구 월별 수출액(달러) 시계열을 months 축에 맞춰 반환. 시군구 API는 월별(priodTitle)로 응답."""
+def fetch_sigungu_series(hs_list, sido_cd, sgg, months):
+    """시군구 월별 수출액(달러) 시계열을 months 축에 맞춰 반환. 시군구 API는 6자리 HS·월별(priodTitle) 응답.
+       hs_list 의 여러 세부코드를 합산한다."""
     ym2v = {}
     for y in sorted({m[:4] for m in months}):          # 연 경계 누락 방지 — 연도별 조회
-        p = {"serviceKey": DATA_GO_KR_KEY, "strtYymm": f"{y}01", "endYymm": f"{y}12",
-             "hsSgn": hs, "sidoCd": sido_cd}
-        url = SIGUNGU_API + "?" + urllib.parse.urlencode(p, safe="")
-        try:
-            raw = urllib.request.urlopen(
-                urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read()
-        except Exception as e:
-            print(f"  시군구 {y} 실패: {str(e)[:50]}"); continue
-        for it in ET.fromstring(raw).iter("item"):
-            g = lambda t: (it.findtext(t) or "").strip()
-            if sgg in g("sggNm") and g("hsSgn") == hs:
-                ym = g("priodTitle").replace(".", "")   # 2024.05 -> 202405
-                if re.fullmatch(r"\d{6}", ym):
-                    try:
-                        ym2v[ym] = ym2v.get(ym, 0.0) + float(g("expUsdAmt").replace(",", "")) * 1000  # 천달러->달러
-                    except ValueError:
-                        pass
-        time.sleep(0.4)
+        for hs in hs_list:
+            p = {"serviceKey": DATA_GO_KR_KEY, "strtYymm": f"{y}01", "endYymm": f"{y}12",
+                 "hsSgn": hs, "sidoCd": sido_cd, "numOfRows": "2000"}
+            url = SIGUNGU_API + "?" + urllib.parse.urlencode(p, safe="")
+            try:
+                raw = urllib.request.urlopen(
+                    urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read()
+            except Exception as e:
+                print(f"  시군구 {sgg} {hs} {y} 실패: {str(e)[:50]}"); continue
+            for it in ET.fromstring(raw).iter("item"):
+                g = lambda t: (it.findtext(t) or "").strip()
+                if sgg in g("sggNm") and g("hsSgn").startswith(hs):
+                    ym = g("priodTitle").replace(".", "")   # 2024.05 -> 202405
+                    if re.fullmatch(r"\d{6}", ym):
+                        try:
+                            ym2v[ym] = ym2v.get(ym, 0.0) + float(g("expUsdAmt").replace(",", "")) * 1000  # 천달러->달러
+                        except ValueError:
+                            pass
+            time.sleep(0.35)
     return [round(ym2v[m], 1) if m in ym2v else None for m in months]
 
 
