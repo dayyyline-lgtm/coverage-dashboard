@@ -148,7 +148,10 @@ def main():
     try:
         for b in fetch_booking():
             pts = [p for p in (booking.get(b["nm"]) or []) if p["d"] != ts]
-            pts.append({"d": ts, "rate": b["rate"], "book": b["book"], "acc": b["acc"]})
+            # 개봉일도 같이 담는다 — 이게 있어야 받는 쪽에서 'D-몇' 을 셀 수 있다.
+            # 미개봉작은 박스오피스에 없어 openDt 를 얻을 데가 여기뿐이다.
+            pts.append({"d": ts, "open": b["openDt"], "rate": b["rate"],
+                        "book": b["book"], "acc": b["acc"]})
             booking[b["nm"]] = pts[-180:]
             print(f"  [예매] {b['nm']} · 예매율 {b['rate']}% · "
                   f"예매 {b['book']:,}명 · 누적 {b['acc']:,}명")

@@ -38,6 +38,9 @@ REASON_W = 36         # 급변 이유 한 줄(들여쓰기 4 + 아이콘 2 + 36 
 LABEL_W = 12          # 트렌드 계열 이름 칸 (넘치면 자른다)
 MOVERS_MAX = 5        # 급변 목록에 적을 종목 수. 더 늘리면 훑는 눈이 지친다
 BLK = "▁▂▃▄▅▆▇█"
+# 수집 주기별 표기. 주기를 무시하고 '주' 로 쓰면 일별 계열에 거짓말을 하게 된다.
+FREQ_UNIT = {"date": "일", "week": "주", "month": "개월"}
+FREQ_TAG = {"date": "일별", "month": "월별"}      # week 는 기본이라 표기 생략
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 
 # 레터에 올릴 계열 — (종목, 트렌드 그룹, 계열, 고정)
@@ -182,6 +185,8 @@ def _notable(tr):
                 continue
         rows.append({"stock": stock, "group": gname, "kw": kw, "s": s,
                      "w": w, "streak": st, "pin": pin, "last": last,
+                     # 수집 주기. 쿨로아600 은 일별인데 '6주 연속' 이라고 적고 있었다.
+                     "freq": (g or {}).get("freq") or "week",
                      # 얀덱스 그룹만 절대 검색수를 준다(peak=100 에 해당하는 실제 건수).
                      # 0~100 상대값끼리 크기를 비교하면 거짓말이 되므로 이때만 실수치를 쓴다.
                      "peak": (g or {}).get("peak"),
@@ -191,24 +196,36 @@ def _notable(tr):
     return rows
 
 
-def _prev_run(mv, nm):
-    """같은 IP 전작의 기준선 한 줄. 없으면 None.
-       예매 숫자만 던지면 잘한 건지 못한 건지 알 수 없다. 전작의 시작점과 최종을 붙인다.
+def _prev_run(mv, nm, dday):
+    """같은 IP 전작을 '같은 일차(D-N)' 기준으로 견준 한 줄. 없으면 None.
+
+       예매 숫자만 던지면 잘한 건지 못한 건지 알 수 없다. 전작의 같은 시점과 나란히 놓는다.
+       개봉일이 2년 차이 나므로 달력 날짜가 아니라 D-N 으로 맞춰야 비교가 된다.
        (2편 이름에는 1편 제목이 통째로 들어 있어 그걸로 짝을 찾는다)"""
     head = nm.split(":")[0].strip()
     for t, m in (mv.get("movies") or {}).items():
         if t == nm or head not in t or not m.get("days"):
             continue
-        d = m["days"]
-        first, last = d[0], d[-1]
         try:
-            op = datetime.datetime.strptime((m.get("openDt") or "").replace("-", ""), "%Y%m%d").date()
-            fd = datetime.datetime.strptime(first["d"], "%Y%m%d").date()
-            dn = (fd - op).days
+            op = datetime.datetime.strptime(
+                (m.get("openDt") or "").replace("-", ""), "%Y%m%d").date()
         except ValueError:
             return None
-        # 전작 이름을 다시 적으면 2편과 글자가 거의 같아 헷갈린다. '전작' 으로 부른다.
-        return f"전작은 D{dn:+d} {first['acc']:,}명 → 최종 {last['acc']:,}명"
+        pts = []
+        for p in m["days"]:
+            try:
+                pts.append(((datetime.datetime.strptime(p["d"], "%Y%m%d").date() - op).days, p))
+            except ValueError:
+                pass
+        if not pts:
+            return None
+        final = pts[-1][1]["acc"]
+        same = next((p for x, p in pts if x == dday), None)
+        if same:
+            return f"전작 같은 시점 {same['acc']:,}명 · 최종 {final:,}명"
+        # 같은 일차 기록이 없으면(전작은 Top10 에 든 날부터라 개봉 직전 며칠뿐) 그 사실을 말한다
+        f_x, f_p = pts[0]
+        return (f"전작은 D{f_x:+d}부터 집계 · D{f_x:+d} {f_p['acc']:,}명 → 최종 {final:,}명")
     return None
 
 
@@ -267,9 +284,8 @@ def _arw(c):
     return "🔴" if c > 0 else "🔵"
 
 
-# 카테고리 아이콘 — 급변 목록을 훑을 때 '어느 판이 움직였나'가 글자보다 먼저 들어온다.
-CAT_ICON = {"화장품": "💄", "미용": "💉", "유통": "🛒", "음식료": "🍜",
-            "엔터": "🎤", "게임": "🎮", "호텔·레져": "🏨", "호텔레져": "🏨"}
+# 카테고리에는 아이콘을 붙이지 않는다. 글자('화장품')가 이미 명확한데
+# 그림을 덧대니 줄만 시끄러워졌다. 아이콘은 종류를 글자로 못 적는 곳에만 쓴다.
 
 
 def _cat(rec, name):
@@ -528,7 +544,7 @@ def build(html, alerts_only=False):
             cat = _cat(rec, nm)
             rs = _why(nm)
             lines.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%"
-                         + (f"  {CAT_ICON.get(cat, '')}<i>{cat}</i>" if cat else "")
+                         + (f"  <i>{cat}</i>" if cat else "")
                          + (f"\n{_sub(rs)}" if rs else ""))
         extra = (f"\n<i>외 {len(movers)-MOVERS_MAX}종목</i>"
                  if len(movers) > MOVERS_MAX else "")
@@ -562,9 +578,12 @@ def build(html, alerts_only=False):
                 "lvl": (f"{round(r['last'] / 100 * r['peak']):,}건"
                         if r["peak"] else f"{r['last']:.0f}/100"),
                 "wow": "" if r["w"] is None else f"{r['w']:+.0f}%",
-                # 연속 추세는 '4주' 로만 적으니 무슨 뜻인지 알 수 없었다. 방향까지 적는다.
-                "tail": (f" · {abs(r['streak'])}주 연속 {'상승' if r['streak'] > 0 else '하락'}"
-                         if abs(r["streak"]) >= STREAK_MIN else ""),
+                # 연속 추세는 딸림 줄(↳)로 내린다. 막대 옆에 붙여 두면 줄이 길어지고,
+                # 해석·근거는 한 군데 모아 같은 모양으로 쓰기로 했다.
+                # 단위는 그 계열의 수집 주기를 따른다 — 쿨로아600 은 일별이라 '일' 이다.
+                "streak": (f"{abs(r['streak'])}{FREQ_UNIT.get(r['freq'], '주')} 연속 "
+                           f"{'상승' if r['streak'] > 0 else '하락'}"
+                           if abs(r["streak"]) >= STREAK_MIN else ""),
                 "raw": r})
 
         # 자리는 레터 전체에서 한 번만 잡는다.
@@ -592,20 +611,26 @@ def build(html, alerts_only=False):
                 lines.append("")                       # 종목 사이 한 줄 띄움
             solo = len(b["rows"]) == 1
             # 계열이 하나면 이름을 머리줄에 합친다 — 굳이 두 줄을 쓸 이유가 없다.
+            freq = b["rows"][0]["raw"]["freq"]
             lines.append(f"<b>{b['stock']}</b>"
                          + (" · " + " · ".join(b["groups"]) if b["groups"] else "")
-                         + (" · " + b["rows"][0]["label"] if solo and not b["groups"] else ""))
+                         + (" · " + b["rows"][0]["label"] if solo and not b["groups"] else "")
+                         + (f" <i>{FREQ_TAG[freq]}</i>" if freq in FREQ_TAG else ""))
             for x in b["rows"]:
                 lines.append("<code>" + x["spark"] + " " + _pad(x["lvl"], vw, True)
                              + (" " + _pad(x["wow"], ww, True) if ww else "") + "</code>"
-                             + ("" if solo and not b["groups"] else "  <b>" + x["label"] + "</b>")
-                             + x["tail"])
-            # 여러 계열을 나란히 놓은 블록엔 해석을 한 줄 붙인다.
-            # 막대만 보고 '누가 앞서고 있나'를 매번 눈으로 재게 하지 않기 위해서다.
-            cmp = _compare(b["rows"])
-            if cmp:
-                lines.append(_sub(cmp))
-        out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
+                             + ("" if solo and not b["groups"] else "  <b>" + x["label"] + "</b>"))
+            # 해석·근거는 딸림 줄 하나에 모은다.
+            #  - 여러 계열이면 '누가 앞서고 있나' (막대만 보고 매번 눈으로 재게 하지 않는다)
+            #  - 연속 추세가 있으면 같이 붙인다
+            note = [c for c in [_compare(b["rows"])] if c]
+            note += [(x["streak"] if solo else f"{x['label']} {x['streak']}")
+                     for x in b["rows"] if x["streak"]]
+            if note:
+                lines.append(_sub(" · ".join(note)))
+        # 계열마다 주기가 달라(주별·일별) 제목에 '주' 를 못 박으면 거짓말이 된다.
+        out.append("<b>📊 트렌드 데이터</b> <i>(막대 = 최근 10회 · % = 직전 대비)</i>\n"
+                   + "\n".join(lines))
 
     # 임박 일정
     if soon:
@@ -619,12 +644,14 @@ def build(html, alerts_only=False):
         for d in sorted(byday)[:5]:
             dt = datetime.date.fromisoformat(d)
             dd = (dt - today).days
-            body = " · ".join(f"<b>{e['co']}</b> {'실적' if e['type'] == 'earn' else 'IR'}"
+            # 종류는 아이콘으로만 쓴다. '실적'/'IR' 은 한글·영문이 섞여 글자 폭이
+            # 달라지는데, 아이콘은 폭이 일정해서 여러 건이 붙어도 줄이 안 흐트러진다.
+            body = " · ".join(f"{'📊' if e['type'] == 'earn' else '🎤'} <b>{e['co']}</b>"
                               for e in byday[d])
             # 'D-0 오늘' 은 같은 말을 두 번 하는 것이라 날짜(요일)를 대신 붙인다.
             lines.append(f"<code>{_pad(f'D-{dd}', 3)} {d[5:7]}/{d[8:10]}({WD[dt.weekday()]})"
                          f"</code>  {body}")
-        out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
+        out.append("<b>📅 임박 일정</b> <i>(📊 실적 · 🎤 IR)</i>\n" + "\n".join(lines))
 
     # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
     bk = [(nm, p) for nm, p in (mv.get("booking") or {}).items() if p]
@@ -633,10 +660,20 @@ def build(html, alerts_only=False):
         for nm, ptsB in bk:
             p, prv = ptsB[-1], (ptsB[-2] if len(ptsB) > 1 else None)
             dr = f" ({p['rate']-prv['rate']:+.1f}%p)" if prv else " (수집 시작)"
+            # 개봉일은 수집기가 같이 담아 둔다. 미개봉작은 박스오피스에 없어 여기서만 얻는다.
+            dday = None
+            try:
+                dday = (datetime.date.fromisoformat(p["open"])
+                        - datetime.date.fromisoformat(p["d"])).days * -1
+            except (KeyError, ValueError):
+                pass
             # 제목을 ':' 앞에서 자르면 2편이 1편과 똑같은 이름이 된다
             # ('사랑의 하츄핑: 고래보석의 전설' -> '사랑의 하츄핑'). 그대로 쓴다.
-            lines.append(f"<b>{nm}</b>  예매율 {p['rate']}%{dr} · 예매 {p['book']:,}명")
-            base = _prev_run(mv, nm)
+            lines.append(f"<b>{nm}</b>"
+                         + (f"  <code>D{dday:+d}</code>" if dday is not None else ""))
+            lines.append(f"예매율 {p['rate']}%{dr} · 예매 {p['book']:,}명 · "
+                         f"누적 {p['acc']:,}명")
+            base = _prev_run(mv, nm, dday) if dday is not None else None
             if base:
                 lines.append(_sub(base))       # 숫자만 던지면 잘한 건지 못한 건지 모른다
         out.append("<b>🎬 예매</b>\n" + "\n".join(lines))
