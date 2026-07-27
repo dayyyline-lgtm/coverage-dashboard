@@ -1,8 +1,8 @@
-name: 이벤트 캘린더 갱신 (DART)
+name: 이벤트 갱신 + 텔레그램 레터
 
 on:
   schedule:
-    # 매일 한국시간 07:30 (UTC 22:30 전일)
+    # 평일 아침 07:30 KST (UTC 22:30). GitHub cron 은 이 저장소에서 안 떠서 Cloudflare 워커가 대신 트리거함.
     - cron: "30 22 * * 0-4"
   workflow_dispatch: {}
 
@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -27,11 +26,20 @@ jobs:
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
-          if [ -z "$DART_API_KEY" ]; then
-            echo "DART_API_KEY 시크릿이 없습니다. Settings > Secrets 에 등록하세요."
-            exit 1
-          fi
+          if [ -z "$DART_API_KEY" ]; then echo "DART_API_KEY 시크릿 없음"; exit 1; fi
           python fetch_events.py
+
+      # 관세청 확정 품목별은 매월 15일경 전월 현행화 → 19~22일에 수집하면 새 월이 잡힌다.
+      - name: 월간 수출 갱신 (19~22일)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          d=$(TZ=Asia/Seoul date +%d)
+          if [ "$d" -ge 19 ] && [ "$d" -le 22 ] && [ -n "$DATA_GO_KR_KEY" ]; then
+            python fetch_trade.py || echo "수출 수집 실패(계속 진행)"
+          else
+            echo "수출 갱신일 아님 - 생략"
+          fi
 
       - name: 변경분 커밋
         run: |
@@ -41,7 +49,30 @@ jobs:
             echo "변경 없음 - 커밋 생략"
           else
             git add public/index.html
-            git commit -m "이벤트 캘린더 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git commit -m "이벤트/수출 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
             git pull --rebase
             git push
+          fi
+
+      - name: 데일리 레터 발송
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python digest.py || echo "데일리 레터 건너뜀"
+
+      # 수출 데이터가 새 월로 갱신됐으면 그때 1번만(상태파일 trade_sent.json 로 중복 방지)
+      - name: 월간 수출 레터 (19~22일)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          d=$(TZ=Asia/Seoul date +%d)
+          if [ "$d" -ge 19 ] && [ "$d" -le 22 ]; then
+            python trade_digest.py || echo "수출 레터 건너뜀"
+            if ! git diff --quiet -- trade_sent.json 2>/dev/null; then
+              git add trade_sent.json
+              git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
+              git pull --rebase
+              git push
+            fi
           fi
