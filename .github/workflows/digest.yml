@@ -1,0 +1,27 @@
+name: 텔레그램 데일리 다이제스트
+
+# 하루 한 번 요약 발송(트렌드·임박일정·예매·시세급변).
+# 실적 서프라이즈 즉시알림은 refresh.yml 의 notify.py 가 따로 담당한다.
+# GitHub 자체 cron 은 이 저장소에서 안 도는 이력이 있어, Cloudflare Worker 로도 깨울 수 있게 dispatch 를 연다.
+on:
+  schedule:
+    - cron: "0 23 * * 0-4"      # 평일(월~금) 한국시간 08:00
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "digest(전체) 또는 alerts(짧게)"
+        default: "digest"
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 다이제스트 발송
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python digest.py ${{ github.event.inputs.mode == 'alerts' && '--alerts' || '' }} || echo "다이제스트 건너뜀"
