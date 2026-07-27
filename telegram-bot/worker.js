@@ -32,6 +32,18 @@ export default {
     const text = (msg && msg.text || "").trim();
     if (!msg || !text) return new Response("ok");
 
+    // 허용된 사용자만 응답 — 개인용. ALLOWED = 쉼표로 구분한 chat_id/user_id.
+    // 목록에 없으면 조용히 무시(정보 노출·스팸 차단). ALLOWED 미설정이면 아래에서 안내만.
+    const allow = (env.ALLOWED || "").split(",").map(s => s.trim()).filter(Boolean);
+    const who = [msg.from && msg.from.id, msg.chat && msg.chat.id].filter(v => v != null).map(String);
+    if (!allow.length) {
+      await send(env, msg.chat.id, "⚠️ 이 봇은 아직 잠겨 있어요(ALLOWED 미설정). 관리자만 설정하면 됩니다.");
+      return new Response("ok");
+    }
+    if (!who.some(id => allow.includes(id))) {
+      return new Response("ok");   // 허용 안 된 사람 — 조용히 무시
+    }
+
     let reply;
     try { reply = await answer(text, env, ctx); }
     catch (e) { reply = "⚠️ 처리 중 오류: " + String(e).slice(0, 120); }
