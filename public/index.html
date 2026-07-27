@@ -985,13 +985,24 @@ window.addEventListener("resize",()=>{
 /* ==== sortable table factory ==== */
 function makeTable(el, cols, rows, initSort){
   let sortKey=initSort.key, sortDir=initSort.dir;
+  /* tie: 값이 같을 때 갈라 줄 두 번째 기준.
+     점수는 0.5 단위라 동점이 흔한데, 동점을 원래 배열 순서로 두면
+     '점수순'인지 '입력순'인지 알 수 없는 줄 세우기가 된다. */
+  const tie=initSort.tie;
   function render(){
+    const val=(r,k)=>{
+      const v=r[k];
+      return (v===null||v===undefined||v==="") ? -Infinity : v;
+    };
     const sorted=[...rows].sort((a,b)=>{
-      let x=a[sortKey], y=b[sortKey];
-      if(x===null||x===undefined||x==="") x=-Infinity;
-      if(y===null||y===undefined||y==="") y=-Infinity;
+      let x=val(a,sortKey), y=val(b,sortKey);
       if(typeof x==="string") return sortDir*x.localeCompare(y,"ko");
-      return sortDir*(x-y);
+      if(x!==y) return sortDir*(x-y);
+      if(tie && sortKey!==tie.key){
+        const p=val(a,tie.key), q=val(b,tie.key);
+        if(p!==q) return tie.dir*(p-q);
+      }
+      return 0;
     });
     // c.hm = 모바일에서 숨길 컬럼(핵심만 남겨 폰에서 읽기 쉽게)
     el.innerHTML =
@@ -1133,7 +1144,10 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
         </div>
         <div class="tbl-wrap"><table></table></div>`;
       host.appendChild(block);
-      makeTable(block.querySelector("table"), covCols, rows, {key:"mktcapJo",dir:-1});
+      // 점수 높은 순, 동점이면 당사 상승여력이 큰 쪽이 위.
+      // 시총순으로 두면 대형주가 늘 위에 앉아 '어디를 먼저 볼지'가 안 보인다.
+      makeTable(block.querySelector("table"), covCols, rows,
+                {key:"score", dir:-1, tie:{key:"upsideOwn", dir:-1}});
     });
   });
 })();
@@ -1837,7 +1851,9 @@ function setTrendFoot(){
   const el=document.getElementById("trendFoot"); if(!el) return;
   const t=(typeof TREND!=="undefined")&&TREND.asOf;
   el.innerHTML="네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널."
-    +(t?` 수집 ${t} (주 1회 갱신).`:"");
+    // '수집'이 아니라 '갱신'이다 — 값이 그대로면 파일을 건드리지 않으므로
+    // 이 시각은 마지막으로 '값이 바뀐' 때다. 매주 확인은 하고 있다.
+    +(t?` 최종 갱신 ${t} · 매주 확인.`:"");
 }
 
 function renderShop(){

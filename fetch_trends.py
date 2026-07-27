@@ -621,10 +621,18 @@ def main():
              "months": labels, "colors": COLORS,
              "sources": have, "groups": groups_out}
 
-    # 값이 그대로면 파일을 건드리지 않는다 (불필요한 커밋·배포 방지)
-    if prev is not None and prev.get("groups") == groups_out and prev.get("months") == labels:
+    # 값이 그대로면 파일을 건드리지 않는다 (불필요한 커밋·배포 방지).
+    # 다만 asOf 가 아직 없으면(이 항목을 넣기 전에 쓰인 블록) 한 번은 써 준다 —
+    # 안 그러면 값이 바뀔 때까지 화면에 갱신 시각이 영영 안 뜬다.
+    same = (prev is not None and prev.get("groups") == groups_out
+            and prev.get("months") == labels)
+    if same and prev.get("asOf"):
         print("\n[SKIP] 트렌드 변동 없음 - index.html 그대로 둠")
         return
+    if same:
+        # 값은 그대로이므로 시각은 '이번에 확인한 때'가 아니라 그대로 두는 게 맞지만,
+        # 이전 값이 없으니 지금을 기준으로 적는다. 다음부터는 값이 바뀔 때만 갱신된다.
+        print("\n[INFO] 값은 그대로 · 갱신 시각(asOf)만 채워 넣음")
 
     js = "const TREND=" + json.dumps(trend, ensure_ascii=False) + ";"
     html = open(HTML_PATH, encoding="utf-8").read()
