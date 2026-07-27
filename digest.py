@@ -311,8 +311,20 @@ ALIAS = {}
 
 
 def _load_alias(html):
+    """화면의 NEWS_ALIAS 를 그대로 읽어 온다.
+       자바스크립트는 마지막 항목 뒤 쉼표를 허용하지만 JSON 은 거부한다.
+       화면 쪽은 손으로 고치는 자리라 쉼표가 언제든 다시 붙는다 —
+       파서 쪽에서 떼어 내는 편이 안전하다."""
     global ALIAS
-    ALIAS = _const(html, "NEWS_ALIAS") or {}
+    m = re.search(r"const NEWS_ALIAS\s*=\s*(\{.*?\});", html, re.S)
+    if not m:
+        ALIAS = {}
+        return
+    try:
+        ALIAS = json.loads(re.sub(r",(\s*[}\]])", r"\1", m.group(1)))
+    except json.JSONDecodeError as e:
+        print(f"  [주의] NEWS_ALIAS 를 읽지 못했습니다({e}). 종목명만으로 매칭합니다.")
+        ALIAS = {}
 
 
 def _match(item, name):
