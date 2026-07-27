@@ -17,8 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: 의존성 설치
-        run: python -m pip install --quiet anthropic
+      - name: 의존성 설치(선택)
+        run: python -m pip install --quiet anthropic || echo "anthropic 미설치 - 규칙기반으로 진행"
       - name: 다이제스트 발송
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

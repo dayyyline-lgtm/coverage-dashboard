@@ -6,8 +6,9 @@
 원칙:
   - 검색 트렌드: 소비재 브랜드/제품처럼 '검색=수요 선행'인 것 위주. 게임 국가별 자가정규화(0~100)
     노이즈는 뺀다. '의미있게 움직인' 것만(전주비 기준 명시).
-  - 시세 급변(전일)엔 '왜 움직였나'를 준다. ANTHROPIC_API_KEY 있으면 Claude(웹서치)가
-    공시·컨센·뉴스를 근거로 이유를 추론(analyze.py). 없으면 뉴스 헤드라인으로 폴백.
+  - 시세 급변(전일)엔 '왜 움직였나'를 준다. 기본은 규칙기반: 실적/IR 공시를 우선 재료로
+    (실적발표면 컨센 맥락 첨부), 없으면 관련 뉴스 헤드라인. ANTHROPIC_API_KEY 를 넣으면
+    Claude(웹서치)가 그때그때 추론(analyze.py). 안 넣어도 됨 — 규칙기반으로 조용히 돈다.
   - 카테고리: 소비재는 세부(화장품/미용/음식료/유통), 엔터·게임·호텔은 섹터.
   - 방향은 ▲(상승, 한국식 빨강)·▼(하락) 로.
 
@@ -206,8 +207,22 @@ def build(html, alerts_only=False):
                 _disc(evs, nm, news_cut, today), _cons(live, nm),
                 _news_all(nitems, nm, news_cut))
 
+    def _rule_why(nm):
+        """키 없이 도는 규칙기반 이유 — 실적/IR 공시를 우선 재료로, 없으면 뉴스 헤드라인.
+           실적발표일이면 컨센(매출·영익) 맥락을 붙여 '무엇에 반응했나'를 준다."""
+        head = _news(nitems, nm, news_cut)
+        disc = [e for e in evs if e.get("co") == nm and news_cut <= e.get("date", "") <= today.isoformat()]
+        if any(e.get("type") == "earn" for e in disc):
+            snap = (live.get("consSnap") or {}).get(nm) or {}
+            if snap:
+                q, v = sorted(snap.items())[-1]
+                ctx = f"컨센 매출 {v.get('rev', 0):,.0f}·영익 {v.get('op', 0):,.0f}십억"
+                return f"실적발표 · {head}" if head else f"실적발표 ({ctx})"
+            return f"실적발표 · {head}" if head else "실적발표"
+        return head
+
     def _why(nm):
-        return reasons.get(nm) or _news(nitems, nm, news_cut)
+        return reasons.get(nm) or _rule_why(nm)
 
     # 오늘의 포인트
     pts = []

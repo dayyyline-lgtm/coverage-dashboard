@@ -22,9 +22,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 데일리 레터의 급변 이유 추론(Claude 웹서치)용. ANTHROPIC_API_KEY 시크릿이 있어야 실제로 동작.
-      - name: 의존성 설치
-        run: python -m pip install --quiet anthropic
+      # (선택) ANTHROPIC_API_KEY 시크릿을 넣으면 급변 이유를 Claude 웹서치로 추론. 없으면 규칙기반으로 돈다.
+      - name: 의존성 설치(선택)
+        run: python -m pip install --quiet anthropic || echo "anthropic 미설치 - 규칙기반으로 진행"
 
       - name: DART 공시 수집
         env:
