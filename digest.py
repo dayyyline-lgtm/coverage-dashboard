@@ -66,6 +66,14 @@ TRACK = [
     ("NC", "아스트라에 오라티오", "아스트라에 오라티오", False),
 ]
 
+# 레터에 찍을 이름. 계열 키가 그룹 안에서만 뜻이 통할 때 바꿔 준다.
+# '티니핑 국가별' 안에서 계열 키는 나라 이름이라, 그대로 쓰면 레터에 '한국' 이 뜬다.
+# 그룹명을 뗀 뒤로는 무엇의 한국인지 알 수 없다.
+LABEL = {
+    ("티니핑 국가별", "한국"): "티니핑",
+    ("아스트라에 오라티오", "아스트라에 오라티오"): "아스오라",
+}
+
 
 def _const(html, name, br="{"):
     cl = "}" if br == "{" else "]"
@@ -110,6 +118,23 @@ def _w(s):
 def _pad(s, n, right=False):
     sp = " " * max(0, n - _w(s))
     return (sp + s) if right else (s + sp)
+
+
+def _cjk(s):
+    return sum(1 for c in s if unicodedata.east_asian_width(c) in "WF")
+
+
+def _align(s, mc, ma, right=False):
+    """고정폭 칸 채우기 — 한글 부족분은 전각공백(U+3000), 영문 부족분은 보통 공백.
+
+       보통 공백만으로 맞추면 어긋난다. 텔레그램(윈도 데스크톱, Consolas→맑은 고딕
+       대체) 실측으로 영문 공백 8.8px · 한글 1자 16px 이었다.
+       한글이 영문의 2배가 아니라 1.82배라, '한글=2칸'으로 세어 공백을 넣으면
+       계열마다 최대 4.8px 씩 밀린다(메탈카드봇 80.0 / 한국 84.8 / 셀르디엠 81.6).
+       U+3000 은 같은 대체 글꼴에서 한글과 정확히 같은 16px 라 딱 맞는다.
+       그래서 한글 수와 영문 수를 따로 세어 각각 같은 종류로 채운다."""
+    fill = "　" * max(0, mc - _cjk(s)) + " " * max(0, ma - (len(s) - _cjk(s)))
+    return (fill + s) if right else (s + fill)
 
 
 def _cut(s, n):
@@ -407,7 +432,7 @@ def build(html, alerts_only=False):
             if gcount[(r["stock"], r["group"])] > 1 and r["group"] not in b["groups"]:
                 b["groups"].append(r["group"])
             b["rows"].append({
-                "label": _cut(r["kw"], LABEL_W),
+                "label": _cut(LABEL.get((r["group"], r["kw"]), r["kw"]), LABEL_W),
                 "spark": _spark(r["s"]),
                 # 얀덱스는 절대 검색수라 실제 건수를 그대로 쓴다. 나머지는 0~100 상대값.
                 "lvl": (f"{round(r['last'] / 100 * r['peak']):,}건"
@@ -419,9 +444,10 @@ def build(html, alerts_only=False):
         # 블록마다 따로 맞추면 블록이 바뀔 때마다 막대 시작점이 밀려서,
         # 겹쳐 보라고 넣은 스파크라인이 오히려 들쭉날쭉해 보인다.
         rows = [x for b in blocks for x in b["rows"]]
-        lw = max(_w(x["label"]) for x in rows)
-        vw = max(_w(x["lvl"]) for x in rows)
-        ww = max(_w(x["wow"]) for x in rows)
+        mx = lambda k, f: max(f(x[k]) for x in rows)
+        lc, la = mx("label", _cjk), mx("label", lambda s: len(s) - _cjk(s))
+        vc, va = mx("lvl", _cjk), mx("lvl", lambda s: len(s) - _cjk(s))
+        wa = mx("wow", len)
 
         lines = []
         for b in blocks:
@@ -430,9 +456,9 @@ def build(html, alerts_only=False):
             lines.append(f"<b>{b['stock']}</b>"
                          + (" · " + " · ".join(b["groups"]) if b["groups"] else ""))
             for x in b["rows"]:
-                lines.append("<code>" + _pad(x["label"], lw) + " " + x["spark"]
-                             + " " + _pad(x["lvl"], vw, True)
-                             + (" " + _pad(x["wow"], ww, True) if ww else "")
+                lines.append("<code>" + _align(x["label"], lc, la) + " " + x["spark"]
+                             + " " + _align(x["lvl"], vc, va, True)
+                             + (" " + _pad(x["wow"], wa, True) if wa else "")
                              + x["tail"] + "</code>")
         out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
