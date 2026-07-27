@@ -190,11 +190,46 @@ def _notable(tr):
     return rows
 
 
+def _compare(rows):
+    """여러 계열을 나란히 놓은 블록의 해석 한 줄. 하나뿐이면 None.
+
+       막대만 던져 놓으면 '누가 앞서고 있나'를 매번 눈으로 재야 한다.
+       선두와 2위의 격차를 전주와 견줘 '벌어졌나 좁혀졌나'를 문장으로 준다.
+       (얀덱스처럼 절대 검색수인 블록은 단위가 달라 격차를 %p 로 못 읽으므로 건너뛴다)"""
+    if len(rows) < 2 or any(r["raw"].get("peak") for r in rows):
+        return None
+    cur = sorted(rows, key=lambda x: -x["raw"]["last"])
+    top, sec = cur[0]["raw"], cur[1]["raw"]
+
+    def prev(r):
+        c = _clean(r["s"])
+        return c[-2] if len(c) > 1 else None
+
+    gap = top["last"] - sec["last"]
+    pt, ps = prev(top), prev(sec)
+    pgap = (pt - ps) if (pt is not None and ps is not None) else None
+    t, s = top["kw"], sec["kw"]
+    if gap <= 3:
+        return f"{s}가 {t}와 대등 (격차 {gap:.0f}p)"
+    if pgap is None:
+        return f"{t} 선두 (2위 {s}와 {gap:.0f}p)"
+    if pgap - gap >= 3:
+        return f"{s}가 {t} 추격 중 (격차 {pgap:.0f}→{gap:.0f}p)"
+    if gap - pgap >= 3:
+        return f"{t} 격차 확대 ({pgap:.0f}→{gap:.0f}p)"
+    return f"{t} 선두 유지 (격차 {gap:.0f}p)"
+
+
 def _arw(c):
     """등락 방향 — 한국식 색(상승 빨강·하락 파랑).
        텔레그램은 이모지로만 색을 낼 수 있다. 예전엔 네모+삼각형을 겹쳐 썼는데
        기호가 둘이라 지저분했다. 부호(+/-)가 이미 방향을 말하므로 색 하나면 충분하다."""
     return "🔴" if c > 0 else "🔵"
+
+
+# 카테고리 아이콘 — 급변 목록을 훑을 때 '어느 판이 움직였나'가 글자보다 먼저 들어온다.
+CAT_ICON = {"화장품": "💄", "미용": "💉", "유통": "🛒", "음식료": "🍜",
+            "엔터": "🎤", "게임": "🎮", "호텔·레져": "🏨", "호텔레져": "🏨"}
 
 
 def _cat(rec, name):
@@ -218,6 +253,33 @@ def _match(item, name):
     return name in (item.get("co") or []) or name in (item.get("t") or "")
 
 
+# 헤드라인에서 '무슨 일인가'를 뽑는 사전. 앞에서 걸리는 것부터 본다.
+# 기사 제목을 그대로 옮기면 신문 문구(따옴표·말줄임·부제)가 그대로 들어와 읽기 나쁘다.
+# 종류를 먼저 정하고, 제목은 근거로 짧게만 붙인다.
+GIST = [
+    ("🤝", "계약",   ("공동제작", "수주", "공급계약", "계약 체결", "납품", "MOU", "파트너십", "협약")),
+    ("🌏", "진출",   ("진출", "수출", "입점", "런칭", "론칭", "출시", "확장", "오픈")),
+    ("💰", "주주환원", ("자사주", "배당", "주주환원", "소각")),
+    ("🏦", "자금조달", ("유상증자", "전환사채", "CB 발행", "신주인수권")),
+    ("🔗", "지분",   ("인수", "합병", "지분 취득", "매각", "분할")),
+    ("📑", "리포트", ("목표주가", "투자의견", "커버리지 개시", "상향", "하향")),
+    ("⚠️", "리스크", ("소송", "제재", "조사", "리콜", "규제", "과징금", "횡령")),
+    ("🏭", "설비",   ("증설", "공장", "생산능력", "CAPA", "가동")),
+]
+
+
+def _gist(title, nm):
+    """기사 제목 -> '종류 · 짧은 근거' 한 줄.
+       제목 앞에 붙는 '회사명,' 과 부제(… 뒤)를 떼고 핵심 절만 남긴다."""
+    if not title:
+        return None
+    t = re.sub(r"^\s*[\[\(]?%s[\]\)]?\s*[,·:\-]\s*" % re.escape(nm), "", title).strip()
+    t = re.split(r"\.\.\.|…|\|", t)[0].strip(" ,·-—")
+    kind = next(((e, k) for e, k, ws in GIST if any(w in title for w in ws)), None)
+    t = _cut(t, REASON_W - (8 if kind else 0))
+    return f"{kind[0]} {kind[1]} · {t}" if kind else f"📰 {t}"
+
+
 def _news(items, name, cut):
     """종목 관련, 날짜가 cut(직전 영업일) 이후인 최신 기사 제목. 없으면 None.
        cut 밖(오래된) 기사는 이번 등락과 인과가 없으므로 붙이지 않는다."""
@@ -225,8 +287,7 @@ def _news(items, name, cut):
     if not cand:
         return None
     cand.sort(key=lambda x: x.get("d", ""), reverse=True)
-    t = cand[0]["t"]
-    return _cut(t, REASON_W)
+    return _gist(cand[0]["t"], name)
 
 
 _QLAST = {3: 31, 6: 30, 9: 30, 12: 31}
@@ -363,23 +424,29 @@ def build(html, alerts_only=False):
         if any(e.get("type") == "earn" for e in disc):
             sur = _surprise(live, nm, chg_of.get(nm, 0), today)
             if sur:
-                return _cut(sur, REASON_W)                   # 실제치 vs 컨센이 잡히면 그 해석이 이유
-            return "실적발표" if not head else _cut(f"실적발표 · {head}", REASON_W)
+                return "📊 " + _cut(sur, REASON_W)           # 실제치 vs 컨센이 잡히면 그 해석이 이유
+            return "📊 실적발표" if not head else "📊 실적발표 · " + _cut(head, REASON_W - 8)
         if disc:                                             # 실적 외 공시(IR·계약 등)
-            kinds = [e.get("title") or e.get("type") for e in disc]
-            return _cut(f"공시: {kinds[0]}", REASON_W)
-        return head or _trend_move(nm) or _cut(_sector_move(nm) or "", REASON_W) or None
+            return "📄 " + _cut(disc[0].get("title") or "공시", REASON_W)
+        if head:
+            return head                                      # _gist 가 이미 종류+이모지를 붙였다
+        tm = _trend_move(nm)
+        if tm:
+            return "🔍 " + _cut(tm, REASON_W)
+        sm = _sector_move(nm)
+        return ("🏷 " + _cut(sm, REASON_W)) if sm else None
 
     # 오늘의 포인트
     pts = []
     for e in [x for x in soon if x["type"] == "earn"
               and (datetime.date.fromisoformat(x["date"]) - today).days <= 1][:2]:
         dd = (datetime.date.fromisoformat(e["date"]) - today).days
-        pts.append(f"{'오늘' if not dd else '내일'} <b>{e['co']}</b> 실적발표")
+        pts.append(f"📊 {'오늘' if not dd else '내일'} <b>{e['co']}</b> 실적발표")
     sp = next((r for r in notable
                if r["w"] is not None and abs(r["w"]) >= SPIKE and r["last"] >= NOTABLE_BASE), None)
     if sp:
-        pts.append(f"<b>{sp['stock']}</b> {sp['kw']} 트렌드 {sp['w']:+.0f}%")
+        pts.append(f"{'🔥' if sp['w'] > 0 else '🧊'} <b>{sp['stock']}</b> "
+                   f"{LABEL.get((sp['group'], sp['kw']), sp['kw'])} 트렌드 {sp['w']:+.0f}%")
     # 급변 1위는 여기 안 적는다 — 바로 아래 '전일 급변' 첫 줄과 똑같은 내용이라
     # 같은 문장이 두 번 나오고, 이유까지 달면 줄이 넘쳐 줄바꿈이 깨진다.
 
@@ -397,7 +464,8 @@ def build(html, alerts_only=False):
         for c, nm in movers[:6]:
             cat = _cat(rec, nm)
             rs = _why(nm)
-            lines.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%" + (f"  <i>{cat}</i>" if cat else "")
+            lines.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%"
+                         + (f"  {CAT_ICON.get(cat, '')}<i>{cat}</i>" if cat else "")
                          + (f"\n    {rs}" if rs else ""))
         extra = f"\n<i>외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""
         out.append(f"<b>📈 전일 급변</b> <i>(±{CHG_ALERT:.0f}%)</i>\n" + "\n".join(lines) + extra)
@@ -430,7 +498,10 @@ def build(html, alerts_only=False):
                 "lvl": (f"{round(r['last'] / 100 * r['peak']):,}건"
                         if r["peak"] else f"{r['last']:.0f}/100"),
                 "wow": "" if r["w"] is None else f"{r['w']:+.0f}%",
-                "tail": f"  {abs(r['streak'])}주" if abs(r["streak"]) >= STREAK_MIN else ""})
+                # 연속 추세는 '4주' 로만 적으니 무슨 뜻인지 알 수 없었다. 방향까지 적는다.
+                "tail": (f" · {abs(r['streak'])}주 연속 {'상승' if r['streak'] > 0 else '하락'}"
+                         if abs(r["streak"]) >= STREAK_MIN else ""),
+                "raw": r})
 
         # 자리는 레터 전체에서 한 번만 잡는다.
         # 블록마다 따로 맞추면 블록이 바뀔 때마다 막대 시작점이 밀려서,
@@ -455,26 +526,38 @@ def build(html, alerts_only=False):
         for b in blocks:
             if lines:
                 lines.append("")                       # 종목 사이 한 줄 띄움
+            solo = len(b["rows"]) == 1
+            # 계열이 하나면 이름을 머리줄에 합친다 — 굳이 두 줄을 쓸 이유가 없다.
             lines.append(f"<b>{b['stock']}</b>"
-                         + (" · " + " · ".join(b["groups"]) if b["groups"] else ""))
+                         + (" · " + " · ".join(b["groups"]) if b["groups"] else "")
+                         + (" · " + b["rows"][0]["label"] if solo and not b["groups"] else ""))
             for x in b["rows"]:
                 lines.append("<code>" + x["spark"] + " " + _pad(x["lvl"], vw, True)
-                             + (" " + _pad(x["wow"], ww, True) if ww else "")
-                             + "</code>  <b>" + x["label"] + "</b>" + x["tail"])
+                             + (" " + _pad(x["wow"], ww, True) if ww else "") + "</code>"
+                             + ("" if solo and not b["groups"] else "  <b>" + x["label"] + "</b>")
+                             + x["tail"])
+            # 여러 계열을 나란히 놓은 블록엔 해석을 한 줄 붙인다.
+            # 막대만 보고 '누가 앞서고 있나'를 매번 눈으로 재게 하지 않기 위해서다.
+            cmp = _compare(b["rows"])
+            if cmp:
+                lines.append(f"<i>↳ {cmp}</i>")
         out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:
         lines = []
-        # 자리를 맞추는 칸은 날짜 하나뿐이다. 날짜는 순수 ASCII 라 고정폭에서 정확히 맞는다.
-        # 예전엔 D-day·종류까지 칸을 잡았는데, '오늘' vs 'D-1' 과 '실적' vs 'IR' 처럼
-        # 한글과 영문이 섞이면 텔레그램 고정폭 글꼴에서 한글이 정확히 두 배가 아니라
-        # 칸 수를 맞춰도 실제 폭이 어긋난다. 그래서 뒤쪽은 자연스럽게 흘려보낸다.
-        for e in soon[:6]:
-            dd = (datetime.date.fromisoformat(e["date"]) - today).days
-            lines.append(f"<code>{e['date'][5:].replace('-', '/')}</code>  <b>{e['co']}</b> "
-                         + ("실적" if e["type"] == "earn" else "IR")
-                         + " · " + ("오늘" if not dd else f"D-{dd}"))
+        # 날짜별로 한 줄. 같은 날 여러 종목이면 한 줄에 모은다 —
+        # 줄마다 날짜를 되풀이하니 눈이 어디를 봐야 할지 몰랐다.
+        # 자리를 맞추는 칸은 D-day 하나뿐이다. 순수 ASCII 라 어떤 글꼴에서도 맞는다.
+        byday = {}
+        for e in soon[:10]:
+            byday.setdefault(e["date"], []).append(e)
+        for d in sorted(byday)[:5]:
+            dd = (datetime.date.fromisoformat(d) - today).days
+            when = "오늘" if not dd else ("내일" if dd == 1 else f"{d[5:7]}/{d[8:10]}")
+            body = " · ".join(f"<b>{e['co']}</b> {'실적' if e['type'] == 'earn' else 'IR'}"
+                              for e in byday[d])
+            lines.append(f"<code>{_pad(f'D-{dd}', 4)}</code> {when}  {body}")
         out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
 
     # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
@@ -490,10 +573,10 @@ def build(html, alerts_only=False):
 
     if alerts_only:
         keep = [b for b in out if not b.startswith("<b>📊")]
-        head = f"<b>커버리지 알림</b> · {today:%m/%d}({WD[today.weekday()]})"
+        head = f"⏰ <b>커버리지 알림</b> · {today:%m/%d}({WD[today.weekday()]})"
         return (head + "\n\n" + "\n\n".join(keep)) if keep else ""
 
-    head = f"<b>커버리지 데일리</b> · {today:%m/%d}({WD[today.weekday()]})"
+    head = f"🗞 <b>커버리지 데일리</b> · {today:%m/%d}({WD[today.weekday()]})"
     return (head + "\n\n" + ("\n\n".join(out) if out else "특이사항 없음.")
             + "\n\n<i>coverage-dashboard.pages.dev</i>")
 
