@@ -21,12 +21,16 @@ SPIKE = 25             # 검색 트렌드 '급등/급락' 임계(전주비 %)
 STREAK_MIN = 3         # 연속추세로 볼 최소 주 수
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 
-# 트렌드 그룹 -> 엮인 커버 종목(해석에 붙임). 커버 밖은 생략.
-STOCK_OF = {
-    "스킨부스터": "파마리서치", "K-뷰티 브랜드": "에이피알·달바",
-    "배틀그라운드(크래프톤)": "크래프톤", "펄어비스 IP": "펄어비스",
-    "시프트업 IP": "시프트업", "아이온2 국가별": "NC", "티니핑 국가별": "SAMG",
+# 트렌드 그룹 -> 커버 종목. index.html 의 TREND_STOCK 을 그룹 기준으로 뒤집은 것(그게 원본).
+GROUP_STOCK = {
+    "K-뷰티 브랜드": "에이피알·달바글로벌", "스킨부스터": "파마리서치",
+    "쿨로아600": "리센스메디컬", "티니핑 국가별": "SAMG엔터",
+    "변신로봇 IP": "SAMG엔터", "변신로봇 IP 러시아": "SAMG엔터",
+    "아이온2 국가별": "NC", "배틀그라운드(크래프톤)": "크래프톤",
+    "펄어비스 IP": "펄어비스", "시프트업 IP": "시프트업",
 }
+def _stock(g):
+    return GROUP_STOCK.get(g, "커버외")
 
 
 def _const(html, name, br="{"):
@@ -114,7 +118,7 @@ def build(html, alerts_only=False):
     spike = max(heads.items(), key=lambda kv: abs(kv[1][2]) if kv[1][2] is not None else 0, default=None)
     if spike and spike[1][2] is not None and abs(spike[1][2]) >= SPIKE:
         g, (lab, last, w, st) = spike
-        pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: {g} <b>{lab}</b> {w:+.0f}%")
+        pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: <b>{_stock(g)}</b> · {g} {lab} {w:+.0f}%")
     if movers:
         c, nm = movers[0]
         pts.append(f"{'📈' if c > 0 else '📉'} 시세: <b>{nm}</b> {c:+.1f}%" + (f" 외 {len(movers)-1}종목" if len(movers) > 1 else ""))
@@ -170,8 +174,7 @@ def build(html, alerts_only=False):
         if last < 5:                              # 검색량 사실상 없는 그룹은 생략
             continue
         wtxt = "" if w is None else f" {w:+.0f}%"
-        stock = f" → {STOCK_OF[g]}" if g in STOCK_OF else ""
-        tl.append(f"· <b>{g}</b>{stock}: {lab} {last}{wtxt}{interp(w, st)}")
+        tl.append(f"· <b>{_stock(g)}</b> · {g}: {lab} {last}{wtxt}{interp(w, st)}")
     if tl:
         out.insert(0 if not pts else 1, "<b>📊 검색 트렌드</b> <i>(대표 계열·전주비, 움직인 순)</i>\n" + "\n".join(tl))
 
