@@ -190,6 +190,17 @@ def _notable(tr):
     return rows
 
 
+def _josa(word, with_batchim, without):
+    """받침 여부에 맞는 조사. '리쥬란와' 처럼 어색해지는 걸 막는다.
+       한글 음절은 (코드 - 0xAC00) % 28 이 0 이 아니면 받침이 있다."""
+    if not word:
+        return without
+    c = ord(word[-1])
+    if 0xAC00 <= c <= 0xD7A3:
+        return with_batchim if (c - 0xAC00) % 28 else without
+    return without                       # 숫자·영문으로 끝나면 관례상 받침 없는 쪽
+
+
 def _compare(rows):
     """여러 계열을 나란히 놓은 블록의 해석 한 줄. 하나뿐이면 None.
 
@@ -209,12 +220,13 @@ def _compare(rows):
     pt, ps = prev(top), prev(sec)
     pgap = (pt - ps) if (pt is not None and ps is not None) else None
     t, s = top["kw"], sec["kw"]
+    si, tw = _josa(s, "이", "가"), _josa(t, "과", "와")
     if gap <= 3:
-        return f"{s}가 {t}와 대등 (격차 {gap:.0f}p)"
+        return f"{s}{si} {t}{tw} 대등 (격차 {gap:.0f}p)"
     if pgap is None:
-        return f"{t} 선두 (2위 {s}와 {gap:.0f}p)"
+        return f"{t} 선두 (2위 {s}{_josa(s, '과', '와')} {gap:.0f}p)"
     if pgap - gap >= 3:
-        return f"{s}가 {t} 추격 중 (격차 {pgap:.0f}→{gap:.0f}p)"
+        return f"{s}{si} {t} 추격 중 (격차 {pgap:.0f}→{gap:.0f}p)"
     if gap - pgap >= 3:
         return f"{t} 격차 확대 ({pgap:.0f}→{gap:.0f}p)"
     return f"{t} 선두 유지 (격차 {gap:.0f}p)"
@@ -256,28 +268,30 @@ def _match(item, name):
 # 헤드라인에서 '무슨 일인가'를 뽑는 사전. 앞에서 걸리는 것부터 본다.
 # 기사 제목을 그대로 옮기면 신문 문구(따옴표·말줄임·부제)가 그대로 들어와 읽기 나쁘다.
 # 종류를 먼저 정하고, 제목은 근거로 짧게만 붙인다.
+# 헤드라인 종류 → 아이콘. 종류 이름을 글자로 또 적지는 않는다 —
+# 아이콘이 이미 말해 주는데 '계약 · ' 을 덧붙이면 정작 내용이 잘려 나간다.
 GIST = [
-    ("🤝", "계약",   ("공동제작", "수주", "공급계약", "계약 체결", "납품", "MOU", "파트너십", "협약")),
-    ("🌏", "진출",   ("진출", "수출", "입점", "런칭", "론칭", "출시", "확장", "오픈")),
-    ("💰", "주주환원", ("자사주", "배당", "주주환원", "소각")),
-    ("🏦", "자금조달", ("유상증자", "전환사채", "CB 발행", "신주인수권")),
-    ("🔗", "지분",   ("인수", "합병", "지분 취득", "매각", "분할")),
-    ("📑", "리포트", ("목표주가", "투자의견", "커버리지 개시", "상향", "하향")),
-    ("⚠️", "리스크", ("소송", "제재", "조사", "리콜", "규제", "과징금", "횡령")),
-    ("🏭", "설비",   ("증설", "공장", "생산능력", "CAPA", "가동")),
+    ("🤝", ("공동제작", "수주", "공급계약", "계약 체결", "납품", "MOU", "파트너십", "협약")),
+    ("🌏", ("진출", "수출", "입점", "런칭", "론칭", "출시", "확장", "오픈")),
+    ("💰", ("자사주", "배당", "주주환원", "소각")),
+    ("🏦", ("유상증자", "전환사채", "CB 발행", "신주인수권")),
+    ("🔗", ("인수", "합병", "지분 취득", "매각", "분할")),
+    ("📑", ("목표주가", "투자의견", "커버리지 개시", "상향", "하향")),
+    ("⚠️", ("소송", "제재", "조사", "리콜", "규제", "과징금", "횡령")),
+    ("🏭", ("증설", "공장", "생산능력", "CAPA", "가동")),
 ]
 
 
 def _gist(title, nm):
-    """기사 제목 -> '종류 · 짧은 근거' 한 줄.
-       제목 앞에 붙는 '회사명,' 과 부제(… 뒤)를 떼고 핵심 절만 남긴다."""
+    """기사 제목 -> 아이콘 + 핵심 절 한 줄.
+       제목 앞에 붙는 '회사명,' 과 부제(… 뒤)를 떼고 앞 절만 남긴다.
+       신문 문구를 그대로 옮기면 따옴표·말줄임·부제가 섞여 읽기 나쁘다."""
     if not title:
         return None
     t = re.sub(r"^\s*[\[\(]?%s[\]\)]?\s*[,·:\-]\s*" % re.escape(nm), "", title).strip()
     t = re.split(r"\.\.\.|…|\|", t)[0].strip(" ,·-—")
-    kind = next(((e, k) for e, k, ws in GIST if any(w in title for w in ws)), None)
-    t = _cut(t, REASON_W - (8 if kind else 0))
-    return f"{kind[0]} {kind[1]} · {t}" if kind else f"📰 {t}"
+    icon = next((e for e, ws in GIST if any(w in title for w in ws)), "📰")
+    return f"{icon} {_cut(t, REASON_W - 2)}"
 
 
 def _news(items, name, cut):
@@ -425,7 +439,8 @@ def build(html, alerts_only=False):
             sur = _surprise(live, nm, chg_of.get(nm, 0), today)
             if sur:
                 return "📊 " + _cut(sur, REASON_W)           # 실제치 vs 컨센이 잡히면 그 해석이 이유
-            return "📊 실적발표" if not head else "📊 실적발표 · " + _cut(head, REASON_W - 8)
+            # head 에는 _gist 가 이미 아이콘을 붙여 놨다. 앞에 📊 를 또 달면 아이콘이 겹친다.
+            return "📊 실적발표" if not head else f"📊 실적발표 {head}"
         if disc:                                             # 실적 외 공시(IR·계약 등)
             return "📄 " + _cut(disc[0].get("title") or "공시", REASON_W)
         if head:
@@ -456,7 +471,7 @@ def build(html, alerts_only=False):
     # 부호와 숫자가 이미 방향·세기를 말하므로 기호를 더 얹지 않는다.
     out = []
     if pts:
-        out.append("<b>오늘의 포인트</b>\n" + "\n".join("• " + p for p in pts))
+        out.append("<b>✨ 오늘의 포인트</b>\n" + "\n".join("• " + p for p in pts))
 
     # 전일 시세 급변 — 가장 먼저. 오늘 당장 대응할 게 있다면 여기다.
     if movers:
@@ -553,11 +568,13 @@ def build(html, alerts_only=False):
         for e in soon[:10]:
             byday.setdefault(e["date"], []).append(e)
         for d in sorted(byday)[:5]:
-            dd = (datetime.date.fromisoformat(d) - today).days
-            when = "오늘" if not dd else ("내일" if dd == 1 else f"{d[5:7]}/{d[8:10]}")
+            dt = datetime.date.fromisoformat(d)
+            dd = (dt - today).days
             body = " · ".join(f"<b>{e['co']}</b> {'실적' if e['type'] == 'earn' else 'IR'}"
                               for e in byday[d])
-            lines.append(f"<code>{_pad(f'D-{dd}', 4)}</code> {when}  {body}")
+            # 'D-0 오늘' 은 같은 말을 두 번 하는 것이라 날짜(요일)를 대신 붙인다.
+            lines.append(f"<code>{_pad(f'D-{dd}', 3)} {d[5:7]}/{d[8:10]}({WD[dt.weekday()]})"
+                         f"</code>  {body}")
         out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
 
     # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
