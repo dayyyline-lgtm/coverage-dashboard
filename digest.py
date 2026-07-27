@@ -59,8 +59,8 @@ TRACK = [
     ("리센스메디컬", "쿨로아600", "쿨로아600",  False),
     # 티니핑 국내(네이버) — 극장판 2편 개봉(8/5) 앞이라 홈마켓 관심이 곧 예매로 이어진다
     ("SAMG엔터", "티니핑 국가별", "한국", True),
-    # 메탈카드봇 러시아(얀덱스) — 얀덱스는 절대 검색수를 줘서 크기 비교가 되는 유일한 소스
-    ("SAMG엔터", "변신로봇 IP 러시아", "메탈카드봇", True),
+    # 메탈카드봇 러시아(얀덱스)는 뺐다. 러시아 매출 비중이 작아 매일 볼 값이 아니다.
+    # 대시보드 트렌드 탭에는 그대로 있다 — 레터에서만 내린 것.
     ("펄어비스", "펄어비스 IP", "붉은사막", False),
     # NC 신작 — 미출시라 평소엔 0 근처, 코믹마켓·테스터 모집 같은 이벤트에만 튄다.
     # 그 스파이크가 곧 신호라 조건부로 둔다(고정하면 매일 빈 줄만 나간다).
@@ -189,6 +189,32 @@ def _notable(tr):
                          ((g or {}).get("products") or []).index(kw)
                          if kw in ((g or {}).get("products") or []) else 0]})
     return rows
+
+
+def _prev_run(mv, nm):
+    """같은 IP 전작의 기준선 한 줄. 없으면 None.
+       예매 숫자만 던지면 잘한 건지 못한 건지 알 수 없다. 전작의 시작점과 최종을 붙인다.
+       (2편 이름에는 1편 제목이 통째로 들어 있어 그걸로 짝을 찾는다)"""
+    head = nm.split(":")[0].strip()
+    for t, m in (mv.get("movies") or {}).items():
+        if t == nm or head not in t or not m.get("days"):
+            continue
+        d = m["days"]
+        first, last = d[0], d[-1]
+        try:
+            op = datetime.datetime.strptime((m.get("openDt") or "").replace("-", ""), "%Y%m%d").date()
+            fd = datetime.datetime.strptime(first["d"], "%Y%m%d").date()
+            dn = (fd - op).days
+        except ValueError:
+            return None
+        return (f"{t} 기준: D{dn:+d} {first['acc']:,}명 → 최종 {last['acc']:,}명")
+    return None
+
+
+def _sub(text):
+    """딸림 줄(해석·근거)의 공통 서식. 본 줄 아래에 한 단 낮춰 작게 붙인다.
+       급변 이유·트렌드 해석·예매 기준선이 전부 같은 성격이라 모양을 하나로 맞춘다."""
+    return f"<i>↳ {text}</i>"
 
 
 def _josa(word, with_batchim, without):
@@ -502,7 +528,7 @@ def build(html, alerts_only=False):
             rs = _why(nm)
             lines.append(f"{_arw(c)} <b>{nm}</b> {c:+.1f}%"
                          + (f"  {CAT_ICON.get(cat, '')}<i>{cat}</i>" if cat else "")
-                         + (f"\n    {rs}" if rs else ""))
+                         + (f"\n{_sub(rs)}" if rs else ""))
         extra = (f"\n<i>외 {len(movers)-MOVERS_MAX}종목</i>"
                  if len(movers) > MOVERS_MAX else "")
         out.append(f"<b>📈 전일 급변</b> <i>(±{CHG_ALERT:.0f}%)</i>\n" + "\n".join(lines) + extra)
@@ -577,7 +603,7 @@ def build(html, alerts_only=False):
             # 막대만 보고 '누가 앞서고 있나'를 매번 눈으로 재게 하지 않기 위해서다.
             cmp = _compare(b["rows"])
             if cmp:
-                lines.append(f"<i>↳ {cmp}</i>")
+                lines.append(_sub(cmp))
         out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
     # 임박 일정
@@ -608,6 +634,9 @@ def build(html, alerts_only=False):
             dr = f" ({p['rate']-prv['rate']:+.1f}%p)" if prv else " (수집 시작)"
             lines.append(f"<b>{nm.split(':')[0]}</b>  예매율 {p['rate']}%{dr} · "
                          f"예매 {p['book']:,}명")
+            base = _prev_run(mv, nm)
+            if base:
+                lines.append(_sub(base))       # 숫자만 던지면 잘한 건지 못한 건지 모른다
         out.append("<b>🎬 예매</b>\n" + "\n".join(lines))
 
     if alerts_only:
