@@ -304,19 +304,15 @@ def _prev_bday(d):
     return x
 
 
-# 제목에 쓰이는 다른 표기. 커버리지 이름과 기사 표기가 다른 것만 적는다.
-ALIAS = {
-    "NC": ("엔씨소프트", "엔씨"),
-    "JYP Ent.": ("JYP",),
-    "와이지엔터": ("YG엔터", "와이지엔터"),
-    "에스엠": ("SM엔터", "에스엠"),
-    "앨엔씨바이오": ("엘앤씨바이오",),
-    "서부T&D": ("서부티엔디",),
-    "달바글로벌": ("달바",),
-    "SAMG엔터": ("SAMG",),
-    "롯데관광개발": ("롯데관광",),
-    "LG생활건강": ("LG생건",),
-}
+# 제목에 쓰이는 다른 표기. 화면(index.html 의 NEWS_ALIAS)과 같은 것을 쓴다.
+# 여기에 따로 적어 두면 화면은 '불닭'·'리쥬란' 을 잡는데 레터는 못 잡는 식으로 갈린다.
+# 실제로 그랬다 — 화면은 32종목 브랜드명까지, 레터는 사명 변형 10개뿐이었다.
+ALIAS = {}
+
+
+def _load_alias(html):
+    global ALIAS
+    ALIAS = _const(html, "NEWS_ALIAS") or {}
 
 
 def _match(item, name):
@@ -325,8 +321,8 @@ def _match(item, name):
        예전엔 수집기가 붙인 co 태그만 있어도 인정했다. 그 탓에 종목이 스쳐
        언급된 업종 기사('AI가 살린 메타버스 ETF' → 펄어비스)가 급등 이유로 붙었다.
        제목에 이름조차 없는 기사는 그 종목이 움직인 이유가 아니다."""
-    t = item.get("t") or ""
-    return any(a in t for a in (name,) + ALIAS.get(name, ()))
+    t = (item.get("t") or "").lower()
+    return any(a.lower() in t for a in set([name] + list(ALIAS.get(name) or [])))
 
 
 # 헤드라인에서 '무슨 일인가'를 뽑는 사전. 앞에서 걸리는 것부터 본다.
@@ -442,6 +438,7 @@ def _surprise(live, nm, chg, today):
 
 
 def build(html, alerts_only=False):
+    _load_alias(html)                      # 종목 별칭은 화면과 같은 것을 쓴다
     today = datetime.datetime.now(KST).date()
     tr = _const(html, "TREND") or {"groups": {}}
     live = _const(html, "LIVE") or {}
