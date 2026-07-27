@@ -120,21 +120,10 @@ def _pad(s, n, right=False):
     return (sp + s) if right else (s + sp)
 
 
-def _cjk(s):
-    return sum(1 for c in s if unicodedata.east_asian_width(c) in "WF")
-
-
-def _align(s, mc, ma, right=False):
-    """고정폭 칸 채우기 — 한글 부족분은 전각공백(U+3000), 영문 부족분은 보통 공백.
-
-       보통 공백만으로 맞추면 어긋난다. 텔레그램(윈도 데스크톱, Consolas→맑은 고딕
-       대체) 실측으로 영문 공백 8.8px · 한글 1자 16px 이었다.
-       한글이 영문의 2배가 아니라 1.82배라, '한글=2칸'으로 세어 공백을 넣으면
-       계열마다 최대 4.8px 씩 밀린다(메탈카드봇 80.0 / 한국 84.8 / 셀르디엠 81.6).
-       U+3000 은 같은 대체 글꼴에서 한글과 정확히 같은 16px 라 딱 맞는다.
-       그래서 한글 수와 영문 수를 따로 세어 각각 같은 종류로 채운다."""
-    fill = "　" * max(0, mc - _cjk(s)) + " " * max(0, ma - (len(s) - _cjk(s)))
-    return (fill + s) if right else (s + fill)
+# 한글 폭에 기대는 정렬(공백·전각공백 채우기)은 쓰지 않는다.
+# 텔레그램 글꼴에서 한글:영문:전각공백 비율이 예측되지 않아 두 번 다 밀렸다.
+# 정렬이 필요한 칸은 ASCII·블록문자만 담고, 한글은 정렬 대상에서 뺀다.
+# 자세한 경위는 트렌드 렌더링 쪽 주석에 적어 뒀다.
 
 
 def _cut(s, n):
@@ -157,7 +146,10 @@ def _spark(s, n=10):
     lo, hi = min(c), max(c)
     if hi == lo:
         return BLK[3] * len(c)
-    return "".join(BLK[min(7, int((v - lo) / (hi - lo) * 7 + 0.5))] for v in c)
+    # 바닥을 ▁ 이 아니라 ▂ 로 잡는다. ▁ 은 선이 너무 얇아 화면에서 안 보이는데,
+    # 최솟값은 반드시 하나 이상 나오므로 계열 전체가 빈칸처럼 보이는 일이 생긴다
+    # (티니핑이 실제로 그렇게 보였다).
+    return "".join(BLK[1 + min(6, int((v - lo) / (hi - lo) * 6 + 0.5))] for v in c)
 
 
 def _series(gobj, kw):
@@ -443,11 +435,21 @@ def build(html, alerts_only=False):
         # 자리는 레터 전체에서 한 번만 잡는다.
         # 블록마다 따로 맞추면 블록이 바뀔 때마다 막대 시작점이 밀려서,
         # 겹쳐 보라고 넣은 스파크라인이 오히려 들쭉날쭉해 보인다.
+        # 막대를 맨 앞에 둔다.
+        #
+        # 한글을 앞에 두고 폭을 맞추려던 시도가 두 번 다 실패했다.
+        #   1차: 보통 공백으로 채움 → 텔레그램 글꼴에서 한글이 영문의 2배가 아니라
+        #        1.82배라 한글 글자 수가 다르면 폭이 달라졌다.
+        #   2차: 부족분을 전각공백(U+3000)으로 채움 → 브라우저(Consolas+맑은고딕)에서는
+        #        딱 맞았지만 텔레그램에서는 여전히 밀렸다. 전각공백과 한글이
+        #        같은 폭이 아닌 글꼴을 쓴다는 뜻이다.
+        # 남의 글꼴 지표에 기대는 방식 자체가 틀렸다.
+        # 막대를 첫 칸에 두면 앞에 채울 게 없어 어떤 글꼴에서도 반드시 맞는다.
+        # 막대 뒤 숫자는 전부 ASCII 라 보통 공백으로 맞고, 이름은 정렬이 필요 없으니
+        # 코드 블록 밖으로 빼서 굵게 쓴다(<code> 안에서는 굵게가 안 먹는다).
         rows = [x for b in blocks for x in b["rows"]]
-        mx = lambda k, f: max(f(x[k]) for x in rows)
-        lc, la = mx("label", _cjk), mx("label", lambda s: len(s) - _cjk(s))
-        vc, va = mx("lvl", _cjk), mx("lvl", lambda s: len(s) - _cjk(s))
-        wa = mx("wow", len)
+        vw = max(_w(x["lvl"]) for x in rows)
+        ww = max(len(x["wow"]) for x in rows)
 
         lines = []
         for b in blocks:
@@ -456,10 +458,9 @@ def build(html, alerts_only=False):
             lines.append(f"<b>{b['stock']}</b>"
                          + (" · " + " · ".join(b["groups"]) if b["groups"] else ""))
             for x in b["rows"]:
-                lines.append("<code>" + _align(x["label"], lc, la) + " " + x["spark"]
-                             + " " + _align(x["lvl"], vc, va, True)
-                             + (" " + _pad(x["wow"], wa, True) if wa else "")
-                             + x["tail"] + "</code>")
+                lines.append("<code>" + x["spark"] + " " + _pad(x["lvl"], vw, True)
+                             + (" " + _pad(x["wow"], ww, True) if ww else "")
+                             + "</code>  <b>" + x["label"] + "</b>" + x["tail"])
         out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
     # 임박 일정
