@@ -6,9 +6,10 @@
 원칙:
   - 검색 트렌드: 소비재 브랜드/제품처럼 '검색=수요 선행'인 것 위주. 게임 국가별 자가정규화(0~100)
     노이즈는 뺀다. '의미있게 움직인' 것만(전주비 기준 명시).
-  - 시세 급변(전일)엔 '왜 움직였나'를 준다. 기본은 규칙기반: 실적/IR 공시를 우선 재료로
-    (실적발표면 컨센 맥락 첨부), 없으면 관련 뉴스 헤드라인. ANTHROPIC_API_KEY 를 넣으면
-    Claude(웹서치)가 그때그때 추론(analyze.py). 안 넣어도 됨 — 규칙기반으로 조용히 돈다.
+  - 시세 급변(전일)엔 '왜 움직였나'를 준다. 실적발표면 실제치 vs consSnap 컨센을 계산해
+    상회/하회 × 주가방향으로 호실적반영/부진/셀온/악재선반영까지 판정(_surprise).
+    발표 전이면 관련 뉴스 헤드라인. ANTHROPIC_API_KEY 를 넣으면 Claude(웹서치)로 추론
+    (analyze.py)하지만, 안 넣어도 규칙기반으로 조용히 돈다.
   - 카테고리: 소비재는 세부(화장품/미용/음식료/유통), 엔터·게임·호텔은 섹터.
   - 방향은 ▲(상승, 한국식 빨강)·▼(하락) 로.
 
@@ -177,6 +178,79 @@ def _cons(live, name):
     return " · ".join(parts)
 
 
+_QLAST = {3: 31, 6: 30, 9: 30, 12: 31}
+
+
+def _qn(k):
+    return {"03": "1Q", "06": "2Q", "09": "3Q", "12": "4Q"}.get(k[4:6], k) if len(k) >= 6 else k
+
+
+def _surprise(live, nm, chg, today):
+    """발표된 최근 분기의 '실제 vs consSnap 컨센' → 서프라이즈 × 주가방향 해석 한 줄. 없으면 None.
+       컨센(consSnap)이 보존돼 있고 시계열이 실제(e=False)로 바뀐, 분기말 80일 내 분기만 본다
+       (오래된 분기를 이번 급변에 오귀속하지 않도록)."""
+    r = (live.get("stocks") or {}).get(nm) or {}
+    snap = (live.get("consSnap") or {}).get(nm) or {}
+    qser = ((r.get("cons") or {}).get("quarter") or {}).get("series") or []
+    hit = None
+    for x in reversed(qser):
+        k = x.get("k", "")
+        if x.get("e") or k not in snap or len(k) < 6:   # 아직 컨센(추정)이거나 스냅샷 없음
+            continue
+        try:
+            qe = datetime.date(int(k[:4]), int(k[4:6]), _QLAST.get(int(k[4:6]), 28))
+        except ValueError:
+            continue
+        if (today - qe).days > 80:      # 오래된 분기 → 이번 급변과 무관
+            break
+        hit = x
+        break
+    if not hit:
+        return None
+    c = snap[hit["k"]]
+    qn = _qn(hit["k"])
+    co, ao, cr, ar = c.get("op"), hit.get("op"), c.get("rev"), hit.get("rev")
+    up = chg > 0
+    beat = miss = False
+    if co is not None and ao is not None:
+        if co < 0 <= ao:
+            vs, beat = f"{qn} 영업 흑자전환(컨센 상회)", True
+        elif ao < 0 <= co:
+            vs, miss = f"{qn} 영업 적자전환(컨센 하회)", True
+        elif co < 0 and ao < 0:                          # 둘 다 적자 → 축소/확대
+            better = ao > co
+            vs = f"{qn} 영업적자 {'축소' if better else '확대'}(컨센 {'상회' if better else '하회'})"
+            beat, miss = better, not better
+        else:
+            base = abs(co) or abs(ao) or 1
+            pct = (ao - co) / base * 100
+            if pct >= 5:
+                vs, beat = f"{qn} 영업익 컨센 {pct:+.0f}% 상회", True
+            elif pct <= -5:
+                vs, miss = f"{qn} 영업익 컨센 {pct:.0f}% 하회", True
+            else:
+                vs = f"{qn} 영업익 컨센 부합"
+    elif cr and ar:                                      # 영업익 없으면 매출로
+        pct = (ar / cr - 1) * 100
+        if pct >= 5:
+            vs, beat = f"{qn} 매출 컨센 {pct:+.0f}% 상회", True
+        elif pct <= -5:
+            vs, miss = f"{qn} 매출 컨센 {pct:.0f}% 하회", True
+        else:
+            vs = f"{qn} 매출 컨센 부합"
+    else:
+        return None
+    if beat and up:
+        return f"{vs}, 호실적 반영"
+    if beat and not up:
+        return f"{vs}에도 하락 → 셀온"
+    if miss and not up:
+        return f"{vs}, 실적 부진 반영"
+    if miss and up:
+        return f"{vs}에도 상승 → 악재 선반영/저점매수"
+    return vs                                            # 컨센 부합
+
+
 def build(html, alerts_only=False):
     today = datetime.datetime.now(KST).date()
     tr = _const(html, "TREND") or {"groups": {}}
@@ -207,18 +281,18 @@ def build(html, alerts_only=False):
                 _disc(evs, nm, news_cut, today), _cons(live, nm),
                 _news_all(nitems, nm, news_cut))
 
+    chg_of = {nm: c for c, nm in movers}
+
     def _rule_why(nm):
-        """키 없이 도는 규칙기반 이유 — 실적/IR 공시를 우선 재료로, 없으면 뉴스 헤드라인.
-           실적발표일이면 컨센(매출·영익) 맥락을 붙여 '무엇에 반응했나'를 준다."""
+        """키 없이 도는 규칙기반 이유. 실적발표면 '컨센 대비 상회/하회 × 주가방향'으로
+           호실적반영/부진/셀온/악재선반영까지 판정(_surprise). 발표 전이면 헤드라인."""
         head = _news(nitems, nm, news_cut)
         disc = [e for e in evs if e.get("co") == nm and news_cut <= e.get("date", "") <= today.isoformat()]
         if any(e.get("type") == "earn" for e in disc):
-            snap = (live.get("consSnap") or {}).get(nm) or {}
-            if snap:
-                q, v = sorted(snap.items())[-1]
-                ctx = f"컨센 매출 {v.get('rev', 0):,.0f}·영익 {v.get('op', 0):,.0f}십억"
-                return f"실적발표 · {head}" if head else f"실적발표 ({ctx})"
-            return f"실적발표 · {head}" if head else "실적발표"
+            sur = _surprise(live, nm, chg_of.get(nm, 0), today)
+            if sur:
+                return sur                                   # 실제치 vs 컨센이 잡히면 그 해석이 이유
+            return f"실적발표 · {head}" if head else "실적발표"  # 발표됐지만 실제치 아직(데이터 랙)
         return head
 
     def _why(nm):
