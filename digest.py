@@ -17,7 +17,7 @@
   python digest.py --dry-run  # 출력만
   python digest.py --alerts   # 일정·시세만(짧게)
 """
-import re, json, sys, datetime
+import re, json, sys, datetime, unicodedata
 import telegram_send
 
 
@@ -91,6 +91,18 @@ def _streak(s):
 def _last(s):
     c = _clean(s)
     return c[-1] if c else None
+
+
+def _w(s):
+    """표시 폭 — 한글·전각은 두 칸을 먹는다.
+       텔레그램 고정폭 글꼴에서 자리를 맞추려면 글자 수가 아니라 이 폭으로 세야 한다
+       ('리쥬란' 3글자와 '셀르디엠' 4글자는 폭이 6 vs 8 이라 글자 수로 맞추면 어긋난다)."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def _pad(s, n, right=False):
+    sp = " " * max(0, n - _w(s))
+    return (sp + s) if right else (s + sp)
 
 
 def _spark(s, n=10):
@@ -324,15 +336,15 @@ def build(html, alerts_only=False):
     for e in [x for x in soon if x["type"] == "earn"
               and (datetime.date.fromisoformat(x["date"]) - today).days <= 1][:2]:
         dd = (datetime.date.fromisoformat(e["date"]) - today).days
-        pts.append(f"📊 {'오늘' if not dd else '내일'} <b>{e['co']}</b> 실적발표")
+        pts.append(f"{'오늘' if not dd else '내일'} <b>{e['co']}</b> 실적발표")
     sp = next((r for r in notable
                if r["w"] is not None and abs(r["w"]) >= SPIKE and r["last"] >= NOTABLE_BASE), None)
     if sp:
-        pts.append(f"{sp['stock']} {sp['kw']} 트렌드 {sp['w']:+.0f}%")
+        pts.append(f"<b>{sp['stock']}</b> {sp['kw']} 트렌드 {sp['w']:+.0f}%")
     if movers:
         c, nm = movers[0]
         rs = _why(nm)
-        pts.append(f"{nm} {c:+.1f}%" + (f" — {rs}" if rs else ""))
+        pts.append(f"<b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
 
     # ── 본문 ───────────────────────────────────────────────
     # 이모지는 섹션 머리에 1개씩만. 본문 줄에는 색(등락)만 쓴다.
@@ -357,33 +369,54 @@ def build(html, alerts_only=False):
     # (종목, 그룹)이 같으면 한 블록으로 묶는다 — 리쥬란/리투오/셀르디엠처럼
     #  나란히 놓여야 '누가 뺏겼나'가 보이는 것들이 있다.
     if not alerts_only and notable:
-        lines, cur = [], None
+        # 먼저 그룹별로 모은다. 자리(폭)는 그룹 안에서만 맞추면 된다 —
+        # 비교는 같은 그룹 안에서 일어나고, 그룹마다 단위가 다르다(0~100 vs 주당 건수).
+        blocks, cur = [], None
         for r in notable:
             key = (r["stock"], r["group"])
             if key != cur:
                 cur = key
-                if lines:
-                    lines.append("")                  # 그룹 사이 한 줄 띄움
-                lines.append(f"<b>{r['stock']}</b> · {r['group']}")
+                blocks.append({"head": f"<b>{r['stock']}</b> · {r['group']}", "rows": []})
+            # 출처는 라벨에 붙인다 — <code> 안에서는 기울임이 안 먹는다.
+            src = f"({r['src']})" if r["src"] and r["src"] != "구글" else ""
             # 얀덱스는 절대 검색수라 '주당 몇 건'을 그대로 쓴다. 나머지는 0~100 상대값.
             lvl = (f"주당 {round(r['last'] / 100 * r['peak']):,}건"
                    if r["peak"] else f"{r['last']:.0f}/100")
-            bits = [lvl]
-            if r["w"] is not None:
-                bits.append(f"{r['w']:+.0f}%")
-            if abs(r["streak"]) >= STREAK_MIN:
-                bits.append(f"{abs(r['streak'])}주 연속")
-            src = f" <i>{r['src']}</i>" if r["src"] and r["src"] != "구글" else ""
-            lines.append(f"     {r['kw']}{src}  <code>{_spark(r['s'])}</code>  " + " · ".join(bits))
+            blocks[-1]["rows"].append({
+                "label": r["kw"] + src,
+                "spark": _spark(r["s"]),
+                "lvl": lvl,
+                "wow": "" if r["w"] is None else f"{r['w']:+.0f}%",
+                "tail": f" · {abs(r['streak'])}주 연속" if abs(r["streak"]) >= STREAK_MIN else ""})
+
+        lines = []
+        for b in blocks:
+            if lines:
+                lines.append("")                       # 그룹 사이 한 줄 띄움
+            lines.append(b["head"])
+            # 막대가 같은 칸에서 시작해야 눈으로 겹쳐 볼 수 있다.
+            # 라벨은 왼쪽 정렬로 폭을 채우고, 수치는 오른쪽 정렬로 자릿수를 맞춘다.
+            # 한 줄 전체를 <code> 로 감싸야 고정폭이 적용된다(밖은 가변폭이라 어긋난다).
+            lw = max(_w(x["label"]) for x in b["rows"])
+            vw = max(_w(x["lvl"]) for x in b["rows"])
+            ww = max(_w(x["wow"]) for x in b["rows"])
+            for x in b["rows"]:
+                lines.append("<code>" + _pad(x["label"], lw) + "  " + x["spark"]
+                             + "  " + _pad(x["lvl"], vw, True)
+                             + ("  " + _pad(x["wow"], ww, True) if ww else "")
+                             + "</code>" + x["tail"])
         out.append("<b>📊 트렌드 데이터</b> <i>(최근 10주 · 전주비)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:
         lines = []
+        # 날짜·D-day·종류만 <code> 로 자리를 맞추고, 종목명은 밖에 둔다.
+        # <code> 안에서는 굵게가 안 먹어서 이름을 안에 넣으면 눈에 안 띈다.
         for e in soon[:6]:
             dd = (datetime.date.fromisoformat(e["date"]) - today).days
-            lines.append(f"     {e['date'][5:]}  {'오늘' if not dd else 'D-'+str(dd)}  "
-                         f"{'실적' if e['type'] == 'earn' else 'IR'}  <b>{e['co']}</b>")
+            lines.append("<code>" + e["date"][5:] + "  " + _pad("오늘" if not dd else f"D-{dd}", 4)
+                         + "  " + _pad("실적" if e["type"] == "earn" else "IR", 4)
+                         + "</code> <b>" + e["co"] + "</b>")
         out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
 
     # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
@@ -393,7 +426,7 @@ def build(html, alerts_only=False):
         for nm, ptsB in bk:
             p, prv = ptsB[-1], (ptsB[-2] if len(ptsB) > 1 else None)
             dr = f" ({p['rate']-prv['rate']:+.1f}%p)" if prv else " (수집 시작)"
-            lines.append(f"     <b>{nm.split(':')[0]}</b>  예매율 {p['rate']}%{dr}  "
+            lines.append(f"<b>{nm.split(':')[0]}</b>  예매율 {p['rate']}%{dr} · "
                          f"예매 {p['book']:,}명")
         out.append("<b>🎬 예매</b>\n" + "\n".join(lines))
 
