@@ -207,7 +207,8 @@ def _prev_run(mv, nm):
             dn = (fd - op).days
         except ValueError:
             return None
-        return (f"{t} 기준: D{dn:+d} {first['acc']:,}명 → 최종 {last['acc']:,}명")
+        # 전작 이름을 다시 적으면 2편과 글자가 거의 같아 헷갈린다. '전작' 으로 부른다.
+        return f"전작은 D{dn:+d} {first['acc']:,}명 → 최종 {last['acc']:,}명"
     return None
 
 
@@ -632,8 +633,9 @@ def build(html, alerts_only=False):
         for nm, ptsB in bk:
             p, prv = ptsB[-1], (ptsB[-2] if len(ptsB) > 1 else None)
             dr = f" ({p['rate']-prv['rate']:+.1f}%p)" if prv else " (수집 시작)"
-            lines.append(f"<b>{nm.split(':')[0]}</b>  예매율 {p['rate']}%{dr} · "
-                         f"예매 {p['book']:,}명")
+            # 제목을 ':' 앞에서 자르면 2편이 1편과 똑같은 이름이 된다
+            # ('사랑의 하츄핑: 고래보석의 전설' -> '사랑의 하츄핑'). 그대로 쓴다.
+            lines.append(f"<b>{nm}</b>  예매율 {p['rate']}%{dr} · 예매 {p['book']:,}명")
             base = _prev_run(mv, nm)
             if base:
                 lines.append(_sub(base))       # 숫자만 던지면 잘한 건지 못한 건지 모른다
