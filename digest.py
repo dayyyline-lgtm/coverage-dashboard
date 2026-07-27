@@ -391,25 +391,32 @@ def build(html, alerts_only=False):
     if not alerts_only and notable:
         # 먼저 그룹별로 모은다. 자리(폭)는 그룹 안에서만 맞추면 된다 —
         # 비교는 같은 그룹 안에서 일어나고, 그룹마다 단위가 다르다(0~100 vs 주당 건수).
-        blocks, cur = [], None
+        # 종목 단위로 묶는다. 그룹명은 그 그룹이 두 계열 이상을 낼 때만 붙인다 —
+        # 계열이 하나뿐이면 '변신로봇 IP 러시아 / 메탈카드봇' 처럼 같은 말을 두 번 하는 셈이다.
+        # 출처(네이버·얀덱스)는 아예 뺐다. 단위가 이미 성격을 말한다
+        # (0~100 = 상대지수 / N건 = 얀덱스 절대 검색수).
+        gcount = {}
         for r in notable:
-            key = (r["stock"], r["group"])
-            if key != cur:
-                cur = key
-                blocks.append({"stock": r["stock"], "group": r["group"], "rows": []})
-            # 얀덱스는 절대 검색수라 '주당 몇 건'을 그대로 쓴다. 나머지는 0~100 상대값.
-            lvl = (f"{round(r['last'] / 100 * r['peak']):,}건"
-                   if r["peak"] else f"{r['last']:.0f}/100")
-            blocks[-1]["rows"].append({
+            gcount[(r["stock"], r["group"])] = gcount.get((r["stock"], r["group"]), 0) + 1
+
+        blocks = []
+        for r in notable:
+            if not blocks or blocks[-1]["stock"] != r["stock"]:
+                blocks.append({"stock": r["stock"], "groups": [], "rows": []})
+            b = blocks[-1]
+            if gcount[(r["stock"], r["group"])] > 1 and r["group"] not in b["groups"]:
+                b["groups"].append(r["group"])
+            b["rows"].append({
                 "label": _cut(r["kw"], LABEL_W),
-                "src": r["src"] if r["src"] and r["src"] != "구글" else "",
                 "spark": _spark(r["s"]),
-                "lvl": lvl,
+                # 얀덱스는 절대 검색수라 실제 건수를 그대로 쓴다. 나머지는 0~100 상대값.
+                "lvl": (f"{round(r['last'] / 100 * r['peak']):,}건"
+                        if r["peak"] else f"{r['last']:.0f}/100"),
                 "wow": "" if r["w"] is None else f"{r['w']:+.0f}%",
-                "tail": f" {abs(r['streak'])}주 연속" if abs(r["streak"]) >= STREAK_MIN else ""})
+                "tail": f"  {abs(r['streak'])}주" if abs(r["streak"]) >= STREAK_MIN else ""})
 
         # 자리는 레터 전체에서 한 번만 잡는다.
-        # 그룹마다 따로 맞추면 그룹이 바뀔 때마다 막대 시작점이 밀려서,
+        # 블록마다 따로 맞추면 블록이 바뀔 때마다 막대 시작점이 밀려서,
         # 겹쳐 보라고 넣은 스파크라인이 오히려 들쭉날쭉해 보인다.
         rows = [x for b in blocks for x in b["rows"]]
         lw = max(_w(x["label"]) for x in rows)
@@ -419,17 +426,11 @@ def build(html, alerts_only=False):
         lines = []
         for b in blocks:
             if lines:
-                lines.append("")                       # 그룹 사이 한 줄 띄움
-            # 그룹 안에서 출처가 하나면 머리에 적는다 — 줄마다 (네이버) 를 달면
-            # 라벨 칸이 그만큼 넓어져서 막대가 오른쪽으로 밀린다.
-            srcs = {x["src"] for x in b["rows"]}
-            one = srcs.pop() if len(srcs) == 1 else None
-            lines.append(f"<b>{b['stock']}</b> · {b['group']}"
-                         + (f" <i>{one}</i>" if one else ""))
+                lines.append("")                       # 종목 사이 한 줄 띄움
+            lines.append(f"<b>{b['stock']}</b>"
+                         + (" · " + " · ".join(b["groups"]) if b["groups"] else ""))
             for x in b["rows"]:
-                lab = x["label"] if one is not None else (
-                    _cut(f"{x['label']}({x['src']})", LABEL_W) if x["src"] else x["label"])
-                lines.append("<code>" + _pad(lab, lw) + " " + x["spark"]
+                lines.append("<code>" + _pad(x["label"], lw) + " " + x["spark"]
                              + " " + _pad(x["lvl"], vw, True)
                              + (" " + _pad(x["wow"], ww, True) if ww else "")
                              + x["tail"] + "</code>")
@@ -438,13 +439,15 @@ def build(html, alerts_only=False):
     # 임박 일정
     if soon:
         lines = []
-        # 날짜·D-day·종류만 <code> 로 자리를 맞추고, 종목명은 밖에 둔다.
-        # <code> 안에서는 굵게가 안 먹어서 이름을 안에 넣으면 눈에 안 띈다.
+        # 자리를 맞추는 칸은 날짜 하나뿐이다. 날짜는 순수 ASCII 라 고정폭에서 정확히 맞는다.
+        # 예전엔 D-day·종류까지 칸을 잡았는데, '오늘' vs 'D-1' 과 '실적' vs 'IR' 처럼
+        # 한글과 영문이 섞이면 텔레그램 고정폭 글꼴에서 한글이 정확히 두 배가 아니라
+        # 칸 수를 맞춰도 실제 폭이 어긋난다. 그래서 뒤쪽은 자연스럽게 흘려보낸다.
         for e in soon[:6]:
             dd = (datetime.date.fromisoformat(e["date"]) - today).days
-            lines.append("<code>" + e["date"][5:] + "  " + _pad("오늘" if not dd else f"D-{dd}", 4)
-                         + "  " + _pad("실적" if e["type"] == "earn" else "IR", 4)
-                         + "</code> <b>" + e["co"] + "</b>")
+            lines.append(f"<code>{e['date'][5:].replace('-', '/')}</code>  <b>{e['co']}</b> "
+                         + ("실적" if e["type"] == "earn" else "IR")
+                         + " · " + ("오늘" if not dd else f"D-{dd}"))
         out.append("<b>📅 임박 일정</b>\n" + "\n".join(lines))
 
     # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
