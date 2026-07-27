@@ -170,7 +170,10 @@
   .sector-block .tbl-wrap{border-radius:0 0 12px 12px;border-top:none;box-shadow:none}
 
   /* trend compare */
-  .seg{display:inline-flex;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
+  /* flex-wrap 이 없으면 버튼이 많은 묶음(종목 9개 등)이 화면 밖으로 나가
+     페이지 전체가 가로로 밀린다 — 모바일에서 리포트·트렌드 탭이 실제로 그랬다.
+     max-width 로 한 번 더 막아 둔다. */
+  .seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
   .seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
   .seg button.active{background:var(--accent);color:var(--onacc)}
   .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
@@ -451,7 +454,7 @@
   <section class="view" data-view="preview">
     <h2 class="sec">실적 프리뷰 &amp; 컨센 비교</h2>
     <p class="sec-desc"><b>당사 추정 vs 컨센서스</b>. 발표 전에는 괴리를, 발표 후에는 실제와 맞춰 <b>누가 더 근접했는지</b> 봅니다.
-      당사 추정은 <code>MY_EST</code> 한 곳만 편집하면 되고 컨센·실제는 자동 수집됩니다.</p>
+      컨센·실제는 자동 수집됩니다. <b>당사 분기 추정(매출·영업이익)만 넘겨주시면</b> 나머지는 채워집니다.</p>
     <div class="trend-ctl">
       <div class="ctl-row"><span class="ctl-label">보기</span>
         <div class="seg" id="prevViewSeg">
@@ -525,8 +528,7 @@
     </div>
     <div class="sub-h" id="trendTblTitle">최근값</div>
     <div class="tbl-wrap"><table id="trendTable"></table></div>
-    <p class="note">네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널.
-      키워드는 <code>fetch_trends.py</code>의 <code>GROUPS</code>, 종목 연결은 <code>TREND_STOCK</code>.</p>
+    <p class="note" id="trendFoot">네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널.</p>
 
     <div class="sub-h" id="shopTitle">해외 쇼핑몰 수요</div>
     <div id="shopBox"></div>
@@ -585,8 +587,8 @@
       <div style="font-size:34px;margin-bottom:10px">📦</div>
       <div style="font-weight:800;font-size:15px;margin-bottom:6px">수출 데이터 수집 대기 중</div>
       <div style="color:var(--muted);font-size:13px;line-height:1.7">
-        공공데이터포털 <b>관세청_품목별 국가별 수출입실적(GW)</b> 활용신청 후<br>
-        <code>python fetch_trade.py</code> 를 실행하면 이 화면이 채워집니다.<br>
+        관세청 수출 통관 자료를 아직 받지 못했습니다.<br>
+        매월 5일·20일에 자동으로 갱신됩니다.<br>
         <span style="font-size:12px">수집 대상 — 화장품 전체·기초·색조(립/아이/파우더)·마스크팩·라면·만두 × 전체/미국/일본/중국/유럽 9개국</span>
       </div>
     </div>
@@ -815,7 +817,7 @@ tabsEl.addEventListener("click",e=>{
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
   if(k==="valuation") drawScatter();
-  if(k==="trends") drawTrend();
+  if(k==="trends"){ drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
   window.scrollTo({top:0,behavior:"smooth"});
 });
@@ -1393,14 +1395,14 @@ const MY_EST = {
     if(view==="upcoming"){
       const n=R.filter(r=>r.myOp!=null).length;
       note.textContent=`단위 억 원 · 괴리 = 당사 ÷ 컨센 − 1 · 발표일이 안 잡힌 종목은 뒤로 (국내 기업은 보통 1~2주 전에 공시). `
-        +(n? `당사 추정 ${n}/${R.length}종목 입력됨.` : `아직 당사 추정이 없습니다 — MY_EST 에 넣으면 괴리·판정이 채워집니다.`);
+        +(n? `당사 추정 ${n}/${R.length}종목 입력됨.` : `아직 당사 추정이 없습니다 — 분기 매출·영업이익을 넘겨주시면 괴리·판정이 채워집니다.`);
     }else{
       const w=done.filter(x=>x.win==="당사").length, tot=done.filter(x=>x.win).length;
       const snapN=Object.keys(LIVE.consSnap||{}).length;
       note.textContent=`단위 억 원 · 서프라이즈 = 실제 ÷ 컨센 − 1 · 내 오차 = 당사 ÷ 실제 − 1 (±3% 이내면 초록) · `
         +(done.length
           ? (tot? `승자 판정 ${tot}건 중 당사 우세 ${w}건.`
-                : `당사 추정(MY_EST)을 넣으면 컨센과 누가 더 근접했는지도 집계됩니다.`)
+                : `당사 추정을 넣으면 컨센과 누가 더 근접했는지도 집계됩니다.`)
           : `발표 전 컨센을 ${snapN}종목 저장해 뒀습니다. 그 분기가 발표되면 여기에 서프라이즈가 쌓입니다.`);
     }
   }
@@ -1829,6 +1831,15 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
    중국에서 만들어 러시아로 직수출되는 물량도 러시아 쪽에 잡힌다.
    두 API 다 과거를 안 줘서 주 1회 한 점씩 쌓는다 — 처음엔 점 하나뿐이다. */
 const SHOP_SRC={wb:{name:"와일드베리즈",country:"러시아"},rk:{name:"라쿠텐",country:"일본"}};
+/* 트렌드 수집일 — 주 1회 수집이라 '언제 것인지'를 모르면 판단이 어긋난다.
+   시세는 매시간이지만 트렌드는 지난주 값일 수 있다는 걸 화면이 말해 줘야 한다. */
+function setTrendFoot(){
+  const el=document.getElementById("trendFoot"); if(!el) return;
+  const t=(typeof TREND!=="undefined")&&TREND.asOf;
+  el.innerHTML="네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널."
+    +(t?` 수집 ${t} (주 1회 갱신).`:"");
+}
+
 function renderShop(){
   const box=document.getElementById("shopBox"); if(!box) return;
   const note=document.getElementById("shopNote");

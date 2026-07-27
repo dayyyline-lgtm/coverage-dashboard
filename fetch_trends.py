@@ -613,7 +613,12 @@ def main():
         print("\n수집된 그룹이 없습니다. index.html 은 그대로 둡니다.")
         return
 
-    trend = {"months": labels, "colors": COLORS,
+    # 수집 시각 — 다른 데이터(시세·뉴스·수출·영화)엔 다 있는데 트렌드에만 없었다.
+    # 검색 트렌드는 주 1회라 화면에서 '언제 것인지'를 모르면 판단이 어긋난다.
+    # 비교(아래 SKIP 판정)에는 넣지 않는다 — 시각만 바뀐 걸로 매주 커밋이 생긴다.
+    trend = {"asOf": datetime.datetime.now(
+                 datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M"),
+             "months": labels, "colors": COLORS,
              "sources": have, "groups": groups_out}
 
     # 값이 그대로면 파일을 건드리지 않는다 (불필요한 커밋·배포 방지)

@@ -44,6 +44,19 @@ def qlab(k):
     return f"{(int(k[4:6]) - 1) // 3 + 1}Q{k[2:4]}"
 
 
+_QLAST = {3: 31, 6: 30, 9: 30, 12: 31}
+STALE_DAYS = 100          # 분기말로부터 이 기간을 넘긴 실적은 새 소식이 아니다
+
+
+def qend(k):
+    """분기 마지막 날. 형식이 어긋나면 None."""
+    try:
+        y, mo = int(k[:4]), int(k[4:6])
+        return datetime.date(y, mo, _QLAST.get(mo, 28))
+    except (ValueError, IndexError):
+        return None
+
+
 def main():
     if not (TOKEN and CHAT):
         print("텔레그램 시크릿 없음 - 건너뜀"); return
@@ -71,8 +84,8 @@ def main():
         except json.JSONDecodeError:
             state = {}
 
-    today = datetime.datetime.now(
-        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+    today, td = now.strftime("%Y-%m-%d %H:%M"), now.date()
     sent = 0
 
     for name, per in snap.items():
@@ -81,6 +94,14 @@ def main():
             key = f"{name}|{qk}"
             if key in state:
                 continue
+            # 오래된 분기는 건너뛴다.
+            # notified.json 이 사라지거나 초기화되면(실수로 지우거나 새로 받거나)
+            # 이미 지나간 분기가 전부 '새 발표'로 보여 한꺼번에 쏟아진다.
+            # 실적은 분기말 두 달 안에 나오므로 그 밖은 새 소식이 아니다.
+            qe = qend(qk)
+            if qe and (td - qe).days > STALE_DAYS:
+                state[key] = "stale"          # 다시 검사하지 않도록 표시만 남긴다
+                continue
             # 그 분기가 '실적'으로 확정됐는지 — e=False 면 발표된 것
             act = next((s for s in series if s.get("k") == qk and not s.get("e")), None)
             if not act:
@@ -88,14 +109,27 @@ def main():
 
             sr, so = pct(act.get("rev"), cons.get("rev")), pct(act.get("op"), cons.get("op"))
             # 영업이익 서프라이즈로 판정 (±5% 밖이면 어닝 서프라이즈/쇼크)
-            verdict = ("🟢 어닝 서프라이즈" if (so is not None and so > 5)
-                       else "🔴 어닝 쇼크" if (so is not None and so < -5)
+            # 컨센이 없으면 '부합'이 아니라 '판정 불가'다. In-line 로 적으면 거짓말이 된다.
+            verdict = ("⚪ 컨센 없음(판정 보류)" if so is None
+                       else "🟢 어닝 서프라이즈" if so > 5
+                       else "🔴 어닝 쇼크" if so < -5
                        else "⚪ In-line")
+            # 주가가 어떻게 받았는지까지 있어야 대응 판단이 된다.
+            # 상회인데 주가가 빠지면 셀온, 하회인데 오르면 악재 선반영이다.
+            chg = (stocks.get(name) or {}).get("chgPct")
+            if chg is not None and so is not None:
+                if so > 5 and chg < 0:
+                    verdict += " · 주가 하락(셀온)"
+                elif so < -5 and chg > 0:
+                    verdict += " · 주가 상승(악재 선반영)"
+                else:
+                    verdict += f" · 주가 {chg:+.1f}%"
             arrow = lambda v: "—" if v is None else f"{'+' if v > 0 else ''}{v:.1f}%"
             msg = (f"<b>📊 {name} {qlab(qk)} 실적 발표</b>\n"
                    f"<code>매출  {eok(act.get('rev')):>10}억  (컨센 {eok(cons.get('rev'))}억, {arrow(sr)})\n"
                    f"영익  {eok(act.get('op')):>10}억  (컨센 {eok(cons.get('op'))}억, {arrow(so)})</code>\n"
-                   f"{verdict}")
+                   f"{verdict}\n"
+                   f"<a href=\"https://coverage-dashboard.pages.dev\">대시보드</a>")
             try:
                 r = send(msg)
                 if not r.get("ok"):
@@ -106,12 +140,12 @@ def main():
             sent += 1
             print(f"  발송: {key} · 영익 서프라이즈 {arrow(so)}")
 
-    if sent:
+    # 발송 없이 'stale' 로만 표시한 것도 남겨야 다음 실행이 또 훑지 않는다.
+    before = json.load(open(STATE_PATH, encoding="utf-8")) if os.path.exists(STATE_PATH) else {}
+    if state != before:
         json.dump(state, open(STATE_PATH, "w", encoding="utf-8"),
                   ensure_ascii=False, indent=1)
-        print(f"\n[OK] {sent}건 발송")
-    else:
-        print("새로 발표된 실적 없음")
+    print(f"\n[OK] {sent}건 발송" if sent else "새로 발표된 실적 없음")
 
 
 if __name__ == "__main__":
