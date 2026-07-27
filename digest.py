@@ -6,7 +6,8 @@
 원칙:
   - 검색 트렌드: 소비재 브랜드/제품처럼 '검색=수요 선행'인 것 위주. 게임 국가별 자가정규화(0~100)
     노이즈는 뺀다. '의미있게 움직인' 것만(전주비 기준 명시).
-  - 시세 급변(전일)엔 관련 뉴스 헤드라인을 붙여 '왜 움직였나'를 준다.
+  - 시세 급변(전일)엔 '왜 움직였나'를 준다. ANTHROPIC_API_KEY 있으면 Claude(웹서치)가
+    공시·컨센·뉴스를 근거로 이유를 추론(analyze.py). 없으면 뉴스 헤드라인으로 폴백.
   - 카테고리: 소비재는 세부(화장품/미용/음식료/유통), 엔터·게임·호텔은 섹터.
   - 방향은 ▲(상승, 한국식 빨강)·▼(하락) 로.
 
@@ -16,6 +17,7 @@
 """
 import re, json, sys, datetime
 import telegram_send
+import analyze
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -125,15 +127,53 @@ def _prev_bday(d):
     return x
 
 
+def _match(item, name):
+    """뉴스 1건이 이 종목 건인지 — co 리스트 우선, 없으면 제목 매칭."""
+    return name in (item.get("co") or []) or name in (item.get("t") or "")
+
+
 def _news(items, name, cut):
-    """종목명이 '제목'에 들고, 날짜가 cut(직전 영업일) 이후인 최신 기사. 없으면 None.
+    """종목 관련, 날짜가 cut(직전 영업일) 이후인 최신 기사 제목. 없으면 None.
        cut 밖(오래된) 기사는 이번 등락과 인과가 없으므로 붙이지 않는다."""
-    cand = [x for x in items if name in (x.get("t") or "") and x.get("d", "")[:10] >= cut]
+    cand = [x for x in items if _match(x, name) and x.get("d", "")[:10] >= cut]
     if not cand:
         return None
     cand.sort(key=lambda x: x.get("d", ""), reverse=True)
     t = cand[0]["t"]
     return t[:36] + "…" if len(t) > 37 else t
+
+
+def _news_all(items, name, cut, k=4):
+    """LLM 근거용 — 창 내 관련 헤드라인 여러 개(최신순)."""
+    cand = [x for x in items if _match(x, name) and x.get("d", "")[:10] >= cut]
+    cand.sort(key=lambda x: x.get("d", ""), reverse=True)
+    return " / ".join(f"({x['d'][5:10]}) {x['t']}" for x in cand[:k]) if cand else ""
+
+
+def _disc(evs, name, cut, today):
+    """LLM 근거용 — 창 내(직전 영업일~오늘) 이 종목 공시/실적 일정."""
+    lo, hi = cut, today.isoformat()
+    ds = [e for e in evs if e.get("co") == name and lo <= e.get("date", "") <= hi]
+    ds.sort(key=lambda e: e.get("date", ""), reverse=True)
+    out = [f"{e['date']} [{'실적' if e.get('type') == 'earn' else 'IR/공시'}] {e.get('title', '')}"
+           for e in ds[:4]]
+    return " / ".join(out)
+
+
+def _cons(live, name):
+    """LLM 근거용 — 컨센 스냅샷(당분기 매출·영익)과 밸류에이션. 실적 재료 해석에 쓴다."""
+    s = (live.get("stocks") or {}).get(name) or {}
+    snap = (live.get("consSnap") or {}).get(name) or {}
+    parts = []
+    if snap:
+        q, v = sorted(snap.items())[-1]
+        parts.append(f"{q[:4]}.{q[4:]} 컨센 매출 {v.get('rev')}십억·영익 {v.get('op')}십억")
+    if s.get("price") and s.get("consTarget"):
+        up = (s["consTarget"] / s["price"] - 1) * 100
+        parts.append(f"현재가 {s['price']:,.0f}·컨센목표 {s['consTarget']:,.0f}({up:+.0f}%)")
+    if s.get("cnsPer"):
+        parts.append(f"12MF PER {s['cnsPer']:.1f}배")
+    return " · ".join(parts)
 
 
 def build(html, alerts_only=False):
@@ -156,6 +196,19 @@ def build(html, alerts_only=False):
                     key=lambda x: -abs(x[0]))
     notable = _notable(tr)
 
+    # 급변 종목 '왜' 추론 — 공시·컨센·뉴스를 근거로 Claude(웹서치)가 한 줄. 상위 6종목만.
+    # API 미설정/실패면 reasons 는 비고, _why() 가 뉴스 헤드라인으로 폴백한다.
+    reasons = {}
+    if not alerts_only and analyze.available():
+        for c, nm in movers[:6]:
+            reasons[nm] = analyze.reason(
+                nm, c, _cat(rec, nm), today.isoformat(),
+                _disc(evs, nm, news_cut, today), _cons(live, nm),
+                _news_all(nitems, nm, news_cut))
+
+    def _why(nm):
+        return reasons.get(nm) or _news(nitems, nm, news_cut)
+
     # 오늘의 포인트
     pts = []
     for e in [x for x in soon if x["type"] == "earn"
@@ -168,7 +221,7 @@ def build(html, alerts_only=False):
         pts.append(f"{'🔥' if w > 0 else '❄️'} 검색 {'급등' if w > 0 else '급락'}: <b>{st}</b> {kw} 전주비 {w:+.0f}%")
     if movers:
         c, nm = movers[0]
-        rs = _news(nitems, nm, news_cut)
+        rs = _why(nm)
         pts.append(f"{'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" — {rs}" if rs else ""))
 
     out = []
@@ -203,7 +256,7 @@ def build(html, alerts_only=False):
         lines = []
         for c, nm in movers[:6]:
             cat = _cat(rec, nm)
-            rs = _news(nitems, nm, news_cut)
+            rs = _why(nm)
             base = f"· {'▲' if c > 0 else '▼'} <b>{nm}</b> {c:+.1f}%" + (f" <i>{cat}</i>" if cat else "")
             lines.append(base + (f"\n   └ {rs}" if rs else ""))
         extra = f"\n<i>…외 {len(movers)-6}종목</i>" if len(movers) > 6 else ""

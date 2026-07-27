@@ -22,6 +22,10 @@ jobs:
         with:
           python-version: "3.11"
 
+      # 데일리 레터의 급변 이유 추론(Claude 웹서치)용. ANTHROPIC_API_KEY 시크릿이 있어야 실제로 동작.
+      - name: 의존성 설치
+        run: python -m pip install --quiet anthropic
+
       - name: DART 공시 수집
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
@@ -58,6 +62,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python digest.py || echo "데일리 레터 건너뜀"
 
       # 수출 데이터가 새 월로 갱신됐으면 그때 1번만(상태파일 trade_sent.json 로 중복 방지)
