@@ -1760,6 +1760,31 @@ const TREND_STOCK={
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
+/* YouTube 채널의 '일일 조회수 증가'를 트렌드 비교 탭에 편입. 엔터 IP 컴백/관심 신호.
+   누적 조회수의 전일 대비 증가분이 진짜 신호라, Δ 를 계열로 쓴다(며칠 쌓여야 뜬다). */
+(function injectYtTrends(){
+  if(typeof YT==="undefined"||!YT.channels) return;
+  YT.channels.forEach(c=>{
+    const h=(c.hist||[]).filter(x=>x&&x.views!=null);
+    if(h.length<3) return;                         // Δ 2개(=선) 이상 필요
+    const d=[], dates=[];
+    for(let i=1;i<h.length;i++){
+      d.push(Math.max(0,h[i].views-h[i-1].views));
+      const p=(h[i].d||"").slice(5).split("-"); dates.push(p.length===2?`${+p[0]}/${+p[1]}`:h[i].d);
+    }
+    const peak=Math.max(...d)||1;
+    const subs=h[h.length-1].subs||0;
+    const name=c.label+" 조회수";
+    TREND.groups[name]={
+      products:[c.label], productsGoogle:[c.label],
+      months:dates, naver:[d.map(v=>Math.round(v/peak*100))], google:[d.map(v=>Math.round(v/peak*100))],
+      only:"naver", freq:"date", peak:peak,
+      unit:"회(일일 조회수)", srcName:"YouTube · 일일 조회수 증가",
+      reviewNote:`구독 ${subs>=1e8?(subs/1e8).toFixed(1)+"억":subs>=1e4?(subs/1e4).toFixed(0)+"만":subs}명`
+    };
+    (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
+  });
+})();
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
