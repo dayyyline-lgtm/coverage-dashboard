@@ -65,7 +65,8 @@ TRACK = [
     ("SAMG엔터", "티니핑 국가별", "한국", True),
     # 메탈카드봇 러시아(얀덱스)는 뺐다. 러시아 매출 비중이 작아 매일 볼 값이 아니다.
     # 대시보드 트렌드 탭에는 그대로 있다 — 레터에서만 내린 것.
-    ("펄어비스", "펄어비스 IP", "붉은사막", False),
+    # 펄어비스는 검색 트렌드에서 뺐다 — 붉은사막이 2026-03 출시돼 이제 Steam 동접·리뷰(실측)가
+    # 진짜 신호다. 🎮 Steam 섹션(fetch_steam.py)이 대신한다. 트렌드 탭에는 그대로 있다.
     # NC 신작 — 미출시라 평소엔 0 근처, 코믹마켓·테스터 모집 같은 이벤트에만 튄다.
     # 그 스파이크가 곧 신호라 조건부로 둔다(고정하면 매일 빈 줄만 나간다).
     ("NC", "아스트라에 오라티오", "아스트라에 오라티오", False),
@@ -704,6 +705,29 @@ def build(html, alerts_only=False):
         # 계열마다 주기가 달라(주별·일별) 제목에 '주' 를 못 박으면 거짓말이 된다.
         out.append("<b>📊 트렌드 데이터</b> <i>(막대 = 최근 10회 · % = 직전 대비)</i>\n"
                    + "\n".join(lines))
+
+    # 🎮 Steam — 게임 커버 종목의 동접·리뷰(실측). 검색 트렌드보다 진짜 수요/평판 신호다.
+    #   단일플레이 신작(붉은사막·스텔라블레이드)은 '동접 감소 곡선 + 리뷰'가 리텐션을 말하고,
+    #   라이브서비스(검은사막·배그)는 동접 절대수준이 매출 베이스다.
+    steam = _const(html, "STEAM") or {}
+    if not alerts_only and steam.get("games"):
+        lines = []
+        for g in steam["games"]:
+            ps = [h.get("p") for h in (g.get("hist") or []) if h.get("p") is not None]
+            if not ps:
+                continue
+            dod = ""      # Steam 은 하루 1점씩 쌓는 스냅샷이라 직전 점은 늘 전일이다
+            if len(ps) >= 2 and ps[-2]:
+                dod = f" <i>(전일 {(ps[-1]/ps[-2]-1)*100:+.0f}%)</i>"
+            last = g["hist"][-1]
+            rv, pos = last.get("rv") or 0, last.get("pos")
+            rvs = (f" · 긍정 {pos:.0f}%({rv/1e4:.0f}만)" if pos is not None and rv >= 10000
+                   else (f" · 긍정 {pos:.0f}%" if pos is not None else ""))
+            sp = _spark(ps)
+            lines.append(f"<b>{g['title']}</b> <i>{g['stock']}</i>")
+            lines.append((f"<code>{sp}</code> " if sp else "") + f"{ps[-1]:,}명{dod}{rvs}")
+        if lines:
+            out.append("<b>🎮 Steam</b> <i>(동접 · 리뷰, 최근 추이)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:
