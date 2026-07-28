@@ -713,21 +713,22 @@ def build(html, alerts_only=False):
     if not alerts_only and steam.get("games"):
         lines = []
         for g in steam["games"]:
-            ps = [h.get("p") for h in (g.get("hist") or []) if h.get("p") is not None]
+            ps = g.get("players") or []      # 일별 최고동접 시계열(SteamCharts)
             if not ps:
                 continue
-            dod = ""      # Steam 은 하루 1점씩 쌓는 스냅샷이라 직전 점은 늘 전일이다
+            dod = ""                          # 일별 peak 스냅샷이라 직전 점은 늘 전일이다
             if len(ps) >= 2 and ps[-2]:
                 dod = f" <i>(전일 {(ps[-1]/ps[-2]-1)*100:+.0f}%)</i>"
-            last = g["hist"][-1]
-            rv, pos = last.get("rv") or 0, last.get("pos")
+            rvh = g.get("reviews") or []
+            rv = (rvh[-1].get("t") if rvh else 0) or 0
+            pos = rvh[-1].get("pos") if rvh else None
             rvs = (f" · 긍정 {pos:.0f}%({rv/1e4:.0f}만)" if pos is not None and rv >= 10000
                    else (f" · 긍정 {pos:.0f}%" if pos is not None else ""))
             sp = _spark(ps)
             lines.append(f"<b>{g['title']}</b> <i>{g['stock']}</i>")
             lines.append((f"<code>{sp}</code> " if sp else "") + f"{ps[-1]:,}명{dod}{rvs}")
         if lines:
-            out.append("<b>🎮 Steam</b> <i>(동접 · 리뷰, 최근 추이)</i>\n" + "\n".join(lines))
+            out.append("<b>🎮 Steam</b> <i>(일 최고동접 · 리뷰)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:

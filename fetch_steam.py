@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Steam 동접·리뷰 수집 — 게임 커버 종목의 '실측' 수요/평판 신호.
+Steam 동접·리뷰 수집 — 게임 커버 종목의 '실측' 수요/평판 시계열.
 검색 트렌드는 대리지표일 뿐이고, 출시된 Steam 게임은 동시접속·리뷰가 진짜 숫자다.
 
-공식 무료 API(키 불필요):
-  - 동접: api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers
-  - 리뷰: store.steampowered.com/appreviews (query_summary → total/positive)
+동접(시계열):
+  SteamCharts chart-data.json 이 [ [ms, 동접], ... ] 로 과거 전체를 준다(호출마다 최신 포함).
+  → UTC 날짜별 '최고 동접(daily peak)' 으로 리샘플. 과거가 통째로 들어오니 백필이 필요없다.
+  SteamCharts 가 막히면 공식 API(GetNumberOfCurrentPlayers)로 오늘 1점만 보완(기존 시계열 보존).
+리뷰(스냅샷 누적):
+  공식 store.steampowered.com/appreviews (query_summary) 로 현재 총리뷰·긍정%를 매일 1점씩 쌓는다.
+  (리뷰는 과거 시계열 무료 소스가 없어 오늘부터 누적.)
 
-index.html 의 STEAM 상수(그 블록만) 를 정규식으로 교체/삽입한다. 매일 1점씩 쌓는다.
-같은 날 재실행이면 그날 값을 갱신(중복 append 안 함). 시세·트렌드 블록은 건드리지 않는다.
+index.html 의 STEAM 상수(그 블록만) 를 교체/삽입한다. 시세·트렌드 블록은 안 건드린다.
 
   python fetch_steam.py            # 수집·기록
   python fetch_steam.py --dry-run  # 출력만
@@ -17,11 +20,10 @@ import re, json, sys, datetime, urllib.request
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
-HISTMAX = 90
+DAYS = 180                         # 최근 N일만 저장(단일플레이 신작은 전 생애, 라이브서비스는 최근 6개월)
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
-# (종목, 표시명, Steam appid) — 커버 게임사의 대표 타이틀.
-#   붉은사막 2026-03-19 출시, 스텔라블레이드 PC판 — 단일플레이라 '동접 감소 곡선 + 리뷰'가 핵심.
-#   검은사막·배그(PUBG)는 라이브서비스라 동접 절대수준이 매출 베이스.
+# (종목, 표시명, Steam appid)
 GAMES = [
     ("펄어비스", "붉은사막",       3321460),
     ("펄어비스", "검은사막",       582660),
@@ -30,13 +32,31 @@ GAMES = [
 ]
 
 
-def _get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "coverage-dashboard/1.0"})
-    with urllib.request.urlopen(req, timeout=20) as r:
+def _get(url, browser=False):
+    ua = UA if browser else "coverage-dashboard/1.0"
+    req = urllib.request.Request(url, headers={"User-Agent": ua})
+    with urllib.request.urlopen(req, timeout=25) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
-def _players(appid):
+def _daily_peak(appid):
+    """SteamCharts → UTC 날짜별 최고동접. (dates['M/D'], players[int]). 데이터 없으면 예외."""
+    raw = _get(f"https://steamcharts.com/app/{appid}/chart-data.json", browser=True)
+    peak = {}
+    for ms, cnt in raw:
+        if cnt is None:
+            continue
+        day = datetime.datetime.fromtimestamp(ms / 1000, datetime.timezone.utc).date()
+        peak[day] = max(peak.get(day, 0), cnt)
+    # 진행 중인 당일(UTC)은 아직 하루 peak 이 안 정해져 어제와 비교하면 급락처럼 보인다 → 제외.
+    utc_today = datetime.datetime.now(datetime.timezone.utc).date()
+    days = [d for d in sorted(peak) if d < utc_today][-DAYS:]
+    if not days:
+        raise ValueError("빈 시계열")
+    return [f"{d.month}/{d.day}" for d in days], [peak[d] for d in days]
+
+
+def _players_now(appid):
     d = _get("https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers"
              f"/v1/?appid={appid}")
     resp = d.get("response") or {}
@@ -45,7 +65,7 @@ def _players(appid):
 
 def _reviews(appid):
     d = _get(f"https://store.steampowered.com/appreviews/{appid}"
-             "?json=1&language=all&num_per_page=0&purchase_type=all")
+             "?json=1&language=all&num_per_page=0&purchase_type=all", browser=True)
     q = d.get("query_summary") or {}
     tot, pos = q.get("total_reviews") or 0, q.get("total_positive") or 0
     return (tot, round(pos / tot * 100, 1)) if tot else (0, None)
@@ -71,32 +91,55 @@ def _put(html, name, obj):
 
 def main():
     html = open(HTML, encoding="utf-8").read()
-    today = datetime.datetime.now(KST).date().isoformat()
-    old = {(g["stock"], g["title"]): g.get("hist", [])
-           for g in (_const(html, "STEAM") or {}).get("games", [])}
+    today = datetime.datetime.now(KST).date()
+    prev = {(g["stock"], g["title"]): g
+            for g in (_const(html, "STEAM") or {}).get("games", [])}
 
     games = []
     for stock, title, appid in GAMES:
-        hist = list(old.get((stock, title), []))
+        old = prev.get((stock, title), {})
+        dates, players = old.get("dates") or [], old.get("players") or []
         try:
-            p = _players(appid)
-            rv, pos = _reviews(appid)
-            pt = {"d": today, "p": p, "rv": rv, "pos": pos}
-            if hist and hist[-1].get("d") == today:
-                hist[-1] = pt                       # 같은 날 재실행 → 갱신
-            else:
-                hist.append(pt)
-            hist = hist[-HISTMAX:]
-            print(f"  {title}: 동접 {p:,} · 리뷰 {rv:,} 긍정 {pos}%")
+            dates, players = _daily_peak(appid)               # SteamCharts 시계열(과거 통째로)
+            print(f"  {title}: 동접 일별peak {len(players)}일 · 최근 {players[-1]:,}")
         except Exception as e:
-            print(f"  [실패] {title}: {str(e)[:100]} (기존 시계열 보존)")
-        games.append({"stock": stock, "title": title, "appid": appid, "hist": hist})
+            print(f"  [SteamCharts 실패] {title}: {str(e)[:70]} → 공식 현재동접으로 오늘 1점 보완")
+            try:
+                p = _players_now(appid)
+                if p is not None:
+                    lbl = f"{today.month}/{today.day}"
+                    if dates and dates[-1] == lbl:
+                        players[-1] = p
+                    else:
+                        dates, players = dates + [lbl], players + [p]
+                    dates, players = dates[-DAYS:], players[-DAYS:]
+            except Exception as e2:
+                print(f"    [현재동접도 실패] {str(e2)[:60]}")
+
+        rvh = list(old.get("reviews") or [])                  # 리뷰 스냅샷 누적
+        try:
+            tot, pos = _reviews(appid)
+            pt = {"d": today.isoformat(), "t": tot, "pos": pos}
+            if rvh and rvh[-1].get("d") == today.isoformat():
+                rvh[-1] = pt
+            else:
+                rvh.append(pt)
+            rvh = rvh[-DAYS:]
+            print(f"    리뷰 {tot:,} 긍정 {pos}%")
+        except Exception as e:
+            print(f"    [리뷰 실패] {str(e)[:60]}")
+
+        games.append({"stock": stock, "title": title, "appid": appid,
+                      "dates": dates, "players": players, "reviews": rvh})
 
     steam = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
              "games": games}
 
     if "--dry-run" in sys.argv:
-        print(json.dumps(steam, ensure_ascii=False, indent=2)[:900]); return
+        for g in games:
+            r = g["reviews"][-1] if g["reviews"] else None
+            print(f"{g['title']}: {len(g['players'])}일 · 최근 {g['players'][-1] if g['players'] else '—'} · 리뷰 {r}")
+        return
     open(HTML, "w", encoding="utf-8").write(_put(html, "STEAM", steam))
     print(f"[OK] STEAM 갱신 · {len(games)}종")
 
