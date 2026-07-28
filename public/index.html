@@ -1846,30 +1846,6 @@ const TREND_STOCK={
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
-/* YouTube 최신 영상(컴백 MV) '일일 조회수 증가'를 트렌드 편입 — 컴백 첫 며칠 velocity 가 핵심. */
-(function injectYtMvTrends(){
-  if(typeof YT==="undefined"||!YT.channels) return;
-  YT.channels.forEach(c=>{
-    const mv=c.mv; if(!mv||!mv.hist) return;
-    const h=mv.hist.filter(x=>x&&x.v!=null);
-    if(h.length<3) return;
-    const d=[], dates=[];
-    for(let i=1;i<h.length;i++){
-      d.push(Math.max(0,h[i].v-h[i-1].v));
-      const p=(h[i].d||"").slice(5).split("-"); dates.push(p.length===2?`${+p[0]}/${+p[1]}`:h[i].d);
-    }
-    const peak=Math.max(...d)||1;
-    const name=c.label+" MV조회↑";
-    TREND.groups[name]={
-      products:[c.label], productsGoogle:[c.label],
-      months:dates, naver:[d.map(v=>Math.round(v/peak*100))], google:[d.map(v=>Math.round(v/peak*100))],
-      only:"naver", freq:"date", peak:peak,
-      unit:"회(일일 조회)", srcName:"YouTube 최신영상 · 일일 조회 증가",
-      reviewNote:mv.title?`최신: ${mv.title.slice(0,24)}`:""
-    };
-    (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
-  });
-})();
 /* Spotify 아티스트 인기도(0~100, 최근 스트리밍 반영)를 트렌드 편입. popularity 는 이미 0~100 이라
    정규화 없이 그대로 쓴다(차트 y축과 일치). 팔로워는 각주. 며칠 쌓이면 추이선 표시. */
 (function injectSpotifyTrends(){
