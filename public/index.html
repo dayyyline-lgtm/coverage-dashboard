@@ -511,6 +511,7 @@
     <p class="sec-desc"><b>종목을 누르면</b> 그 종목과 엮인 검색 트렌드가 나옵니다. 상대값 0–100.
       출처는 주제마다 다릅니다 — 국내 키워드는 네이버·구글 둘 다, 해외 국가별은 구글(러시아는 얀덱스)뿐이라
       <b>선택할 게 있을 때만 출처 버튼이 뜹니다.</b></p>
+    <div id="trendHighlights" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px"></div>
     <div class="trend-ctl">
       <div class="ctl-row"><span class="ctl-label">종목</span><div class="seg" id="trendGroupSeg"></div></div>
       <div class="ctl-row" id="trendTopicRow" style="display:none"><span class="ctl-label">주제</span><div class="seg" id="trendTopicSeg"></div></div>
@@ -773,7 +774,7 @@ tabsEl.addEventListener("click",e=>{
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
   if(k==="valuation") drawScatter();
-  if(k==="trends"){ drawTrend(); setTrendFoot(); }
+  if(k==="trends"){ drawTrend(); setTrendFoot(); renderTrendHighlights(); }
   if(k==="boxoffice") renderMovie();
   window.scrollTo({top:0,behavior:"smooth"});
 });
@@ -2370,7 +2371,70 @@ document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   trendGroup=b.dataset.grp;
   renderTrendSegs(); drawTrend(); renderShop();
 });
-renderTrendSegs(); renderShop();
+// 하이라이트 칩 클릭 → 해당 종목·주제로 이동
+function selectTrend(stock, group){
+  if(stock) trendStock=stock;
+  if(group) trendGroup=group;
+  renderTrendSegs(); drawTrend(); renderShop();
+  const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+/* 트렌드 탭 상단 '주목할 추이' — 모든 계열을 훑어 상위 몇 개를 칩으로(클릭 시 이동).
+   앨범판매(스택)는 0→대량이라 %가 무의미 → 최신 기간 '신보'(그 아티스트 신고점, 10만장+)를
+   절대수로. 그 외(검색·동접·청취자)는 기준선이 충분(자기 고점의 15%+)할 때만 % 를 쓴다. */
+function renderTrendHighlights(){
+  const box=document.getElementById("trendHighlights"); if(!box) return;
+  const g2s={}; Object.entries(TREND_STOCK).forEach(([st,gs])=>gs.forEach(g=>{ if(!g2s[g]) g2s[g]=st; }));
+  const U={date:{u:"전일",n:7,unit:"일"},week:{u:"전주",n:4,unit:"주"},month:{u:"전월",n:3,unit:"개월"}};
+  const cands=[];
+  Object.keys(TREND.groups).forEach(gname=>{
+    const G=TREND.groups[gname], stock=g2s[gname]; if(!stock) return;
+    const freq=G.freq||"week";
+    if(G.stack){                                   // 앨범: 최신 기간 최다판매 아티스트가 신보면
+      const prods=G.products||[], ser=G.naver||[], N=(G.months||[]).length; if(!N) return;
+      let bi=-1,bv=0; prods.forEach((p,i)=>{ if(p==="기타")return; const v=(ser[i]||[])[N-1]||0; if(v>bv){bv=v;bi=i;} });
+      if(bi<0||bv<100000) return;                  // 10만장 미만은 뉴스가 아니다
+      const col=(ser[bi]||[]).filter(v=>v!=null);
+      if(bv<Math.max(...col)*0.98) return;         // 최신이 그 아티스트 피크(=신보)일 때만
+      cands.push({gname,stock,prod:prods[bi],album:true,val:bv,fmt:G.fmt,score:60+Math.min(40,bv/1e5)});
+      return;
+    }
+    const src=(G.only==="google"||!G.naver)?"google":"naver", series=G[src]||G.naver||[], prods=G.products||[];
+    let best=null;
+    series.forEach((raw,pi)=>{
+      const c=(raw||[]).filter(v=>v!=null); if(c.length<3) return;
+      const last=c[c.length-1], prev=c[c.length-2];
+      const back=Math.min(c.length-1,(U[freq]||U.week).n), b=c[c.length-1-back];
+      const hi=Math.max(...c), lo=Math.min(...c); if(hi<=lo) return;
+      if(last<hi*0.3 && !(prev>=hi*0.15 && last/prev-1<-0.4)) return;   // 저점 노이즈 제외(급락 예외)
+      const wow=(prev>=hi*0.15)?(last/prev-1)*100:null;                 // 기준선이 너무 작으면 % 무의미
+      const win=(b>=hi*0.15)?(last/b-1)*100:null;
+      const isHigh=last>=hi;
+      const mag=Math.max(Math.abs(wow||0),Math.abs(win||0));
+      if(mag<20 && !isHigh) return;
+      const score=mag+(isHigh?25:0);
+      if(!best||score>best.score) best={prod:prods[pi]||gname,wow,win,isHigh,score,freq};
+    });
+    if(best) cands.push({gname,stock,...best});
+  });
+  cands.sort((a,b)=>b.score-a.score);
+  const per={}, top=[];
+  for(const c of cands){ if((per[c.stock]||0)>=2) continue; per[c.stock]=(per[c.stock]||0)+1; top.push(c); if(top.length>=5) break; }
+  const shortG=g=>g.replace(/\([^)]*\)/,"").replace(/앨범판매/,"앨범").replace(/월간청취자/,"청취자").trim();
+  box.innerHTML= !top.length ? "" :
+    `<span style="align-self:center;font-size:12px;color:var(--muted);font-weight:700">📌 주목할 추이</span>`+
+    top.map(c=>{
+      let icon,chg,up;
+      if(c.album){ icon="🚀"; up=true; chg="신보 "+(c.fmt?c.fmt(c.val):c.val.toLocaleString()); }
+      else{
+        const u=U[c.freq]||U.week, useWin=c.win!=null&&Math.abs(c.win)>=Math.abs(c.wow||0);
+        const v=useWin?c.win:(c.wow!=null?c.wow:null);
+        up=(v==null||v>=0); icon=(c.isHigh&&up)?"🚀":up?"🔥":"🧊";
+        chg=v==null?"신고점":(useWin?`${u.n}${u.unit} `:`${u.u}비 `)+`${v>=0?"+":""}${v.toFixed(0)}%`;
+      }
+      return `<button onclick='selectTrend(${JSON.stringify(c.stock)},${JSON.stringify(c.gname)})' style="display:flex;gap:7px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;color:var(--text)"><span>${icon}</span><b>${c.prod}</b><span style="color:${up?'var(--up)':'var(--down)'};font-weight:700">${chg}</span><span style="color:var(--muted);font-size:11px">${c.stock} · ${shortG(c.gname)}</span></button>`;
+    }).join("");
+}
+renderTrendSegs(); renderShop(); renderTrendHighlights();
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
