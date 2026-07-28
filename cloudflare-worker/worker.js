@@ -8,10 +8,11 @@
  *   GH_TOKEN : GitHub Personal Access Token (repo + workflow 권한)
  *
  * Cron Triggers (Worker > Settings > Trigger Events) — 모두 UTC 기준
- *   0 22,23 * * 0-4          → 한국시간 평일 07,08시
- *   0 0-9 * * 1-5            → 한국시간 평일 09~18시
- *   0 3,7,11,15,19,23 * * 6  → 한국시간 주말
- *   30 22 * * 0-4            → 한국시간 평일 07:30 (DART 이벤트)
+ *   0 22 * * 0-4             → 한국시간 평일 07:00 (아침 전체수집 + 데일리 레터)  ← 이 슬롯이 events.yml
+ *   0 22,23 * * 0-4          → 한국시간 평일 07,08시 (시세)
+ *   0 0-9 * * 1-5            → 한국시간 평일 09~18시 (시세)
+ *   0 3,7,11,15,19,23 * * 6  → 한국시간 주말 (시세)
+ *   0 3,7,11 * * 0           → 한국시간 일요일 (시세)
  */
 
 const OWNER = "dayyyline-lgtm";
@@ -41,10 +42,10 @@ export default {
     const token = env.GH_TOKEN;
     if (!token) { console.log("GH_TOKEN 시크릿이 없습니다"); return; }
 
-    // 07:30 KST(=22:30 UTC) 슬롯 → DART 이벤트.
-    // 그중 일요일 22:30 UTC = 한국시간 월요일 07:30 이므로 트렌드도 같이 돌린다.
-    // (트렌드 전용 Cron Trigger를 따로 추가하지 않아도 되게 하기 위함)
-    const isEventSlot = event.cron.startsWith("30 22");
+    // 07:00 KST(=22:00 UTC) 전용 슬롯 → 아침 전체수집 + 데일리 레터(events.yml).
+    // 시세 슬롯("0 22,23 …")과 문자열이 다르므로 정확히 이 크론일 때만 events 로 보낸다.
+    // 그중 일요일 22:00 UTC = 한국시간 월요일 07:00 이므로 트렌드도 같이 돌린다.
+    const isEventSlot = event.cron === "0 22 * * 0-4";
     const jobs = isEventSlot ? ["events.yml"] : ["refresh.yml"];
     if (isEventSlot && new Date(event.scheduledTime).getUTCDay() === 0) {
       jobs.push("trends.yml");

@@ -839,21 +839,20 @@ themeBtn.addEventListener("click",()=>{
 
 /* ==== Sector Top Pick cards ==== */
 (function(){
-  const byName = Object.fromEntries(R.map(r=>[r.name,r]));
-  /* 카드 순서 = 점수 내림차순, 동점이면 당사 상승여력 내림차순.
-     엑셀 시절의 고정 rank 대신 지금 데이터로 매번 다시 매긴다(여력은 시세따라 바뀐다). */
-  const ranked = DATA.sectorPicks.slice().sort((a,b)=>{
-    const ra=byName[a.name]||{}, rb=byName[b.name]||{};
-    return (rb.score||0)-(ra.score||0)
-        || (rb.upsideOwn==null?-1e9:rb.upsideOwn)-(ra.upsideOwn==null?-1e9:ra.upsideOwn);
-  });
-  document.getElementById("pickCards").innerHTML = ranked.map((p,i)=>{
-    const r=byName[p.name]||{};
+  /* 카드 = 현재 Top pick(pick2)만. 예전엔 별도 배열(sectorPicks)이라 픽을 바꿔도 안 따라와
+     탈락 종목이 남았다 — 이제 pick2 에서 자동 파생한다(thesis 만 sectorPicks 에서 이름으로 가져옴).
+     순서 = 점수 내림차순, 동점이면 당사 상승여력 내림차순(여력은 시세따라 매번 다시 매긴다). */
+  const thesisOf = Object.fromEntries((DATA.sectorPicks||[]).map(p=>[p.name, p.thesis]));
+  const ranked = R.filter(r=>sectorPickOf(r)==="Top").sort((a,b)=>
+    (b.score||0)-(a.score||0)
+    || (b.upsideOwn==null?-1e9:b.upsideOwn)-(a.upsideOwn==null?-1e9:a.upsideOwn));
+  document.getElementById("pickCards").innerHTML = ranked.map((r,i)=>{
+    const thesis=thesisOf[r.name];
     return `<div class="card">
       <div class="rk">${i+1}</div>
-      <div class="sect">${p.sector} · ${p.sub}</div>
-      <div class="nm">${p.name} ${ratingBadge(r.score||0)}</div>
-      ${p.thesis?`<div class="th">${p.thesis}</div>`:''}
+      <div class="sect">${r.sector} · ${r.sub}</div>
+      <div class="nm">${r.name} ${ratingBadge(r.score||0)}</div>
+      ${thesis?`<div class="th">${thesis}</div>`:''}
       <div class="row">
         <div class="c"><div class="lbl">시총 / 견적</div><div class="val">${eok(mcJo(r),10000)} → ${eok(r.fairMktcap,10)}억</div></div>
         <div class="c"><div class="lbl">당사 상승여력</div><div class="val ${cls(r.upsideOwn)}">${sign(r.upsideOwn)}%</div></div>
