@@ -58,45 +58,82 @@ ROSTER = {
                "WINNER", "위너", "AKMU", "악뮤", "BIGBANG", "빅뱅"],
 }
 
-# 개별 추적 아티스트 — (종목, 표시라벨, [Circle 매칭키...]). 스포티파이 추적과 맞춘다.
-ARTIST_TRACK = [
+# 개별 아티스트 브레이크다운 — (종목, 표시라벨, [Circle 매칭키...]).
+# 스택 막대의 색 구간이 된다. '기타(그 외)' 를 줄이려 주요 판매 아티스트를 넓게 담는다.
+# 매칭은 토큰 단위(_keymatch) — 짧은 라틴키(RM·EXO·TWS 등)는 정확히 한 토큰과 일치해야
+# 잡히므로 'P1Harmony' 의 'ha(rm)ony' 같은 오매칭이 없다.
+ARTIST_CANON = [
     ("하이브", "방탄소년단", ["BTS", "방탄소년단"]),
     ("하이브", "세븐틴", ["SEVENTEEN", "세븐틴"]),
     ("하이브", "르세라핌", ["LE SSERAFIM", "르세라핌"]),
     ("하이브", "엔하이픈", ["ENHYPEN", "엔하이픈"]),
     ("하이브", "투바투", ["TOMORROW X TOGETHER", "TXT", "투모로우바이투게더"]),
+    ("하이브", "보이넥스트도어", ["BOYNEXTDOOR", "보이넥스트도어"]),
+    ("하이브", "뉴진스", ["NewJeans", "뉴진스"]),
+    ("하이브", "아일릿", ["ILLIT", "아일릿"]),
+    ("하이브", "투어스", ["TWS", "투어스"]),
+    ("하이브", "앤팀", ["&TEAM", "앤팀"]),
     ("하이브", "캣츠아이", ["KATSEYE", "캣츠아이"]),
     ("하이브", "코르티스", ["CORTIS", "코르티스"]),
     ("JYP Ent.", "스트레이키즈", ["Stray Kids", "스트레이키즈"]),
     ("JYP Ent.", "트와이스", ["TWICE", "트와이스"]),
     ("JYP Ent.", "있지", ["ITZY", "있지"]),
     ("JYP Ent.", "엔믹스", ["NMIXX", "엔믹스"]),
+    ("JYP Ent.", "데이식스", ["DAY6", "데이식스"]),
     ("에스엠", "에스파", ["aespa", "에스파"]),
     ("에스엠", "라이즈", ["RIIZE", "라이즈"]),
     ("에스엠", "엔시티드림", ["NCT DREAM", "엔시티드림"]),
+    ("에스엠", "엔시티127", ["NCT 127", "엔시티127"]),
+    ("에스엠", "엔시티위시", ["NCT WISH", "엔시티위시"]),
     ("에스엠", "레드벨벳", ["Red Velvet", "레드벨벳"]),
     ("에스엠", "엑소", ["EXO", "엑소"]),
+    ("에스엠", "샤이니", ["SHINee", "샤이니"]),
+    ("에스엠", "하츠투하츠", ["Hearts2Hearts", "하츠투하츠"]),
     ("와이지엔터", "블랙핑크", ["BLACKPINK", "블랙핑크"]),
     ("와이지엔터", "트레저", ["TREASURE", "트레저"]),
     ("와이지엔터", "베이비몬스터", ["BABYMONSTER", "베이비몬스터"]),
+    ("와이지엔터", "제니", ["JENNIE", "제니"]),
+    ("와이지엔터", "로제", ["ROSÉ", "로제"]),
 ]
 
 
-def _norm(s):
-    s = re.sub(r"\([^)]*\)", "", s or "")
-    return re.sub(r"[^0-9a-z가-힣]", "", s.lower())
+def _tokens(s):
+    """아티스트/키를 토큰으로. 괄호(현지명)는 떼고 영숫자·한글 덩어리로 나눈다.
+       'Stray Kids (스트레이 키즈)' -> ['stray','kids'] · '방탄소년단' -> ['방탄소년단']"""
+    s = re.sub(r"\([^)]*\)", "", s or "").lower()
+    return re.findall(r"[0-9a-z]+|[가-힣]+", s)
 
 
-# 정규화된 매칭키 사전(한 번만)
-_ROSTER_N = {st: [_norm(k) for k in ks] for st, ks in ROSTER.items()}
-_TRACK_N = [(st, lab, [_norm(k) for k in ks]) for st, lab, ks in ARTIST_TRACK]
+def _keymatch(art_tokens, art_concat, key_tokens):
+    """키가 아티스트에 매칭되나. 짧은 라틴 단일토큰(rm·exo·tws)은 '정확히 한 토큰과 일치'라야
+       한다 — 부분매칭을 허용하면 'RM' 이 'P1Ha(rm)ony' 에 걸린다. 그 외(한글·다토큰·긴 라틴)는
+       연결형 부분매칭."""
+    if not key_tokens:
+        return False
+    if len(key_tokens) == 1 and re.fullmatch(r"[0-9a-z]+", key_tokens[0]) and len(key_tokens[0]) <= 4:
+        return key_tokens[0] in art_tokens
+    return "".join(key_tokens) in art_concat
+
+
+# 키를 토큰으로 미리 변환(한 번만)
+_ROSTER_K = {st: [_tokens(k) for k in ks] for st, ks in ROSTER.items()}
+_CANON_K = [(st, lab, [_tokens(k) for k in ks]) for st, lab, ks in ARTIST_CANON]
 
 
 def _stock_of(artist):
-    a = _norm(artist)
-    for st, keys in _ROSTER_N.items():
-        if any(k and k in a for k in keys):
+    at = _tokens(artist); ac = "".join(at)
+    for st, keylist in _ROSTER_K.items():
+        if any(_keymatch(at, ac, kt) for kt in keylist):
             return st
+    return None
+
+
+def _canon_of(artist):
+    """아티스트 -> 브레이크다운 표시라벨(없으면 None → '기타' 로 묶임)."""
+    at = _tokens(artist); ac = "".join(at)
+    for st, lab, keylist in _CANON_K:
+        if any(_keymatch(at, ac, kt) for kt in keylist):
+            return lab
     return None
 
 
@@ -135,18 +172,18 @@ def _fetch(term, year, tt):
 def _agg(rows):
     """한 기간 rows → (byStock 합계, byArtist 합계, top 앨범 리스트)."""
     by_stock = {st: 0 for st in ROSTER}
-    by_artist = {lab: 0 for _, lab, _ in ARTIST_TRACK}
-    for r in rows:
+    by_artist = {lab: 0 for _, lab, _ in ARTIST_CANON}
+    top = []
+    for i, r in enumerate(rows):
         st = _stock_of(r["artist"])
         if st:
             by_stock[st] += r["cnt"]
-        an = _norm(r["artist"])
-        for _, lab, keys in _TRACK_N:
-            if any(k and k in an for k in keys):
-                by_artist[lab] += r["cnt"]
-    top = [{"album": r["album"][:40], "artist": r["artist"], "cnt": r["cnt"],
-            "rank": r["rank"], "stock": _stock_of(r["artist"])}
-           for r in rows[:20]]
+        lab = _canon_of(r["artist"])
+        if lab:
+            by_artist[lab] += r["cnt"]
+        if i < 20:
+            top.append({"album": r["album"][:40], "artist": r["artist"], "cnt": r["cnt"],
+                        "rank": r["rank"], "stock": st})
     return by_stock, by_artist, top
 
 
@@ -191,7 +228,7 @@ def _week_periods(now):
 
 def _collect(term, periods):
     """periods=[(year, tt, label)] → {periods, byStock, byArtist, top}. 기간 실패는 건너뛴다."""
-    labels, bs, ba = [], {st: [] for st in ROSTER}, {lab: [] for _, lab, _ in ARTIST_TRACK}
+    labels, bs, ba = [], {st: [] for st in ROSTER}, {lab: [] for _, lab, _ in ARTIST_CANON}
     last_top = []
     for y, tt, lab in periods:
         rows = _fetch(term, y, tt)
@@ -222,7 +259,7 @@ def main():
         print("[!] 수집 실패(지역차단 가능) — 기존 데이터 보존, 종료"); return
 
     circle = {"asOf": now.strftime("%Y-%m-%d %H:%M KST"), "month": month, "week": week,
-              "artistStock": {lab: st for st, lab, _ in ARTIST_TRACK}}
+              "artistStock": {lab: st for st, lab, _ in ARTIST_CANON}}
     if "--dry-run" in sys.argv:
         for term in ("month", "week"):
             b = circle[term]
