@@ -58,6 +58,11 @@ jobs:
           KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
         run: python fetch_movie.py || echo "영화 수집 건너뜀"
 
+      # 써클차트 앨범 판매량(월간·주간) — 엔터 종목의 실물 수요/매출 신호. 키 불필요.
+      # (한국 사이트라 미국 러너에서 지역차단되면 실패해도 기존 데이터 보존)
+      - name: 써클차트 앨범판매 수집
+        run: python fetch_circle.py || echo "써클 수집 건너뜀"
+
       # 관세청 확정 품목별은 매월 15일경 전월 현행화 → 19~22일에 수집하면 새 월이 잡힌다.
       - name: 월간 수출 갱신 (19~22일)
         env:
