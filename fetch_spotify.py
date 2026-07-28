@@ -22,13 +22,18 @@ DAYS = 180
 CID = os.environ.get("SPOTIFY_CLIENT_ID", "")
 CSEC = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
 
-# (종목, 라벨, 검색어) — 하이브 주요 아티스트. 찾은 아티스트ID(aid)는 데이터에 캐시.
+# (종목, 라벨, 검색어, 고정aid) — 하이브 주요 아티스트.
+# 고정aid 를 주면 검색을 건너뛴다. 신인·동명이인은 search 가 엉뚱한 아티스트를 잡을 수
+# 있어(예: 'CORTIS' 로 다른 밴드가 걸림) 검증한 ID 를 박아 둔다. None 이면 검색으로 찾는다.
+# 찾은 aid 는 데이터에 캐시되어 다음 실행부터 재사용된다.
 ARTISTS = [
-    ("하이브", "BTS",     "BTS"),
-    ("하이브", "세븐틴",   "SEVENTEEN"),
-    ("하이브", "르세라핌", "LE SSERAFIM"),
-    ("하이브", "엔하이픈", "ENHYPEN"),
-    ("하이브", "투바투",   "TOMORROW X TOGETHER"),
+    ("하이브", "BTS",     "BTS",                 None),
+    ("하이브", "세븐틴",   "SEVENTEEN",           None),
+    ("하이브", "르세라핌", "LE SSERAFIM",         None),
+    ("하이브", "엔하이픈", "ENHYPEN",             None),
+    ("하이브", "투바투",   "TOMORROW X TOGETHER", None),
+    ("하이브", "캣츠아이", "KATSEYE",             "3c0gDdb9lhnHGFtP4prQpn"),
+    ("하이브", "코르티스", "CORTIS",              "1ebt9HnXdyYA6KgLXr1n4P"),
 ]
 
 
@@ -111,9 +116,9 @@ def main():
         print(f"[spotify] 토큰 실패: {str(e)[:100]}"); return
 
     arts = []
-    for stock, label, query in ARTISTS:
+    for stock, label, query, pin_aid in ARTISTS:
         old = prev.get((stock, label), {})
-        aid = old.get("aid")
+        aid = old.get("aid") or pin_aid          # 캐시 우선, 없으면 고정aid, 그것도 없으면 아래서 검색
         hist = list(old.get("hist") or [])
         art = {"stock": stock, "label": label, "aid": aid, "hist": hist}
         try:

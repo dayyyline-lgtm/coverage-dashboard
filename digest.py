@@ -390,6 +390,11 @@ def _link(text, url):
     return f'<a href="{_esc(url)}">{_esc(text)}</a>' if url else _esc(text)
 
 
+def _dart(rcp):
+    """DART 공시 접수번호 -> 원문 URL. 임박일정 섹션과 같은 형식을 쓴다."""
+    return f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcp}" if rcp else None
+
+
 def _news(items, name, cut):
     """종목 관련, cut 이후 최신 기사 → 아이콘+핵심 절을 기사 링크로. 없으면 None."""
     it = _news_hit(items, name, cut)
@@ -602,9 +607,12 @@ def build(html, alerts_only=False):
             # g 는 '아이콘 절'. 여기선 📊 하나면 되니 아이콘만 떼고 링크는 유지한다.
             if g:
                 return "📊 실적발표 · " + _link(g.split(" ", 1)[-1], hit.get("u"))
-            return "📊 실적발표"
+            # 뉴스가 없어도 실적 관련 DART 원문(잠정실적·전망 공시 등)이 있으면 그리로 건다.
+            ev = next((e for e in disc if e.get("rcp")), None)
+            return _link("📊 실적발표", _dart(ev.get("rcp")) if ev else None)
         if disc:                                             # 실적 외 공시(IR·계약 등)
-            return "📄 " + _esc(_cut(disc[0].get("title") or "공시", REASON_W))
+            e0 = disc[0]
+            return _link("📄 " + _cut(e0.get("title") or "공시", REASON_W), _dart(e0.get("rcp")))
         if head:
             return head                                      # _gist 가 이미 종류+이모지를 붙였다
         tm = _trend_move(nm)
@@ -793,7 +801,7 @@ def build(html, alerts_only=False):
             def _ev(e):
                 lab = f"{'📊' if e['type'] == 'earn' else '🎤'} <b>{e['co']}</b>"
                 lab += f" {e['time']}" if e.get("time") else ""
-                u = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={e['rcp']}" if e.get("rcp") else None
+                u = _dart(e.get("rcp"))
                 return f'<a href="{u}">{lab}</a>' if u else lab
             # 같은 날은 개최시각 순으로 — IR/컨콜이 몇 시인지가 순서를 정한다.
             # 시각 없는 건(실적 잠정공시 등)은 뒤로 보낸다.
