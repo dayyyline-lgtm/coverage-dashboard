@@ -52,7 +52,9 @@ def _token():
 
 
 def _get(url, tok):
-    req = urllib.request.Request(url, headers={"Authorization": "Bearer " + tok})
+    # UA 없이 보내면 러너 IP 에서 403 이 나는 사례가 있어 브라우저 UA 를 붙인다.
+    req = urllib.request.Request(url, headers={"Authorization": "Bearer " + tok,
+                                               "User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
 
@@ -161,46 +163,60 @@ def main():
     arts = []
     for stock, label, query, pin_aid in ARTISTS:
         old = prev.get((stock, label), {})
-        aid = old.get("aid") or pin_aid          # 캐시 우선, 없으면 고정aid, 그것도 없으면 아래서 검색
+        aid = old.get("aid") or pin_aid          # 캐시 우선, 없으면 고정aid, 그것도 없으면 검색
         hist = list(old.get("hist") or [])
         art = {"stock": stock, "label": label, "aid": aid, "hist": hist}
-        try:
-            if not aid:
+        if not aid:
+            try:
                 aid = art["aid"] = _artist_id(query, tok)
-            if aid:
-                fol, pop = _artist(aid, tok)
-                ttn, tpop = _top_track(aid, tok)          # 대표곡(현재 최고인기 트랙)
-                rname, rdate = _latest_release(aid, tok)  # 최근 발매작(컴백 감지)
-                # 월간 청취자 — kworb(정확) 우선, 미수록이면 Spotify 메타(축약).
-                ml, delta = None, None
-                if aid in kworb:
-                    ml, delta = kworb[aid]
-                else:
-                    ml = _spotify_meta_ml(aid)
-                pt = {"d": today, "fol": fol, "pop": pop, "tpop": tpop}
-                if ml is not None:
-                    pt["ml"] = ml
-                by_d = {x["d"]: x for x in hist if x.get("d")}
-                # 첫 수집이면 '어제' 한 점을 kworb 일간증감으로 복원한다(실측치라 지어내는 게 아니다).
-                # 이러면 월간청취자 선이 이틀을 기다리지 않고 오늘 바로 그려진다.
-                if (ml is not None and delta is not None
-                        and not any(x.get("ml") is not None for x in hist)
-                        and yday not in by_d):
-                    by_d[yday] = {"d": yday, "ml": ml - delta}
-                cur = by_d.get(today, {"d": today})
-                cur.update(pt)                       # 같은 날 재실행이면 값만 갱신
-                by_d[today] = cur
-                hist = [by_d[d] for d in sorted(by_d)]
-                art["hist"] = hist[-DAYS:]
-                art["topTrack"] = ttn
-                art["release"] = {"name": rname, "date": rdate}
-                ml_txt = f"{ml:,}" if ml is not None else "—"
-                print(f"  {label}: 팔로워 {fol:,} · 인기도 {pop} · 월간청취자 {ml_txt}"
-                      f" · 대표곡 '{ttn}'({tpop})")
-            else:
-                print(f"  [{label}] 아티스트 못 찾음(query={query})")
+            except Exception as e:
+                print(f"  [{label}] id 검색 실패: {str(e)[:70]}")
+        if not aid:
+            print(f"  [{label}] 아티스트 못 찾음(query={query})"); arts.append(art); continue
+
+        # 1) Spotify Web API — 인기도·팔로워·대표곡·최근작.
+        #    러너 IP 가 403 을 내는 사례가 있어 여기서만 막고, 월간청취자(아래)는 계속 진행한다.
+        fol = pop = tpop = None
+        try:
+            fol, pop = _artist(aid, tok)
+            ttn, tpop = _top_track(aid, tok)
+            rname, rdate = _latest_release(aid, tok)
+            art["topTrack"] = ttn
+            art["release"] = {"name": rname, "date": rdate}
         except Exception as e:
-            print(f"  [{label}] 실패: {str(e)[:100]}")
+            print(f"  [{label}] Spotify API 실패(인기도·팔로워 스킵): {str(e)[:60]}")
+
+        # 2) 월간 청취자 — 공식 API 와 무관(kworb 랭킹 / Spotify 아티스트 페이지 메타).
+        #    kworb(정확·일간증감) 우선, 미수록이면 메타(축약). API 403 이어도 이건 수집된다.
+        ml, delta = None, None
+        if aid in kworb:
+            ml, delta = kworb[aid]
+        else:
+            try:
+                ml = _spotify_meta_ml(aid)
+            except Exception:
+                pass
+
+        # 3) 오늘 점 — 잡힌 값만 담는다. 전부 실패면 점을 추가하지 않는다.
+        pt = {"d": today}
+        for k, v in (("fol", fol), ("pop", pop), ("tpop", tpop), ("ml", ml)):
+            if v is not None:
+                pt[k] = v
+        if len(pt) > 1:
+            by_d = {x["d"]: x for x in hist if x.get("d")}
+            # 첫 수집이면 '어제' 한 점을 kworb 일간증감으로 복원한다(실측치). 선이 바로 그려진다.
+            if (ml is not None and delta is not None
+                    and not any(x.get("ml") is not None for x in hist)
+                    and yday not in by_d):
+                by_d[yday] = {"d": yday, "ml": ml - delta}
+            cur = by_d.get(today, {"d": today})
+            cur.update(pt)                       # 같은 날 재실행이면 값만 갱신
+            by_d[today] = cur
+            hist = [by_d[d] for d in sorted(by_d)]
+            art["hist"] = hist[-DAYS:]
+        print(f"  {label}: 인기도 {pop if pop is not None else '—'} · "
+              f"팔로워 {fol if fol is not None else '—'} · "
+              f"월간청취자 {f'{ml:,}' if ml is not None else '—'}")
         arts.append(art)
 
     sp = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "artists": arts}
