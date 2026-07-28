@@ -1295,7 +1295,7 @@ const MANUAL_EVENTS=[
 ];
 const CAL=(function(){
   const all=[
-    ...(typeof DART_EVENTS!=="undefined"?DART_EVENTS:[]).map(e=>({d:e.date,co:e.co,t:e.title,ty:e.type,src:"DART 공시"})),
+    ...(typeof DART_EVENTS!=="undefined"?DART_EVENTS:[]).map(e=>({d:e.date,co:e.co,t:e.title,ty:e.type,src:"DART 공시",rcp:e.rcp,time:e.time})),
     ...(LIVE.events||[]).map(e=>({d:e.date,co:e.co,t:e.title,ty:e.type,src:"네이버 IR"})),
     ...MANUAL_EVENTS.map(e=>({...e,src:"직접 입력"})),
   ].filter(e=>e.d);
@@ -1454,12 +1454,18 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
   const upc=CAL.filter(e=>dday(e.d)>=0).sort((a,b)=>a.d.localeCompare(b.d));
   const row=e=>{
     const n=dday(e.d), md=e.d.slice(5).split("-");
-    return `<div class="up-row" data-stock="${e.co}" title="${e.t} (${e.src})">
+    const u=e.rcp?`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${e.rcp}`:null;
+    const tm=e.time?`<span style="color:var(--muted);font-size:11px;margin-left:6px">🕑 ${e.time}</span>`:"";
+    const inner=`
       <div class="dd"><div class="dm">${Number(md[0])}월</div><div class="din">${Number(md[1])}</div></div>
-      <div class="info"><div class="co">${e.co}${isPrelim(e.t)?'<span class="up-tag">잠정</span>':''}</div>
+      <div class="info"><div class="co">${e.co}${tm}${isPrelim(e.t)?'<span class="up-tag">잠정</span>':''}</div>
         <div class="tt">${e.t}</div></div>
-      <div class="dcount ${ddCls(n)}">${ddText(n)}</div>
-    </div>`;
+      <div class="dcount ${ddCls(n)}">${ddText(n)}</div>`;
+    return u
+      ? `<a class="up-row" href="${u}" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;text-decoration:none;color:inherit"
+           title="${e.t} · DART 원문 열기 ↗">${inner}</a>`
+      : `<div class="up-row" data-stock="${e.co}" title="${e.t} (${e.src})">${inner}</div>`;
   };
 
   // ① 실적발표(잠정 포함) — 임박순(날짜 오름차순). 잠정은 배지로 표시
@@ -1494,7 +1500,13 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
       const wd=(first+day-1)%7;
       const evs=byMonth[k].filter(e=>Number(e.d.slice(8,10))===day);
       html+=`<div class="cal-cell ${wd===0?'sun':wd===6?'sat':''} ${evs.length?'has':''}"><div class="dnum">${day}</div>`+
-        evs.map(e=>`<div class="cal-ev ${CTYPE[e.ty]||'ev-earn'}" data-stock="${e.co}" style="cursor:pointer" title="[${CTYPE_LABEL[e.ty]||'기타'}] ${e.co} · ${e.t} (${e.src})">${e.co}</div>`).join("")+
+        evs.map(e=>{
+          const u=e.rcp?`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${e.rcp}`:null;
+          const tt=`[${CTYPE_LABEL[e.ty]||'기타'}] ${e.co}${e.time?" "+e.time:""} · ${e.t} (${e.src})`;
+          return u
+            ? `<a class="cal-ev ${CTYPE[e.ty]||'ev-earn'}" href="${u}" target="_blank" rel="noopener" style="cursor:pointer;text-decoration:none;color:inherit" title="${tt} ↗">${e.co}</a>`
+            : `<div class="cal-ev ${CTYPE[e.ty]||'ev-earn'}" data-stock="${e.co}" style="cursor:pointer" title="${tt}">${e.co}</div>`;
+        }).join("")+
       `</div>`;
     }
     html+=`</div></div></div>`;
@@ -1526,10 +1538,13 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
   const p3=panel("다가오는 일정","DART · IR",
     up.length? up.map(e=>{
       const dd=Math.round((new Date(e.d)-new Date(today))/86400000);
-      return `<div class="ov-row" data-stock="${e.co}" title="${e.t}">
-        <span class="dt">${e.d.slice(5).replace("-","/")}</span>
+      const u=e.rcp?`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${e.rcp}`:null;
+      const inner=`<span class="dt">${e.d.slice(5).replace("-","/")}${e.time?" "+e.time:""}</span>
         <span class="nm">${e.co}</span>
-        <span class="v" style="color:var(--muted)">${dd===0?"D-DAY":"D-"+dd}</span></div>`;
+        <span class="v" style="color:var(--muted)">${dd===0?"D-DAY":"D-"+dd}</span>`;
+      return u
+        ? `<a class="ov-row" href="${u}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit" title="${e.t} · DART ↗">${inner}</a>`
+        : `<div class="ov-row" data-stock="${e.co}" title="${e.t}">${inner}</div>`;
     }).join("") : `<div class="ov-empty">예정된 일정이 없습니다</div>`);
 
   host.innerHTML=p1+p2+p3;

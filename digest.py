@@ -765,8 +765,13 @@ def build(html, alerts_only=False):
             dd = (dt - today).days
             # 종류는 아이콘으로만 쓴다. '실적'/'IR' 은 한글·영문이 섞여 글자 폭이
             # 달라지는데, 아이콘은 폭이 일정해서 여러 건이 붙어도 줄이 안 흐트러진다.
-            body = " · ".join(f"{'📊' if e['type'] == 'earn' else '🎤'} <b>{e['co']}</b>"
-                              for e in byday[d])
+            # 시간(IR 개최시각)이 있으면 붙이고, 접수번호(rcp)가 있으면 DART 원문 링크로 건다.
+            def _ev(e):
+                lab = f"{'📊' if e['type'] == 'earn' else '🎤'} <b>{e['co']}</b>"
+                lab += f" {e['time']}" if e.get("time") else ""
+                u = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={e['rcp']}" if e.get("rcp") else None
+                return f'<a href="{u}">{lab}</a>' if u else lab
+            body = " · ".join(_ev(e) for e in byday[d])
             # 'D-0 오늘' 은 같은 말을 두 번 하는 것이라 날짜(요일)를 대신 붙인다.
             lines.append(f"<code>{_pad(f'D-{dd}', 3)} {d[5:7]}/{d[8:10]}({WD[dt.weekday()]})"
                          f"</code>  {body}")

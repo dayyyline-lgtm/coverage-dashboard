@@ -92,8 +92,25 @@ def classify(report_nm):
     return None, n
 
 
+def _parse_time(seg):
+    """'일시' 근처 텍스트에서 개최 시각(HH:MM)을 뽑는다. '14:00' / '오후 2시 30분' / '14시' 등."""
+    m = re.search(r"(\d{1,2}):(\d{2})", seg)
+    if m and int(m.group(1)) < 24:
+        return f"{int(m.group(1)):02d}:{m.group(2)}"
+    m = re.search(r"(오전|오후)?\s*(\d{1,2})\s*시\s*(\d{1,2})?\s*분?", seg)
+    if m:
+        h, mm = int(m.group(2)), int(m.group(3) or 0)
+        if m.group(1) == "오후" and h < 12:
+            h += 12
+        if m.group(1) == "오전" and h == 12:
+            h = 0
+        if h < 24:
+            return f"{h:02d}:{mm:02d}"
+    return None
+
+
 def ir_datetime(rcept_no):
-    """IR 개최 공시 원문에서 실제 개최 일시와 주요내용을 뽑는다."""
+    """IR 개최 공시 원문에서 실제 개최 일시(날짜·시각)와 주요내용을 뽑는다."""
     try:
         raw = get(f"https://opendart.fss.or.kr/api/document.xml?crtfc_key={DART_API_KEY}"
                   f"&rcept_no={rcept_no}", 30)
@@ -112,12 +129,14 @@ def ir_datetime(rcept_no):
         txt = re.sub(r"<[^>]+>", " ", txt)
         txt = re.sub(r"\s+", " ", txt)
 
-        date = None
+        date = tm = None
         i = txt.find("일시")
         if i > 0:
-            m = re.search(r"(20\d{2}-\d{2}-\d{2})", txt[i:i + 200])
+            seg = txt[i:i + 200]
+            m = re.search(r"(20\d{2}-\d{2}-\d{2})", seg)
             if m:
                 date = m.group(1)
+            tm = _parse_time(seg)
         title = None
         for label in ("주요내용", "주 요 내 용", "설명회내용", "목적"):
             j = txt.find(label)
@@ -130,9 +149,9 @@ def ir_datetime(rcept_no):
             if len(t) >= 4:
                 title = t[:38]
                 break
-        return date, title
+        return date, tm, title
     except Exception:
-        return None, None
+        return None, None, None
 
 
 def main():
@@ -172,11 +191,13 @@ def main():
             rd = it["rcept_dt"]
             date = f"{rd[:4]}-{rd[4:6]}-{rd[6:]}"
             title = clean
-            if ty == "ir":                       # 원문에서 실제 개최일 파싱
-                dt2, t2 = ir_datetime(it["rcept_no"])
+            tm = None
+            if ty == "ir":                       # 원문에서 실제 개최 일시(날짜·시각) 파싱
+                dt2, tm2, t2 = ir_datetime(it["rcept_no"])
                 ir_hits += 1
                 if dt2:
                     date = dt2
+                tm = tm2
                 title = t2 or "기업설명회(IR)"
                 # IR 중 '분기 실적발표'만 earn. '경영실적 설명·Q&A·리뷰' 등 일반 IR/NDR 은 ir.
                 #   (제목에 '실적'만 들어가도 승격시키던 탓에 IR 설명회가 실적발표로 오분류됐다)
@@ -187,8 +208,12 @@ def main():
                     ty = "div"
             if date < keep_from:
                 continue
-            events.append({"co": nm, "code": sc, "date": date,
-                           "title": title, "type": ty, "src": "DART"})
+            # rcp = 접수번호 → 화면·레터에서 DART 원문 링크로 연결.
+            ev = {"co": nm, "code": sc, "date": date, "title": title,
+                  "type": ty, "src": "DART", "rcp": it["rcept_no"]}
+            if tm:
+                ev["time"] = tm
+            events.append(ev)
             n_co += 1
         print(f"  [{idx}/{len(records)}] {nm}: {n_co}건")
         time.sleep(0.12)
