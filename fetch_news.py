@@ -79,6 +79,24 @@ def dedupe(arts, limit):
     return kept
 
 
+def to_article(href):
+    """목록의 링크를 기사 본문 주소로 바꾼다.
+
+       네이버 금융 목록이 주는 news_read.naver 주소는 본문이 아니라
+       자바스크립트 한 줄짜리 껍데기다(실측 92바이트):
+           <SCRIPT>top.location.href='https://n.news.naver.com/mnews/article/008/0005391563';</SCRIPT>
+       top.location 을 건드리는 스크립트라 새 탭·인앱 브라우저·스크립트 차단 환경에서
+       그대로 빈 화면이 된다. 목적지가 주소 안에 다 들어 있으니 미리 펴서 저장한다.
+       (office_id = 언론사, article_id = 기사 번호)"""
+    if href.startswith("/"):
+        href = "https://finance.naver.com" + href
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)
+    oid, aid = (q.get("office_id") or [""])[0], (q.get("article_id") or [""])[0]
+    if oid and aid:
+        return f"https://n.news.naver.com/mnews/article/{oid}/{aid}"
+    return href
+
+
 def fetch_stock_news(code):
     url = ("https://finance.naver.com/item/news_news.naver"
            f"?code={code}&page=1&sm=title_entity_id.basic")
@@ -96,9 +114,7 @@ def fetch_stock_news(code):
         t = clean(title)
         if not t:
             continue
-        link = htmlmod.unescape(href)
-        if link.startswith("/"):
-            link = "https://finance.naver.com" + link
+        link = to_article(htmlmod.unescape(href))
         d = clean(dt).replace(".", "-", 2)          # 2026.07.23 03:30 -> 2026-07-23 03:30
         out.append({"t": t, "u": link, "s": clean(src), "d": d})
     return out
