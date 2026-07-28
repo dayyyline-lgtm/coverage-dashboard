@@ -299,6 +299,50 @@ def collect_sector_trend(sectors):
             "shortDays": TREND_SHORT, "idx": idx, "meta": meta}
 
 
+def add_topfick_index(sector_trend, html):
+    """PORTFOLIO(고정 비중·매수일)로 '탑픽' 지수를 sector_trend.idx 에 더한다.
+       매수일 전은 null, 매수일=100, 이후 = 100·Σ(w·종가/매수일종가). 종목 일봉으로 매 실행 재계산하므로
+       누적 저장이 필요 없다(과거 종가는 안 바뀐다). 일부 종목의 그날 종가가 없으면 남은 비중으로 정규화."""
+    if not sector_trend:
+        return
+    m = re.search(r"const PORTFOLIO = (\{.*?\});\n", html, re.S)
+    if not m:
+        return
+    try:
+        port = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return
+    dates, buy, picks = sector_trend["dates"], port.get("date"), (port.get("picks") or [])
+    px = {}
+    for p in picks:
+        code = p.get("code")
+        if not code:
+            continue
+        try:
+            px[code] = fetch_daily(f"https://api.stock.naver.com/chart/domestic/item/{code}")
+        except Exception:
+            px[code] = {}
+        time.sleep(0.2)
+    if not any((px.get(p.get("code")) or {}).get(buy) for p in picks):
+        print("  탑픽 지수: 매수일 종가 없음 — 스킵"); return
+    series = []
+    for d in dates:
+        if d < buy:
+            series.append(None); continue
+        tot, wsum = 0.0, 0.0
+        for p in picks:
+            b = (px.get(p.get("code")) or {}).get(buy)
+            v = (px.get(p.get("code")) or {}).get(d)
+            if b and v:
+                tot += p["w"] * v / b
+                wsum += p["w"]
+        series.append(round(tot / wsum * 100, 3) if wsum else None)
+    sector_trend["idx"]["탑픽"] = series
+    sector_trend.setdefault("meta", {})["탑픽"] = {
+        "n": len(picks), "name": port.get("label", "탑픽"), "cov": None}
+    print(f"  탑픽 지수: {sum(1 for v in series if v is not None)}일치")
+
+
 def resolve_code(name):
     q = urllib.parse.quote(NAME_FIX.get(name, name))
     d = getj(f"https://m.stock.naver.com/front-api/search/autoComplete?query={q}&target=stock")
@@ -422,6 +466,7 @@ def main():
     stocks, researches, events, fails = collect(names)
     market = collect_market()
     sector_trend = collect_sector_trend((market or {}).get("sectors") or [])
+    add_topfick_index(sector_trend, html)      # 탑픽 포트폴리오 지수 편입
     researches.sort(key=lambda x: x["date"] or "", reverse=True)
     events.sort(key=lambda x: x["date"] or "")
 
