@@ -36,6 +36,13 @@ jobs:
       - name: 종목 뉴스 재수집
         run: python fetch_news.py || echo "뉴스 수집 건너뜀(네이버 응답 이상)"
 
+      # DART 공시·IR·실적 일정을 매시간 갱신 — 장중에 올라온 공시가 하루 늦지 않게.
+      # (events.yml 은 아침 1번뿐이라, 그때그때 반영은 여기서 한다.)
+      - name: DART 공시·IR 재수집
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python fetch_events.py || echo "DART 수집 건너뜀"
+
       # 치지직 게임 시청자(키 불필요). 매시간 돌아 그날 최댓값(저녁 피크)을 잡는다.
       - name: 치지직 게임 시청자
         run: python fetch_chzzk.py || echo "치지직 수집 건너뜀"

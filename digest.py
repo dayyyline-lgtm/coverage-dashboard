@@ -790,8 +790,9 @@ def build(html, alerts_only=False):
             # ('사랑의 하츄핑: 고래보석의 전설' -> '사랑의 하츄핑'). 그대로 쓴다.
             lines.append(f"<b>{nm}</b>"
                          + (f"  <code>D{dday:+d}</code>" if dday is not None else ""))
+            # acc = KOBIS 누적'관객'수(개봉 전이면 시사회·유료시사 관객). 예매가 아니다.
             lines.append(f"예매율 {p['rate']}%{dr} · 예매 {p['book']:,}명 · "
-                         f"누적 {p['acc']:,}명")
+                         f"누적관객 {p['acc']:,}명" + ("(시사회)" if dday is not None and dday < 0 else ""))
             base = _prev_run(mv, nm, dday) if dday is not None else None
             if base:
                 lines.append(_sub(base))       # 숫자만 던지면 잘한 건지 못한 건지 모른다
