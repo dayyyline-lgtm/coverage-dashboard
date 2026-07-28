@@ -38,6 +38,8 @@ REASON_W = 36         # 급변 이유 한 줄(들여쓰기 4 + 아이콘 2 + 36 
 LABEL_W = 12          # 트렌드 계열 이름 칸 (넘치면 자른다)
 MOVERS_MAX = 5        # 급변 목록에 적을 종목 수. 더 늘리면 훑는 눈이 지친다
 SCORE_CALL = 8.0      # 이 점수(0~10) 이상은 데일리에 '고득점 콜'로 자동 노출
+STEAM_STREAK = 4      # 게임 동접 '며칠 연속' 추세 임계(일). 주말 계절성을 이기는 길이라야 신호다
+STEAM_DEV = 30        # 게임 동접 이상치 임계 — 최근값이 직전 7일 평균 대비 ±이 %를 넘으면 급변
 BLK = "▁▂▃▄▅▆▇█"
 # 수집 주기별 표기. 주기를 무시하고 '주' 로 쓰면 일별 계열에 거짓말을 하게 된다.
 FREQ_UNIT = {"date": "일", "week": "주", "month": "개월"}
@@ -470,6 +472,26 @@ def _surprise(live, nm, chg, today):
     return vs                                            # 컨센 부합
 
 
+def _steam_signal(players):
+    """게임 동접 시계열에서 데일리에 넣을 '이상치/연속추세'를 잡는다. (태그) 또는 None.
+       - 연속추세: 며칠 연속 상승/하락(주말 계절성을 이기는 길이 STEAM_STREAK 이상).
+       - 이상치: 최근값이 직전 7일 평균 대비 ±STEAM_DEV% 밖(패치·이벤트발 급등, 이탈 급락).
+       둘 다 아니면 None → 그 게임은 데일리에서 뺀다(대시보드 트렌드 탭엔 늘 있다)."""
+    c = [p for p in players if p is not None]
+    if len(c) < 5:
+        return None
+    st = _streak(c)
+    if abs(st) >= STEAM_STREAK:
+        return f"{abs(st)}일 연속 {'상승' if st > 0 else '하락'}"
+    base = c[-8:-1]
+    avg = sum(base) / len(base) if base else 0
+    if avg:
+        dev = (c[-1] / avg - 1) * 100
+        if abs(dev) >= STEAM_DEV:
+            return f"7일평균비 {dev:+.0f}% {'급등' if dev > 0 else '급락'}"
+    return None
+
+
 def _upside(live, rec, nm):
     """당사 견적시총 대비 현재 시총 상승여력(%). 라이브 시총 없으면 None.
        단위 주의: fairMktcap 은 십억, LIVE.mktcapEok 은 억 → 억/10 = 십억으로 맞춘다."""
@@ -714,21 +736,20 @@ def build(html, alerts_only=False):
         lines = []
         for g in steam["games"]:
             ps = g.get("players") or []      # 일별 최고동접 시계열(SteamCharts)
-            if not ps:
+            sig = _steam_signal(ps)
+            if not sig:                       # 이상치·연속추세 없으면 데일리에서 뺀다
                 continue
             dod = ""                          # 일별 peak 스냅샷이라 직전 점은 늘 전일이다
             if len(ps) >= 2 and ps[-2]:
                 dod = f" <i>(전일 {(ps[-1]/ps[-2]-1)*100:+.0f}%)</i>"
             rvh = g.get("reviews") or []
-            rv = (rvh[-1].get("t") if rvh else 0) or 0
             pos = rvh[-1].get("pos") if rvh else None
-            rvs = (f" · 긍정 {pos:.0f}%({rv/1e4:.0f}만)" if pos is not None and rv >= 10000
-                   else (f" · 긍정 {pos:.0f}%" if pos is not None else ""))
+            rvs = f" · 긍정 {pos:.0f}%" if pos is not None else ""
             sp = _spark(ps)
-            lines.append(f"<b>{g['title']}</b> <i>{g['stock']}</i>")
+            lines.append(f"<b>{g['title']}</b> <i>{g['stock']}</i> · {sig}")
             lines.append((f"<code>{sp}</code> " if sp else "") + f"{ps[-1]:,}명{dod}{rvs}")
         if lines:
-            out.append("<b>🎮 Steam</b> <i>(일 최고동접 · 리뷰)</i>\n" + "\n".join(lines))
+            out.append("<b>🎮 Steam</b> <i>(이상치·연속추세만)</i>\n" + "\n".join(lines))
 
     # 임박 일정
     if soon:
