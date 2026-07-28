@@ -37,6 +37,7 @@ STREAK_MIN = 4        # 연속추세 태그(주)
 REASON_W = 36         # 급변 이유 한 줄(들여쓰기 4 + 아이콘 2 + 36 = 모바일 한 줄에 들어감)
 LABEL_W = 12          # 트렌드 계열 이름 칸 (넘치면 자른다)
 MOVERS_MAX = 5        # 급변 목록에 적을 종목 수. 더 늘리면 훑는 눈이 지친다
+SCORE_CALL = 8.0      # 이 점수(0~10) 이상은 데일리에 '고득점 콜'로 자동 노출
 BLK = "▁▂▃▄▅▆▇█"
 # 수집 주기별 표기. 주기를 무시하고 '주' 로 쓰면 일별 계열에 거짓말을 하게 된다.
 FREQ_UNIT = {"date": "일", "week": "주", "month": "개월"}
@@ -468,6 +469,16 @@ def _surprise(live, nm, chg, today):
     return vs                                            # 컨센 부합
 
 
+def _upside(live, rec, nm):
+    """당사 견적시총 대비 현재 시총 상승여력(%). 라이브 시총 없으면 None.
+       단위 주의: fairMktcap 은 십억, LIVE.mktcapEok 은 억 → 억/10 = 십억으로 맞춘다."""
+    fm = (rec.get(nm) or {}).get("fairMktcap")
+    mk = ((live.get("stocks") or {}).get(nm) or {}).get("mktcapEok")
+    if not fm or not mk:
+        return None
+    return (fm / (mk / 10) - 1) * 100
+
+
 def build(html, alerts_only=False):
     _load_alias(html)                      # 종목 별칭은 화면과 같은 것을 쓴다
     today = datetime.datetime.now(KST).date()
@@ -568,6 +579,23 @@ def build(html, alerts_only=False):
     out = []
     if pts:
         out.append("<b>✨ 오늘의 포인트</b>\n" + "\n".join("• " + p for p in pts))
+
+    # ⭐ 고득점 콜 — score 기준 SCORE_CALL 이상을 매일 자동 노출(당사 컨빅션 종목).
+    # 점수는 잘 안 바뀌지만 상승여력(견적시총÷현재시총-1)은 주가 따라 매일 달라진다.
+    calls = sorted([r for r in data.get("records", []) if (r.get("score") or 0) >= SCORE_CALL],
+                   key=lambda r: (-(r.get("score") or 0),
+                                  -(_upside(live, rec, r.get("name")) or -1e9)))
+    if calls:
+        lines = []
+        for r in calls:
+            nm = r.get("name", "")
+            up = _upside(live, rec, nm)
+            tail = " · ".join(x for x in [
+                r.get("pick2") or "", _cat(rec, nm),
+                (f"상승여력 {up:+.0f}%" if up is not None else "")] if x)
+            lines.append(f"<b>{nm}</b> {r.get('score', 0):.1f}점"
+                         + (f" · {tail}" if tail else ""))
+        out.append(f"<b>⭐ 고득점 콜</b> <i>({SCORE_CALL:.0f}점+)</i>\n" + "\n".join(lines))
 
     # 전일 시세 급변 — 가장 먼저. 오늘 당장 대응할 게 있다면 여기다.
     if movers:
