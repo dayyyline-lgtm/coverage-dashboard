@@ -479,9 +479,21 @@ def _upside(live, rec, nm):
     return (fm / (mk / 10) - 1) * 100
 
 
+def _move_label(now):
+    """급변 섹션 제목 — 표시되는 등락이 '오늘 세션'이냐 '직전 세션'이냐로 정한다.
+       chgPct 는 그때그때 최신 시세라, 언제 보내느냐에 따라 뜻이 달라진다.
+       개장 전(평일 09:00 전)·주말 = 직전 세션 결과 → '전일 급변'.
+       장중(평일 09:00~15:30) = 오늘 진행 중 → '당일 급변(장중)'. 마감 후 = '당일 급변'.
+       아침 자동 발송(07:30)은 개장 전이라 늘 '전일'. 장중 수동 발송이면 '당일'로 바뀐다."""
+    if now.weekday() >= 5 or now.time() < datetime.time(9, 0):
+        return "전일 급변"
+    return "당일 급변(장중)" if now.time() <= datetime.time(15, 30) else "당일 급변"
+
+
 def build(html, alerts_only=False):
     _load_alias(html)                      # 종목 별칭은 화면과 같은 것을 쓴다
-    today = datetime.datetime.now(KST).date()
+    now = datetime.datetime.now(KST)
+    today = now.date()
     tr = _const(html, "TREND") or {"groups": {}}
     live = _const(html, "LIVE") or {}
     evs = _const(html, "DART_EVENTS", "[") or []
@@ -608,7 +620,8 @@ def build(html, alerts_only=False):
                          + (f"\n{_sub(rs)}" if rs else ""))
         extra = (f"\n<i>외 {len(movers)-MOVERS_MAX}종목</i>"
                  if len(movers) > MOVERS_MAX else "")
-        out.append(f"<b>📈 전일 급변</b> <i>(±{CHG_ALERT:.0f}%)</i>\n" + "\n".join(lines) + extra)
+        out.append(f"<b>📈 {_move_label(now)}</b> <i>(±{CHG_ALERT:.0f}%)</i>\n"
+                   + "\n".join(lines) + extra)
 
     # 트렌드 데이터 — 고정 계열은 매일, 나머지는 의미있게 움직였을 때만. 최근 10주 추이.
     # (종목, 그룹)이 같으면 한 블록으로 묶는다 — 리쥬란/리투오/셀르디엠처럼
