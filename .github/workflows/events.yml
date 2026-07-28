@@ -1,9 +1,10 @@
-name: 이벤트 갱신 + 텔레그램 레터
+name: 아침 전체 데이터 갱신
 
 on:
   schedule:
-    # 평일 아침 07:30 KST (UTC 22:30). GitHub cron 은 이 저장소에서 안 떠서 Cloudflare 워커가 대신 트리거함.
-    - cron: "30 22 * * 0-4"
+    # 평일 아침 06:30 KST (UTC 21:30). 데일리 레터(07:00·digest.yml) 전에 느린 수집을 끝낸다.
+    # refresh.yml 도 같은 06:30 에 시세·뉴스·공시를 갱신한다(둘이 합쳐 '전체 갱신').
+    - cron: "30 21 * * 0-4"
   workflow_dispatch: {}
 
 permissions:
@@ -63,17 +64,7 @@ jobs:
       - name: 써클차트 앨범판매 수집
         run: python fetch_circle.py || echo "써클 수집 건너뜀"
 
-      # 관세청 확정 품목별은 매월 15일경 전월 현행화 → 19~22일에 수집하면 새 월이 잡힌다.
-      - name: 월간 수출 갱신 (19~22일)
-        env:
-          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-        run: |
-          d=$(TZ=Asia/Seoul date +%d)
-          if [ "$d" -ge 19 ] && [ "$d" -le 22 ] && [ -n "$DATA_GO_KR_KEY" ]; then
-            python fetch_trade.py || echo "수출 수집 실패(계속 진행)"
-          else
-            echo "수출 갱신일 아님 - 생략"
-          fi
+      # 수출입(관세청)은 발표 시점이 고정(월 단위)이라 데일리에서 뺐다 → trade.yml(매월 5·20일)이 전담.
 
       - name: 변경분 커밋
         run: |
@@ -88,25 +79,4 @@ jobs:
             git push
           fi
 
-      - name: 데일리 레터 발송
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python digest.py || echo "데일리 레터 건너뜀"
-
-      # 수출 데이터가 새 월로 갱신됐으면 그때 1번만(상태파일 trade_sent.json 로 중복 방지)
-      - name: 월간 수출 레터 (19~22일)
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          d=$(TZ=Asia/Seoul date +%d)
-          if [ "$d" -ge 19 ] && [ "$d" -le 22 ]; then
-            python trade_digest.py || echo "수출 레터 건너뜀"
-            if ! git diff --quiet -- trade_sent.json 2>/dev/null; then
-              git add trade_sent.json
-              git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
-              git pull --rebase
-              git push
-            fi
-          fi
+      # 데일리 레터·월간 수출 레터는 digest.yml(07:00)로 분리했다 — 수집(06:30)과 발송(07:00)을 나눈다.

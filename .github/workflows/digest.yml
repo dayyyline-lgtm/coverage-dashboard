@@ -1,13 +1,22 @@
-name: 텔레그램 데일리 레터 (수동)
+name: 텔레그램 데일리 레터
 
-# 데일리 레터는 평소 events.yml(워커가 매일 트리거)이 자동 발송한다.
-# 이 워크플로는 '지금 당장' 받아보고 싶을 때 수동으로 돌리는 용도.
+# 데일리 레터 발송. 아침 06:30 에 refresh.yml + events.yml 이 데이터를 확정하면,
+# 30분 뒤 07:00 에 그 확정 데이터로 발송한다(수집과 발송 분리).
 on:
+  schedule:
+    - cron: "0 22 * * 0-4"     # KST 평일 07:00 (UTC 전일 22:00)
   workflow_dispatch:
     inputs:
       mode:
         description: "digest(전체) · alerts(짧게) · dry(발송 없이 본문만 출력)"
         default: "digest"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: digest
+  cancel-in-progress: false
 
 jobs:
   digest:
@@ -17,6 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: 다이제스트 발송
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -24,8 +34,8 @@ jobs:
         run: |
           case "${{ github.event.inputs.mode }}" in
             alerts) python digest.py --alerts ;;
-            # 발송 없이 본문만 로그에 찍는다. 정렬이 어긋날 때 실제로 나가는
-            # 문자열을 그대로 봐야 원인을 잡을 수 있다(눈으로 캡처만 보면 못 잡는다).
+            # 발송 없이 본문만 로그에 찍는다(정렬 디버깅용).
             dry)    python digest.py --dry-run ;;
             *)      python digest.py ;;
           esac
+      # 월간 수출 레터는 trade.yml(매월 5·20일 수집)이 발송까지 담당한다 — 데일리와 분리.

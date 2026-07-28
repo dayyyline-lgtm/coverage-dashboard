@@ -47,3 +47,16 @@ jobs:
             git pull --rebase
             git push
           fi
+
+      # 새 월이 잡혔으면 수출 레터를 텔레그램으로(trade_sent.json 로 월 1회만). 데일리와 분리된 발송.
+      - name: 월간 수출 레터
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python trade_digest.py || echo "수출 레터 건너뜀"
+          if ! git diff --quiet -- trade_sent.json 2>/dev/null; then
+            git add trade_sent.json
+            git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
+            git pull --rebase && git push
+          fi
