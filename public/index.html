@@ -402,15 +402,13 @@
     <h2 class="sec">개요</h2>
     <p class="sec-desc">커버리지 전반 요약과 섹터별 Top pick. 종목명 클릭 시 상세.</p>
     <div class="kpis" id="kpis"></div>
-    <div class="sub-h">한눈에 보기</div>
-    <div class="ov-grid" id="ovPanels"></div>
-    <div class="sub-h" id="secTrendTitle">지수 추이</div>
+    <div class="sub-h" id="secTrendTitle">⭐ 탑픽 포트폴리오 · 지수 추이</div>
     <div class="trend-ctl">
       <div class="ctl-row"><span class="ctl-label">보기</span>
         <div class="seg" id="secViewSeg">
-          <button data-view="sum" class="active">종합</button>
+          <button data-view="port" class="active">⭐ 탑픽</button>
+          <button data-view="sum">종합</button>
           <button data-view="detail">업종별</button>
-          <button data-view="port">⭐ 탑픽</button>
         </div>
       </div>
       <div class="ctl-row"><span class="ctl-label">기간</span>
@@ -420,18 +418,20 @@
         </div>
       </div>
     </div>
+    <div id="portBox" style="display:none">
+      <div id="portTiles" style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px"></div>
+      <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        <div id="portPie" style="flex:0 0 auto"></div>
+        <div id="portHoldings" style="flex:1;min-width:280px"></div>
+      </div>
+    </div>
     <div class="chart-box">
       <div id="secTrendChart"></div>
       <div class="trend-legend" id="secTrendLegend"></div>
     </div>
     <p class="note" id="secTrendNote"></p>
-    <div id="portBox" style="display:none">
-      <div id="portTiles" style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px"></div>
-      <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:center">
-        <div id="portPie" style="flex:0 0 auto"></div>
-        <div id="portHoldings" style="flex:1;min-width:280px"></div>
-      </div>
-    </div>
+    <div class="sub-h">한눈에 보기</div>
+    <div class="ov-grid" id="ovPanels"></div>
     <div class="sub-h">섹터별 Top Pick</div>
     <div class="cards" id="pickCards"></div>
   </section>
@@ -868,7 +868,7 @@ themeBtn.addEventListener("click",()=>{
    다시 기준을 잡고 누적수익률(%)로 환산한다.
      종합   = 코스피 · 코스닥 · 소비재(커버리지 7개 업종 합산)
      업종별 = 7개 업종 + 코스피(점선, 비교 기준) */
-let secView="sum", secDays=22;
+let secView="port", secDays=22;
 const SEC_LINE_COLORS={"코스피":"#e0def4","코스닥":"#908caa","소비재":"#c4a7e7","탑픽":"#f6c177"};
 function secColor(k){ return SEC_LINE_COLORS[k] || catColor(CAT_COLORS[k]?k:k); }
 function drawSectorTrend(){
