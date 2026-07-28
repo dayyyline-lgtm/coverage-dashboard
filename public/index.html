@@ -1870,6 +1870,27 @@ const TREND_STOCK={
     (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
   });
 })();
+/* Spotify 아티스트 인기도(0~100, 최근 스트리밍 반영)를 트렌드 편입. popularity 는 이미 0~100 이라
+   정규화 없이 그대로 쓴다(차트 y축과 일치). 팔로워는 각주. 며칠 쌓이면 추이선 표시. */
+(function injectSpotifyTrends(){
+  if(typeof SPOTIFY==="undefined"||!SPOTIFY.artists) return;
+  SPOTIFY.artists.forEach(a=>{
+    const h=(a.hist||[]).filter(x=>x&&x.pop!=null);
+    if(h.length<2) return;
+    const dates=h.map(x=>{const p=(x.d||"").slice(5).split("-");
+      return p.length===2?`${+p[0]}/${+p[1]}`:x.d;});
+    const pop=h.map(x=>x.pop), fol=h[h.length-1].fol||0;
+    const name=a.label+" 인기도(Spotify)";
+    TREND.groups[name]={
+      products:[a.label], productsGoogle:[a.label],
+      months:dates, naver:[pop], google:[pop],
+      only:"naver", freq:"date",
+      srcName:"Spotify 인기도(0~100, 최근 스트리밍)",
+      reviewNote:`팔로워 ${fol>=1e6?(fol/1e6).toFixed(1)+"M":fol>=1e3?(fol/1e3).toFixed(0)+"K":fol}`
+    };
+    (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
+  });
+})();
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서

@@ -39,6 +39,13 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python fetch_youtube.py || echo "YouTube 수집 건너뜀"
 
+      # Spotify 아티스트 인기도·팔로워(엔터). 크레덴셜 있어야 동작, 없으면 스킵.
+      - name: Spotify 아티스트 수집
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: python fetch_spotify.py || echo "Spotify 수집 건너뜀"
+
       # 영화 예매·박스오피스(KOBIS). movie.yml 은 워커가 안 불러서 여기 매일 붙인다.
       # 개봉 전엔 예매(예매율·예매수)를 일별 누적, 개봉 후엔 일별 관객수까지 자동으로 쌓인다.
       - name: 영화 예매·박스오피스 수집
