@@ -1751,7 +1751,7 @@ const TREND_STOCK={
     const norm=raw.map(v=>v==null?0:Math.round(v/peak*100));
     const dates=(g.hist||[]).map(h=>{const p=(h.d||"").slice(5).split("-");
       return p.length===2?`${+p[0]}/${+p[1]}`:h.d;});
-    const name=g.title+" 시청";
+    const name=g.title+" 시청(치지직)";
     TREND.groups[name]={
       products:[g.title], productsGoogle:[g.title],
       months:dates, naver:[norm], google:[norm],
@@ -1784,6 +1784,26 @@ const TREND_STOCK={
       reviewNote:`구독 ${subs>=1e8?(subs/1e8).toFixed(1)+"억":subs>=1e4?(subs/1e4).toFixed(0)+"만":subs}명`
     };
     (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
+  });
+})();
+/* 트위치(글로벌) 게임 시청자도 트렌드 비교 탭에 편입 — 치지직(국내)과 나란히. 며칠 쌓여야 뜬다. */
+(function injectTwitchTrends(){
+  if(typeof TWITCH==="undefined"||!TWITCH.games) return;
+  TWITCH.games.forEach(g=>{
+    const raw=(g.hist||[]).map(h=>h.v); const vals=raw.filter(x=>x!=null);
+    if(vals.length<2) return;
+    const peak=Math.max(...vals)||1;
+    const norm=raw.map(v=>v==null?0:Math.round(v/peak*100));
+    const dates=(g.hist||[]).map(h=>{const p=(h.d||"").slice(5).split("-");
+      return p.length===2?`${+p[0]}/${+p[1]}`:h.d;});
+    const name=g.title+" 시청(트위치)";
+    TREND.groups[name]={
+      products:[g.title], productsGoogle:[g.title],
+      months:dates, naver:[norm], google:[norm],
+      only:"naver", freq:"date", peak:peak,
+      unit:"명(트위치 시청자)", srcName:"트위치 · 글로벌 스트리밍"
+    };
+    (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
