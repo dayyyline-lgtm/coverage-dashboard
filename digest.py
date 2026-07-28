@@ -509,6 +509,10 @@ def _read1(rows):
     s = _clean(r["s"])
     if len(s) < 2:
         return None
+    # 일별 계열은 초기 급등(신제품 출시 등)이 기간 % 를 비정상적으로 부풀린다
+    # (쿨로아600 이 '30일간 +1767%' 로 찍혔다) — 최근 15일로 좁혀 해석한다.
+    if r.get("freq") == "date" and len(s) > 15:
+        s = s[-15:]
     u = FREQ_UNIT.get(r.get("freq"), "주")
     lab = "" if len(rows) == 1 else f"{row['label']} "
     first, last, hi, lo = s[0], s[-1], max(s), min(s)

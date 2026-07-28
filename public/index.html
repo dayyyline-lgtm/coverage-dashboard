@@ -1295,6 +1295,22 @@ const MY_EST = {
     : r.myOpGap>5 ? '<span class="tag-beat">당사 상회</span>'
     : r.myOpGap<-5? '<span class="tag-miss">당사 하회</span>'
     : '<span class="tag-inline">In-line</span>';
+  // 발표완료 판정(영업익 서프라이즈 ±5%) — 실제 대비 컨센 부합 여부
+  const verdictDone=r=> r.surpOp==null? '<span class="tag-inline">판정 보류</span>'
+    : r.surpOp>5 ? '<span class="tag-beat">어닝 서프라이즈</span>'
+    : r.surpOp<-5? '<span class="tag-miss">어닝 쇼크</span>'
+    : '<span class="tag-inline">부합</span>';
+  // 간단 코멘트 — 규칙 기반(무API). 영업익 서프라이즈를 축으로, 매출 방향·당사 승자를 덧붙인다.
+  const earnComment=r=>{
+    const so=r.surpOp, sr=r.surpRev;
+    const head = so==null ? (sr==null?"컨센 없어 판정 보류":`매출 컨센 ${sign(sr,0)}%`)
+      : so>5 ? `영업익 컨센 ${sign(so,0)}% 상회`
+      : so<-5? `영업익 컨센 ${sign(so,0)}% 하회`
+      : "영업익 컨센 부합";
+    const sub = (so!=null && sr!=null && Math.abs(sr)>=5) ? ` · 매출 ${sign(sr,0)}%` : "";
+    const win = r.win==="당사" ? " · 당사추정이 더 근접" : (r.win==="컨센"? " · 컨센이 더 근접":"");
+    return `<span class="th-sub">${head}${sub}${win}</span>`;
+  };
 
   /* ---- 발표완료 ----
      기준은 '발표 전 컨센 스냅샷(LIVE.consSnap)이 있고 그 분기가 실적으로 확정된 것'.
@@ -1355,14 +1371,16 @@ const MY_EST = {
     myErrOp:{key:"myErrOp",label:"내 오차",render:r=>absCell(r.myErrOp)},
     win:{key:"win",label:"승자",render:r=>r.win==null?"—"
       :r.win==="당사"?'<span class="tag-beat">당사 ✓</span>':'<span class="tag-inline">컨센</span>'},
+    verdictDone:{key:"surpOp",label:"판정",render:verdictDone},
+    cmt:{key:"dqRaw",label:"코멘트",l:true,render:earnComment},
   };
   const COLS={
     upcoming: hasMyEst
       ? [C.nm,C.earn,C.q,C.myRev,C.qRev,C.myRevGap,C.myOp,C.qOp,C.myOpGap,C.verdict]
       : [C.nm,C.earn,C.q,C.qRev,C.qOp],                       // 당사 없이: 발표일 + 컨센 기대치
     done: hasMyEst
-      ? [C.nm,C.dq,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.myOpD,C.myErrOp,C.win]
-      : [C.nm,C.dq,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp],  // 실제 vs 컨센만
+      ? [C.nm,C.dq,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.verdictDone,C.myOpD,C.myErrOp,C.win,C.cmt]
+      : [C.nm,C.dq,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.verdictDone,C.cmt],  // 실제 vs 컨센 + 판정·코멘트
   };
 
   const note=document.getElementById("prevNote");
@@ -1861,44 +1879,49 @@ const TREND_STOCK={
     (TREND_STOCK[s]=TREND_STOCK[s]||[]).push("방한 외래관광객");
   });
 })();
-/* 써클차트 앨범 판매량 — 엔터 종목의 실물 수요/매출 신호. 회사 합계(월·주) + 아티스트별(월).
-   앨범은 발매기간에 몰려 팔려 0↔스파이크가 자연스럽다 → 절대수 peak 정규화가 형태를 잘 보여준다.
-   (100 = 그 계열 최대치, 각주에 실제 장수·최다 앨범.) */
+/* 써클차트 앨범 판매량 — 엔터 종목의 실물 수요/매출 신호. 회사 합계(월·주).
+   회사 판매량 = 소속 아티스트 판매량의 합이므로 '아티스트별 색상 누적 막대'로 그린다
+   (stack:true). 막대 높이=회사 총 판매량, 색 구간=아티스트. 추적 외 소속은 '기타'로 묶는다. */
 (function injectCircleTrends(){
   if(typeof CIRCLE==="undefined"||!CIRCLE) return;
   const jang=n=>n>=1e8?(n/1e8).toFixed(2)+"억장":n>=1e4?Math.round(n/1e4).toLocaleString()+"만장":(n||0).toLocaleString()+"장";
   const aStock=CIRCLE.artistStock||{};
-  const add=(name,stock,product,periods,series,freq,note)=>{
-    const peak=Math.max(...series,1);
-    TREND.groups[name]={
-      products:[product], productsGoogle:[product],
-      months:periods, naver:[series.map(v=>Math.round(v/peak*100))],
-      google:[series.map(v=>Math.round(v/peak*100))],
-      only:"naver", freq:freq, peak:peak, unit:"장",
-      srcName:`써클차트 앨범판매(${freq==="week"?"주간":"월간"})`, reviewNote:note
-    };
-    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
-  };
+  const GREY=(getComputedStyle(document.documentElement).getPropertyValue('--muted')||"#8a8a99").trim();
   ["month","week"].forEach(term=>{
     const b=CIRCLE[term]; if(!b||!(b.periods||[]).length) return;
-    const fr=term==="week"?"week":"month", tag=term==="week"?"주":"월";
-    // 회사 합계(월·주 둘 다)
-    Object.entries(b.byStock||{}).forEach(([stock,series])=>{
-      if(!series.some(v=>v)) return;
-      const last=series[series.length-1];
+    const fr=term==="week"?"week":"month", tag=term==="week"?"주":"월", N=b.periods.length;
+    Object.entries(b.byStock||{}).forEach(([stock,total])=>{
+      if(!total.some(v=>v)) return;
+      // 소속 추적 아티스트(판매 있는 것) — 최신값 큰 순으로(막대 아래→위)
+      const arts=Object.entries(b.byArtist||{})
+        .filter(([lab,ser])=>aStock[lab]===stock && ser.some(v=>v))
+        .sort((x,y)=>(y[1][N-1]||0)-(x[1][N-1]||0));
+      const products=[], series=[], colors=[];
+      arts.forEach(([lab,ser],i)=>{ products.push(lab); series.push(ser); colors.push(TREND.colors[i%TREND.colors.length]); });
+      // 기타(추적 외 소속) = 회사총합 − 추적합. 막대 맨 위 회색 구간.
+      const etc=b.periods.map((_,i)=>Math.max(0, total[i]-arts.reduce((s,[,ser])=>s+(ser[i]||0),0)));
+      if(etc.some(v=>v>0)){ products.push("기타"); series.push(etc); colors.push(GREY||"#8a8a99"); }
       const mine=(b.top||[]).filter(t=>t.stock===stock).sort((a,c)=>c.cnt-a.cnt)[0];
-      const note=`최근 ${jang(last)}`+(mine?` · 최다 ${mine.artist.replace(/\s*\(.*\)/,"")} ${jang(mine.cnt)}`:"");
-      add(`${stock} 앨범판매(${tag}·써클)`, stock, stock, b.periods, series, fr, note);
-    });
-    // 아티스트별 — 월간만(클러터 방지, 판매 있는 아티스트만)
-    if(term==="month") Object.entries(b.byArtist||{}).forEach(([lab,series])=>{
-      const stock=aStock[lab];
-      if(!stock||!series.some(v=>v)) return;
-      add(`${lab} 앨범판매(써클)`, stock, lab, b.periods, series, "month", `최근 ${jang(series[series.length-1])}`);
+      const name=`${stock} 앨범판매(${tag}·써클)`;
+      TREND.groups[name]={
+        products, productsGoogle:products, months:b.periods,
+        naver:series, google:series, only:"naver", freq:fr,
+        stack:true, colors, fmt:jang, unit:"장",
+        srcName:`써클차트 앨범판매(${term==="week"?"주간":"월간"})`,
+        reviewNote:`최근 ${jang(total[N-1])}`+(mine?` · 최다 ${mine.artist.replace(/\s*\(.*\)/,"")} ${jang(mine.cnt)}`:"")
+      };
+      (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
     });
   });
 })();
-const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
+/* 데이터 있는 주제만. 게임사는 동접·리뷰(실측 플레이)가 검색보다 중요하므로 앞으로 당긴다.
+   앨범판매(써클)는 엔터 실물수요라 검색보다 앞. 나머지는 삽입 순서를 유지(안정 정렬). */
+const topicsOf=n=>{
+  const list=(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);
+  const pri=g=> g.includes("동접")?0 : (g.includes("리뷰")||g.includes("시청"))?1
+             : g.includes("앨범판매")?2 : 3;
+  return list.map((g,i)=>[g,i]).sort((a,b)=>pri(a[0])-pri(b[0])||a[1]-b[1]).map(x=>x[0]);
+};
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
 /* 처음엔 아무 종목도 고르지 않은 상태 — 눌러야 그래프가 나온다 */
@@ -1934,6 +1957,11 @@ function drawTrend(){
      정보다(메디큐브가 달바의 10배라는 사실). 그건 겹친 채로 둔다. */
   if(G.multi){
     drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut);
+    fillTrendLegendTable(G, PRODUCTS, series, M, U);
+    return;
+  }
+  if(G.stack){                          // 앨범판매 등 절대수 누적 막대(색=계열)
+    drawTrendStack(box, G, PRODUCTS, series, M, gc, mut);
     fillTrendLegendTable(G, PRODUCTS, series, M, U);
     return;
   }
@@ -1986,7 +2014,37 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
   }).join("")+`</div>`;
 }
 
+/* 절대수 누적 막대 — 기간별로 계열(아티스트)을 쌓아 회사 총량을 만든다.
+   y축은 0–100 이 아니라 실제 수치(장). 색=계열, 막대 위에 합계. */
+function drawTrendStack(box, G, PRODUCTS, series, M, gc, mut){
+  const W=box.clientWidth||1000, H=360, pad={l:70,r:74,t:20,b:36};
+  const N=M.length, COL=G.colors||TREND.colors, fmt=G.fmt||(v=>v);
+  const totals=M.map((_,i)=>series.reduce((s,ser)=>s+(ser[i]||0),0));
+  const ymax=Math.max(...totals,1)*1.10, plotW=W-pad.l-pad.r;
+  const bw=Math.max(6,Math.min(48, plotW/Math.max(1,N)*0.62));
+  const cx=i=>pad.l+(i+0.5)/N*plotW;
+  const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
+  const sN=v=>v>=1e8?(v/1e8).toFixed(1)+"억":v>=1e4?Math.round(v/1e4).toLocaleString()+"만":String(Math.round(v));
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let g=0;g<=4;g++){const v=ymax*g/4, y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${sN(v)}</text>`;}
+  const step=Math.max(1,Math.ceil(N/12));
+  M.forEach((m,i)=>{ if(i%step===0||i===N-1) s+=`<text x="${cx(i).toFixed(1)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`; });
+  M.forEach((m,i)=>{
+    let acc=0;
+    PRODUCTS.forEach((p,pi)=>{
+      const v=(series[pi]||[])[i]||0; if(v<=0) return;
+      const y0=sy(acc), y1=sy(acc+v); acc+=v;
+      s+=`<rect x="${(cx(i)-bw/2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,y0-y1).toFixed(1)}" fill="${COL[pi%COL.length]}"><title>${p} ${m}: ${fmt(v)}</title></rect>`;
+    });
+    if(totals[i]>0) s+=`<text x="${cx(i).toFixed(1)}" y="${(sy(totals[i])-4).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${mut}">${sN(totals[i])}</text>`;
+  });
+  s+="</svg>"; box.innerHTML=s;
+}
+
 function fillTrendLegendTable(G, PRODUCTS, series, M, U){
+  const COL=G.colors||TREND.colors, F=G.fmt||(x=>x);   // 스택은 자체 색/장수 포맷을 쓴다
   document.getElementById("trendLegend").innerHTML=
     PRODUCTS.map((p,i)=>{
       const ser=series[i], base=ser[ser.length-2];
@@ -1994,9 +2052,13 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       // 계열마다 출처가 섞인 그룹에서만 출처를 붙인다(러시아=얀덱스 같은 경우)
       const mixed=G.srcOf && new Set(G.srcOf).size>1;
       const tag=mixed?` <small class="th-sub">${G.srcOf[i]}</small>`:"";
-      return `<div class="li"><span class="dot" style="background:${TREND.colors[i]}"></span>${p}${tag}
-        <small>최근 ${ser[ser.length-1]} · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}</small></div>`;
+      return `<div class="li"><span class="dot" style="background:${COL[i]}"></span>${p}${tag}
+        <small>최근 ${F(ser[ser.length-1])} · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}</small></div>`;
     }).join("")+(function(){
+      if(G.stack){
+        const rv=G.reviewNote?` · ${G.reviewNote}`:"";
+        return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 총 판매량) · 단위 ${G.unit||"장"}${rv}</small></div>`;
+      }
       if(G.multi){
         // 계열마다 출처가 다를 수 있다(러시아는 얀덱스). 있는 그대로 적는다.
         const s=[...new Set(G.srcOf||["구글"])].join("·");
@@ -2021,14 +2083,14 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`;
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
-    {key:"cur",label:"최근값",render:r=>r.cur},
-    {key:"m3",label:lBack,render:r=>r.m3==null?"—":r.m3},
+    {key:"cur",label:"최근값",render:r=>F(r.cur)},
+    {key:"m3",label:lBack,render:r=>r.m3==null?"—":F(r.m3)},
     {key:"mom",label:uMom,render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom)}%</span>`},
     {key:"q",label:lChg,render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
   ], PRODUCTS.map((p,i)=>{
     const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];
     const bk=ser.length>back?ser[ser.length-1-back]:null;
-    return {p,color:TREND.colors[i],cur,m3:bk,mom:prev>0?(cur/prev-1)*100:null,q:(bk>0)?(cur/bk-1)*100:null};
+    return {p,color:COL[i],cur,m3:bk,mom:prev>0?(cur/prev-1)*100:null,q:(bk>0)?(cur/bk-1)*100:null};
   }), {key:"cur",dir:-1});
 }
 /* ==== 해외 쇼핑몰 수요 (SHOP) ====
