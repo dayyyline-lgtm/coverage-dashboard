@@ -87,6 +87,46 @@ def _latest_release(aid, tok):
     return its[0].get("name", "")[:30], its[0].get("release_date", "")
 
 
+def _kworb_listeners():
+    """kworb.net Spotify '월간 청취자' 랭킹 → {aid: (listeners, dailyDelta)}.
+       행의 링크 href 에 Spotify 아티스트ID 가 그대로 들어 있어(artist/<aid>_songs.html)
+       이름이 아니라 ID 로 매칭한다 — 'Seventeen' 동명 밴드 같은 오매칭을 피한다.
+       실패하면 빈 dict(아래서 Spotify 메타로 폴백)."""
+    try:
+        req = urllib.request.Request("https://kworb.net/spotify/listeners.html",
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        page = urllib.request.urlopen(req, timeout=25).read().decode("utf-8", "replace")
+    except Exception as e:
+        print(f"  [kworb] 목록 실패: {str(e)[:80]}"); return {}
+    out = {}
+    for m in re.finditer(
+            r'artist/(\w+)_songs\.html">[^<]*</a></div></td>'
+            r'<td>([\d,]+)</td><td>(-?[\d,]+)</td>', page):
+        out[m.group(1)] = (int(m.group(2).replace(",", "")),
+                           int(m.group(3).replace(",", "")))
+    return out
+
+
+def _spotify_meta_ml(aid):
+    """kworb 미수록 아티스트 폴백 — Spotify 아티스트 페이지 메타설명의 월간청취자.
+       'Artist · 4.8M monthly listeners.' → 4800000. ID 로 직접 접근하니 오매칭 없음.
+       축약 표기라 정밀도는 kworb 보다 낮다(선의 미세 변화가 덜 잡힘). 실패 None."""
+    try:
+        req = urllib.request.Request(f"https://open.spotify.com/artist/{aid}",
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        page = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "replace")
+    except Exception:
+        return None
+    m = re.search(r'([\d.,]+)\s*([KMB]?)\s*monthly listeners', page)
+    if not m:
+        return None
+    try:
+        num = float(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
+    return int(num * {"K": 1e3, "M": 1e6, "B": 1e9}.get(m.group(2), 1))
+
+
 def _const(html, name):
     m = re.search(r"const %s\s*=\s*(\{.*?\});" % re.escape(name), html, re.S)
     return json.loads(m.group(1)) if m else None
@@ -115,6 +155,9 @@ def main():
     except Exception as e:
         print(f"[spotify] 토큰 실패: {str(e)[:100]}"); return
 
+    kworb = _kworb_listeners()          # 월간 청취자(공식 API엔 없음) — aid 로 매칭
+    yday = (datetime.datetime.now(KST).date() - datetime.timedelta(days=1)).isoformat()
+
     arts = []
     for stock, label, query, pin_aid in ARTISTS:
         old = prev.get((stock, label), {})
@@ -128,15 +171,32 @@ def main():
                 fol, pop = _artist(aid, tok)
                 ttn, tpop = _top_track(aid, tok)          # 대표곡(현재 최고인기 트랙)
                 rname, rdate = _latest_release(aid, tok)  # 최근 발매작(컴백 감지)
-                pt = {"d": today, "fol": fol, "pop": pop, "tpop": tpop}
-                if hist and hist[-1].get("d") == today:
-                    hist[-1] = pt
+                # 월간 청취자 — kworb(정확) 우선, 미수록이면 Spotify 메타(축약).
+                ml, delta = None, None
+                if aid in kworb:
+                    ml, delta = kworb[aid]
                 else:
-                    hist.append(pt)
+                    ml = _spotify_meta_ml(aid)
+                pt = {"d": today, "fol": fol, "pop": pop, "tpop": tpop}
+                if ml is not None:
+                    pt["ml"] = ml
+                by_d = {x["d"]: x for x in hist if x.get("d")}
+                # 첫 수집이면 '어제' 한 점을 kworb 일간증감으로 복원한다(실측치라 지어내는 게 아니다).
+                # 이러면 월간청취자 선이 이틀을 기다리지 않고 오늘 바로 그려진다.
+                if (ml is not None and delta is not None
+                        and not any(x.get("ml") is not None for x in hist)
+                        and yday not in by_d):
+                    by_d[yday] = {"d": yday, "ml": ml - delta}
+                cur = by_d.get(today, {"d": today})
+                cur.update(pt)                       # 같은 날 재실행이면 값만 갱신
+                by_d[today] = cur
+                hist = [by_d[d] for d in sorted(by_d)]
                 art["hist"] = hist[-DAYS:]
                 art["topTrack"] = ttn
                 art["release"] = {"name": rname, "date": rdate}
-                print(f"  {label}: 팔로워 {fol:,} · 인기도 {pop} · 대표곡 '{ttn}'({tpop}) · 최근작 {rname}({rdate})")
+                ml_txt = f"{ml:,}" if ml is not None else "—"
+                print(f"  {label}: 팔로워 {fol:,} · 인기도 {pop} · 월간청취자 {ml_txt}"
+                      f" · 대표곡 '{ttn}'({tpop})")
             else:
                 print(f"  [{label}] 아티스트 못 찾음(query={query})")
         except Exception as e:

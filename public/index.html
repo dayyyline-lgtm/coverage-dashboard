@@ -1852,23 +1852,47 @@ const TREND_STOCK={
    정규화 없이 그대로 쓴다(차트 y축과 일치). 팔로워는 각주. 며칠 쌓이면 추이선 표시. */
 (function injectSpotifyTrends(){
   if(typeof SPOTIFY==="undefined"||!SPOTIFY.artists) return;
+  const dlab=x=>{const p=(x.d||"").slice(5).split("-");
+    return p.length===2?`${+p[0]}/${+p[1]}`:x.d;};
+  const folTxt=f=>`팔로워 ${f>=1e6?(f/1e6).toFixed(1)+"M":f>=1e3?(f/1e3).toFixed(0)+"K":f}`;
+  const manTxt=n=>n>=1e8?(n/1e8).toFixed(2)+"억명":n>=1e4?Math.round(n/1e4).toLocaleString()+"만명":n.toLocaleString()+"명";
   SPOTIFY.artists.forEach(a=>{
-    const h=(a.hist||[]).filter(x=>x&&x.pop!=null);
-    if(h.length<2) return;
-    const dates=h.map(x=>{const p=(x.d||"").slice(5).split("-");
-      return p.length===2?`${+p[0]}/${+p[1]}`:x.d;});
-    const pop=h.map(x=>x.pop), fol=h[h.length-1].fol||0;
     const rel=a.release&&a.release.name?` · 최근작 ${a.release.name}(${a.release.date})`:"";
     const tt=a.topTrack?` · 대표곡 ${a.topTrack}`:"";
-    const name=a.label+" 인기도(Spotify)";
-    TREND.groups[name]={
-      products:[a.label], productsGoogle:[a.label],
-      months:dates, naver:[pop], google:[pop],
-      only:"naver", freq:"date",
-      srcName:"Spotify 인기도(0~100, 최근 스트리밍)",
-      reviewNote:`팔로워 ${fol>=1e6?(fol/1e6).toFixed(1)+"M":fol>=1e3?(fol/1e3).toFixed(0)+"K":fol}`+rel+tt
-    };
-    (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
+    const last=(a.hist||[])[a.hist.length-1]||{};
+    // 인기도(0~100) — 이미 0~100 이라 정규화 없이 그대로. 팔로워는 각주.
+    const hp=(a.hist||[]).filter(x=>x&&x.pop!=null);
+    if(hp.length>=2){
+      const name=a.label+" 인기도(Spotify)";
+      TREND.groups[name]={
+        products:[a.label], productsGoogle:[a.label],
+        months:hp.map(dlab), naver:[hp.map(x=>x.pop)], google:[hp.map(x=>x.pop)],
+        only:"naver", freq:"date",
+        srcName:"Spotify 인기도(0~100, 최근 스트리밍)",
+        reviewNote:folTxt(last.fol||0)+rel+tt
+      };
+      (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
+    }
+    // 월간 청취자 — 공식 API엔 없어 kworb/Spotify 메타로 수집(절대수).
+    // 차트 y축이 0~100 고정이라 절대수를 그대로 못 그린다. '첫 점=50' 으로 두고 선형
+    // 스케일(v/ref*50)만 한다 — 비율이 보존돼 범례의 '전일비/기간' 자동계산이 실제 %와
+    // 일치한다(증폭하면 선은 커 보여도 표시 %가 거짓이 된다). 일 변동은 1% 미만이라
+    // 초반엔 잔잔하고, 주 단위로 실제 증감이 쌓이며 형태가 드러난다. 절대수는 각주에.
+    const hm=(a.hist||[]).filter(x=>x&&x.ml!=null);
+    if(hm.length>=2){
+      const mv=hm.map(x=>x.ml), ref=mv[0]||1, cur=mv[mv.length-1];
+      const norm=mv.map(v=>Math.round(v/ref*500)/10);   // 첫점=50, 비율 보존(소수1자리)
+      const chg=(cur/ref-1)*100;
+      const name=a.label+" 월간청취자(Spotify)";
+      TREND.groups[name]={
+        products:[a.label], productsGoogle:[a.label],
+        months:hm.map(dlab), naver:[norm], google:[norm],
+        only:"naver", freq:"date",
+        srcName:"Spotify 월간 청취자(kworb·Spotify 메타 · 지수 첫날=50)",
+        reviewNote:`현재 ${manTxt(cur)} · 기간 ${chg>=0?"+":""}${chg.toFixed(1)}%`+rel
+      };
+      (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
+    }
   });
 })();
 /* 방한 외래관광객(월별)을 호텔/면세/카지노 종목의 트렌드로 편입 — 인바운드 관광 = 수요 매크로. */
