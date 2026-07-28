@@ -492,6 +492,26 @@ def _steam_signal(players):
     return None
 
 
+def _read1(rows):
+    """트렌드 블록에 비교·연속추세가 없을 때 붙일 기본 ↳ 해석 — 가장 크게 움직인 계열의 방향."""
+    cand = [x for x in rows if x["raw"].get("w") is not None]
+    if not cand:
+        return None
+    r = max(cand, key=lambda x: abs(x["raw"]["w"]))
+    w = r["raw"]["w"]
+    u = FREQ_UNIT.get(r["raw"]["freq"], "주")
+    lab = "" if len(rows) == 1 else f"{r['label']} "
+    if w >= 15:
+        return f"{lab}전{u}비 {w:+.0f}% 뚜렷한 상승"
+    if w >= 5:
+        return f"{lab}전{u}비 {w:+.0f}% 상승"
+    if w <= -15:
+        return f"{lab}전{u}비 {w:.0f}% 뚜렷한 둔화"
+    if w <= -5:
+        return f"{lab}전{u}비 {w:.0f}% 하락"
+    return f"{lab}전{u}비 {w:+.0f}% 횡보"
+
+
 def _upside(live, rec, nm):
     """당사 견적시총 대비 현재 시총 상승여력(%). 라이브 시총 없으면 None.
        단위 주의: fairMktcap 은 십억, LIVE.mktcapEok 은 억 → 억/10 = 십억으로 맞춘다."""
@@ -722,6 +742,10 @@ def build(html, alerts_only=False):
             note = [c for c in [_compare(b["rows"])] if c]
             note += [(x["streak"] if solo else f"{x['label']} {x['streak']}")
                      for x in b["rows"] if x["streak"]]
+            if not note:                             # 비교·연속추세가 없어도 늘 ↳ 한 줄은 붙인다
+                r1 = _read1(b["rows"])
+                if r1:
+                    note = [r1]
             if note:
                 lines.append(_sub(" · ".join(note)))
         # 계열마다 주기가 달라(주별·일별) 제목에 '주' 를 못 박으면 거짓말이 된다.
@@ -771,7 +795,9 @@ def build(html, alerts_only=False):
                 lab += f" {e['time']}" if e.get("time") else ""
                 u = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={e['rcp']}" if e.get("rcp") else None
                 return f'<a href="{u}">{lab}</a>' if u else lab
-            body = " · ".join(_ev(e) for e in byday[d])
+            # 같은 날은 개최시각 순으로 — IR/컨콜이 몇 시인지가 순서를 정한다.
+            # 시각 없는 건(실적 잠정공시 등)은 뒤로 보낸다.
+            body = " · ".join(_ev(e) for e in sorted(byday[d], key=lambda x: x.get("time") or "99:99"))
             # 'D-0 오늘' 은 같은 말을 두 번 하는 것이라 날짜(요일)를 대신 붙인다.
             lines.append(f"<code>{_pad(f'D-{dd}', 3)} {d[5:7]}/{d[8:10]}({WD[dt.weekday()]})"
                          f"</code>  {body}")
