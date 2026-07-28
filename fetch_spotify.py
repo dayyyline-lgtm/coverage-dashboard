@@ -22,11 +22,12 @@ DAYS = 180
 CID = os.environ.get("SPOTIFY_CLIENT_ID", "")
 CSEC = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
 
-# (종목, 라벨, 검색어, 고정aid) — 하이브 주요 아티스트.
+# (종목, 라벨, 검색어, 고정aid) — 엔터 커버 종목의 주요 아티스트.
 # 고정aid 를 주면 검색을 건너뛴다. 신인·동명이인은 search 가 엉뚱한 아티스트를 잡을 수
-# 있어(예: 'CORTIS' 로 다른 밴드가 걸림) 검증한 ID 를 박아 둔다. None 이면 검색으로 찾는다.
-# 찾은 aid 는 데이터에 캐시되어 다음 실행부터 재사용된다.
+# 있어(예: 'CORTIS' 로 다른 밴드, 'EXO' 로 다른 그룹) 검증한 ID 를 박아 둔다.
+# None 이면 검색으로 찾고, 찾은 aid 는 데이터에 캐시되어 다음 실행부터 재사용된다.
 ARTISTS = [
+    # 하이브
     ("하이브", "BTS",     "BTS",                 None),
     ("하이브", "세븐틴",   "SEVENTEEN",           None),
     ("하이브", "르세라핌", "LE SSERAFIM",         None),
@@ -34,6 +35,12 @@ ARTISTS = [
     ("하이브", "투바투",   "TOMORROW X TOGETHER", None),
     ("하이브", "캣츠아이", "KATSEYE",             "3c0gDdb9lhnHGFtP4prQpn"),
     ("하이브", "코르티스", "CORTIS",              "1ebt9HnXdyYA6KgLXr1n4P"),
+    # 에스엠 (SM)
+    ("에스엠", "에스파",     "aespa",       "6YVMFz59CuY7ngCxTxjpxE"),
+    ("에스엠", "라이즈",     "RIIZE",       "2jOm3cYujQx6o1dxuiuqaX"),
+    ("에스엠", "엔시티드림", "NCT DREAM",   "1gBUSTR3TyDdTVFIaQnc02"),
+    ("에스엠", "레드벨벳",   "Red Velvet",  "1z4g3DjTBBZKhvAroFlhOM"),
+    ("에스엠", "엑소",       "EXO",         "3cjEqqelV9zb4BYE3qDQ4O"),
 ]
 
 

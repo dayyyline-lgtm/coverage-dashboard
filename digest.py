@@ -498,23 +498,43 @@ def _steam_signal(players):
 
 
 def _read1(rows):
-    """트렌드 블록에 비교·연속추세가 없을 때 붙일 기본 ↳ 해석 — 가장 크게 움직인 계열의 방향."""
+    """블록에 비교(_compare)·연속추세가 없을 때 붙는 기본 해석.
+       마지막 등락(전주비)만 말하지 않고 '기간 전체 궤적'을 준다 —
+       기간 증감 + 고점/저점 대비 현위치. (단일 계열도 파마리서치처럼 추세를 읽게.)"""
     cand = [x for x in rows if x["raw"].get("w") is not None]
     if not cand:
         return None
-    r = max(cand, key=lambda x: abs(x["raw"]["w"]))
-    w = r["raw"]["w"]
-    u = FREQ_UNIT.get(r["raw"]["freq"], "주")
-    lab = "" if len(rows) == 1 else f"{r['label']} "
-    if w >= 15:
-        return f"{lab}전{u}비 {w:+.0f}% 뚜렷한 상승"
-    if w >= 5:
-        return f"{lab}전{u}비 {w:+.0f}% 상승"
-    if w <= -15:
-        return f"{lab}전{u}비 {w:.0f}% 뚜렷한 둔화"
-    if w <= -5:
-        return f"{lab}전{u}비 {w:.0f}% 하락"
-    return f"{lab}전{u}비 {w:+.0f}% 횡보"
+    row = max(cand, key=lambda x: abs(x["raw"]["w"]))
+    r = row["raw"]
+    s = _clean(r["s"])
+    if len(s) < 2:
+        return None
+    u = FREQ_UNIT.get(r.get("freq"), "주")
+    lab = "" if len(rows) == 1 else f"{row['label']} "
+    first, last, hi, lo = s[0], s[-1], max(s), min(s)
+    span = (last / first - 1) * 100 if first else 0.0
+    n = len(s)
+    if span >= 15:
+        traj = f"{n}{u}간 +{span:.0f}% 우상향"
+    elif span >= 5:
+        traj = f"{n}{u}간 +{span:.0f}% 완만한 상승"
+    elif span <= -15:
+        traj = f"{n}{u}간 {span:.0f}% 우하향"
+    elif span <= -5:
+        traj = f"{n}{u}간 {span:.0f}% 완만한 하락"
+    else:
+        traj = f"{n}{u}간 {span:+.0f}% 횡보"
+    bits = [lab + traj]
+    if hi > lo * 1.05:                       # 변동폭이 유의미할 때만 현위치를 덧붙인다
+        if last >= hi:
+            bits.append("기간 신고점")
+        elif last <= lo:
+            bits.append("기간 신저점")
+        else:
+            dh = (last / hi - 1) * 100
+            if dh <= -12:
+                bits.append(f"고점 대비 {dh:.0f}%")
+    return " · ".join(bits)
 
 
 def _upside(live, rec, nm):
