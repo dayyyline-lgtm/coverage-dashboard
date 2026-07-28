@@ -550,6 +550,16 @@
     <div class="tbl-wrap"><table id="movieTable"></table></div>
   </section>
 
+  <!-- 게임 Steam -->
+  <section class="view" data-view="steam">
+    <h2 class="sec">게임 Steam</h2>
+    <p class="sec-desc">커버 게임사 대표 타이틀의 <b>Steam 동시접속·리뷰</b>(공식 무료 API, 실측).
+      단일플레이 신작(붉은사막·스텔라블레이드)은 <b>동접 감소 곡선+리뷰</b>가 리텐션을,
+      라이브서비스(검은사막·배그)는 <b>동접 절대수준</b>이 매출 베이스를 말합니다.
+      매일 1점씩 쌓아 추이를 만듭니다. <span class="seed" id="steamAsOf"></span></p>
+    <div id="steamCards" class="ov-grid"></div>
+  </section>
+
   <!-- 대체데이터 -->
   <section class="view" data-view="altdata">
     <h2 class="sec">수출 데이터</h2>
@@ -808,7 +818,7 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 const TABS = [
   ["overview","개요"],["coverage","커버리지 요약"],["valuation","밸류에이션"],
   ["preview","실적 프리뷰"],["calendar","이벤트 캘린더"],["news","뉴스"],["reports","리서치 리포트"],
-  ["trends","트렌드 비교"],["boxoffice","극장 흥행"],["altdata","수출 데이터"]
+  ["trends","트렌드 비교"],["boxoffice","극장 흥행"],["steam","게임 Steam"],["altdata","수출 데이터"]
 ];
 const tabsEl = document.getElementById("tabs");
 tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
@@ -820,6 +830,7 @@ tabsEl.addEventListener("click",e=>{
   if(k==="valuation") drawScatter();
   if(k==="trends"){ drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
+  if(k==="steam") renderSteam();
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
@@ -2072,6 +2083,49 @@ function renderMovie(){
   if(tt) tt.textContent=`일별 상세 — ${series.map(s=>s.nm+(s.live?"":" (개봉 예정)")).join(" vs ")}`;
 }
 
+/* ==== 게임 Steam (동접·리뷰) ==== */
+function renderSteam(){
+  if(typeof STEAM==="undefined"||!STEAM.games) return;
+  const box=document.getElementById("steamCards"); if(!box) return;
+  const asOf=document.getElementById("steamAsOf");
+  if(asOf&&STEAM.asOf) asOf.textContent="수집 "+STEAM.asOf;
+  // 동접 시계열 스파크라인(점 2개 이상일 때). 색은 테마 변수(--accent).
+  const spark=v=>{
+    if(v.length<2) return `<div style="height:40px;display:flex;align-items:center;color:var(--muted2);font-size:11.5px">추이는 며칠 쌓이면 표시됩니다</div>`;
+    const W=240,H=40,lo=Math.min(...v),hi=Math.max(...v),rng=(hi-lo)||1;
+    const pts=v.map((x,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-3-(x-lo)/rng*(H-6)).toFixed(1)}`).join(" ");
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:40px;display:block">
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.8"
+        stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+  };
+  box.innerHTML=(STEAM.games||[]).map(g=>{
+    const h=(g.hist||[]).filter(x=>x&&x.p!=null);
+    if(!h.length) return "";
+    const last=h[h.length-1], ps=h.map(x=>x.p);
+    let dod="";
+    if(h.length>=2&&h[h.length-2].p){
+      const pc=(last.p/h[h.length-2].p-1)*100;
+      dod=`<span class="${cls(pc)}" style="font-size:12.5px;font-weight:800;margin-left:7px">${sign(pc,0)}%</span>`;
+    }
+    const pos=last.pos, rv=last.rv||0;
+    const rvTxt=rv>=10000?(rv/1e4).toFixed(0)+"만":rv.toLocaleString();
+    const posRow=pos!=null
+      ? `<div style="font-size:13px;margin-bottom:9px">
+           <span style="color:var(--accent);font-weight:800">리뷰 긍정 ${pos.toFixed(0)}%</span>
+           <span style="color:var(--muted);font-size:12px"> · ${rvTxt}개</span></div>`
+      : `<div style="font-size:12px;margin-bottom:9px;color:var(--muted2)">리뷰 없음</div>`;
+    return `<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
+        <b style="font-size:15px">${g.title}</b>
+        <span style="color:var(--muted);font-size:12px">${g.stock}</span></div>
+      <div style="margin-bottom:6px">
+        <span style="font-size:23px;font-weight:800">${fmt0(last.p)}</span>
+        <span style="color:var(--muted);font-size:12px">명 동접</span>${dod}</div>
+      ${posRow}${spark(ps)}
+    </div>`;
+  }).join("");
+}
+
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
 function renderTrendSegs(){
   document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
@@ -2113,7 +2167,7 @@ document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   trendGroup=b.dataset.grp;
   renderTrendSegs(); drawTrend(); renderShop();
 });
-renderTrendSegs(); renderShop();
+renderTrendSegs(); renderShop(); renderSteam();
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
