@@ -871,7 +871,25 @@ def build(html, alerts_only=False):
             + "\n\n<i>coverage-dashboard.pages.dev</i>")
 
 
+SENT_PATH = "digest_sent.json"
+
+
+def _already_sent_today(today):
+    try:
+        return json.load(open(SENT_PATH, encoding="utf-8")).get("date") == today
+    except (OSError, json.JSONDecodeError):
+        return False
+
+
 def main():
+    # --once : 그날 이미 보냈으면 조용히 끝낸다.
+    #   정시 발송을 크론 하나에만 맡겼더니 그게 안 뜨는 날 레터가 통째로 없었다.
+    #   트리거를 둘(워커·깃허브 자체 cron)로 두되, 먼저 뜬 쪽만 보내게 하려면
+    #   '오늘 보냈는지'를 기억해야 한다. 수동 실행(--once 없음)은 언제나 보낸다.
+    today = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    if "--once" in sys.argv and _already_sent_today(today):
+        print(f"오늘({today}) 이미 발송함 - 건너뜀"); return
+
     html = open(HTML, encoding="utf-8").read()
     msg = build(html, alerts_only=("--alerts" in sys.argv))
     if not msg:
@@ -879,9 +897,12 @@ def main():
     if "--dry-run" in sys.argv:
         print("─" * 52); print(re.sub(r"<[^>]+>", "", msg)); print("─" * 52)
         print(f"(dry-run · {len(msg)}자)")
-    else:
-        if not telegram_send.send(msg):
-            sys.exit(1)
+        return
+    if not telegram_send.send(msg):
+        sys.exit(1)
+    if "--once" in sys.argv:
+        json.dump({"date": today}, open(SENT_PATH, "w", encoding="utf-8"))
+        print(f"발송 기록 저장 ({today})")
 
 
 if __name__ == "__main__":

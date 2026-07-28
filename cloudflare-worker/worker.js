@@ -43,9 +43,15 @@ export default {
     if (!token) { console.log("GH_TOKEN 시크릿이 없습니다"); return; }
 
     // 07:00 KST(=22:00 UTC) 전용 슬롯 → 아침 전체수집 + 데일리 레터(events.yml).
-    // 시세 슬롯("0 22,23 …")과 문자열이 다르므로 정확히 이 크론일 때만 events 로 보낸다.
-    // 그중 일요일 22:00 UTC = 한국시간 월요일 07:00 이므로 트렌드도 같이 돌린다.
-    const isEventSlot = event.cron === "0 22 * * 0-4";
+    //
+    // 전체 문자열을 비교하면 안 된다. Cloudflare 는 요일을 숫자("0-4")로 쓰면 거부해서
+    // 실제 저장값은 "0 22 * * SUN-THU" 인데, 코드가 "0 22 * * 0-4" 를 기다리고 있었다.
+    // 그래서 이 슬롯이 한 번도 참이 되지 않았고 매번 refresh.yml 만 돌아
+    // 데일리 레터가 통째로 발송되지 않았다.
+    // 요일 표기와 무관하게 '분 0 · 시 22' 만 본다. 시세 슬롯은 시가 "22,23" 이라 안 겹친다.
+    const [mi, hh] = String(event.cron || "").trim().split(/\s+/);
+    const isEventSlot = mi === "0" && hh === "22";
+    // 일요일 22:00 UTC = 한국시간 월요일 07:00 이므로 트렌드도 같이 돌린다.
     const jobs = isEventSlot ? ["events.yml"] : ["refresh.yml"];
     if (isEventSlot && new Date(event.scheduledTime).getUTCDay() === 0) {
       jobs.push("trends.yml");
