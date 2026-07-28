@@ -39,6 +39,13 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python fetch_youtube.py || echo "YouTube 수집 건너뜀"
 
+      # 영화 예매·박스오피스(KOBIS). movie.yml 은 워커가 안 불러서 여기 매일 붙인다.
+      # 개봉 전엔 예매(예매율·예매수)를 일별 누적, 개봉 후엔 일별 관객수까지 자동으로 쌓인다.
+      - name: 영화 예매·박스오피스 수집
+        env:
+          KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
+        run: python fetch_movie.py || echo "영화 수집 건너뜀"
+
       # 관세청 확정 품목별은 매월 15일경 전월 현행화 → 19~22일에 수집하면 새 월이 잡힌다.
       - name: 월간 수출 갱신 (19~22일)
         env:
