@@ -550,16 +550,6 @@
     <div class="tbl-wrap"><table id="movieTable"></table></div>
   </section>
 
-  <!-- 게임 Steam -->
-  <section class="view" data-view="steam">
-    <h2 class="sec">게임 Steam</h2>
-    <p class="sec-desc">커버 게임사 대표 타이틀의 <b>Steam 동시접속·리뷰</b>(공식 무료 API, 실측).
-      단일플레이 신작(붉은사막·스텔라블레이드)은 <b>동접 감소 곡선+리뷰</b>가 리텐션을,
-      라이브서비스(검은사막·배그)는 <b>동접 절대수준</b>이 매출 베이스를 말합니다.
-      매일 1점씩 쌓아 추이를 만듭니다. <span class="seed" id="steamAsOf"></span></p>
-    <div id="steamCards" class="ov-grid"></div>
-  </section>
-
   <!-- 대체데이터 -->
   <section class="view" data-view="altdata">
     <h2 class="sec">수출 데이터</h2>
@@ -818,7 +808,7 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 const TABS = [
   ["overview","개요"],["coverage","커버리지 요약"],["valuation","밸류에이션"],
   ["preview","실적 프리뷰"],["calendar","이벤트 캘린더"],["news","뉴스"],["reports","리서치 리포트"],
-  ["trends","트렌드 비교"],["boxoffice","극장 흥행"],["steam","게임 Steam"],["altdata","수출 데이터"]
+  ["trends","트렌드 비교"],["boxoffice","극장 흥행"],["altdata","수출 데이터"]
 ];
 const tabsEl = document.getElementById("tabs");
 tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
@@ -830,7 +820,6 @@ tabsEl.addEventListener("click",e=>{
   if(k==="valuation") drawScatter();
   if(k==="trends"){ drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
-  if(k==="steam") renderSteam();
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
@@ -1721,6 +1710,29 @@ const TREND_STOCK={
   "펄어비스":["펄어비스 IP"],
   "시프트업":["시프트업 IP"],
 };
+/* Steam 동접을 트렌드 비교 탭에 편입 — 게임사는 검색보다 동접·리뷰가 실측 신호라
+   같은 탭에서 검색트렌드와 나란히 고르게 한다. 별도 탭을 두면 헷갈리고 과하다.
+   차트가 0–100 상대값이라 동접(명)도 자기 최고=100 으로 정규화하고, peak 로 실제 명수를
+   밝힌다(얀덱스 절대검색수와 같은 방식). 리뷰 긍정%는 범례 각주로 붙인다. */
+(function injectSteamTrends(){
+  if(typeof STEAM==="undefined"||!STEAM.games) return;
+  STEAM.games.forEach(g=>{
+    const raw=g.players||[]; const vals=raw.filter(x=>x!=null);
+    if(vals.length<2) return;
+    const peak=Math.max(...vals)||1;
+    const norm=raw.map(v=>v==null?0:Math.round(v/peak*100));
+    const lr=(g.reviews||[]).slice(-1)[0];
+    const name=g.title+" 동접";
+    TREND.groups[name]={
+      products:[g.title], productsGoogle:[g.title],
+      months:g.dates||[], naver:[norm], google:[norm],
+      only:"naver", freq:"date", peak:peak,
+      unit:"명(일 최고동접)", srcName:"SteamCharts · 일별 최고동접",
+      reviewNote:(lr&&lr.pos!=null)?`리뷰 긍정 ${lr.pos.toFixed(0)}% · ${lr.t>=1e4?(lr.t/1e4).toFixed(0)+"만":lr.t}개`:""
+    };
+    (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
+  });
+})();
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
@@ -1829,17 +1841,19 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       // srcOf 가 있으면 그게 실제 출처다. only:"google" 은 '출처 전환 없음' 표시일 뿐이라
       // 그대로 읽으면 얀덱스 데이터를 '구글 트렌드'로 잘못 적게 된다.
       const only1=(G.srcOf && [...new Set(G.srcOf)].length===1) ? G.srcOf[0] : null;
-      const src=only1 ? `${only1}(${gGeo})`
+      const src=G.srcName ? G.srcName
+        : only1 ? `${only1}(${gGeo})`
         : (trendSrc==='naver'?'네이버 데이터랩(국내)':`구글 트렌드(${gGeo})`);
-      const solo=G.only?` · 이 주제는 ${src} 만 유효해 출처 전환 없음`:"";
-      // 얀덱스는 절대 검색수라 100 이 몇 건인지 밝혀야 크기 감각이 산다
-      const pk=G.peak?` · 100 = 주당 ${fmt0(G.peak)}건`:"";
-      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100${pk} · 진행 중인 ${U.p} 제외${solo}</small></div>`;
+      const solo=(G.only&&!G.srcName)?` · 이 주제는 ${src} 만 유효해 출처 전환 없음`:"";
+      // 얀덱스·Steam 은 절대값이라 100 이 얼마인지 밝혀야 크기 감각이 산다
+      const pk=G.peak?` · 100 = ${G.unit?"":"주당 "}${fmt0(G.peak)}${G.unit||"건"}`:"";
+      const rv=G.reviewNote?` · ${G.reviewNote}`:"";
+      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100${pk} · 진행 중인 ${U.p} 제외${rv}${solo}</small></div>`;
     })();
   // table — 표시 단위에 맞춰 라벨/기준 전환
   const back=U.n, uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
   const tt=document.getElementById("trendTblTitle");
-  if(tt) tt.textContent=`${trendGroup} · ${trendSrc==="naver"?"네이버":"구글"} — 최근값 · ${uMom}`;
+  if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`;
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"cur",label:"최근값",render:r=>r.cur},
@@ -2083,54 +2097,6 @@ function renderMovie(){
   if(tt) tt.textContent=`일별 상세 — ${series.map(s=>s.nm+(s.live?"":" (개봉 예정)")).join(" vs ")}`;
 }
 
-/* ==== 게임 Steam (동접·리뷰) ==== */
-function renderSteam(){
-  if(typeof STEAM==="undefined"||!STEAM.games) return;
-  const box=document.getElementById("steamCards"); if(!box) return;
-  const asOf=document.getElementById("steamAsOf");
-  if(asOf&&STEAM.asOf) asOf.textContent="수집 "+STEAM.asOf;
-  // 동접 시계열 라인차트(일별 최고동접). 색은 테마 변수(--accent).
-  const chart=v=>{
-    if(v.length<2) return `<div style="height:88px;display:flex;align-items:center;color:var(--muted2);font-size:11.5px">추이 데이터 없음</div>`;
-    const W=280,H=88,pad=4,lo=Math.min(...v),hi=Math.max(...v),rng=(hi-lo)||1;
-    const X=i=>(i/(v.length-1)*(W-pad*2)+pad), Y=x=>(H-pad-(x-lo)/rng*(H-pad*2));
-    const line=v.map((x,i)=>`${X(i).toFixed(1)},${Y(x).toFixed(1)}`).join(" ");
-    const area=`${X(0).toFixed(1)},${H} ${line} ${X(v.length-1).toFixed(1)},${H}`;
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:88px;display:block">
-      <polygon points="${area}" fill="var(--accent)" opacity="0.10"/>
-      <polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
-  };
-  box.innerHTML=(STEAM.games||[]).map(g=>{
-    const ps=(g.players||[]).filter(x=>x!=null), dts=g.dates||[];
-    if(!ps.length) return "";
-    const cur=ps[ps.length-1], peak=Math.max(...ps);
-    let dod="";
-    if(ps.length>=2&&ps[ps.length-2]){
-      const pc=(cur/ps[ps.length-2]-1)*100;
-      dod=`<span class="${cls(pc)}" style="font-size:12.5px;font-weight:800;margin-left:7px">${sign(pc,0)}%</span>`;
-    }
-    const rvh=g.reviews||[], lr=rvh.length?rvh[rvh.length-1]:null;
-    const pos=lr?lr.pos:null, rv=lr?(lr.t||0):0;
-    const rvTxt=rv>=10000?(rv/1e4).toFixed(0)+"만":Number(rv).toLocaleString();
-    const posRow=pos!=null
-      ? `<span style="color:var(--accent);font-weight:800">리뷰 긍정 ${pos.toFixed(0)}%</span><span style="color:var(--muted);font-size:12px"> · ${rvTxt}개</span>`
-      : `<span style="color:var(--muted2)">리뷰 없음</span>`;
-    return `<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">
-        <b style="font-size:15px">${g.title}</b>
-        <span style="color:var(--muted);font-size:12px">${g.stock}</span></div>
-      <div style="margin-bottom:2px">
-        <span style="font-size:23px;font-weight:800">${fmt0(cur)}</span>
-        <span style="color:var(--muted);font-size:12px">명 · 일 최고동접</span>${dod}
-        <span style="color:var(--muted2);font-size:11.5px;margin-left:8px">기간최고 ${fmt0(peak)}</span></div>
-      <div style="font-size:13px;margin-bottom:8px">${posRow}</div>
-      ${chart(ps)}
-      <div style="display:flex;justify-content:space-between;color:var(--muted2);font-size:10.5px;margin-top:3px">
-        <span>${dts[0]||""}</span><span>${dts[dts.length-1]||""}</span></div>
-    </div>`;
-  }).join("");
-}
-
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
 function renderTrendSegs(){
   document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
@@ -2172,7 +2138,7 @@ document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   trendGroup=b.dataset.grp;
   renderTrendSegs(); drawTrend(); renderShop();
 });
-renderTrendSegs(); renderShop(); renderSteam();
+renderTrendSegs(); renderShop();
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
