@@ -515,6 +515,17 @@ def main():
                            for x in spec["geos"]]}
             try:
                 g["google"], g["months"] = fetch_google_geos(spec["geos"], freq=freq, n=n)
+                # 전부 0인 국가(구글이 그 시장에 신호를 안 주는 경우 — 예: 티니핑 미국,
+                # 아직 미출시인 아이온2 해외)는 화면에서 빼 준다. 나중에 신호가 생기면
+                # 다음 수집에서 자동으로 다시 들어온다(자가 치유).
+                keep = [i for i, s in enumerate(g["google"]) if any(v > 0 for v in s)]
+                if keep and len(keep) < len(g["google"]):
+                    dropped = [labs[i] for i in range(len(labs)) if i not in keep]
+                    g["google"] = [g["google"][i] for i in keep]
+                    labs = [labs[i] for i in keep]
+                    g["products"] = g["productsGoogle"] = labs
+                    g["srcOf"] = [g["srcOf"][i] for i in keep]
+                    print(f"  0만 뜬 국가 제외: {dropped}")
                 g["naver"] = g["google"]          # 렌더 호환용(화면은 only 를 보고 구글만 쓴다)
                 have["google"] = True
                 nz = [sum(1 for v in s if v > 0) for s in g["google"]]
