@@ -1856,13 +1856,15 @@ const TREND_STOCK={
     const dates=h.map(x=>{const p=(x.d||"").slice(5).split("-");
       return p.length===2?`${+p[0]}/${+p[1]}`:x.d;});
     const pop=h.map(x=>x.pop), fol=h[h.length-1].fol||0;
+    const rel=a.release&&a.release.name?` · 최근작 ${a.release.name}(${a.release.date})`:"";
+    const tt=a.topTrack?` · 대표곡 ${a.topTrack}`:"";
     const name=a.label+" 인기도(Spotify)";
     TREND.groups[name]={
       products:[a.label], productsGoogle:[a.label],
       months:dates, naver:[pop], google:[pop],
       only:"naver", freq:"date",
       srcName:"Spotify 인기도(0~100, 최근 스트리밍)",
-      reviewNote:`팔로워 ${fol>=1e6?(fol/1e6).toFixed(1)+"M":fol>=1e3?(fol/1e3).toFixed(0)+"K":fol}`
+      reviewNote:`팔로워 ${fol>=1e6?(fol/1e6).toFixed(1)+"M":fol>=1e3?(fol/1e3).toFixed(0)+"K":fol}`+rel+tt
     };
     (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
   });

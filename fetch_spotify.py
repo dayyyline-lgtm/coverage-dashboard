@@ -64,6 +64,24 @@ def _artist(aid, tok):
     return int((d.get("followers") or {}).get("total") or 0), int(d.get("popularity") or 0)
 
 
+def _top_track(aid, tok):
+    """대표곡(현재 가장 인기 트랙) 이름·인기도 — 컴백 신곡이 뜨면 여기 반영된다."""
+    d = _get(f"https://api.spotify.com/v1/artists/{aid}/top-tracks?market=KR", tok)
+    ts = d.get("tracks") or []
+    return (ts[0].get("name", "")[:30], int(ts[0].get("popularity") or 0)) if ts else (None, None)
+
+
+def _latest_release(aid, tok):
+    """최근 발매작(앨범·싱글) 이름·발매일 — 컴백/발매 시점 감지."""
+    d = _get(f"https://api.spotify.com/v1/artists/{aid}/albums"
+             "?include_groups=single,album&market=KR&limit=20", tok)
+    its = d.get("items") or []
+    if not its:
+        return None, None
+    its.sort(key=lambda x: x.get("release_date", ""), reverse=True)
+    return its[0].get("name", "")[:30], its[0].get("release_date", "")
+
+
 def _const(html, name):
     m = re.search(r"const %s\s*=\s*(\{.*?\});" % re.escape(name), html, re.S)
     return json.loads(m.group(1)) if m else None
@@ -97,23 +115,28 @@ def main():
         old = prev.get((stock, label), {})
         aid = old.get("aid")
         hist = list(old.get("hist") or [])
+        art = {"stock": stock, "label": label, "aid": aid, "hist": hist}
         try:
             if not aid:
-                aid = _artist_id(query, tok)
+                aid = art["aid"] = _artist_id(query, tok)
             if aid:
                 fol, pop = _artist(aid, tok)
-                pt = {"d": today, "fol": fol, "pop": pop}
+                ttn, tpop = _top_track(aid, tok)          # 대표곡(현재 최고인기 트랙)
+                rname, rdate = _latest_release(aid, tok)  # 최근 발매작(컴백 감지)
+                pt = {"d": today, "fol": fol, "pop": pop, "tpop": tpop}
                 if hist and hist[-1].get("d") == today:
                     hist[-1] = pt
                 else:
                     hist.append(pt)
-                hist = hist[-DAYS:]
-                print(f"  {label}: 팔로워 {fol:,} · 인기도 {pop}")
+                art["hist"] = hist[-DAYS:]
+                art["topTrack"] = ttn
+                art["release"] = {"name": rname, "date": rdate}
+                print(f"  {label}: 팔로워 {fol:,} · 인기도 {pop} · 대표곡 '{ttn}'({tpop}) · 최근작 {rname}({rdate})")
             else:
                 print(f"  [{label}] 아티스트 못 찾음(query={query})")
         except Exception as e:
             print(f"  [{label}] 실패: {str(e)[:100]}")
-        arts.append({"stock": stock, "label": label, "aid": aid, "hist": hist})
+        arts.append(art)
 
     sp = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "artists": arts}
     if "--dry-run" in sys.argv:
