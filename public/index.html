@@ -1822,6 +1822,54 @@ const TREND_STOCK={
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
+/* Steam '일일 신규 리뷰'를 트렌드 편입 — 리뷰는 구매자만 쓰므로 일일 증가분이 판매 대리지표.
+   누적 리뷰수(reviews[].t)의 전일 대비 Δ. 며칠 쌓여야 뜬다. */
+(function injectSteamReviewTrends(){
+  if(typeof STEAM==="undefined"||!STEAM.games) return;
+  STEAM.games.forEach(g=>{
+    const rv=(g.reviews||[]).filter(x=>x&&x.t!=null);
+    if(rv.length<3) return;
+    const d=[], dates=[];
+    for(let i=1;i<rv.length;i++){
+      d.push(Math.max(0,rv[i].t-rv[i-1].t));
+      const p=(rv[i].d||"").slice(5).split("-"); dates.push(p.length===2?`${+p[0]}/${+p[1]}`:rv[i].d);
+    }
+    const peak=Math.max(...d)||1, pos=rv[rv.length-1].pos;
+    const name=g.title+" 리뷰↑";
+    TREND.groups[name]={
+      products:[g.title], productsGoogle:[g.title],
+      months:dates, naver:[d.map(v=>Math.round(v/peak*100))], google:[d.map(v=>Math.round(v/peak*100))],
+      only:"naver", freq:"date", peak:peak,
+      unit:"개(일일 신규리뷰)", srcName:"Steam · 일일 신규리뷰(판매 대리지표)",
+      reviewNote:(pos!=null?`현재 긍정 ${pos.toFixed(0)}%`:"")
+    };
+    (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
+  });
+})();
+/* YouTube 최신 영상(컴백 MV) '일일 조회수 증가'를 트렌드 편입 — 컴백 첫 며칠 velocity 가 핵심. */
+(function injectYtMvTrends(){
+  if(typeof YT==="undefined"||!YT.channels) return;
+  YT.channels.forEach(c=>{
+    const mv=c.mv; if(!mv||!mv.hist) return;
+    const h=mv.hist.filter(x=>x&&x.v!=null);
+    if(h.length<3) return;
+    const d=[], dates=[];
+    for(let i=1;i<h.length;i++){
+      d.push(Math.max(0,h[i].v-h[i-1].v));
+      const p=(h[i].d||"").slice(5).split("-"); dates.push(p.length===2?`${+p[0]}/${+p[1]}`:h[i].d);
+    }
+    const peak=Math.max(...d)||1;
+    const name=c.label+" MV조회↑";
+    TREND.groups[name]={
+      products:[c.label], productsGoogle:[c.label],
+      months:dates, naver:[d.map(v=>Math.round(v/peak*100))], google:[d.map(v=>Math.round(v/peak*100))],
+      only:"naver", freq:"date", peak:peak,
+      unit:"회(일일 조회)", srcName:"YouTube 최신영상 · 일일 조회 증가",
+      reviewNote:mv.title?`최신: ${mv.title.slice(0,24)}`:""
+    };
+    (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
+  });
+})();
 const topicsOf=n=>(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);   // 데이터 있는 주제만
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
