@@ -278,10 +278,9 @@ def _compare(rows):
 
 
 def _arw(c):
-    """등락 방향 — 한국식 색(상승 빨강·하락 파랑).
-       텔레그램은 이모지로만 색을 낼 수 있다. 예전엔 네모+삼각형을 겹쳐 썼는데
-       기호가 둘이라 지저분했다. 부호(+/-)가 이미 방향을 말하므로 색 하나면 충분하다."""
-    return "🔴" if c > 0 else "🔵"
+    """등락 방향 — 한국식 색(상승 빨강·하락 파랑). 텔레그램은 이모지로만 색을 낸다.
+       네모(색) + 삼각형(방향) 조합. 동그라미만으로는 가시성이 떨어진다고 하여 이 형태로 둔다."""
+    return "🟥▲" if c > 0 else "🟦▼"
 
 
 # 카테고리에는 아이콘을 붙이지 않는다. 글자('화장품')가 이미 명확한데
@@ -366,14 +365,34 @@ def _gist(title, nm):
     return f"{icon} {_cut(t, REASON_W - 2)}"
 
 
-def _news(items, name, cut):
-    """종목 관련, 날짜가 cut(직전 영업일) 이후인 최신 기사 제목. 없으면 None.
+def _news_hit(items, name, cut):
+    """제목매칭 + cut(직전 영업일) 이후 최신 기사 1건(원본 dict). 없으면 None.
        cut 밖(오래된) 기사는 이번 등락과 인과가 없으므로 붙이지 않는다."""
     cand = [x for x in items if _match(x, name) and x.get("d", "")[:10] >= cut]
     if not cand:
         return None
     cand.sort(key=lambda x: x.get("d", ""), reverse=True)
-    return _gist(cand[0]["t"], name)
+    return cand[0]
+
+
+def _esc(s):
+    """텔레그램 HTML parse_mode용 최소 이스케이프. 안 하면 제목·URL의 &(네이버 URL의
+       &office_id 등)에서 파싱이 깨져 서식·링크가 통째로 평문으로 떨어진다."""
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _link(text, url):
+    """보이는 글자는 그대로, 기사 URL로 감싸 클릭 가능하게. URL 없으면 이스케이프만."""
+    return f'<a href="{_esc(url)}">{_esc(text)}</a>' if url else _esc(text)
+
+
+def _news(items, name, cut):
+    """종목 관련, cut 이후 최신 기사 → 아이콘+핵심 절을 기사 링크로. 없으면 None."""
+    it = _news_hit(items, name, cut)
+    if not it:
+        return None
+    g = _gist(it["t"], name)
+    return _link(g, it.get("u")) if g else None
 
 
 _QLAST = {3: 31, 6: 30, 9: 30, 12: 31}
@@ -505,17 +524,21 @@ def build(html, alerts_only=False):
             지어내지 않는 게 원칙이라, 아무 근거도 없으면 아무 말도 붙이지 않는다.)"""
         disc = [e for e in evs if e.get("co") == nm
                 and news_cut <= e.get("date", "") <= today.isoformat()]
-        head = _news(nitems, nm, news_cut)
+        hit = _news_hit(nitems, nm, news_cut)
+        g = _gist(hit["t"], nm) if hit else None             # '아이콘 절' (링크 감싸기 전 원본)
+        head = _link(g, hit.get("u")) if g else None
         # 한 줄에 하나만 담는다. 예전엔 '공시: … · 뉴스헤드라인…' 처럼 둘을 이어 붙여
         # 줄이 넘쳤고, 넘친 줄은 들여쓰기를 잃고 왼쪽 끝에 붙어 모양이 깨졌다.
         if any(e.get("type") == "earn" for e in disc):
             sur = _surprise(live, nm, chg_of.get(nm, 0), today)
             if sur:
                 return "📊 " + _cut(sur, REASON_W)           # 실제치 vs 컨센이 잡히면 그 해석이 이유
-            # head 에는 _gist 가 아이콘을 붙여 놨다. 여기선 📊 하나로 충분하니 떼어 낸다.
-            return "📊 실적발표" if not head else "📊 실적발표 · " + head.split(" ", 1)[-1]
+            # g 는 '아이콘 절'. 여기선 📊 하나면 되니 아이콘만 떼고 링크는 유지한다.
+            if g:
+                return "📊 실적발표 · " + _link(g.split(" ", 1)[-1], hit.get("u"))
+            return "📊 실적발표"
         if disc:                                             # 실적 외 공시(IR·계약 등)
-            return "📄 " + _cut(disc[0].get("title") or "공시", REASON_W)
+            return "📄 " + _esc(_cut(disc[0].get("title") or "공시", REASON_W))
         if head:
             return head                                      # _gist 가 이미 종류+이모지를 붙였다
         tm = _trend_move(nm)
