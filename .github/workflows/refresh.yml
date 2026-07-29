@@ -43,6 +43,13 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python fetch_events.py || echo "DART 수집 건너뜀"
 
+      # 잠정실적 — DART '영업(잠정)실적(공정공시)'에서 매출·영업익을 끌어와 PRELIM 에 넣는다.
+      # 정식 실적이 네이버 API 에 잡히면 화면이 자동으로 그쪽을 우선(잠정은 물러남).
+      - name: 잠정실적 수집(DART)
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python fetch_prelim.py || echo "잠정실적 수집 건너뜀"
+
       # 치지직 게임 시청자(키 불필요). 매시간 돌아 그날 최댓값(저녁 피크)을 잡는다.
       - name: 치지직 게임 시청자
         run: python fetch_chzzk.py || echo "치지직 수집 건너뜀"

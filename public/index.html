@@ -1440,12 +1440,10 @@ const CAL=(function(){
    당사·컨센 중 실제에 더 가까웠던 쪽이 승자로 집계된다.               */
 const MY_EST = {
 };
-/* 잠정실적(공시로 먼저 나오지만 네이버 재무 API 엔 아직 실적으로 안 잡힌 분기).
-   단위 십억원(시리즈와 동일). API 가 그 분기를 실적으로 확정하면 자동으로 그쪽이 우선한다.
-   출처: 하이브 2026 2분기 잠정 — 매출 1조4,500억·영업이익 1,709억(2026-07-28 발표). */
-const PRELIM = {
-  "하이브": { "202606": { rev: 1450.0, op: 170.9 } },
-};
+/* 잠정실적 — fetch_prelim.py 가 DART '영업(잠정)실적(공정공시)'에서 자동 수집(단위 십억원).
+   정식 실적이 네이버 API 에 잡히면 화면이 자동으로 그쪽(apiAct)을 우선하므로 잠정은 물러난다.
+   단위·양식이 회사마다 달라, 컨센 스냅샷 대비 0.4~2.6배 범위만 채택(오파싱 방지). */
+const PRELIM = {"그래피":{"202606":{"rev":6.5,"op":-3.0}},"하이브":{"202606":{"rev":1450.0,"op":170.9}}};
 
 /* ==== 실적 프리뷰 — 당사 추정 vs 컨센, 발표 후엔 실제까지 3자 비교 ====
    CAL 이 여기서야 만들어지므로 표 렌더링도 여기서 한다(앞의 R.forEach 는 값 계산만). */
@@ -1458,6 +1456,9 @@ const PRELIM = {
   const toKey=k=>k.slice(0,4)+"."+k.slice(4,6);                 // 202606 -> 2026.06
   const qLab =k=>`${Math.ceil(+k.slice(4,6)/3)}Q${k.slice(2,4)}`;
   const gap=(a,b)=> (a!=null&&b)? (a/b-1)*100 : null;           // a 가 b 대비 몇 %
+  // 서프라이즈는 부호 안전판: 적자(컨센 음수)일 때 a/b-1 은 방향이 뒤집히므로
+  // (실제−컨센)/|컨센| 로 계산해야 '실제>컨센 = 상회(+)' 가 항상 맞다.
+  const surp=(a,b)=> (a!=null&&b!=null&&b!==0)? (a-b)/Math.abs(b)*100 : null;
   const pctCell=v=> v==null?"—":`<span class="${cls(v)}">${sign(v,1)}%</span>`;
   const absCell=v=> v==null?"—":`<span class="${Math.abs(v)<=3?'up':''}">${sign(v,1)}%</span>`;
 
@@ -1524,8 +1525,8 @@ const PRELIM = {
         myRev:est?est.rev:null, myOp:est?est.op:null,
         consRev:cons?cons.rev:null, consOp:cons?cons.op:null,
         myErrRev:est?gap(est.rev,act.rev):null, myErrOp:myErr,
-        surpRev:cons?gap(act.rev,cons.rev):null,
-        surpOp:cons?gap(act.op,cons.op):null,
+        surpRev:cons?surp(act.rev,cons.rev):null,
+        surpOp:cons?surp(act.op,cons.op):null,
         win:(myErr==null||csErr==null)?null:(Math.abs(myErr)<Math.abs(csErr)?"당사":"컨센")});
     });
   });
