@@ -551,6 +551,31 @@ def _upside(live, rec, nm):
     return (fm / (mk / 10) - 1) * 100
 
 
+def _portfolio(live):
+    """탑픽 포트폴리오 vs 벤치마크(소비재·코스피·코스닥) — 매수일 대비 누적수익률.
+       화면 개요의 시간별 누적(LIVE.intraday) 마지막 점(종가 반영)을 그대로 쓴다."""
+    intr = live.get("intraday") or {}
+    pts = intr.get("points") or []
+    if not pts:
+        return None
+    last = pts[-1]
+    tp = last.get("탑픽")
+    if tp is None:
+        return None
+    buy = intr.get("buy", "")
+    buyf = f"{int(buy[4:6])}/{int(buy[6:8])}" if len(buy) == 8 else buy
+
+    def cell(k):
+        v = last.get(k)
+        return f"{k} {v:+.1f}%" if v is not None else None
+
+    bench = " · ".join(x for x in (cell("소비재"), cell("코스피"), cell("코스닥")) if x)
+    body = [f"{_arw(tp)} <b>탑픽 {tp:+.1f}%</b>"]
+    if bench:
+        body.append(_sub("vs " + bench))
+    return f"<b>🏆 탑픽 포트폴리오</b> <i>({buyf} 매수 대비)</i>\n" + "\n".join(body)
+
+
 def _move_label(now):
     """급변 섹션 제목 — 표시되는 등락이 '오늘 세션'이냐 '직전 세션'이냐로 정한다.
        chgPct 는 그때그때 최신 시세라, 언제 보내느냐에 따라 뜻이 달라진다.
@@ -664,6 +689,9 @@ def build(html, alerts_only=False):
     # 예전엔 줄마다 🟥▲ / 🔥급등 / ↗4주 가 겹쳐 붙어 읽는 데 방해가 됐다.
     # 부호와 숫자가 이미 방향·세기를 말하므로 기호를 더 얹지 않는다.
     out = []
+    ptf = _portfolio(live)                 # 🏆 탑픽 포트 vs 소비재·코스피 (맨 위)
+    if ptf:
+        out.append(ptf)
     if pts:
         out.append("<b>✨ 오늘의 포인트</b>\n" + "\n".join("• " + p for p in pts))
 
