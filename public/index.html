@@ -92,9 +92,10 @@
   .card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px)}
   .card .rk{position:absolute;top:14px;right:16px;font-size:34px;font-weight:800;color:var(--line);line-height:1}
   .card .sect{font-size:11.5px;color:var(--accent);font-weight:700}
-  .card .nm{font-size:17px;font-weight:800;margin:3px 0 2px}
+  .card .nm{font-size:17px;font-weight:800;margin:3px 0 2px;display:flex;align-items:center;flex-wrap:wrap}
+  .card .nm .nm-logo{width:30px;height:30px;border-radius:9px;margin-right:9px}
   .card .th{font-size:12.5px;color:var(--muted);margin:8px 0 12px;min-height:34px}
-  .card .row{display:flex;gap:14px;border-top:1px solid var(--line);padding-top:10px}
+  .card .row{display:flex;gap:14px;border-top:1px solid var(--line-soft);padding-top:12px}
   .card .row .c{flex:1}
   .card .row .c .lbl{font-size:11px;color:var(--muted)}
   .card .row .c .val{font-size:15px;font-weight:700}
@@ -106,6 +107,7 @@
   thead th{
     position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:700;
     text-align:right;padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;font-size:12px;
+    letter-spacing:-.01em;
   }
   thead th.l{text-align:left}
   thead th:hover{color:var(--text)}
@@ -113,11 +115,11 @@
   thead th.sorted .ar{opacity:1;color:var(--accent)}
   /* 헤더 보조설명 — 아랫줄로 내려 컬럼 폭을 줄인다 */
   thead th .th-sub{display:block;font-size:9.5px;font-weight:600;color:var(--muted2);letter-spacing:-.02em;margin-top:1px}
-  tbody td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--line)}
+  tbody td{text-align:right;padding:11px 12px;border-bottom:1px solid var(--line-soft)}
   tbody td.l{text-align:left}
-  tbody tr:hover{background:var(--panel2)}
+  tbody tr:hover{background:color-mix(in srgb, var(--panel2) 70%, transparent)}
   tbody tr:last-child td{border-bottom:none}
-  .nm-cell{font-weight:700}
+  .nm-cell{font-weight:700;display:inline-flex;align-items:center}
   .nm-cell .nm{font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
   .nm-cell.clickable:hover .nm{color:var(--accent)}
   .nm-cell .sub{font-size:11px;color:var(--muted);font-weight:500;margin-left:6px}
@@ -272,6 +274,7 @@
   .drawer .close{position:absolute;top:14px;right:16px;cursor:pointer;font-size:20px;line-height:1;color:var(--muted);background:var(--chip);border:1px solid var(--line);border-radius:8px;width:32px;height:32px}
   .drawer .dsec{font-size:12.5px;color:var(--accent);font-weight:700}
   .drawer .dnm{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:2px 0 2px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .drawer .dnm .nm-logo{width:40px;height:40px;border-radius:11px;margin-right:0;box-shadow:0 0 0 1px var(--line-soft),0 2px 7px rgba(0,0,0,.20)}
   .drawer .dthesis{font-size:12.5px;color:var(--muted);margin:4px 0 2px}
   .drawer .pick-why{font-size:12.5px;line-height:1.5;margin:8px 0 4px;padding:8px 11px;border-radius:9px;
     background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent)}
@@ -295,7 +298,7 @@
   .ht-v2{font-size:11px;font-weight:800;line-height:1.1}
   .ht-sc{font-size:9.5px;font-weight:700;opacity:.8;margin-top:1px;line-height:1.1}
   .val-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0 6px}
-  .val-grid .vg{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  .val-grid .vg{background:var(--panel2);border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px}
   .val-grid .vg .l{font-size:11px;color:var(--muted)}
   .val-grid .vg .v{font-size:15px;font-weight:800;margin-top:3px}
   .drawer .d-h{font-size:13px;font-weight:700;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
@@ -2959,7 +2962,7 @@ function openStock(name){
   const th=thesisByName[name];
   let html=`<button class="close" id="drawerClose" title="닫기">×</button>
     <div class="dsec">${r.sector} · ${r.sub}${r.code?` · ${r.code} ${r.mkt||''}`:''}</div>
-    <div class="dnm">${name} ${ratingBadge(r.score)} ${pickPill(r)}
+    <div class="dnm">${stockLogo(name)}${name} ${ratingBadge(r.score)} ${pickPill(r)}
       ${r.chgPct!=null?`<span class="c ${cls(r.chgPct)}" style="font-size:14px">${sign(r.chgPct,2)}%</span>`:''}</div>
     ${(r.pick2&&th)?`<div class="pick-why"><b>${r.pick2} 근거</b> ${th}</div>`:(th?`<div class="dthesis">${th}</div>`:'')}
     ${trendTopics.length?`<div class="d-actions"><button class="tbtn" id="goTrend" type="button">📈 관련 트렌드 보기<span class="cnt">${trendTopics.length}</span></button></div>`:''}
