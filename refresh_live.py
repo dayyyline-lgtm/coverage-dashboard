@@ -343,6 +343,65 @@ def add_topfick_index(sector_trend, html):
     print(f"  탑픽 지수: {sum(1 for v in series if v is not None)}일치")
 
 
+def append_intraday(live, old, html):
+    """탑픽 포트·벤치마크의 '매수일 대비 누적수익률'을 매 실행(시간별)마다 한 점씩 쌓는다.
+       포트는 라이브 호가 기반(도넛/타일과 동일 값) — 일봉 지수와의 괴리를 없앤다.
+       평일 장중(09:00~15:40)에만 적립하고, 같은 시(hour)면 갱신, 매수일이 바뀌면 새로 쌓는다."""
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    now = datetime.datetime.now(kst)
+    prev = dict((old or {}).get("intraday") or {})
+    points = list(prev.get("points") or [])
+    mins = now.hour * 60 + now.minute
+    is_market = now.weekday() < 5 and (9 * 60) <= mins <= (15 * 60 + 40)
+    m = re.search(r"const PORTFOLIO = (\{.*?\});\n", html, re.S)
+    if not m:
+        if points:
+            live["intraday"] = prev
+        return
+    try:
+        port = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        if points:
+            live["intraday"] = prev
+        return
+    buy = port.get("date")
+    if prev.get("buy") != buy:       # 포트 매수일이 바뀌면(종목·비중 교체) 처음부터 다시 쌓는다
+        points = []
+    if not is_market:                # 장 밖이면 기존 것만 유지(새 점 안 찍음)
+        live["intraday"] = {"buy": buy, "points": points}
+        return
+    # 포트 수익률 — renderPortfolio 와 동일 식 Σ(w·현재가/base)-1 (없으면 1로)
+    stocks = live.get("stocks") or {}
+    tot = 0.0
+    for p in (port.get("picks") or []):
+        cur = (stocks.get(p["name"]) or {}).get("price")
+        b = p.get("base")
+        tot += p["w"] * (cur / b if (cur and b) else 1)
+    port_ret = round((tot - 1) * 100, 3)
+    # 벤치마크 누적수익(매수일 대비) — sectorTrend 일봉 레벨
+    st = live.get("sectorTrend") or {}
+    idx, dates = st.get("idx") or {}, st.get("dates") or []
+    bi = dates.index(buy) if buy in dates else None
+
+    def cum(k):
+        a = idx.get(k)
+        if not a or bi is None:
+            return None
+        b0 = next((a[i] for i in range(bi, len(a)) if a[i] is not None), None)
+        c0 = next((a[i] for i in range(len(a) - 1, -1, -1) if a[i] is not None), None)
+        return round((c0 / b0 - 1) * 100, 3) if (b0 and c0) else None
+
+    pt = {"t": now.strftime("%m-%d %H:%M"), "탑픽": port_ret,
+          "소비재": cum("소비재"), "코스피": cum("코스피"), "코스닥": cum("코스닥")}
+    hh = now.strftime("%m-%d %H")
+    if points and str(points[-1].get("t", "")).startswith(hh):   # 같은 시각(시)이면 갱신
+        points[-1] = pt
+    else:
+        points.append(pt)
+    live["intraday"] = {"buy": buy, "points": points[-600:]}
+    print(f"  시간별 누적: {len(points)}점 · 탑픽 {port_ret:+.2f}%")
+
+
 def resolve_code(name):
     q = urllib.parse.quote(NAME_FIX.get(name, name))
     d = getj(f"https://m.stock.naver.com/front-api/search/autoComplete?query={q}&target=stock")
@@ -486,6 +545,8 @@ def main():
             "events": events}
     if sector_trend:
         live["sectorTrend"] = sector_trend
+
+    append_intraday(live, old, html)   # 시간별 누적선(탑픽·벤치마크, 매수일 대비)
 
     # ---- 분기 컨센 스냅샷 ----
     # 실적이 발표되면 그 분기는 API 에서 '실적'으로 덮이고 컨센 값이 사라진다.
