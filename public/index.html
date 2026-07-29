@@ -110,6 +110,11 @@
   .nm-cell .nm{font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
   .nm-cell.clickable:hover .nm{color:var(--accent)}
   .nm-cell .sub{font-size:11px;color:var(--muted);font-weight:500;margin-left:6px}
+  /* 토스식 종목 로고 — 둥근 네모. 로고 없으면 이니셜 배지로 폴백. */
+  .nm-logo{width:22px;height:22px;border-radius:6px;object-fit:contain;background:#fff;
+    vertical-align:middle;margin-right:6px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(0,0,0,.05)}
+  .nm-logo.fb{align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;
+    background:var(--muted2);box-shadow:none}
   .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
 
   .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid transparent}
@@ -946,7 +951,7 @@ themeBtn.addEventListener("click",()=>{
     return `<div class="card">
       <div class="rk">${i+1}</div>
       <div class="sect">${r.sector} · ${r.sub}</div>
-      <div class="nm">${r.name} ${ratingBadge(r.score||0)}</div>
+      <div class="nm">${stockLogo(r.name)}${r.name} ${ratingBadge(r.score||0)}</div>
       ${thesis?`<div class="th">${thesis}</div>`:''}
       <div class="row">
         <div class="c"><div class="lbl">시총 / 견적</div><div class="val">${eok(mcJo(r),10000)} → ${eok(r.fairMktcap,10)}억</div></div>
@@ -1150,9 +1155,18 @@ function makeTable(el, cols, rows, initSort){
   }
   render();
 }
-const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${pickPill(r)} <span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
+/* 종목 로고(토스 CDN, 종목코드 기준). 실패하면 이니셜 배지로. name 만 있으면 코드는 LIVE 에서 찾는다. */
+function stockLogo(name){
+  const code=((typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[name])||{}).code;
+  const init=(name||"?").trim().slice(0,1);
+  const hue=[...(name||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%360;
+  const fb=`<span class="nm-logo fb" style="display:${code?'none':'inline-flex'};background:hsl(${hue},42%,50%)">${init}</span>`;
+  if(!code) return fb;
+  return `<img class="nm-logo" src="https://static.toss.im/png-icons/securities/icn-sec-fill-${code}.png" loading="lazy" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">${fb}`;
+}
+const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${stockLogo(r.name)}${pickPill(r)} <span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
 /* 분류 컬럼이 따로 있는 표(커버리지)에서는 픽 배지를 빼서 중복을 없앤다 */
-const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}"><span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
+const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${stockLogo(r.name)}<span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
 
 /* ==== Coverage summary — grouped by sector ==== */
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
@@ -1722,7 +1736,7 @@ const REP=(LIVE.researches||[]);
       <div class="date-chip"><div class="m">${m}월</div><div class="d">${d}</div></div>
       <div class="body">
         <div class="t">${x.title}</div>
-        <div class="s"><span class="nm-cell clickable" data-stock="${x.co}">${x.co}</span> · ${x.broker}${x.views?` · 조회 ${fmt0(x.views)}`:""}</div>
+        <div class="s"><span class="nm-cell clickable" data-stock="${x.co}">${stockLogo(x.co)}${x.co}</span> · ${x.broker}${x.views?` · 조회 ${fmt0(x.views)}`:""}</div>
       </div>
       <a class="ev-type ev-earn" href="https://m.stock.naver.com/domestic/stock/${x.code}/research" target="_blank" rel="noopener">보기</a>
     </div>`;
@@ -1800,7 +1814,7 @@ const REP=(LIVE.researches||[]);
 
   const label=d=>{ const m=/(\d{4})-(\d{2})-(\d{2})/.exec(d||""); return m?`${m[2]}/${m[3]}`:""; };
   const itemHtml=x=>{
-    const cos=x.co.map(c=>`<span class="nm-cell clickable" data-stock="${c}">${c}</span>`).join(", ");
+    const cos=x.co.map(c=>`<span class="nm-cell clickable" data-stock="${c}">${stockLogo(c)}${c}</span>`).join(", ");
     return `<div class="item">
       <div class="date-chip" style="display:flex;align-items:center;justify-content:center"><div class="d" style="font-size:13px">${label(x.d)}</div></div>
       <div class="body">
