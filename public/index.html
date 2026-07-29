@@ -1437,6 +1437,12 @@ const CAL=(function(){
    당사·컨센 중 실제에 더 가까웠던 쪽이 승자로 집계된다.               */
 const MY_EST = {
 };
+/* 잠정실적(공시로 먼저 나오지만 네이버 재무 API 엔 아직 실적으로 안 잡힌 분기).
+   단위 십억원(시리즈와 동일). API 가 그 분기를 실적으로 확정하면 자동으로 그쪽이 우선한다.
+   출처: 하이브 2026 2분기 잠정 — 매출 1조4,500억·영업이익 1,709억(2026-07-28 발표). */
+const PRELIM = {
+  "하이브": { "202606": { rev: 1450.0, op: 170.9 } },
+};
 
 /* ==== 실적 프리뷰 — 당사 추정 vs 컨센, 발표 후엔 실제까지 3자 비교 ====
    CAL 이 여기서야 만들어지므로 표 렌더링도 여기서 한다(앞의 R.forEach 는 값 계산만). */
@@ -1495,21 +1501,22 @@ const MY_EST = {
     const series=(((LIVE.stocks[r.name]||{}).cons||{}).quarter||{}).series||[];
     const snap=(LIVE.consSnap||{})[r.name]||{};
     const myAll=MY_EST[r.name]||{};
-    // 스냅샷/당사추정이 있는 분기 + 가장 최근 발표(실적확정) 분기까지 포함해
-    // '완료된 실적'이 비지 않게 한다. 스냅샷 없는 분기는 판정만 '컨센 미수집'.
-    const actuals=series.filter(s=>!s.e);
-    const latest=actuals.length? actuals[actuals.length-1].k : null;
+    const pre=(typeof PRELIM!=="undefined"&&PRELIM[r.name])||{};
+    // 발표완료 = 컨센 스냅샷을 잡아 둔 분기(=현재 실적시즌) 중 '실적이 나온' 것.
+    // 실적 = API 확정치 우선, 없으면 잠정(PRELIM). 아직 안 나왔으면(둘 다 없음) 제외.
     const quarters=new Set([...Object.keys(snap),
-                            ...Object.keys(myAll).map(k=>k.replace(".","")),
-                            ...(latest?[latest]:[])]);
+                            ...Object.keys(myAll).map(k=>k.replace(".",""))]);
     quarters.forEach(raw=>{
-      const act=series.find(s=>s.k===raw && !s.e);     // 실적으로 확정된 분기만
+      const apiAct=series.find(s=>s.k===raw && !s.e);
+      const prelim=pre[raw]||null;
+      const act = apiAct || prelim;
       if(!act) return;
+      const isPrelim=!apiAct && !!prelim;
       const cons=snap[raw]||null;
       const est=myAll[`${raw.slice(0,4)}.${raw.slice(4,6)}`]||null;
       const myErr=est?gap(est.op,act.op):null;
       const csErr=cons?gap(cons.op,act.op):null;
-      done.push({...r, dqRaw:raw, dq:qLab(raw), hasCons:!!cons,
+      done.push({...r, dqRaw:raw, dq:qLab(raw), hasCons:!!cons, isPrelim,
         actRev:act.rev, actOp:act.op,
         myRev:est?est.rev:null, myOp:est?est.op:null,
         consRev:cons?cons.rev:null, consOp:cons?cons.op:null,
@@ -1538,7 +1545,7 @@ const MY_EST = {
     qOp:{key:"qOp",label:"컨센 영업익",render:r=>eok(r.qOp)},
     myOpGap:{key:"myOpGap",label:"괴리",render:r=>pctCell(r.myOpGap)},
     verdict:{key:"verdict",label:"판정",render:verdict},
-    dq:{key:"dqRaw",label:"분기",l:true,render:r=>`<span class="ye">${r.dq}</span>`},
+    dq:{key:"dqRaw",label:"분기",l:true,render:r=>`<span class="ye">${r.dq}</span>`+(r.isPrelim?` <span class="tag-inline" title="공시 잠정실적(정식 재무제표 반영 전)">잠정</span>`:``)},
     actRev:{key:"actRev",label:"실제 매출",render:r=>`<b>${eok(r.actRev)}</b>`},
     consRev:{key:"consRev",label:"컨센",render:r=>eok(r.consRev)},
     surpRev:{key:"surpRev",label:"서프라이즈",render:r=>pctCell(r.surpRev)},
@@ -1571,13 +1578,12 @@ const MY_EST = {
         ? `단위 억 원 · 괴리 = 당사 ÷ 컨센 − 1 · 발표일이 안 잡힌 종목은 뒤로. 당사 추정 ${R.filter(r=>r.myOp!=null).length}/${R.length}종목 입력됨.`
         : `단위 억 원 · 다가오는 분기의 컨센 기대치입니다. 발표되면 '발표완료' 탭에 실제 vs 컨센 서프라이즈가 쌓입니다.`;
     }else{
-      const judged=done.filter(r=>r.surpOp!=null).length;
-      note.textContent = `단위 억 원 · 서프라이즈 = 실제 ÷ 컨센 − 1 · 각 종목 최근 발표 분기. `
+      const preN=done.filter(r=>r.isPrelim).length;
+      note.textContent = `단위 억 원 · 서프라이즈 = 실제 ÷ 컨센 − 1(발표 전 저장한 컨센 스냅샷 대비) · `
         +(done.length
-          ? `발표 ${done.length}개 · 판정 ${judged}개.`
-            +(judged<done.length?` '컨센 미수집'은 발표 전 컨센 스냅샷이 없어 판정 불가 — 2026 2분기 발표부터 자동 판정됩니다.`:``)
+          ? `실적시즌 발표 ${done.length}개${preN?` (잠정 ${preN}개 — 정식 재무제표 반영 전)`:``}.`
             +(hasMyEst?` 당사 오차 = 당사 ÷ 실제 − 1(±3% 초록).`:``)
-          : `발표된 분기가 아직 없습니다.`);
+          : `아직 발표된 분기가 없습니다 — 발표되면 여기에 실제 vs 컨센 서프라이즈가 쌓입니다.`);
     }
   }
   document.getElementById("prevViewSeg").addEventListener("click",e=>{
