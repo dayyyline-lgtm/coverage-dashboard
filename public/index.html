@@ -15,7 +15,11 @@
     --up:#f0637f; --down:#6cbfe6; --flat:#6e6a86;
     --good:#3e8fb0; --warn:#f6c177;
     --chip:#21202e;
-    --shadow:0 6px 24px rgba(0,0,0,.40);
+    /* 레이어드 소프트 섀도 — 가까운 1px + 멀리 퍼지는 광역. 토스처럼 '떠 있는' 느낌. */
+    --shadow:0 1px 2px rgba(0,0,0,.28), 0 12px 32px -10px rgba(0,0,0,.55);
+    --shadow-hover:0 2px 6px rgba(0,0,0,.30), 0 20px 44px -12px rgba(0,0,0,.62);
+    --line-soft:color-mix(in srgb, var(--line) 55%, transparent);
+    --radius:16px;
   }
   /* Rose Pine Dawn — 표가 조밀해서 보조색은 원본보다 한 단계 어둡게(대비 4.5:1) */
   :root[data-theme="light"]{
@@ -23,7 +27,11 @@
     --text:#423d5e; --muted:#514b68; --muted2:#5b5570;
     --accent:#6f4f96; --accent2:#b56f10; --onacc:#fffaf3;
     --up:#cc2f49; --down:#1a66b3; --flat:#767083;
-    --chip:#f2e9e1; --shadow:0 6px 20px rgba(87,82,121,.10);
+    --chip:#f2e9e1;
+    --shadow:0 1px 2px rgba(87,82,121,.08), 0 12px 28px -10px rgba(87,82,121,.20);
+    --shadow-hover:0 2px 6px rgba(87,82,121,.10), 0 20px 40px -12px rgba(87,82,121,.28);
+    --line-soft:color-mix(in srgb, var(--line) 55%, transparent);
+    --radius:16px;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -70,7 +78,8 @@
 
   /* KPI tiles */
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:8px}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow .18s ease,transform .18s ease}
+  .kpi:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px)}
   .kpi .k{font-size:12px;color:var(--muted);font-weight:600}
   .kpi .v{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
   .kpi .v small{font-size:14px;font-weight:600;color:var(--muted);margin-left:3px}
@@ -78,7 +87,8 @@
 
   /* Cards */
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .card{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:box-shadow .18s ease,transform .18s ease}
+  .card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px)}
   .card .rk{position:absolute;top:14px;right:16px;font-size:34px;font-weight:800;color:var(--line);line-height:1}
   .card .sect{font-size:11.5px;color:var(--accent);font-weight:700}
   .card .nm{font-size:17px;font-weight:800;margin:3px 0 2px}
@@ -89,7 +99,7 @@
   .card .row .c .val{font-size:15px;font-weight:700}
 
   /* Tables */
-  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:var(--shadow)}
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--panel);box-shadow:var(--shadow)}
   table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap;
     font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
   thead th{
@@ -110,11 +120,12 @@
   .nm-cell .nm{font-size:13.5px;font-weight:800;letter-spacing:-.01em;color:var(--text)}
   .nm-cell.clickable:hover .nm{color:var(--accent)}
   .nm-cell .sub{font-size:11px;color:var(--muted);font-weight:500;margin-left:6px}
-  /* 토스식 종목 로고 — 둥근 네모. 로고 없으면 이니셜 배지로 폴백. */
-  .nm-logo{width:22px;height:22px;border-radius:6px;object-fit:contain;background:#fff;
-    vertical-align:middle;margin-right:6px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(0,0,0,.05)}
-  .nm-logo.fb{align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;
-    background:var(--muted2);box-shadow:none}
+  /* 토스식 종목 로고 — 둥근 네모. 480px 원본을 24px 로 다운스케일(레티나 선명). 없으면 이니셜 배지. */
+  .nm-logo{width:24px;height:24px;border-radius:7px;object-fit:contain;background:#fff;
+    vertical-align:middle;margin-right:7px;flex:0 0 auto;
+    box-shadow:0 0 0 1px var(--line-soft),0 1px 2px rgba(0,0,0,.14)}
+  .nm-logo.fb{align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;
+    background:var(--muted2);box-shadow:0 0 0 1px var(--line-soft)}
   .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--flat)}
 
   .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid transparent}
@@ -131,7 +142,7 @@
   .tag-miss{background:color-mix(in srgb, var(--down) 18%, transparent);color:var(--down);font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px}
 
   /* Chart */
-  .chart-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .chart-box{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
   .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12px;color:var(--muted)}
   .legend .li{display:flex;align-items:center;gap:6px}
   .legend .dot{width:10px;height:10px;border-radius:50%}
@@ -170,12 +181,12 @@
   .news-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
   .news-grid .sector-block{margin-bottom:0}
   @media (max-width:820px){ .news-grid{grid-template-columns:1fr} }
-  .sector-band{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;padding:11px 16px;background:var(--panel2);
-    border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px 12px 0 0}
+  .sector-band{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;padding:12px 18px;background:var(--panel2);
+    border:1px solid var(--line-soft);border-left:4px solid var(--accent);border-radius:var(--radius) var(--radius) 0 0}
   .sector-band .s-name{font-weight:800;font-size:15px;letter-spacing:-.01em}
   .sector-band .s-tag{font-size:11px;color:var(--muted);background:var(--chip);border:1px solid var(--line);padding:2px 8px;border-radius:999px}
   .sector-band .s-stat{font-size:12px;color:var(--muted)}
-  .sector-block .tbl-wrap{border-radius:0 0 12px 12px;border-top:none;box-shadow:none}
+  .sector-block .tbl-wrap{border-radius:0 0 var(--radius) var(--radius);border-top:none;box-shadow:none;border-color:var(--line-soft)}
 
   /* trend compare */
   /* flex-wrap 이 없으면 버튼이 많은 묶음(종목 9개 등)이 화면 밖으로 나가
