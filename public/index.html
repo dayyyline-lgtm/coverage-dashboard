@@ -262,15 +262,17 @@
   .drawer .tbtn:hover{filter:brightness(1.06)}
   .drawer .tbtn .cnt{font-size:11px;font-weight:800;background:color-mix(in srgb,var(--onacc) 22%,transparent);
     padding:1px 7px;border-radius:20px}
-  .heatmap{display:flex;flex-direction:column;gap:14px;margin-top:12px}
-  .ht-sec-h{font-size:12.5px;font-weight:700;color:var(--accent);margin-bottom:6px}
-  .ht-sec-h span{color:var(--muted);font-weight:600;font-size:11px;margin-left:4px}
-  .ht-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:7px}
-  .ht-tile{border:1px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer;
-    display:flex;flex-direction:column;gap:3px;transition:transform .08s,border-color .08s}
-  .ht-tile:hover{transform:translateY(-2px);border-color:var(--accent)}
-  .ht-nm{font-size:12.5px;font-weight:700;line-height:1.15}
-  .ht-v{font-size:12.5px;font-weight:800}
+  .heatmap{position:relative;margin-top:12px;width:100%}
+  .ht-secbox{position:absolute;border:1px solid var(--line);border-radius:6px;
+    background:color-mix(in srgb,var(--muted) 7%,transparent);pointer-events:none}
+  .ht-seclabel{font-size:10.5px;font-weight:800;color:var(--muted);padding:2px 7px;letter-spacing:.02em}
+  .ht-tile2{position:absolute;border-radius:4px;overflow:hidden;cursor:pointer;box-sizing:border-box;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;padding:2px;
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bg) 22%,transparent)}
+  .ht-tile2:hover{outline:2px solid var(--accent);z-index:3}
+  .ht-nm2{font-size:11.5px;font-weight:700;line-height:1.1;text-align:center;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .ht-v2{font-size:11px;font-weight:800;line-height:1.1}
   .val-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0 6px}
   .val-grid .vg{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
   .val-grid .vg .l{font-size:11px;color:var(--muted)}
@@ -843,22 +845,58 @@ function heatText(m,v){
   const t=m.diverge?Math.min(1,Math.abs(v)/m.cap):Math.min(1,Math.abs(v-m.mid)/m.cap);
   return t>0.5?"#fff":"var(--text)";
 }
+/* 스쿼리파이 트리맵 — items[{value,...}] 를 (X,Y,W,H) 에 채워 {..,x,y,w,h} 반환 */
+function squarify(items, X, Y, W, H){
+  items=items.map(d=>({...d})).filter(d=>d.value>0).sort((a,b)=>b.value-a.value);
+  const tot=items.reduce((s,d)=>s+d.value,0)||1, sc=(W*H)/tot;
+  items.forEach(d=>d.a=d.value*sc);
+  const out=[]; let x=X,y=Y,w=W,h=H,i=0;
+  const worst=(r,side)=>{ const s=r.reduce((a,k)=>a+k.a,0);
+    const mx=Math.max(...r.map(k=>k.a)), mn=Math.min(...r.map(k=>k.a));
+    return Math.max(side*side*mx/(s*s), s*s/(side*side*mn)); };
+  while(i<items.length){
+    const side=Math.min(w,h); let row=[items[i]], j=i+1;
+    while(j<items.length && worst(row.concat(items[j]),side)<=worst(row,side)){ row.push(items[j]); j++; }
+    const s=row.reduce((a,k)=>a+k.a,0), thick=s/side;
+    if(w<=h){ let cx=x; row.forEach(k=>{ const kw=k.a/thick; out.push({...k,x:cx,y:y,w:kw,h:thick}); cx+=kw; }); y+=thick; h-=thick; }
+    else    { let cy=y; row.forEach(k=>{ const kh=k.a/thick; out.push({...k,x:x,y:cy,w:thick,h:kh}); cy+=kh; }); x+=thick; w-=thick; }
+    i=j;
+  }
+  return out;
+}
+const fmtMc=eok=> eok>=10000? (eok/10000).toFixed(1)+"조" : Math.round(eok).toLocaleString()+"억";
 function renderHeatmap(){
   const host=document.getElementById("heatmapBox"); if(!host) return;
   const m=HEAT_METRICS.find(x=>x.k===heatMetric)||HEAT_METRICS[0];
+  const stk=n=>LIVE.stocks[n]||{};
   const order=[]; R.forEach(r=>{ if(!order.includes(r.sub)) order.push(r.sub); });
-  host.innerHTML=order.map(sec=>{
-    const rows=R.filter(r=>r.sub===sec).slice()
-      .sort((a,b)=>((b[m.k]==null?-1e9:b[m.k])-(a[m.k]==null?-1e9:a[m.k])));
-    const tiles=rows.map(r=>{ const v=r[m.k];
-      return `<div class="ht-tile" data-stock="${attr(r.name)}" style="background:${heatColor(m,v)};color:${heatText(m,v)}" title="${r.name} · ${m.label} ${v==null?'—':m.fmt(v)}">
-        <span class="ht-nm">${r.name}</span><span class="ht-v">${v==null?'—':m.fmt(v)}</span></div>`;}).join("");
-    return `<div class="ht-sec"><div class="ht-sec-h">${sec}<span>${rows.length}종목</span></div><div class="ht-grid">${tiles}</div></div>`;
-  }).join("");
+  const sectors=order.map(sec=>{
+    const rows=R.filter(r=>r.sub===sec)
+      .map(r=>({name:r.name, value:(stk(r.name).mktcapEok||0), mv:r[m.k]}))
+      .filter(d=>d.value>0);
+    return {sec, rows, value:rows.reduce((s,d)=>s+d.value,0)};
+  }).filter(s=>s.value>0 && s.rows.length);
+  const W=host.clientWidth||900, H=Math.max(440,Math.min(760,Math.round(W*0.6)));
+  host.style.position="relative"; host.style.height=H+"px"; host.style.display="block";
+  const GAP=3, HEAD=15;
+  let html="";
+  squarify(sectors,0,0,W,H).forEach(sr=>{
+    html+=`<div class="ht-secbox" style="left:${sr.x}px;top:${sr.y}px;width:${Math.max(0,sr.w-1)}px;height:${Math.max(0,sr.h-1)}px">
+       <div class="ht-seclabel">${sr.sec}</div></div>`;
+    const ix=sr.x+GAP, iy=sr.y+HEAD, iw=Math.max(1,sr.w-GAP*2), ih=Math.max(1,sr.h-HEAD-GAP);
+    squarify(sr.rows,ix,iy,iw,ih).forEach(t=>{
+      const big=t.w>50&&t.h>28, mid=t.w>34&&t.h>18;
+      html+=`<div class="ht-tile2" data-stock="${attr(t.name)}" title="${t.name} · ${m.label} ${t.mv==null?'—':m.fmt(t.mv)} · 시총 ${fmtMc(t.value)}"
+        style="left:${t.x}px;top:${t.y}px;width:${Math.max(0,t.w-1)}px;height:${Math.max(0,t.h-1)}px;background:${heatColor(m,t.mv)};color:${heatText(m,t.mv)}">
+        ${big?`<span class="ht-nm2">${t.name}</span><span class="ht-v2">${t.mv==null?'—':m.fmt(t.mv)}</span>`
+          :mid?`<span class="ht-v2" style="font-size:10px">${t.mv==null?'—':m.fmt(t.mv)}</span>`:''}</div>`;
+    });
+  });
+  host.innerHTML=html;
   const note=document.getElementById("heatNote");
-  if(note) note.textContent=`${m.label} 기준 · 각 섹터 내 ${m.label} 내림차순 · `
-    +(m.diverge?`색 진하기 = 크기(±${m.cap}${m.k==='chgPct'||m.k==='upsideOwn'?'%':''}에서 최대)`:`강조색=매력도 높음`)
-    +` · 등락률·상승여력은 라이브(${(LIVE||{}).asOf||''}) 기준.`;
+  if(note) note.textContent=`타일 크기 = 시가총액 · 색 = ${m.label}(`
+    +(m.diverge?`빨강 강세·파랑 약세, ±${m.cap}${m.k==='score'?'':'%'} 최대`:`강조색=매력도 높음`)
+    +`) · 라이브 ${(LIVE||{}).asOf||''} 기준.`;
 }
 document.getElementById("heatSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
@@ -1390,6 +1428,7 @@ function drawScatter(){
 }
 window.addEventListener("resize",()=>{
   if(document.querySelector('section[data-view="valuation"]').classList.contains("active")) drawScatter();
+  if(document.querySelector('section[data-view="heatmap"]').classList.contains("active")) renderHeatmap();
 });
 
 /* ==== Calendar — month grid ====
