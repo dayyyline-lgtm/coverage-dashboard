@@ -63,11 +63,12 @@
   nav.tabs::-webkit-scrollbar{display:none}
   nav.tabs button{
     white-space:nowrap;background:transparent;border:none;color:var(--muted);
-    font-size:13.5px;font-weight:600;padding:9px 13px;border-radius:8px 8px 0 0;cursor:pointer;
-    border-bottom:2px solid transparent;
+    font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:9px 9px 0 0;cursor:pointer;
+    border-bottom:2px solid transparent;transition:color .15s ease,background .15s ease;
   }
-  nav.tabs button:hover{color:var(--text)}
-  nav.tabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+  nav.tabs button:hover{color:var(--text);background:color-mix(in srgb, var(--panel2) 55%, transparent)}
+  nav.tabs button.active{color:var(--text);font-weight:800;border-bottom-color:var(--accent);
+    background:color-mix(in srgb, var(--accent) 11%, transparent)}
 
   section.view{display:none;padding:26px 0 60px}
   section.view.active{display:block}
@@ -317,7 +318,8 @@
   .ov-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   @media (max-width:1100px){ .ov-grid{grid-template-columns:repeat(2,1fr)} }
   @media (max-width:760px){ .ov-grid{grid-template-columns:1fr} }
-  .ov-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 16px;box-shadow:var(--shadow)}
+  .ov-panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 17px;box-shadow:var(--shadow);transition:box-shadow .18s ease,transform .18s ease}
+  .ov-panel:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px)}
   .ov-panel .h{font-size:12.5px;font-weight:800;display:flex;align-items:center;gap:7px;margin-bottom:6px}
   .ov-panel .h::before{content:"";width:3px;height:13px;background:var(--accent);border-radius:2px}
   .ov-panel .h small{margin-left:auto;font-weight:600;color:var(--muted2);font-size:11px}
