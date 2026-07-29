@@ -926,7 +926,14 @@ def main():
         print("─" * 52); print(re.sub(r"<[^>]+>", "", msg)); print("─" * 52)
         print(f"(dry-run · {len(msg)}자)")
         return
-    if not telegram_send.send(msg):
+    ok = telegram_send.send(msg)
+    try:                                   # 발송 결과를 파일로 남긴다(로그 못 볼 때 진단용)
+        json.dump({"at": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
+                   "len": len(msg), **getattr(telegram_send, "LAST", {})},
+                  open("digest_debug.json", "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception:
+        pass
+    if not ok:
         sys.exit(1)
     if "--once" in sys.argv:
         json.dump({"date": today}, open(SENT_PATH, "w", encoding="utf-8"))

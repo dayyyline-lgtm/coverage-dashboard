@@ -62,8 +62,14 @@ def send(text, chat_id=None, parse_mode="HTML", silent=False):
         print("[telegram] 재시도(평문)")
         res = _post(None)
     ok = bool(res.get("ok"))
+    global LAST
+    LAST = {"ok": ok, "has_token": bool(BOT_TOKEN), "has_chat": bool(CHAT_ID),
+            "detail": str(res)[:260]}
     print("[telegram] 전송", "성공" if ok else f"실패 {str(res)[:150]}")
     return ok
+
+
+LAST = {}       # 마지막 send 결과(진단용) — 호출자가 파일로 남길 수 있게 노출
 
 
 def get_chat_id():

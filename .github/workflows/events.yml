@@ -113,13 +113,13 @@ jobs:
 
       # 발송 기록을 남겨야 '오늘 이미 보냈는지'가 다음 실행까지 이어진다.
       # 이게 없으면 워커와 깃허브 cron 이 둘 다 뜨는 날 레터가 두 번 나간다.
-      - name: 발송 기록 커밋
+      - name: 발송 기록/디버그 커밋
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet -- digest_sent.json 2>/dev/null; then
-            git add digest_sent.json
-            git commit -m "데일리 레터 발송기록 $(TZ=Asia/Seoul date +'%Y-%m-%d KST')"
+          git add digest_sent.json digest_debug.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "데일리 레터 발송기록/디버그 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
             git pull --rebase
             git push
           fi
