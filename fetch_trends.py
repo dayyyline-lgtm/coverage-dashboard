@@ -462,6 +462,93 @@ def load_existing():
         return None
 
 
+def collect_alt(gname, spec, freq, n, prev_alt, have):
+    """롱텀·숏텀 동시 보기용 — 그룹을 '반대 빈도'로 한 번 더 수집해 alt(완전한 그룹)로 돌려준다.
+       메인 루프의 세 분기(얀덱스/국가별/일반)를 그대로 옮긴 간이판. 실패하면 None(기존 alt 보존)."""
+    FREQ_KO = {"date": "일별", "week": "주별", "month": "월별"}
+    tag = f"  ↳ alt {FREQ_KO.get(freq, freq)}"
+    # ── 얀덱스 ──
+    if "yandex" in spec:
+        kws = spec["yandex"]; labs = spec.get("labels", kws)
+        g = {"products": labs, "productsGoogle": labs, "freq": freq, "geo": "RU",
+             "months": [], "only": "google", "srcOf": ["얀덱스"] * len(kws)}
+        try:
+            g["google"], g["months"], peak = fetch_yandex_group(kws, freq=freq, n=n)
+            g["naver"] = g["google"]; g["peak"] = peak; have["google"] = True
+            print(f"{tag} 얀덱스 OK"); return g
+        except Exception as e:
+            print(f"{tag} 얀덱스 실패:", str(e)[:80]); return None
+    # ── 국가별 ──
+    if "geos" in spec:
+        labs = [x["label"] for x in spec["geos"]]
+        g = {"products": labs, "productsGoogle": labs, "freq": freq, "geo": "multi",
+             "multi": True, "months": [], "only": "google",
+             "srcOf": [{"yandex": "얀덱스", "naver": "네이버"}.get(x.get("src"), "구글")
+                       for x in spec["geos"]]}
+        try:
+            g["google"], g["months"] = fetch_google_geos(spec["geos"], freq=freq, n=n)
+            keep = [i for i, s in enumerate(g["google"]) if any(v > 0 for v in s)]
+            if keep and len(keep) < len(g["google"]):
+                g["google"] = [g["google"][i] for i in keep]
+                labs = [labs[i] for i in keep]
+                g["products"] = g["productsGoogle"] = labs
+                g["srcOf"] = [g["srcOf"][i] for i in keep]
+            g["naver"] = g["google"]; have["google"] = True
+            print(f"{tag} 국가별 OK"); return g
+        except Exception as e:
+            print(f"{tag} 국가별 실패:", str(e)[:80]); return None
+    # ── 일반(네이버/구글) ──
+    kws_nv = spec.get("naver") or spec.get("google")
+    kws_gg = spec.get("google") or spec.get("naver")
+    spec_only = ("naver" if "google" not in spec
+                 else "google" if "naver" not in spec else None)
+    g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
+    geo = spec.get("geo", GOOGLE_GEO); g["geo"] = geo; gg_labels = None
+    try:
+        if "google" in spec:
+            g["google"], gg_labels = fetch_google(kws_gg, geo=geo, freq=freq, n=n)
+            have["google"] = True
+        else:
+            g["google"] = None
+    except Exception as e:
+        print(f"{tag} 구글 실패:", str(e)[:60]); g["google"] = None
+    try:
+        nv, lb = fetch_naver(kws_nv, freq=freq, n=n) if "naver" in spec else (None, None)
+        if nv:
+            g["naver"] = nv
+            if lb: g["months"] = lb
+            have["naver"] = True
+        else:
+            g["naver"] = None
+    except Exception as e:
+        print(f"{tag} 네이버 실패:", str(e)[:60]); g["naver"] = None
+    if not g["months"] and gg_labels:
+        g["months"] = gg_labels
+    old = prev_alt or {}
+    if not g["google"] and old.get("google") and old.get("productsGoogle") == kws_gg \
+            and old.get("freq") == freq:
+        g["google"] = old["google"]
+        if not g["months"]: g["months"] = old.get("months", [])
+    if not g["naver"] and old.get("naver") and old.get("products") == kws_nv \
+            and old.get("freq") == freq:
+        g["naver"] = old["naver"]
+    if not g["google"] and not g["naver"]:
+        return None
+    if not g["google"]:
+        g["google"] = g["naver"]; g["productsGoogle"] = kws_nv; g["only"] = "naver"
+    elif not g["naver"]:
+        g["naver"] = g["google"]; g["only"] = "google"
+    if spec_only:
+        g["only"] = spec_only
+        if spec_only == "naver": g["productsGoogle"] = kws_nv
+    L = min([len(g["months"] or [999])] +
+            [len(s) for s in g["naver"]] + [len(s) for s in g["google"]])
+    g["months"] = (g["months"] or [])[-L:]
+    g["naver"] = [s[-L:] for s in g["naver"]]
+    g["google"] = [s[-L:] for s in g["google"]]
+    print(f"{tag} OK"); return g
+
+
 def main():
     groups_out = {}
     labels = month_labels(12)
@@ -625,6 +712,30 @@ def main():
 
         groups_out[gname] = g
         time.sleep(6)      # 그룹 간 간격 — 구글 rate limit 완화
+
+    # ── 2차 패스: 롱텀·숏텀 동시 보기 — 각 그룹을 반대 빈도로 한 번 더 수집해 alt 로 붙인다.
+    #    (일별↔주별. 월별 그룹은 대상 아님) 실패하면 기존 alt 를 보존한다.
+    print("\n=== 반대 빈도(alt) 수집 — 롱텀/숏텀 토글용 ===")
+    for gname, spec in GROUPS.items():
+        g = groups_out.get(gname)
+        if not g:
+            continue
+        pf = g.get("freq")
+        if pf not in ("date", "week"):
+            continue
+        af = "week" if pf == "date" else "date"
+        an = spec.get("n_" + af, {"date": 30, "week": 52}[af])
+        prev_alt = (prev_groups.get(gname) or {}).get("alt")
+        try:
+            alt = collect_alt(gname, spec, af, an, prev_alt, have)
+        except Exception as e:
+            print(f"  [{gname}] alt 실패:", str(e)[:80]); alt = None
+        if alt is None:
+            alt = prev_alt          # 실패 시 지난 alt 유지
+        if alt:
+            alt.pop("alt", None)
+            g["alt"] = alt
+        time.sleep(6)
 
     if not groups_out:
         print("\n수집된 그룹이 없습니다. index.html 은 그대로 둡니다.")
