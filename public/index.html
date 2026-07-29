@@ -668,7 +668,10 @@ const DART_EVENTS = [{"co": "LG생활건강", "code": "051900", "date": "2026-06
 /* ==== helpers ==== */
 const R = DATA.records;
 const SECTORS = ["소비재","엔터","게임","호텔"];
-const SECTOR_COLORS = {"소비재":"#c4a7e7","엔터":"#eb6f92","게임":"#9ccfd8","호텔":"#f6c177"};
+/* 섹터·카테고리 색은 다크/라이트 양쪽 배경에서 다 읽히도록 '중간 톤'으로 잡는다.
+   (예전 로제파인 파스텔은 라이트 크림 배경에서 흐릿했다. 밴드 텍스트가 로드 시 1회
+   렌더라 테마 토글로 안 바뀌므로, 테마 무관하게 대비가 나오는 톤이어야 한다.) */
+const SECTOR_COLORS = {"소비재":"#9370c6","엔터":"#c85b86","게임":"#3e8fb0","호텔":"#bd872c"};
 
 /* 카테고리 = 소분류가 여럿인 대섹터(소비재)는 소분류로 쪼개고, 나머지는 대섹터 그대로.
    뉴스·리포트 필터, 스캐터 색 구분에 공용으로 쓴다. */
@@ -681,9 +684,9 @@ SECTORS.forEach(sec=>{ const subs=[..._subsBySec[sec]];
   if(subs.length>1) subs.forEach(s=>CATS.push(s)); else CATS.push(sec); });
 /* 대섹터에 소섹터가 하나뿐이면 카테고리 = 대섹터명("엔터"), 여럿이면 소섹터명("기획"·"IP").
    지금 엔터는 기획 하나라 "엔터"가 쓰이지만, 소섹터를 늘리면 즉시 갈리므로 양쪽 다 넣어둔다. */
-const CAT_COLORS={"화장품":"#c4a7e7","유통":"#9ccfd8","미용":"#ebbcba","음식료":"#f6c177",
-  "엔터":"#eb6f92","기획":"#eb6f92","IP":"#c76b98","게임":"#3e8fb0","호텔":"#a6da95",
-  "레져":"#a6da95"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
+const CAT_COLORS={"화장품":"#9370c6","유통":"#3f93a8","미용":"#c56f83","음식료":"#bd872c",
+  "엔터":"#c85b86","기획":"#c85b86","IP":"#b0507e","게임":"#3e8fb0","호텔":"#5f9e4a",
+  "레져":"#5f9e4a"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
 const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#908caa";
 const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
@@ -960,7 +963,7 @@ themeBtn.addEventListener("click",()=>{
      종합   = 코스피 · 코스닥 · 소비재(커버리지 7개 업종 합산)
      업종별 = 7개 업종 + 코스피(점선, 비교 기준) */
 let secView="port", secDays=22;
-const SEC_LINE_COLORS={"코스피":"#e0def4","코스닥":"#908caa","소비재":"#c4a7e7","탑픽":"#f6c177"};
+const SEC_LINE_COLORS={"코스피":"#6f6b87","코스닥":"#928da8","소비재":"#9370c6","탑픽":"#bd872c"};
 function secColor(k){ return SEC_LINE_COLORS[k] || catColor(CAT_COLORS[k]?k:k); }
 function drawSectorTrend(){
   const box=document.getElementById("secTrendChart"); if(!box) return;
