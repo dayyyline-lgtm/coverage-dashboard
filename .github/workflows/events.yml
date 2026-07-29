@@ -67,7 +67,29 @@ jobs:
       - name: 써클차트 앨범판매 수집
         run: python fetch_circle.py || echo "써클 수집 건너뜀"
 
-      # 수출입(관세청)은 발표 시점이 고정(월 단위)이라 데일리에서 뺐다 → trade.yml(매월 5·20일)이 전담.
+      # 트렌드(검색량) — 구글은 429 때문에 trends.yml 이 주 1회만 전체수집.
+      # 국내 검색(네이버 데이터랩)은 429 걱정이 없어 매일 신선하게 갱신한다.
+      # --naver-only 는 구글·얀덱스·국가별·롱텀(alt)은 기존값 그대로 두고 네이버 계열만 새로 받는다.
+      - name: 트렌드 네이버 일간 갱신
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python fetch_trends.py --naver-only || echo "네이버 트렌드 갱신 건너뜀"
+
+      # 수출입(관세청) — 발표일(전월 확정 ~15일, 잠정 10일단위)이 매월 조금씩 달라
+      # 고정일(5·20일) 수집은 며칠 늦는다. 워커가 매일 트리거하는 여기서 10~26일에 매일
+      # 확인하고, fetch_trade 가 '새 월/현행화가 있을 때만' 파일을 바꾸므로(그 외엔 skip)
+      # 실제 갱신되는 날 바로 반영된다. 발송은 trade_sent.json 으로 월 1회.
+      - name: 월간 수출 갱신 (10~26일)
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          d=$(TZ=Asia/Seoul date +%d)
+          if [ "$d" -ge 10 ] && [ "$d" -le 26 ] && [ -n "$DATA_GO_KR_KEY" ]; then
+            python fetch_trade.py || echo "수출 수집 실패(계속)"
+          else
+            echo "수출 확인 구간 아님 - 생략"
+          fi
 
       - name: 변경분 커밋
         run: |
@@ -82,7 +104,7 @@ jobs:
             git push
           fi
 
-      # 수집 직후 데일리 레터 발송(한 번에). 월간 수출 레터는 trade.yml(5·20일)이 별도 담당.
+      # 수집 직후 데일리 레터 발송(한 번에). 월간 수출 레터는 아래 별도 스텝(10~26일 매일 확인).
       - name: 데일리 레터 발송
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -100,4 +122,21 @@ jobs:
             git commit -m "데일리 레터 발송기록 $(TZ=Asia/Seoul date +'%Y-%m-%d KST')"
             git pull --rebase
             git push
+          fi
+
+      # 월간 수출 레터 — 새 월이 잡힌 날 딱 1번(trade_sent.json). 10~26일에만 확인.
+      - name: 월간 수출 레터 (10~26일)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          d=$(TZ=Asia/Seoul date +%d)
+          if [ "$d" -ge 10 ] && [ "$d" -le 26 ]; then
+            python trade_digest.py || echo "수출 레터 건너뜀"
+            if ! git diff --quiet -- trade_sent.json 2>/dev/null; then
+              git add trade_sent.json
+              git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
+              git pull --rebase
+              git push
+            fi
           fi

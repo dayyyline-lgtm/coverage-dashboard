@@ -555,6 +555,8 @@ def main():
     have = {"naver": False, "google": False}
     prev = load_existing()
     prev_groups = (prev or {}).get("groups", {})
+    # 네이버만 갱신 모드 — 구글·얀덱스·국가별은 기존값 보존(429 없이 매일 돌려 국내 검색을 신선하게).
+    NAVER_ONLY = "--naver-only" in sys.argv
 
     FREQ_KO = {"date": "일별", "week": "주별", "month": "월별"}
     for gname, spec in GROUPS.items():
@@ -563,6 +565,9 @@ def main():
 
         # ── 얀덱스 비교 그룹 (러시아, 절대 검색수라 크기 비교 가능) ──────
         if "yandex" in spec:
+            if NAVER_ONLY:                       # 얀덱스는 건드리지 않고 기존값 유지
+                if prev_groups.get(gname): groups_out[gname] = prev_groups[gname]
+                continue
             kws = spec["yandex"]; labs = spec.get("labels", kws)
             print(f"\n[{gname}]  얀덱스{kws}  ({FREQ_KO[freq]} {n})")
             g = {"products": labs, "productsGoogle": labs, "freq": freq,
@@ -589,6 +594,9 @@ def main():
 
         # ── 국가별 그룹 (구글만, 나라마다 현지명+현지 geo) ──────────────
         if "geos" in spec:
+            if NAVER_ONLY:                       # 국가별(구글/얀덱스)은 기존값 유지
+                if prev_groups.get(gname): groups_out[gname] = prev_groups[gname]
+                continue
             labs = [x["label"] for x in spec["geos"]]
             print(f"\n[{gname}]  국가별 {[x['geo'] for x in spec['geos']]}  ({FREQ_KO[freq]} {n})")
             g = {"products": labs, "productsGoogle": labs, "freq": freq,
@@ -647,7 +655,8 @@ def main():
         try:
             # google 키가 없는 국내 전용 그룹은 구글을 조회하지 않는다.
             # 국내 브랜드를 영문·전세계로 조회하면 무관한 검색이 섞여 잡음만 남는다.
-            if "google" in spec:
+            # NAVER_ONLY 면 구글은 건드리지 않고(아래 '기존 값 유지'가 복원) 네이버만 새로 받는다.
+            if "google" in spec and not NAVER_ONLY:
                 g["google"], gg_labels = fetch_google(kws_gg, geo=geo, freq=freq, n=n)
                 print(f"  구글 트렌드 OK (geo={geo or '전세계'})")
                 have["google"] = True
@@ -710,13 +719,16 @@ def main():
         g["naver"] = [s[-L:] for s in g["naver"]]
         g["google"] = [s[-L:] for s in g["google"]]
 
+        if NAVER_ONLY and prev_groups.get(gname, {}).get("alt"):
+            g["alt"] = prev_groups[gname]["alt"]     # alt(반대 빈도)는 주간 전체수집에 맡기고 보존
         groups_out[gname] = g
-        time.sleep(6)      # 그룹 간 간격 — 구글 rate limit 완화
+        if not NAVER_ONLY:
+            time.sleep(6)      # 그룹 간 간격 — 구글 rate limit 완화
 
     # ── 2차 패스: 롱텀·숏텀 동시 보기 — 각 그룹을 반대 빈도로 한 번 더 수집해 alt 로 붙인다.
     #    (일별↔주별. 월별 그룹은 대상 아님) 실패하면 기존 alt 를 보존한다.
-    print("\n=== 반대 빈도(alt) 수집 — 롱텀/숏텀 토글용 ===")
-    for gname, spec in GROUPS.items():
+    #    NAVER_ONLY(빠른 일간 갱신)에선 alt(구글 포함)를 건드리지 않는다 — 주간 전체수집에 맡김.
+    for gname, spec in ([] if NAVER_ONLY else GROUPS.items()):
         g = groups_out.get(gname)
         if not g:
             continue

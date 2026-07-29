@@ -154,6 +154,16 @@ def main():
     if not DATA_GO_KR_KEY:
         print("DATA_GO_KR_KEY 가 없습니다."); sys.exit(1)
 
+    # 직전 TRADE(변동 비교용) — 매일 돌려도 새 월/현행화가 없으면 파일을 안 건드리게.
+    html0 = open(HTML_PATH, encoding="utf-8").read()
+    old_trade = None
+    _m = re.search(r"const TRADE = (\{.*?\});", html0, re.S)
+    if _m:
+        try:
+            old_trade = json.loads(_m.group(1))
+        except json.JSONDecodeError:
+            old_trade = None
+
     months = yymm_range(MONTHS)
     prefixes = sorted({i["hs"][:4] if len(i["hs"]) > 4 else i["hs"] for i in ITEMS})
     print(f"조회 {months[0]} ~ {months[-1]} · HS {prefixes}")
@@ -231,6 +241,14 @@ def main():
         out["items"].append({"hs": ri["hs"], "label": ri["label"], "note": ri["note"],
                              "region": True,
                              "byCountry": [{"code": "", "name": ri["sgg"], "exp": exp}]})
+
+    # 값(월·품목) 변동이 없으면 asOf 만 바뀌므로 파일을 안 건드린다 —
+    # 매일 돌려도 새 월이 뜨거나 기존 월이 현행화될 때만 커밋/배포된다.
+    if old_trade and {k: v for k, v in old_trade.items() if k != "asOf"} == \
+                     {k: v for k, v in out.items() if k != "asOf"}:
+        newest = max((m for it in out["items"] for c in it.get("byCountry", [])
+                      for m, v in zip(out["months"], c.get("exp") or []) if v is not None), default="?")
+        print(f"[SKIP] 수출 변동 없음(최신월 {newest}) — index.html 그대로 둠"); return
 
     block = "const TRADE = " + json.dumps(out, ensure_ascii=False) + ";"
     html = open(HTML_PATH, encoding="utf-8").read()
