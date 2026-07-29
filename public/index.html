@@ -7,20 +7,20 @@
 <style>
   /* Rose Pine (main) — https://github.com/rose-pine/rose-pine-theme */
   :root{
-    --bg:#191724; --panel:#1f1d2e; --panel2:#26233a; --line:#403d52;
-    --text:#e0def4; --muted:#908caa; --muted2:#6e6a86;
+    --bg:#16141f; --panel:#232032; --panel2:#2c2942; --line:#4a4664;
+    --text:#e0def4; --muted:#a29ec0; --muted2:#6e6a86;
     --accent:#c4a7e7; --accent2:#f6c177; --onacc:#191724;
-    --up:#eb6f92; --down:#9ccfd8; --flat:#6e6a86;
+    --up:#f0637f; --down:#6cbfe6; --flat:#6e6a86;
     --good:#3e8fb0; --warn:#f6c177;
     --chip:#21202e;
     --shadow:0 6px 24px rgba(0,0,0,.40);
   }
   /* Rose Pine Dawn — 표가 조밀해서 보조색은 원본보다 한 단계 어둡게(대비 4.5:1) */
   :root[data-theme="light"]{
-    --bg:#faf4ed; --panel:#fffaf3; --panel2:#f2e9e1; --line:#dfdad9;
+    --bg:#f6efe6; --panel:#fffaf3; --panel2:#f0e6da; --line:#d0c8c2;
     --text:#575279; --muted:#6f6b87; --muted2:#767083;
     --accent:#775f93; --accent2:#c07d1c; --onacc:#fffaf3;
-    --up:#a5566d; --down:#22596f; --flat:#767083;
+    --up:#bb3b56; --down:#1e6285; --flat:#767083;
     --chip:#f2e9e1; --shadow:0 6px 20px rgba(87,82,121,.10);
   }
   *{box-sizing:border-box}
@@ -455,6 +455,10 @@
     <div class="ov-grid" id="ovPanels"></div>
     <div class="sub-h">섹터별 Top Pick</div>
     <div class="cards" id="pickCards"></div>
+    <div class="sub-h">커버리지 유니버스 히트맵</div>
+    <p class="sec-desc" style="margin-top:-2px">타일 크기 = 시가총액 · 색 = 당일 등락률(<b style="color:var(--up)">빨강 강세</b> · <b style="color:var(--down)">파랑 약세</b>) · 라벨에 점수. 누르면 상세.</p>
+    <div id="heatmapBox" class="heatmap"></div>
+    <p class="note" id="heatNote"></p>
   </section>
 
   <!-- 커버리지 실적 요약 -->
@@ -477,14 +481,6 @@
     <div class="sub-h">밸류에이션 상세 (배수 · 실적추정) — 카테고리별</div>
     <div id="valGroups"></div>
     <p class="note">26E = 컨센(API), 27E = 컨센(엑셀) · 단위 매출·영업익·순익 억 원. 맨 오른쪽 <b>⇄</b> 로 낙폭↔52주위치↔반등 전환.</p>
-  </section>
-
-  <!-- 히트맵 -->
-  <section class="view" data-view="heatmap">
-    <h2 class="sec">커버리지 유니버스 히트맵</h2>
-    <p class="sec-desc">커버리지 33종목 전체를 시총 크기·섹터별로. 색 = 당일 등락률(한국 관행: <b style="color:var(--up)">빨강 강세</b> · <b style="color:var(--down)">파랑 약세</b>), 타일 라벨에 점수 표기. 타일을 누르면 상세.</p>
-    <div id="heatmapBox" class="heatmap"></div>
-    <p class="note" id="heatNote"></p>
   </section>
 
   <!-- 실적 프리뷰 -->
@@ -802,7 +798,7 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 
 /* ==== tabs / routing ==== */
 const TABS = [
-  ["overview","개요"],["coverage","커버리지 요약"],["heatmap","히트맵"],["valuation","밸류에이션"],
+  ["overview","개요"],["coverage","커버리지 요약"],["valuation","밸류에이션"],
   ["preview","실적 프리뷰"],["calendar","이벤트 캘린더"],["news","뉴스"],["reports","리서치 리포트"],
   ["trends","트렌드 비교"],["boxoffice","극장 흥행"],["altdata","수출 데이터"]
 ];
@@ -813,8 +809,8 @@ tabsEl.addEventListener("click",e=>{
   const k=b.dataset.k;
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
+  if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
-  if(k==="heatmap") renderHeatmap();
   if(k==="trends"){ drawTrend(); setTrendFoot(); renderTrendHighlights(); }
   if(k==="boxoffice") renderMovie();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -823,10 +819,10 @@ tabsEl.addEventListener("click",e=>{
 /* ==== 커버리지 유니버스 히트맵 — 시총 트리맵, 색=당일 등락률, 라벨=등락률·점수 ==== */
 /* 색은 단계형(bin)으로 나눠 구분이 뚜렷하게. 근중립은 회색, 이후 강도 4단계. 한국 관행 빨강=강세. */
 function heatBg(v){
-  if(v==null) return "color-mix(in srgb, var(--muted) 10%, var(--panel))";
+  if(v==null) return "color-mix(in srgb, var(--muted) 12%, var(--panel))";
   const av=Math.abs(v);
-  if(av<0.5) return "color-mix(in srgb, var(--muted) 16%, var(--panel))";   // 보합 회색
-  const pct = av<1.5?42 : av<3?62 : av<6?80 : 94;
+  if(av<0.4) return "color-mix(in srgb, var(--muted) 22%, var(--panel))";    // 보합 회색
+  const pct = av<1.5?56 : av<3?74 : av<6?90 : 100;                           // 바닥 높여 탁하지 않게
   return `color-mix(in srgb, var(${v>=0?'--up':'--down'}) ${pct}%, var(--panel))`;
 }
 function heatTx(v){ return (v!=null && Math.abs(v)>=1.5) ? "#fff" : "var(--text)"; }
@@ -1105,9 +1101,9 @@ document.getElementById("secPeriodSeg").addEventListener("click",e=>{
   document.querySelectorAll("#secPeriodSeg button").forEach(x=>x.classList.toggle("active",x===b));
   drawSectorTrend();
 });
-drawSectorTrend();
+drawSectorTrend();   // renderHeatmap 은 attr 정의 이후(하단)에서 최초 호출
 window.addEventListener("resize",()=>{
-  if(document.querySelector('section[data-view="overview"]').classList.contains("active")) drawSectorTrend();
+  if(document.querySelector('section[data-view="overview"]').classList.contains("active")){ drawSectorTrend(); renderHeatmap(); }
 });
 
 /* ==== sortable table factory ==== */
@@ -1159,6 +1155,7 @@ const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 const _asOf=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
 const _ago=d=>{const t=new Date(_asOf); t.setDate(t.getDate()-d); return t.toISOString().slice(0,10);};
 const attr=s=>String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+renderHeatmap();   // 개요 히트맵 최초 렌더(attr 정의 이후라야 안전)
 
 /* 리포트·뉴스 셀 링크 — 오늘 안에 기준에 맞는 게 없으면 창을 단계적으로 넓힌다.
    오늘 → 3일 → 1주일 → 1개월. 그래도 없으면 링크하지 않는다(—).
@@ -1405,7 +1402,6 @@ function drawScatter(){
 }
 window.addEventListener("resize",()=>{
   if(document.querySelector('section[data-view="valuation"]').classList.contains("active")) drawScatter();
-  if(document.querySelector('section[data-view="heatmap"]').classList.contains("active")) renderHeatmap();
 });
 
 /* ==== Calendar — month grid ====
