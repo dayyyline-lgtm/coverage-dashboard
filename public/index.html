@@ -2404,7 +2404,8 @@ function renderBooking(){
         +`</tbody></table></div>`;
     }
   });
-  h+=`<p class="note">KOBIS 실시간 예매 · 하루 1회(10시 KST) 적립 — 개봉 전 유일한 실시간 지표입니다.
+  h+=`<p class="note">KOBIS 실시간 예매 · <b>매시간 갱신</b>(기준 ${(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"—"}) — 개봉 전 유일한 실시간 지표입니다.
+      실시간 예매수·누적관객은 하루 종일 변하므로 위 값은 그 시각의 스냅샷입니다.
       1편 기준선: 개봉 4일 전 시사회 누적 30,553명 → 개봉일 107,156명 → 최종 1,212,652명.</p>`;
   el.innerHTML=h;
 }

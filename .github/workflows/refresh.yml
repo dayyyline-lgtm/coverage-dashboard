@@ -50,6 +50,13 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python fetch_prelim.py || echo "잠정실적 수집 건너뜀"
 
+      # 영화 예매·박스오피스 — KOBIS 실시간 예매값은 하루 종일 바뀌므로 매시간 갱신
+      # (값 변동 없으면 파일 안 건드림). 개봉 전 하츄핑2 예매수·누적관객이 이걸로 신선해진다.
+      - name: 영화 예매·박스오피스 수집
+        env:
+          KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
+        run: python fetch_movie.py || echo "영화 수집 건너뜀"
+
       # 치지직 게임 시청자(키 불필요). 매시간 돌아 그날 최댓값(저녁 피크)을 잡는다.
       - name: 치지직 게임 시청자
         run: python fetch_chzzk.py || echo "치지직 수집 건너뜀"

@@ -220,11 +220,16 @@ def main():
     if not movies:
         print(f"{len(todo)}일 훑음 · 대상 영화 없음 (미개봉이거나 Top10 밖)")
 
-    out = {"asOf": today.strftime("%Y-%m-%d"),
+    out = {"asOf": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M"),
            "movies": movies, "booking": booking,
            # 자르면 잘린 날짜를 다음 실행이 또 훑어 백필이 끝나지 않는다.
            # 구간이 유한(WINDOWS)이라 무한정 커지지 않으므로 전부 남긴다.
            "scanned": sorted(scanned)}
+    # 값(영화·예매·스캔) 변동이 없으면 asOf(시각)만 바뀌므로 파일을 건드리지 않는다
+    # — 매시간 돌아도 불필요한 커밋/배포가 쌓이지 않게.
+    if (old.get("movies") == movies and old.get("booking") == booking
+            and sorted(old.get("scanned") or []) == sorted(scanned) and old.get("asOf")):
+        print("변동 없음 — index.html 그대로 둠"); return
     block = "const MOVIE = " + json.dumps(out, ensure_ascii=False) + ";\n"
     if m:
         html = html[:m.start()] + block + html[m.end():]
