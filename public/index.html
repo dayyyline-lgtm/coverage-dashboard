@@ -273,6 +273,7 @@
   .ht-nm2{font-size:11.5px;font-weight:700;line-height:1.1;text-align:center;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .ht-v2{font-size:11px;font-weight:800;line-height:1.1}
+  .ht-sc{font-size:9.5px;font-weight:700;opacity:.8;margin-top:1px;line-height:1.1}
   .val-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0 6px}
   .val-grid .vg{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
   .val-grid .vg .l{font-size:11px;color:var(--muted)}
@@ -481,12 +482,7 @@
   <!-- 히트맵 -->
   <section class="view" data-view="heatmap">
     <h2 class="sec">커버리지 유니버스 히트맵</h2>
-    <p class="sec-desc">커버리지 33종목 전체를 세부 섹터별로. 색 = 선택 지표(한국 관행: <b style="color:var(--up)">빨강 강세</b> · <b style="color:var(--down)">파랑 약세</b>). 타일을 누르면 상세.</p>
-    <div class="ctl-row" style="margin-bottom:4px"><span class="ctl-label">지표</span><div class="seg" id="heatSeg">
-      <button data-m="chgPct" class="active">등락률</button>
-      <button data-m="upsideOwn">당사 상승여력</button>
-      <button data-m="score">투자매력도</button>
-    </div></div>
+    <p class="sec-desc">커버리지 33종목 전체를 시총 크기·섹터별로. 색 = 당일 등락률(한국 관행: <b style="color:var(--up)">빨강 강세</b> · <b style="color:var(--down)">파랑 약세</b>), 타일 라벨에 점수 표기. 타일을 누르면 상세.</p>
     <div id="heatmapBox" class="heatmap"></div>
     <p class="note" id="heatNote"></p>
   </section>
@@ -824,27 +820,16 @@ tabsEl.addEventListener("click",e=>{
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
-/* ==== 커버리지 유니버스 히트맵 — 세부 섹터별 타일, 색=선택 지표 ==== */
-let heatMetric="chgPct";
-const HEAT_METRICS=[
-  {k:"chgPct",   label:"등락률",       fmt:v=>sign(v,2)+"%", cap:8,  diverge:true},
-  {k:"upsideOwn",label:"당사 상승여력", fmt:v=>sign(v,0)+"%", cap:60, diverge:true},
-  {k:"score",    label:"투자매력도",   fmt:v=>v.toFixed(1),  cap:2,  mid:6.5, diverge:false},
-];
-function heatColor(m,v){
-  if(v==null) return "var(--panel)";
-  if(m.diverge){
-    const t=Math.min(1,Math.abs(v)/m.cap), pct=(8+t*80).toFixed(0);
-    return `color-mix(in srgb, var(${v>=0?'--up':'--down'}) ${pct}%, var(--panel))`;
-  }
-  const t=Math.min(1,Math.abs(v-m.mid)/m.cap), pct=(8+t*80).toFixed(0);
-  return `color-mix(in srgb, var(${v>=m.mid?'--accent':'--muted'}) ${pct}%, var(--panel))`;
+/* ==== 커버리지 유니버스 히트맵 — 시총 트리맵, 색=당일 등락률, 라벨=등락률·점수 ==== */
+/* 색은 단계형(bin)으로 나눠 구분이 뚜렷하게. 근중립은 회색, 이후 강도 4단계. 한국 관행 빨강=강세. */
+function heatBg(v){
+  if(v==null) return "color-mix(in srgb, var(--muted) 10%, var(--panel))";
+  const av=Math.abs(v);
+  if(av<0.5) return "color-mix(in srgb, var(--muted) 16%, var(--panel))";   // 보합 회색
+  const pct = av<1.5?42 : av<3?62 : av<6?80 : 94;
+  return `color-mix(in srgb, var(${v>=0?'--up':'--down'}) ${pct}%, var(--panel))`;
 }
-function heatText(m,v){
-  if(v==null) return "var(--muted)";
-  const t=m.diverge?Math.min(1,Math.abs(v)/m.cap):Math.min(1,Math.abs(v-m.mid)/m.cap);
-  return t>0.5?"#fff":"var(--text)";
-}
+function heatTx(v){ return (v!=null && Math.abs(v)>=1.5) ? "#fff" : "var(--text)"; }
 /* 스쿼리파이 트리맵 — items[{value,...}] 를 (X,Y,W,H) 에 채워 {..,x,y,w,h} 반환 */
 function squarify(items, X, Y, W, H){
   items=items.map(d=>({...d})).filter(d=>d.value>0).sort((a,b)=>b.value-a.value);
@@ -867,12 +852,11 @@ function squarify(items, X, Y, W, H){
 const fmtMc=eok=> eok>=10000? (eok/10000).toFixed(1)+"조" : Math.round(eok).toLocaleString()+"억";
 function renderHeatmap(){
   const host=document.getElementById("heatmapBox"); if(!host) return;
-  const m=HEAT_METRICS.find(x=>x.k===heatMetric)||HEAT_METRICS[0];
   const stk=n=>LIVE.stocks[n]||{};
   const order=[]; R.forEach(r=>{ if(!order.includes(r.sub)) order.push(r.sub); });
   const sectors=order.map(sec=>{
     const rows=R.filter(r=>r.sub===sec)
-      .map(r=>({name:r.name, value:(stk(r.name).mktcapEok||0), mv:r[m.k]}))
+      .map(r=>({name:r.name, value:(stk(r.name).mktcapEok||0), chg:stk(r.name).chgPct, score:r.score}))
       .filter(d=>d.value>0);
     return {sec, rows, value:rows.reduce((s,d)=>s+d.value,0)};
   }).filter(s=>s.value>0 && s.rows.length);
@@ -885,25 +869,18 @@ function renderHeatmap(){
        <div class="ht-seclabel">${sr.sec}</div></div>`;
     const ix=sr.x+GAP, iy=sr.y+HEAD, iw=Math.max(1,sr.w-GAP*2), ih=Math.max(1,sr.h-HEAD-GAP);
     squarify(sr.rows,ix,iy,iw,ih).forEach(t=>{
-      const big=t.w>50&&t.h>28, mid=t.w>34&&t.h>18;
-      html+=`<div class="ht-tile2" data-stock="${attr(t.name)}" title="${t.name} · ${m.label} ${t.mv==null?'—':m.fmt(t.mv)} · 시총 ${fmtMc(t.value)}"
-        style="left:${t.x}px;top:${t.y}px;width:${Math.max(0,t.w-1)}px;height:${Math.max(0,t.h-1)}px;background:${heatColor(m,t.mv)};color:${heatText(m,t.mv)}">
-        ${big?`<span class="ht-nm2">${t.name}</span><span class="ht-v2">${t.mv==null?'—':m.fmt(t.mv)}</span>`
-          :mid?`<span class="ht-v2" style="font-size:10px">${t.mv==null?'—':m.fmt(t.mv)}</span>`:''}</div>`;
+      const big=t.w>52&&t.h>40, mid=t.w>40&&t.h>22;
+      const cg=t.chg==null?"—":sign(t.chg,2)+"%";
+      html+=`<div class="ht-tile2" data-stock="${attr(t.name)}" title="${t.name} · 등락 ${cg} · 점수 ${t.score!=null?fmt(t.score,1):'—'} · 시총 ${fmtMc(t.value)}"
+        style="left:${t.x}px;top:${t.y}px;width:${Math.max(0,t.w-1)}px;height:${Math.max(0,t.h-1)}px;background:${heatBg(t.chg)};color:${heatTx(t.chg)}">
+        ${big?`<span class="ht-nm2">${t.name}</span><span class="ht-v2">${cg}</span>${t.score!=null?`<span class="ht-sc">점수 ${fmt(t.score,1)}</span>`:''}`
+          :mid?`<span class="ht-v2" style="font-size:10px">${cg}</span>`:''}</div>`;
     });
   });
   host.innerHTML=html;
   const note=document.getElementById("heatNote");
-  if(note) note.textContent=`타일 크기 = 시가총액 · 색 = ${m.label}(`
-    +(m.diverge?`빨강 강세·파랑 약세, ±${m.cap}${m.k==='score'?'':'%'} 최대`:`강조색=매력도 높음`)
-    +`) · 라이브 ${(LIVE||{}).asOf||''} 기준.`;
+  if(note) note.textContent=`타일 크기 = 시가총액 · 색 = 당일 등락률(빨강 강세·파랑 약세, 보합 회색) · 라벨 = 등락률·점수 · 라이브 ${(LIVE||{}).asOf||''} 기준.`;
 }
-document.getElementById("heatSeg").addEventListener("click",e=>{
-  const b=e.target.closest("button"); if(!b) return;
-  heatMetric=b.dataset.m;
-  document.querySelectorAll("#heatSeg button").forEach(x=>x.classList.toggle("active",x===b));
-  renderHeatmap();
-});
 
 /* ==== theme ==== */
 const themeBtn=document.getElementById("themeBtn");
