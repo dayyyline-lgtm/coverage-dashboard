@@ -456,7 +456,7 @@ def load_existing():
     """index.html 에 이미 들어있는 TREND 를 읽어온다 (실패한 출처의 값을 보존하기 위함)"""
     try:
         html = open(HTML_PATH, encoding="utf-8").read()
-        m = re.search(r"const TREND=(\{.*?\});", html, re.S)
+        m = re.search(r"const TREND\s*=\s*(\{.*?\});", html, re.S)
         return json.loads(m.group(1)) if m else None
     except Exception:
         return None
@@ -762,9 +762,9 @@ def main():
         # 이전 값이 없으니 지금을 기준으로 적는다. 다음부터는 값이 바뀔 때만 갱신된다.
         print("\n[INFO] 값은 그대로 · 갱신 시각(asOf)만 채워 넣음")
 
-    js = "const TREND=" + json.dumps(trend, ensure_ascii=False) + ";"
+    js = "const TREND = " + json.dumps(trend, ensure_ascii=False) + ";"
     html = open(HTML_PATH, encoding="utf-8").read()
-    new, n = re.subn(r"const TREND=\{.*?\};", js, html, count=1, flags=re.S)
+    new, n = re.subn(r"const TREND\s*=\s*\{.*?\};", js, html, count=1, flags=re.S)
     if not n:
         print("\n[!] TREND 블록을 찾지 못했습니다. 아래를 직접 붙여넣으세요:\n")
         print(js)
