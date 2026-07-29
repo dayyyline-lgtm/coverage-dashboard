@@ -352,7 +352,9 @@ def append_intraday(live, old, html):
     prev = dict((old or {}).get("intraday") or {})
     points = list(prev.get("points") or [])
     mins = now.hour * 60 + now.minute
-    is_market = now.weekday() < 5 and (9 * 60) <= mins <= (15 * 60 + 40)
+    wd = now.weekday() < 5
+    is_open  = wd and 540 <= mins <= 935      # 09:00~15:35 장중(시간별로 적립)
+    is_close = wd and mins > 935               # 15:35 이후(저녁까지) 종가 확정(하루 1점, 갱신)
     m = re.search(r"const PORTFOLIO = (\{.*?\});\n", html, re.S)
     if not m:
         if points:
@@ -367,7 +369,7 @@ def append_intraday(live, old, html):
     buy = port.get("date")
     if prev.get("buy") != buy:       # 포트 매수일이 바뀌면(종목·비중 교체) 처음부터 다시 쌓는다
         points = []
-    if not is_market:                # 장 밖이면 기존 것만 유지(새 점 안 찍음)
+    if not (is_open or is_close):    # 장 밖이면 기존 것만 유지(새 점 안 찍음)
         live["intraday"] = {"buy": buy, "points": points}
         return
     # 포트 수익률 — renderPortfolio 와 동일 식 Σ(w·현재가/base)-1 (없으면 1로)
@@ -391,15 +393,22 @@ def append_intraday(live, old, html):
         c0 = next((a[i] for i in range(len(a) - 1, -1, -1) if a[i] is not None), None)
         return round((c0 / b0 - 1) * 100, 3) if (b0 and c0) else None
 
-    pt = {"t": now.strftime("%m-%d %H:%M"), "탑픽": port_ret,
-          "소비재": cum("소비재"), "코스피": cum("코스피"), "코스닥": cum("코스닥")}
-    hh = now.strftime("%m-%d %H")
-    if points and str(points[-1].get("t", "")).startswith(hh):   # 같은 시각(시)이면 갱신
-        points[-1] = pt
-    else:
-        points.append(pt)
+    vals = {"탑픽": port_ret, "소비재": cum("소비재"), "코스피": cum("코스피"), "코스닥": cum("코스닥")}
+    if is_open:
+        pt = {"t": now.strftime("%m-%d %H:%M"), **vals}
+        hh = now.strftime("%m-%d %H")
+        if points and str(points[-1].get("t", "")).startswith(hh):   # 같은 시각(시)이면 갱신
+            points[-1] = pt
+        else:
+            points.append(pt)
+    else:   # is_close — 오늘 '종가(15:30)' 점 하나로 마무리. 장중 마지막 점과 종가 괴리를 없앤다.
+        pt = {"t": now.strftime("%m-%d") + " 15:30", **vals}
+        if points and points[-1].get("t") == pt["t"]:
+            points[-1] = pt
+        else:
+            points.append(pt)
     live["intraday"] = {"buy": buy, "points": points[-600:]}
-    print(f"  시간별 누적: {len(points)}점 · 탑픽 {port_ret:+.2f}%")
+    print(f"  시간별 누적: {len(points)}점 · 탑픽 {port_ret:+.2f}% ({'장중' if is_open else '종가'})")
 
 
 def resolve_code(name):
