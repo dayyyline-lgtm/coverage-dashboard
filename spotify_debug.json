@@ -1,0 +1,272 @@
+{
+ "asOf": "2026-07-30 17:33 KST",
+ "token_ok": true,
+ "zero_count": 12,
+ "total": 12,
+ "artists": [
+  {
+   "label": "BTS",
+   "aid": "3Nrfpe0tUJi4K4DXYWgMUX",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "세븐틴",
+   "aid": "7nqOGRxlXj7N2JYbgNEjYH",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "르세라핌",
+   "aid": "4SpbR6yFEvexJuaBpgAU5p",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "엔하이픈",
+   "aid": "5t5FqBwTcgKTaWmfEbwQY9",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "투바투",
+   "aid": "0ghlgldX5Dd6720Q3qFyQB",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "캣츠아이",
+   "aid": "3c0gDdb9lhnHGFtP4prQpn",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "코르티스",
+   "aid": "1ebt9HnXdyYA6KgLXr1n4P",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "에스파",
+   "aid": "6YVMFz59CuY7ngCxTxjpxE",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "라이즈",
+   "aid": "2jOm3cYujQx6o1dxuiuqaX",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "엔시티드림",
+   "aid": "1gBUSTR3TyDdTVFIaQnc02",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "레드벨벳",
+   "aid": "1z4g3DjTBBZKhvAroFlhOM",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "엑소",
+   "aid": "3cjEqqelV9zb4BYE3qDQ4O",
+   "fol": 0,
+   "pop": 0,
+   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  }
+ ]
+}
