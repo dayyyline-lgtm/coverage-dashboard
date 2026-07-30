@@ -22,6 +22,9 @@ DAYS = 180
 CID = os.environ.get("SPOTIFY_CLIENT_ID", "")
 CSEC = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
 
+DEBUG_PATH = "spotify_debug.json"
+_RAW = {}   # 진단: aid → /v1/artists 응답에 followers·popularity 가 실제로 담겨오는지
+
 # (종목, 라벨, 검색어, 고정aid) — 엔터 커버 종목의 주요 아티스트.
 # 고정aid 를 주면 검색을 건너뛴다. 신인·동명이인은 search 가 엉뚱한 아티스트를 잡을 수
 # 있어(예: 'CORTIS' 로 다른 밴드, 'EXO' 로 다른 그룹) 검증한 ID 를 박아 둔다.
@@ -75,6 +78,11 @@ def _artist_id(name, tok):
 
 def _artist(aid, tok):
     d = _get(f"https://api.spotify.com/v1/artists/{aid}", tok)
+    _RAW[aid] = {"has_followers": "followers" in d,
+                 "followers_total": (d.get("followers") or {}).get("total"),
+                 "has_popularity": "popularity" in d,
+                 "popularity": d.get("popularity"),
+                 "keys": sorted(d.keys())}
     return int((d.get("followers") or {}).get("total") or 0), int(d.get("popularity") or 0)
 
 
@@ -117,23 +125,34 @@ def _kworb_listeners():
 
 
 def _spotify_meta_ml(aid):
-    """kworb 미수록 아티스트 폴백 — Spotify 아티스트 페이지 메타설명의 월간청취자.
-       'Artist · 4.8M monthly listeners.' → 4800000. ID 로 직접 접근하니 오매칭 없음.
-       축약 표기라 정밀도는 kworb 보다 낮다(선의 미세 변화가 덜 잡힘). 실패 None."""
+    """kworb 미수록 아티스트(상위 2500위 밖) 폴백 — Spotify 아티스트 페이지의 월간청취자.
+       ID 로 직접 접근하니 오매칭 없음. 실패 None.
+
+       ⚠️ 페이지엔 두 표기가 공존한다:
+         - 본문 정밀값:  '4,788,568 monthly listeners'  ← 이걸 써야 일 변동이 잡힌다
+         - 메타 축약값:  'Artist · 4.8M monthly listeners.'  ← 반올림이라 값이 멈춰 보임
+       예전엔 축약값만 긁어 세븐틴·라이즈 등이 4.8M/2.8M 로 고정됐다. 정밀값 우선."""
     try:
         req = urllib.request.Request(f"https://open.spotify.com/artist/{aid}",
                                      headers={"User-Agent": "Mozilla/5.0"})
         page = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "replace")
     except Exception:
         return None
-    m = re.search(r'([\d.,]+)\s*([KMB]?)\s*monthly listeners', page)
-    if not m:
-        return None
-    try:
-        num = float(m.group(1).replace(",", ""))
-    except ValueError:
-        return None
-    return int(num * {"K": 1e3, "M": 1e6, "B": 1e9}.get(m.group(2), 1))
+    # 1) 정밀(쉼표 구분 절대수) 우선 — 최소 5자리라 'X,XXX,XXX' 만 잡고 축약(4.8M)은 안 잡힘
+    m = re.search(r'([\d,]{5,})\s*monthly listeners', page)
+    if m:
+        try:
+            return int(m.group(1).replace(",", ""))
+        except ValueError:
+            pass
+    # 2) 폴백: 축약 표기(4.8M) — 정밀값이 없을 때만
+    m = re.search(r'([\d.]+)\s*([KMB])\s*monthly listeners', page)
+    if m:
+        try:
+            return int(float(m.group(1)) * {"K": 1e3, "M": 1e6, "B": 1e9}[m.group(2)])
+        except (ValueError, KeyError):
+            pass
+    return None
 
 
 def _const(html, name):
@@ -162,7 +181,11 @@ def main():
     try:
         tok = _token()
     except Exception as e:
-        print(f"[spotify] 토큰 실패: {str(e)[:100]}"); return
+        print(f"[spotify] 토큰 실패: {str(e)[:100]}")
+        json.dump({"asOf": today, "token_ok": False, "token_err": str(e)[:200]},
+                  open(DEBUG_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        return
+    dbg = []   # 진단: 아티스트별 API 성패
 
     kworb = _kworb_listeners()          # 월간 청취자(공식 API엔 없음) — aid 로 매칭
     yday = (datetime.datetime.now(KST).date() - datetime.timedelta(days=1)).isoformat()
@@ -184,6 +207,7 @@ def main():
         # 1) Spotify Web API — 인기도·팔로워·대표곡·최근작.
         #    러너 IP 가 403 을 내는 사례가 있어 여기서만 막고, 월간청취자(아래)는 계속 진행한다.
         fol = pop = tpop = None
+        api_err = None
         try:
             fol, pop = _artist(aid, tok)
             ttn, tpop = _top_track(aid, tok)
@@ -191,7 +215,10 @@ def main():
             art["topTrack"] = ttn
             art["release"] = {"name": rname, "date": rdate}
         except Exception as e:
+            api_err = f"{type(e).__name__}: {str(e)[:120]}"
             print(f"  [{label}] Spotify API 실패(인기도·팔로워 스킵): {str(e)[:60]}")
+        dbg.append({"label": label, "aid": aid, "fol": fol, "pop": pop,
+                    "err": api_err, "raw": _RAW.get(aid)})
 
         # 2) 월간 청취자 — 공식 API 와 무관(kworb 랭킹 / Spotify 아티스트 페이지 메타).
         #    kworb(정확·일간증감) 우선, 미수록이면 메타(축약). API 403 이어도 이건 수집된다.
@@ -207,7 +234,10 @@ def main():
         # 3) 오늘 점 — 잡힌 값만 담는다. 전부 실패면 점을 추가하지 않는다.
         pt = {"d": today}
         for k, v in (("fol", fol), ("pop", pop), ("tpop", tpop), ("ml", ml)):
-            if v is not None:
+            # 실제 아티스트가 팔로워·인기도 0 일 수는 없다 → 0 이면 'API 무응답'으로 보고
+            # 저장하지 않는다(0을 넣으면 인기도 추이선이 바닥에 깔려 그려짐).
+            # 월간청취자(ml)는 0이 진짜 '없음'이라 그대로 둔다.
+            if v is not None and not (k in ("fol", "pop", "tpop") and v == 0):
                 pt[k] = v
         if len(pt) > 1:
             by_d = {x["d"]: x for x in hist if x.get("d")}
@@ -225,6 +255,12 @@ def main():
               f"팔로워 {fol if fol is not None else '—'} · "
               f"월간청취자 {f'{ml:,}' if ml is not None else '—'}")
         arts.append(art)
+
+    # 진단 파일 — /v1/artists 가 팔로워·인기도를 실제로 주는지 커밋되어 남는다.
+    n0 = sum(1 for x in dbg if x["fol"] == 0 and x["pop"] == 0)
+    json.dump({"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
+               "token_ok": True, "zero_count": n0, "total": len(dbg), "artists": dbg},
+              open(DEBUG_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
     sp = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "artists": arts}
     if "--dry-run" in sys.argv:
