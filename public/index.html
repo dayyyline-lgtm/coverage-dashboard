@@ -2949,28 +2949,37 @@ const TRADE = {"asOf": "2026-07-27 16:22", "months": ["202407", "202408", "20240
     box.style.position="relative";
     box.insertAdjacentHTML("beforeend",`<div class="chart-guide" id="tradeGuide"></div><div class="chart-tip" id="tradeTip"></div>`);
     const tip=box.querySelector("#tradeTip"), guide=box.querySelector("#tradeGuide");
+    const svg=box.querySelector("svg");
     const hideTip=()=>{ tip.style.display="none"; guide.style.display="none"; };
     box.onmousemove=(e)=>{
-      const rc=box.getBoundingClientRect();
-      if(!rc.width||!rc.height){ hideTip(); return; }                // 0폭/0높이(숨김 등) 방어
-      const vx=(e.clientX-rc.left)/rc.width*W, vy=(e.clientY-rc.top)/rc.height*H;   // 화면px → viewBox 좌표
-      const sc=rc.width/W, plotW=W-pad.l-pad.r;
+      const m=svg&&svg.getScreenCTM();
+      if(!m||!m.a){ hideTip(); return; }                              // 미표시/0폭 방어
+      // 마우스 화면좌표 → viewBox 좌표. getScreenCTM 이 스케일·레터박스(가운데 여백)까지 보정한다.
+      const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+      const p=pt.matrixTransform(m.inverse());
+      const plotW=W-pad.l-pad.r;
       // 플롯 영역(축 안쪽)에 있을 때만 — 제목·축 라벨·여백 위에선 안 뜬다
-      if(vx<pad.l||vx>W-pad.r||vy<pad.t||vy>H-pad.b){ hideTip(); return; }
-      let i=Math.round((vx-pad.l)/plotW*labels.length-0.5);
+      if(p.x<pad.l||p.x>W-pad.r||p.y<pad.t||p.y>H-pad.b){ hideTip(); return; }
+      let i=Math.round((p.x-pad.l)/plotW*labels.length-0.5);
       if(i<0||i>=labels.length){ hideTip(); return; }
       const v=shown[i], y=yoy[i];
       tip.innerHTML=`<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정</span>`:''}</div>`
         +`<div class="tt-r"><span class="k">수출액</span><span class="v">${v==null?'—':fmt(v,1)+'<span style="color:var(--muted);font-weight:600;font-size:11px"> 백만$</span>'}</span></div>`
         +`<div class="tt-r"><span class="k">YoY</span><span class="v ${y==null?'':cls(y)}">${y==null?'—':sign(y,1)+'%'}</span></div>`;
       tip.style.display="block";
-      const gx=xs(i)*sc;
-      guide.style.display="block"; guide.style.left=gx.toFixed(1)+"px"; guide.style.top=(pad.t*sc).toFixed(1)+"px"; guide.style.height=((H-pad.t-pad.b)*sc).toFixed(1)+"px";
+      // 가이드선: 열 중심(viewBox xs(i))을 같은 변환으로 화면 px 에 매핑 → 커서와 정확히 일치
+      const rc=box.getBoundingClientRect();
+      const a=svg.createSVGPoint(); a.x=xs(i); a.y=pad.t; const as=a.matrixTransform(m);
+      const b=svg.createSVGPoint(); b.x=xs(i); b.y=H-pad.b; const bs=b.matrixTransform(m);
+      guide.style.display="block";
+      guide.style.left=(as.x-rc.left).toFixed(1)+"px";
+      guide.style.top=(as.y-rc.top).toFixed(1)+"px";
+      guide.style.height=Math.abs(bs.y-as.y).toFixed(1)+"px";
       const tw=tip.offsetWidth||140, px=e.clientX-rc.left;
       tip.style.left=((px+16+tw>rc.width)? Math.max(4,px-tw-14) : px+16).toFixed(1)+"px";
       tip.style.top=Math.max(4,(e.clientY-rc.top)-tip.offsetHeight-10).toFixed(1)+"px";
     };
-    box.onmouseleave=()=>{ tip.style.display="none"; guide.style.display="none"; };
+    box.onmouseleave=hideTip;
     document.getElementById("tradeLegend").innerHTML=
       `<div class="li"><span class="dot" style="background:var(--warn)"></span>수출액 (백만달러)</div>`+
       `<div class="li"><span class="dot" style="background:var(--up)"></span>YoY (%)</div>`+
