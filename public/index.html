@@ -1779,7 +1779,7 @@ const REP=(LIVE.researches||[]);
       const block=document.createElement("div"); block.className="sector-block";
       block.innerHTML=
         `<div class="sector-band" style="border-left-color:${c}">
-           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${r.name}</span>
+           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${stockLogo(r.name)}${r.name}</span>
            <span class="s-tag">${r.sector} · ${r.sub}</span>
            <span class="s-tag" style="margin-left:auto">${rows.length}건</span>
          </div>
@@ -1832,17 +1832,15 @@ const REP=(LIVE.researches||[]);
   const catsOf=x=>[...new Set(x.co.map(c=>CAT_OF[c]).filter(Boolean))];  // 공용 CAT_OF 사용
 
   const label=d=>{ const m=/(\d{4})-(\d{2})-(\d{2})/.exec(d||""); return m?`${m[2]}/${m[3]}`:""; };
-  const itemHtml=x=>{
-    const cos=x.co.map(c=>`<span class="nm-cell clickable" data-stock="${c}">${stockLogo(c)}${c}</span>`).join(", ");
-    return `<div class="item">
+  const itemHtml=x=>
+    `<div class="item">
       <div class="date-chip" style="display:flex;align-items:center;justify-content:center"><div class="d" style="font-size:13px">${label(x.d)}</div></div>
       <div class="body">
         <div class="t"><a href="${x.u}" target="_blank" rel="noopener" style="color:inherit">${x.t}</a></div>
-        <div class="s">${cos} · ${x.s}</div>
+        <div class="s">${x.s}</div>
       </div>
       <a class="ev-type ev-earn" href="${x.u}" target="_blank" rel="noopener">보기</a>
     </div>`;
-  };
 
   let curCat="", curCo="";           // 카테고리 세그먼트 · 종목 드롭다운
   function render(){
@@ -1870,7 +1868,7 @@ const REP=(LIVE.researches||[]);
       block.className="sector-block";
       block.innerHTML=
         `<div class="sector-band" style="border-left-color:${c}">
-           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${r.name}</span>
+           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${stockLogo(r.name)}${r.name}</span>
            <span class="s-tag">${r.sector} · ${r.sub}</span>
            <span class="s-tag" style="margin-left:auto">${rows.length}건</span>
          </div>
