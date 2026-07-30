@@ -41,9 +41,10 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 # freq = date(일별) / week(주별) / month(월별) · n = 표시 구간 수 (기본: 주52)
 GROUPS = {
     # 리투오 = re2o, 셀르디엠 = CellREDM (한스바이오메드 ECM 스킨부스터)
+    # 셀리비온 = 국내 브랜드라 영문 검색량이 사실상 0 → 구글도 한글 키워드로 잡는다(네이버가 핵심).
     "스킨부스터": {
-        "naver":  ["리쥬란", "리투오", "셀르디엠"],
-        "google": ["Rejuran", "re2o", "CellREDM"],
+        "naver":  ["리쥬란", "리투오", "셀르디엠", "셀리비온"],
+        "google": ["Rejuran", "re2o", "CellREDM", "셀리비온"],
         "freq":   "date",
         "n":      30,
     },
