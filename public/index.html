@@ -1203,9 +1203,10 @@ function stockLogo(name){
   const code=((typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[name])||{}).code;
   const init=(name||"?").trim().slice(0,1);
   const hue=[...(name||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%360;
-  // 래퍼 span(overflow:hidden)이 이미지를 크리스프하게 클립. 이니셜은 뒤에 깔려 있다가 로드 실패(remove) 시 노출.
-  return `<span class="nm-logo" style="background:hsl(${hue},42%,50%)">`
-    +(code?`<img src="https://static.toss.im/png-icons/securities/icn-sec-fill-${code}.png" loading="lazy" alt="" onerror="this.remove()">`:'')
+  const bg=`hsl(${hue},42%,50%)`;
+  // 코드(로고)가 있으면 래퍼 배경은 투명 — 밝은 hsl 이 둥근 모서리 안티앨리어싱 틈으로 비쳐 어두운 아이콘 테두리가 밝은 링으로 깨져 보이던 문제 차단. 이미지 없음/로드실패 때만 hsl 타일(이니셜용)을 깐다(remove 전에 배경부터 세팅해야 parentNode 가 살아 있다).
+  return `<span class="nm-logo" style="background:${code?'transparent':bg}">`
+    +(code?`<img src="https://static.toss.im/png-icons/securities/icn-sec-fill-${code}.png" loading="lazy" alt="" onerror="this.parentNode.style.background='${bg}';this.remove()">`:'')
     +`<span class="ini">${init}</span></span>`;
 }
 const nmCell = r=>`<span class="nm-cell clickable" data-stock="${r.name}">${stockLogo(r.name)}${pickPill(r)} <span class="nm">${r.name}</span><span class="sub">${r.sub}</span></span>`;
