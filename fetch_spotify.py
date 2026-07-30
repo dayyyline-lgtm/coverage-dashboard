@@ -125,13 +125,11 @@ def _kworb_listeners():
 
 
 def _kworb_artist(aid):
-    """kworb 아티스트 페이지 → 총 스트림·일간 스트림·최다일간곡.
+    """kworb 아티스트 페이지 → 총 스트림·일간 스트림.
        일간 스트림(sd)이 핵심 — 실시간 소비/수요 플로우로, 컴백 때 즉시 튄다
-       (월간청취자보다 반응이 빠르다). 곡 목록에서 '오늘 가장 많이 재생된 곡'도 뽑아
-       무엇이 스트림을 끌고 있는지(신곡/역주행) 각주로 보여준다. 실패 None.
+       (월간청취자보다 반응이 빠르다). 실패 None.
 
-       요약행 구조:  Streams</td><td>{총}</td> · Daily</td><td>{일간}</td>
-       곡행 구조:    track/{id}">{곡명}</a>...<td>{총}</td><td>{일간}</td>"""
+       요약행 구조:  Streams</td><td>{총}</td> · Daily</td><td>{일간}</td>"""
     try:
         req = urllib.request.Request(f"https://kworb.net/spotify/artist/{aid}_songs.html",
                                      headers={"User-Agent": "Mozilla/5.0"})
@@ -143,13 +141,7 @@ def _kworb_artist(aid):
     day = re.search(r'Daily</td><td>([\d,]+)</td>', p)
     if not (tot and day):
         return None
-    songs = re.findall(r'track/\w+"[^>]*>([^<]+)</a></div></td>'
-                       r'<td>([\d,]+)</td><td>([\d,]+)</td>', p)
-    hot = None
-    if songs:
-        hn, _, hd = max(songs, key=lambda x: num(x[2]))
-        hot = {"name": hn[:30], "day": num(hd)}
-    return {"str": num(tot.group(1)), "sd": num(day.group(1)), "hot": hot}
+    return {"str": num(tot.group(1)), "sd": num(day.group(1))}
 
 
 def _spotify_meta_ml(aid):
@@ -259,11 +251,9 @@ def main():
             except Exception:
                 pass
 
-        # 2-b) 일간 스트림(플로우) — 실시간 소비 신호. 총·일간 + 최다일간곡.
+        # 2-b) 일간 스트림(플로우) — 실시간 소비 신호. 총·일간.
         ka = _kworb_artist(aid) or {}
         str_tot, sd = ka.get("str"), ka.get("sd")
-        if ka.get("hot"):
-            art["hotSong"] = ka["hot"]        # 오늘 스트림을 끄는 곡(신곡/역주행) — 각주용 스냅샷
 
         # 3) 오늘 점 — 잡힌 값만 담는다. 전부 실패면 점을 추가하지 않는다.
         pt = {"d": today}
@@ -287,9 +277,7 @@ def main():
             hist = [by_d[d] for d in sorted(by_d)]
             art["hist"] = hist[-DAYS:]
         print(f"  {label}: 월간청취자 {f'{ml:,}' if ml is not None else '—'} · "
-              f"일간스트림 {f'{sd:,}' if sd is not None else '—'}"
-              + (f" (최다 {art['hotSong']['name']} {art['hotSong']['day']:,})"
-                 if art.get("hotSong") else ""))
+              f"일간스트림 {f'{sd:,}' if sd is not None else '—'}")
         arts.append(art)
 
     # 진단 파일 — /v1/artists 가 팔로워·인기도를 실제로 주는지 커밋되어 남는다.
