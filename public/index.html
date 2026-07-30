@@ -2949,13 +2949,16 @@ const TRADE = {"asOf": "2026-07-27 16:22", "months": ["202407", "202408", "20240
     box.style.position="relative";
     box.insertAdjacentHTML("beforeend",`<div class="chart-guide" id="tradeGuide"></div><div class="chart-tip" id="tradeTip"></div>`);
     const tip=box.querySelector("#tradeTip"), guide=box.querySelector("#tradeGuide");
+    const hideTip=()=>{ tip.style.display="none"; guide.style.display="none"; };
     box.onmousemove=(e)=>{
       const rc=box.getBoundingClientRect();
-      if(!rc.width){ tip.style.display="none"; guide.style.display="none"; return; }  // 0폭(숨김 등) 방어
-      const sc=rc.width/W;                                           // 화면px ↔ viewBox 배율
-      const vx=(e.clientX-rc.left)/sc, plotW=W-pad.l-pad.r;
+      if(!rc.width||!rc.height){ hideTip(); return; }                // 0폭/0높이(숨김 등) 방어
+      const vx=(e.clientX-rc.left)/rc.width*W, vy=(e.clientY-rc.top)/rc.height*H;   // 화면px → viewBox 좌표
+      const sc=rc.width/W, plotW=W-pad.l-pad.r;
+      // 플롯 영역(축 안쪽)에 있을 때만 — 제목·축 라벨·여백 위에선 안 뜬다
+      if(vx<pad.l||vx>W-pad.r||vy<pad.t||vy>H-pad.b){ hideTip(); return; }
       let i=Math.round((vx-pad.l)/plotW*labels.length-0.5);
-      if(i<0||i>=labels.length){ tip.style.display="none"; guide.style.display="none"; return; }
+      if(i<0||i>=labels.length){ hideTip(); return; }
       const v=shown[i], y=yoy[i];
       tip.innerHTML=`<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정</span>`:''}</div>`
         +`<div class="tt-r"><span class="k">수출액</span><span class="v">${v==null?'—':fmt(v,1)+'<span style="color:var(--muted);font-weight:600;font-size:11px"> 백만$</span>'}</span></div>`
