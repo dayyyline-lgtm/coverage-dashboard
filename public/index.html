@@ -1082,6 +1082,7 @@ function renderPortfolio(S){
     const st=LIVE.stocks[p.name]||{};
     const cur=st.price, ret=(cur&&p.base)?(cur/p.base-1):0;
     return {name:p.name, w0:p.w, ret, chg:(st.chgPct==null?null:st.chgPct),
+            sub:(typeof CAT_OF!=="undefined"?CAT_OF[p.name]:"")||"",
             val:p.w*((cur&&p.base)?cur/p.base:1), color:PORT_PAL[i%PORT_PAL.length]};
   });
   const tot=rows.reduce((s,r)=>s+r.val,0)||1;
@@ -1110,9 +1111,9 @@ function renderPortfolio(S){
   document.getElementById("portHoldings").innerHTML=
     `<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">기초 <b style="color:var(--text)">${baseEok}억</b> 가정 → 현재 <b class="${cls(portRet)}">${totEok.toFixed(1)}억</b> · 오늘 <b class="${cls(portDay)}">${portDay==null?'—':sign(portDay,1)+'%'}</b></div>
      <table style="width:100%;border-collapse:collapse;font-size:13px">
-     <thead><tr style="color:var(--muted);font-size:11px"><th style="text-align:left;padding:3px 6px">종목 (섹터)</th><th style="text-align:right;padding:3px 6px">현재 금액</th><th style="text-align:right;padding:3px 6px">당일</th><th style="text-align:right;padding:3px 6px">누적</th></tr></thead><tbody>`
+     <thead><tr style="color:var(--muted);font-size:11px"><th style="text-align:left;padding:3px 6px">섹터 · 종목</th><th style="text-align:right;padding:3px 6px">현재 금액</th><th style="text-align:right;padding:3px 6px">당일</th><th style="text-align:right;padding:3px 6px">누적</th></tr></thead><tbody>`
     +sorted.map(r=>`<tr style="border-top:1px solid var(--line)">
-      <td style="text-align:left;padding:4px 6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${r.color};margin-right:6px;vertical-align:middle"></span><span class="nm-cell clickable" data-stock="${r.name}" style="font-weight:700">${r.name}</span> <span style="color:var(--muted);font-size:10.5px">(매수 ${(r.w0*100).toFixed(0)}%)</span></td>
+      <td style="text-align:left;padding:4px 6px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${r.color};margin-right:6px;vertical-align:middle"></span><span style="font-weight:700">${r.sub}</span><span style="color:var(--muted)"> · </span><span class="nm-cell clickable" data-stock="${r.name}" style="font-size:11.5px">${r.name}</span></td>
       <td style="text-align:right;padding:4px 6px;font-weight:700">${(r.val*baseEok).toFixed(1)}억</td>
       <td style="text-align:right;padding:4px 6px" class="${cls(r.chg)}">${r.chg==null?'—':sign(r.chg,1)+'%'}</td>
       <td style="text-align:right;padding:4px 6px" class="${cls(r.ret*100)}">${sign(r.ret*100,1)}%</td></tr>`).join("")
