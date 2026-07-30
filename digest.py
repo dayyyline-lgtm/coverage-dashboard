@@ -569,10 +569,17 @@ def _portfolio(live):
         v = last.get(k)
         return f"{k} {v:+.1f}%" if v is not None else None
 
+    # 당일 = 오늘 마지막 누적 ÷ 전일 종가 누적 − 1 (누적 시리즈에서 하루치만 떼어낸다)
+    tdate = str(last.get("t", ""))[:5]
+    prevc = next((p.get("탑픽") for p in reversed(pts[:-1])
+                  if str(p.get("t", ""))[:5] != tdate and p.get("탑픽") is not None), None)
+    day = ((1 + tp / 100) / (1 + prevc / 100) - 1) * 100 if prevc is not None else None
+    dtxt = f" · 당일 {day:+.1f}%" if day is not None else ""
+
     bench = " · ".join(x for x in (cell("소비재"), cell("코스피"), cell("코스닥")) if x)
-    body = [f"{_arw(tp)} <b>탑픽 {tp:+.1f}%</b>"]
+    body = [f"{_arw(tp)} <b>누적 {tp:+.1f}%</b>{dtxt}"]
     if bench:
-        body.append(_sub("vs " + bench))
+        body.append(_sub("vs " + bench + " (누적)"))
     return f"<b>🏆 탑픽 포트폴리오</b> <i>({buyf} 매수 대비)</i>\n" + "\n".join(body)
 
 
