@@ -149,6 +149,15 @@
 
   /* Chart */
   .chart-box{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  /* 토스식 차트 호버 툴팁 — 커서 대면 즉시 뜨는 카드 + 세로 가이드선 */
+  .chart-tip{position:absolute;z-index:20;pointer-events:none;display:none;background:var(--panel);
+    border:1px solid var(--line-soft);border-radius:11px;box-shadow:var(--shadow-hover);padding:9px 12px;
+    font-size:12px;min-width:132px;transition:opacity .08s ease}
+  .chart-tip .tt-h{font-weight:800;font-size:12.5px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .chart-tip .tt-r{display:flex;justify-content:space-between;gap:16px;line-height:1.75}
+  .chart-tip .tt-r .k{color:var(--muted)}
+  .chart-tip .tt-r .v{font-weight:800;font-variant-numeric:tabular-nums}
+  .chart-guide{position:absolute;width:0;border-left:1px dashed var(--muted);pointer-events:none;display:none;z-index:15;opacity:.45}
   .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12px;color:var(--muted)}
   .legend .li{display:flex;align-items:center;gap:6px}
   .legend .dot{width:10px;height:10px;border-radius:50%}
@@ -2918,7 +2927,7 @@ const TRADE = {"asOf": "2026-07-27 16:22", "months": ["202407", "202408", "20240
     }
     labels.forEach((L,i)=>{
       const h=H-pad.b-ys(shown[i]);
-      s+=`<rect x="${(xs(i)-bw/2).toFixed(1)}" y="${ys(shown[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="var(--warn)" opacity="${prelim[i]?.32:.75}"${prelim[i]?' stroke="var(--warn)" stroke-dasharray="3 2"':''}><title>${L} · ${fmt(shown[i],1)}백만달러${prelim[i]?" (잠정)":""}${yoy[i]!=null?` · YoY ${sign(yoy[i],1)}%`:''}</title></rect>`;
+      s+=`<rect x="${(xs(i)-bw/2).toFixed(1)}" y="${ys(shown[i]).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="2" fill="var(--warn)" opacity="${prelim[i]?.32:.75}"${prelim[i]?' stroke="var(--warn)" stroke-dasharray="3 2"':''}></rect>`;
       s+=`<text x="${xs(i).toFixed(1)}" y="${H-pad.b+16}" text-anchor="middle" font-size="10" fill="${mut}">${L}</text>`;
     });
     const pts=yoy.map((v,i)=>v==null?null:`${xs(i).toFixed(1)},${yy(v).toFixed(1)}`).filter(Boolean);
@@ -2936,6 +2945,29 @@ const TRADE = {"asOf": "2026-07-27 16:22", "months": ["202407", "202408", "20240
     s+=`<text x="16" y="${H/2}" text-anchor="middle" font-size="11" fill="${mut}" transform="rotate(-90 16 ${H/2})">수출액 (백만달러)</text>`;
     s+="</svg>";
     box.innerHTML=s;
+    // ── 토스식 호버 툴팁: 커서를 대면 그 달의 수출액·YoY 가 즉시 뜬다 ──
+    box.style.position="relative";
+    box.insertAdjacentHTML("beforeend",`<div class="chart-guide" id="tradeGuide"></div><div class="chart-tip" id="tradeTip"></div>`);
+    const tip=box.querySelector("#tradeTip"), guide=box.querySelector("#tradeGuide");
+    box.onmousemove=(e)=>{
+      const rc=box.getBoundingClientRect();
+      if(!rc.width){ tip.style.display="none"; guide.style.display="none"; return; }  // 0폭(숨김 등) 방어
+      const sc=rc.width/W;                                           // 화면px ↔ viewBox 배율
+      const vx=(e.clientX-rc.left)/sc, plotW=W-pad.l-pad.r;
+      let i=Math.round((vx-pad.l)/plotW*labels.length-0.5);
+      if(i<0||i>=labels.length){ tip.style.display="none"; guide.style.display="none"; return; }
+      const v=shown[i], y=yoy[i];
+      tip.innerHTML=`<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정</span>`:''}</div>`
+        +`<div class="tt-r"><span class="k">수출액</span><span class="v">${v==null?'—':fmt(v,1)+'<span style="color:var(--muted);font-weight:600;font-size:11px"> 백만$</span>'}</span></div>`
+        +`<div class="tt-r"><span class="k">YoY</span><span class="v ${y==null?'':cls(y)}">${y==null?'—':sign(y,1)+'%'}</span></div>`;
+      tip.style.display="block";
+      const gx=xs(i)*sc;
+      guide.style.display="block"; guide.style.left=gx.toFixed(1)+"px"; guide.style.top=(pad.t*sc).toFixed(1)+"px"; guide.style.height=((H-pad.t-pad.b)*sc).toFixed(1)+"px";
+      const tw=tip.offsetWidth||140, px=e.clientX-rc.left;
+      tip.style.left=((px+16+tw>rc.width)? Math.max(4,px-tw-14) : px+16).toFixed(1)+"px";
+      tip.style.top=Math.max(4,(e.clientY-rc.top)-tip.offsetHeight-10).toFixed(1)+"px";
+    };
+    box.onmouseleave=()=>{ tip.style.display="none"; guide.style.display="none"; };
     document.getElementById("tradeLegend").innerHTML=
       `<div class="li"><span class="dot" style="background:var(--warn)"></span>수출액 (백만달러)</div>`+
       `<div class="li"><span class="dot" style="background:var(--up)"></span>YoY (%)</div>`+
