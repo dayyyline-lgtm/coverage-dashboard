@@ -115,15 +115,39 @@ def _top_track(aid, tok):
     return (ts[0].get("name", "")[:30], int(ts[0].get("popularity") or 0)) if ts else (None, None)
 
 
+# albums 는 파라미터 조합에 따라 400("Invalid limit")이 난다.
+# 앞에서부터 시도해 처음 통하는 조합을 기억하고, 다음 아티스트부터는 그것만 쓴다.
+# (문자열을 손으로 이어 붙이던 걸 urlencode 로 바꿨다 — include_groups 의 쉼표 인코딩 문제도 같이 배제)
+_ALB_TRIED = {"ok": None}
+_ALB_PARAMS = [
+    {"include_groups": "single,album", "market": "KR", "limit": "50"},
+    {"include_groups": "single,album", "market": "KR"},
+    {"include_groups": "single,album"},
+    {"market": "KR"},
+    {},
+]
+
+
 def _latest_release(aid, tok):
     """최근 발매작(앨범·싱글) 이름·발매일 — 컴백/발매 시점 감지."""
-    d = _get(f"https://api.spotify.com/v1/artists/{aid}/albums"
-             "?include_groups=single,album&market=KR&limit=20", tok)
-    its = d.get("items") or []
-    if not its:
-        return None, None
-    its.sort(key=lambda x: x.get("release_date", ""), reverse=True)
-    return its[0].get("name", "")[:30], its[0].get("release_date", "")
+    cands = [_ALB_TRIED["ok"]] if _ALB_TRIED["ok"] is not None else _ALB_PARAMS
+    last = None
+    for p in cands:
+        url = f"https://api.spotify.com/v1/artists/{aid}/albums"
+        if p:
+            url += "?" + urllib.parse.urlencode(p)
+        try:
+            d = _get(url, tok)
+        except Exception as e:
+            last = e
+            continue
+        _ALB_TRIED["ok"] = p
+        its = d.get("items") or []
+        if not its:
+            return None, None
+        its.sort(key=lambda x: x.get("release_date", ""), reverse=True)
+        return its[0].get("name", "")[:30], its[0].get("release_date", "")
+    raise last if last else RuntimeError("albums: 응답 없음")
 
 
 def _kworb_listeners():
