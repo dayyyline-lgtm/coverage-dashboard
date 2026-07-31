@@ -14,7 +14,7 @@ Spotify 아티스트 지표 수집 — 엔터(하이브) 글로벌 음악 수요
   python fetch_spotify.py            # 수집·기록
   python fetch_spotify.py --dry-run  # 출력만
 """
-import os, re, json, sys, base64, datetime, urllib.request, urllib.parse
+import os, re, json, sys, base64, datetime, urllib.request, urllib.parse, urllib.error
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -65,8 +65,19 @@ def _get(url, tok):
     # UA 없이 보내면 러너 IP 에서 403 이 나는 사례가 있어 브라우저 UA 를 붙인다.
     req = urllib.request.Request(url, headers={"Authorization": "Bearer " + tok,
                                                "User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        # 스포티파이는 거절 사유를 본문 JSON 에 적어 보낸다
+        # ({"error":{"status":403,"message":"..."}}). 예전엔 이걸 버리고
+        # 'HTTP Error 403: Forbidden' 만 남겨서 왜 막혔는지 알 수가 없었다.
+        body = ""
+        try:
+            body = e.read().decode("utf-8", "replace")[:300]
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {e.code} {url.split('/v1/')[-1][:40]} · {body}") from None
 
 
 def _artist_id(name, tok):
