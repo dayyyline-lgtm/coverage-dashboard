@@ -72,7 +72,8 @@
 
   section.view{display:none;padding:26px 0 60px}
   section.view.active{display:block}
-  h2.sec{font-size:18px;font-weight:800;letter-spacing:-.02em;margin:2px 0 4px}
+  h2.sec{font-size:18px;font-weight:800;letter-spacing:-.02em;margin:2px 0 4px;display:flex;align-items:baseline;gap:10px}
+  .sec-upd{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}
   .sec-desc{color:var(--muted);font-size:13px;margin:0 0 18px}
   .sub-h{font-size:14px;font-weight:700;color:var(--text);margin:26px 0 10px;display:flex;align-items:center;gap:8px}
   .sub-h::before{content:"";width:3px;height:15px;background:var(--accent);border-radius:2px}
@@ -457,7 +458,6 @@
   <!-- 개요 -->
   <section class="view active" data-view="overview">
     <h2 class="sec">개요</h2>
-    <p class="sec-desc">커버리지 전반 요약과 섹터별 Top pick. 종목명 클릭 시 상세.</p>
     <div class="kpis" id="kpis"></div>
     <div class="sub-h" id="secTrendTitle" style="display:flex;align-items:center;gap:10px">⭐ 탑픽 포트폴리오 · 지수 추이
       <button id="pickHistBtn" title="탑픽 변동 이력" style="margin-left:auto;font-size:11.5px;font-weight:700;cursor:pointer;background:var(--chip);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:4px 11px">📜 변동 이력</button>
@@ -495,7 +495,6 @@
     <div class="sub-h">섹터별 Top Pick</div>
     <div class="cards" id="pickCards"></div>
     <div class="sub-h">커버리지 유니버스 히트맵</div>
-    <p class="sec-desc" style="margin-top:-2px">타일 크기 = 시가총액 · 색 = 당일 등락률(<b style="color:var(--up)">빨강 강세</b> · <b style="color:var(--down)">파랑 약세</b>) · 라벨에 점수. 누르면 상세.</p>
     <div id="heatmapBox" class="heatmap"></div>
     <p class="note" id="heatNote"></p>
   </section>
@@ -561,7 +560,7 @@
   <!-- 리서치 리포트 -->
   <section class="view" data-view="reports">
     <h2 class="sec">리서치 리포트</h2>
-    <p class="sec-desc">커버리지 종목에 대한 <b>증권사 발간 리포트</b> — 네이버 금융에서 실시간 수집. <b>종목별</b>로 묶어 최신 3건씩(상단 섹터 버튼으로 좁히기). 종목명 클릭 시 상세 패널, "보기"로 원문 이동.</p>
+    <p class="sec-desc">증권사 리포트 · 종목별 최신 3건.</p>
     <div class="seg" id="repSeg"></div>
     <select id="repFilter" class="theme-btn" style="margin:0 0 14px 8px;padding:8px 12px;font-weight:600"></select>
     <div id="repGroups"></div>
@@ -570,19 +569,16 @@
   <!-- 뉴스 -->
   <section class="view" data-view="news">
     <h2 class="sec">뉴스</h2>
-    <p class="sec-desc">커버리지 종목 관련 <b>최신 뉴스</b> — 네이버 금융에서 수집, <b>종목당 최신 3건</b>. <b>종목별</b>로 묶어 보여줍니다(상단 섹터 버튼으로 좁히기 가능). 제목 클릭 시 원문 이동, 종목명 클릭 시 상세 패널.</p>
+    <p class="sec-desc">커버리지 종목 최신 뉴스 · 종목당 3건.</p>
     <div class="seg" id="newsSeg"></div>
     <select id="newsFilter" class="theme-btn" style="margin:0 0 14px 8px;padding:8px 12px;font-weight:600"></select>
     <div id="newsGroups"></div>
-    <p class="note">같은 기사가 여러 종목에 걸리면 각 종목 블록에 함께 표시됩니다. 종목 블록 안에서 최신순 정렬.</p>
   </section>
 
   <!-- 트렌드 비교 -->
   <section class="view" data-view="trends">
     <h2 class="sec">트렌드 비교</h2>
-    <p class="sec-desc"><b>종목을 누르면</b> 그 종목과 엮인 검색 트렌드가 나옵니다. 상대값 0–100.
-      출처는 주제마다 다릅니다 — 국내 키워드는 네이버·구글 둘 다, 해외 국가별은 구글(러시아는 얀덱스)뿐이라
-      <b>선택할 게 있을 때만 출처 버튼이 뜹니다.</b></p>
+    <p class="sec-desc">종목·주제별 검색·소비 트렌드. 상대값 0–100.</p>
     <div id="trendHighlights" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px"></div>
     <div class="trend-ctl">
       <div class="ctl-row"><span class="ctl-label">종목</span><div class="seg" id="trendGroupSeg"></div></div>
@@ -855,10 +851,26 @@ tabsEl.addEventListener("click",e=>{
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
   if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
-  if(k==="trends"){ drawTrend(); setTrendFoot(); renderTrendHighlights(); }
+  if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
   window.scrollTo({top:0,behavior:"smooth"});
 });
+
+/* 섹션 헤더 오른쪽에 '업데이트 MM/DD HH:MM' — 데이터가 언제 갱신됐는지 항상 표시 */
+function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);return m?`${+m[2]}/${+m[3]} ${m[4]}:${m[5]}`:"";}
+function setSecUpdates(){
+  const L=(typeof LIVE!=="undefined"&&LIVE.asOf)||"";
+  const M={overview:L,coverage:L,valuation:L,reports:L,calendar:L,preview:L,
+    news:(typeof NEWS!=="undefined"&&NEWS.asOf)||L,
+    trends:(typeof TREND!=="undefined"&&TREND.asOf)||"",
+    boxoffice:(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"",
+    altdata:(typeof TRADE!=="undefined"&&TRADE.asOf)||""};
+  document.querySelectorAll("section.view").forEach(s=>{
+    const h=s.querySelector("h2.sec"),t=fmtUpd(M[s.dataset.view]);if(!h||!t)return;
+    let u=h.querySelector(".sec-upd");if(!u){u=document.createElement("span");u.className="sec-upd";h.appendChild(u);}
+    u.textContent="업데이트 "+t;
+  });
+}
 
 /* ==== 커버리지 유니버스 히트맵 — 시총 트리맵, 색=당일 등락률, 라벨=등락률·점수 ==== */
 /* 색은 단계형(bin)으로 나눠 구분이 뚜렷하게. 근중립은 회색, 이후 강도 4단계. 한국 관행 빨강=강세. */
@@ -1078,8 +1090,7 @@ function drawSectorTrend(){
   const b=D[0], mt=ST.meta||{};
   const bd=(PORTFOLIO&&PORTFOLIO.date)||"";
   note.textContent = isPort
-    ? `${bd.slice(0,4)}-${bd.slice(4,6)}-${bd.slice(6,8)} 매수 가정 · ${PORTFOLIO.note||"당사 Top pick"} · 매수일=0% 누적수익률(%)`
-      +(usingIntraday?` · 시간별 실시간 적립`:` · 일봉 종가`)
+    ? `${bd.slice(2,4)}/${bd.slice(4,6)}/${bd.slice(6,8)} 매수 가정 · 매수일=0% 누적수익률(%)`
     : `${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)} 대비 누적수익률(%) · `
     +(secView==="sum"
       ? `소비재 = 커버리지 7개 업종(${(mt["소비재"]||{}).n||0}종목) 시총가중 합산`
@@ -2755,6 +2766,7 @@ function renderTrendHighlights(){
       }
       return `<button onclick='selectTrend(${JSON.stringify(c.stock)},${JSON.stringify(c.gname)})' style="display:flex;gap:7px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;color:var(--text)"><span>${icon}</span><b>${c.prod}</b><span style="color:${up?'var(--up)':'var(--down)'};font-weight:700">${chg}</span><span style="color:var(--muted);font-size:11px">${c.stock} · ${shortG(c.gname)}</span></button>`;
     }).join("");
+  return top;   // 최상위 = 그날 가장 주목할 추이(트렌드 탭 진입 시 기본 표시)
 }
 renderTrendSegs(); renderShop(); renderTrendHighlights();
 document.getElementById("trendSeg").addEventListener("click",e=>{
@@ -3635,6 +3647,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   if(hid!==today) setTimeout(open,350);
 })();
 
+/* 모든 데이터 const 초기화 후에 섹션 헤더 타임스탬프를 채운다(TREND 등 TDZ 회피) */
+setSecUpdates();
 </script>
 </body>
 </html>
