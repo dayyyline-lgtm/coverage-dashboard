@@ -1,10 +1,13 @@
 {
- "asOf": "2026-08-01 00:33 KST",
+ "asOf": "2026-08-01 00:38 KST",
  "token_ok": true,
  "zero_count": 12,
  "total": 12,
  "blocked": {
-  "top": true
+  "top": true,
+  "top_why": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+  "alb": true,
+  "alb_why": "HTTP 400 artists/3Nrfpe0tUJi4K4DXYWgMUX/albums?in · {\"error\": {\"status\": 400, \"message\": \"Invalid limit\" } }"
  },
  "artists": [
   {
@@ -12,7 +15,7 @@
    "aid": "3Nrfpe0tUJi4K4DXYWgMUX",
    "fol": null,
    "pop": null,
-   "err": "top-tracks: HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -34,7 +37,7 @@
    "aid": "7nqOGRxlXj7N2JYbgNEjYH",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/7nqOGRxlXj7N2JYbgNEjYH/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -56,7 +59,7 @@
    "aid": "4SpbR6yFEvexJuaBpgAU5p",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/4SpbR6yFEvexJuaBpgAU5p/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -78,7 +81,7 @@
    "aid": "5t5FqBwTcgKTaWmfEbwQY9",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/5t5FqBwTcgKTaWmfEbwQY9/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -100,7 +103,7 @@
    "aid": "0ghlgldX5Dd6720Q3qFyQB",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/0ghlgldX5Dd6720Q3qFyQB/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -122,7 +125,7 @@
    "aid": "3c0gDdb9lhnHGFtP4prQpn",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/3c0gDdb9lhnHGFtP4prQpn/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -144,7 +147,7 @@
    "aid": "1ebt9HnXdyYA6KgLXr1n4P",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/1ebt9HnXdyYA6KgLXr1n4P/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -166,7 +169,7 @@
    "aid": "6YVMFz59CuY7ngCxTxjpxE",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/6YVMFz59CuY7ngCxTxjpxE/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -188,7 +191,7 @@
    "aid": "2jOm3cYujQx6o1dxuiuqaX",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/2jOm3cYujQx6o1dxuiuqaX/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -210,7 +213,7 @@
    "aid": "1gBUSTR3TyDdTVFIaQnc02",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/1gBUSTR3TyDdTVFIaQnc02/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -232,7 +235,7 @@
    "aid": "1z4g3DjTBBZKhvAroFlhOM",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/1z4g3DjTBBZKhvAroFlhOM/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -254,7 +257,7 @@
    "aid": "3cjEqqelV9zb4BYE3qDQ4O",
    "fol": null,
    "pop": null,
-   "err": "albums: HTTP 400 artists/3cjEqqelV9zb4BYE3qDQ4O/albums?in · {\"error\": {\"status\": 400, \"m",
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
