@@ -1,15 +1,18 @@
 {
- "asOf": "2026-08-01 00:27 KST",
+ "asOf": "2026-08-01 00:33 KST",
  "token_ok": true,
  "zero_count": 12,
  "total": 12,
+ "blocked": {
+  "top": true
+ },
  "artists": [
   {
    "label": "BTS",
    "aid": "3Nrfpe0tUJi4K4DXYWgMUX",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "top-tracks: HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -29,9 +32,9 @@
   {
    "label": "세븐틴",
    "aid": "7nqOGRxlXj7N2JYbgNEjYH",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/7nqOGRxlXj7N2JYbgNEjYH/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/7nqOGRxlXj7N2JYbgNEjYH/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -51,9 +54,9 @@
   {
    "label": "르세라핌",
    "aid": "4SpbR6yFEvexJuaBpgAU5p",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/4SpbR6yFEvexJuaBpgAU5p/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/4SpbR6yFEvexJuaBpgAU5p/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -73,9 +76,9 @@
   {
    "label": "엔하이픈",
    "aid": "5t5FqBwTcgKTaWmfEbwQY9",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/5t5FqBwTcgKTaWmfEbwQY9/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/5t5FqBwTcgKTaWmfEbwQY9/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -95,9 +98,9 @@
   {
    "label": "투바투",
    "aid": "0ghlgldX5Dd6720Q3qFyQB",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/0ghlgldX5Dd6720Q3qFyQB/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/0ghlgldX5Dd6720Q3qFyQB/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -117,9 +120,9 @@
   {
    "label": "캣츠아이",
    "aid": "3c0gDdb9lhnHGFtP4prQpn",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/3c0gDdb9lhnHGFtP4prQpn/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/3c0gDdb9lhnHGFtP4prQpn/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -139,9 +142,9 @@
   {
    "label": "코르티스",
    "aid": "1ebt9HnXdyYA6KgLXr1n4P",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/1ebt9HnXdyYA6KgLXr1n4P/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/1ebt9HnXdyYA6KgLXr1n4P/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -161,9 +164,9 @@
   {
    "label": "에스파",
    "aid": "6YVMFz59CuY7ngCxTxjpxE",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/6YVMFz59CuY7ngCxTxjpxE/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/6YVMFz59CuY7ngCxTxjpxE/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -183,9 +186,9 @@
   {
    "label": "라이즈",
    "aid": "2jOm3cYujQx6o1dxuiuqaX",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/2jOm3cYujQx6o1dxuiuqaX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/2jOm3cYujQx6o1dxuiuqaX/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -205,9 +208,9 @@
   {
    "label": "엔시티드림",
    "aid": "1gBUSTR3TyDdTVFIaQnc02",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/1gBUSTR3TyDdTVFIaQnc02/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/1gBUSTR3TyDdTVFIaQnc02/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -227,9 +230,9 @@
   {
    "label": "레드벨벳",
    "aid": "1z4g3DjTBBZKhvAroFlhOM",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/1z4g3DjTBBZKhvAroFlhOM/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/1z4g3DjTBBZKhvAroFlhOM/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -249,9 +252,9 @@
   {
    "label": "엑소",
    "aid": "3cjEqqelV9zb4BYE3qDQ4O",
-   "fol": 0,
-   "pop": 0,
-   "err": "RuntimeError: HTTP 403 artists/3cjEqqelV9zb4BYE3qDQ4O/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "fol": null,
+   "pop": null,
+   "err": "albums: HTTP 400 artists/3cjEqqelV9zb4BYE3qDQ4O/albums?in · {\"error\": {\"status\": 400, \"m",
    "raw": {
     "has_followers": false,
     "followers_total": null,
