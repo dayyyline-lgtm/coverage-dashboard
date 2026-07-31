@@ -1,13 +1,12 @@
 {
- "asOf": "2026-08-01 00:38 KST",
+ "asOf": "2026-08-01 00:43 KST",
  "token_ok": true,
  "zero_count": 12,
  "total": 12,
  "blocked": {
   "top": true,
   "top_why": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
-  "alb": true,
-  "alb_why": "HTTP 400 artists/3Nrfpe0tUJi4K4DXYWgMUX/albums?in · {\"error\": {\"status\": 400, \"message\": \"Invalid limit\" } }"
+  "alb": false
  },
  "artists": [
   {
