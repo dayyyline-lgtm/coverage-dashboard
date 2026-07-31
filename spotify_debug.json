@@ -1,5 +1,5 @@
 {
- "asOf": "2026-07-31 17:22 KST",
+ "asOf": "2026-08-01 00:27 KST",
  "token_ok": true,
  "zero_count": 12,
  "total": 12,
@@ -9,7 +9,7 @@
    "aid": "3Nrfpe0tUJi4K4DXYWgMUX",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -31,7 +31,7 @@
    "aid": "7nqOGRxlXj7N2JYbgNEjYH",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/7nqOGRxlXj7N2JYbgNEjYH/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -53,7 +53,7 @@
    "aid": "4SpbR6yFEvexJuaBpgAU5p",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/4SpbR6yFEvexJuaBpgAU5p/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -75,7 +75,7 @@
    "aid": "5t5FqBwTcgKTaWmfEbwQY9",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/5t5FqBwTcgKTaWmfEbwQY9/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -97,7 +97,7 @@
    "aid": "0ghlgldX5Dd6720Q3qFyQB",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/0ghlgldX5Dd6720Q3qFyQB/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -119,7 +119,7 @@
    "aid": "3c0gDdb9lhnHGFtP4prQpn",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/3c0gDdb9lhnHGFtP4prQpn/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -141,7 +141,7 @@
    "aid": "1ebt9HnXdyYA6KgLXr1n4P",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/1ebt9HnXdyYA6KgLXr1n4P/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -163,7 +163,7 @@
    "aid": "6YVMFz59CuY7ngCxTxjpxE",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/6YVMFz59CuY7ngCxTxjpxE/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -185,7 +185,7 @@
    "aid": "2jOm3cYujQx6o1dxuiuqaX",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/2jOm3cYujQx6o1dxuiuqaX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -207,7 +207,7 @@
    "aid": "1gBUSTR3TyDdTVFIaQnc02",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/1gBUSTR3TyDdTVFIaQnc02/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -229,7 +229,7 @@
    "aid": "1z4g3DjTBBZKhvAroFlhOM",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/1z4g3DjTBBZKhvAroFlhOM/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
@@ -251,7 +251,7 @@
    "aid": "3cjEqqelV9zb4BYE3qDQ4O",
    "fol": 0,
    "pop": 0,
-   "err": "HTTPError: HTTP Error 403: Forbidden",
+   "err": "RuntimeError: HTTP 403 artists/3cjEqqelV9zb4BYE3qDQ4O/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
    "raw": {
     "has_followers": false,
     "followers_total": null,
