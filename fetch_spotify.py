@@ -258,24 +258,30 @@ def main():
             fol, pop = _artist(aid, tok)
         except Exception as e:
             api_err = f"{type(e).__name__}: {str(e)[:120]}"
-        if BLOCKED.get("top") is not True:
+        # 4xx 는 이 앱·이 요청이 구조적으로 막혔다는 뜻이라 12팀 내내 똑같이 실패한다.
+        # 403 만 보고 있었더니 albums 의 400 은 못 걸러 매번 12번씩 재시도했다.
+        def _try(kind, fn):
+            if BLOCKED.get(kind) is True:
+                return None
             try:
-                ttn, tpop = _top_track(aid, tok)
-                art["topTrack"] = ttn
-                BLOCKED["top"] = False
+                v = fn()
+                BLOCKED[kind] = False
+                return v
             except Exception as e:
-                if "403" in str(e):
-                    BLOCKED["top"] = True
-                api_err = api_err or f"top-tracks: {str(e)[:80]}"
-        if BLOCKED.get("alb") is not True:
-            try:
-                rname, rdate = _latest_release(aid, tok)
-                art["release"] = {"name": rname, "date": rdate}
-                BLOCKED["alb"] = False
-            except Exception as e:
-                if "403" in str(e):
-                    BLOCKED["alb"] = True
-                api_err = api_err or f"albums: {str(e)[:80]}"
+                m = re.search(r"HTTP (4\d\d)", str(e))
+                if m:
+                    BLOCKED[kind] = True
+                    BLOCKED[kind + "_why"] = str(e)[:200]
+                return None
+
+        tt = _try("top", lambda: _top_track(aid, tok))
+        if tt:
+            _, tpop = tt
+            art["topTrack"] = tt[0]
+        rel = _try("alb", lambda: _latest_release(aid, tok))
+        if rel and rel[0]:
+            art["release"] = {"name": rel[0], "date": rel[1]}
+        api_err = api_err or BLOCKED.get("top_why") or BLOCKED.get("alb_why")
         dbg.append({"label": label, "aid": aid, "fol": fol, "pop": pop,
                     "err": api_err, "raw": _RAW.get(aid)})
 
@@ -327,8 +333,8 @@ def main():
         print(f"  [권한] 공식 API 가 팔로워·인기도를 주지 않음 ({nofp}/{len(dbg)}팀) — "
               f"확장 권한(Extended Quota) 없는 앱의 제한. 월간청취자·스트림으로 대체 중.")
     for k, ko in (("top", "대표곡"), ("alb", "최근 발매작")):
-        if BLOCKED.get(k):
-            print(f"  [권한] {ko} 조회는 이 앱 권한으로 막혀 있어 건너뜀(403).")
+        if BLOCKED.get(k) is True:
+            print(f"  [권한] {ko} 조회 막힘 — {BLOCKED.get(k + '_why', '')[:150]}")
 
     # 진단 파일 — /v1/artists 가 팔로워·인기도를 실제로 주는지 커밋되어 남는다.
     n0 = sum(1 for x in dbg if not x["fol"] and not x["pop"])
