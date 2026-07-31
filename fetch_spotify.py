@@ -24,6 +24,8 @@ CSEC = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
 
 DEBUG_PATH = "spotify_debug.json"
 _RAW = {}   # 진단: aid → /v1/artists 응답에 followers·popularity 가 실제로 담겨오는지
+# 이 앱 권한으로 막힌 엔드포인트. 한 번 403 이면 12팀 내내 같으므로 그 뒤로는 안 부른다.
+BLOCKED = {}
 
 # (종목, 라벨, 검색어, 고정aid) — 엔터 커버 종목의 주요 아티스트.
 # 고정aid 를 주면 검색을 건너뛴다. 신인·동명이인은 search 가 엉뚱한 아티스트를 잡을 수
@@ -88,13 +90,22 @@ def _artist_id(name, tok):
 
 
 def _artist(aid, tok):
+    """팔로워·인기도. 이 앱 권한으로는 안 오는 경우가 있어 (None, None) 을 돌려줄 수 있다.
+
+       ⚠️ 이 앱은 확장 권한(Extended Quota)이 없어 카탈로그 응답이 깎여서 온다.
+          200 은 오지만 followers·popularity 키 자체가 빠진다
+          (오는 키: external_urls·href·id·images·name·type·uri).
+          0 으로 채우면 인기도 추이선이 바닥에 깔리므로 None 으로 둔다."""
     d = _get(f"https://api.spotify.com/v1/artists/{aid}", tok)
     _RAW[aid] = {"has_followers": "followers" in d,
                  "followers_total": (d.get("followers") or {}).get("total"),
                  "has_popularity": "popularity" in d,
                  "popularity": d.get("popularity"),
                  "keys": sorted(d.keys())}
-    return int((d.get("followers") or {}).get("total") or 0), int(d.get("popularity") or 0)
+    fol = (d.get("followers") or {}).get("total")
+    pop = d.get("popularity")
+    return (int(fol) if fol is not None else None,
+            int(pop) if pop is not None else None)
 
 
 def _top_track(aid, tok):
@@ -237,17 +248,34 @@ def main():
 
         # 1) Spotify Web API — 인기도·팔로워·대표곡·최근작.
         #    러너 IP 가 403 을 내는 사례가 있어 여기서만 막고, 월간청취자(아래)는 계속 진행한다.
+        # 항목마다 따로 감싼다. 예전엔 셋을 한 try 로 묶어서, 못 쓰는 항목 하나
+        # (top-tracks 403) 때문에 뒤의 최근 발매작까지 통째로 건너뛰었다.
+        # 그리고 이 앱이 못 쓰는 엔드포인트는 한 번 막히면 12팀 내내 똑같이 막히므로,
+        # 처음 한 번만 확인하고 그 뒤로는 부르지 않는다(무의미한 호출·경고 반복 제거).
         fol = pop = tpop = None
         api_err = None
         try:
             fol, pop = _artist(aid, tok)
-            ttn, tpop = _top_track(aid, tok)
-            rname, rdate = _latest_release(aid, tok)
-            art["topTrack"] = ttn
-            art["release"] = {"name": rname, "date": rdate}
         except Exception as e:
             api_err = f"{type(e).__name__}: {str(e)[:120]}"
-            print(f"  [{label}] Spotify API 실패(인기도·팔로워 스킵): {str(e)[:60]}")
+        if BLOCKED.get("top") is not True:
+            try:
+                ttn, tpop = _top_track(aid, tok)
+                art["topTrack"] = ttn
+                BLOCKED["top"] = False
+            except Exception as e:
+                if "403" in str(e):
+                    BLOCKED["top"] = True
+                api_err = api_err or f"top-tracks: {str(e)[:80]}"
+        if BLOCKED.get("alb") is not True:
+            try:
+                rname, rdate = _latest_release(aid, tok)
+                art["release"] = {"name": rname, "date": rdate}
+                BLOCKED["alb"] = False
+            except Exception as e:
+                if "403" in str(e):
+                    BLOCKED["alb"] = True
+                api_err = api_err or f"albums: {str(e)[:80]}"
         dbg.append({"label": label, "aid": aid, "fol": fol, "pop": pop,
                     "err": api_err, "raw": _RAW.get(aid)})
 
@@ -291,10 +319,22 @@ def main():
               f"일간스트림 {f'{sd:,}' if sd is not None else '—'}")
         arts.append(art)
 
+    # 이 앱이 뭘 쓸 수 있는지 한 줄로 정리한다.
+    # 예전엔 팀마다 'Spotify API 실패' 를 12줄 찍어서 수집 전체가 죽은 것처럼 보였는데,
+    # 실제로는 월간청취자·스트림(kworb)이 정상 수집되고 있었다.
+    nofp = sum(1 for x in dbg if x["fol"] is None and x["pop"] is None)
+    if nofp:
+        print(f"  [권한] 공식 API 가 팔로워·인기도를 주지 않음 ({nofp}/{len(dbg)}팀) — "
+              f"확장 권한(Extended Quota) 없는 앱의 제한. 월간청취자·스트림으로 대체 중.")
+    for k, ko in (("top", "대표곡"), ("alb", "최근 발매작")):
+        if BLOCKED.get(k):
+            print(f"  [권한] {ko} 조회는 이 앱 권한으로 막혀 있어 건너뜀(403).")
+
     # 진단 파일 — /v1/artists 가 팔로워·인기도를 실제로 주는지 커밋되어 남는다.
-    n0 = sum(1 for x in dbg if x["fol"] == 0 and x["pop"] == 0)
+    n0 = sum(1 for x in dbg if not x["fol"] and not x["pop"])
     json.dump({"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
-               "token_ok": True, "zero_count": n0, "total": len(dbg), "artists": dbg},
+               "token_ok": True, "zero_count": n0, "total": len(dbg),
+               "blocked": BLOCKED, "artists": dbg},
               open(DEBUG_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
     sp = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "artists": arts}
