@@ -50,6 +50,10 @@ jobs:
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: python fetch_spotify.py || echo "Spotify 수집 건너뜀"
 
+      # 애플 앱스토어 게임 매출/무료 순위(게임 IP). 마케팅 RSS, 키 불필요.
+      - name: 앱스토어 게임순위 수집
+        run: python fetch_appstore.py || echo "앱스토어 수집 건너뜀"
+
       # 방한 외래관광객 월별(호텔/면세/카지노). 한국관광 데이터랩 내부 JSON, 키 불필요.
       # (미국 러너에서 지역차단되면 실패해도 기존 데이터 보존)
       - name: 방한 외래관광객 수집
