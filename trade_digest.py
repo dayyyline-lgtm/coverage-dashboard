@@ -202,7 +202,10 @@ def build_flash(fl, trade):
             amt = f"{r['v']:,}".rjust(vw)
             row = f"{r['k']}{pad} {spk} {amt}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%"
             lines.append(f"<code>{row}</code>")
-        out.append("<b>품목별</b> <i>(전년동월·전월·당월 · 금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
+        src = fl.get("itemsSource") or ""
+        out.append("<b>품목별</b> <i>(전년동월·전월·당월 · 금액 · 전월비 · 전년비)</i>\n"
+                   + "\n".join(lines)
+                   + (f"\n<i>{src}</i>" if src else ""))
 
     for g in fl.get("groups") or []:
         rows = g.get("rows") or []
@@ -219,7 +222,6 @@ def build_flash(fl, trade):
             continue          # 담배처럼 전체 한 줄뿐인 품목은 머리줄로 끝난다
         # 금액 큰 순으로 — 어디가 주력인지 먼저 보이고, 변화는 숫자로 읽는다
         rest.sort(key=lambda r: -r["v"])
-        mx = max((r["v"] for r in rest), default=1)
         lw = max(_w(r["k"]) for r in rest)
         vw = max(len(f"{r['v']:,.0f}") for r in rest)
         lines = []
@@ -231,10 +233,17 @@ def build_flash(fl, trade):
                          f"{r['mm']:+4d}% {r['yy']:+5d}%</code>")
         out.append("\n".join(lines))
 
+    gsrc = fl.get("groupsSource") or ""
+    if gsrc and (fl.get("groups") or []):
+        out.append(f"<i>지역별 출처 — {gsrc}</i>")
+
     # 두 표는 출처가 달라 총계가 다르다. 섞어 읽지 않도록 못을 박아 둔다.
     last = _last_filled(trade)
-    out.append(f"<i>품목표 총계(1,288)는 향수·헤어까지 포함, 지역표 전체(1,098)는 "
-               f"화장품(HS3304) 계열 — 총계끼리 비교 금지.\n"
+    it_tot = next((r["v"] for r in (fl.get("items") or []) if r["k"] == "화장품 총계"), None)
+    gp_tot = next((r["v"] for g in (fl.get("groups") or []) if g["label"] == "화장품"
+                   for r in g["rows"] if r["k"] == "전체"), None)
+    out.append(f"<i>품목표 총계({it_tot:,})는 향수·헤어까지 포함, "
+               f"지역표 전체({gp_tot:,.0f})는 화장품(HS3304) 계열 — 총계끼리 비교 금지.\n"
                f"관세청 확정치는 {last[:4]}.{last[4:]} 까지. 대시보드는 HS 6단위라 "
                f"'기초'의 범위가 이 표와 다릅니다.</i>")
     return mon, "\n\n".join(out)
