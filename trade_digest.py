@@ -225,6 +225,8 @@ def build_prelim(trade, pre, fl):
     vw = max(len(f"{r['v']:,.0f}") for r in rows)
     lines = []
     for r in rows:
+        if lines:
+            lines.append("")          # 품목 사이 한 줄 띄움 — 붙여 놓으니 어디까지가 한 덩어리인지 안 보였다
         amt = f"{r['v']:,.0f}".rjust(vw)
         lines.append(f"<code>{r['spk']} {amt}M</code>  <b>{r['k']}</b>")
         bits = []
@@ -245,10 +247,9 @@ def build_prelim(trade, pre, fl):
     last = _last_filled(trade)
     return mon, "\n\n".join([
         f"📦 <b>수출 {mlab} 잠정</b>\n"
-        f"<i>막대 = 최근 12개월 확정 + 맨 끝 한 점이 잠정 · 단위 백만달러</i>",
+        f"<i>막대 = 최근 12개월 확정 + 맨 끝이 잠정 · 백만달러</i>",
         "\n".join(lines),
-        f"<i>전월 대비 YoY = 이번 YoY − 전월 YoY. YoY 가 높아도 줄고 있으면 둔화다.\n"
-        f"확정치 {last[:4]}.{last[4:]} 까지 · MoM·YoY 는 우리 확정 시계열 기준</i>",
+        f"<i>전월 대비 YoY = 이번 YoY − 전월 YoY · 확정 {last[:4]}.{last[4:]} 까지</i>",
         DASH,
     ])
 
