@@ -650,6 +650,8 @@
         </div>
       </div>
       <div id="tradeCoNote" style="display:none;font-size:12.5px;color:var(--muted);background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent);border-radius:8px;padding:8px 12px;margin-bottom:10px"></div>
+      <!-- 품목군(첫 줄) -> 품목(둘째 줄) 2단 선택. 트렌드 탭과 같은 구조 -->
+      <div class="chip-row" id="tradeGroupChips" style="margin-bottom:6px"></div>
       <div class="chip-row" id="tradeItemChips"></div>
       <div class="chip-row" id="tradeCountryChips" style="margin-bottom:14px"></div>
 
@@ -2858,11 +2860,14 @@ const TRADE_PRELIM = {
   "기타 화장품류": {
     "202607": {"": 545.0}
   },
-  // 마스크팩 잠정치는 얹지 않는다.
-  //   우리 '마스크팩' = 3307904000 (관세청 품목명 그대로) · 26.06 확정 67.0
-  //   증권사 '마스크팩' = 330790 전체(마스크팩 67 + 기타 49.7) · 26.06 117
-  //   기준이 1.75배 달라서 112 를 얹으면 67 -> 112 로 없는 급등이 그려진다.
-  //   3307904000 단독 잠정치는 그쪽도 공개하지 않는다. 8월 중순 확정치를 기다린다.
+  // 마스크팩은 계열이 둘이다. 잠정치는 '마스크팩 전체'에만 얹는다.
+  //   마스크팩 전체(330790)     = Epic·증권사 기준 · 26.06 확정 117.1 — 잠정치가 이 기준으로 온다
+  //   마스크팩(3307904000)      = 관세청 품목명 기준 · 26.06 확정 67.0 — 단독 잠정치는 없다
+  //   330790 안에서 순수 마스크팩 비중이 52~77% 로 흔들려 서로 대체 불가.
+  //   순수 쪽에 112 를 얹으면 67 -> 112 로 없는 급등이 그려진다(실제로 한 번 그랬다).
+  "마스크팩 전체": {
+    "202607": {"": 112.0}
+  },
   // 6월 대조 — 향수 9.5(표 10) · 매니큐어 2.7(3) · 헤어 51.6(52) · 샴푸 16.9(17). 전부 맞는다.
   "향수·화장수": {"202607": {"": 11.0}},
   "매니큐어류":  {"202607": {"": 2.0}},
@@ -2992,38 +2997,39 @@ const TRADE = {"asOf": "2026-08-01 20:28", "months": ["202408", "202409", "20241
   const chips=(el,arr,cls)=>{ el.innerHTML=arr.map((t,i)=>
     `<button class="chip ${cls||''}" data-i="${i}">${t}</button>`).join(""); };
 
-  /* 품목 계층 — 18개를 한 줄에 늘어놓으니 무엇이 무엇의 하위인지 안 보였다.
-     상위를 누르면 그때 하위가 펼쳐진다. (부모 라벨 -> 자식 라벨들) */
-  const ITEM_TREE={
-    "화장품 전체":  ["기초","색조 합계","기타 화장품류","향수·화장수","매니큐어류"],
-    "색조 합계":    ["색조-립","색조-아이","색조-파우더"],
-    "기타 화장품류":["마스크팩","기타 조제화장품"],
-    "헤어 총계":    ["샴푸","린스"],
-  };
-  const PARENT={};                                   // 자식 -> 부모
-  Object.entries(ITEM_TREE).forEach(([p,cs])=>cs.forEach(c=>PARENT[c]=p));
-  const CHILDREN=lbl=>ITEM_TREE[lbl]||[];
-  // 조상 사슬 — '색조-립'을 고르면 '색조 합계'와 '화장품 전체'가 다 펼쳐져 있어야 한다
-  const ANCESTORS=lbl=>{const out=[];let p=PARENT[lbl];while(p){out.push(p);p=PARENT[p];}return out;};
+  /* 품목 2단 선택 — 트렌드 탭과 같은 구조.
+     첫 줄에서 품목군을, 둘째 줄에서 그 군의 품목을 고른다.
+     '누르면 펼쳐지는' 방식을 써 봤는데 숨어 있는 게 있는지 자체가 안 보여서 걷어냈다.
+     두 줄이면 모든 선택지가 항상 눈에 있다. */
+  const ITEM_GROUPS=[
+    ["화장품",   ["화장품 전체","기초","색조 합계","기타 화장품류","향수·화장수","매니큐어류"]],
+    ["색조 상세", ["색조 합계","색조-립","색조-아이","색조-파우더"]],
+    ["마스크팩", ["마스크팩 전체","마스크팩","기타 조제화장품"]],
+    ["헤어",     ["헤어 총계","샴푸","린스"]],
+    ["음식료",   ["라면","만두"]],
+  ];
+  let groupIdx=0;
+  const groupOf=lbl=>{const g=ITEM_GROUPS.findIndex(([,ls])=>ls.includes(lbl));return g<0?0:g;};
 
   chips(document.getElementById("tradeItemChips"), TRADE.items.map(i=>i.label));
-  /* 어떤 칩을 보여줄지 — 최상위는 항상, 하위는 부모가 선택됐거나 그 갈래 안에 있을 때만.
-     지역 프록시(리쥬란-강릉 등)는 종목을 골랐을 때만 나온다. */
   let curRel=null;                                   // 종목을 골랐을 때 그 종목의 관련 품목 목록
   function paintItemChips(){
-    const cur=TRADE.items[itemIdx].label;
-    const open=new Set([cur, ...ANCESTORS(cur)]);    // 펼쳐 둘 부모들
+    // 품목군 줄
+    const gEl=document.getElementById("tradeGroupChips");
+    if(gEl && !gEl.childElementCount)
+      gEl.innerHTML=ITEM_GROUPS.map(([g],i)=>`<button class="chip" data-g="${i}">${g}</button>`).join("");
+    if(gEl) [...gEl.children].forEach((b,i)=>{
+      b.classList.toggle("active", i===groupIdx);
+      b.style.display=curRel?"none":"";              // 종목 선택 중엔 군 줄을 감춘다
+    });
+    // 품목 줄 — 선택된 군의 품목만
+    const cur=ITEM_GROUPS[groupIdx][1];
     document.querySelectorAll("#tradeItemChips .chip").forEach((b,i)=>{
-      const it=TRADE.items[i], lbl=it.label, par=PARENT[lbl];
-      let show;
-      if(curRel)         show=curRel.includes(lbl);  // 종목 선택 중이면 관련 품목만 (계층 접지 않음)
-      else if(it.region) show=false;                 // 전체보기에선 지역 프록시 숨김
-      else if(!par)      show=true;                  // 최상위는 늘 보인다
-      else               show=open.has(par);         // 부모가 열려 있을 때만
+      const it=TRADE.items[i], lbl=it.label;
+      const show=curRel? curRel.includes(lbl) : (!it.region && cur.includes(lbl));
       b.style.display=show?"":"none";
-      b.classList.toggle("chip-sub", !curRel && !!par);
-      const kids=CHILDREN(lbl).filter(k=>TRADE.items.some(x=>x.label===k));
-      b.textContent=lbl+((!curRel&&kids.length)?(open.has(lbl)?" ▾":" ▸"):"");
+      b.classList.remove("chip-sub");
+      b.textContent=lbl;
     });
   }
   function countryList(){ return TRADE.items[itemIdx].byCountry.map(c=>c.name); }
@@ -3049,7 +3055,7 @@ const TRADE = {"asOf": "2026-08-01 20:28", "months": ["202408", "202409", "20241
     "한국콜마":   {items:["화장품 전체","기초","색조-립","색조-아이","색조-파우더"], mkt:["US","CN"], note:"ODM — 기초 스킨케어 중심, 미국·중국"},
     "실리콘투":   {items:ALL_COS,                     mkt:["US","EU9"],      note:"K뷰티 역직구 — 미국 최대, 유럽·신흥국 급증"},
     "코스맥스":   {items:["화장품 전체","색조-립","색조-아이","색조-파우더","기초"], mkt:["CN","US"], note:"ODM — 색조 메이크업 강점, 중국 최대·미국(+46%)·동남아 확대"},
-    "제닉":      {items:["마스크팩","화장품 전체"],   mkt:["CN","US"],       note:"마스크팩 ODM — 중국·미국"},
+    "제닉":      {items:["마스크팩 전체","마스크팩","화장품 전체"],   mkt:["CN","US"],       note:"마스크팩 ODM — 중국·미국"},
     "파마리서치": {items:["리쥬란(강릉 기타화장품)"],     mkt:[],                note:"리쥬란·필러 = 강릉공장 기타화장품(330499) 제조지 기준 프록시 (국가 구분 없음)"},
     "티앤엘":    {items:["창상피복재(안성)"],             mkt:[],                note:"미티패치·하이드로콜로이드 창상피복재 = 안성공장 제조지 기준 프록시 (미국 중심 · HERO/처치앤드와이트 ODM)"},
     "삼양식품":   {items:["라면"],                     mkt:["US","CN","EU9"], note:"불닭 — 미국·중국 양대 시장, 유럽 확대"},
@@ -3083,6 +3089,7 @@ const TRADE = {"asOf": "2026-08-01 20:28", "months": ["202408", "202409", "20241
     } else if(!rel && TRADE.items[itemIdx].region){         // 전체보기인데 지역 프록시가 선택돼 있으면 되돌림
       itemIdx=0;
     }
+    groupIdx=groupOf(TRADE.items[itemIdx].label);           // 군 줄이 다시 나타날 때 어긋나지 않게
     curMkts=co?co.mkt:[];
     rebuildCountry();                                       // 국가 칩 재생성 + ★ 표시
     const bc=TRADE.items[itemIdx].byCountry;
@@ -3274,9 +3281,19 @@ const TRADE = {"asOf": "2026-08-01 20:28", "months": ["202408", "202409", "20241
   function rebuildCountry(){ chips(document.getElementById("tradeCountryChips"), countryList(), "alt"); markMarkets(); }
   function refresh(){ paintChips(); draw(); }
 
+  document.getElementById("tradeGroupChips").addEventListener("click",e=>{
+    const b=e.target.closest(".chip"); if(!b) return;
+    groupIdx=+b.dataset.g;
+    // 군을 바꾸면 그 군의 첫 품목을 자동 선택 — 안 하면 이전 군의 품목이 그려진 채 남는다
+    const first=ITEM_GROUPS[groupIdx][1][0];
+    const i=TRADE.items.findIndex(it=>it.label===first);
+    if(i>=0){ itemIdx=i; cIdx=Math.min(cIdx, TRADE.items[itemIdx].byCountry.length-1); }
+    rebuildCountry(); refresh();
+  });
   document.getElementById("tradeItemChips").addEventListener("click",e=>{
     const b=e.target.closest(".chip"); if(!b) return;
     itemIdx=+b.dataset.i; cIdx=Math.min(cIdx, TRADE.items[itemIdx].byCountry.length-1);
+    groupIdx=groupOf(TRADE.items[itemIdx].label);   // 품목이 어느 군에 속하는지 동기화
     rebuildCountry(); refresh();
   });
   document.getElementById("tradeCountryChips").addEventListener("click",e=>{
