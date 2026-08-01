@@ -211,6 +211,22 @@
   .seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
   .seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
   .seg button.active{background:var(--accent);color:var(--onacc)}
+  /* 잠정 속보 가로 막대 — 금액(막대)과 전월 위치(세로선)를 한 줄에 겹쳐 본다 */
+  .fl-head,.fl-row{display:grid;grid-template-columns:104px 1fr 74px 62px 62px;gap:10px;align-items:center}
+  .fl-head{font-size:11px;color:var(--muted);font-weight:700;padding:0 2px 6px;border-bottom:1px solid var(--line)}
+  .fl-head .fl-v,.fl-head .fl-d,.fl-head .fl-y{text-align:right}
+  .fl-row{padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px}
+  .fl-k{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fl-bar{position:relative;height:16px;background:var(--chip);border-radius:4px;overflow:hidden}
+  .fl-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.55;border-radius:4px}
+  .fl-bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--muted);opacity:.85}
+  .fl-v{text-align:right;font-weight:800}
+  .fl-v small{font-size:10.5px;color:var(--muted);margin-left:1px}
+  .fl-d,.fl-y{text-align:right;font-weight:700;font-size:12.5px}
+  @media(max-width:640px){
+    .fl-head,.fl-row{grid-template-columns:78px 1fr 60px 52px;gap:7px;font-size:12px}
+    .fl-y,.fl-head .fl-y{display:none}     /* 폰에선 전년비를 감춘다(전월비가 이 표의 요지) */
+  }
   .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
   .trend-legend .li{display:flex;align-items:center;gap:7px;font-weight:600}
   /* 국가별처럼 계열마다 스케일·출처가 다른 건 겹치지 않고 격자로 나눠 그린다 */
@@ -627,6 +643,9 @@
     <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>. <b>종목을 먼저 고르면</b> 그 종목의 관련 HS 품목과 주력 수출시장이 정리됩니다.
       <span class="seed" id="tradeAsOfBadge"></span></p>
 
+    <!-- 잠정 속보 — 확정치보다 2주 빠르다. 확정치 차트와 분리해 둔다(집계 범위가 다름). -->
+    <div id="flashBox"></div>
+
     <div id="tradeUI">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <label for="tradeStock" style="font-weight:800;font-size:13px;color:var(--muted)">종목</label>
@@ -853,6 +872,7 @@ tabsEl.addEventListener("click",e=>{
   if(k==="valuation") drawScatter();
   if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
+  if(k==="altdata") renderFlash();
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
@@ -2428,6 +2448,55 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
 const SHOP_SRC={wb:{name:"와일드베리즈",country:"러시아"},rk:{name:"라쿠텐",country:"일본"}};
 /* 트렌드 수집일 — 주 1회 수집이라 '언제 것인지'를 모르면 판단이 어긋난다.
    시세는 매시간이지만 트렌드는 지난주 값일 수 있다는 걸 화면이 말해 줘야 한다. */
+/* ==== 수출 잠정 속보 ====
+   확정치는 2주 뒤에 온다. 그 사이 유일하게 움직이는 숫자라 따로 그린다.
+   확정치 차트와 합치지 않는 이유: 집계 범위가 다르다(총계는 향수·헤어 포함).
+   가로 막대 하나에 '이번 달 금액'과 '전월 대비 어디서 왔는지'를 같이 담는다 —
+   금액만 보면 큰 품목이 늘 위에 있어 무엇이 꺾였는지가 안 보인다. */
+function renderFlash(){
+  const el=document.getElementById("flashBox"); if(!el) return;
+  const F=(typeof TRADE_FLASH!=="undefined")?TRADE_FLASH:null;
+  if(!F||!(F.items||[]).length){ el.innerHTML=""; return; }
+  const m=F.month, mlab=`${m.slice(0,4)}.${m.slice(4)}`;
+  const rows=F.items.filter(r=>r.k!=="화장품 총계"&&!/^\s/.test(r.k));   // 하위 헤어 항목 제외
+  const tot=F.items.find(r=>r.k==="화장품 총계");
+  const max=Math.max(...rows.map(r=>Math.max(r.v,r.p)),1);
+  const W=100;   // % 폭 기준
+  const bar=r=>{
+    const w=r.v/max*W, pw=r.p/max*W, up=r.mm>=0;
+    return `<div class="fl-row">
+      <div class="fl-k">${r.k}</div>
+      <div class="fl-bar">
+        <i style="width:${w.toFixed(1)}%"></i>
+        <u style="left:${pw.toFixed(1)}%" title="전월 ${fmt(r.p,0)}M"></u>
+      </div>
+      <div class="fl-v">${fmt(r.v,0)}<small>M</small></div>
+      <div class="fl-d ${cls(r.mm)}">${sign(r.mm,1)}%</div>
+      <div class="fl-y ${cls(r.yy)}">${sign(r.yy,1)}%</div>
+    </div>`;
+  };
+  el.innerHTML=`<div class="sub-h">잠정 속보 · ${mlab}
+      <span class="tag-inline">확정치보다 2주 빠름</span></div>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi"><div class="k">화장품 총계</div>
+        <div class="v">${fmt(tot.v,0)}<small>백만$</small></div>
+        <div class="d"><span class="${cls(tot.mm)}">${sign(tot.mm,1)}%</span> 전월비 ·
+          <span class="${cls(tot.yy)}">${sign(tot.yy,1)}%</span> 전년비</div></div>
+      <div class="kpi"><div class="k">연초 누계</div>
+        <div class="v">${fmt(tot.ytd,0)}<small>백만$</small></div>
+        <div class="d">전년 ${fmt(tot.ytdPrev,0)} · <span class="${cls(tot.ytdYy)}">${sign(tot.ytdYy,1)}%</span></div></div>
+      <div class="kpi"><div class="k">기준일</div>
+        <div class="v" style="font-size:18px">${F.asOfDay||"—"}</div>
+        <div class="d">매월 1·11·21일 갱신</div></div>
+    </div>
+    <div class="fl-head"><div class="fl-k">품목</div><div class="fl-bar"></div>
+      <div class="fl-v">금액</div><div class="fl-d">전월</div><div class="fl-y">전년</div></div>
+    ${rows.map(bar).join("")}
+    <p class="note">막대 = ${mlab} 금액, 세로선 = 전월 위치. 단위 백만달러.
+      마스크팩은 '기타 화장품류'에 포함된 하위 항목이라 합계에 다시 더하지 않습니다.
+      총계(${fmt(tot.v,0)})는 향수·헤어까지 포함해 아래 확정치 차트의 화장품(HS 3304)과 범위가 다릅니다.</p>`;
+}
+
 function setTrendFoot(){
   const el=document.getElementById("trendFoot"); if(!el) return;
   const t=(typeof TREND!=="undefined")&&TREND.asOf;
@@ -2832,13 +2901,17 @@ const TRADE_PRELIM = {
 const TRADE_FLASH = {
   "month": "202607", "asOfDay": "2026-07-31",
   "source": "주요 품목별 잠정수출 동향 (매월 1·11·21일 갱신)",
-  /* 품목별 — 관세청 잠정 통관. 대시보드 TRADE(HS 6단위)와 분류가 다르다.
-     맞춰 본 결과:
-       화장품 총계 1,282(26.06) = 우리 3304 1,088.5 + 마스크팩 3307 120.7
-                                 + 헤어 3305 + 향수 3303  → 화장품 대분류 전체
-       기초화장품 565 + 기타 화장품류 503 ≈ 우리 330499 1,009.4
-         → 이 표는 330499 를 HS 10단위(기초화장용 / 기타)로 더 쪼갠 것이다.
-     그래서 '기초'끼리 비교하면 1.8배 어긋난다. 숫자를 옮길 때 반드시 같은 칸끼리 볼 것. */
+  /* 품목별 — 관세청 잠정 통관. 계산으로 확인한 구조는 이렇다.
+       화장품 총계 = 기초 + 색조 + 기타 화장품류 + 향수 + 매니큐어 + 헤어
+                    528 + 141 + 545 + 11 + 2 + 61 = 1,288  (표의 총계와 정확히 일치)
+       마스크팩(112)은 따로 더하는 항목이 아니라 '기타 화장품류' 안의 하위 항목이다.
+                    (더하면 1,339 로 총계를 넘는다)
+       HS 3304 계열 = 기초 + 색조 + 기타 - 마스크팩 = 1,102
+                    지역별 표의 '화장품 전체' 1,098 이 이것과 맞는다(반올림 차 4).
+                    우리 확정 3304 는 26.06 이 1,088.5 — 잠정/확정 차이로 1.2% 안이다.
+     그래서 지역별 1,098 은 대시보드 3304 차트에 잠정치로 얹어도 된다(TRADE_PRELIM).
+     반면 '기초'는 이 표가 330499 를 HS 10단위로 더 쪼갠 것이라
+     우리 330499(1,009.4)와 1.8배 어긋난다 — 그건 얹지 않는다. */
   "items": [
     {"k": "화장품 총계",   "v": 1288, "p": 1282, "mm": 0.42,   "yy": 37.70,  "ytd": 6663, "ytdPrev": 5247, "ytdYy": 27.00, "head": 1},
     {"k": "기초화장품",     "v": 528,  "p": 565,  "mm": -6.64,  "yy": 30.87,  "ytd": 2938, "ytdPrev": 2330, "ytdYy": 26.09},
@@ -2852,8 +2925,8 @@ const TRADE_FLASH = {
     {"k": "  린스",         "v": 4,    "p": 3,    "mm": 22.42,  "yy": 99.17,  "ytd": 18,   "ytdPrev": 12,   "ytdYy": 54.58},
     {"k": "  기타 헤어",    "v": 33,   "p": 31,   "mm": 4.13,   "yy": 28.93,  "ytd": 156,  "ytdPrev": 125,  "ytdYy": 24.96},
   ],
-  /* 국가별 — 위 품목표와 출처가 달라 총계가 다르다(화장품 1,098 vs 총계 1,288).
-     국가별 쪽은 HS 3304 계열만 잡은 것으로 보인다. 총계끼리 섞지 말 것. */
+  /* 지역별 — '화장품 전체' 1,098 은 HS 3304 계열이다(위 주석의 계산 참고).
+     품목표의 총계 1,288 은 향수·헤어까지 포함한 대분류라 이것과 다르다. 섞지 말 것. */
   "groups": [
     {"label": "화장품", "rows": [
       {"k": "전체",       "v": 1098.0, "yy": 36,  "mm": 0},
