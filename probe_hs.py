@@ -1,47 +1,53 @@
 # -*- coding: utf-8 -*-
-"""330790 하위 10자리 부호의 실제 품목명 확인 (일회용).
+"""커버 품목 HS 지도 만들기 (일회용).
 
-마스크팩이 330790 전체인지 3307904000 하나인지 가른다.
-API 응답에 품목명 필드가 있는지부터 본다. 확인되면 이 파일은 지운다.
+관세청 API 는 statKor 필드로 공식 품목명을 그대로 준다.
+숫자가 맞는지로 부호를 고르다가 두 번 틀렸다(기초 330499, 마스크팩 330790).
+품목명을 먼저 봐야 한다. 확인되면 이 파일은 지운다.
 """
 import os, sys, urllib.request, urllib.parse, collections
 import xml.etree.ElementTree as ET
 
 KEY = os.environ.get("DATA_GO_KR_KEY", "")
+API = "https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList"
+
+# 6자리를 먼저 훑고, 금액이 큰 6자리는 10자리까지 내려간다
+FAMILIES = ["3303", "3304", "3305", "3307", "1902", "3005"]
+DRILL_MIN = 20e6      # 6자리 수출액이 이 이상이면 10자리도 본다 (달러)
 
 
-def dump(api, params, label):
-    url = api + "?" + urllib.parse.urlencode(params, safe="")
+def call(hs, ym="202606"):
+    p = {"serviceKey": KEY, "strtYymm": ym, "endYymm": ym, "hsSgn": hs}
+    url = API + "?" + urllib.parse.urlencode(p, safe="")
     try:
         raw = urllib.request.urlopen(
             urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read()
     except Exception as e:
-        print(f"[{label}] 실패 {type(e).__name__} {str(e)[:80]}"); return
-    root = ET.fromstring(raw)
-    items = list(root.iter("item"))
-    print(f"\n[{label}] {len(items)}건")
-    if not items:
-        print("   ", (root.findtext('.//resultMsg') or '')[:80]); return
-    print("    필드:", [c.tag for c in items[0]])
-    seen = {}
-    for it in items:
+        print(f"  ! {hs} 실패 {str(e)[:60]}"); return {}
+    amt, nm = collections.defaultdict(float), {}
+    for it in ET.fromstring(raw).iter("item"):
         g = lambda t: (it.findtext(t) or "").strip()
         h = g("hsCd")
-        if h and h not in seen:
-            seen[h] = {c.tag: (c.text or "").strip()[:40] for c in it
-                       if c.tag not in ("expDlr", "expWgt", "impDlr", "impWgt", "balPayments")}
-    for h, v in sorted(seen.items()):
-        print(f"    {h}: {v}")
+        if not h.isdigit():
+            continue
+        nm.setdefault(h, g("statKor"))
+        try:
+            amt[h] += float(g("expDlr").replace(",", ""))
+        except ValueError:
+            pass
+    return {h: (amt[h], nm.get(h, "")) for h in amt}
 
 
 if __name__ == "__main__":
     if not KEY:
         print("KEY 없음"); sys.exit(1)
-    # 1) 품목국가별(현행 사용) — 품목명 필드가 있나
-    dump("https://apis.data.go.kr/1220000/nitemtrade/getNitemtradeList",
-         {"serviceKey": KEY, "strtYymm": "202606", "endYymm": "202606", "hsSgn": "330790"},
-         "nitemtrade 330790")
-    # 2) 품목별(국가 없음) — 이쪽은 품목명을 준다고 알려져 있다
-    dump("https://apis.data.go.kr/1220000/Itemtrade/getItemtradeList",
-         {"serviceKey": KEY, "strtYymm": "202606", "endYymm": "202606", "hsSgn": "330790"},
-         "Itemtrade 330790")
+    for fam in FAMILIES:
+        six = call(fam)
+        tot = sum(v for v, _ in six.values())
+        print(f"\n═══ HS {fam}  (26.06 수출 {tot/1e6:,.1f} 백만달러) ═══")
+        for h, (v, n) in sorted(six.items(), key=lambda x: -x[1][0]):
+            print(f"  {h:<10} {v/1e6:>8,.1f}  {n}")
+            if v >= DRILL_MIN and len(h) == 6:
+                for h2, (v2, n2) in sorted(call(h).items(), key=lambda x: -x[1][0]):
+                    if v2 > 0:
+                        print(f"      {h2:<12} {v2/1e6:>8,.1f}  {n2}")
