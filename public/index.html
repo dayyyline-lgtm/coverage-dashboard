@@ -211,22 +211,6 @@
   .seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
   .seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
   .seg button.active{background:var(--accent);color:var(--onacc)}
-  /* 잠정 속보 가로 막대 — 금액(막대)과 전월 위치(세로선)를 한 줄에 겹쳐 본다 */
-  .fl-head,.fl-row{display:grid;grid-template-columns:104px 1fr 74px 62px 62px;gap:10px;align-items:center}
-  .fl-head{font-size:11px;color:var(--muted);font-weight:700;padding:0 2px 6px;border-bottom:1px solid var(--line)}
-  .fl-head .fl-v,.fl-head .fl-d,.fl-head .fl-y{text-align:right}
-  .fl-row{padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px}
-  .fl-k{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .fl-bar{position:relative;height:16px;background:var(--chip);border-radius:4px;overflow:hidden}
-  .fl-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.55;border-radius:4px}
-  .fl-bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--muted);opacity:.85}
-  .fl-v{text-align:right;font-weight:800}
-  .fl-v small{font-size:10.5px;color:var(--muted);margin-left:1px}
-  .fl-d,.fl-y{text-align:right;font-weight:700;font-size:12.5px}
-  @media(max-width:640px){
-    .fl-head,.fl-row{grid-template-columns:78px 1fr 60px 52px;gap:7px;font-size:12px}
-    .fl-y,.fl-head .fl-y{display:none}     /* 폰에선 전년비를 감춘다(전월비가 이 표의 요지) */
-  }
   .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
   .trend-legend .li{display:flex;align-items:center;gap:7px;font-weight:600}
   /* 국가별처럼 계열마다 스케일·출처가 다른 건 겹치지 않고 격자로 나눠 그린다 */
@@ -643,8 +627,6 @@
     <p class="sec-desc" id="tradeDesc">관세청 품목별·국가별 수출 통관 <b>확정치</b>. <b>종목을 먼저 고르면</b> 그 종목의 관련 HS 품목과 주력 수출시장이 정리됩니다.
       <span class="seed" id="tradeAsOfBadge"></span></p>
 
-    <!-- 잠정 속보 — 확정치보다 2주 빠르다. 확정치 차트와 분리해 둔다(집계 범위가 다름). -->
-    <div id="flashBox"></div>
 
     <div id="tradeUI">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -872,7 +854,6 @@ tabsEl.addEventListener("click",e=>{
   if(k==="valuation") drawScatter();
   if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
-  if(k==="altdata") renderFlash();
   window.scrollTo({top:0,behavior:"smooth"});
 });
 
@@ -2448,55 +2429,6 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
 const SHOP_SRC={wb:{name:"와일드베리즈",country:"러시아"},rk:{name:"라쿠텐",country:"일본"}};
 /* 트렌드 수집일 — 주 1회 수집이라 '언제 것인지'를 모르면 판단이 어긋난다.
    시세는 매시간이지만 트렌드는 지난주 값일 수 있다는 걸 화면이 말해 줘야 한다. */
-/* ==== 수출 잠정 속보 ====
-   확정치는 2주 뒤에 온다. 그 사이 유일하게 움직이는 숫자라 따로 그린다.
-   확정치 차트와 합치지 않는 이유: 집계 범위가 다르다(총계는 향수·헤어 포함).
-   가로 막대 하나에 '이번 달 금액'과 '전월 대비 어디서 왔는지'를 같이 담는다 —
-   금액만 보면 큰 품목이 늘 위에 있어 무엇이 꺾였는지가 안 보인다. */
-function renderFlash(){
-  const el=document.getElementById("flashBox"); if(!el) return;
-  const F=(typeof TRADE_FLASH!=="undefined")?TRADE_FLASH:null;
-  if(!F||!(F.items||[]).length){ el.innerHTML=""; return; }
-  const m=F.month, mlab=`${m.slice(0,4)}.${m.slice(4)}`;
-  const rows=F.items.filter(r=>r.k!=="화장품 총계"&&!/^\s/.test(r.k));   // 하위 헤어 항목 제외
-  const tot=F.items.find(r=>r.k==="화장품 총계");
-  const max=Math.max(...rows.map(r=>Math.max(r.v,r.p)),1);
-  const W=100;   // % 폭 기준
-  const bar=r=>{
-    const w=r.v/max*W, pw=r.p/max*W, up=r.mm>=0;
-    return `<div class="fl-row">
-      <div class="fl-k">${r.k}</div>
-      <div class="fl-bar">
-        <i style="width:${w.toFixed(1)}%"></i>
-        <u style="left:${pw.toFixed(1)}%" title="전월 ${fmt(r.p,0)}M"></u>
-      </div>
-      <div class="fl-v">${fmt(r.v,0)}<small>M</small></div>
-      <div class="fl-d ${cls(r.mm)}">${sign(r.mm,1)}%</div>
-      <div class="fl-y ${cls(r.yy)}">${sign(r.yy,1)}%</div>
-    </div>`;
-  };
-  el.innerHTML=`<div class="sub-h">잠정 속보 · ${mlab}
-      <span class="tag-inline">확정치보다 2주 빠름</span></div>
-    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
-      <div class="kpi"><div class="k">화장품 총계</div>
-        <div class="v">${fmt(tot.v,0)}<small>백만$</small></div>
-        <div class="d"><span class="${cls(tot.mm)}">${sign(tot.mm,1)}%</span> 전월비 ·
-          <span class="${cls(tot.yy)}">${sign(tot.yy,1)}%</span> 전년비</div></div>
-      <div class="kpi"><div class="k">연초 누계</div>
-        <div class="v">${fmt(tot.ytd,0)}<small>백만$</small></div>
-        <div class="d">전년 ${fmt(tot.ytdPrev,0)} · <span class="${cls(tot.ytdYy)}">${sign(tot.ytdYy,1)}%</span></div></div>
-      <div class="kpi"><div class="k">기준일</div>
-        <div class="v" style="font-size:18px">${F.asOfDay||"—"}</div>
-        <div class="d">매월 1·11·21일 갱신</div></div>
-    </div>
-    <div class="fl-head"><div class="fl-k">품목</div><div class="fl-bar"></div>
-      <div class="fl-v">금액</div><div class="fl-d">전월</div><div class="fl-y">전년</div></div>
-    ${rows.map(bar).join("")}
-    <p class="note">막대 = ${mlab} 금액, 세로선 = 전월 위치. 단위 백만달러.
-      마스크팩은 '기타 화장품류'에 포함된 하위 항목이라 합계에 다시 더하지 않습니다.
-      총계(${fmt(tot.v,0)})는 향수·헤어까지 포함해 아래 확정치 차트의 화장품(HS 3304)과 범위가 다릅니다.</p>`;
-}
-
 function setTrendFoot(){
   const el=document.getElementById("trendFoot"); if(!el) return;
   const t=(typeof TREND!=="undefined")&&TREND.asOf;
@@ -2886,8 +2818,17 @@ window.addEventListener("resize",()=>{
       나눈 분류다(메이크업이 우리 '기초' 쪽에 섞여 있다).
       기준을 맞추기 전에 얹으면 같은 그래프에 다른 잣대를 겹치는 셈이라 뺐다. */
 const TRADE_PRELIM = {
+  // 6월 기준으로 우리 확정치와 대조해 오차가 작은 것만 얹는다.
+  //   화장품 전체(3304)   확정 1,088.5 vs 속보 1,102  → +1.2%  ○
+  //   마스크팩류(3307)    확정   120.7 vs 속보   117  → -3.1%  ○
+  //   기초(330499)       확정 1,009.4 vs 속보   565  → -44%   × (속보는 HS 10단위로 더 쪼갬)
+  //   색조 합계          확정    76.4 vs 속보   151  → +98%   × (범위가 다름)
+  // 오차 큰 둘은 같은 선에 이으면 7월에 절벽이 생겨 없는 급락을 만든다.
   "화장품 전체": {
     "202607": {"": 1098.0, "CN": 136.6, "US": 239.4, "JP": 73.6, "GB": 67.7, "PL": 26.0}
+  },
+  "마스크팩류": {
+    "202607": {"": 112.0}
   },
 };
 
@@ -3094,6 +3035,11 @@ const TRADE = {"asOf": "2026-08-01 11:25", "months": ["202408", "202409", "20241
         else { M.push(ym); V.push(v*1e6); P.push(true); }   // 백만달러 -> 달러
       });
     }
+    /* 값이 없는 뒤쪽 달은 잘라낸다.
+       관세청 API 가 아직 집계 안 된 달을 빈 값으로 주는데, 그대로 두면 그리는 쪽에서
+       null 을 0 으로 바꿔 마지막에 바닥 막대가 하나 생긴다 — 수출이 0으로 무너진 것처럼 읽힌다.
+       (잠정치가 채운 달은 값이 있으므로 남는다) */
+    while(V.length && V[V.length-1]==null){ V.pop(); M.pop(); P.pop(); }
     if(period==="m") return {labels:M.map(m=>`${m.slice(2,4)}.${m.slice(4,6)}`), vals:V, keys:M, prelim:P};
     const buckets=new Map();
     M.forEach((m,i)=>{

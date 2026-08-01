@@ -68,6 +68,23 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: python fetch_twitch.py || echo "트위치 수집 건너뜀"
 
+      # 영화는 주말에도 갱신해야 한다 — 개봉 전후 주말이 흥행의 핵심 구간인데
+      # 평일 수집(events.yml)만으로는 토·일이 통째로 빈다.
+      # movie.yml 자체 cron 은 이 저장소에서 주말에 발화하지 않았다(7/25·26 실행 0회).
+      # refresh.yml 은 워커가 주말에도 4시간마다 부르므로 여기 붙이는 게 가장 확실하다.
+      # 평일엔 events.yml 이 이미 하므로 토·일만 돈다. 같은 날 재실행은 값만 갱신된다
+      # (예매율은 장중에 계속 바뀌므로 여러 번 받는 게 오히려 낫다).
+      - name: 영화 예매·박스오피스 (주말)
+        env:
+          KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
+        run: |
+          d=$(TZ=Asia/Seoul date +%u)      # 6=토, 7=일
+          if [ "$d" -ge 6 ]; then
+            python fetch_movie.py || echo "영화 수집 건너뜀"
+          else
+            echo "평일 - events.yml 이 담당"
+          fi
+
       # 시세 갱신 직후에 돌려야 방금 확정된 실적을 바로 잡는다.
       # 토큰이 없으면 조용히 넘어가므로 수집 자체는 영향받지 않는다.
       - name: 실적 발표 알림
