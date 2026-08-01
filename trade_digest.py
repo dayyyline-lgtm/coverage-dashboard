@@ -33,8 +33,20 @@ REGION = [
 
 
 def _const(html, name):
-    m = re.search(r"const %s\s*=\s*(\{.*?\});" % re.escape(name), html, re.S)
-    return json.loads(m.group(1)) if m else None
+    """index.html 의 상수 블록을 읽는다.
+
+       TRADE 처럼 스크립트가 쓰는 블록은 순수 JSON 이지만,
+       TRADE_FLASH 처럼 손으로 적는 블록에는 주석과 끝 쉼표가 들어간다.
+       자바스크립트는 받아 주고 JSON 은 거부하므로 여기서 떼어 낸다."""
+    m = re.search(r"const %s\s*=\s*(\{.*?\n\});" % re.escape(name), html, re.S) \
+        or re.search(r"const %s\s*=\s*(\{.*?\});" % re.escape(name), html, re.S)
+    if not m:
+        return None
+    s = m.group(1)
+    s = re.sub(r"/\*.*?\*/", "", s, flags=re.S)      # 블록 주석
+    s = re.sub(r"(?m)//.*$", "", s)                  # 줄 주석
+    s = re.sub(r",(\s*[}\]])", r"\1", s)             # 끝 쉼표
+    return json.loads(s)
 
 
 def _spark(vals, n=12):
