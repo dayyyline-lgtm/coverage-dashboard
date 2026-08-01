@@ -183,11 +183,6 @@ def build_flash(fl, trade):
                    f"{f'{r[chr(118)]:,}'.rjust(vw)}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%")
             lines.append(f"<code>{row}</code>")
         out.append("<b>품목별</b> <i>(막대=금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
-        # 누계는 월 변동에 안 흔들리는 기준선이라 따로 한 줄
-        tot = next((r for r in items if r["k"] == "화장품 총계"), None)
-        if tot and tot.get("ytd"):
-            out.append(f"<b>연초 누계</b>  ${tot['ytd']:,}M "
-                       f"<i>(전년 ${tot['ytdPrev']:,}M · {tot['ytdYy']:+.1f}%)</i>")
 
     for g in fl.get("groups") or []:
         rows = g.get("rows") or []
