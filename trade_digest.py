@@ -218,12 +218,10 @@ def build_prelim(trade, pre, fl):
         lines.append(f"<code>{r['spk']} {amt}M {mm} {yy}</code>  <b>{r['k']}</b>")
     last = _last_filled(trade)
     return mon, "\n\n".join([
-        f"📦 <b>수출 — 확정 + {mlab} 잠정</b>",
-        "<i>막대 = 최근 12개월 확정 + 맨 끝 한 점이 잠정. 금액 · 전월비 · 전년비</i>",
+        f"📦 <b>수출 {mlab} 잠정</b>",
         "\n".join(lines),
-        f"<i>확정치는 {last[:4]}.{last[4:]} 까지 · 전월비·전년비는 원문이 아니라 "
-        f"우리 확정 시계열로 다시 계산한 값입니다(기준을 맞추려고).\n"
-        f"잠정 출처 — {fl.get('itemsSource','')}</i>",
+        f"<i>막대 = 최근 12개월 확정 + 맨 끝이 {mlab} 잠정 · 단위 백만달러\n"
+        f"확정치 {last[:4]}.{last[4:]} 까지 · 증감률은 우리 확정 시계열 기준</i>",
     ])
 
 
