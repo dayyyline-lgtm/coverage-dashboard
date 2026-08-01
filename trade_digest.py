@@ -28,6 +28,18 @@ ITEMS = [
     ("라면", "삼양·농심"),
     ("만두", "CJ제일제당"),
 ]
+# 잠정 레터의 묶음·순서.
+# 금액순으로만 세우면 '화장품 전체'(총계)가 자기 하위 항목인 기초·색조와 같은 줄에 섞이고
+# 라면(음식료)이 화장품 사이에 끼어든다. 총계를 머리에 두고 구성 항목을 아래에 붙인다.
+# 순서는 원표(주요 품목별 잠정수출 동향)를 그대로 따른다.
+# 매달 같은 자리에서 같은 항목을 찾게 되니 눈이 덜 헤맨다.
+PRELIM_GROUPS = [
+    ("화장품", ["화장품 전체", "기초", "색조 합계", "마스크팩류",
+                "향수·화장수", "매니큐어류", "기타 화장품류"]),
+    ("헤어",   ["헤어 총계", "샴푸"]),
+    ("음식료", ["라면", "만두"]),
+]
+
 # 시군구 프록시(커버 종목 직결)
 REGION = [
     ("리쥬란(강릉 기타화장품)", "파마리서치"),
@@ -221,29 +233,44 @@ def build_prelim(trade, pre, fl):
     # 한 줄에 막대·금액·증감·이름을 다 넣었더니 '기타 화장품류' 같은 긴 이름에서
     # 줄이 넘쳐 다음 줄로 접혔다. 데일리 레터처럼 증감은 딸림 줄(↳)로 내린다.
     # 첫 줄은 막대+금액+이름만 — 막대가 첫 칸이라 어떤 글꼴에서도 안 밀린다.
-    rows.sort(key=lambda r: -r["v"])
+    by_k = {r["k"]: r for r in rows}
     vw = max(len(f"{r['v']:,.0f}") for r in rows)
-    lines = []
-    for r in rows:
+    lines, used = [], set()
+    for gname, order in PRELIM_GROUPS:
+        got = [by_k[k] for k in order if k in by_k]
+        if not got:
+            continue
         if lines:
-            lines.append("")          # 품목 사이 한 줄 띄움 — 붙여 놓으니 어디까지가 한 덩어리인지 안 보였다
-        amt = f"{r['v']:,.0f}".rjust(vw)
-        lines.append(f"<code>{r['spk']} {amt}M</code>  <b>{r['k']}</b>")
-        bits = []
-        if r["mm"] is not None:
-            bits.append(f"MoM {r['mm']:+.1f}%")
-        if r["yy"] is not None:
-            bits.append(f"YoY {r['yy']:+.0f}%")
-        # YoY 가 전월보다 올랐나 내렸나 — 부호만으론 안 보이는 '모멘텀'을 말로 준다.
-        d = r["dyy"]
-        if d is not None:
-            # 판정은 화면에 찍히는 값으로 한다. 반올림 전 값으로 가르면
-            # '-4.6' 이 '유지 -5%p' 로 나와 말과 숫자가 어긋난다.
-            dr = round(d)
-            tag = "둔화" if dr <= -5 else "가속" if dr >= 5 else "유지"
-            bits.append(f"전월 대비 YoY {dr:+.0f}%p ({tag})")
-        if bits:
-            lines.append(f"<i>↳ {' · '.join(bits)}</i>")
+            lines.append("")
+        lines.append(f"<b>{gname}</b>")
+        for r in got:
+            used.add(r["k"])
+            lines.append("")          # 품목 사이 한 줄 — 붙여 놓으니 덩어리 경계가 안 보였다
+            amt = f"{r['v']:,.0f}".rjust(vw)
+            lines.append(f"<code>{r['spk']} {amt}M</code>  <b>{r['k']}</b>")
+            bits = []
+            if r["mm"] is not None:
+                bits.append(f"MoM {r['mm']:+.1f}%")
+            if r["yy"] is not None:
+                bits.append(f"YoY {r['yy']:+.0f}%")
+            # YoY 가 전월보다 올랐나 내렸나 — 부호만으론 안 보이는 '모멘텀'.
+            d = r["dyy"]
+            if d is not None:
+                # 텔레그램은 글씨 색을 못 준다(굵게·기울임·고정폭뿐). 색은 이모지가
+                # 유일한 수단이라 데일리와 같은 한국식(상승 빨강·하락 파랑)을 쓴다.
+                # 판정은 화면에 찍히는 값으로 — 반올림 전 값으로 가르면
+                # '-4.6' 이 파란 점에 '-5%p' 로 나와 말과 숫자가 어긋난다.
+                dr = round(d)
+                dot = "🔴" if dr >= 5 else "🔵" if dr <= -5 else "⚪"
+                bits.append(f"전월 대비 YoY {dot} {dr:+.0f}%p")
+            if bits:
+                lines.append(f"<i>↳ {' · '.join(bits)}</i>")
+    # 묶음에 안 적어 둔 품목이 생기면 빠뜨리지 말고 뒤에 붙인다
+    # (품목을 추가하고 PRELIM_GROUPS 갱신을 잊으면 조용히 사라진다).
+    for r in rows:
+        if r["k"] in used:
+            continue
+        lines += ["", f"<code>{r['spk']} {f'{r[chr(118)]:,.0f}'.rjust(vw)}M</code>  <b>{r['k']}</b>"]
     last = _last_filled(trade)
     return mon, "\n\n".join([
         f"📦 <b>수출 {mlab} 잠정</b>\n"
