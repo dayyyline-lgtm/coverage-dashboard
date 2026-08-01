@@ -1,25 +1,27 @@
 # -*- coding: utf-8 -*-
-"""개봉 전 스크린 배정 추적 (메가박스) -> index.html 의  const MOVIE_SCREENS = {...};
+"""개봉 전 스크린 배정 추적 (CGV+롯데+메가박스 3사) -> const MOVIE_SCREENS = {...};
 
 왜
   KOBIS 는 '지나간 날'의 스크린수만 준다. 개봉일에 몇 개 관이 잡혔는지는
   개봉 전엔 극장 체인 예매 스케줄에만 있다. 1편은 개봉일 스크린이 146 -> 1,065 로
-  뛰며 흥행이 결정됐다 — 그 배정을 미리, 그리고 늘어나는 과정째로 보려는 것.
+  뛰며 흥행이 결정됐다 — 그 배정을 미리, 늘어나는 과정째로 본다.
 
-어떻게 (실측으로 확인한 규격 · 2026-08-02)
-  메가박스 스케줄 API. 요청은 JSON 본문(POST)이다 — 폼 인코딩이면 404 가 난다.
-    /on/oh/ohc/Brch/schedulePage.do
-    1) masterType:"brch" + brchNo(강남 1372) 로 그날 전 영화 목록 -> rpstMovieNo 탐색
-    2) masterType:"movie" + movieNo × 지역 8곳 -> 전국 지점·스크린·회차·좌석
-  지역코드: 10 서울 · 30 경기 · 35 인천 · 45 대전/충청/세종 · 55 부산/대구/경상
-           · 65 광주/전라 · 70 강원 · 80 제주
-  전국 점유 ~20% 체인 하나지만 '배정이 늘고 있는가'의 방향은 전 체인이 같다.
-  같은 상영일을 매일 다시 재면 배정 확대 과정 자체가 시계열이 된다.
+3사 규격 (2026-08-02 브라우저에서 실측·캡처로 확정 · 전부 로그인 불필요)
+  메가박스  POST /on/oh/ohc/Brch/schedulePage.do — 본문이 JSON(폼이면 404).
+            brch(강남점)로 영화번호 탐색 -> movie × 지역 8곳.
+  롯데      POST /LCWS/Ticketing/TicketingData.aspx — multipart 의 paramList 필드.
+            GetTicketingPage 로 영화코드·영화관 237곳 -> GetPlaySequence × 영화관.
+  CGV       GET /api/v1/booking/... (리뉴얼 후 신 API · 구 iframeTheater 는 404)
+            searchAtktTopPostrList 로 movNo -> searchRegnList 로 '상영하는' 사이트만
+            -> searchMovScnInfo?siteNo&scnYmd 로 관·회차·좌석(stcnt·frSeatCnt).
+
+  요청량: CGV ~사이트수 + 롯데 237 + 메가 8지역 = 하루 한 번 몇 분. 간격을 둔다.
+  어느 체인이 막혀도(해외 러너 차단 등) 나머지는 계속 — 체인별 독립 실패.
 
   python fetch_screens.py            # 수집·기록
   python fetch_screens.py --dry-run  # 출력만
 """
-import json, re, sys, time, datetime, urllib.request
+import json, re, sys, time, uuid, datetime, urllib.request
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -28,64 +30,171 @@ except Exception:
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
-KEEP = 90                      # 스냅샷 보존(작품·상영일별)
-WATCH = ["하츄핑", "티니핑"]    # fetch_movie 의 WATCH 와 같은 규칙
-URL = "https://www.megabox.co.kr/on/oh/ohc/Brch/schedulePage.do"
-AREAS = [("10", "서울"), ("30", "경기"), ("35", "인천"), ("45", "대전충청"),
-         ("55", "부산경상"), ("65", "광주전라"), ("70", "강원"), ("80", "제주")]
-DISCOVER_BRCH = "1372"         # 강남점 — 전 영화가 걸리는 대형점이라 목록 탐색용
+KEEP = 90
+WATCH = ["하츄핑", "티니핑"]
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 
-def post(body, tries=3):
-    req = urllib.request.Request(URL, data=json.dumps(body).encode("utf-8"), headers={
-        "User-Agent": "Mozilla/5.0", "Content-Type": "application/json; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://www.megabox.co.kr/booking/timetable"})
+def http_json(url, data=None, headers=None, timeout=40, tries=2):
+    h = {"User-Agent": UA, "Accept": "application/json"}
+    h.update(headers or {})
+    req = urllib.request.Request(url, data=data, headers=h)
     last = None
     for i in range(tries):
         try:
-            with urllib.request.urlopen(req, timeout=40) as r:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode("utf-8"))
         except Exception as e:
             last = e
-            time.sleep(2 * (i + 1))
+            time.sleep(1.5 * (i + 1))
     raise last
 
 
-def rows_of(d):
-    return ((d.get("megaMap") or {}).get("movieFormList")) or []
+def acc_new():
+    return {"sites": set(), "screens": set(), "shows": 0, "seatTot": 0, "seatSold": 0}
 
 
-def discover(crt, play):
-    """그 상영일에 걸린 대상 영화들의 (rpstMovieNo, 이름)."""
-    d = post({"masterType": "brch", "brchNo": DISCOVER_BRCH, "firstAt": "N",
-              "brchNo1": DISCOVER_BRCH, "crtDe": crt, "playDe": play})
+def acc_fin(a):
+    return {"sites": len(a["sites"]), "screens": len(a["screens"]), "shows": a["shows"],
+            "seatTot": a["seatTot"], "seatSold": a["seatSold"]}
+
+
+# ── 메가박스 ─────────────────────────────────────────────
+MB_URL = "https://www.megabox.co.kr/on/oh/ohc/Brch/schedulePage.do"
+MB_AREAS = ["10", "30", "35", "45", "55", "65", "70", "80"]
+
+
+def mb_post(body):
+    return http_json(MB_URL, data=json.dumps(body).encode(), headers={
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.megabox.co.kr/booking/timetable"})
+
+
+def megabox(play, crt):
+    rows = (mb_post({"masterType": "brch", "brchNo": "1372", "firstAt": "N",
+                     "brchNo1": "1372", "crtDe": crt, "playDe": play})
+            .get("megaMap", {}).get("movieFormList")) or []
+    targets = {x["rpstMovieNo"]: x.get("rpstMovieNm", "")
+               for x in rows if any(w in (x.get("rpstMovieNm") or "") for w in WATCH)
+               and x.get("rpstMovieNo")}
     out = {}
-    for x in rows_of(d):
-        nm = (x.get("rpstMovieNm") or x.get("movieNm") or "").strip()
-        if any(w in nm for w in WATCH) and x.get("rpstMovieNo"):
-            out[x["rpstMovieNo"]] = nm
+    for no, nm in targets.items():
+        a = acc_new()
+        for cd in MB_AREAS:
+            d = mb_post({"masterType": "movie", "movieNo": no, "firstAt": "N",
+                         "movieNo1": no, "areaCd": int(cd), "crtDe": crt, "playDe": play})
+            for x in (d.get("megaMap", {}).get("movieFormList")) or []:
+                a["sites"].add(x.get("brchNo"))
+                a["screens"].add((x.get("brchNo"), x.get("theabNo")))
+                a["shows"] += 1
+                t, r = int(x.get("totSeatCnt") or 0), int(x.get("restSeatCnt") or 0)
+                a["seatTot"] += t
+                a["seatSold"] += max(0, t - r)
+            time.sleep(0.25)
+        out[nm] = acc_fin(a)
     return out
 
 
-def nationwide(movie_no, crt, play):
-    """지역 8곳 합산 — 지점·스크린·회차·좌석(총/판매)."""
-    sites, screens, shows, seat_tot, seat_rest = set(), set(), 0, 0, 0
-    for cd, _ in AREAS:
-        d = post({"masterType": "movie", "movieNo": movie_no, "firstAt": "N",
-                  "movieNo1": movie_no, "areaCd": int(cd), "crtDe": crt, "playDe": play})
-        for x in rows_of(d):
-            sites.add(x.get("brchNo"))
-            screens.add((x.get("brchNo"), x.get("theabNo")))
-            shows += 1
+# ── 롯데시네마 ───────────────────────────────────────────
+LC_URL = "https://www.lottecinema.co.kr/LCWS/Ticketing/TicketingData.aspx"
+
+
+def lc_call(param):
+    # multipart/form-data 의 paramList 한 필드 — 사이트가 이 형식만 받는다
+    bnd = uuid.uuid4().hex
+    body = (f"--{bnd}\r\nContent-Disposition: form-data; name=\"paramList\"\r\n\r\n"
+            f"{json.dumps(param, ensure_ascii=False)}\r\n--{bnd}--\r\n").encode("utf-8")
+    return http_json(LC_URL, data=body, headers={
+        "Content-Type": f"multipart/form-data; boundary={bnd}",
+        "Referer": "https://www.lottecinema.co.kr/NLCHS/Ticketing"})
+
+
+def lotte(play_iso):
+    base = {"channelType": "HO", "osType": "W", "osVersion": UA, "memberOnNo": ""}
+    d = lc_call({"MethodName": "GetTicketingPage", **base})
+    movies = ((d.get("Movies") or {}).get("Movies") or {}).get("Items") or []
+    cins = ((d.get("Cinemas") or {}).get("Cinemas") or {}).get("Items") or []
+    targets = {m["RepresentationMovieCode"]: m["MovieNameKR"]
+               for m in movies if any(w in (m.get("MovieNameKR") or "") for w in WATCH)}
+    out = {}
+    for code, nm in targets.items():
+        a = acc_new()
+        for c in cins:
+            cid = f"{c['DivisionCode']}|{c['DetailDivisionCode']}|{c['CinemaID']}"
             try:
-                seat_tot += int(x.get("totSeatCnt") or 0)
-                seat_rest += int(x.get("restSeatCnt") or 0)
-            except (TypeError, ValueError):
-                pass
-        time.sleep(0.3)
-    return {"sites": len(sites), "screens": len(screens), "shows": shows,
-            "seatTot": seat_tot, "seatSold": max(0, seat_tot - seat_rest)}
+                s = lc_call({"MethodName": "GetPlaySequence", **base,
+                             "playDate": play_iso, "cinemaID": cid,
+                             "representationMovieCode": code})
+            except Exception:
+                continue
+            items = ((s.get("PlaySeqs") or {}).get("Items")) or []
+            if not items:
+                time.sleep(0.08)
+                continue
+            for x in items:
+                a["sites"].add(cid)
+                a["screens"].add((cid, x.get("ScreenNameKR")))
+                a["shows"] += 1
+                t = int(x.get("TotalSeatCount") or 0)
+                r = int(x.get("BookingSeatCount") or 0)   # 이름과 달리 '잔여'다(실측 199/208)
+                a["seatTot"] += t
+                a["seatSold"] += max(0, t - r)
+            time.sleep(0.08)
+        out[nm] = acc_fin(a)
+    return out
+
+
+# ── CGV ─────────────────────────────────────────────────
+CGV = "https://cgv.co.kr"
+
+
+def cgv(play):
+    lst = http_json(f"{CGV}/api/v1/booking/searchAtktTopPostrList?coCd=A420&movNm=&div=&attrCd=")
+    targets = {x["movNo"]: x["movNm"] for x in (lst.get("data") or [])
+               if any(w in (x.get("movNm") or "") for w in WATCH)}
+    out = {}
+    for no, nm in targets.items():
+        reg = http_json(f"{CGV}/api/v1/booking/searchRegnList?movNo={no}&coCd=A420")
+        sites = {s["siteNo"] for g in (reg.get("data") or [])
+                 for s in (g.get("siteList") or []) if s.get("siteNo")}
+        a = acc_new()
+        for sn in sorted(sites):
+            try:
+                d = http_json(f"{CGV}/api/v1/booking/searchMovScnInfo"
+                              f"?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08")
+            except Exception:
+                continue
+            rows = []
+            def scan(o):
+                if isinstance(o, list):
+                    for v in o: scan(v)
+                elif isinstance(o, dict):
+                    if o.get("prodNm") and o.get("scnsNo"):
+                        rows.append(o)
+                    for v in o.values():
+                        if isinstance(v, (list, dict)): scan(v)
+            scan(d.get("data"))
+            for x in rows:
+                if not any(w in (x.get("prodNm") or "") for w in WATCH):
+                    continue
+                a["sites"].add(sn)
+                a["screens"].add((sn, x.get("scnsNo")))
+                a["shows"] += 1
+                t = int(x.get("stcnt") or 0)
+                r = int(x.get("frSeatCnt") or 0)
+                a["seatTot"] += t
+                a["seatSold"] += max(0, t - r)
+            time.sleep(0.12)
+        out[nm] = acc_fin(a)
+    return out
+
+
+# ── 통합 ────────────────────────────────────────────────
+def norm_title(nm):
+    """체인마다 표기가 다르다(CGV '하츄핑-고래보석', 메가 '하츄핑: 고래보석').
+       구분자만 다른 같은 제목을 한 키로 합친다."""
+    return re.sub(r"[\s:\-·]+", "", nm)
 
 
 def main():
@@ -94,12 +203,14 @@ def main():
     today = now.date()
     crt = today.strftime("%Y%m%d")
 
-    # 잴 상영일: 오늘·내일 + booking 에 적힌 개봉일(개봉 전 핵심)
     dates = {today, today + datetime.timedelta(days=1)}
-    mb = re.search(r"const MOVIE = (\{.*?\});\n", html, re.S)
-    if mb:
+    mb_blk = re.search(r"const MOVIE = (\{.*?\});\n", html, re.S)
+    canon = {}                       # 정규화 제목 -> 대시보드 표기(예매 데이터 기준)
+    if mb_blk:
         try:
-            for pts in (json.loads(mb.group(1)).get("booking") or {}).values():
+            mv = json.loads(mb_blk.group(1))
+            for t, pts in (mv.get("booking") or {}).items():
+                canon[norm_title(t)] = t
                 for p in pts[-1:]:
                     if p.get("open"):
                         try:
@@ -122,34 +233,37 @@ def main():
     stamp = now.strftime("%Y-%m-%d %H:%M")
     got = 0
     for d in dates:
-        play = d.strftime("%Y%m%d")
-        try:
-            movies = discover(crt, play)
-        except Exception as e:
-            print(f"  {play} 목록 실패: {type(e).__name__} {str(e)[:70]}")
-            continue
-        if not movies:
-            print(f"  {play} 대상 영화 없음(강남점 기준)")
-            continue
-        for no, nm in movies.items():
+        play, play_iso = d.strftime("%Y%m%d"), d.isoformat()
+        # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
+        chains = {}
+        for tag, fn, arg in (("CGV", cgv, play), ("LC", lotte, play_iso), ("MB", megabox, None)):
             try:
-                v = nationwide(no, crt, play)
+                chains[tag] = fn(arg) if arg else megabox(play, crt)
             except Exception as e:
-                print(f"  {play} {nm} 전국 실패: {str(e)[:70]}")
-                continue
-            key = f"{nm}|{play}"
+                print(f"  {play} {tag} 실패: {type(e).__name__} {str(e)[:70]}")
+        # 제목 정규화로 3사 결과를 합친다
+        merged = {}
+        for tag, per in chains.items():
+            for nm, v in per.items():
+                k = norm_title(nm)
+                merged.setdefault(k, {"nm": canon.get(k, nm), "by": {}})["by"][tag] = v
+        for k, mv2 in merged.items():
+            tot = {f: sum(v[f] for v in mv2["by"].values())
+                   for f in ("sites", "screens", "shows", "seatTot", "seatSold")}
+            key = f"{mv2['nm']}|{play}"
             pts = [p for p in (series.get(key) or []) if p.get("t") != stamp]
-            pts.append({"t": stamp, **v})
+            pts.append({"t": stamp, **tot, "by": mv2["by"]})
             series[key] = pts[-KEEP:]
             got += 1
-            print(f"  [{play}] {nm} · 지점 {v['sites']} · 스크린 {v['screens']} · "
-                  f"회차 {v['shows']} · 판매 {v['seatSold']:,}/{v['seatTot']:,}석")
+            bych = " · ".join(f"{t} {v['screens']}관" for t, v in mv2["by"].items())
+            print(f"  [{play}] {mv2['nm']} · 지점 {tot['sites']} · 스크린 {tot['screens']} · "
+                  f"회차 {tot['shows']} · 판매 {tot['seatSold']:,}/{tot['seatTot']:,}석  ({bych})")
 
     if not got:
         print("배정 스케줄 없음 — 기존 데이터 유지")
         return
 
-    out = {"asOf": stamp, "chain": "메가박스", "series": series}
+    out = {"asOf": stamp, "chain": "CGV+롯데+메가박스", "series": series}
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:400]); return
@@ -161,7 +275,7 @@ def main():
             print("삽입 위치(const MOVIE)를 못 찾음"); sys.exit(1)
         html = html[:anchor.start()] + block + "\n" + html[anchor.start():]
     open(HTML, "w", encoding="utf-8").write(html)
-    print(f"[OK] MOVIE_SCREENS 갱신 · {got}건 (메가박스 기준 프록시)")
+    print(f"[OK] MOVIE_SCREENS 갱신 · {got}건 (3사 합산)")
 
 
 if __name__ == "__main__":
