@@ -2648,6 +2648,10 @@ function renderBooking(){
         h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
           <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th></tr></thead><tbody>`
           +days.map(({play,s,prev})=>{
+            // 전부 0 = 극장들이 그 날짜 스케줄을 아직 안 연 것. 0으로 두면 '상영 없음'으로 오독된다.
+            if(!s.screens&&!s.shows)
+              return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
+                <td colspan="6" style="color:var(--muted2)">스케줄 미오픈 (통상 1~2일 전 오픈)</td></tr>`;
             const rate=s.seatTot>0?(s.seatSold/s.seatTot*100):null;
             const dscr=prev?` <small class="${cls(s.screens-prev.screens)}">${s.screens===prev.screens?"":sign(s.screens-prev.screens,0)}</small>`:"";
             return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
