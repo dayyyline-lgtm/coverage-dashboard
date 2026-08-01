@@ -81,6 +81,7 @@ jobs:
           d=$(TZ=Asia/Seoul date +%u)      # 6=토, 7=일
           if [ "$d" -ge 6 ]; then
             python fetch_movie.py || echo "영화 수집 건너뜀"
+            python fetch_screens.py || echo "스크린 추적 건너뜀"
           else
             echo "평일 - events.yml 이 담당"
           fi
