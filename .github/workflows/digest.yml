@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "digest · alerts · dry · trade(수출 속보) · trade-dry"
+        description: "digest · alerts · dry · trade · trade-dry · prelim(확정+잠정) · prelim-dry"
         default: "digest"
 
 permissions:
@@ -36,6 +36,8 @@ jobs:
             dry)    python digest.py --dry-run ;;
             # 수출 속보 — 확정치보다 2주 빠른 잠정 집계. 상태파일과 무관하게 보낸다.
             trade)      python trade_digest.py --flash --force ;;
+            prelim)     python trade_digest.py --prelim --force ;;
+            prelim-dry) python trade_digest.py --prelim --dry-run ;;
             trade-dry)  python trade_digest.py --flash --dry-run ;;
             *)      python digest.py ;;
           esac

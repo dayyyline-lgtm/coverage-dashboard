@@ -170,6 +170,61 @@ def _yr_line(r):
     return _vspark(pts)
 
 
+def build_prelim(trade, pre, fl):
+    """확정 시계열 + 잠정 한 점. 붙여넣은 잠정치가 우리 확정 흐름 위 어디에 앉는지 본다.
+
+       잠정치만 따로 나열하면 '전월비 -6%'가 큰 건지 늘 그런 건지 알 수가 없다.
+       우리가 24개월을 이미 들고 있으니 그 끝에 얹어서 보여 준다.
+       전월비·전년비도 원문 숫자를 옮기지 않고 우리 시계열로 다시 계산한다
+       (기준이 같아야 과거와 비교가 된다)."""
+    months = trade.get("months") or []
+    by = {it["label"]: it for it in (trade.get("items") or [])}
+    mon = fl.get("month", "")
+    mlab = f"{mon[:4]}.{mon[4:]}" if len(mon) == 6 else mon
+
+    rows = []
+    for label, per in (pre or {}).items():
+        it = by.get(label)
+        if not it or mon not in per:
+            continue
+        v = per[mon].get("") if isinstance(per[mon], dict) else per[mon]
+        if v is None:
+            continue
+        exp = [(x / 1e6 if x else None) for x in
+               (it.get("byCountry") or [{}])[0].get("exp") or []]
+        idx = {m: i for i, m in enumerate(months)}
+        prev_m = f"{int(mon[:4]) - (mon[4:6] == '01')}{(int(mon[4:6]) - 1) or 12:02d}"
+        ago_m = f"{int(mon[:4]) - 1}{mon[4:6]}"
+        p = exp[idx[prev_m]] if prev_m in idx and idx[prev_m] < len(exp) else None
+        a = exp[idx[ago_m]] if ago_m in idx and idx[ago_m] < len(exp) else None
+        hist = [x for x in exp if x is not None][-12:] + [v]
+        rows.append({"k": label, "v": v, "spk": _vspark(hist),
+                     "mm": (v / p - 1) * 100 if p else None,
+                     "yy": (v / a - 1) * 100 if a else None})
+    if not rows:
+        return mon, ""
+
+    rows.sort(key=lambda r: -r["v"])
+    lw = max(_w(r["k"]) for r in rows)
+    vw = max(len(f"{r['v']:,.0f}") for r in rows)
+    lines = []
+    for r in rows:
+        pad = " " * max(0, lw - _w(r["k"]))
+        mm = f"{r['mm']:+5.1f}%" if r["mm"] is not None else "    —"
+        yy = f"{r['yy']:+5.0f}%" if r["yy"] is not None else "    —"
+        lines.append(f"<code>{r['k']}{pad} {r['spk']} "
+                     f"{f'{r[chr(118)]:,.0f}'.rjust(vw)}M {mm} {yy}</code>")
+    last = _last_filled(trade)
+    return mon, "\n\n".join([
+        f"📦 <b>수출 — 확정 + {mlab} 잠정</b>",
+        "<i>막대 = 최근 12개월 확정 + 맨 끝 한 점이 잠정. 금액 · 전월비 · 전년비</i>",
+        "\n".join(lines),
+        f"<i>확정치는 {last[:4]}.{last[4:]} 까지 · 전월비·전년비는 원문이 아니라 "
+        f"우리 확정 시계열로 다시 계산한 값입니다(기준을 맞추려고).\n"
+        f"잠정 출처 — {fl.get('itemsSource','')}</i>",
+    ])
+
+
 def build_flash(fl, trade):
     """실시간 집계 속보 레터. 원문 수치를 그대로 옮기고 전월비를 앞세운다.
 
@@ -272,8 +327,16 @@ def main():
     if not trade or not trade.get("items"):
         print("TRADE 데이터 없음"); return
 
+    # 잠정 얹기 모드 — 우리 확정 시계열 끝에 붙여넣은 잠정 한 점을 올려 보낸다.
+    if "--prelim" in sys.argv:
+        fl = _const(html, "TRADE_FLASH") or {}
+        pre = _const(html, "TRADE_PRELIM") or {}
+        mon, msg = build_prelim(trade, pre, fl)
+        if not msg:
+            print("얹을 잠정치 없음"); return
+        mon += "P"
     # 속보 모드 — 실시간 집계가 확정치보다 앞서 있으면 그걸 보낸다.
-    if "--flash" in sys.argv:
+    elif "--flash" in sys.argv:
         fl = _const(html, "TRADE_FLASH")
         if not fl or not fl.get("groups"):
             print("TRADE_FLASH 없음"); return
