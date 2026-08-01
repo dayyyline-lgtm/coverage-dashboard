@@ -235,9 +235,12 @@ def build_prelim(trade, pre, fl):
         # 전년비가 전월보다 올랐나 내렸나 — 부호만으론 안 보이는 '모멘텀'을 말로 준다.
         d = r["dyy"]
         if d is not None:
-            bits.append(("전년비 둔화" if d <= -5 else
-                         "전년비 가속" if d >= 5 else "전년비 유지")
-                        + f" {d:+.0f}%p")
+            # 판정은 화면에 찍히는 값으로 한다. 반올림 전 값으로 가르면
+            # '-4.6' 이 '유지 -5%p' 로 나와 말과 숫자가 어긋난다.
+            dr = round(d)
+            bits.append(("전년비 둔화" if dr <= -5 else
+                         "전년비 가속" if dr >= 5 else "전년비 유지")
+                        + f" {dr:+.0f}%p")
         if bits:
             lines.append(f"<i>↳ {' · '.join(bits)}</i>")
     last = _last_filled(trade)
