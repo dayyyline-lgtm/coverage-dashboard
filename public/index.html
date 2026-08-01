@@ -620,6 +620,12 @@
     <p class="sec-desc">SAMG엔터 극장판 관객 추이. <b>x축은 개봉 N일차</b>라 개봉일이 달라도 페이스를 겹쳐 볼 수 있습니다.
       KOBIS 확정치라 추정 오차가 없습니다.</p>
     <div id="movieBooking"></div>
+    <!-- 전체 시계열(1편 D+74까지)로 보면 지금 구간이 눌려서 현재 추이가 안 보인다.
+         기본은 개봉 전후 구간, 전체는 토글로. -->
+    <div class="seg" id="movieRangeSeg">
+      <button data-r="zoom" class="active">개봉 전후</button>
+      <button data-r="all">전체</button>
+    </div>
     <div class="chart-box">
       <div id="movieBox"></div>
     </div>
@@ -2625,6 +2631,13 @@ function renderBooking(){
    x축을 '개봉 N일차'로 잡아야 개봉일이 2년 차이 나는 1편·2편을 겹쳐 볼 수 있다.
    일별 박스오피스가 Top10 만 주므로 순위 밖으로 밀리면 그날부터 끊긴다. */
 const MOVIE_COLORS=["#c4a7e7","#eb6f92","#9ccfd8"];
+let movieRange="zoom";                     // zoom=개봉 전후(기본) · all=전체
+document.getElementById("movieRangeSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  movieRange=b.dataset.r;
+  document.querySelectorAll("#movieRangeSeg button").forEach(x=>x.classList.toggle("active",x===b));
+  renderMovie();
+});
 function renderMovie(){
   const box=document.getElementById("movieBox"); if(!box) return;
   const note=document.getElementById("movieNote");
@@ -2648,7 +2661,8 @@ function renderMovie(){
     return {nm:u.title, stock:u.stock, openDt:u.open, upcoming:true,
       color:MOVIE_COLORS[(runs.length+i)%MOVIE_COLORS.length],
       pts:(B[u.title]||[]).map(p=>({x:Math.round((new Date(p.d)-op)/864e5),
-        d:p.d.replace(/-/g,""), acc:p.acc, audi:null, book:p.book, rate:p.rate}))};
+        d:p.d.replace(/-/g,""), acc:p.acc, audi:null, book:p.book, rate:p.rate,
+        rank:p.rank}))};                     // 예매 순위 — 개봉 전 유일한 순위 지표
   });
   const preLive=pre.filter(p=>p.pts.length);
 
@@ -2657,7 +2671,17 @@ function renderMovie(){
     note.textContent=""; tbl.innerHTML=""; return;
   }
 
-  const draw=[...runs,...preLive];
+  /* 구간 — 전체(1편 D+74)로 보면 지금 진행 중인 구간이 왼쪽 구석에 눌린다.
+     기본은 '개봉 전후': 시사회 시작(D-10)부터, 최신작 진행도 + 일주일까지.
+     최신작이 나아가면 창도 따라 늘어난다. */
+  let draw=[...runs,...preLive];
+  if(movieRange==="zoom"){
+    const newest=draw.reduce((a,r)=>{const mx=Math.max(...r.pts.map(p=>p.x));
+      return (a==null||r.openDt>a.openDt)?{openDt:r.openDt,mx}:a;},null);
+    const lo=-10, hi=Math.max(14,(newest?newest.mx:0)+7);
+    draw=draw.map(r=>({...r,pts:r.pts.filter(p=>p.x>=lo&&p.x<=hi)})).filter(r=>r.pts.length);
+    if(!draw.length){ draw=[...runs,...preLive]; }   // 창이 비면 전체로 폴백
+  }
   const W=900,H=300,pad={l:58,r:14,t:14,b:28};
   const xs=draw.flatMap(r=>r.pts.map(p=>p.x));
   const x0=Math.min(...xs,0), x1=Math.max(...xs,1);
@@ -2702,9 +2726,9 @@ function renderMovie(){
      미개봉작도 열을 미리 만들어 둔다. 지금은 비어 있지만 개봉하면 그 자리가 채워져서,
      '무엇과 무엇을 비교하게 되는지'가 지금부터 보인다.
      시사회(음수 일차)도 그대로 싣는다 — 1편은 D-4 부터 관객이 있었다. */
-  const short=n=>n.length>9?n.slice(0,8)+"…":n;
-  const series=[...runs.map(r=>({nm:r.nm, pts:r.pts, live:true})),
-                ...upcoming.map(u=>({nm:u.title, pts:(preOf[u.title]||{}).pts||[], live:false}))];
+  const series=[...runs.map(r=>({nm:r.nm, pts:r.pts, live:true, color:r.color})),
+                ...upcoming.map(u=>({nm:u.title, pts:(preOf[u.title]||{}).pts||[], live:false,
+                                     color:(preOf[u.title]||{}).color||mut}))];
   const allX=[...new Set(series.flatMap(sr=>sr.pts.map(p=>p.x)))].sort((a,b)=>a-b);
   const rows=allX.map(x=>{
     const row={x};
@@ -2718,27 +2742,34 @@ function renderMovie(){
       row.gap=(row.c1!=null)?((row.c1/row.c0-1)*100):null;
     return row;
   });
-  const cols=[{key:"x",label:"일차",l:true,
-    render:r=>`<span class="ye">D${r.x>=0?"+":""}${r.x}</span>`
-      +(r.x<0?`<span class="th-sub" style="margin-left:4px">시사회</span>`:"")}];
-  series.forEach((sr,i)=>{
-    cols.push({key:"d"+i,label:`${short(sr.nm)} 날짜`,l:true,
-      render:r=>r["d"+i]?`${r["d"+i].slice(4,6)}/${r["d"+i].slice(6,8)}`:"—"});
-    // 개봉 전 작품은 '당일'이 없다(순위 밖이라 박스오피스가 안 준다). 대신 예매관객을 놓는다.
-    if(sr.live) cols.push({key:"a"+i,label:"당일",render:r=>r["a"+i]==null?"—":fmt0(r["a"+i])});
-    else        cols.push({key:"b"+i,label:"예매",render:r=>r["b"+i]==null?"—":fmt0(r["b"+i])});
-    cols.push({key:"c"+i,label:"누적",render:r=>r["c"+i]==null?"—":`<b>${fmt0(r["c"+i])}</b>`});
-    if(sr.live){
-      cols.push({key:"r"+i,label:"순위",render:r=>r["r"+i]?r["r"+i]+"위":"—"});
-      cols.push({key:"s"+i,label:"스크린",render:r=>r["s"+i]==null?"—":fmt0(r["s"+i])});
-    }
-  });
-  if(series.length>1)
-    cols.push({key:"gap",label:"누적 차이",
-      render:r=>r.gap==null?"—":`<span class="${cls(r.gap)}">${sign(r.gap,1)}%</span>`});
+  /* 지표별로 두 편을 같은 칸에 나란히 —
+     예전엔 편별로 열 묶음(1편 날짜·당일·누적… | 2편 날짜·예매·누적…)이라
+     같은 지표끼리 화면 반대편에 떨어져 있어 비교하려면 눈이 왕복해야 했다.
+     이제 열 = 지표, 칸 안 = [1편값 · 2편값] 색으로 구분. 범례는 표 제목에. */
+  const duo=(get)=>r=>series.map((sr,i)=>{
+    const v=get(r,sr,i);
+    return `<span style="color:${sr.color};font-weight:700">${v==null?"—":v}</span>`;
+  }).join(`<span style="color:var(--muted2);margin:0 4px">·</span>`);
+  const cols=[
+    {key:"x",label:"일차",l:true,
+     render:r=>`<span class="ye">D${r.x>=0?"+":""}${r.x}</span>`
+       +(r.x<0?`<span class="th-sub" style="margin-left:4px">시사회</span>`:"")},
+    // 개봉 전 작품은 '당일'이 없다(순위 밖) — 그 자리는 예매관객으로 채우고 표시를 단다
+    {key:"a0",label:"당일 관객",render:duo((r,sr,i)=> sr.live
+       ? (r["a"+i]==null?null:fmt0(r["a"+i]))
+       : (r["b"+i]==null?null:fmt0(r["b"+i])+`<span class="th-sub">예매</span>`))},
+    {key:"c0",label:"누적 관객",render:duo((r,sr,i)=> r["c"+i]==null?null:fmt0(r["c"+i]))},
+    ...(series.length>1?[{key:"gap",label:`누적 차이<span class="th-sub">2편÷1편</span>`,
+       render:r=>r.gap==null?"—":`<span class="${cls(r.gap)}">${sign(r.gap,1)}%</span>`}]:[]),
+    {key:"r0",label:"순위",render:duo((r,sr,i)=> r["r"+i]
+       ? r["r"+i]+"위"+(sr.live?"":`<span class="th-sub">예매</span>`) : null)},
+    {key:"s0",label:"스크린",render:duo((r,sr,i)=> r["s"+i]==null?null:fmt0(r["s"+i]))},
+  ];
   makeTable(tbl, cols, rows, {key:"x",dir:1});     // 개봉 순서대로(오름차순)
   const tt=document.getElementById("movieTblTitle");
-  if(tt) tt.textContent=`일별 상세 — ${series.map(s=>s.nm+(s.live?"":" (개봉 예정)")).join(" vs ")}`;
+  if(tt) tt.innerHTML=`일별 상세 `+series.map(sr=>
+    `<span style="margin-left:10px;font-size:12.5px"><span class="dot" style="background:${sr.color};width:9px;height:9px;display:inline-block;border-radius:50%;margin-right:4px"></span>`
+    +`<span style="color:${sr.color}">${sr.nm}</span> <small style="color:var(--muted)">${sr.live?"":"개봉 전 · D<0 예매 기준"}</small></span>`).join("");
 }
 
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
