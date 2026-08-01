@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "digest(전체) · alerts(짧게) · dry(발송 없이 본문만 출력)"
+        description: "digest · alerts · dry · trade(수출 속보) · trade-dry"
         default: "digest"
 
 permissions:
@@ -34,6 +34,9 @@ jobs:
             alerts) python digest.py --alerts ;;
             # 발송 없이 본문만 로그에 찍는다(정렬 디버깅용).
             dry)    python digest.py --dry-run ;;
+            # 수출 속보 — 확정치보다 2주 빠른 잠정 집계. 상태파일과 무관하게 보낸다.
+            trade)      python trade_digest.py --flash --force ;;
+            trade-dry)  python trade_digest.py --flash --dry-run ;;
             *)      python digest.py ;;
           esac
       # 월간 수출 레터는 trade.yml(매월 5·20일 수집)이 발송까지 담당한다 — 데일리와 분리.

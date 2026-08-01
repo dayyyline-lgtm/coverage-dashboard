@@ -72,9 +72,24 @@ def _line(label, note, exp):
     return f"· <b>{label}</b> ${last/1e6:,.0f}M{mm}{yy}\n  <code>{spk}</code> <i>{note}</i>"
 
 
-def build(trade):
+def _last_filled(trade):
+    """값이 실제로 있는 마지막 달.
+
+       months[-1] 을 그대로 쓰면 안 된다. 관세청 API 는 아직 집계 안 된 달도
+       빈 값으로 돌려줘서, 헤더만 '202607 확정'이라 적고 본문 숫자는 202606 인
+       레터가 나갔던 적이 있다."""
     months = trade.get("months") or []
-    mon = months[-1] if months else ""
+    filled = set()
+    for it in (trade.get("items") or []):
+        exp = (it.get("byCountry") or [{}])[0].get("exp") or []
+        for i, v in enumerate(exp):
+            if v and i < len(months):
+                filled.add(months[i])
+    return max(filled) if filled else (months[-1] if months else "")
+
+
+def build(trade):
+    mon = _last_filled(trade)
     mlab = f"{mon[:4]}.{mon[4:]}" if len(mon) == 6 else mon
     by = {it["label"]: it for it in (trade.get("items") or [])}
 
@@ -102,12 +117,88 @@ def build(trade):
     return mon, "\n\n".join(parts)
 
 
+def _w(s):
+    """표시 폭 — 한글은 두 칸. 고정폭 칸을 맞출 때 글자 수로 세면 어긋난다."""
+    import unicodedata
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def build_flash(fl, trade):
+    """실시간 집계 속보 레터. 원문 수치를 그대로 옮기고 전월비를 앞세운다.
+
+       확정치보다 2주 빠른 게 존재 이유라, 확정치와 섞지 않고 따로 낸다.
+       금액은 오른쪽, 전월비·전년비는 그 뒤 — 훑을 때 '이번 달에 뭐가 꺾였나'가
+       먼저 보여야 한다."""
+    mon = fl.get("month", "")
+    mlab = f"{mon[:4]}.{mon[4:]}" if len(mon) == 6 else mon
+    out = [f"⚡ <b>화장품 수출 속보</b> · {mlab} 잠정",
+           f"<i>{fl.get('source','')} · 확정치보다 약 2주 빠름</i>"]
+
+    # 품목별 — 전월비를 앞세운다. 이 레터의 존재 이유가 '이번 달에 뭐가 꺾였나'다.
+    items = fl.get("items") or []
+    if items:
+        lw = max(_w(r["k"]) for r in items)
+        vw = max(len(f"{r['v']:,}") for r in items)
+        lines = []
+        for r in items:
+            pad = " " * max(0, lw - _w(r["k"]))
+            row = (f"{r['k']}{pad} {f'{r[chr(118)]:,}'.rjust(vw)}M "
+                   f"{r['mm']:+6.1f}% {r['yy']:+7.1f}%")
+            lines.append(f"<code>{row}</code>" if not r.get("head")
+                         else f"<code><b>{row}</b></code>")
+        out.append("<b>품목별</b> <i>(금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
+        # 누계는 월 변동에 안 흔들리는 기준선이라 따로 한 줄
+        tot = next((r for r in items if r["k"] == "화장품 총계"), None)
+        if tot and tot.get("ytd"):
+            out.append(f"<b>연초 누계</b>  ${tot['ytd']:,}M "
+                       f"<i>(전년 ${tot['ytdPrev']:,}M · {tot['ytdYy']:+.1f}%)</i>")
+
+    for g in fl.get("groups") or []:
+        rows = g.get("rows") or []
+        if not rows:
+            continue
+        # 전체 줄은 머리로 올리고 지역은 아래에 붙인다
+        head = next((r for r in rows if r["k"] == "전체"), None)
+        rest = [r for r in rows if r["k"] != "전체"]
+        note = f" <i>({g['note']})</i>" if g.get("note") else ""
+        if head:
+            out.append(f"<b>{g['label']} · 지역별</b>{note}  전체 ${head['v']:,.1f}M"
+                       f"  전월 {head['mm']:+d}% · 전년 {head['yy']:+d}%")
+        # 지역은 전월비가 큰 순으로 — 이번 달에 뭐가 움직였는지가 보고 싶은 것이다
+        rest.sort(key=lambda r: -abs(r["mm"]))
+        lw = max(_w(r["k"]) for r in rest)
+        vw = max(len(f"{r['v']:,.1f}") for r in rest)
+        lines = []
+        for r in rest:
+            pad = " " * max(0, lw - _w(r["k"]))
+            lines.append(f"<code>{r['k']}{pad} {f'{r[chr(118)]:,.1f}'.rjust(vw)}M "
+                         f"{r['mm']:+4d}% {r['yy']:+5d}%</code>")
+        out.append("\n".join(lines))
+
+    # 두 표는 출처가 달라 총계가 다르다. 섞어 읽지 않도록 못을 박아 둔다.
+    last = _last_filled(trade)
+    out.append(f"<i>품목표 총계(1,288)는 향수·헤어까지 포함, 지역표 전체(1,098)는 "
+               f"화장품(HS3304) 계열 — 총계끼리 비교 금지.\n"
+               f"관세청 확정치는 {last[:4]}.{last[4:]} 까지. 대시보드는 HS 6단위라 "
+               f"'기초'의 범위가 이 표와 다릅니다.</i>")
+    return mon, "\n\n".join(out)
+
+
 def main():
     html = open(HTML, encoding="utf-8").read()
     trade = _const(html, "TRADE")
     if not trade or not trade.get("items"):
         print("TRADE 데이터 없음"); return
-    mon, msg = build(trade)
+
+    # 속보 모드 — 실시간 집계가 확정치보다 앞서 있으면 그걸 보낸다.
+    if "--flash" in sys.argv:
+        fl = _const(html, "TRADE_FLASH")
+        if not fl or not fl.get("groups"):
+            print("TRADE_FLASH 없음"); return
+        mon, msg = build_flash(fl, trade)
+        mon += "F"                       # 확정 레터(202607)와 상태 키를 구분한다
+    else:
+        mon, msg = build(trade)
 
     force = "--force" in sys.argv
     dry = "--dry-run" in sys.argv
