@@ -135,18 +135,25 @@ def _w(s):
     return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
 
 
-_EIGHTH = " ▏▎▍▌▋▊▉█"
+def _vspark(vals):
+    """세로 블록 스파크라인 — 트렌드 레터와 같은 표기법.
+       가로 막대로 '크기'를 그려 봤지만, 이 레터에서 알고 싶은 건 크기가 아니라
+       '어느 쪽으로 가고 있나'다. 시간순으로 세워야 그게 보인다.
+       속보 출처가 주는 시점은 전년동월·전월·당월 셋이라 그 셋을 세운다."""
+    c = [v for v in vals if v is not None]
+    if len(c) < 2:
+        return "   "
+    lo, hi = min(c), max(c)
+    if hi == lo:
+        return BLK[3] * len(c)
+    return "".join(BLK[min(7, int((v - lo) / (hi - lo) * 7 + 0.5))] for v in c)
 
 
-def _hbar(v, mx, width=6):
-    """가로 막대. 1/8 칸 단위로 그려 작은 품목도 뭉개지지 않게 한다.
-       텔레그램은 그림을 못 넣으니 글자로 그린다 — 숫자만 나열하면
-       '큰 게 뭔지'가 눈에 안 들어온다."""
-    if not mx or v is None or v <= 0:
-        return " " * width
-    n = max(1, min(width * 8, round(v / mx * width * 8)))
-    return "█" * (n // 8) + (_EIGHTH[n % 8] if n % 8 else "") \
-        + " " * (width - n // 8 - (1 if n % 8 else 0))
+def _three(v, mm, yy):
+    """당월 값과 전월비·전년비로부터 (전년동월, 전월, 당월) 세 점을 복원한다."""
+    prev = v / (1 + mm / 100) if mm is not None and mm != -100 else None
+    ago = v / (1 + yy / 100) if yy is not None and yy != -100 else None
+    return [ago, prev, v]
 
 
 def build_flash(fl, trade):
@@ -160,29 +167,42 @@ def build_flash(fl, trade):
     out = [f"⚡ <b>화장품 수출 속보</b> · {mlab} 잠정",
            f"<i>{fl.get('source','')} · 확정치보다 약 2주 빠름</i>"]
 
-    # 총계를 맨 앞에 — 한 줄만 읽고 넘어가도 되게
+    # 영업일수 보정 — 총액만 보면 방향을 오독한다.
+    # 이번 달이 그 예다: 총액 전월비 0% 인데 영업일이 21->22 라 일평균은 -5% 다.
+    wd = fl.get("workdays") or {}
+    adj = None
+    if wd.get("cur") and wd.get("prev") and wd.get("ago"):
+        adj = lambda pct, base: ((1 + pct / 100) * base / wd["cur"] - 1) * 100
+
     tot0 = next((r for r in (fl.get("items") or []) if r["k"] == "화장품 총계"), None)
     if tot0:
-        out.append(f"<b>화장품 총계</b>  ${tot0['v']:,}M\n"
-                   f"전월 <b>{tot0['mm']:+.1f}%</b> · 전년 <b>{tot0['yy']:+.1f}%</b>"
-                   + (f"\n누계 ${tot0['ytd']:,}M · 전년비 {tot0['ytdYy']:+.1f}%"
-                      if tot0.get("ytd") else ""))
+        line = (f"<b>화장품 총계</b>  ${tot0['v']:,}M\n"
+                f"전월 <b>{tot0['mm']:+.1f}%</b> · 전년 <b>{tot0['yy']:+.1f}%</b>")
+        if adj:
+            line += (f"\n일평균 전월 <b>{adj(tot0['mm'], wd['prev']):+.1f}%</b>"
+                     f" · 전년 <b>{adj(tot0['yy'], wd['ago']):+.1f}%</b>")
+        if tot0.get("ytd"):
+            line += f"\n누계 ${tot0['ytd']:,}M · 전년비 {tot0['ytdYy']:+.1f}%"
+        out.append(line)
+        if adj:
+            out.append(f"<i>영업일 {wd['cur']}일 (전월 {wd['prev']}일 · 전년 {wd['ago']}일). "
+                       f"총액은 일수에 흔들리므로 일평균을 같이 봅니다.</i>")
 
     # 품목별 — 막대로 크기를, 숫자로 변화를. 이 레터의 존재 이유가
     # '이번 달에 뭐가 꺾였나'라서 막대(수준)만으론 부족하고 전월비가 같이 있어야 한다.
     items = fl.get("items") or []
     if items:
         rows = [r for r in items if r["k"] != "화장품 총계"]
-        mx = max((r["v"] for r in rows), default=1)
         lw = max(_w(r["k"]) for r in rows)
         vw = max(len(f"{r['v']:,}") for r in rows)
         lines = []
         for r in rows:
             pad = " " * max(0, lw - _w(r["k"]))
-            row = (f"{r['k']}{pad} {_hbar(r['v'], mx)} "
-                   f"{f'{r[chr(118)]:,}'.rjust(vw)}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%")
+            spk = _vspark(_three(r["v"], r["mm"], r["yy"]))
+            amt = f"{r['v']:,}".rjust(vw)
+            row = f"{r['k']}{pad} {spk} {amt}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%"
             lines.append(f"<code>{row}</code>")
-        out.append("<b>품목별</b> <i>(막대=금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
+        out.append("<b>품목별</b> <i>(전년동월·전월·당월 · 금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
 
     for g in fl.get("groups") or []:
         rows = g.get("rows") or []
@@ -204,8 +224,9 @@ def build_flash(fl, trade):
         lines = []
         for r in rest:
             pad = " " * max(0, lw - _w(r["k"]))
-            lines.append(f"<code>{r['k']}{pad} {_hbar(r['v'], mx, 5)} "
-                         f"{f'{r[chr(118)]:,.0f}'.rjust(vw)}M "
+            spk = _vspark(_three(r["v"], r["mm"], r["yy"]))
+            amt = f"{r['v']:,.0f}".rjust(vw)
+            lines.append(f"<code>{r['k']}{pad} {spk} {amt}M "
                          f"{r['mm']:+4d}% {r['yy']:+5d}%</code>")
         out.append("\n".join(lines))
 
