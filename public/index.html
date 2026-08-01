@@ -211,6 +211,10 @@
   .seg{display:inline-flex;flex-wrap:wrap;max-width:100%;background:var(--chip);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
   .seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
   .seg button.active{background:var(--accent);color:var(--onacc)}
+  /* 차트 오른쪽 아래 HS 부호 표기 — 지금 보는 계열의 집계 기준 */
+  #tradeHs{text-align:right;margin-top:4px;font-size:11.5px;color:var(--muted2);line-height:1.5}
+  #tradeHs code{background:var(--chip);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--muted)}
+  @media(max-width:640px){ #tradeHs{text-align:left;font-size:11px} }
   .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
   .trend-legend .li{display:flex;align-items:center;gap:7px;font-weight:600}
   /* 국가별처럼 계열마다 스케일·출처가 다른 건 겹치지 않고 격자로 나눠 그린다 */
@@ -650,6 +654,10 @@
         <div id="tradeChartTitle" style="text-align:center;font-weight:800;font-size:14px;margin-bottom:2px"></div>
         <div id="tradeChart"></div>
         <div class="legend" id="tradeLegend"></div>
+        <!-- 지금 보고 있는 계열이 어떤 HS 부호로 집계된 것인지. 품목을 바꿀 때마다 갱신된다.
+             '기초'가 330499 인지 3304991000 인지에 따라 값이 두 배 차이 나므로
+             화면에 적어 두지 않으면 나중에 무엇을 본 건지 되짚을 수가 없다. -->
+        <div id="tradeHs"></div>
       </div>
       <div id="tradeTableWrap" class="tbl-wrap" style="display:none;margin-top:4px"><table id="tradeTable"></table></div>
       <p class="note" id="tradeNote"></p>
@@ -3117,6 +3125,19 @@ const TRADE = {"asOf": "2026-08-01 13:07", "months": ["202408", "202409", "20241
     const it=TRADE.items[itemIdx], c=it.byCountry[cIdx];
     const {labels,vals,prelim=[]}=agg(), yoy=yoyOf(vals);
     document.getElementById("tradeChartTitle").textContent=`${it.label} · ${c.name}`;
+    /* 집계 기준(HS 부호)을 차트 오른쪽 아래에 적는다.
+       hs 는 수집기가 넣어 준 값으로, 합계 품목이면 '+'로 이어져 있다.
+       6자리와 10자리가 값이 두 배씩 차이 나므로(330499 vs 3304991000)
+       화면에 없으면 나중에 무엇을 본 건지 되짚을 수가 없다. */
+    const hsEl=document.getElementById("tradeHs");
+    if(hsEl){
+      const codes=String(it.hs||"").split("+").filter(Boolean);
+      hsEl.innerHTML = codes.length
+        ? `HS ${codes.map(x=>`<code>${x}</code>`).join(" + ")}`
+          + (it.region?` · 제조지 기준`:"")
+          + (it.note?`<br><span style="opacity:.85">${it.note}</span>`:"")
+        : (it.note||"");
+    }
     const box=document.getElementById("tradeChart");
     const W=box.clientWidth||1000, H=380, pad={l:62,r:56,t:18,b:34};
     const shown=vals.map(v=>v==null?0:v/1e6);             // 달러 -> 백만달러
