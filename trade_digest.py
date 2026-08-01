@@ -229,18 +229,17 @@ def build_prelim(trade, pre, fl):
         lines.append(f"<code>{r['spk']} {amt}M</code>  <b>{r['k']}</b>")
         bits = []
         if r["mm"] is not None:
-            bits.append(f"전월 {r['mm']:+.1f}%")
+            bits.append(f"MoM {r['mm']:+.1f}%")
         if r["yy"] is not None:
-            bits.append(f"전년 {r['yy']:+.0f}%")
-        # 전년비가 전월보다 올랐나 내렸나 — 부호만으론 안 보이는 '모멘텀'을 말로 준다.
+            bits.append(f"YoY {r['yy']:+.0f}%")
+        # YoY 가 전월보다 올랐나 내렸나 — 부호만으론 안 보이는 '모멘텀'을 말로 준다.
         d = r["dyy"]
         if d is not None:
             # 판정은 화면에 찍히는 값으로 한다. 반올림 전 값으로 가르면
             # '-4.6' 이 '유지 -5%p' 로 나와 말과 숫자가 어긋난다.
             dr = round(d)
-            bits.append(("전년비 둔화" if dr <= -5 else
-                         "전년비 가속" if dr >= 5 else "전년비 유지")
-                        + f" {dr:+.0f}%p")
+            tag = "둔화" if dr <= -5 else "가속" if dr >= 5 else "유지"
+            bits.append(f"전월 대비 YoY {dr:+.0f}%p ({tag})")
         if bits:
             lines.append(f"<i>↳ {' · '.join(bits)}</i>")
     last = _last_filled(trade)
@@ -248,8 +247,8 @@ def build_prelim(trade, pre, fl):
         f"📦 <b>수출 {mlab} 잠정</b>\n"
         f"<i>막대 = 최근 12개월 확정 + 맨 끝 한 점이 잠정 · 단위 백만달러</i>",
         "\n".join(lines),
-        f"<i>둔화/가속 = 이번 전년비 − 전월 전년비. 전년비가 높아도 줄고 있으면 둔화다.\n"
-        f"확정치 {last[:4]}.{last[4:]} 까지 · 증감률은 우리 확정 시계열 기준</i>",
+        f"<i>전월 대비 YoY = 이번 YoY − 전월 YoY. YoY 가 높아도 줄고 있으면 둔화다.\n"
+        f"확정치 {last[:4]}.{last[4:]} 까지 · MoM·YoY 는 우리 확정 시계열 기준</i>",
         DASH,
     ])
 
@@ -275,12 +274,12 @@ def build_flash(fl, trade):
     tot0 = next((r for r in (fl.get("items") or []) if r["k"] == "화장품 총계"), None)
     if tot0:
         line = (f"<b>화장품 총계</b>  ${tot0['v']:,}M\n"
-                f"전월 <b>{tot0['mm']:+.1f}%</b> · 전년 <b>{tot0['yy']:+.1f}%</b>")
+                f"MoM <b>{tot0['mm']:+.1f}%</b> · YoY <b>{tot0['yy']:+.1f}%</b>")
         if adj:
-            line += (f"\n일평균 전월 <b>{adj(tot0['mm'], wd['prev']):+.1f}%</b>"
-                     f" · 전년 <b>{adj(tot0['yy'], wd['ago']):+.1f}%</b>")
+            line += (f"\n일평균 MoM <b>{adj(tot0['mm'], wd['prev']):+.1f}%</b>"
+                     f" · YoY <b>{adj(tot0['yy'], wd['ago']):+.1f}%</b>")
         if tot0.get("ytd"):
-            line += f"\n누계 ${tot0['ytd']:,}M · 전년비 {tot0['ytdYy']:+.1f}%"
+            line += f"\n누계 ${tot0['ytd']:,}M · YoY {tot0['ytdYy']:+.1f}%"
         out.append(line)
         if adj:
             out.append(f"<i>영업일 {wd['cur']}일 (전월 {wd['prev']}일 · 전년 {wd['ago']}일). "
@@ -303,7 +302,7 @@ def build_flash(fl, trade):
             lines.append(f"<code>{spk} {amt}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%</code>"
                          f"  <b>{r['k'].strip()}</b>")
         src = fl.get("itemsSource") or ""
-        out.append("<b>품목별</b> <i>(막대=연간 22~25+올해 연율 · 금액 · 전월비 · 전년비)</i>\n"
+        out.append("<b>품목별</b> <i>(막대=연간 22~25+올해 연율 · 금액 · MoM · YoY)</i>\n"
                    + "\n".join(lines)
                    + (f"\n<i>{src}</i>" if src else ""))
 
@@ -317,7 +316,7 @@ def build_flash(fl, trade):
         note = f" <i>({g['note']})</i>" if g.get("note") else ""
         if head:
             out.append(f"<b>{g['label']} · 지역별</b>{note}  전체 ${head['v']:,.1f}M"
-                       f"  전월 {head['mm']:+d}% · 전년 {head['yy']:+d}%")
+                       f"  MoM {head['mm']:+d}% · YoY {head['yy']:+d}%")
         if not rest:
             continue          # 담배처럼 전체 한 줄뿐인 품목은 머리줄로 끝난다
         # 금액 큰 순으로 — 어디가 주력인지 먼저 보이고, 변화는 숫자로 읽는다
