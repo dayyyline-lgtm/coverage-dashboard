@@ -204,16 +204,18 @@ def build_prelim(trade, pre, fl):
     if not rows:
         return mon, ""
 
+    # 막대를 첫 칸에 둔다. 한글 라벨을 앞에 놓고 공백으로 폭을 맞추면
+    # 텔레그램 글꼴에서 한글:영문 비율이 예측되지 않아 줄마다 막대 시작점이 밀린다
+    # (트렌드 레터에서 같은 이유로 이미 이 배치로 바꿨다).
+    # 막대 뒤 숫자는 전부 ASCII 라 공백으로 맞고, 이름은 정렬이 필요 없으니 끝에 둔다.
     rows.sort(key=lambda r: -r["v"])
-    lw = max(_w(r["k"]) for r in rows)
     vw = max(len(f"{r['v']:,.0f}") for r in rows)
     lines = []
     for r in rows:
-        pad = " " * max(0, lw - _w(r["k"]))
         mm = f"{r['mm']:+5.1f}%" if r["mm"] is not None else "    —"
         yy = f"{r['yy']:+5.0f}%" if r["yy"] is not None else "    —"
-        lines.append(f"<code>{r['k']}{pad} {r['spk']} "
-                     f"{f'{r[chr(118)]:,.0f}'.rjust(vw)}M {mm} {yy}</code>")
+        amt = f"{r['v']:,.0f}".rjust(vw)
+        lines.append(f"<code>{r['spk']} {amt}M {mm} {yy}</code>  <b>{r['k']}</b>")
     last = _last_filled(trade)
     return mon, "\n\n".join([
         f"📦 <b>수출 — 확정 + {mlab} 잠정</b>",
@@ -267,13 +269,12 @@ def build_flash(fl, trade):
         lines = []
         elapsed = int(mon[4:6]) if len(mon) == 6 else None
         for r in rows:
-            pad = " " * max(0, lw - _w(r["k"]))
             if elapsed:
                 r = {**r, "months_elapsed": elapsed}
             spk = _yr_line(r) or _vspark(_three(r["v"], r["mm"], r["yy"]))
             amt = f"{r['v']:,}".rjust(vw)
-            row = f"{r['k']}{pad} {spk} {amt}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%"
-            lines.append(f"<code>{row}</code>")
+            lines.append(f"<code>{spk} {amt}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%</code>"
+                         f"  <b>{r['k'].strip()}</b>")
         src = fl.get("itemsSource") or ""
         out.append("<b>품목별</b> <i>(막대=연간 22~25+올해 연율 · 금액 · 전월비 · 전년비)</i>\n"
                    + "\n".join(lines)
@@ -294,15 +295,13 @@ def build_flash(fl, trade):
             continue          # 담배처럼 전체 한 줄뿐인 품목은 머리줄로 끝난다
         # 금액 큰 순으로 — 어디가 주력인지 먼저 보이고, 변화는 숫자로 읽는다
         rest.sort(key=lambda r: -r["v"])
-        lw = max(_w(r["k"]) for r in rest)
         vw = max(len(f"{r['v']:,.0f}") for r in rest)
         lines = []
         for r in rest:
-            pad = " " * max(0, lw - _w(r["k"]))
             spk = _vspark(_three(r["v"], r["mm"], r["yy"]))
             amt = f"{r['v']:,.0f}".rjust(vw)
-            lines.append(f"<code>{r['k']}{pad} {spk} {amt}M "
-                         f"{r['mm']:+4d}% {r['yy']:+5d}%</code>")
+            lines.append(f"<code>{spk} {amt}M {r['mm']:+4d}% {r['yy']:+5d}%</code>"
+                         f"  <b>{r['k']}</b>")
         out.append("\n".join(lines))
 
     gsrc = fl.get("groupsSource") or ""
