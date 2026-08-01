@@ -129,7 +129,7 @@ def main():
                    f"<code>매출  {eok(act.get('rev')):>10}억  (컨센 {eok(cons.get('rev'))}억, {arrow(sr)})\n"
                    f"영익  {eok(act.get('op')):>10}억  (컨센 {eok(cons.get('op'))}억, {arrow(so)})</code>\n"
                    f"{verdict}\n"
-                   f"<a href=\"https://coverage-dashboard.pages.dev\">대시보드</a>")
+                   f"<a href=\"https://coverage-dashboard.pages.dev\">📊 대시보드 열기</a>")
             try:
                 r = send(msg)
                 if not r.get("ok"):

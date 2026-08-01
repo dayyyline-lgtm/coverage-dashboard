@@ -45,6 +45,9 @@ BLK = "▁▂▃▄▅▆▇█"
 FREQ_UNIT = {"date": "일", "week": "주", "month": "개월"}
 FREQ_TAG = {"date": "일별", "month": "월별"}      # week 는 기본이라 표기 생략
 WD = ["월", "화", "수", "목", "금", "토", "일"]
+# 규칙: 모든 레터 끝에 대시보드 링크를 붙인다.
+# 레터는 요약이라 '더 볼 것'이 반드시 있는데, 링크가 없으면 거기서 끊긴다.
+DASH = '<a href="https://coverage-dashboard.pages.dev">📊 대시보드 열기</a>'
 
 # 레터에 올릴 계열 — (종목, 트렌드 그룹, 계열, 고정)
 #   고정=True  : 움직임과 무관하게 매일 싣는다(매일 보고 싶다고 지정한 것)
@@ -905,11 +908,11 @@ def build(html, alerts_only=False):
     if alerts_only:
         keep = [b for b in out if not b.startswith("<b>📊")]
         head = f"⏰ <b>커버리지 알림</b> · {today:%m/%d}({WD[today.weekday()]})"
-        return (head + "\n\n" + "\n\n".join(keep)) if keep else ""
+        return (head + "\n\n" + "\n\n".join(keep) + "\n\n" + DASH) if keep else ""
 
     head = f"🗞 <b>커버리지 데일리</b> · {today:%m/%d}({WD[today.weekday()]})"
     return (head + "\n\n" + ("\n\n".join(out) if out else "특이사항 없음.")
-            + "\n\n<i>coverage-dashboard.pages.dev</i>")
+            + "\n\n" + DASH)
 
 
 SENT_PATH = "digest_sent.json"

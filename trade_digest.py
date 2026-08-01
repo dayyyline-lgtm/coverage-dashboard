@@ -15,6 +15,9 @@ import telegram_send
 HTML = "public/index.html"
 STATE = "trade_sent.json"
 BLK = "▁▂▃▄▅▆▇█"
+# 규칙: 모든 레터 끝에 대시보드 링크를 붙인다.
+# 레터는 요약이라 '더 볼 것'이 반드시 있고, 링크가 없으면 거기서 끊긴다.
+DASH = '<a href="https://coverage-dashboard.pages.dev">📊 대시보드 열기</a>'
 
 # 국가 전체 기준으로 보여줄 품목 (라벨, 설명/커버종목)
 ITEMS = [
@@ -126,6 +129,7 @@ def build(trade):
     if b2:
         parts.append("<b>커버 종목 프록시(제조지 기준)</b>\n" + "\n".join(b2))
     parts.append(f"<i>수집 {trade.get('asOf','')}</i>")
+    parts.append(DASH)
     return mon, "\n\n".join(parts)
 
 
@@ -195,12 +199,18 @@ def build_prelim(trade, pre, fl):
         idx = {m: i for i, m in enumerate(months)}
         prev_m = f"{int(mon[:4]) - (mon[4:6] == '01')}{(int(mon[4:6]) - 1) or 12:02d}"
         ago_m = f"{int(mon[:4]) - 1}{mon[4:6]}"
-        p = exp[idx[prev_m]] if prev_m in idx and idx[prev_m] < len(exp) else None
-        a = exp[idx[ago_m]] if ago_m in idx and idx[ago_m] < len(exp) else None
+        get = lambda m: exp[idx[m]] if m in idx and idx[m] < len(exp) else None
+        p, a = get(prev_m), get(ago_m)
+        # 전월의 전년비 — 이번 전년비와 견줘야 '꺾였나 붙었나'가 나온다.
+        # 전년비 +36% 만 보면 좋아 보이지만 지난달이 +45% 였으면 둔화 중인 것이다.
+        pa = get(f"{int(prev_m[:4]) - 1}{prev_m[4:6]}")
+        prev_yy = (p / pa - 1) * 100 if (p and pa) else None
+        yy = (v / a - 1) * 100 if a else None
         hist = [x for x in exp if x is not None][-12:] + [v]
         rows.append({"k": label, "v": v, "spk": _vspark(hist),
                      "mm": (v / p - 1) * 100 if p else None,
-                     "yy": (v / a - 1) * 100 if a else None})
+                     "yy": yy,
+                     "dyy": (yy - prev_yy) if (yy is not None and prev_yy is not None) else None})
     if not rows:
         return mon, ""
 
@@ -214,14 +224,21 @@ def build_prelim(trade, pre, fl):
     for r in rows:
         mm = f"{r['mm']:+5.1f}%" if r["mm"] is not None else "    —"
         yy = f"{r['yy']:+5.0f}%" if r["yy"] is not None else "    —"
+        # 전년비가 전월보다 올랐나 내렸나. 부호만으론 안 보이는 '모멘텀'이다.
+        d = r["dyy"]
+        dy = "     " if d is None else (f"{d:+5.0f}" if abs(d) >= 0.5 else "    0")
         amt = f"{r['v']:,.0f}".rjust(vw)
-        lines.append(f"<code>{r['spk']} {amt}M {mm} {yy}</code>  <b>{r['k']}</b>")
+        lines.append(f"<code>{r['spk']} {amt}M {mm} {yy} {dy}</code>  <b>{r['k']}</b>")
     last = _last_filled(trade)
     return mon, "\n\n".join([
-        f"📦 <b>수출 {mlab} 잠정</b>",
+        f"📦 <b>수출 {mlab} 잠정</b>\n"
+        # 칸 이름은 코드블록 밖에 둔다 — 안에 넣으면 한글 폭 때문에 열이 어긋난다.
+        f"<i>추이(12개월+잠정) · 금액 · MoM · YoY · YoY변화</i>",
         "\n".join(lines),
-        f"<i>막대 = 최근 12개월 확정 + 맨 끝이 {mlab} 잠정 · 단위 백만달러\n"
-        f"확정치 {last[:4]}.{last[4:]} 까지 · 증감률은 우리 확정 시계열 기준</i>",
+        f"<i>YoY변화 = 이번 YoY − 전월 YoY (%p). 음수면 전년비가 꺾이는 중.\n"
+        f"막대 맨 끝이 {mlab} 잠정 · 단위 백만달러 · 확정치 {last[:4]}.{last[4:]} 까지\n"
+        f"증감률은 우리 확정 시계열 기준</i>",
+        DASH,
     ])
 
 
@@ -315,6 +332,7 @@ def build_flash(fl, trade):
                f"지역표 전체({gp_tot:,.0f})는 화장품(HS3304) 계열 — 총계끼리 비교 금지.\n"
                f"관세청 확정치는 {last[:4]}.{last[4:]} 까지. 대시보드는 HS 6단위라 "
                f"'기초'의 범위가 이 표와 다릅니다.</i>")
+    out.append(DASH)
     return mon, "\n\n".join(out)
 
 
