@@ -2503,6 +2503,11 @@ function renderBooking(){
       <div class="kpi"><div class="k">${nm}</div>
         <div class="v">${dday!=null?(dday>0?"D-"+dday:"개봉"):"—"}</div>
         <div class="d">${u?u.open+" 개봉":""}</div></div>
+      <div class="kpi"><div class="k">예매 순위</div>
+        <div class="v">${last.rank?last.rank+"<small>위</small>":"—"}</div>
+        <div class="d">${prev&&prev.rank&&last.rank
+            ? `<span class="${cls(prev.rank-last.rank)}">${prev.rank===last.rank?"변동 없음":(prev.rank>last.rank?`${prev.rank-last.rank}계단 상승`:`${last.rank-prev.rank}계단 하락`)}</span>`
+            : "전체 개봉작 중"}</div></div>
       <div class="kpi"><div class="k">예매율</div>
         <div class="v">${fmt(last.rate,1)}<small>%</small></div>
         <div class="d">${delta("rate")}</div></div>
@@ -2515,10 +2520,10 @@ function renderBooking(){
     </div>`;
     if(pts.length>1){
       h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
-        <th class="l">날짜</th><th>예매율</th><th>예매관객</th><th>증분</th><th>누적관객</th></tr></thead><tbody>`
+        <th class="l">날짜</th><th>순위</th><th>예매율</th><th>예매관객</th><th>증분</th><th>누적관객</th></tr></thead><tbody>`
         +pts.slice().reverse().map((p,i,ar)=>{
           const q=ar[i+1];   // 역순이라 다음 원소가 전일
-          return `<tr><td class="l">${p.d.slice(5)}</td><td>${fmt(p.rate,1)}%</td>
+          return `<tr><td class="l">${p.d.slice(5)}</td><td>${p.rank?p.rank+"위":"—"}</td><td>${fmt(p.rate,1)}%</td>
             <td>${fmt0(p.book)}</td>
             <td>${q?`<span class="${cls(p.book-q.book)}">${sign(p.book-q.book,0)}</span>`:"—"}</td>
             <td>${fmt0(p.acc)}</td></tr>`;}).join("")
