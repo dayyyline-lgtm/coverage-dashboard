@@ -135,6 +135,20 @@ def _w(s):
     return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
 
 
+_EIGHTH = " ▏▎▍▌▋▊▉█"
+
+
+def _hbar(v, mx, width=6):
+    """가로 막대. 1/8 칸 단위로 그려 작은 품목도 뭉개지지 않게 한다.
+       텔레그램은 그림을 못 넣으니 글자로 그린다 — 숫자만 나열하면
+       '큰 게 뭔지'가 눈에 안 들어온다."""
+    if not mx or v is None or v <= 0:
+        return " " * width
+    n = max(1, min(width * 8, round(v / mx * width * 8)))
+    return "█" * (n // 8) + (_EIGHTH[n % 8] if n % 8 else "") \
+        + " " * (width - n // 8 - (1 if n % 8 else 0))
+
+
 def build_flash(fl, trade):
     """실시간 집계 속보 레터. 원문 수치를 그대로 옮기고 전월비를 앞세운다.
 
@@ -146,19 +160,29 @@ def build_flash(fl, trade):
     out = [f"⚡ <b>화장품 수출 속보</b> · {mlab} 잠정",
            f"<i>{fl.get('source','')} · 확정치보다 약 2주 빠름</i>"]
 
-    # 품목별 — 전월비를 앞세운다. 이 레터의 존재 이유가 '이번 달에 뭐가 꺾였나'다.
+    # 총계를 맨 앞에 — 한 줄만 읽고 넘어가도 되게
+    tot0 = next((r for r in (fl.get("items") or []) if r["k"] == "화장품 총계"), None)
+    if tot0:
+        out.append(f"<b>화장품 총계</b>  ${tot0['v']:,}M\n"
+                   f"전월 <b>{tot0['mm']:+.1f}%</b> · 전년 <b>{tot0['yy']:+.1f}%</b>"
+                   + (f"\n누계 ${tot0['ytd']:,}M · 전년비 {tot0['ytdYy']:+.1f}%"
+                      if tot0.get("ytd") else ""))
+
+    # 품목별 — 막대로 크기를, 숫자로 변화를. 이 레터의 존재 이유가
+    # '이번 달에 뭐가 꺾였나'라서 막대(수준)만으론 부족하고 전월비가 같이 있어야 한다.
     items = fl.get("items") or []
     if items:
-        lw = max(_w(r["k"]) for r in items)
-        vw = max(len(f"{r['v']:,}") for r in items)
+        rows = [r for r in items if r["k"] != "화장품 총계"]
+        mx = max((r["v"] for r in rows), default=1)
+        lw = max(_w(r["k"]) for r in rows)
+        vw = max(len(f"{r['v']:,}") for r in rows)
         lines = []
-        for r in items:
+        for r in rows:
             pad = " " * max(0, lw - _w(r["k"]))
-            row = (f"{r['k']}{pad} {f'{r[chr(118)]:,}'.rjust(vw)}M "
-                   f"{r['mm']:+6.1f}% {r['yy']:+7.1f}%")
-            lines.append(f"<code>{row}</code>" if not r.get("head")
-                         else f"<code><b>{row}</b></code>")
-        out.append("<b>품목별</b> <i>(금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
+            row = (f"{r['k']}{pad} {_hbar(r['v'], mx)} "
+                   f"{f'{r[chr(118)]:,}'.rjust(vw)}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%")
+            lines.append(f"<code>{row}</code>")
+        out.append("<b>품목별</b> <i>(막대=금액 · 전월비 · 전년비)</i>\n" + "\n".join(lines))
         # 누계는 월 변동에 안 흔들리는 기준선이라 따로 한 줄
         tot = next((r for r in items if r["k"] == "화장품 총계"), None)
         if tot and tot.get("ytd"):
@@ -177,13 +201,16 @@ def build_flash(fl, trade):
             out.append(f"<b>{g['label']} · 지역별</b>{note}  전체 ${head['v']:,.1f}M"
                        f"  전월 {head['mm']:+d}% · 전년 {head['yy']:+d}%")
         # 지역은 전월비가 큰 순으로 — 이번 달에 뭐가 움직였는지가 보고 싶은 것이다
-        rest.sort(key=lambda r: -abs(r["mm"]))
+        # 금액 큰 순으로 — 어디가 주력인지 막대로 먼저 보이고, 변화는 숫자로 읽는다
+        rest.sort(key=lambda r: -r["v"])
+        mx = max((r["v"] for r in rest), default=1)
         lw = max(_w(r["k"]) for r in rest)
-        vw = max(len(f"{r['v']:,.1f}") for r in rest)
+        vw = max(len(f"{r['v']:,.0f}") for r in rest)
         lines = []
         for r in rest:
             pad = " " * max(0, lw - _w(r["k"]))
-            lines.append(f"<code>{r['k']}{pad} {f'{r[chr(118)]:,.1f}'.rjust(vw)}M "
+            lines.append(f"<code>{r['k']}{pad} {_hbar(r['v'], mx, 5)} "
+                         f"{f'{r[chr(118)]:,.0f}'.rjust(vw)}M "
                          f"{r['mm']:+4d}% {r['yy']:+5d}%</code>")
         out.append("\n".join(lines))
 
