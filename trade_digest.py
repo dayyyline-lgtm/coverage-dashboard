@@ -156,6 +156,20 @@ def _three(v, mm, yy):
     return [ago, prev, v]
 
 
+def _yr_line(r):
+    """연간 추이 스파크라인 — 2022~2025 연간 + 올해 누계.
+       월 3점짜리보다 이쪽이 '몇 년째 어느 쪽인가'를 보여 준다.
+       다만 마지막 점은 연간이 아니라 누계(7개월치)라 그대로 이으면 급락처럼 보인다.
+       올해를 연율로 환산해서(누계 ÷ 경과월 × 12) 같은 잣대로 맞춘다."""
+    yr = r.get("yr") or []
+    if len(yr) < 2:
+        return None
+    pts = list(yr)
+    if r.get("ytd") and r.get("months_elapsed"):
+        pts.append(r["ytd"] / r["months_elapsed"] * 12)
+    return _vspark(pts)
+
+
 def build_flash(fl, trade):
     """실시간 집계 속보 레터. 원문 수치를 그대로 옮기고 전월비를 앞세운다.
 
@@ -196,14 +210,17 @@ def build_flash(fl, trade):
         lw = max(_w(r["k"]) for r in rows)
         vw = max(len(f"{r['v']:,}") for r in rows)
         lines = []
+        elapsed = int(mon[4:6]) if len(mon) == 6 else None
         for r in rows:
             pad = " " * max(0, lw - _w(r["k"]))
-            spk = _vspark(_three(r["v"], r["mm"], r["yy"]))
+            if elapsed:
+                r = {**r, "months_elapsed": elapsed}
+            spk = _yr_line(r) or _vspark(_three(r["v"], r["mm"], r["yy"]))
             amt = f"{r['v']:,}".rjust(vw)
             row = f"{r['k']}{pad} {spk} {amt}M {r['mm']:+5.1f}% {r['yy']:+4.0f}%"
             lines.append(f"<code>{row}</code>")
         src = fl.get("itemsSource") or ""
-        out.append("<b>품목별</b> <i>(전년동월·전월·당월 · 금액 · 전월비 · 전년비)</i>\n"
+        out.append("<b>품목별</b> <i>(막대=연간 22~25+올해 연율 · 금액 · 전월비 · 전년비)</i>\n"
                    + "\n".join(lines)
                    + (f"\n<i>{src}</i>" if src else ""))
 
