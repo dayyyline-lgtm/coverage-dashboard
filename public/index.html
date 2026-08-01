@@ -2631,6 +2631,33 @@ function renderBooking(){
           지점 <b>${s1.sites}</b>${d("sites")} · 스크린 <b>${s1.screens}</b>${d("screens")}${by} ·
           회차 <b>${s1.shows}</b>${d("shows")} · 판매 <b>${fmt0(s1.seatSold)}</b>/${fmt0(s1.seatTot)}석</p>`;
       }
+      /* 날짜별 배정 표 — 오늘 포함 앞으로 상영일마다 3사 합산 스크린·좌석·예매율.
+         예매율 = 그 상영일에 이미 팔린 좌석 ÷ 걸린 좌석. 날짜가 다가올수록 차오른다. */
+      const norm=t=>t.replace(/[\s:\-·]+/g,"");
+      const todayISO=new Date().toISOString().slice(0,10).replace(/-/g,"");
+      const days=Object.entries(SC.series||{})
+        .filter(([k])=>norm(k.split("|")[0])===norm(nm) && k.split("|")[1]>=todayISO)
+        .map(([k,ser])=>({play:k.split("|")[1], s:ser[ser.length-1],
+                          prev:[...ser].reverse().find(p=>p.t.slice(0,10)!==ser[ser.length-1].t.slice(0,10))||null}))
+        .sort((a,b)=>a.play.localeCompare(b.play));
+      if(days.length){
+        const op=u?u.open.replace(/-/g,""):null;
+        const dn=p=>{ if(!op) return "";
+          const dd=Math.round((new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`)-new Date(u.open))/864e5);
+          return `<span class="ye">D${dd>=0?"+":""}${dd}</span>`; };
+        h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
+          <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th></tr></thead><tbody>`
+          +days.map(({play,s,prev})=>{
+            const rate=s.seatTot>0?(s.seatSold/s.seatTot*100):null;
+            const dscr=prev?` <small class="${cls(s.screens-prev.screens)}">${s.screens===prev.screens?"":sign(s.screens-prev.screens,0)}</small>`:"";
+            return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
+              <td>${fmt0(s.sites)}</td><td><b>${fmt0(s.screens)}</b>${dscr}</td><td>${fmt0(s.shows)}</td>
+              <td>${fmt0(s.seatTot)}</td><td>${fmt0(s.seatSold)}</td>
+              <td><b>${rate==null?"—":fmt(rate,1)+"%"}</b></td></tr>`;}).join("")
+          +`</tbody></table></div>
+          <p class="note" style="margin:4px 0 0">3사(CGV·롯데·메가박스) 합산 · 예매율 = 판매좌석 ÷ 걸린좌석 ·
+          스크린 옆 증감은 전일 스냅샷 대비 · 독립·소형관 제외라 KOBIS 확정 스크린수보다 적게 잡힙니다.</p>`;
+      }
     }
     if(pts.length>1){
       h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>

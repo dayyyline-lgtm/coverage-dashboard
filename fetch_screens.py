@@ -203,7 +203,9 @@ def main():
     today = now.date()
     crt = today.strftime("%Y%m%d")
 
-    dates = {today, today + datetime.timedelta(days=1)}
+    # 오늘부터 3일 뒤까지 + 개봉일 — '앞으로 날짜별' 배정 표를 만들기 위해.
+    # 더 멀리는 극장들이 스케줄을 아직 안 연 경우가 많아 빈 값만 쌓인다.
+    dates = {today + datetime.timedelta(days=i) for i in range(4)}
     mb_blk = re.search(r"const MOVIE = (\{.*?\});\n", html, re.S)
     canon = {}                       # 정규화 제목 -> 대시보드 표기(예매 데이터 기준)
     if mb_blk:
@@ -219,7 +221,7 @@ def main():
                             pass
         except json.JSONDecodeError:
             pass
-    dates = sorted(d for d in dates if d >= today)[:3]
+    dates = sorted(d for d in dates if d >= today)[:6]
 
     m = re.search(r"const MOVIE_SCREENS = (\{.*?\});", html, re.S)
     old = {}
