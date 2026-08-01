@@ -55,6 +55,10 @@ ITEMS = [
     {"hs": "330410", "label": "색조-립",     "note": "입술화장품 (330410)"},
     {"hs": "330420", "label": "색조-아이",   "note": "눈화장품 (330420)"},
     {"hs": "330491", "label": "색조-파우더", "note": "파우더 (330491)"},
+    # 색조 합계 — 관세청 보도자료가 '색조'를 립+아이+메이크업(파우더) 합계로 발표한다.
+    # 셋을 따로만 두면 그 잠정치를 얹을 자리가 없어 기초와 나란히 못 본다.
+    {"hs": ("330410", "330420", "330491"), "label": "색조 합계",
+     "note": "립+아이+파우더 합계 (관세청 보도자료의 '색조'와 같은 기준)"},
     {"hs": "3307",   "label": "마스크팩류",  "note": "기타 조제화장품 (3307)"},
     {"hs": "190230", "label": "라면",        "note": "삼양식품·농심 (190230)"},
     {"hs": "190220", "label": "만두",        "note": "CJ제일제당 비비고 (190220 속을 채운 파스타)"},
@@ -165,7 +169,10 @@ def main():
             old_trade = None
 
     months = yymm_range(MONTHS)
-    prefixes = sorted({i["hs"][:4] if len(i["hs"]) > 4 else i["hs"] for i in ITEMS})
+    # hs 는 문자열 하나 또는 여러 개(합계 품목)다. 아래는 전부 튜플로 다룬다.
+    # 예전엔 문자열만 가정해서 i["hs"][:4] 가 튜플에 걸리면 조용히 엉뚱한 값이 됐다.
+    hs_of = lambda i: i["hs"] if isinstance(i["hs"], (list, tuple)) else (i["hs"],)
+    prefixes = sorted({h[:4] if len(h) > 4 else h for i in ITEMS for h in hs_of(i)})
     print(f"조회 {months[0]} ~ {months[-1]} · HS {prefixes}")
 
     # (월, hs, 국가) -> [수출액, 수출중량]
@@ -214,7 +221,9 @@ def main():
            "months": months, "items": []}
 
     for item in ITEMS:
-        entry = {"hs": item["hs"], "label": item["label"], "note": item["note"], "byCountry": []}
+        # 합계 품목은 hs 가 여럿이라 표기용으로 이어 붙인다(화면은 label 만 쓴다)
+        entry = {"hs": "+".join(hs_of(item)), "label": item["label"],
+                 "note": item["note"], "byCountry": []}
         for c in COUNTRIES:
             code = "EU9" if c.get("eu") else c["cd"]
             if c.get("eu"):
