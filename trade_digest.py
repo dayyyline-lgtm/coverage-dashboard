@@ -45,24 +45,6 @@ PRELIM_GROUPS = [
 #  샴푸는 '헤어 총계' 안에 들어 있다.)
 PART_OF = {"마스크팩류": "기타 화장품류", "샴푸": "헤어 총계"}
 
-# 품목 -> 걸리는 커버 종목. 수출 숫자만 던지면 '그래서 어느 종목이냐'를 매번 되짚어야 한다.
-COVER = {
-    "화장품 전체":   "코스맥스·한국콜마(ODM) · 에이피알·아모레·LG생건 · 실리콘투(유통)",
-    "기초":         "달바글로벌 · 제닉 · 제이투케이바이오",
-    "색조 합계":     "에이피알 · 코스맥스",
-    "기타 화장품류": "한국콜마 · 코스맥스",
-    "마스크팩류":    "제닉",
-    "라면":         "삼양식품 · 농심",
-    "만두":         "CJ제일제당",
-}
-
-# 각 계열이 무엇을 담고 있는지. 총계에 하위를 더하면 안 맞는 이유가 여기 있다.
-SCOPE = [
-    "화장품 전체 = HS 3304 (기초+색조+기타3304+매니큐어). 마스크팩·향수·헤어는 <b>미포함</b>",
-    "기초 = 3304991000 · 색조 = 립·아이·파우더·메이크업(3304992000)",
-    "기타 화장품류 = 기타 3304 + <b>마스크팩(3307) 포함</b> → 화장품 전체에 더하면 이중계상",
-    "헤어 = 3305 (샴푸 포함) · 향수 = 3303",
-]
 
 # 시군구 프록시(커버 종목 직결)
 REGION = [
@@ -292,39 +274,19 @@ def build_prelim(trade, pre, fl):
                 bits.append(f"전월 대비 YoY {dot} {dr:+.0f}%p")
             if bits:
                 lines.append(f"<i>↳ {' · '.join(bits)}</i>")
-            cv = COVER.get(r["k"])
-            if cv:
-                lines.append(f"<i>↳ {cv}</i>")
     # 묶음에 안 적어 둔 품목이 생기면 빠뜨리지 말고 뒤에 붙인다
     # (품목을 추가하고 PRELIM_GROUPS 갱신을 잊으면 조용히 사라진다).
     for r in rows:
         if r["k"] in used:
             continue
         lines += ["", f"<code>{r['spk']} {f'{r[chr(118)]:,.0f}'.rjust(vw)}M</code>  <b>{r['k']}</b>"]
-    # 총평 — 훑기 전에 '이번 달이 어느 쪽인가'를 한 줄로. 보고서 첫 문장이 될 만한 것.
-    acc = [r["k"] for r in rows if r["dyy"] is not None and round(r["dyy"]) >= 5]
-    dec = [r["dyy"] is not None and round(r["dyy"]) <= -5 for r in rows]
-    ndec = sum(1 for x in dec if x)
-    head_row = by_k.get("화장품 전체")
-    lead = ""
-    if head_row and head_row["yy"] is not None:
-        lead = (f"화장품 YoY <b>{head_row['yy']:+.0f}%</b>"
-                + (f" (전월 대비 {round(head_row['dyy']):+.0f}%p)" if head_row["dyy"] is not None else ""))
-    summary = " · ".join(x for x in [
-        lead,
-        f"둔화 {ndec}개 / 가속 {len(acc)}개",
-        ("가속: " + ", ".join(acc[:3])) if acc else "",
-    ] if x)
-
     last = _last_filled(trade)
     return mon, "\n\n".join([
-        f"📦 <b>수출 {mlab} 잠정</b>",
-        summary,
+        f"📦 <b>수출 {mlab} 잠정</b>\n"
+        f"<i>막대 = 최근 12개월 확정 + 맨 끝이 잠정 · 백만달러</i>",
         "\n".join(lines),
-        "<b>집계 범위</b>\n" + "\n".join(f"· {s}" for s in SCOPE),
-        f"<i>막대 = 최근 12개월 확정 + 맨 끝이 잠정 · 백만달러\n"
-        f"전월 대비 YoY = 이번 YoY − 전월 YoY (🔴가속 🔵둔화 ⚪유지)\n"
-        f"확정 {last[:4]}.{last[4:]} 까지 · MoM·YoY 는 우리 확정 시계열 기준</i>",
+        f"<i>전월 대비 YoY = 이번 YoY − 전월 YoY (🔴가속 🔵둔화 ⚪유지)\n"
+        f"확정 {last[:4]}.{last[4:]} 까지</i>",
         DASH,
     ])
 
