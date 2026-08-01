@@ -215,8 +215,9 @@ def build_flash(fl, trade):
         if head:
             out.append(f"<b>{g['label']} · 지역별</b>{note}  전체 ${head['v']:,.1f}M"
                        f"  전월 {head['mm']:+d}% · 전년 {head['yy']:+d}%")
-        # 지역은 전월비가 큰 순으로 — 이번 달에 뭐가 움직였는지가 보고 싶은 것이다
-        # 금액 큰 순으로 — 어디가 주력인지 막대로 먼저 보이고, 변화는 숫자로 읽는다
+        if not rest:
+            continue          # 담배처럼 전체 한 줄뿐인 품목은 머리줄로 끝난다
+        # 금액 큰 순으로 — 어디가 주력인지 먼저 보이고, 변화는 숫자로 읽는다
         rest.sort(key=lambda r: -r["v"])
         mx = max((r["v"] for r in rest), default=1)
         lw = max(_w(r["k"]) for r in rest)
