@@ -218,26 +218,35 @@ def build_prelim(trade, pre, fl):
     # 텔레그램 글꼴에서 한글:영문 비율이 예측되지 않아 줄마다 막대 시작점이 밀린다
     # (트렌드 레터에서 같은 이유로 이미 이 배치로 바꿨다).
     # 막대 뒤 숫자는 전부 ASCII 라 공백으로 맞고, 이름은 정렬이 필요 없으니 끝에 둔다.
+    # 한 줄에 막대·금액·증감·이름을 다 넣었더니 '기타 화장품류' 같은 긴 이름에서
+    # 줄이 넘쳐 다음 줄로 접혔다. 데일리 레터처럼 증감은 딸림 줄(↳)로 내린다.
+    # 첫 줄은 막대+금액+이름만 — 막대가 첫 칸이라 어떤 글꼴에서도 안 밀린다.
     rows.sort(key=lambda r: -r["v"])
     vw = max(len(f"{r['v']:,.0f}") for r in rows)
     lines = []
     for r in rows:
-        mm = f"{r['mm']:+5.1f}%" if r["mm"] is not None else "    —"
-        yy = f"{r['yy']:+5.0f}%" if r["yy"] is not None else "    —"
-        # 전년비가 전월보다 올랐나 내렸나. 부호만으론 안 보이는 '모멘텀'이다.
-        d = r["dyy"]
-        dy = "     " if d is None else (f"{d:+5.0f}" if abs(d) >= 0.5 else "    0")
         amt = f"{r['v']:,.0f}".rjust(vw)
-        lines.append(f"<code>{r['spk']} {amt}M {mm} {yy} {dy}</code>  <b>{r['k']}</b>")
+        lines.append(f"<code>{r['spk']} {amt}M</code>  <b>{r['k']}</b>")
+        bits = []
+        if r["mm"] is not None:
+            bits.append(f"전월 {r['mm']:+.1f}%")
+        if r["yy"] is not None:
+            bits.append(f"전년 {r['yy']:+.0f}%")
+        # 전년비가 전월보다 올랐나 내렸나 — 부호만으론 안 보이는 '모멘텀'을 말로 준다.
+        d = r["dyy"]
+        if d is not None:
+            bits.append(("전년비 둔화" if d <= -5 else
+                         "전년비 가속" if d >= 5 else "전년비 유지")
+                        + f" {d:+.0f}%p")
+        if bits:
+            lines.append(f"<i>↳ {' · '.join(bits)}</i>")
     last = _last_filled(trade)
     return mon, "\n\n".join([
         f"📦 <b>수출 {mlab} 잠정</b>\n"
-        # 칸 이름은 코드블록 밖에 둔다 — 안에 넣으면 한글 폭 때문에 열이 어긋난다.
-        f"<i>추이(12개월+잠정) · 금액 · MoM · YoY · YoY변화</i>",
+        f"<i>막대 = 최근 12개월 확정 + 맨 끝 한 점이 잠정 · 단위 백만달러</i>",
         "\n".join(lines),
-        f"<i>YoY변화 = 이번 YoY − 전월 YoY (%p). 음수면 전년비가 꺾이는 중.\n"
-        f"막대 맨 끝이 {mlab} 잠정 · 단위 백만달러 · 확정치 {last[:4]}.{last[4:]} 까지\n"
-        f"증감률은 우리 확정 시계열 기준</i>",
+        f"<i>둔화/가속 = 이번 전년비 − 전월 전년비. 전년비가 높아도 줄고 있으면 둔화다.\n"
+        f"확정치 {last[:4]}.{last[4:]} 까지 · 증감률은 우리 확정 시계열 기준</i>",
         DASH,
     ])
 
