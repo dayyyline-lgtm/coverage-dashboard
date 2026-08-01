@@ -55,8 +55,12 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python trade_digest.py || echo "수출 레터 건너뜀"
-          if ! git diff --quiet -- trade_sent.json 2>/dev/null; then
-            git add trade_sent.json
+          # 상태파일을 먼저 add 하고 --cached 로 본다.
+          # trade_sent.json 은 처음엔 추적 안 된 새 파일인데, git diff 는 추적 안 된
+          # 파일을 '변경 없음'으로 치기 때문에 커밋 단계가 영영 안 탔다 —
+          # 발송 기록이 저장된 적이 없어 trade.yml 이 돌 때마다 같은 확정 레터가 재발송됐다.
+          git add trade_sent.json 2>/dev/null || true
+          if ! git diff --cached --quiet -- trade_sent.json 2>/dev/null; then
             git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
             git pull --rebase && git push
           fi

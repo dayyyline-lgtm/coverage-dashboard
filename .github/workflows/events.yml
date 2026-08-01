@@ -137,8 +137,9 @@ jobs:
           d=$(TZ=Asia/Seoul date +%d)
           if [ "$d" -ge 10 ] && [ "$d" -le 26 ]; then
             python trade_digest.py || echo "수출 레터 건너뜀"
-            if ! git diff --quiet -- trade_sent.json 2>/dev/null; then
-              git add trade_sent.json
+            # 추적 안 된 상태파일은 git diff 에 안 잡힌다 — add 먼저, --cached 로 확인 (trade.yml 과 동일)
+            git add trade_sent.json 2>/dev/null || true
+            if ! git diff --cached --quiet -- trade_sent.json 2>/dev/null; then
               git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
               git pull --rebase
               git push
