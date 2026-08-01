@@ -2269,6 +2269,43 @@ function viewGroup(G){ if(!G) return G;
 /* 그 주제가 실제로 가진 출처만 남긴다.
    only 가 붙어 있으면 반대쪽은 같은 값을 복사해 둔 것이라 눌러도 그래프가 안 바뀐다. */
 const srcOfGroup=G=> G && G.only ? [G.only] : ["naver","google"];
+/* 토스식 호버 툴팁 — 수출 차트에 쓰는 것과 같은 방식의 공용판.
+   svg viewBox 좌표로 역변환해 커서가 가리키는 기간을 찾고,
+   세로 가이드선 + 카드형 툴팁을 띄운다. 트렌드의 겹침·격자·스택 세 차트가 같이 쓴다.
+   getScreenCTM 이 스케일·레터박스(가운데 여백)·preserveAspectRatio=none 까지 보정한다. */
+function attachChartTip(box, o){
+  // o: {W,H,pad,n, xOf(i)->viewBox x, html(i)->툴팁 내용(null 이면 안 띄움)}
+  const svg=box.querySelector("svg"); if(!svg||!o.n) return;
+  box.style.position="relative";
+  const guide=document.createElement("div"); guide.className="chart-guide";
+  const tip=document.createElement("div"); tip.className="chart-tip";
+  box.append(guide,tip);
+  const hide=()=>{ tip.style.display="none"; guide.style.display="none"; };
+  box.onmousemove=(e)=>{
+    const m=svg.getScreenCTM();
+    if(!m||!m.a){ hide(); return; }                       // 미표시/0폭 방어
+    const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+    const p=pt.matrixTransform(m.inverse());
+    if(p.x<o.pad.l||p.x>o.W-o.pad.r||p.y<o.pad.t||p.y>o.H-o.pad.b){ hide(); return; }
+    // 가장 가까운 점 — 등간격 가정 대신 실제 x 를 훑는다(막대 중심·꺾은선 둘 다 맞음)
+    let i=0, best=Infinity;
+    for(let k=0;k<o.n;k++){ const d=Math.abs(o.xOf(k)-p.x); if(d<best){best=d;i=k;} }
+    const html=o.html(i); if(!html){ hide(); return; }
+    tip.innerHTML=html; tip.style.display="block";
+    const rc=box.getBoundingClientRect();
+    const a=svg.createSVGPoint(); a.x=o.xOf(i); a.y=o.pad.t; const as=a.matrixTransform(m);
+    const b=svg.createSVGPoint(); b.x=o.xOf(i); b.y=o.H-o.pad.b; const bs=b.matrixTransform(m);
+    guide.style.display="block";
+    guide.style.left=(as.x-rc.left).toFixed(1)+"px";
+    guide.style.top=(as.y-rc.top).toFixed(1)+"px";
+    guide.style.height=Math.abs(bs.y-as.y).toFixed(1)+"px";
+    const tw=tip.offsetWidth||150, px=e.clientX-rc.left;
+    tip.style.left=((px+16+tw>rc.width)? Math.max(4,px-tw-14) : px+16).toFixed(1)+"px";
+    tip.style.top=Math.max(4,(e.clientY-rc.top)-tip.offsetHeight-10).toFixed(1)+"px";
+  };
+  box.onmouseleave=hide;
+}
+
 function drawTrend(){
   const box=document.getElementById("trendChart"); if(!box) return;
   const G0=TREND.groups[trendGroup];
@@ -2325,6 +2362,19 @@ function drawTrend(){
   });
   s+="</svg>";
   box.innerHTML=s;
+  /* 호버 툴팁 — 그 시점의 모든 계열 값과 전기간비를 한 카드에.
+     얀덱스 그룹(peak)은 100 이 실제 몇 건인지 알고 있으므로 절대 건수도 같이 적는다. */
+  attachChartTip(box,{W,H,pad,n:M.length,xOf:sx,html:i=>{
+    const rows=series.map((ser,pi)=>({p:PRODUCTS[pi],c:TREND.colors[pi],v:ser[i],
+        d:(i>0&&ser[i-1]>0&&ser[i]!=null)?(ser[i]/ser[i-1]-1)*100:null}))
+      .filter(r=>r.v!=null)
+      .sort((a,b)=>b.v-a.v);                 // 큰 것부터 — 차트에서 위에 있는 선 순서와 같다
+    if(!rows.length) return null;
+    return `<div class="tt-h">${M[i]}</div>`+rows.map(r=>
+      `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
+      +`<span class="v">${r.v}${G.peak?`<span style="color:var(--muted);font-weight:600;font-size:10.5px"> · ${fmt0(r.v*G.peak/100)}건</span>`:""}`
+      +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}</span></div>`).join("");
+  }});
   fillTrendLegendTable(G, PRODUCTS, series, M, U);
 }
 
@@ -2353,6 +2403,17 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
         ${src?`<span class="src">${src}</span>`:""}
         <span class="v" style="color:${c}">${last==null?"—":last}</span></div>${s}</div>`;
   }).join("")+`</div>`;
+  // 칸마다 호버 툴팁 — 격자는 칸이 작아 x축 라벨이 양끝뿐이라, 중간 시점 값은 이걸로만 읽힌다
+  [...box.querySelectorAll(".sm-cell")].forEach((cell,ci)=>{
+    const ser=series[ci]||[];
+    attachChartTip(cell,{W,H,pad,n:M.length,xOf:sx,html:i=>{
+      const v=ser[i]; if(v==null) return null;
+      const d=(i>0&&ser[i-1]>0)?(v/ser[i-1]-1)*100:null;
+      return `<div class="tt-h">${PRODUCTS[ci]} · ${M[i]}</div>`
+        +`<div class="tt-r"><span class="k">지수</span><span class="v">${v}`
+        +`${d==null?"":` <span class="${cls(d)}" style="font-size:10.5px">${sign(d,0)}%</span>`}</span></div>`;
+    }});
+  });
 }
 
 /* 절대수 누적 막대 — 기간별로 계열(아티스트)을 쌓아 회사 총량을 만든다.
@@ -2382,6 +2443,15 @@ function drawTrendStack(box, G, PRODUCTS, series, M, gc, mut){
     if(totals[i]>0) s+=`<text x="${cx(i).toFixed(1)}" y="${(sy(totals[i])-4).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${mut}">${sN(totals[i])}</text>`;
   });
   s+="</svg>"; box.innerHTML=s;
+  // 호버 툴팁 — 막대 하나에 계열이 쌓여 있어 구성비는 이걸로만 읽힌다. 큰 것부터, 합계는 맨 위.
+  attachChartTip(box,{W,H,pad,n:N,xOf:cx,html:i=>{
+    const rows=PRODUCTS.map((p,pi)=>({p,c:COL[pi%COL.length],v:(series[pi]||[])[i]||0}))
+      .filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
+    if(!rows.length) return null;
+    return `<div class="tt-h">${M[i]} · 합계 ${fmt(totals[i])}</div>`+rows.map(r=>
+      `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
+      +`<span class="v">${fmt(r.v)}</span></div>`).join("");
+  }});
 }
 
 function fillTrendLegendTable(G, PRODUCTS, series, M, U){
