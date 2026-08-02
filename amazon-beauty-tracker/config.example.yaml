@@ -98,7 +98,19 @@ tracking:
   max_detail_per_run: 160   # 마켓당 1회 실행 상세조회 상한 (초과분은 다음 실행에서)
   retire_after_days: 30     # 이 기간 내내 BSR도 안 잡히면 추적 해제 (단종 대응)
 
+# 브랜드 검색 — 카탈로그 전체 발견용.
+# 베스트셀러 리스트는 top100만 보여줘서, 매출이 여러 제품에 퍼진 브랜드가 과소평가된다.
+# 실측: COSRX 미국은 리스트에 1개뿐인데 검색으로는 110개가 나온다(연 86억 -> 321억).
+search:
+  enabled: true
+  max_pages: 3              # 브랜드당 검색 페이지 수 (1페이지 = 48개)
+  brands: auto              # auto = 한 번이라도 잡힌 브랜드만 검색 (미진입 대기군은 생략)
+  delay: [2.0, 3.5]
+
 detail:
+  top_per_brand: 5          # 브랜드당 최소 몇 개를 /dp/ 로 정밀 측정할지.
+                            # 브랜드별로 나눠야 큰 브랜드가 예산을 독식하지 않는다
+  top_per_market: 45        # 마켓당 /dp/ 총 상한
   delay: [1.5, 3.0]         # 상세 조회 사이 대기 (초, 랜덤)
 
 page_delay: [2.0, 4.0]      # 리스트 페이지 사이 대기 (초, 랜덤)
@@ -107,6 +119,7 @@ impersonate: chrome         # curl_cffi TLS 지문. 막히면 chrome131 등으�
 report:
   mode: detail              # detail  = 국가별 제품 전부 + 하단 브랜드 총합 (기본)
                             # compact = 브랜드x국가 매트릭스만 (짧지만 정보가 적다)
+  products_per_brand: 6     # 국가별 섹션에서 브랜드당 보여줄 제품 수
   move_threshold: 20        # BSR이 이 % 이상 움직이면 변동 항목으로 표시
   max_moves: 6              # 상승·하락 각각 최대 몇 줄까지 보여줄지
 

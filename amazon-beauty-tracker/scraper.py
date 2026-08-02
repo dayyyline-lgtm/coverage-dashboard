@@ -14,6 +14,7 @@ import functools
 import unicodedata
 import time
 import html as htmllib
+import urllib.parse
 import random
 import datetime
 from pathlib import Path
@@ -231,33 +232,50 @@ _MULT = {"k": 1_000, "m": 1_000_000, "mil": 1_000, "mila": 1_000, "tsd": 1_000}
 WEEKS_PER_MONTH = 4.33
 
 
+def bought_from_text(txt):
+    """배지 문구 한 줄 → (월 환산 개수, 원표기 기간). 상세페이지·검색카드 공용."""
+    if not txt:
+        return None, None
+    low = txt.lower()
+    # 주 단위를 먼저 본다 ('mes'가 'mese'의 일부라 월을 먼저 보면 오판한다)
+    pos, period = None, None
+    for w in _WEEK_WORDS:
+        if w in low:
+            pos, period = low.index(w), "week"
+            break
+    if period is None:
+        for w in _MONTH_WORDS:
+            if w in low:
+                pos, period = low.index(w), "month"
+                break
+    if period is None:
+        return None, None
+
+    # 기간 단어 **앞쪽**에서 마지막 숫자를 쓴다. 검색 카드는 배지 앞에 평점이 붙어
+    # ('4.7 out of 5 stars (1.1K) 1K+ bought in past month') 앞에서부터 찾으면
+    # 평점 4.7 을 판매량으로 읽는다.
+    ms = list(_BOUGHT_NUM.finditer(txt[:pos]))
+    if not ms:
+        return None, None
+    m = ms[-1]
+    num = parse_price(m.group(1))
+    if not num:
+        return None, None
+    units = num * _MULT.get((m.group(2) or "").lower(), 1)
+    return int(round(units * (WEEKS_PER_MONTH if period == "week" else 1))), period
+
+
 def _parse_bought(soup):
-    """판매량 배지 → (월간 환산 개수, 원표기 기간). 없으면 (None, None)."""
+    """상품 상세의 판매량 배지 → (월 환산 개수, 원표기 기간)."""
     best, best_period = None, None
     for sel in _BOUGHT_SELECTORS:
         el = soup.select_one(sel)
         if not el:
             continue
-        txt = el.get_text(" ", strip=True)
-        if not txt:
-            continue
-        low = txt.lower()
-        # 주 단위 표현을 먼저 본다 ('mes'가 'mese'의 일부라 월을 먼저 보면 오판한다)
-        period = "week" if any(w in low for w in _WEEK_WORDS) else (
-            "month" if any(w in low for w in _MONTH_WORDS) else None)
-        if period is None:
-            continue
-        m = _BOUGHT_NUM.search(txt)
-        if not m:
-            continue
-        num = parse_price(m.group(1))
-        if not num:
-            continue
-        units = num * _MULT.get((m.group(2) or "").lower(), 1)
-        monthly = units * (WEEKS_PER_MONTH if period == "week" else 1)
-        if best is None or monthly > best:
-            best, best_period = monthly, period
-    return (int(round(best)), best_period) if best else (None, None)
+        units, period = bought_from_text(el.get_text(" ", strip=True))
+        if units and (best is None or units > best):
+            best, best_period = units, period
+    return best, best_period
 
 
 def _parse_bsr(soup):
@@ -373,6 +391,87 @@ def load_cache(path):
 
 def save_cache(path, cache):
     path.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+# ---------------------------------------------------------------- 브랜드 검색
+
+# 검색 결과 카드 한 장에 ASIN·제목·가격·평점·판매량이 다 들어있다.
+# 베스트셀러 리스트만 보면 top100에 든 제품만 잡혀서, 매출이 여러 제품에 넓게
+# 퍼진 브랜드(COSRX 등)가 심하게 과소평가된다. 검색은 카탈로그 전체를 훑는다.
+# 다만 검색 카드의 판매량 배지 커버리지는 24~72%로 들쭉날쭉하다(상세페이지는 100%).
+# 그래서 검색은 **발견**용이고, 정밀 측정은 /dp/ 가 맡는다.
+_CARD = 'div[data-asin][data-component-type="s-search-result"]'
+_TITLE_SELS = ["[data-cy='title-recipe']", "h2 a span", "h2 span"]
+
+
+def _card_title(card):
+    for sel in _TITLE_SELS:
+        el = card.select_one(sel)
+        if el:
+            t = el.get_text(" ", strip=True)
+            if len(t) > 12:          # 'COSRX' 같은 브랜드 라벨만 잡히는 경우를 거른다
+                return t
+    return ""
+
+
+def _card_badge(card):
+    """검색 카드에서 판매량 배지 **문구만** 골라 파싱한다.
+
+    카드 전체 텍스트를 그냥 넘기면 '4.6 out of 5 stars' 의 4.6 을 판매량으로 읽는다.
+    배지 문구를 담은 짧은 요소를 먼저 찾아야 한다.
+    """
+    for el in card.select("span, div"):
+        txt = el.get_text(" ", strip=True)
+        if not (8 < len(txt) < 70) or not re.search(r"\d", txt):
+            continue
+        low = txt.lower()
+        if any(w in low for w in _WEEK_WORDS + _MONTH_WORDS):
+            units, period = bought_from_text(txt)
+            if units:
+                return units, period
+    return None, None
+
+
+def search_brand(session, market, brand, max_pages=3, delay=(2.0, 3.5), log=print):
+    """브랜드 검색으로 카탈로그 발견. {asin: {...}} 반환."""
+    found = {}
+    base = f"https://{market['domain']}/s"
+    query = urllib.parse.quote(brand)
+    for pg in range(1, int(max_pages) + 1):
+        url = f"{base}?k={query}&i=beauty" + (f"&page={pg}" if pg > 1 else "")
+        try:
+            page = get(session, url, market, referer=f"https://{market['domain']}/", retries=2)
+        except BlockedError as e:
+            log(f"  ! {market['code']}/{brand} 검색 중단 — {e}")
+            break
+        if not page:
+            break
+        cards = BeautifulSoup(page, "html.parser").select(_CARD)
+        if not cards:
+            break
+        added = 0
+        for c in cards:
+            asin = c.get("data-asin")
+            title = _card_title(c)
+            # 검색은 유사 제품도 섞어서 준다. 제목에 브랜드가 있어야 인정.
+            if not asin or not title or not _brand_pattern(brand).search(_norm(title)):
+                continue
+            if asin in found:
+                continue
+            units, period = _card_badge(c)
+            price_el = c.select_one(".a-price .a-offscreen")
+            star = c.select_one("span.a-icon-alt")
+            found[asin] = {
+                "title": title,
+                "price": parse_price(price_el.get_text(strip=True)) if price_el else None,
+                "bought": units, "bought_period": period,
+                "rating": parse_rating(star.get_text(strip=True)) if star else None,
+            }
+            added += 1
+        if added == 0:
+            break
+        _sleep(delay)
+    return found
 
 
 # ---------------------------------------------------------------- 고정 추적 목록
@@ -507,11 +606,54 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
     if newly:
         log(f"[{code}] 신규 추적 대상 {newly}개 추가")
 
-    # ---------- (3) 고정 ASIN 전부 BSR 측정 (리스트 밖 포함) ----------
+    # ---------- (3) 브랜드 검색으로 카탈로그 전체 발견 ----------
+    # 베스트셀러 리스트만 보면 top100에 든 제품만 잡혀서, 매출이 여러 제품에 넓게
+    # 퍼진 브랜드가 심하게 과소평가된다(COSRX US: 리스트 1개 vs 검색 110개).
+    scfg = cfg.get("search", {})
+    from_search = {}
+    if scfg.get("enabled", True):
+        want = scfg.get("brands", "auto")
+        if want == "auto":
+            want = sorted({v["brand"] for v in pinned.values()})
+        for b in want:
+            hits = search_brand(session, market, b, scfg.get("max_pages", 3),
+                                scfg.get("delay", [2.0, 3.5]), log)
+            for asin, info in hits.items():
+                key = f"{code}:{asin}"
+                if key not in pinned:
+                    pinned[key] = {"brand": b, "title": info["title"], "first_seen": today}
+                pinned[key].update({"brand": b, "title": info["title"], "last_seen": today})
+                from_search[asin] = info
+            if hits:
+                log(f"[{code}] 검색 {b}: 카탈로그 {len(hits)}개 "
+                    f"(판매량 {sum(1 for v in hits.values() if v['bought'])}개)")
+
+    # ---------- (4) 판매량 상위는 /dp/ 로 정밀 측정 ----------
+    # 검색 카드의 배지 커버리지는 24~72%로 들쭉날쭉하지만 상세페이지는 100%다.
+    # 예산 안에서 '많이 팔리는 순'으로 정확히 잰다.
     mine = [k.split(":", 1)[1] for k in pinned if k.startswith(code + ":")]
-    todo = [a for a in mine if a not in details]
+    dcfg = cfg.get("detail", {})
+    per_brand = int(dcfg.get("top_per_brand", 5))
+    topn = int(dcfg.get("top_per_market", 45))
+
+    def _weight(a):
+        if a in sightings:
+            return 10 ** 9 - sightings[a]["rank"]      # 리스트 진입분이 최우선
+        return (from_search.get(a) or {}).get("bought") or 0
+
+    # 예산을 **브랜드별로 나눈다**. 그냥 판매량 순으로 자르면 큰 브랜드가 다 먹어서
+    # 작은 브랜드는 BSR이 하나도 안 잡히고, 결국 브랜드 비교가 다시 왜곡된다.
+    by_brand = {}
+    for a in mine:
+        if a in details:
+            continue
+        by_brand.setdefault(pinned[f"{code}:{a}"]["brand"], []).append(a)
+    todo = []
+    for b, asins in by_brand.items():
+        todo += sorted(asins, key=_weight, reverse=True)[:per_brand]
+    todo = sorted(todo, key=_weight, reverse=True)[:topn]
     if todo:
-        log(f"[{code}] BSR 측정 {len(todo)}건 (리스트 밖 포함)...")
+        log(f"[{code}] 정밀 측정(/dp/) {len(todo)}건")
     for asin in todo:
         detail(asin)
 
@@ -521,7 +663,8 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
         key = f"{code}:{asin}"
         info, d, s = pinned[key], details.get(asin), sightings.get(asin)
         lst = rendered_by_asin.get(asin) or {}
-        if not d and not s:
+        sr = from_search.get(asin) or {}
+        if not d and not s and not sr:
             continue                      # 이번 실행에서 아무것도 못 얻음
         if d:
             info["last_seen"] = today      # BSR이 잡히면 리스트 밖이어도 살아있는 것
@@ -532,12 +675,18 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
             "bsr_main": (d or {}).get("bsr_main"), "bsr_main_cat": (d or {}).get("bsr_main_cat"),
             "bsr_sub": (d or {}).get("bsr_sub"), "bsr_sub_cat": (d or {}).get("bsr_sub_cat"),
             # 아마존이 직접 공개하는 월간 판매량(하한). 가격과 곱하면 매출 추정이 된다.
-            "bought": (d or {}).get("bought"), "bought_period": (d or {}).get("bought_period"),
+            "bought": (d or {}).get("bought") or sr.get("bought"),
+            "bought_period": (d or {}).get("bought_period") or sr.get("bought_period"),
+            "src": "dp" if d else ("search" if sr else "list"),
             "parent_asin": (d or {}).get("parent_asin"),
             # 리스트에 있으면 리스트 값이 그 순위에 오른 변형 기준이라 더 정확하다
-            "price": lst.get("price") if lst.get("price") is not None else (d or {}).get("price"),
+            "price": (lst.get("price") if lst.get("price") is not None
+                      else (d or {}).get("price") if (d or {}).get("price") is not None
+                      else sr.get("price")),
             "currency": market["currency"],
-            "rating": lst.get("rating") if lst.get("rating") is not None else (d or {}).get("rating"),
+            "rating": (lst.get("rating") if lst.get("rating") is not None
+                       else (d or {}).get("rating") if (d or {}).get("rating") is not None
+                       else sr.get("rating")),
             "reviews": lst.get("reviews") if lst.get("reviews") is not None else (d or {}).get("reviews"),
         })
 

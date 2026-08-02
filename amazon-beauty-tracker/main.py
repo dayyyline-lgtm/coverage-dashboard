@@ -28,7 +28,7 @@ BASE = Path(__file__).parent
 HISTORY_COLS = ["date", "market", "brand", "asin", "title",
                 "list_cat", "list_rank",
                 "bsr_main", "bsr_main_cat", "bsr_sub", "bsr_sub_cat",
-                "bought", "bought_period", "parent_asin",
+                "bought", "bought_period", "src", "parent_asin",
                 "price", "currency", "rating", "reviews"]
 
 FLAGS = {"US": "🇺🇸", "UK": "🇬🇧", "DE": "🇩🇪", "FR": "🇫🇷",
@@ -93,7 +93,7 @@ def load_history(path: Path) -> list[dict]:
         return []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        if reader.fieldnames and "parent_asin" not in reader.fieldnames:
+        if reader.fieldnames and "src" not in reader.fieldnames:
             backup = path.with_name("history_v1_backup.csv")
             shutil.copy2(path, backup)
             print(f"[이전] 구버전 history.csv를 {backup.name}로 백업하고 새 스키마로 시작합니다.\n"
@@ -351,11 +351,19 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
         for r in mine:
             by_brand.setdefault(r["brand"], []).append(r)
         for brand in sorted(by_brand, key=lambda b: -bsr_score(by_brand[b])):
-            items = sorted(by_brand[brand], key=lambda x: _i(x.get("bsr_main")) or 10**9)
+            items = sorted(by_brand[brand],
+                           key=lambda x: (_i(x.get("bsr_main")) or 10**9,
+                                          -(_i(x.get("bought")) or 0)))
             bs = bsr_score(items)
             obs = bsr_score([p for p in pm if p.get("brand") == brand])
-            out.append(f"■ {brand} {len(items)}개 · 점수 {bs:,.0f}{_delta(bs, obs)}")
-            for r in items:
+            bu = sum(_i(x.get("bought")) or 0 for x in items)
+            brev = est_revenue(items)
+            out.append(f"■ {brand} {len(items)}개 · 점수 {bs:,.0f}{_delta(bs, obs)}"
+                       + (f" · {fmt_int(bu)}+개/월" if bu else "")
+                       + (f" · {fmt_rev(brev)}+" if brev else ""))
+            shown = int(rcfg.get("products_per_brand", 6))
+            rest = len(items) - shown
+            for r in items[:shown]:
                 cur = _i(r.get("bsr_main"))
                 old = _i((prev.get((code, r["asin"])) or {}).get("bsr_main"))
                 mark = _rank_delta(cur, old)
@@ -368,6 +376,8 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
                 sub = (f"  [{r['bsr_sub_cat'][:22]} {sr}]"
                        if r.get("bsr_sub_cat") and sr and sr <= 10 else "")
                 out.append(f"  {fmt_int(cur):>6} {mark:<6}{name[:42]:<42}{units:>12}{sub}")
+            if rest > 0:
+                out.append(f"       외 {rest}개 (전체는 history.csv)")
         out.append("")
 
     # ---------------- 브랜드 총합 ----------------
@@ -379,11 +389,12 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
     for brand, items in ranked:
         sc = bsr_score(items)
         osc = bsr_score([p for p in prev_rows if p.get("brand") == brand])
-        best = min((_i(x.get("bsr_main")) or 10**9) for x in items)
+        bsrs = [b for b in (_i(x.get("bsr_main")) for x in items) if b]
+        best = f"{min(bsrs):,}" if bsrs else "-"
         n_mk = len({x["market"] for x in items})
         u = sum(_i(x.get("bought")) or 0 for x in items)
         out.append(f"{brand:<17}{sc:>7,.0f}{_delta(sc, osc):<9}"
-                   f"{len(items):>3}개 {n_mk}개국 최고{best:<5}"
+                   f"{len(items):>4}개 {n_mk}개국 최고{best:<7}"
                    + (f" {fmt_int(u)}+개/월" if u else ""))
 
     total_rev = est_revenue(rows)
@@ -423,7 +434,10 @@ def git_push(today: str) -> None:
     # 올라와 있던 남의 작업(대시보드 편집 등)까지 데이터 커밋에 휩쓸려 들어간다.
     files = ["data/history.csv", "data/asin_cache.json"]
     run("git", "add", *files)
-    c = run("git", "commit", "-m", f"data: amazon beauty bestsellers {today}", "--", *files)
+    # [CI Skip] — 이 폴더는 public/ 밖이라 배포와 무관한데, 푸시 1건이 Cloudflare Pages
+    # 빌드 1건을 먹는다(월 500 한도). 저장소 루트 CLAUDE.md 의 규약을 따른다.
+    c = run("git", "commit", "-m",
+            f"data: amazon beauty bestsellers {today} [CI Skip]", "--", *files)
     if "nothing to commit" in (c.stdout + c.stderr):
         print("[git] 변경 없음, push 생략")
         return
