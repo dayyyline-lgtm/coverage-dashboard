@@ -28,7 +28,7 @@ BASE = Path(__file__).parent
 HISTORY_COLS = ["date", "market", "brand", "asin", "title",
                 "list_cat", "list_rank",
                 "bsr_main", "bsr_main_cat", "bsr_sub", "bsr_sub_cat",
-                "bought", "bought_period", "src", "parent_asin",
+                "bought", "bought_period", "bought_m", "bought_w", "src", "parent_asin",
                 "price", "currency", "rating", "reviews"]
 
 FLAGS = {"US": "🇺🇸", "UK": "🇬🇧", "DE": "🇩🇪", "FR": "🇫🇷",
@@ -88,18 +88,33 @@ def resolve_telegram(cfg: dict) -> None:
 # ------------------------------------------------------------------ 히스토리
 
 def load_history(path: Path) -> list[dict]:
-    """기존 CSV를 읽는다. 구버전(단일 마켓) 스키마면 백업하고 새로 시작."""
+    """기존 CSV를 읽는다.
+
+    컬럼이 늘어난 것만으로 히스토리를 날리면 안 된다 — 빈 값으로 채워 이어간다.
+    (실제로 bought_m/bought_w 를 추가했다가 그날 수집분 1,900행을 통째로 백업으로
+    밀어낸 적이 있다.) 진짜로 못 이어붙이는 구버전, 즉 market 컬럼이 없어
+    나라 구분이 안 되고 price 가 원화로 오염된 v1 스키마일 때만 새로 시작한다.
+    """
     if not path.exists():
         return []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        if reader.fieldnames and "src" not in reader.fieldnames:
+        cols = reader.fieldnames or []
+        if "market" not in cols:
             backup = path.with_name("history_v1_backup.csv")
             shutil.copy2(path, backup)
-            print(f"[이전] 구버전 history.csv를 {backup.name}로 백업하고 새 스키마로 시작합니다.\n"
-                  f"       (구버전 price 컬럼은 통화 설정 누락으로 원화 환산값이 섞여 있어 재사용하지 않습니다)")
+            print(f"[이전] 구버전(단일 마켓) history.csv를 {backup.name}로 백업하고 "
+                  f"새 스키마로 시작합니다. "
+                  f"(구버전 price 는 통화 설정 누락으로 원화 환산값이 섞여 재사용 불가)")
             return []
-        return list(reader)
+        rows = list(reader)
+    added = [c for c in HISTORY_COLS if c not in cols]
+    if added:
+        print(f"[이전] 새 컬럼 {', '.join(added)} 추가 — 기존 {len(rows)}행은 빈 값으로 이어갑니다")
+        for r in rows:
+            for c in added:
+                r.setdefault(c, "")
+    return rows
 
 
 def write_history(path: Path, rows: list[dict]) -> None:

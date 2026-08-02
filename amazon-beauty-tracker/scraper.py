@@ -266,16 +266,32 @@ def bought_from_text(txt):
 
 
 def _parse_bought(soup):
-    """상품 상세의 판매량 배지 → (월 환산 개수, 원표기 기간)."""
-    best, best_period = None, None
+    """상품 상세의 판매량 배지 → (월 환산, 원표기, 월배지 원본, 주배지 원본).
+
+    아마존은 월간 배지와 주간 배지를 **따로** 띄운다. 둘 다 원본으로 남긴다.
+    주간을 월로 환산해 하나로 합쳐 버리면 훨씬 짧은 관측창을 잃는다 —
+    주간은 최근 7일이라 월간(30일)보다 변화를 빨리 보여준다.
+    """
+    raw = {"month": None, "week": None}
     for sel in _BOUGHT_SELECTORS:
         el = soup.select_one(sel)
         if not el:
             continue
         units, period = bought_from_text(el.get_text(" ", strip=True))
-        if units and (best is None or units > best):
-            best, best_period = units, period
-    return best, best_period
+        if not units or not period:
+            continue
+        base = units / WEEKS_PER_MONTH if period == "week" else units   # 원표기로 되돌린다
+        if raw[period] is None or base > raw[period]:
+            raw[period] = base
+    m = raw["month"]
+    w = raw["week"]
+    cand = [(m, "month")] + ([(w * WEEKS_PER_MONTH, "week")] if w else [])
+    cand = [c for c in cand if c[0]]
+    if not cand:
+        return None, None, None, None
+    best, period = max(cand)
+    return (int(round(best)), period,
+            int(round(m)) if m else None, int(round(w)) if w else None)
 
 
 def _parse_bsr(soup):
@@ -364,10 +380,11 @@ def parse_detail(page):
     rev_el = soup.select_one("#acrCustomerReviewText")
 
     bsr = _parse_bsr(soup)
-    bought, period = _parse_bought(soup)
+    bought, period, bm, bw = _parse_bought(soup)
 
     return {
         "bought": bought, "bought_period": period,
+        "bought_m": bm, "bought_w": bw,
         "parent_asin": parse_parent(page),
         "title": title_el.get_text(strip=True) if title_el else "",
         "price": parse_price(price_el.get_text(strip=True) if price_el else None),
@@ -471,12 +488,15 @@ def search_brand(session, market, brand, max_pages=3, delay=(2.0, 3.5), log=prin
             if asin in found:
                 continue
             units, period = _card_badge(c)
+            bm = units if period == "month" else None
+            bw = int(round(units / WEEKS_PER_MONTH)) if period == "week" and units else None
             price_el = c.select_one(".a-price .a-offscreen")
             star = c.select_one("span.a-icon-alt")
             found[asin] = {
                 "title": title,
                 "price": parse_price(price_el.get_text(strip=True)) if price_el else None,
                 "bought": units, "bought_period": period,
+                "bought_m": bm, "bought_w": bw,
                 "rating": parse_rating(star.get_text(strip=True)) if star else None,
             }
             added += 1
@@ -690,6 +710,8 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
             # 아마존이 직접 공개하는 월간 판매량(하한). 가격과 곱하면 매출 추정이 된다.
             "bought": (d or {}).get("bought") or sr.get("bought"),
             "bought_period": (d or {}).get("bought_period") or sr.get("bought_period"),
+            "bought_m": (d or {}).get("bought_m") or sr.get("bought_m"),
+            "bought_w": (d or {}).get("bought_w") or sr.get("bought_w"),
             "src": "dp" if d else ("search" if sr else "list"),
             "parent_asin": (d or {}).get("parent_asin"),
             # 리스트에 있으면 리스트 값이 그 순위에 오른 변형 기준이라 더 정확하다
