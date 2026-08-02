@@ -34,6 +34,13 @@ HISTORY_COLS = ["date", "market", "brand", "asin", "title",
 FLAGS = {"US": "🇺🇸", "UK": "🇬🇧", "DE": "🇩🇪", "FR": "🇫🇷",
          "IT": "🇮🇹", "ES": "🇪🇸", "NL": "🇳🇱", "SE": "🇸🇪", "PL": "🇵🇱", "JP": "🇯🇵"}
 SYMBOLS = {"USD": "$", "GBP": "£", "EUR": "€", "JPY": "¥"}
+# 마켓 코드는 데이터에 그대로 쓰고(CSV·설정), 사람이 읽는 곳에서만 한글로 바꾼다
+MK_NAMES = {"US": "미국", "UK": "영국", "DE": "독일", "FR": "프랑스", "IT": "이탈리아",
+            "ES": "스페인", "NL": "네덜란드", "SE": "스웨덴", "PL": "폴란드", "JP": "일본"}
+
+
+def mk_name(code):
+    return MK_NAMES.get(code, code)
 # EUR·GBP → USD 교차환율 (inject_amazon.py 와 같은 값)
 FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27}
 
@@ -247,7 +254,7 @@ def build_compact(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
                                         if grid.get((b, m)) is not None] or [10**9])))
     if brands:
         bw = max(9, max(len(b) for b in brands) + 1)
-        out.append(_pad("브랜드", bw) + "".join(f"{c:>8}" for c in codes))
+        out.append(_pad("브랜드", bw) + "".join(_pad(mk_name(c), 8) for c in codes))
         for b in brands:
             cells = ""
             for m in codes:
@@ -285,7 +292,7 @@ def build_compact(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
             lost.append((key[0], p.get("brand", ""), p.get("bsr_main"), p.get("title", "")))
 
     def line(icon, m, brand, txt):
-        return f"{icon} {FLAGS.get(m, '')}{m} {brand} {txt}"
+        return f"{icon} {FLAGS.get(m, '')}{mk_name(m)} {brand} {txt}"
 
     for tag, items in (("📈", ups), ("📉", downs)):
         for c, m, b, o, n, t in sorted(items, reverse=True)[:cap]:
@@ -302,7 +309,7 @@ def build_compact(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
     per = {c: sum(1 for r in rows if r["market"] == c) for c in codes}
     inlist = sum(1 for r in rows if r.get("list_rank"))
     out.append(f"총 {len(rows)}개 추적 (리스트 내 {inlist}) · "
-               + " ".join(f"{FLAGS.get(c, '')}{per[c]}" for c in codes))
+               + " ".join(f"{FLAGS.get(c, '')}{mk_name(c)} {per[c]}" for c in codes))
     if failed:
         out.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))
     return "\n".join(out).rstrip()
@@ -355,12 +362,12 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
     for code in codes:
         mine = [r for r in rows if r["market"] == code]
         if not mine:
-            out += [f"{FLAGS.get(code, '')} {code} — 없음", ""]
+            out += [f"{FLAGS.get(code, '')} {mk_name(code)} — 없음", ""]
             continue
         pm = [p for p in prev_rows if p.get("market") == code]
         sc, osc = bsr_score(mine), bsr_score(pm)
         rev = est_revenue(mine)
-        out.append(f"{FLAGS.get(code, '')} {code} · {len(mine)}개 · "
+        out.append(f"{FLAGS.get(code, '')} {mk_name(code)} · {len(mine)}개 · "
                    f"점수 {sc:,.0f}{_delta(sc, osc)}"
                    + (f" · 월매출 {fmt_rev(rev)}+" if rev else ""))
 
@@ -450,7 +457,7 @@ def build_daily(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
         cap = next((c.get("top_n", 50) for m in markets if m["code"] == code
                     for c in (m.get("categories") or [{}])), 50)
         if not mine:
-            out.append(f"{FLAGS.get(code,'')} {code} top{cap} — 없음")
+            out.append(f"{FLAGS.get(code,'')} {mk_name(code)} top{cap} — 없음")
             continue
         cnt, pcnt = {}, {}
         for r in mine:
@@ -463,7 +470,7 @@ def build_daily(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
             d = cnt[b] - pcnt.get(b, 0)
             chg = f"({d:+d})" if (prev_date and d) else ""
             parts.append(f"{b} {cnt[b]}{chg}")
-        out.append(f"{FLAGS.get(code,'')} {code} top{cap} · {len(mine)}개")
+        out.append(f"{FLAGS.get(code,'')} {mk_name(code)} top{cap} · {len(mine)}개")
         out.append("   " + " · ".join(parts))
     out.append("")
 
@@ -474,12 +481,12 @@ def build_daily(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
     if prev_date and news:
         out.append("🆕 신규 편입")
         for r in sorted(news, key=lambda x: (x["market"], _i(x["list_rank"]) or 0))[:12]:
-            out.append(f"  {FLAGS.get(r['market'],'')}{r['market']} #{r['list_rank']} "
+            out.append(f"  {FLAGS.get(r['market'],'')}{mk_name(r['market'])} #{r['list_rank']} "
                        f"{r['brand']} {clean_name(r['title'], r['brand'])[:34]}")
     if prev_date and lost:
         out.append("⛔ 이탈")
         for p in sorted(lost, key=lambda x: (x["market"], _i(x.get("list_rank")) or 0))[:12]:
-            out.append(f"  {FLAGS.get(p['market'],'')}{p['market']} (전일 #{p.get('list_rank')}) "
+            out.append(f"  {FLAGS.get(p['market'],'')}{mk_name(p['market'])} (전일 #{p.get('list_rank')}) "
                        f"{p['brand']} {clean_name(p.get('title',''), p['brand'])[:34]}")
     if prev_date and not news and not lost:
         out.append("변동 없음 (신규 편입·이탈 없음)")
@@ -501,7 +508,7 @@ def build_daily(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
 #            관측창(30일)이 섞여 있어 합산의 엄밀함은 떨어진다.
 # 모델링할 때 어느 쪽을 쓸지 고를 수 있게 둘 다 남긴다.
 WEEKLY_COLS = ["week", "date", "market", "brand",
-               "units_w", "rev_usd_w", "cov_w",
+               "units_w", "rev_usd_w", "cov_w", "dp",
                "units_wx", "rev_usd_wx", "products", "in_list", "best_bsr"]
 
 
@@ -528,10 +535,12 @@ def snapshot_weekly(rows, today, path: Path) -> list[dict]:
     agg = {}
     for r in rows:
         k = (r["market"], r["brand"])
-        a = agg.setdefault(k, {"units_w": 0, "rev_usd_w": 0.0, "cov_w": 0,
+        a = agg.setdefault(k, {"units_w": 0, "rev_usd_w": 0.0, "cov_w": 0, "dp": 0,
                                "units_wx": 0, "rev_usd_wx": 0.0,
                                "products": 0, "in_list": 0, "best_bsr": None})
         a["products"] += 1
+        if r.get("src") == "dp":
+            a["dp"] += 1          # 주간배지를 볼 기회가 있었던 건 상세조회분뿐이다
         if _i(r.get("list_rank")):
             a["in_list"] += 1
         b = _i(r.get("bsr_main"))
@@ -557,7 +566,7 @@ def snapshot_weekly(rows, today, path: Path) -> list[dict]:
     for (mk, br), a in sorted(agg.items()):
         prev.append({"week": wk, "date": today, "market": mk, "brand": br,
                      "units_w": a["units_w"], "rev_usd_w": round(a["rev_usd_w"]),
-                     "cov_w": a["cov_w"],
+                     "cov_w": a["cov_w"], "dp": a["dp"],
                      "units_wx": a["units_wx"], "rev_usd_wx": round(a["rev_usd_wx"]),
                      "products": a["products"], "in_list": a["in_list"],
                      "best_bsr": a["best_bsr"]})
@@ -610,10 +619,11 @@ def build_weekly(today, weekly, markets) -> str:
     out.append(_pad("합계", 15) + f"{fmt_int(tu) + '+':>11}"
                + f"{usd(tr):>9}{usd(trx):>9}{usd(tc):>9}")
     covw = sum(_i(r["cov_w"]) or 0 for r in cur)
-    covall = sum(_i(r["products"]) or 0 for r in cur)
+    covdp = sum(_i(r.get("dp")) or 0 for r in cur)
     out += ["",
-            f"주 매출 = 주간배지({covw}/{covall}개)만 — 관측창이 정확히 7일이라 그대로 누적됩니다.",
-            "보정 = 주간배지 없는 건 월간÷4.33 로 메운 값. 커버리지는 높지만 창이 섞입니다.",
+            f"주 매출 = 주간배지({covw}/{covdp}개 상세조회분)만. 관측창이 정확히 7일이라",
+            "  주별로 그대로 누적됩니다. 주간배지는 상품 상세에만 있고 검색결과엔 없습니다.",
+            "보정 = 주간배지 없는 건 월간÷4.33 로 메움. 커버리지는 높지만 창이 섞입니다.",
             "둘 다 구간 하한이고 weekly.csv 에 각각 쌓입니다 (모델링 시 선택)."]
     return "\n".join(out)
 
@@ -626,6 +636,11 @@ def build_report(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
 
 
 # ------------------------------------------------------------------ 부가 기능
+
+def is_weekly_day(cfg) -> bool:
+    """오늘이 주간 집계일인지. 기본 일요일(6)."""
+    return datetime.date.today().weekday() == int((cfg.get("weekly") or {}).get("weekday", 6))
+
 
 def deploy_slot() -> bool:
     """지금이 Cloudflare Pages 배포 슬롯인지. 저장소 루트 CLAUDE.md 규약.
@@ -706,6 +721,8 @@ def main() -> int:
     ap.add_argument("--compact", action="store_true", help="일간 대신 매트릭스 요약")
     ap.add_argument("--detail", action="store_true", help="제품별 상세 리포트")
     ap.add_argument("--weekly", action="store_true", help="요일과 무관하게 주간 집계도 실행")
+    ap.add_argument("--report-only", action="store_true",
+                    help="수집 없이 history.csv 로 리포트만 만들어 발송 (테스트용)")
     ap.add_argument("--budget", type=int, help="마켓당 상세조회 상한 (기본 config)")
     args = ap.parse_args()
 
@@ -719,6 +736,14 @@ def main() -> int:
         want = {c.strip().upper() for c in args.markets.split(",")}
         for m in cfg["markets"]:
             m["enabled"] = m["code"].upper() in want
+    # 주간 집계일에는 /dp/ 를 깊게 판다. 주간배지는 상세 페이지에만 있어서,
+    # 이 날 확보한 만큼이 그 주 판매량 커버리지가 된다.
+    if (args.weekly or is_weekly_day(cfg)) and not args.report_only:
+        deep = (cfg.get("detail") or {}).get("top_per_market_weekly")
+        if deep:
+            cfg["detail"]["top_per_market"] = int(deep)
+            cfg["detail"]["top_per_brand"] = int(cfg["detail"].get("top_per_brand_weekly", 12))
+            print(f"[주간] 집계일 — 상세조회를 마켓당 {deep}개로 늘립니다")
     if args.budget:
         cfg.setdefault("tracking", {})["max_detail_per_run"] = args.budget
     rcfg = dict(cfg.get("report") or {})
@@ -727,16 +752,29 @@ def main() -> int:
     if args.detail:
         rcfg["mode"] = "detail"
 
-    # scrape_all 이 브랜드 매칭까지 끝낸 행을 돌려준다 (고정 추적 ASIN 기준)
-    rows, failed = scrape_all(cfg, cfg["brands"])
+    if args.report_only:
+        # 이미 받아둔 오늘치로 리포트만 다시 만든다. 수집이 40분 걸려서
+        # 발송 형식만 확인하고 싶을 때 매번 다시 긁을 이유가 없다.
+        hist = load_history(history_path)
+        last = max((r["date"] for r in hist), default=None)
+        rows = [r for r in hist if r["date"] == last]
+        failed = []
+        if not rows:
+            print("[중단] history.csv 에 데이터가 없습니다.", file=sys.stderr)
+            return 1
+        today = last
+        print(f"[리포트전용] {today} 수집분 {len(rows)}행으로 리포트만 생성")
+    else:
+        # scrape_all 이 브랜드 매칭까지 끝낸 행을 돌려준다 (고정 추적 ASIN 기준)
+        rows, failed = scrape_all(cfg, cfg["brands"])
     if not rows:
         print("[중단] 수집된 항목이 없습니다.", file=sys.stderr)
         return 1
-    measured = sum(1 for r in rows if r.get("bsr_main") is not None)
+    measured = sum(1 for r in rows if r.get("bsr_main") not in (None, ""))
     inlist = sum(1 for r in rows if r.get("list_rank"))
     print(f"\n[수집] 추적 {len(rows)}개 / BSR 측정 {measured}개 / 리스트 내 {inlist}개")
 
-    history = load_history(history_path)
+    history = [] if args.report_only else load_history(history_path)
     prev_dates = sorted({r["date"] for r in history if r["date"] < today})
     prev_date = prev_dates[-1] if prev_dates else None
     prev_by_key = {(r["market"], r["asin"]): r
@@ -749,17 +787,17 @@ def main() -> int:
     refreshed -= {code for code, _ in failed}
     history = [r for r in history
                if not (r["date"] == today and r["market"] in refreshed)]
-    history += [{**r, "date": today} for r in rows]
-    write_history(history_path, history)
-    print(f"[기록] {len(rows)}행 추가 → {history_path}")
+    if not args.report_only:
+        history += [{**r, "date": today} for r in rows]
+        write_history(history_path, history)
+        print(f"[기록] {len(rows)}행 추가 → {history_path}")
 
     report = build_report(today, rows, prev_by_key, prev_date,
                           cfg["markets"], failed, rcfg)
 
     # 주간 집계 — 아마존 주간 배지가 '최근 7일' 롤링이라 **주 1회만** 찍어야
     # 관측 구간이 안 겹치고 그대로 누적된다. 기본 요일은 월요일.
-    wday = int((cfg.get("weekly") or {}).get("weekday", 0))
-    if args.weekly or datetime.date.today().weekday() == wday:
+    if args.weekly or is_weekly_day(cfg):
         weekly = snapshot_weekly(rows, today, data_dir / "weekly.csv")
         wk_text = build_weekly(today, weekly, cfg["markets"])
         if wk_text:
@@ -777,9 +815,10 @@ def main() -> int:
             print("\n[발송] 토큰/chat_id가 없어 생략했습니다. "
                   "secrets_local.py 를 만들거나 config.yaml에 넣으세요.", file=sys.stderr)
 
-    inject_dashboard()
+    if not args.report_only:
+        inject_dashboard()
 
-    if cfg.get("git", {}).get("enabled"):
+    if cfg.get("git", {}).get("enabled") and not args.report_only:
         git_push(today)
     return 2 if failed else 0
 

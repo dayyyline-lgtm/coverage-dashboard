@@ -64,10 +64,17 @@ def build():
     for r in rows:
         b, d, mk = r["brand"], r["date"], r["market"]
         u, p, bsr = _n(r.get("bought")), _n(r.get("price")), _n(r.get("bsr_main"))
-        e = agg.setdefault((b, d), {"u": 0, "rev": 0.0, "n": 0, "bsr": None, "mk": {}})
-        m = e["mk"].setdefault(mk, {"u": 0, "rev": 0.0, "n": 0, "bsr": None})
+        e = agg.setdefault((b, d), {"u": 0, "rev": 0.0, "n": 0, "il": 0, "bsr": None, "mk": {}})
+        m = e["mk"].setdefault(mk, {"u": 0, "rev": 0.0, "n": 0, "il": 0, "bsr": None})
         e["n"] += 1
         m["n"] += 1
+        # 그날 베스트셀러 목록(US 탑100 · 유럽 탑50) 안에 있었는가.
+        # list_rank 가 비면 목록 밖이라는 뜻이고, 그래도 BSR 은 잡히므로 n 에는 남는다.
+        # 'n'(추적 중인 제품 수)은 우리가 몇 개를 지켜보는지일 뿐 브랜드의 성과가 아니다 —
+        # 화면에 낼 숫자는 이쪽('진입 SKU')이다.
+        if (r.get("list_rank") or "").strip():
+            e["il"] += 1
+            m["il"] += 1
         if u:
             e["u"] += u
             m["u"] += u
@@ -88,8 +95,8 @@ def build():
             if bb != b:
                 continue
             hist.append({"d": d, "u": e["u"], "rev": round(e["rev"]), "n": e["n"],
-                         "bsr": e["bsr"],
-                         "mk": {k: [v["u"], round(v["rev"]), v["n"], v["bsr"]]
+                         "il": e["il"], "bsr": e["bsr"],
+                         "mk": {k: [v["u"], round(v["rev"]), v["n"], v["bsr"], v["il"]]
                                 for k, v in sorted(e["mk"].items())}})
         # 최신일 상위 제품
         today_rows = [r for r in rows if r["brand"] == b and r["date"] == latest]
