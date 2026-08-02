@@ -2759,8 +2759,9 @@ function renderScreens(){
         const refPts=(ref||[]).filter(p=>p.dd>=dLo&&p.dd<=dHi);
         const W=900,pad={l:58,r:118};
         const sx=dd=>pad.l+(dd-dLo)/Math.max(1,dHi-dLo)*(W-pad.l-pad.r);
-        const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
-        const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+        // 인라인 SVG 안에서는 CSS 변수를 그대로 쓸 수 있다. 계산된 색을 박아 넣으면
+        // 테마를 바꿨을 때 다시 그리기 전까지 옛 색이 남는다.
+        const gc="var(--line)", mut="var(--muted)";
         const calOf=dd=>{ if(!op) return "";
           const c=new Date(new Date(`${op.slice(0,4)}-${op.slice(4,6)}-${op.slice(6,8)}`).getTime()+dd*864e5);
           return `${String(c.getMonth()+1).padStart(2,"0")}/${String(c.getDate()).padStart(2,"0")}`; };
