@@ -41,6 +41,10 @@
 """
 import json, os, re, sys, time, uuid, datetime, urllib.request
 
+# 차단 대응(브라우저 헤더·흔들린 간격·health.json 기록)은 collector_health 로 합쳤다.
+# 예전엔 이 파일에만 사본이 있어서 정작 요청이 제일 많은 네이버 금융은 무방비였다.
+from collector_health import ua as _ua, nap as _nap, note_health, looks_blocked
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -53,7 +57,7 @@ WATCH = ["하츄핑", "티니핑"]
 # 비교군 — 같은 시기 흥행작만. '예매율 12% 가 낮은 건가'를 가르는 기준선이다.
 # 전 영화를 담으면 소규모 재개봉·예술영화까지 섞여 오히려 안 읽힌다.
 PEER_TITLES = ["스파이더맨", "오디세이", "호프"]
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+UA = _ua()["User-Agent"]
 
 
 def peer_key(nm):
@@ -71,36 +75,6 @@ def peer_key(nm):
 
 def is_peer(nm):
     return peer_key(nm) is not None
-
-
-def _nap(sec):
-    """요청 간격 — 살짝 흔들어 준다. 규칙적인 간격이 차단 규칙에 더 잘 걸린다."""
-    time.sleep(sec * (0.75 + 0.5 * (int(time.time() * 1000) % 100) / 100))
-
-
-def note_health(src, msg):
-    """차단·오류를 health.json 에 남긴다. watchdog.py 가 읽어 별도 알림을 쏜다.
-       사용자가 매일 로그를 볼 수는 없으니, 막히면 봇이 먼저 말해 줘야 한다."""
-    now = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
-    try:
-        d = json.load(open("health.json", encoding="utf-8"))
-    except Exception:
-        d = {}
-    if msg is None:
-        d.pop(src, None)                      # 정상 복귀 — 기록을 지운다
-    else:
-        d[src] = {"t": now, "msg": str(msg)[:200]}
-    try:
-        json.dump(d, open("health.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    except Exception:
-        pass
-
-
-def looks_blocked(e):
-    """차단으로 볼 만한 실패인가 — 403/429/캡차/연결거부."""
-    s = f"{type(e).__name__} {e}".lower()
-    return any(k in s for k in ("403", "429", "captcha", "forbidden",
-                                "too many", "timed out", "refused", "reset"))
 
 
 def http_json(url, data=None, headers=None, timeout=40, tries=2):

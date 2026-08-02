@@ -1,0 +1,59 @@
+name: 실패 알림
+
+# 워크플로가 실패하면 텔레그램으로 알린다.
+#
+# watchdog.py 는 '데이터가 굳었나 / 차단됐나'를 보지만, 워크플로 자체가 죽으면
+# 그 스텝까지 가지도 못한다. 실패를 알아채는 경로가 따로 있어야 한다.
+# (실제로 최근 40회 중 6회가 커밋 단계에서 죽었는데 아무 알림도 없었다.)
+#
+# workflow_run 은 저장소 기본 브랜치의 워크플로 정의로 돈다 — 즉 이 파일이 main 에
+# 들어가 있어야 발화한다. 실행 시간은 회당 10초 안쪽이라 Actions 분에 부담이 없다.
+
+on:
+  workflow_run:
+    workflows:
+      - "시세 자동 갱신"
+      - "아침 데이터 갱신 + 데일리 레터"
+      - "스크린 배정·예매 추적"
+      - "영화 흥행 갱신 (KOBIS)"
+      - "수출입 갱신 (관세청)"
+      - "트렌드 갱신 (네이버·구글)"
+      - "쇼핑 수요 갱신 (와일드베리즈·라쿠텐)"
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  alert:
+    # 성공·취소는 조용히 넘어간다. 알림은 문제일 때만 와야 눈에 띈다.
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 텔레그램 알림
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WF: ${{ github.event.workflow_run.name }}
+          URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          python - <<'PY'
+          import os, datetime, telegram_send
+          KST = datetime.timezone(datetime.timedelta(hours=9))
+          now = datetime.datetime.now(KST).strftime("%m/%d %H:%M")
+          wf, url = os.environ.get("WF", "?"), os.environ.get("URL", "")
+          msg = (f"🛠 <b>대시보드 점검 알림</b>\n{now} 기준\n\n"
+                 f"• ❌ <b>{wf}</b> 실행이 실패했습니다\n\n"
+                 f"<i>이번 회차 데이터가 갱신되지 않았습니다. 대개 다음 실행에서 저절로 "
+                 f"복구되니, 같은 알림이 반복될 때만 손보면 됩니다.</i>\n\n"
+                 f'<a href="{url}">🔎 실패 기록 보기</a> · '
+                 f'<a href="https://coverage-dashboard.pages.dev">📊 대시보드</a>')
+          print(msg)
+          telegram_send.send(msg)
+          PY

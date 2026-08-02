@@ -22,7 +22,14 @@ except Exception:
     pass
 
 HTML_PATH = "public/index.html"
-UA = {"User-Agent": "Mozilla/5.0"}
+
+# 네이버 금융은 키 없는 비공개 엔드포인트다. 이 저장소에서 요청이 가장 많은 곳이라
+# (하루 2,000~3,000건, GitHub Actions 단일 IP) 차단되면 화면이 통째로 굳는다.
+# 'Mozilla/5.0' 만 달랑 보내면 봇이라고 광고하는 셈이라 브라우저 헤더 한 벌로 바꾸고,
+# 요청 간격도 흔든다. 막히면 health.json 에 남겨 watchdog 이 별도 알림을 쏜다.
+from collector_health import ua, nap, note_health, looks_blocked
+
+UA = ua(referer="https://m.stock.naver.com/")
 
 # 종목명 → 종목코드 (엑셀 표기와 다른 경우 여기서 교정)
 NAME_FIX = {"앨엔씨바이오": "엘앤씨바이오", "와이지엔터": "와이지엔터테인먼트"}
@@ -203,7 +210,7 @@ def fetch_industry_members(no):
         if len(got) < 100:
             break
         page += 1
-        time.sleep(0.2)
+        nap(0.2)
     rows.sort(key=lambda x: -x[1])
     return rows[:SEC_TOP_N], sum(x[1] for x in rows)
 
@@ -265,7 +272,7 @@ def collect_sector_trend(sectors):
                 continue
             if px.get(base):          # 기준일 종가가 없으면(신규상장 등) 수익률이 왜곡된다
                 series.append((cap, px))
-            time.sleep(0.2)
+            nap(0.2)
         if not series:
             print(f"  {sub}: 유효 종목 없음"); continue
 
@@ -322,7 +329,7 @@ def add_topfick_index(sector_trend, html):
             px[code] = fetch_daily(f"https://api.stock.naver.com/chart/domestic/item/{code}")
         except Exception:
             px[code] = {}
-        time.sleep(0.2)
+        nap(0.2)
     if not any((px.get(p.get("code")) or {}).get(buy) for p in picks):
         print("  탑픽 지수: 매수일 종가 없음 — 스킵"); return
     series = []
@@ -462,7 +469,7 @@ def collect(names):
             print(f"  [{i}/{len(names)}] {nm} ({code}) OK")
         except Exception as e:
             fails.append(f"{nm}: {str(e)[:40]}")
-        time.sleep(0.25)
+        nap(0.25)
     return stocks, researches, events, fails
 
 
@@ -532,6 +539,15 @@ def main():
     print(f"커버리지 {len(names)}종목 수집 시작…")
 
     stocks, researches, events, fails = collect(names)
+    # 몇 종목 빠지는 건 늘 있는 일이라 그냥 두고, 절반 넘게 실패하면 '막혔다'로 본다.
+    # 여기 남긴 기록을 watchdog.py 가 읽어 별도 텔레그램 알림을 쏜다 —
+    # 안 그러면 화면 숫자가 옛날 값에 멈춰 있어도 아무도 모른다.
+    if names and len(fails) > len(names) * 0.5:
+        note_health("네이버 금융(시세)", f"{len(fails)}/{len(names)}종목 실패 · {fails[0] if fails else ''}")
+    elif not stocks and names:
+        note_health("네이버 금융(시세)", "수집 결과 0종목")
+    else:
+        note_health("네이버 금융(시세)", None)
     market = collect_market()
     sector_trend = collect_sector_trend((market or {}).get("sectors") or [])
     add_topfick_index(sector_trend, html)      # 탑픽 포트폴리오 지수 편입

@@ -159,8 +159,7 @@ ZIP(STORE) + CRC32 + inline string + styles.xml 레지스트리를 직접 구성
 
 ## 자동 갱신
 
-GitHub 자체 cron(`schedule:`)이 이 저장소에서 **한 번도 발화하지 않았다.**
-그래서 **Cloudflare Worker의 Cron Trigger**가 GitHub Actions를 대신 호출한다.
+**Cloudflare Worker의 Cron Trigger**가 GitHub Actions를 호출한다.
 
 - Worker: https://coverage-cron.dayyyline.workers.dev — `?wf=refresh.yml` 로 수동 실행 가능
   (`events.yml`, `trends.yml` 도 동일). 성공 시 `{"ok":true,"status":204}`
@@ -168,6 +167,43 @@ GitHub 자체 cron(`schedule:`)이 이 저장소에서 **한 번도 발화하지
 - Cloudflare cron은 요일 숫자(`0-4`)를 거부한다. **`SUN-THU` 같은 이름**으로 써야 통과.
 - ⚠ 워크플로가 초록불인데 커밋이 없으면, 커밋 단계의 경로가 `public/index.html` 인지부터 확인.
   (index.html을 public/로 옮긴 뒤 옛 경로를 보고 있어서 계속 "변경 없음" 처리된 이력)
+
+> **옛 메모 정정(2026-08-02):** "GitHub cron이 한 번도 발화하지 않았다"는 더 이상 사실이 아니다.
+> 지금은 뜬다. 그래서 워커와 **이중으로** 돌아 7일간 88회(1,015분)를 태웠다.
+> `refresh.yml` 의 `schedule:` 을 지워 워커만 남겼다. **주기를 바꾸려면 워커 쪽 Cron Trigger 를 고칠 것.**
+
+## 두 개의 무료 한도 — 여기서 다 터진다
+
+| | 한도 | 실측 | |
+|---|---|---|---|
+| GitHub Actions | 2,000분/월 (비공개) | 4,300~5,200분 | 조정 후 ~1,900분 |
+| Cloudflare Pages | **500 빌드/월** | 472건/30일 | 조정 후 ~230건 |
+
+**Cloudflare Pages는 푸시 1건 = 빌드 1건이다.** 데이터 갱신이 잦아 이게 먼저 터진다.
+
+- 봇 커밋은 **배포 슬롯**에서만 빌드한다. 나머지는 커밋 메시지 끝에 **`[CI Skip]`** 을 붙이면
+  Cloudflare가 그 푸시를 건너뛰고, **다음 배포가 그 데이터까지 같이 싣는다**(데이터 손실 없음).
+  슬롯 판정은 `collector_health.deploy_slot()` 한 곳에 있다 — 평일 08·10·12·14·16·18시, 주말 12·20시.
+- **새 워크플로를 만들 때**: ① `concurrency: group: repo-write` 에 넣을 것(index.html을 쓰는 것끼리
+  동시에 돌면 리베이스 충돌로 죽는다) ② 배포가 꼭 필요한 게 아니면 `[CI Skip]` 을 달 것.
+- 사람이 작업할 때도 **커밋을 뭉쳐서 밀 것.** 30일 472건 중 263건이 수동 푸시였다.
+- Actions 무거운 단계(`refresh_live.py` 4.7분)는 `refresh.yml` 에서 시간대로 게이팅한다.
+
+## 차단 대응 — `collector_health.py`
+
+수집기가 공유하는 모듈. **새 수집기도 여기를 쓸 것.**
+
+```python
+from collector_health import ua, nap, note_health, looks_blocked
+UA = ua(referer="...")     # 실제 브라우저 헤더 (고정 'Mozilla/5.0' 은 차단 1순위)
+nap(0.2)                   # 요청 간격을 ±25% 흔든다 — 정확히 일정한 간격이 더 잘 걸린다
+note_health("소스명", msg) # 막히면 기록 → watchdog.py 가 별도 텔레그램 알림 (msg=None 이면 해제)
+```
+
+- **차단 위험 1순위는 네이버 금융**(`api.stock.naver.com`·`m.stock.naver.com`) — 키 없는 비공개
+  엔드포인트에 단일 Actions IP로 하루 2,000~3,000요청. 공식 API(DART 2%·YouTube 6%)는 여유.
+- **부분 실패는 기록하지 않는다.** 종목 몇 개 빠지는 건 늘 있는 일이라, 절반 넘게 실패할 때만 남긴다.
+- 워크플로가 통째로 죽는 건 watchdog 이 못 본다 → `alert.yml` 이 `workflow_run` 실패를 잡아 알린다.
 
 ## 작업 절차
 

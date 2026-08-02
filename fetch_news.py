@@ -21,7 +21,12 @@ except Exception:
     pass
 
 HTML_PATH = "public/index.html"
-UA = {"User-Agent": "Mozilla/5.0", "Referer": "https://finance.naver.com/"}
+# 네이버 금융 스크래핑 — 고정 UA 는 차단 목록에 가장 먼저 오른다.
+# 브라우저 헤더 한 벌 + 흔들린 간격으로 바꾸고, 막히면 health.json 에 남긴다.
+from collector_health import ua, nap, note_health
+
+UA = ua(referer="https://finance.naver.com/",
+        extra={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
 
 PER_STOCK = 10     # 종목당 최대 기사 수 (중복 제거 후)
                    # 커버리지 표의 뉴스 링크는 '제목에 종목명이 든 기사'만 연결하는데,
@@ -152,7 +157,14 @@ def main():
             else:
                 by_url[a["u"]] = {"co": [name], "sector": r["sector"], "sub": r["sub"], **a}
         print(f"  {name:<8} {len(arts)}건")
-        time.sleep(PAUSE)
+        nap(PAUSE)
+
+    # 몇 종목 빠지는 건 늘 있는 일이고, 절반 넘게 실패하면 '막혔다'로 본다.
+    # watchdog.py 가 이 기록을 읽어 별도 알림을 쏜다.
+    if records and len(fail) > len(records) * 0.5:
+        note_health("네이버 금융(뉴스)", f"{len(fail)}/{len(records)}종목 실패 · {fail[0] if fail else ''}")
+    else:
+        note_health("네이버 금융(뉴스)", None)
 
     items = sorted(by_url.values(), key=lambda x: x["d"], reverse=True)[:TOTAL_MAX]
     news = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"), "items": items}
