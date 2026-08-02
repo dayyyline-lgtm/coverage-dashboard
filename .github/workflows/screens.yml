@@ -1,0 +1,58 @@
+name: 스크린 배정·예매 추적
+
+# 개봉 전후엔 배정과 예매가 하루에도 크게 움직인다. 매시간 잡는다.
+#
+# 트리거가 둘인 이유
+#   - GitHub 자체 cron: 이 저장소에서 발화는 하지만 30~70분씩 늦는다(07:10 예약 → 08:20 실행).
+#     그래도 밤·주말처럼 워커가 안 부르는 시간대를 메워 준다.
+#   - refresh.yml 에도 같은 스텝이 붙어 있다(워커가 평일 매시간·주말 4시간마다 부름).
+# 둘이 겹쳐 떠도 fetch_screens.py 가 '직전 수집이 45분 안이면 건너뜀'으로 스스로 거른다.
+#
+# 주기는 스크립트가 정한다 — 개봉 후 30일까지 1시간, 그 뒤 4시간.
+
+on:
+  schedule:
+    - cron: "5 * * * *"      # 매시 5분(UTC). 실제 발화는 늦을 수 있음
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "전 날짜 전수 조사(느림). 비우면 가까운 날짜만"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screens
+  cancel-in-progress: false
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 스크린 배정·예매 수집
+        run: |
+          if [ -n "${{ github.event.inputs.full }}" ]; then
+            python fetch_screens.py --force || echo "스크린 추적 건너뜀"
+          else
+            python fetch_screens.py --hot || echo "스크린 추적 건너뜀"
+          fi
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/index.html archive 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git commit -m "스크린·예매 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git pull --rebase
+            git push
+          fi

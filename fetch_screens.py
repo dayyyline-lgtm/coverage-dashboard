@@ -247,11 +247,19 @@ def norm_title(nm):
     return re.sub(r"[\s:\-·]+", "", nm)
 
 
+def _parse_stamp(s):
+    try:
+        return datetime.datetime.strptime(s, "%Y-%m-%d %H:%M").replace(tzinfo=KST)
+    except Exception:
+        return None
+
+
 def main():
     html = open(HTML, encoding="utf-8").read()
     now = datetime.datetime.now(KST)
     today = now.date()
     crt = today.strftime("%Y%m%d")
+    hot_only = "--hot" in sys.argv
 
     # 예매 지평선 끝까지 본다. 개봉일에서 끊으면 안 되고(8/5 개봉인데 8/6·8/7 예매가
     # 이미 열려 있다), 고정 7일로 끊어도 안 된다 — CGV 는 8/18 까지 달력을 열어 둔다.
@@ -260,6 +268,7 @@ def main():
     dates = {today + datetime.timedelta(days=i) for i in range(15)}
     mb_blk = re.search(r"const MOVIE = (\{.*?\});\n", html, re.S)
     canon = {}                       # 정규화 제목 -> 대시보드 표기(예매 데이터 기준)
+    opens = []                       # 추적 대상들의 개봉일
     if mb_blk:
         try:
             mv = json.loads(mb_blk.group(1))
@@ -268,7 +277,8 @@ def main():
                 for p in pts[-1:]:
                     if p.get("open"):
                         try:
-                            dates.add(datetime.date.fromisoformat(p["open"]))
+                            od = datetime.date.fromisoformat(p["open"])
+                            dates.add(od); opens.append(od)
                         except ValueError:
                             pass
         except json.JSONDecodeError:
@@ -283,6 +293,30 @@ def main():
         except json.JSONDecodeError:
             old = {}
     series = old.get("series") or {}
+
+    # 주기 — 개봉 후 한 달은 매시간, 그 뒤로는 4시간마다.
+    # 워크플로가 여러 개(refresh·screens)라 같은 시간에 겹쳐 뜰 수 있으므로
+    # '직전 수집이 얼마나 됐나'로 스스로 걸러 낸다. --force 면 무시.
+    newest_open = max(opens) if opens else None
+    aged = newest_open is not None and (today - newest_open).days > 30
+    min_gap = datetime.timedelta(hours=3, minutes=30) if aged else datetime.timedelta(minutes=45)
+    prev = _parse_stamp(old.get("asOf") or "")
+    if prev and now - prev < min_gap and "--force" not in sys.argv:
+        print(f"[skip] 직전 수집 {old.get('asOf')} · {int((now-prev).total_seconds()//60)}분 전 "
+              f"(주기 {int(min_gap.total_seconds()//60)}분{' · 개봉 30일 경과' if aged else ''})")
+        return
+
+    # 전수 조사는 하루 한 번이면 충분하다 — 배정(좌석)은 천천히 바뀐다.
+    # 시간마다 필요한 건 '예매가 얼마나 찼나'뿐이라, 가까운 날짜만 다시 잰다.
+    last_full = old.get("lastFull")
+    want_full = (not hot_only) or (last_full != today.isoformat())
+    if not want_full:
+        known = sorted({k.split("|")[1] for k in series})
+        keep = set([p for p in known if p >= crt][:3])
+        if newest_open and newest_open >= today:
+            keep.add(newest_open.strftime("%Y%m%d"))
+        dates = [d for d in dates if d.strftime("%Y%m%d") in keep]
+        print(f"[hot] 가까운 날짜만 갱신: {', '.join(sorted(keep))}")
 
     stamp = now.strftime("%Y-%m-%d %H:%M")
     got = 0
@@ -331,7 +365,9 @@ def main():
     # horizon = 편성이 확인된 마지막 상영일. 이 근처 날짜는 스케줄이 아직 채워지는 중이라
     # 좌석·스크린이 실제보다 적게 잡힌다 — 화면에서 '축소'로 오독하지 않게 같이 넘긴다.
     out = {"asOf": stamp, "chain": "CGV+롯데+메가박스",
-           "horizon": horizon or (old.get("horizon")), "series": series}
+           "horizon": horizon or (old.get("horizon")),
+           "lastFull": today.isoformat() if want_full else last_full,
+           "series": series}
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:400]); return

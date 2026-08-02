@@ -81,10 +81,15 @@ jobs:
           d=$(TZ=Asia/Seoul date +%u)      # 6=토, 7=일
           if [ "$d" -ge 6 ]; then
             python fetch_movie.py || echo "영화 수집 건너뜀"
-            python fetch_screens.py || echo "스크린 추적 건너뜀"
           else
             echo "평일 - events.yml 이 담당"
           fi
+
+      # 스크린 배정·예매 — 워커가 평일 매시간·주말 4시간마다 이 워크플로를 부르므로
+      # 여기 붙이는 게 가장 확실하다. screens.yml(깃허브 cron 매시간)과 겹쳐 떠도
+      # 스크립트가 '직전 수집 45분 이내면 건너뜀'으로 스스로 거른다.
+      - name: 스크린 배정·예매 추적
+        run: python fetch_screens.py --hot || echo "스크린 추적 건너뜀"
 
       # 시세 갱신 직후에 돌려야 방금 확정된 실적을 바로 잡는다.
       # 토큰이 없으면 조용히 넘어가므로 수집 자체는 영향받지 않는다.
