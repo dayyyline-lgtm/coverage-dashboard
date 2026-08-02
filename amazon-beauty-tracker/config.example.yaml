@@ -117,8 +117,14 @@ page_delay: [2.0, 4.0]      # 리스트 페이지 사이 대기 (초, 랜덤)
 impersonate: chrome         # curl_cffi TLS 지문. 막히면 chrome131 등으로 고정
 
 report:
-  mode: detail              # detail  = 국가별 제품 전부 + 하단 브랜드 총합 (기본)
-                            # compact = 브랜드x국가 매트릭스만 (짧지만 정보가 적다)
+  mode: daily               # daily   = 국가별 top100 SKU 수 + 신규 편입/이탈만 (기본, 짧다)
+                            # detail  = 국가별 제품 전부 + 브랜드 총합 (길다)
+                            # compact = 브랜드x국가 매트릭스만
+
+# 주간 집계 — 아마존 주간 배지는 '최근 7일' 롤링이라 주 1회만 찍어야
+# 관측 구간이 안 겹치고 그대로 누적된다. 매일 찍어 더하면 같은 판매를 7번 센다.
+weekly:
+  weekday: 0                # 0=월 1=화 ... 6=일. 이 요일에만 weekly.csv 에 적는다
   products_per_brand: 6     # 국가별 섹션에서 브랜드당 보여줄 제품 수
   move_threshold: 20        # BSR이 이 % 이상 움직이면 변동 항목으로 표시
   max_moves: 6              # 상승·하락 각각 최대 몇 줄까지 보여줄지
