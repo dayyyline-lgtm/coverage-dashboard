@@ -56,13 +56,51 @@ PEER_TITLES = ["스파이더맨", "오디세이", "호프"]
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 
+def peer_key(nm):
+    """비교군 이름을 대표 제목으로 접는다.
+
+    체인들이 상영 포맷을 별개 영화처럼 준다 — '오디세이(IMAX 2D)', '(S)스파이더맨…',
+    '호프(무대인사)'. 그대로 두면 비교군이 24개로 불어나고 한 영화의 좌석이
+    여러 줄로 쪼개져 총량이 안 맞는다. 키워드로 묶어 3편으로 되돌린다.
+    """
+    for p in PEER_TITLES:
+        if p in (nm or ""):
+            return p
+    return None
+
+
 def is_peer(nm):
-    return any(p in (nm or "") for p in PEER_TITLES)
+    return peer_key(nm) is not None
 
 
 def _nap(sec):
     """요청 간격 — 살짝 흔들어 준다. 규칙적인 간격이 차단 규칙에 더 잘 걸린다."""
     time.sleep(sec * (0.75 + 0.5 * (int(time.time() * 1000) % 100) / 100))
+
+
+def note_health(src, msg):
+    """차단·오류를 health.json 에 남긴다. watchdog.py 가 읽어 별도 알림을 쏜다.
+       사용자가 매일 로그를 볼 수는 없으니, 막히면 봇이 먼저 말해 줘야 한다."""
+    now = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
+    try:
+        d = json.load(open("health.json", encoding="utf-8"))
+    except Exception:
+        d = {}
+    if msg is None:
+        d.pop(src, None)                      # 정상 복귀 — 기록을 지운다
+    else:
+        d[src] = {"t": now, "msg": str(msg)[:200]}
+    try:
+        json.dump(d, open("health.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    except Exception:
+        pass
+
+
+def looks_blocked(e):
+    """차단으로 볼 만한 실패인가 — 403/429/캡차/연결거부."""
+    s = f"{type(e).__name__} {e}".lower()
+    return any(k in s for k in ("403", "429", "captcha", "forbidden",
+                                "too many", "timed out", "refused", "reset"))
 
 
 def http_json(url, data=None, headers=None, timeout=40, tries=2):
@@ -129,7 +167,15 @@ def megabox(play, crt, peer_names=()):
         return acc_fin(a)
 
     out = {nm: sweep(no) for no, nm in targets.items()}
-    peers = {nm: sweep(no) for no, nm in peers_sel.items()}
+    peers = {}
+    for no, nm in peers_sel.items():
+        k = peer_key(nm) or nm
+        v = sweep(no)
+        if k in peers:            # 같은 영화의 다른 포맷 — 합친다
+            for f in ("sites", "screens", "shows", "seatTot", "seatSold"):
+                peers[k][f] += v[f]
+        else:
+            peers[k] = v
     return out, peers
 
 
@@ -174,7 +220,7 @@ def lotte(play_iso):
             t = int(x.get("TotalSeatCount") or 0)
             r = int(x.get("BookingSeatCount") or 0)   # 이름과 달리 '잔여'다(실측 199/208)
             tgt = any(w in nm for w in WATCH)
-            for bucket, key in ((out, nm) if tgt else (None, None), (peers, nm) if is_peer(nm) else (None, None)):
+            for bucket, key in ((out, nm) if tgt else (None, None), (peers, peer_key(nm)) if is_peer(nm) else (None, None)):
                 if bucket is None:
                     continue
                 a = bucket.setdefault(key, acc_new())
@@ -225,8 +271,9 @@ def cgv(play):
                 # 같은 요청이 그 지점의 '전 영화'를 준다. 우리 영화만 걸러 버리면
                 # 비교군(스파이더맨·오디세이…)을 공짜로 얻을 수 있는 걸 버리는 셈이다.
                 # 예매율이 원래 저조한 건지 이 영화만 저조한 건지는 옆 영화를 봐야 안다.
-                if is_peer(pn):
-                    b = peers.setdefault(pn, acc_new())
+                pk = peer_key(pn)
+                if pk:
+                    b = peers.setdefault(pk, acc_new())
                     b["sites"].add(sn); b["screens"].add((sn, x.get("scnsNo")))
                     b["shows"] += 1; b["seatTot"] += t; b["seatSold"] += max(0, t - r)
                 if not any(w in pn for w in WATCH):
@@ -356,7 +403,8 @@ def main():
     horizon = None                     # 편성이 확인된 마지막 날짜
     # 비교군은 CGV 만 쓴다 — 롯데·메가는 영화별 루프라 편당 수백 요청이 더 든다.
     # 어차피 '같은 체인·같은 지점·같은 날' 끼리 견주는 게 비교로도 더 깨끗하다.
-    peer_series = dict(old.get("peers") or {})
+    # 예전 수집의 잔재(전 영화 담던 시절)를 걷어낸다
+    peer_series = {k: v for k, v in (old.get("peers") or {}).items() if k in PEER_TITLES}
     for d in dates:
         play, play_iso = d.strftime("%Y%m%d"), d.isoformat()
         if not programmed(play):
@@ -365,7 +413,12 @@ def main():
         horizon = play
         # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
         chains, peer_by = {}, {}
-        for tag in ("CGV", "LC", "MB"):
+        # 매시간 도는 hot 은 CGV 만 본다. 롯데는 237개관, 메가는 지역8 순회라
+        # 시간마다 돌리면 Actions 분과 상대 서버 부담이 같이 커진다.
+        # CGV 는 지점 요청 하나가 전 영화를 주므로 비교군까지 한 번에 온다 —
+        # 시간 단위로 알고 싶은 '예매가 얼마나 찼나'는 이걸로 충분하다.
+        # 3사 전수와 비교군 합산은 하루 한 번 전수 조사 때 맞춘다.
+        for tag in (("CGV",) if not want_full else ("CGV", "LC", "MB")):
             try:
                 if tag == "CGV":
                     o, p = cgv(play)
@@ -376,10 +429,16 @@ def main():
                 chains[tag] = o
                 for pn, pv in p.items():
                     peer_by.setdefault(norm_title(pn), {"nm": pn, "by": {}})["by"][tag] = pv
+                note_health(tag, None)                    # 성공 — 기록 해제
             except Exception as e:
                 print(f"  {play} {tag} 실패: {type(e).__name__} {str(e)[:70]}")
+                if looks_blocked(e):
+                    note_health(tag, f"{type(e).__name__}: {e}")
         # 비교군도 3사 합산. 어느 체인이 빠졌는지 같이 남겨 화면에서 구분한다.
         for pk, pv in peer_by.items():
+            prev = (peer_series.get(pv["nm"]) or {}).get(play) or {}
+            for t2, v2 in (prev.get("by") or {}).items():
+                pv["by"].setdefault(t2, v2)          # 대상과 같은 이유로 이어받는다
             tot = {f: sum(v[f] for v in pv["by"].values())
                    for f in ("sites", "screens", "shows", "seatTot", "seatSold")}
             if tot["seatTot"] <= 0:
@@ -393,10 +452,17 @@ def main():
                 k = norm_title(nm)
                 merged.setdefault(k, {"nm": canon.get(k, nm), "by": {}})["by"][tag] = v
         for k, mv2 in merged.items():
+            key = f"{mv2['nm']}|{play}"
+            # hot 은 CGV 만 새로 재므로, 안 잰 체인은 직전 스냅샷 값을 이어받는다.
+            # 안 그러면 3사 합산이던 숫자가 갑자기 CGV 몫으로 뚝 떨어져
+            # '배정이 반토막 났다'는 가짜 신호가 된다.
+            prev_pts = series.get(key) or []
+            if prev_pts:
+                for t2, v2 in (prev_pts[-1].get("by") or {}).items():
+                    mv2["by"].setdefault(t2, v2)
             tot = {f: sum(v[f] for v in mv2["by"].values())
                    for f in ("sites", "screens", "shows", "seatTot", "seatSold")}
-            key = f"{mv2['nm']}|{play}"
-            pts = [p for p in (series.get(key) or []) if p.get("t") != stamp]
+            pts = [p for p in prev_pts if p.get("t") != stamp]
             pts.append({"t": stamp, **tot, "by": mv2["by"]})
             series[key] = pts[-KEEP:]
             # 영구 아카이브 — index.html 의 시계열은 KEEP 개로 잘리지만

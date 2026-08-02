@@ -44,11 +44,19 @@ jobs:
             python fetch_screens.py --hot || echo "스크린 추적 건너뜀"
           fi
 
+      # 수집이 막히거나 굳으면 별도 메시지로 알린다(데일리 레터와 섞지 않는다).
+      # 정상이면 아무것도 보내지 않는다. 상태파일이 있어야 같은 걸 반복해서 안 쏜다.
+      - name: 건강검진 알림
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python watchdog.py || echo "건강검진 건너뜀"
+
       - name: 변경분 커밋
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/index.html archive 2>/dev/null || true
+          git add public/index.html archive health.json watchdog_state.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else
