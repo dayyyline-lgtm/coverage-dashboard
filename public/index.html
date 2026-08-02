@@ -169,7 +169,7 @@
   /* 9일 x 4편 = 36개 막대다. 좁은 화면에서 통째로 줄이면 판매율 글자가 3px 이 된다.
      칸 안에서만 좌우로 밀리게 해 최소 폭을 지킨다(페이지 자체는 안 넘친다). */
   .scr-bars{overflow-x:auto}
-  .scr-bars svg{min-width:760px}
+  .scr-bars svg{min-width:860px}
   .scr-lg{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:11px}
   .scr-lg .li{display:flex;align-items:center;gap:5px;font-weight:700}
   .scr-lg .dot{width:9px;height:9px;border-radius:50%}
@@ -2957,7 +2957,16 @@ function renderScreens(){
           const shortN=n=>{const b=n.split(/[:(（]/)[0].trim(); return b.length>7?b.slice(0,7)+"…":b;};
           const man=v=>v>=1e4?(v/1e4).toFixed(1)+"만":fmt0(v);
           const at=(r,p)=>{ const v=r.get(p); return (v&&v.seatTot>0)?v:null; };
-          days=days.filter(p=>rows.some(r=>at(r,p)));
+          /* 값이 있는 날만 남기면 달력에 구멍이 뚫린다 — 8/3(월)은 하츄핑2 상영이 없었고
+             비교군은 아직 수집 전이라 통째로 빠졌고, 그러면 축이 8/2 다음에 8/4 로 건너뛴다.
+             날짜를 임의로 건너뛴 것처럼 읽히므로 처음부터 끝까지 하루도 빼지 않고 채운다.
+             빈 날은 아래에서 '상영 없음 / 수집 전' 으로 갈라 표시한다. */
+          const dayAdd=(p,n)=>{ const d=new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`);
+            d.setDate(d.getDate()+n);
+            return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; };
+          const hit=days.filter(p=>rows.some(r=>at(r,p)));
+          days=[]; if(hit.length){ const end=hit[hit.length-1];
+            for(let p=hit[0]; p<=end; p=dayAdd(p,1)) days.push(p); }
           /* 영화마다 '언제부터 잡히기 시작했나'. 그 전 날짜에 값이 없는 건
              안 걸린 게 아니라 그때 우리가 안 재고 있었던 것이다 — 둘을 섞으면
              8/2 에 스파이더맨이 상영을 안 한 것처럼 읽힌다(실제로는 상영 중이었다). */
@@ -2976,7 +2985,7 @@ function renderScreens(){
                막대를 칸 폭에 꽉 채웠더니 27.7 vs 21.7 — 눈이 못 갈랐다.
                묶음 폭을 칸의 64% 로 묶어 두면 골이 틈의 두 배 넘게 벌어진다. */
             const ig=2;
-            const bw=Math.max(6,Math.min(20,(gw*0.64-(rows.length-1)*ig)/rows.length));
+            const bw=Math.max(6,Math.min(20,(gw*0.66-(rows.length-1)*ig)/rows.length));
             const grpW=rows.length*bw+(rows.length-1)*ig;
             const gx=i=>pl+gw*i+gw/2;
             /* ── 눌러 놓은 세로 눈금 ──
@@ -3007,6 +3016,12 @@ function renderScreens(){
             // 날짜 칸막이 — 어디까지가 하루인지 이것 하나로 갈린다
             days.forEach((p,i)=>{ if(!i) return; const x=(pl+gw*i).toFixed(1);
               s+=`<line x1="${x}" y1="${pt-8}" x2="${x}" y2="${Hc-pb+38}" stroke="${gc}"/>`; });
+            /* 판매율 라벨은 막대보다 넓다(막대 11px, '13%' 는 15px).
+               높이가 비슷한 이웃끼리는 글자가 겹치므로, 다 그리지 말고 자리를 다투게 한다 —
+               우리 영화를 먼저, 그 다음 크게 건 순으로 놓고, 이미 놓인 것과 부딪히면 건너뛴다.
+               건너뛴 값은 막대에 커서를 대면 나오고 아래 표에도 그대로 있다.
+               (데이터가 매시간 바뀌므로 '지금은 안 겹치더라' 로 넘길 수 없다.) */
+            const labs=[];
             days.forEach((p,i)=>{
               const x0=gx(i)-grpW/2;
               rows.forEach((r,ri)=>{
@@ -3020,10 +3035,18 @@ function renderScreens(){
 ${md(p)}(${wdOf(p)}) · 걸린 좌석 ${fmt0(v.seatTot)}석 / ${fmt0(v.screens)}관</title></rect>`;
                 s+=`<rect x="${bx.toFixed(1)}" y="${yS.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hc-pb-yS).toFixed(1)}" rx="2.5" fill="${c}" opacity=".95"><title>${r.n}
 ${md(p)}(${wdOf(p)}) · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)}석 · 판매율 ${pct.toFixed(1)}%</title></rect>`;
-                s+=`<text x="${(bx+bw/2).toFixed(1)}" y="${(yT-5).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" letter-spacing="-.4" fill="${c}">${pct.toFixed(0)}%</text>`; });
+                labs.push({x:bx+bw/2, y:yT-5, t:`${pct.toFixed(0)}%`, c, mine:r.mine, sz:v.seatTot}); });
               const isOp=p===op;
               s+=`<text x="${gx(i).toFixed(1)}" y="${Hc-pb+17}" text-anchor="middle" font-size="10.5" font-weight="${isOp?800:600}" fill="${isOp?"var(--accent)":mut}">${md(p)}</text>`;
               s+=`<text x="${gx(i).toFixed(1)}" y="${Hc-pb+29}" text-anchor="middle" font-size="9" fill="${isOp?"var(--accent)":mut}" opacity="${isOp?1:.65}">${wdOf(p)} · ${isOp?"개봉":"D"+(ddOf(p)>=0?"+":"")+ddOf(p)}</text>`; });
+            // 자리 다툼: 우리 영화 먼저, 그 다음 크게 건 순. 부딪히면 건너뛴다.
+            const FS=8.5, put=[];
+            labs.sort((a,b)=>(b.mine-a.mine)||(b.sz-a.sz)).forEach(L=>{
+              const w=L.t.length*FS*0.6+2.5;
+              const hitOne=put.some(q=>Math.abs(q.y-L.y)<10 && Math.abs(q.x-L.x)<(q.w+w)/2);
+              if(hitOne) return;
+              L.w=w; put.push(L);
+              s+=`<text x="${L.x.toFixed(1)}" y="${L.y.toFixed(1)}" text-anchor="middle" font-size="${FS}" font-weight="700" letter-spacing="-.4" fill="${L.c}">${L.t}</text>`; });
             s+=`</svg></div>`;
             // 정확한 값은 표로. 셀은 판매율을 크게, 예매/좌석을 작게 — 셋이 한 칸에 들어간다.
             s+=`<div class="tbl-wrap" style="margin-top:9px"><table class="mini-tbl"><thead><tr>
@@ -3040,6 +3063,8 @@ ${md(p)}(${wdOf(p)}) · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)
                 <b>연한 막대 = 그 날 걸린 좌석</b>, <b>진한 막대 = 이미 팔린 예매</b>, 위 숫자가 <b>판매율</b>입니다.
                 바닥에 짧은 선만 있는 칸은 그 날 그 영화가 <b>안 걸렸다</b>는 뜻이고,
                 <b>점선</b>이면 그때는 아직 수집을 시작하기 전이라 값이 없는 것입니다(상영은 하고 있었습니다).
+                날짜는 하루도 건너뛰지 않고 채웠습니다 — 8/3(월)처럼 통째로 빈 날도 칸을 남겨 둡니다.
+                막대가 촘촘한 날은 <b>판매율 숫자가 겹칠 자리를 비워 둡니다</b>. 그 값은 막대에 커서를 대거나 아래 표에서 보십시오.
                 표의 큰 숫자가 판매율, 작은 숫자가 <b>팔린 예매 / 걸린 좌석</b>. 네 영화 모두 3사 합산이라 분모가 같습니다.
                 <b style="color:var(--warn)">세로 눈금은 일부러 눌러 놓았습니다.</b> 좌석이 982석(시사회)에서 40만석까지 400배로 벌어져,
                 자를 곧게 대면 큰 날이 화면을 다 먹고 시사회는 1px 이 됩니다. 값이 커질수록 높이에 덜 반영되게 눌러
