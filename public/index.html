@@ -620,6 +620,9 @@
     <p class="sec-desc">SAMG엔터 극장판 관객 추이. <b>x축은 개봉 N일차</b>라 개봉일이 달라도 페이스를 겹쳐 볼 수 있습니다.
       KOBIS 확정치라 추정 오차가 없습니다.</p>
     <div id="movieBooking"></div>
+    <!-- 스크린 확보 현황 — 예매 패널 안에 묻혀 있던 걸 독립 섹션으로.
+         개봉 전 가장 중요한 선행 지표라 눈에 바로 들어와야 한다. -->
+    <div id="movieScreens"></div>
     <!-- 전체 시계열(1편 D+74까지)로 보면 지금 구간이 눌려서 현재 추이가 안 보인다.
          기본은 개봉 전후 구간, 전체는 토글로. -->
     <div class="seg" id="movieRangeSeg">
@@ -2617,52 +2620,6 @@ function renderBooking(){
         예매 <b>${fmt0(an.book)}명</b> · ${an.rate}% <small>(${an.src})</small>
         — 현재 D${dday!=null?-dday:"?"} 예매가 그 <b class="${pctOf>=100?"up":""}">${pctOf.toFixed(0)}%</b> 수준</p>`;
     }
-    /* 개봉일 스크린 배정(메가박스 프록시) — KOBIS 는 지나간 날만 주므로 이걸로 앞을 본다 */
-    const SC=(typeof MOVIE_SCREENS!=="undefined")?MOVIE_SCREENS:null;
-    if(SC&&u){
-      const key=nm+"|"+u.open.replace(/-/g,"");
-      const ser=(SC.series||{})[key]||[];
-      if(ser.length){
-        const s1=ser[ser.length-1];
-        const s0=[...ser].reverse().find(p=>p.t.slice(0,10)!==s1.t.slice(0,10))||null;
-        const d=(k)=> s0? `<span class="${cls(s1[k]-s0[k])}">${sign(s1[k]-s0[k],0)}</span>` : "";
-        const by=s1.by?` <small style="color:var(--muted2)">(${Object.entries(s1.by).map(([t,v])=>`${t} ${v.screens}`).join(" · ")}관)</small>`:"";
-        h+=`<p class="note" style="margin:4px 0 0">↳ 개봉일 배정 <small>(${SC.chain} · ${s1.t.slice(5)} 스냅샷)</small>:
-          지점 <b>${s1.sites}</b>${d("sites")} · 스크린 <b>${s1.screens}</b>${d("screens")}${by} ·
-          회차 <b>${s1.shows}</b>${d("shows")} · 판매 <b>${fmt0(s1.seatSold)}</b>/${fmt0(s1.seatTot)}석</p>`;
-      }
-      /* 날짜별 배정 표 — 오늘 포함 앞으로 상영일마다 3사 합산 스크린·좌석·예매율.
-         예매율 = 그 상영일에 이미 팔린 좌석 ÷ 걸린 좌석. 날짜가 다가올수록 차오른다. */
-      const norm=t=>t.replace(/[\s:\-·]+/g,"");
-      const todayISO=new Date().toISOString().slice(0,10).replace(/-/g,"");
-      const days=Object.entries(SC.series||{})
-        .filter(([k])=>norm(k.split("|")[0])===norm(nm) && k.split("|")[1]>=todayISO)
-        .map(([k,ser])=>({play:k.split("|")[1], s:ser[ser.length-1],
-                          prev:[...ser].reverse().find(p=>p.t.slice(0,10)!==ser[ser.length-1].t.slice(0,10))||null}))
-        .sort((a,b)=>a.play.localeCompare(b.play));
-      if(days.length){
-        const op=u?u.open.replace(/-/g,""):null;
-        const dn=p=>{ if(!op) return "";
-          const dd=Math.round((new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`)-new Date(u.open))/864e5);
-          return `<span class="ye">D${dd>=0?"+":""}${dd}</span>`; };
-        h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
-          <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th></tr></thead><tbody>`
-          +days.map(({play,s,prev})=>{
-            // 전부 0 = 극장들이 그 날짜 스케줄을 아직 안 연 것. 0으로 두면 '상영 없음'으로 오독된다.
-            if(!s.screens&&!s.shows)
-              return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
-                <td colspan="6" style="color:var(--muted2)">스케줄 미오픈 (통상 1~2일 전 오픈)</td></tr>`;
-            const rate=s.seatTot>0?(s.seatSold/s.seatTot*100):null;
-            const dscr=prev?` <small class="${cls(s.screens-prev.screens)}">${s.screens===prev.screens?"":sign(s.screens-prev.screens,0)}</small>`:"";
-            return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
-              <td>${fmt0(s.sites)}</td><td><b>${fmt0(s.screens)}</b>${dscr}</td><td>${fmt0(s.shows)}</td>
-              <td>${fmt0(s.seatTot)}</td><td>${fmt0(s.seatSold)}</td>
-              <td><b>${rate==null?"—":fmt(rate,1)+"%"}</b></td></tr>`;}).join("")
-          +`</tbody></table></div>
-          <p class="note" style="margin:4px 0 0">3사(CGV·롯데·메가박스) 합산 · 예매율 = 판매좌석 ÷ 걸린좌석 ·
-          스크린 옆 증감은 전일 스냅샷 대비 · 독립·소형관 제외라 KOBIS 확정 스크린수보다 적게 잡힙니다.</p>`;
-      }
-    }
     if(pts.length>1){
       h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
         <th class="l">날짜</th><th>순위</th><th>예매율</th><th>예매관객</th><th>증분</th><th>누적관객</th></tr></thead><tbody>`
@@ -2678,6 +2635,81 @@ function renderBooking(){
   h+=`<p class="note">KOBIS 실시간 예매 · <b>매시간 갱신</b>(기준 ${(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"—"}) — 개봉 전 유일한 실시간 지표입니다.
       실시간 예매수·누적관객은 하루 종일 변하므로 위 값은 그 시각의 스냅샷입니다.
       1편 기준선: 개봉 4일 전 시사회 누적 30,553명 → 개봉일 107,156명 → 최종 1,212,652명.</p>`;
+  el.innerHTML=h;
+  renderScreens();
+}
+
+/* ==== 스크린 확보 현황 ====
+   개봉 전 가장 중요한 선행 지표 — 1편은 개봉일 스크린이 146 -> 1,065 로 뛰며
+   흥행이 결정됐다. 예매 패널 안에 묻혀 있던 걸 독립 섹션으로 꺼냈다.
+   범위: CGV·롯데·메가 3사는 체인 안에서 전수(상영 걸린 지점 전부),
+        독립·소형관(전국 스크린의 ~10%)은 예매 API 가 없어 미포함. */
+function renderScreens(){
+  const el=document.getElementById("movieScreens"); if(!el) return;
+  const SC=(typeof MOVIE_SCREENS!=="undefined")?MOVIE_SCREENS:null;
+  if(!SC||!Object.keys(SC.series||{}).length){ el.innerHTML=""; return; }
+  const norm=t=>t.replace(/[\s:\-·]+/g,"");
+  const todayISO=new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const ups=Object.fromEntries((MOVIE_UPCOMING||[]).map(x=>[norm(x.title),x]));
+  // 작품별로 묶는다 (특별판 등 여러 편이 잡힐 수 있다)
+  const byTitle={};
+  Object.entries(SC.series).forEach(([k,ser])=>{
+    const [t,play]=k.split("|");
+    if(play<todayISO) return;
+    (byTitle[t]=byTitle[t]||[]).push({play, ser});
+  });
+  let h="";
+  Object.entries(byTitle).forEach(([title,arr])=>{
+    arr.sort((a,b)=>a.play.localeCompare(b.play));
+    // 재개봉 특별판처럼 몇 개 관짜리 소규모는 KPI 넉 장을 차지할 가치가 없다 — 생략
+    if(Math.max(...arr.map(x=>x.ser[x.ser.length-1].screens))<10) return;
+    const u=ups[norm(title)];
+    const op=u?u.open.replace(/-/g,""):null;
+    const dn=p=>{ if(!op) return "";
+      const dd=Math.round((new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`)-new Date(u.open))/864e5);
+      return `<span class="ye">D${dd>=0?"+":""}${dd}</span>`; };
+    // 개봉일(없으면 마지막 날짜) 스냅샷으로 KPI
+    const main=arr.find(x=>op&&x.play===op)||arr[arr.length-1];
+    const s1=main.ser[main.ser.length-1];
+    const s0=[...main.ser].reverse().find(p=>p.t.slice(0,10)!==s1.t.slice(0,10))||null;
+    const dv=k=> s0? `<span class="${cls(s1[k]-s0[k])}">${s1[k]===s0[k]?"변동 없음":sign(s1[k]-s0[k],0)+" 전일비"}</span>` : "첫 스냅샷";
+    const rate=s1.seatTot>0?(s1.seatSold/s1.seatTot*100):null;
+    const by=s1.by?Object.entries(s1.by).map(([t,v])=>`${t} ${v.screens}`).join(" · "):"";
+    h+=`<div class="sub-h">스크린 확보 — ${title}
+        <span class="tag-inline">3사 전수 · ${SC.chain}</span></div>
+      <div class="kpis">
+        <div class="kpi"><div class="k">개봉일 스크린</div>
+          <div class="v">${fmt0(s1.screens)}<small>개</small></div>
+          <div class="d">${dv("screens")}${by?` · ${by}`:""}</div></div>
+        <div class="kpi"><div class="k">개봉일 회차</div>
+          <div class="v">${fmt0(s1.shows)}<small>회</small></div>
+          <div class="d">${dv("shows")}</div></div>
+        <div class="kpi"><div class="k">개봉일 좌석</div>
+          <div class="v">${(s1.seatTot/1e4).toFixed(1)}<small>만석</small></div>
+          <div class="d">지점 ${fmt0(s1.sites)}곳</div></div>
+        <div class="kpi"><div class="k">개봉일 예매율</div>
+          <div class="v">${rate==null?"—":fmt(rate,1)}<small>%</small></div>
+          <div class="d">판매 ${fmt0(s1.seatSold)}석</div></div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
+        <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th></tr></thead><tbody>`
+      +arr.map(({play,ser})=>{
+        const s=ser[ser.length-1];
+        const prev=[...ser].reverse().find(p=>p.t.slice(0,10)!==s.t.slice(0,10))||null;
+        if(!s.screens&&!s.shows)
+          return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
+            <td colspan="6" style="color:var(--muted2)">스케줄 미오픈 (통상 1~2일 전 오픈)</td></tr>`;
+        const r2=s.seatTot>0?(s.seatSold/s.seatTot*100):null;
+        const dscr=prev?` <small class="${cls(s.screens-prev.screens)}">${s.screens===prev.screens?"":sign(s.screens-prev.screens,0)}</small>`:"";
+        return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
+          <td>${fmt0(s.sites)}</td><td><b>${fmt0(s.screens)}</b>${dscr}</td><td>${fmt0(s.shows)}</td>
+          <td>${fmt0(s.seatTot)}</td><td>${fmt0(s.seatSold)}</td>
+          <td><b>${r2==null?"—":fmt(r2,1)+"%"}</b></td></tr>`;}).join("")
+      +`</tbody></table></div>`;
+  });
+  h+=`<p class="note">예매율 = 그 상영일에 이미 팔린 좌석 ÷ 걸린 좌석 · 스크린 증감은 전일 스냅샷 대비 ·
+    CGV·롯데·메가 각 체인은 전수(상영 걸린 지점 전부), 독립·소형관(전국 스크린 ~10%)은 예매 API 가 없어 미포함
+    — 그래서 KOBIS 사후 확정 스크린수보다 적게 잡힙니다. 갱신 ${SC.asOf}.</p>`;
   el.innerHTML=h;
 }
 

@@ -155,6 +155,14 @@ def main():
             pts.append({"d": ts, "open": b["openDt"], "rank": b["rank"],
                         "rate": b["rate"], "book": b["book"], "acc": b["acc"]})
             booking[b["nm"]] = pts[-180:]
+            # 영구 아카이브 — 예매는 KOBIS 가 이력을 안 남기는 값이라(현재값만 공개)
+            # 우리가 안 쌓으면 사라진다. 1편은 이게 없어서 보도 기사로 복원해야 했다.
+            os.makedirs("archive", exist_ok=True)
+            with open("archive/booking.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps({"t": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M"),
+                                    "title": b["nm"], "open": b["openDt"], "rank": b["rank"],
+                                    "rate": b["rate"], "book": b["book"], "acc": b["acc"]},
+                                   ensure_ascii=False) + "\n")
             print(f"  [예매] {b['nm']} · {b['rank'] or '—'}위 · 예매율 {b['rate']}% · "
                   f"예매 {b['book']:,}명 · 누적 {b['acc']:,}명")
     except Exception as e:

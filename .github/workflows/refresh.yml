@@ -99,7 +99,8 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # notified.json 도 같이 본다 — 알림 발송 기록이라 빠지면 같은 실적을 또 쏜다
-          if git diff --quiet -- public/index.html notified.json; then
+          git add archive 2>/dev/null || true
+          if git diff --quiet --cached -- . && git diff --quiet -- public/index.html notified.json; then
             echo "변경 없음 - 커밋 생략"
           else
             git add public/index.html notified.json

@@ -35,7 +35,7 @@ jobs:
           if git diff --quiet -- public/index.html; then
             echo "변경 없음 - 커밋 생략"
           else
-            git add public/index.html
+            git add public/index.html archive
             git commit -m "영화 흥행 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
             git pull --rebase
             git push

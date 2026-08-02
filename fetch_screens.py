@@ -21,7 +21,7 @@
   python fetch_screens.py            # 수집·기록
   python fetch_screens.py --dry-run  # 출력만
 """
-import json, re, sys, time, uuid, datetime, urllib.request
+import json, os, re, sys, time, uuid, datetime, urllib.request
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -256,6 +256,12 @@ def main():
             pts = [p for p in (series.get(key) or []) if p.get("t") != stamp]
             pts.append({"t": stamp, **tot, "by": mv2["by"]})
             series[key] = pts[-KEEP:]
+            # 영구 아카이브 — index.html 의 시계열은 KEEP 개로 잘리지만
+            # 여기는 append 만 한다. 다음 극장판 때 이번 배정 이력이 기준선이 된다.
+            os.makedirs("archive", exist_ok=True)
+            with open("archive/screens.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps({"t": stamp, "title": mv2["nm"], "play": play,
+                                    **tot, "by": mv2["by"]}, ensure_ascii=False) + "\n")
             got += 1
             bych = " · ".join(f"{t} {v['screens']}관" for t, v in mv2["by"].items())
             print(f"  [{play}] {mv2['nm']} · 지점 {tot['sites']} · 스크린 {tot['screens']} · "
