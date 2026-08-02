@@ -37,8 +37,9 @@ BRAND_STOCK = {
     "BIODANCE":         {"stock": None, "owner": "바이오던스",   "listed": False},
     "Beauty of Joseon": {"stock": None, "owner": "구다이글로벌", "listed": False,
                          "memo": "티르티르·스킨1004·라운드랩·스킨푸드 보유 (25년 매출 1.5조)"},
-    "Melaxin":          {"stock": None, "owner": None,           "listed": False,
-                         "memo": "운영 법인 미확인"},
+    # 브랜드명은 '닥터멜락신(Dr.MELAXIN)'. 운영 법인은 공식몰(melaxin.com) 사업자정보에서 확인.
+    "Melaxin":          {"stock": None, "owner": "브랜드501",     "listed": False,
+                         "memo": "닥터멜락신 — 슬로우에이징 더마 브랜드"},
     "Purito":           {"stock": None, "owner": "퓨리토",       "listed": False},
 }
 # EUR·GBP → USD 교차환율. 원/달러만큼 안 움직여서 상수로 둔다.
