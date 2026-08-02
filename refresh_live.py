@@ -426,13 +426,29 @@ def resolve_code(name):
     return (items[0]["code"], items[0]["typeCode"]) if items else (None, None)
 
 
-def collect(names):
+SLOW_KEYS = ("cons", "ret1w", "ret1m", "ret3m", "ret6m", "ret1y", "retYtd")
+
+
+def collect(names, prev=None, deep=True):
+    """종목별 수집.
+
+    deep=False 면 컨센서스(연간·분기)와 기간수익률을 다시 받지 않고 직전 값을 이어받는다.
+    종목당 요청이 5개(integration·basic·컨센2·차트1)인데 뒤 3개는 장중에 안 바뀐다 —
+    컨센서스는 증권사가 리포트를 낼 때, 기간수익률은 일봉이 마감돼야 움직인다.
+    그런데 이 함수가 워크플로 시간의 절반(회당 4.7분)을 먹고 있었고,
+    비공개 저장소라 그 분이 그대로 과금된다(무료 2,000분/월).
+    그래서 하루 첫 회차만 전부 받고, 장중에는 시세·시총만 새로 받는다.
+    """
+    prev = prev or {}
     stocks, researches, events, fails = {}, [], [], []
     for i, nm in enumerate(names, 1):
         try:
             code, mkt = resolve_code(nm)
             if not code:
                 fails.append(nm); continue
+            # 이어받을 값이 있어야 얕게 갈 수 있다. 새로 들어온 종목은 무조건 전부 받는다.
+            old = prev.get(nm) or {}
+            reuse = (not deep) and ("cons" in old)
             d = getj(f"https://m.stock.naver.com/api/stock/{code}/integration")
             b = getj(f"https://m.stock.naver.com/api/stock/{code}/basic")
             ti = {t["code"]: t.get("value") for t in d.get("totalInfos", [])}
@@ -450,8 +466,10 @@ def collect(names):
                 "foreign": num(ti.get("foreignRate")),
                 "consTarget": num(ci.get("priceTargetMean")),
                 "recommMean": num(ci.get("recommMean")),
-                "cons": fetch_consensus(code),      # 컨센서스 실적 추정치
-                **(fetch_returns(code) or {}),      # 1W/1M/3M/YTD 수익률
+                # 장중 회차는 이 둘을 직전 값으로 이어받는다(요청 5개 -> 2개)
+                **({k: old[k] for k in SLOW_KEYS if k in old} if reuse
+                   else {"cons": fetch_consensus(code),   # 컨센서스 실적 추정치
+                         **(fetch_returns(code) or {})}), # 1W/1M/3M/YTD 수익률
             }
             for r in (d.get("researches") or []):
                 researches.append({"co": nm, "code": code, "broker": r.get("bnm"),
@@ -538,7 +556,24 @@ def main():
     names = [r["name"] for r in records]
     print(f"커버리지 {len(names)}종목 수집 시작…")
 
-    stocks, researches, events, fails = collect(names)
+    # 컨센서스·기간수익률은 하루 첫 회차에만 다시 받는다(종목당 요청 5 -> 2).
+    # 판정은 '직전 수집이 오늘이었나'로 한다 — 시각을 박아 두면 그 회차를 놓쳤을 때
+    # 하루 종일 얕은 수집만 돌아 컨센이 통째로 굳는다.
+    prev_live, prev_day = None, None
+    m0 = re.search(r"const LIVE = (\{.*?\});", html, re.S)
+    if m0:
+        try:
+            prev_live = json.loads(m0.group(1))
+            prev_day = (prev_live.get("asOf") or "")[:10]
+        except json.JSONDecodeError:
+            prev_live = None
+    today_str = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d")
+    deep = "--deep" in sys.argv or prev_day != today_str
+    print("수집 범위:", "전체(컨센·수익률 포함)" if deep else "시세만(컨센·수익률은 직전 값 유지)")
+
+    stocks, researches, events, fails = collect(
+        names, prev=(prev_live or {}).get("stocks") or {}, deep=deep)
     # 몇 종목 빠지는 건 늘 있는 일이라 그냥 두고, 절반 넘게 실패하면 '막혔다'로 본다.
     # 여기 남긴 기록을 watchdog.py 가 읽어 별도 텔레그램 알림을 쏜다 —
     # 안 그러면 화면 숫자가 옛날 값에 멈춰 있어도 아무도 모른다.
