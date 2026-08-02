@@ -21,17 +21,19 @@ HISTORY = BASE / "data" / "history.csv"
 KEEP_DAYS = 180          # 시계열 보관 기간 (파일 비대화 방지)
 TOP_N = 10               # 브랜드당 상세 제품 수
 
-# 브랜드 → 커버리지 종목. 비상장은 stock=None, via 에 수혜 종목을 적는다.
+# 브랜드 → 운영사. 상장사면 stock 에 커버리지 종목명을 적는다.
+# 비상장 브랜드를 '어느 종목 수혜'로 잇지 않는다 — 유통 관계를 확인하지 않은 추측이고,
+# 그건 데이터가 아니라 판단이라 애널리스트 몫이다.
 BRAND_STOCK = {
     "medicube":         {"stock": "에이피알",     "owner": "에이피알"},
     "COSRX":            {"stock": "아모레퍼시픽", "owner": "아모레퍼시픽"},
     "d'Alba":           {"stock": "달바글로벌",   "owner": "달바글로벌"},
     "Coreana":          {"stock": None,           "owner": "코리아나"},
-    "Anua":             {"stock": None, "owner": "더파운더즈",   "via": "실리콘투"},
-    "BIODANCE":         {"stock": None, "owner": "바이오던스",   "via": "실리콘투"},
-    "Beauty of Joseon": {"stock": None, "owner": "구다이글로벌", "via": "실리콘투"},
-    "Melaxin":          {"stock": None, "owner": "닥터멜락신",   "via": "실리콘투"},
-    "Purito":           {"stock": None, "owner": "퓨리토",       "via": "실리콘투"},
+    "Anua":             {"stock": None, "owner": "더파운더즈"},
+    "BIODANCE":         {"stock": None, "owner": "바이오던스"},
+    "Beauty of Joseon": {"stock": None, "owner": "구다이글로벌"},
+    "Melaxin":          {"stock": None, "owner": "닥터멜락신"},
+    "Purito":           {"stock": None, "owner": "퓨리토"},
 }
 # EUR·GBP → USD 교차환율. 원/달러만큼 안 움직여서 상수로 둔다.
 FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27}
