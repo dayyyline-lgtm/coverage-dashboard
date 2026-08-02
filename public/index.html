@@ -2715,45 +2715,82 @@ function renderScreens(){
           <div class="d">${benchFill==null?"기준 판매율 실측 대기":`좌석×${(benchFill*100).toFixed(0)}%${benchLive?"(진행 중)":""}${natF?`×${natF.toFixed(2)}`:""} · 배정 늘면 ↑`}</div></div>
       </div>`;
 
-    /* ── 병렬 점선 그래프 — 상영일별로 예매율(왼쪽)·스크린(오른쪽)이 차오르는 과정.
-       x = 수집 스냅샷 시각. 상영일 하나가 선 하나. 점선 = 아직 확정 아님(잠정 배정). */
-    const snaps=[...new Set(arr.flatMap(x=>x.ser.map(p=>p.t)))].sort();
-    const t2s=t=>t.slice(5,16);
-    if(snaps.length>1){
-      const COLS=["#c4a7e7","#eb6f92","#9ccfd8","#f6c177","#a6da95","#3e8fb0"];
-      const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
-      const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
-      const mkChart=(valOf,ymax,fmtY,titleTxt)=>{
-        const W=460,H=200,pad={l:44,r:64,t:14,b:26};
-        const sx=i=>pad.l+(snaps.length===1?0.5:i/(snaps.length-1))*(W-pad.l-pad.r);
+    /* ── 누적 관객 전망 — 가로축 = 상영 날짜, 세로축 = 누적 관객.
+       실선 = KOBIS 실측 누적(이미 본 사람). 그 끝에서 점선이 이어진다:
+       각 상영일의 예상 관객(걸린 좌석 x 기준 판매율 x 전국 보정)이 앞 값에 계속 누적.
+       예매가 매일 바뀌므로 이 점선도 매일 다시 그려진다.
+       1편 누적(같은 D일차)을 흐리게 깔아 페이스를 견준다. */
+    {
+      const mvMine=Object.entries(MV.movies||{}).find(([t])=>norm(t)===norm(title));
+      const actual=(mvMine?mvMine[1].days:[])
+        .map(p=>({play:p.d, acc:p.acc})).sort((a,b)=>a.play.localeCompare(b.play));
+      // 실측 이후의 추적 상영일들(좌석이 걸린 것만)로 점선 누적을 만든다
+      const lastAct=actual.length?actual[actual.length-1]:null;
+      let cum=lastAct?lastAct.acc:0;
+      const proj=[];
+      arr.filter(x=>(!lastAct||x.play>lastAct.play)&&x.ser[x.ser.length-1].screens>0)
+         .forEach(x=>{const e=est(x.ser[x.ser.length-1]); if(e==null) return;
+                      cum+=e; proj.push({play:x.play, acc:cum});});
+      // 1편 참조선 — 같은 D일차 구간만
+      const ref=(()=>{
+        const other=Object.entries(MV.movies||{}).find(([t])=>norm(t)!==norm(title));
+        if(!other||!op) return null;
+        const oOp=(other[1].openDt||"").replace(/-/g,""); if(!oOp) return null;
+        const d0=new Date(`${oOp.slice(0,4)}-${oOp.slice(4,6)}-${oOp.slice(6,8)}`);
+        return {nm:other[0], pts:(other[1].days||[]).map(p=>({
+          dd:Math.round((new Date(`${p.d.slice(0,4)}-${p.d.slice(4,6)}-${p.d.slice(6,8)}`)-d0)/864e5),
+          acc:p.acc}))};
+      })();
+      if(actual.length||proj.length){
+        const ddAll=[...actual.map(p=>ddOf(p.play)),...proj.map(p=>ddOf(p.play))].filter(v=>v!=null);
+        const dLo=Math.min(...ddAll), dHi=Math.max(...ddAll)+1;
+        const refPts=ref?ref.pts.filter(p=>p.dd>=dLo&&p.dd<=dHi):[];
+        const ymax=Math.max(...actual.map(p=>p.acc),...proj.map(p=>p.acc),
+                            ...refPts.map(p=>p.acc),1)*1.12;
+        const W=900,H=260,pad={l:56,r:120,t:16,b:34};
+        const sx=dd=>pad.l+(dd-dLo)/Math.max(1,dHi-dLo)*(W-pad.l-pad.r);
         const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
-        let s=`<div class="sm-cell" style="min-width:0"><div class="sm-h">${titleTxt}</div>
-          <svg viewBox="0 0 ${W} ${H}" width="100%" font-family="inherit">`;
-        for(let g=0;g<=3;g++){const v=ymax*g/3,y=sy(v);
+        const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+        const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+        let s=`<div class="sub-h" style="margin-top:14px">누적 관객 전망 <span class="tag-inline">실선=실측 · 점선=예상 누적</span></div>
+          <div class="chart-box"><svg viewBox="0 0 ${W} ${H}" width="100%" font-family="inherit">`;
+        for(let g=0;g<=4;g++){const v=ymax*g/4,y=sy(v);
           s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
-          s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10" fill="${mut}">${fmtY(v)}</text>`;}
-        const step=Math.max(1,Math.ceil(snaps.length/5));
-        snaps.forEach((t,i)=>{ if(i%step===0||i===snaps.length-1)
-          s+=`<text x="${sx(i)}" y="${H-pad.b+16}" text-anchor="middle" font-size="9.5" fill="${mut}">${t.slice(5,10)}</text>`;});
-        arr.forEach((x,xi)=>{
-          const dd=ddOf(x.play), c=COLS[xi%COLS.length];
-          const pts=snaps.map((t,i)=>{const p=x.ser.find(q=>q.t===t); return p?[i,valOf(p)]:null;}).filter(Boolean);
-          if(pts.length<1) return;
-          const past=x.play<todayISO;
-          s+=`<path d="${pts.map(([i,v],j)=>(j?"L":"M")+sx(i).toFixed(1)+","+sy(v).toFixed(1)).join(" ")}"
-               fill="none" stroke="${c}" stroke-width="2.2"${past?"":' stroke-dasharray="5 4"'} opacity="${past?0.55:1}"/>`;
-          pts.forEach(([i,v])=>{s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.4" fill="${c}"><title>${x.play.slice(4,6)}/${x.play.slice(6,8)} 상영분 · ${t2s(snaps[i])} 시점: ${fmtY(v)}</title></circle>`;});
-          const last=pts[pts.length-1];
-          s+=`<text x="${sx(last[0])+6}" y="${sy(last[1])+4}" font-size="10.5" font-weight="700" fill="${c}">${x.play.slice(4,6)}/${x.play.slice(6,8)}${dd!=null?` D${dd>=0?"+":""}${dd}`:""}</text>`;
-        });
+          s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${(v/1e4).toFixed(0)}만</text>`;}
+        if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${pad.t}" x2="${sx(0)}" y2="${H-pad.b}" stroke="${mut}" stroke-dasharray="3 4" opacity=".6"/>`;
+        for(let dd=dLo;dd<=dHi;dd++){
+          const cal=op?new Date(new Date(`${op.slice(0,4)}-${op.slice(4,6)}-${op.slice(6,8)}`).getTime()+dd*864e5):null;
+          const lab=cal?`${String(cal.getMonth()+1).padStart(2,"0")}/${String(cal.getDate()).padStart(2,"0")}`:"";
+          s+=`<text x="${sx(dd)}" y="${H-pad.b+15}" text-anchor="middle" font-size="9.5" fill="${mut}">${lab}</text>`;
+          s+=`<text x="${sx(dd)}" y="${H-pad.b+27}" text-anchor="middle" font-size="9" fill="${mut}" opacity=".7">D${dd>=0?"+":""}${dd}</text>`;
+        }
+        // 1편 참조(흐린 실선)
+        if(refPts.length>1){
+          s+=`<path d="${refPts.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}"
+               fill="none" stroke="#c4a7e7" stroke-width="2" opacity=".38"/>`;
+          const rl=refPts[refPts.length-1];
+          s+=`<text x="${sx(rl.dd)+6}" y="${sy(rl.acc)+4}" font-size="10.5" fill="#c4a7e7" opacity=".7">1편 실측</text>`;
+        }
+        // 2편 실측(실선) + 예상(점선, 실측 끝점에서 이어짐)
+        const A=actual.map(p=>[ddOf(p.play),p.acc]).filter(([d])=>d!=null);
+        if(A.length){
+          s+=`<path d="${A.map(([d,v],i)=>(i?"L":"M")+sx(d).toFixed(1)+","+sy(v).toFixed(1)).join(" ")}"
+               fill="none" stroke="#eb6f92" stroke-width="2.6" stroke-linejoin="round"/>`;
+          A.forEach(([d,v])=>{s+=`<circle cx="${sx(d)}" cy="${sy(v)}" r="3" fill="#eb6f92"><title>D${d>=0?"+":""}${d} 실측 누적 ${fmt0(v)}명</title></circle>`;});
+        }
+        const P=proj.map(p=>[ddOf(p.play),p.acc]).filter(([d])=>d!=null);
+        if(P.length){
+          const startPt=A.length?A[A.length-1]:P[0];
+          const path=[startPt,...P];
+          s+=`<path d="${path.map(([d,v],i)=>(i?"L":"M")+sx(d).toFixed(1)+","+sy(v).toFixed(1)).join(" ")}"
+               fill="none" stroke="#eb6f92" stroke-width="2.4" stroke-dasharray="6 5" opacity=".9"/>`;
+          P.forEach(([d,v])=>{s+=`<circle cx="${sx(d)}" cy="${sy(v)}" r="3" fill="none" stroke="#eb6f92" stroke-width="1.6"><title>D${d>=0?"+":""}${d} 예상 누적 ~${fmt0(v)}명</title></circle>`;});
+          const pl=P[P.length-1];
+          s+=`<text x="${sx(pl[0])+7}" y="${sy(pl[1])+4}" font-size="11.5" font-weight="700" fill="#eb6f92">~${(pl[1]/1e4).toFixed(1)}만 (D${pl[0]>=0?"+":""}${pl[0]})</text>`;
+        }
         s+=`</svg></div>`;
-        return s;
-      };
-      const scMax=Math.max(...arr.flatMap(x=>x.ser.map(p=>p.screens)),1)*1.15;
-      h+=`<div class="sm-grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:10px">`
-        +mkChart(p=>p.seatTot>0?p.seatSold/p.seatTot*100:0, 100, v=>v.toFixed(0)+"%", "예매율 채움 — 상영일별 (점선=예정)")
-        +mkChart(p=>p.screens, scMax, v=>fmt0(v), "스크린 확보 — 상영일별 (점선=예정)")
-        +`</div>`;
+        h+=s;
+      }
     }
 
     /* ── 날짜별 표 (예상 관객 포함) ── */
