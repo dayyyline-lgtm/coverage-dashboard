@@ -607,24 +607,27 @@ def build_weekly(today, weekly, markets) -> str:
     def usd(v):
         return f"${v/1e6:.2f}M" if v >= 1e5 else f"${v/1e3:.0f}K"
 
-    out.append(_pad("브랜드", 15) + f"{'주 판매량':>11}{'주 매출':>9}{'보정':>9}{'누적':>9}")
+    # 기준을 하나로 통일한다. 주간배지만 쓰면 엄밀하지만 상세조회분의 40%가 빠지고,
+    # 배지 종류는 판매량과 무관하게 아마존이 제각각 정하므로(BSR 중앙값 209 vs 385)
+    # 빼는 쪽이 오차가 더 크다. 그래서 보정 계열을 기본으로 쓰고 누적도 여기에 맞춘다.
+    out.append(_pad("브랜드", 16) + f"{'주 판매량':>11}{'주 매출':>10}{'누적':>10}")
     for b in sorted(by_brand, key=lambda x: -by_brand[x]["revx"]):
         e, c = by_brand[b], cum[b]
-        out.append(_pad(b, 15) + f"{fmt_int(e['ux']) + '+':>11}"
-                   + f"{usd(e['rev']):>9}{usd(e['revx']):>9}{usd(c['revx']):>9}")
+        out.append(_pad(b, 16) + f"{fmt_int(e['ux']) + '+':>11}"
+                   + f"{usd(e['revx']):>10}{usd(c['revx']):>10}")
     tu = sum(e["ux"] for e in by_brand.values())
     tr = sum(e["rev"] for e in by_brand.values())
     trx = sum(e["revx"] for e in by_brand.values())
     tc = sum(c["revx"] for c in cum.values())
-    out.append(_pad("합계", 15) + f"{fmt_int(tu) + '+':>11}"
-               + f"{usd(tr):>9}{usd(trx):>9}{usd(tc):>9}")
+    out.append(_pad("합계", 16) + f"{fmt_int(tu) + '+':>11}"
+               + f"{usd(trx):>10}{usd(tc):>10}")
     covw = sum(_i(r["cov_w"]) or 0 for r in cur)
     covdp = sum(_i(r.get("dp")) or 0 for r in cur)
     out += ["",
-            f"주 매출 = 주간배지({covw}/{covdp}개 상세조회분)만. 관측창이 정확히 7일이라",
-            "  주별로 그대로 누적됩니다. 주간배지는 상품 상세에만 있고 검색결과엔 없습니다.",
-            "보정 = 주간배지 없는 건 월간÷4.33 로 메움. 커버리지는 높지만 창이 섞입니다.",
-            "둘 다 구간 하한이고 weekly.csv 에 각각 쌓입니다 (모델링 시 선택)."]
+            f"주 판매량·매출은 아마존 공개 배지 기준(구간 하한 → 실제는 더 큼).",
+            f"주간배지({covw}/{covdp}개)는 관측창이 정확히 7일이라 그대로 누적되고,",
+            f"나머지는 월간배지÷4.33로 메웠습니다. 엄밀 집계만 쓰면 {usd(tr)}입니다.",
+            "두 계열 모두 weekly.csv 에 쌓여 있어 나중에 골라 쓸 수 있습니다."]
     return "\n".join(out)
 
 
