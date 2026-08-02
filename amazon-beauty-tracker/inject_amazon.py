@@ -24,16 +24,22 @@ TOP_N = 10               # 브랜드당 상세 제품 수
 # 브랜드 → 운영사. 상장사면 stock 에 커버리지 종목명을 적는다.
 # 비상장 브랜드를 '어느 종목 수혜'로 잇지 않는다 — 유통 관계를 확인하지 않은 추측이고,
 # 그건 데이터가 아니라 판단이라 애널리스트 몫이다.
+# stock 은 커버리지 종목명(로고·시세가 붙는다), owner 는 브랜드를 운영하는 법인.
+# 확인 못 한 건 비운다. 추측을 채우면 화면에서는 사실처럼 읽힌다.
 BRAND_STOCK = {
-    "medicube":         {"stock": "에이피알",     "owner": "에이피알"},
-    "COSRX":            {"stock": "아모레퍼시픽", "owner": "아모레퍼시픽"},
-    "d'Alba":           {"stock": "달바글로벌",   "owner": "달바글로벌"},
-    "Coreana":          {"stock": None,           "owner": "코리아나"},
-    "Anua":             {"stock": None, "owner": "더파운더즈"},
-    "BIODANCE":         {"stock": None, "owner": "바이오던스"},
-    "Beauty of Joseon": {"stock": None, "owner": "구다이글로벌"},
-    "Melaxin":          {"stock": None, "owner": "닥터멜락신"},
-    "Purito":           {"stock": None, "owner": "퓨리토"},
+    "medicube":         {"stock": "에이피알",     "owner": "에이피알",     "listed": True},
+    "COSRX":            {"stock": "아모레퍼시픽", "owner": "아모레퍼시픽", "listed": True,
+                         "memo": "2024년 아모레퍼시픽 인수"},
+    "d'Alba":           {"stock": "달바글로벌",   "owner": "달바글로벌",   "listed": True},
+    "Coreana":          {"stock": "코리아나",     "owner": "코리아나",     "listed": True},
+    "Anua":             {"stock": None, "owner": "더파운더즈",   "listed": False,
+                         "memo": "IPO 준비"},
+    "BIODANCE":         {"stock": None, "owner": "바이오던스",   "listed": False},
+    "Beauty of Joseon": {"stock": None, "owner": "구다이글로벌", "listed": False,
+                         "memo": "티르티르·스킨1004·라운드랩·스킨푸드 보유 (25년 매출 1.5조)"},
+    "Melaxin":          {"stock": None, "owner": None,           "listed": False,
+                         "memo": "운영 법인 미확인"},
+    "Purito":           {"stock": None, "owner": "퓨리토",       "listed": False},
 }
 # EUR·GBP → USD 교차환율. 원/달러만큼 안 움직여서 상수로 둔다.
 FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27}
