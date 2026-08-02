@@ -159,6 +159,17 @@ def _i(v):
         return None
 
 
+def esc(s):
+    """텔레그램 HTML 모드에서 깨지지 않게 이스케이프."""
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def mono(lines):
+    """표를 고정폭 블록으로. 텔레그램 기본 폰트가 가변폭이라 이게 없으면 열이 어긋난다."""
+    body = "\n".join(lines) if isinstance(lines, (list, tuple)) else lines
+    return "<pre>" + esc(body) + "</pre>"
+
+
 def _pad(s, w):
     """CJK 문자를 2칸으로 세는 폭 맞춤 (모노스페이스 정렬용)."""
     width = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
@@ -494,7 +505,7 @@ def build_daily(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
         out.append("첫 수집 — 내일부터 편입·이탈이 표시됩니다")
 
     out += ["", f"추적 {len(rows)}개 · 리스트 내 {len(inlist)}개",
-            "판매량·매출 집계는 주간 리포트(월요일)에서 보냅니다"]
+            "판매량·매출 집계는 주간 리포트(일요일)에서 보냅니다"]
     if failed:
         out.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))
     return "\n".join(out).rstrip()
@@ -610,24 +621,25 @@ def build_weekly(today, weekly, markets) -> str:
     # 기준을 하나로 통일한다. 주간배지만 쓰면 엄밀하지만 상세조회분의 40%가 빠지고,
     # 배지 종류는 판매량과 무관하게 아마존이 제각각 정하므로(BSR 중앙값 209 vs 385)
     # 빼는 쪽이 오차가 더 크다. 그래서 보정 계열을 기본으로 쓰고 누적도 여기에 맞춘다.
-    out.append(_pad("브랜드", 16) + f"{'주 판매량':>11}{'주 매출':>10}{'누적':>10}")
-    for b in sorted(by_brand, key=lambda x: -by_brand[x]["revx"]):
-        e, c = by_brand[b], cum[b]
-        out.append(_pad(b, 16) + f"{fmt_int(e['ux']) + '+':>11}"
-                   + f"{usd(e['revx']):>10}{usd(c['revx']):>10}")
     tu = sum(e["ux"] for e in by_brand.values())
     tr = sum(e["rev"] for e in by_brand.values())
     trx = sum(e["revx"] for e in by_brand.values())
     tc = sum(c["revx"] for c in cum.values())
-    out.append(_pad("합계", 16) + f"{fmt_int(tu) + '+':>11}"
-               + f"{usd(trx):>10}{usd(tc):>10}")
+
+    # 표는 2칸만. 누적은 아래 한 줄로 빼야 '이 숫자들이 무슨 관계지'가 안 생긴다.
+    tbl = [_pad("브랜드", 17) + f"{'판매량':>10}{'매출':>9}"]
+    for b in sorted(by_brand, key=lambda x: -by_brand[x]["revx"]):
+        e = by_brand[b]
+        tbl.append(_pad(b, 17) + f"{fmt_int(e['ux']):>10}{usd(e['revx']):>9}")
+    tbl.append("─" * 36)
+    tbl.append(_pad("합계", 17) + f"{fmt_int(tu):>10}{usd(trx):>9}")
+    out.append(mono(tbl))
+    out.append(f"누적 {len(weeks)}주 합계 · {usd(tc)}")
     covw = sum(_i(r["cov_w"]) or 0 for r in cur)
     covdp = sum(_i(r.get("dp")) or 0 for r in cur)
-    out += ["",
-            f"주 판매량·매출은 아마존 공개 배지 기준(구간 하한 → 실제는 더 큼).",
-            f"주간배지({covw}/{covdp}개)는 관측창이 정확히 7일이라 그대로 누적되고,",
-            f"나머지는 월간배지÷4.33로 메웠습니다. 엄밀 집계만 쓰면 {usd(tr)}입니다.",
-            "두 계열 모두 weekly.csv 에 쌓여 있어 나중에 골라 쓸 수 있습니다."]
+    out += ["", f"※ 아마존 공개 판매량 기준이라 <b>실제는 이보다 큽니다</b> (구간 하한).",
+            f"　 주간배지 {covw}개는 창이 정확히 7일, 나머지는 월간÷4.33 보정 "
+            f"(엄밀만 쓰면 {usd(tr)})."]
     return "\n".join(out)
 
 
@@ -708,10 +720,20 @@ def git_push(today: str) -> None:
 
 
 def send_telegram(token: str, chat_id: str, text: str) -> None:
-    # 텔레그램 메시지는 4096자 제한 → 분할 발송
+    """텔레그램 발송. 표는 <pre> 로 감싸 고정폭으로 나가게 한다.
+
+    텔레그램 기본 폰트는 가변폭이라 공백으로 맞춘 열이 전부 어긋난다.
+    HTML 파싱이 실패하면 평문으로 한 번 더 시도한다(태그가 섞여 나가는 것보다 낫다).
+    """
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    for i in range(0, len(text), 4000):
-        r = requests.post(url, data={"chat_id": chat_id, "text": text[i:i + 4000]}, timeout=30)
+    for i in range(0, len(text), 3800):          # <pre> 태그 여유분
+        chunk = text[i:i + 3800]
+        payload = {"chat_id": chat_id, "text": chunk, "parse_mode": "HTML",
+                   "disable_web_page_preview": "true"}
+        r = requests.post(url, data=payload, timeout=30)
+        if not r.ok:
+            plain = re.sub(r"</?(pre|b|i|code)>", "", chunk)
+            r = requests.post(url, data={"chat_id": chat_id, "text": plain}, timeout=30)
         r.raise_for_status()
 
 
