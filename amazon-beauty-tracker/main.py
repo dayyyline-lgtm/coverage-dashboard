@@ -420,6 +420,26 @@ def build_report(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
 
 # ------------------------------------------------------------------ 부가 기능
 
+def deploy_slot() -> bool:
+    """지금이 Cloudflare Pages 배포 슬롯인지. 저장소 루트 CLAUDE.md 규약.
+
+    Pages 는 푸시 1건 = 빌드 1건이고 월 500 한도라, 슬롯이 아니면 [CI Skip] 을 달아
+    빌드를 건너뛴다. 데이터는 다음 배포가 같이 싣는다.
+    """
+    now = datetime.datetime.now()
+    return now.hour in ((8, 10, 12, 14, 16, 18) if now.weekday() < 5 else (12, 20))
+
+
+def inject_dashboard() -> bool:
+    """history.csv → public/index.html 의 AMAZON 블록 갱신. 실패해도 죽지 않는다."""
+    try:
+        import inject_amazon
+        return inject_amazon.main() == 0
+    except Exception as e:                    # 대시보드 반영 실패가 수집을 막으면 안 된다
+        print(f"[대시보드] 주입 실패 (수집 데이터는 무사): {e}", file=sys.stderr)
+        return False
+
+
 def git_push(today: str) -> None:
     """history.csv를 커밋하고 push. 실패해도 전체 실행은 죽이지 않는다."""
     import subprocess
@@ -432,12 +452,15 @@ def git_push(today: str) -> None:
         return
     # pathspec을 붙여 **이 두 파일만** 커밋한다. 그냥 `git commit`을 쓰면 인덱스에
     # 올라와 있던 남의 작업(대시보드 편집 등)까지 데이터 커밋에 휩쓸려 들어간다.
-    files = ["data/history.csv", "data/asin_cache.json"]
+    files = ["data/history.csv", "data/asin_cache.json", "data/tracked_asins.json",
+             "../public/index.html"]
     run("git", "add", *files)
-    # [CI Skip] — 이 폴더는 public/ 밖이라 배포와 무관한데, 푸시 1건이 Cloudflare Pages
-    # 빌드 1건을 먹는다(월 500 한도). 저장소 루트 CLAUDE.md 의 규약을 따른다.
-    c = run("git", "commit", "-m",
-            f"data: amazon beauty bestsellers {today} [CI Skip]", "--", *files)
+    # 배포 슬롯이 아니면 [CI Skip] — Cloudflare Pages 는 푸시 1건 = 빌드 1건(월 500 한도).
+    # 슬롯이면 index.html 갱신이 실제로 배포돼야 하므로 안 붙인다.
+    msg = f"data: amazon beauty bestsellers {today}"
+    if not deploy_slot():
+        msg += " [CI Skip]"
+    c = run("git", "commit", "-m", msg, "--", *files)
     if "nothing to commit" in (c.stdout + c.stderr):
         print("[git] 변경 없음, push 생략")
         return
@@ -532,6 +555,8 @@ def main() -> int:
             # 수집은 이미 끝났으니 발송 실패로 전체를 죽이지 않는다
             print("\n[발송] 토큰/chat_id가 없어 생략했습니다. "
                   "secrets_local.py 를 만들거나 config.yaml에 넣으세요.", file=sys.stderr)
+
+    inject_dashboard()
 
     if cfg.get("git", {}).get("enabled"):
         git_push(today)
