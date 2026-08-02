@@ -231,52 +231,110 @@ def build_compact(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
     return "\n".join(out).rstrip()
 
 
-def build_full(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
-    """제품별 전부 나열하는 상세판 (report.mode: full)."""
-    out = [f"💄 아마존 K뷰티 · {today}"]
+def bsr_score(rows):
+    """가중 노출 점수 = Σ(1000/BSR).
+
+    **BSR은 점수가 아니라 순위다** (1위가 최고, 숫자가 작을수록 좋다).
+    그래서 브랜드 총합을 낼 때 그냥 더하면 뜻이 없다 — '1위 + 170위 = 171'은
+    아무것도 설명하지 못한다. 역수로 환산해야 1위 하나가 100위 100개와
+    같은 무게가 된다. 절대 판매량이 아니라 **추이 비교용 지수**다.
+    """
+    return sum(1000.0 / b for b in (_i(r.get("bsr_main")) for r in rows) if b)
+
+
+def _delta(cur, old):
+    """점수 변화율 문자열. 점수는 클수록 좋다."""
+    if not old or not cur:
+        return ""
+    p = (cur - old) / old * 100
+    if abs(p) < 1:
+        return " (-)"
+    return f" ({'▲' if p > 0 else '▼'}{abs(p):.0f}%)"
+
+
+def _rank_delta(cur, old):
+    """BSR 변화 표시. BSR은 작아져야 상승이다."""
+    if not old or not cur:
+        return "NEW" if not old else ""
+    d = old - cur
+    if d == 0:
+        return "-"
+    return f"{'▲' if d > 0 else '▼'}{abs(d):,}"
+
+
+def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
+    """국가별 → 브랜드별 → 제품, 그리고 하단에 브랜드 총합 점수."""
+    codes = [m["code"] for m in markets if m.get("enabled", True)]
+    head = f"💄 아마존 K뷰티 · {today[5:]}"
     if prev_date:
-        out.append(f"(전일 비교: {prev_date})")
-    out.append("")
-    for m in markets:
-        code = m["code"]
-        if not m.get("enabled", True):
-            continue
+        head += f" (vs {prev_date[5:]})"
+    out = [head,
+           "수집: 6개국 Beauty 베스트셀러 → K뷰티 35개 브랜드 대조 → "
+           f"잡힌 ASIN {len(rows)}개의 BSR 측정", ""]
+
+    prev_rows = list(prev.values())
+
+    # ---------------- 국가별 ----------------
+    for code in codes:
         mine = [r for r in rows if r["market"] == code]
         if not mine:
             out += [f"{FLAGS.get(code, '')} {code} — 없음", ""]
             continue
-        out.append(f"{FLAGS.get(code, '')} {code}")
+        pm = [p for p in prev_rows if p.get("market") == code]
+        sc, osc = bsr_score(mine), bsr_score(pm)
+        out.append(f"{FLAGS.get(code, '')} {code} · {len(mine)}개 · "
+                   f"점수 {sc:,.0f}{_delta(sc, osc)}")
+
         by_brand = {}
         for r in mine:
             by_brand.setdefault(r["brand"], []).append(r)
-        for brand in sorted(by_brand, key=lambda b: min(
-                (x.get("bsr_main") or 10**9) for x in by_brand[b])):
-            out.append(f"  ■ {brand} ({len(by_brand[brand])}개)")
-            for r in sorted(by_brand[brand], key=lambda x: x.get("bsr_main") or 10**9):
-                p = prev.get((code, r["asin"]))
-                old = _i(p.get("bsr_main")) if p else None
-                cur = r.get("bsr_main")
-                arrow = ""
-                if old and cur:
-                    d = old - cur
-                    arrow = f" ({'▲' if d > 0 else '▼' if d < 0 else '-'}{abs(d) or ''})"
-                lr = f"리스트 #{r['list_rank']} · " if r.get("list_rank") else ""
-                out.append(f"   {r['title'][:50]}")
-                out.append(f"      {lr}BSR #{fmt_int(cur)}{arrow}"
-                           + (f" · {r['bsr_sub_cat']} #{fmt_int(r['bsr_sub'])}"
-                              if r.get("bsr_sub_cat") else "")
-                           + f" · {fmt_price(r.get('price'), r.get('currency'))}"
-                           + (f" · ★{r['rating']}({fmt_int(r.get('reviews'))})"
-                              if r.get("rating") else ""))
+        for brand in sorted(by_brand, key=lambda b: -bsr_score(by_brand[b])):
+            items = sorted(by_brand[brand], key=lambda x: _i(x.get("bsr_main")) or 10**9)
+            bs = bsr_score(items)
+            obs = bsr_score([p for p in pm if p.get("brand") == brand])
+            out.append(f"■ {brand} {len(items)}개 · 점수 {bs:,.0f}{_delta(bs, obs)}")
+            for r in items:
+                cur = _i(r.get("bsr_main"))
+                old = _i((prev.get((code, r["asin"])) or {}).get("bsr_main"))
+                mark = _rank_delta(cur, old)
+                # 브랜드명은 바로 위 헤더에 있으니 제목에서 떼고 제품명에 자리를 준다
+                name = re.sub(rf"^{re.escape(brand)}[\s\-|,]*", "", r["title"],
+                              flags=re.I).strip() or r["title"]
+                # 가격은 메시지에 안 넣는다. history.csv 에는 계속 쌓이므로
+                # 나중에 BSR→판매량 환산으로 매출을 역산할 때 쓴다.
+                sub = ""
+                sr = _i(r.get("bsr_sub"))
+                if r.get("bsr_sub_cat") and sr and sr <= 10:
+                    sub = f"  [{r['bsr_sub_cat'][:26]} {sr}]"
+                out.append(f"  {fmt_int(cur):>6} {mark:<6}{name[:46]:<46}{sub}")
         out.append("")
+
+    # ---------------- 브랜드 총합 ----------------
+    out.append("━━━ 브랜드 총합 (6개국) ━━━")
+    brands = {}
+    for r in rows:
+        brands.setdefault(r["brand"], []).append(r)
+    ranked = sorted(brands.items(), key=lambda kv: -bsr_score(kv[1]))
+    for brand, items in ranked:
+        sc = bsr_score(items)
+        osc = bsr_score([p for p in prev_rows if p.get("brand") == brand])
+        best = min((_i(x.get("bsr_main")) or 10**9) for x in items)
+        n_mk = len({x["market"] for x in items})
+        out.append(f"{brand:<17}{sc:>7,.0f}{_delta(sc, osc):<9}"
+                   f"{len(items):>3}개  최고 {best:<5} {n_mk}개국")
+    out += ["", "점수 = Σ(1000÷BSR) — BSR은 순위라 단순합산이 무의미해서",
+            "1위=1000 / 10위=100 / 100위=10점으로 환산해 더한 값입니다.",
+            "절대 판매량이 아니라 추이 비교용 지수입니다."]
+
     if failed:
         out.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))
     return "\n".join(out).rstrip()
 
 
 def build_report(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
-    fn = build_full if (rcfg or {}).get("mode") == "full" else build_compact
-    return fn(today, rows, prev, prev_date, markets, failed, rcfg or {})
+    rcfg = rcfg or {}
+    fn = build_compact if rcfg.get("mode") == "compact" else build_detail
+    return fn(today, rows, prev, prev_date, markets, failed, rcfg)
 
 
 # ------------------------------------------------------------------ 부가 기능
@@ -331,7 +389,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-telegram", action="store_true", help="텔레그램 발송 생략")
     ap.add_argument("--markets", help="쉼표로 구분한 마켓 코드만 수집 (예: US,UK)")
-    ap.add_argument("--full", action="store_true", help="압축 대신 제품별 상세 리포트")
+    ap.add_argument("--compact", action="store_true", help="상세 대신 매트릭스 요약")
     ap.add_argument("--budget", type=int, help="마켓당 상세조회 상한 (기본 config)")
     args = ap.parse_args()
 
@@ -348,8 +406,8 @@ def main() -> int:
     if args.budget:
         cfg.setdefault("tracking", {})["max_detail_per_run"] = args.budget
     rcfg = dict(cfg.get("report") or {})
-    if args.full:
-        rcfg["mode"] = "full"
+    if args.compact:
+        rcfg["mode"] = "compact"
 
     # scrape_all 이 브랜드 매칭까지 끝낸 행을 돌려준다 (고정 추적 ASIN 기준)
     rows, failed = scrape_all(cfg, cfg["brands"])

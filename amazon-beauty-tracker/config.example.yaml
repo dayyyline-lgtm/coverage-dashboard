@@ -53,48 +53,42 @@ markets:
     lang: "en-US,en;q=0.9"
     enabled: true
     categories:
-      - {label: Beauty,   node: beauty,          top_n: 100}
-      - {label: SkinCare, node: beauty/11060451, top_n: 100}
+      - {label: Beauty, node: beauty, top_n: 100}
   - code: UK
     domain: www.amazon.co.uk
     currency: GBP
     lang: "en-GB,en;q=0.9"
     enabled: true
     categories:
-      - {label: Beauty,   node: beauty,           top_n: 50}
-      - {label: SkinCare, node: beauty/118464031, top_n: 50}
+      - {label: Beauty, node: beauty, top_n: 50}
   - code: DE
     domain: www.amazon.de
     currency: EUR
     lang: "de-DE,de;q=0.9"
     enabled: true
     categories:
-      - {label: Beauty,   node: beauty,           top_n: 50}
-      - {label: SkinCare, node: beauty/122878031, top_n: 50}
+      - {label: Beauty, node: beauty, top_n: 50}
   - code: FR
     domain: www.amazon.fr
     currency: EUR
     lang: "fr-FR,fr;q=0.9"
     enabled: true
     categories:
-      - {label: Beauty,   node: beauty,           top_n: 50}
-      - {label: SkinCare, node: beauty/211020031, top_n: 50}
+      - {label: Beauty, node: beauty, top_n: 50}
   - code: IT
     domain: www.amazon.it
     currency: EUR
     lang: "it-IT,it;q=0.9"
     enabled: true
     categories:
-      - {label: Beauty,   node: beauty,            top_n: 50}
-      - {label: SkinCare, node: beauty/6306897031, top_n: 50}
+      - {label: Beauty, node: beauty, top_n: 50}
   - code: ES
     domain: www.amazon.es
     currency: EUR
     lang: "es-ES,es;q=0.9"
     enabled: true
     categories:
-      - {label: Beauty,   node: beauty,            top_n: 50}
-      - {label: SkinCare, node: beauty/6397934031, top_n: 50}
+      - {label: Beauty, node: beauty, top_n: 50}
 
 # --- 실질 추적의 핵심 ---
 # 한 번이라도 관심 브랜드로 잡힌 ASIN은 data/tracked_asins.json 에 고정된다.
@@ -111,8 +105,8 @@ page_delay: [2.0, 4.0]      # 리스트 페이지 사이 대기 (초, 랜덤)
 impersonate: chrome         # curl_cffi TLS 지문. 막히면 chrome131 등으로 고정
 
 report:
-  mode: compact             # compact = 브랜드x국가 매트릭스 + 변동만 (한 화면)
-                            # full    = 제품별 전부 나열 (길다)
+  mode: detail              # detail  = 국가별 제품 전부 + 하단 브랜드 총합 (기본)
+                            # compact = 브랜드x국가 매트릭스만 (짧지만 정보가 적다)
   move_threshold: 20        # BSR이 이 % 이상 움직이면 변동 항목으로 표시
   max_moves: 6              # 상승·하락 각각 최대 몇 줄까지 보여줄지
 
