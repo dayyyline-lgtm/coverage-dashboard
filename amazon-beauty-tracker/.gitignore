@@ -1,0 +1,7 @@
+config.yaml
+.venv/
+__pycache__/
+data/debug_*.html
+data/*.log
+data/history_v1_backup.csv
+secrets_local.py

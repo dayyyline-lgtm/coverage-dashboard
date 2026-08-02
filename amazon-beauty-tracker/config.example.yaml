@@ -1,0 +1,93 @@
+# ===== 아마존 뷰티 베스트셀러 트래커 설정 =====
+# 이 파일을 config.yaml로 복사해서 쓰세요 (config.yaml은 토큰 때문에 gitignore 대상).
+
+# 추적할 브랜드 (제품 타이틀에 이 문자열이 포함되면 매칭, 대소문자 무시)
+brands:
+  - COSRX
+  - Anua
+  - "Beauty of Joseon"
+  - medicube
+  - SKIN1004
+  # 경쟁 벤치마크로 넣어볼 만한 것들 (필요하면 주석 해제)
+  # - TIRTIR
+  # - Laneige
+  # - Torriden
+  # - "Round Lab"
+  # - Mixsoon
+  # - Goodal
+  # - Innisfree
+
+# 수집할 마켓. category는 /gp/bestsellers/ 뒤에 붙는 경로다.
+#   전체 뷰티      : "beauty"
+#   하위 카테고리   : "beauty/11060451" 처럼 노드ID를 붙인다
+#   ※ 노드ID는 마켓마다 다르다. 해당 국가 사이트에서 원하는 카테고리 베스트셀러 페이지를
+#     연 뒤 주소창의 /zgbs/ 또는 /gp/bestsellers/ 뒷부분을 그대로 복사해 넣으면 된다.
+markets:
+  - code: US
+    domain: www.amazon.com
+    category: beauty
+    currency: USD
+    lang: "en-US,en;q=0.9"
+    top_n: 100          # 100 = 2페이지, 50 = 1페이지
+    enabled: true
+  - code: UK
+    domain: www.amazon.co.uk
+    category: beauty
+    currency: GBP
+    lang: "en-GB,en;q=0.9"
+    top_n: 50
+    enabled: true
+  - code: DE
+    domain: www.amazon.de
+    category: beauty
+    currency: EUR
+    lang: "de-DE,de;q=0.9"
+    top_n: 50
+    enabled: true
+  - code: FR
+    domain: www.amazon.fr
+    category: beauty
+    currency: EUR
+    lang: "fr-FR,fr;q=0.9"
+    top_n: 50
+    enabled: true
+  - code: IT
+    domain: www.amazon.it
+    category: beauty
+    currency: EUR
+    lang: "it-IT,it;q=0.9"
+    top_n: 50
+    enabled: true
+  - code: ES
+    domain: www.amazon.es
+    category: beauty
+    currency: EUR
+    lang: "es-ES,es;q=0.9"
+    top_n: 50
+    enabled: true
+
+# 아마존은 페이지당 30개만 서버 렌더하고 31~50위는 지연 로딩한다.
+# 빠진 구간은 /dp/{ASIN} 개별 조회로 메운다.
+detail:
+  mode: tracked         # tracked = 처음 보는 ASIN + 추적 브랜드만 (권장)
+                        # all     = 빠진 구간 전부 (요청 수 급증)
+                        # off     = 보강 안 함 (1~30위만 상세 확보)
+  tracked_all_ranks: false   # true면 추적 브랜드는 1~30위도 상세 조회해서
+                             # 하위 카테고리 BSR을 받아온다 (요청 수 증가)
+  max_per_run: 60       # 1회 실행당 상세 조회 상한. 초과분은 다음 실행에서 이어짐
+  delay: [1.5, 3.0]     # 상세 조회 사이 대기 (초, 랜덤)
+
+page_delay: [2.0, 4.0]  # 리스트 페이지 사이 대기 (초, 랜덤)
+impersonate: chrome     # curl_cffi TLS 지문. 크롬 업데이트 후 막히면 chrome131 등으로 고정
+
+telegram:
+  enabled: true
+  bot_token: "여기에_봇_토큰"
+  chat_id: "여기에_chat_id"      # 모르면 README의 chat_id 확인법 참고
+
+# 데이터 저장 폴더 (히스토리 CSV, ASIN 캐시, 디버그 파일)
+data_dir: "data"
+
+# 수집 후 history.csv를 GitHub에 자동 커밋·push (저장소가 git 세팅되어 있어야 함)
+git:
+  enabled: true
