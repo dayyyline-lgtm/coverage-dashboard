@@ -1,93 +1,128 @@
-# ===== 아마존 뷰티 베스트셀러 트래커 설정 =====
-# 이 파일을 config.yaml로 복사해서 쓰세요 (config.yaml은 토큰 때문에 gitignore 대상).
+# ===== 아마존 K뷰티 베스트셀러 트래커 설정 =====
+# 이 파일을 config.yaml로 복사해서 쓰세요 (config.yaml은 gitignore 대상).
 
-# 추적할 브랜드 (제품 타이틀에 이 문자열이 포함되면 매칭, 대소문자 무시)
+# 추적 브랜드. 제목에 이 문자열이 **단어 단위로** 들어가면 매칭된다
+# (부분일치가 아니라 단어경계 매칭이라 'Anua'가 'manual'에 안 걸린다).
+#
+# 2026-08-02 전수조사 기준 실제 진입 = ★. 나머지는 진입하면 🆕로 알려주는 대기군이고
+# 목록에 둬도 비용이 0이다(제목 매칭은 공짜). 지우지 말 것.
 brands:
-  - COSRX
-  - Anua
-  - "Beauty of Joseon"
-  - medicube
-  - SKIN1004
-  # 경쟁 벤치마크로 넣어볼 만한 것들 (필요하면 주석 해제)
-  # - TIRTIR
-  # - Laneige
-  # - Torriden
-  # - "Round Lab"
-  # - Mixsoon
-  # - Goodal
-  # - Innisfree
+  # --- 진입 확인 (조사일 기준) ---
+  - medicube            # ★ 에이피알 278470 — 6개국 전부, 최고 1위
+  - BIODANCE            # ★ 바이오던스(비상장) — 6개국 전부, FR 1위
+  - d'Alba              # ★ 달바글로벌 — US/DE/ES
+  - Beauty of Joseon    # ★ 구다이글로벌 — UK/DE
+  - Anua                # ★ 더파운더즈(IPO 준비) — US/DE
+  - Melaxin             # ★ 닥터멜락신(비상장) — US/DE
+  - Purito              # ★ 퓨리토 — DE
+  - Coreana             # ★ 코리아나 027050 — IT
+  - COSRX               # ★ 아모레퍼시픽 090430 — US 1개뿐(인수 후 부진 시그널)
+  # --- 대기군: 진입하면 알림 ---
+  - LANEIGE             # 아모레퍼시픽 090430
+  - innisfree           # 아모레퍼시픽 090430
+  - TIRTIR              # 구다이글로벌
+  - SKIN1004            # 구다이글로벌
+  - LAKA                # 구다이글로벌
+  - Round Lab           # 라운드랩
+  - Torriden            # 토리든
+  - numbuzin            # 넘버즈인
+  - Abib                # 아비브
+  - Cellimax            # 셀리맥스
+  - Manyo               # 마녀공장 439090
+  - CLIO                # 클리오 237880
+  - goodal              # 클리오 237880
+  - MISSHA              # 에이블씨엔씨 078520
+  - VT Cosmetics        # 브이티 018290
+  - Reedle              # 브이티 018290 (리들샷)
+  - Mediheal            # 엘앤피코스메틱
+  - Mixsoon             # 믹순
+  - TOCOBO              # 토코보
+  - Isntree             # 이즈앤트리
+  - SOME BY MI          # 썸바이미
+  - rom&nd              # 아이패밀리에스씨 114840
+  - AXIS-Y              # 액시스와이
+  - Real Barrier        # 네오팜 092730
+  - belif               # LG생활건강 051900
+  - Dr.Jart             # 닥터자르트(에스티로더)
 
-# 수집할 마켓. category는 /gp/bestsellers/ 뒤에 붙는 경로다.
-#   전체 뷰티      : "beauty"
-#   하위 카테고리   : "beauty/11060451" 처럼 노드ID를 붙인다
-#   ※ 노드ID는 마켓마다 다르다. 해당 국가 사이트에서 원하는 카테고리 베스트셀러 페이지를
-#     연 뒤 주소창의 /zgbs/ 또는 /gp/bestsellers/ 뒷부분을 그대로 복사해 넣으면 된다.
+# 수집 마켓. node 는 /gp/bestsellers/ 뒤에 붙는 경로 (마켓마다 노드ID가 다르다).
 markets:
   - code: US
     domain: www.amazon.com
-    category: beauty
     currency: USD
     lang: "en-US,en;q=0.9"
-    top_n: 100          # 100 = 2페이지, 50 = 1페이지
     enabled: true
+    categories:
+      - {label: Beauty,   node: beauty,          top_n: 100}
+      - {label: SkinCare, node: beauty/11060451, top_n: 100}
   - code: UK
     domain: www.amazon.co.uk
-    category: beauty
     currency: GBP
     lang: "en-GB,en;q=0.9"
-    top_n: 50
     enabled: true
+    categories:
+      - {label: Beauty,   node: beauty,           top_n: 50}
+      - {label: SkinCare, node: beauty/118464031, top_n: 50}
   - code: DE
     domain: www.amazon.de
-    category: beauty
     currency: EUR
     lang: "de-DE,de;q=0.9"
-    top_n: 50
     enabled: true
+    categories:
+      - {label: Beauty,   node: beauty,           top_n: 50}
+      - {label: SkinCare, node: beauty/122878031, top_n: 50}
   - code: FR
     domain: www.amazon.fr
-    category: beauty
     currency: EUR
     lang: "fr-FR,fr;q=0.9"
-    top_n: 50
     enabled: true
+    categories:
+      - {label: Beauty,   node: beauty,           top_n: 50}
+      - {label: SkinCare, node: beauty/211020031, top_n: 50}
   - code: IT
     domain: www.amazon.it
-    category: beauty
     currency: EUR
     lang: "it-IT,it;q=0.9"
-    top_n: 50
     enabled: true
+    categories:
+      - {label: Beauty,   node: beauty,            top_n: 50}
+      - {label: SkinCare, node: beauty/6306897031, top_n: 50}
   - code: ES
     domain: www.amazon.es
-    category: beauty
     currency: EUR
     lang: "es-ES,es;q=0.9"
-    top_n: 50
     enabled: true
+    categories:
+      - {label: Beauty,   node: beauty,            top_n: 50}
+      - {label: SkinCare, node: beauty/6397934031, top_n: 50}
 
-# 아마존은 페이지당 30개만 서버 렌더하고 31~50위는 지연 로딩한다.
-# 빠진 구간은 /dp/{ASIN} 개별 조회로 메운다.
+# --- 실질 추적의 핵심 ---
+# 한 번이라도 관심 브랜드로 잡힌 ASIN은 data/tracked_asins.json 에 고정된다.
+# 그 뒤로는 베스트셀러 100위 밖으로 밀려나도 매일 BSR(판매순위)을 재므로 추이가
+# 안 끊긴다. 리스트 스크래핑만 하면 순위권 이탈 = 데이터 소실이다.
+tracking:
+  max_detail_per_run: 160   # 마켓당 1회 실행 상세조회 상한 (초과분은 다음 실행에서)
+  retire_after_days: 30     # 이 기간 내내 BSR도 안 잡히면 추적 해제 (단종 대응)
+
 detail:
-  mode: tracked         # tracked = 처음 보는 ASIN + 추적 브랜드만 (권장)
-                        # all     = 빠진 구간 전부 (요청 수 급증)
-                        # off     = 보강 안 함 (1~30위만 상세 확보)
-  tracked_all_ranks: false   # true면 추적 브랜드는 1~30위도 상세 조회해서
-                             # 하위 카테고리 BSR을 받아온다 (요청 수 증가)
-  max_per_run: 60       # 1회 실행당 상세 조회 상한. 초과분은 다음 실행에서 이어짐
-  delay: [1.5, 3.0]     # 상세 조회 사이 대기 (초, 랜덤)
+  delay: [1.5, 3.0]         # 상세 조회 사이 대기 (초, 랜덤)
 
-page_delay: [2.0, 4.0]  # 리스트 페이지 사이 대기 (초, 랜덤)
-impersonate: chrome     # curl_cffi TLS 지문. 크롬 업데이트 후 막히면 chrome131 등으로 고정
+page_delay: [2.0, 4.0]      # 리스트 페이지 사이 대기 (초, 랜덤)
+impersonate: chrome         # curl_cffi TLS 지문. 막히면 chrome131 등으로 고정
+
+report:
+  mode: compact             # compact = 브랜드x국가 매트릭스 + 변동만 (한 화면)
+                            # full    = 제품별 전부 나열 (길다)
+  move_threshold: 20        # BSR이 이 % 이상 움직이면 변동 항목으로 표시
+  max_moves: 6              # 상승·하락 각각 최대 몇 줄까지 보여줄지
 
 telegram:
   enabled: true
-  bot_token: "여기에_봇_토큰"
-  chat_id: "여기에_chat_id"      # 모르면 README의 chat_id 확인법 참고
+  # 토큰은 여기가 아니라 secrets_local.py 에 넣으세요 (이 파일은 커밋 대상입니다).
+  bot_token: ""
+  chat_id: ""
 
-# 데이터 저장 폴더 (히스토리 CSV, ASIN 캐시, 디버그 파일)
 data_dir: "data"
 
-# 수집 후 history.csv를 GitHub에 자동 커밋·push (저장소가 git 세팅되어 있어야 함)
 git:
   enabled: true

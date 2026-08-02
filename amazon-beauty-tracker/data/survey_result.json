@@ -1,0 +1,1312 @@
+{
+ "found": {
+  "medicube": [
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 1,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Toner Pads Zero Pore Pad 2.0 | Dual-Textured Facial Pad for E"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 15,
+    "asin": "B0DBF65JYY",
+    "title": "medicube PDRN Pink Peptide Serum with Salmon DNA | Pink Glow Serum wit"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 23,
+    "asin": "B0DYTQ5GYQ",
+    "title": "medicube Facial Cleanser Zero Pore Capsule Cleansing Foam | Daily Gent"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 31,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Wrapping Mask Collagen Overnight Peel Off Facial Mask | Elast"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 32,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Capsule Cream with Deep Vitamin C | Liposome Vitamin C Golden"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 46,
+    "asin": "B0DGTMR754",
+    "title": "medicube Jelly Gel Mask with Salmon DNA PDRN Pink Collagen | Overnight"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 48,
+    "asin": "B0GHMZXX8Y",
+    "title": "medicube PDRN Pink Collagen Volume Multi Balm Stick - Face & Body Balm"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 66,
+    "asin": "B0CM2PPNMW",
+    "title": "medicube Jelly Cream with Collagen & Niacinamide, 3.71 fl.oz | Freeze-"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 77,
+    "asin": "B0GCC2JV65",
+    "title": "medicube NAD EGF Firming Serum for Face & Neck | Anti-Aging Serum with"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 94,
+    "asin": "B0G38FGSKL",
+    "title": "medicube Eye Patch PDRN Caffeine Collagen | Gel Eye Patches for the ap"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 1,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Toner Pads Zero Pore Pad 2.0 | Dual-Textured Facial Pad for E"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 12,
+    "asin": "B0DBF65JYY",
+    "title": "medicube PDRN Pink Peptide Serum with Salmon DNA | Pink Glow Serum wit"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 16,
+    "asin": "B0DYTQ5GYQ",
+    "title": "medicube Facial Cleanser Zero Pore Capsule Cleansing Foam | Daily Gent"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 23,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Wrapping Mask Collagen Overnight Peel Off Facial Mask | Elast"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 24,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Capsule Cream with Deep Vitamin C | Liposome Vitamin C Golden"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 32,
+    "asin": "B0DGTMR754",
+    "title": "medicube Jelly Gel Mask with Salmon DNA PDRN Pink Collagen | Overnight"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 34,
+    "asin": "B0GHMZXX8Y",
+    "title": "medicube PDRN Pink Collagen Volume Multi Balm Stick - Face & Body Balm"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 60,
+    "asin": "B0G38FGSKL",
+    "title": "medicube Eye Patch PDRN Caffeine Collagen | Gel Eye Patches for the ap"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 63,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Eye Serum with Salmon DNA PDRN & Pink Peptides | 99% Purity R"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 73,
+    "asin": "B0BPXT3GBN",
+    "title": "medicube Triple Collagen Cream - Hydrating & Firming Moisturizer with "
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 43,
+    "asin": "B0CM2PPNMW",
+    "title": "medicube Jelly Cream with Collagen & Niacinamide, 3.71 fl.oz | Freeze-"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 50,
+    "asin": "B0GCC2JV65",
+    "title": "medicube NAD EGF Firming Serum for Face & Neck | Anti-Aging Serum with"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 91,
+    "asin": "B0GVQ6NYR3",
+    "title": "medicube PDRN Collagen Gua Sha Neck Wrinkle Cream - Firming, Contour C"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 1,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pads 2.0, Dual-Textured Facial Toner Pads for Exfol"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 3,
+    "asin": "B0DGTMR754",
+    "title": "medicube Salmon DNA PDRN pink collagen jelly gel mask | overnight face"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 4,
+    "asin": "B0DGPSZVW3",
+    "title": "medicube Collagen Jelly Cream- Niacinamide & Freeze-Dried Hydrolyzed C"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 5,
+    "asin": "B0GHMZXX8Y",
+    "title": "medicube PDRN Pink Collagen Volume Multi Balm Stick | Volufiline, PDRN"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 6,
+    "asin": "B0DBF65JYY",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Serum, Pink glow serum, Peptide,"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 12,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Eye Cream with Salmon DNA PDRN & Pink Peptides | 99% Purity R"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 24,
+    "asin": "B0D1G7XF9X",
+    "title": "medicube Zero Pore Blackhead Mud Facial Mask - Skin Cooling & Pore Tig"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 33,
+    "asin": "B0GCC2JV65",
+    "title": "medicube NAD EGF Firming Serum for Face & Neck | Anti-Aging Serum with"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 39,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Deep Vitamin C Golden Capsule Face Moisturiser - Liposome Cap"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 1,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pads 2.0, Dual-Textured Facial Toner Pads for Exfol"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 2,
+    "asin": "B0DGTMR754",
+    "title": "medicube Salmon DNA PDRN pink collagen jelly gel mask | overnight face"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 3,
+    "asin": "B0DGPSZVW3",
+    "title": "medicube Collagen Jelly Cream- Niacinamide & Freeze-Dried Hydrolyzed C"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 4,
+    "asin": "B0GHMZXX8Y",
+    "title": "medicube PDRN Pink Collagen Volume Multi Balm Stick | Volufiline, PDRN"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 5,
+    "asin": "B0DBF65JYY",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Serum, Pink glow serum, Peptide,"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 9,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Eye Cream with Salmon DNA PDRN & Pink Peptides | 99% Purity R"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 14,
+    "asin": "B0D1G7XF9X",
+    "title": "medicube Zero Pore Blackhead Mud Facial Mask - Skin Cooling & Pore Tig"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 19,
+    "asin": "B0GCC2JV65",
+    "title": "medicube NAD EGF Firming Serum for Face & Neck | Anti-Aging Serum with"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 23,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Deep Vitamin C Golden Capsule Face Moisturiser - Liposome Cap"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 35,
+    "asin": "B0BPXT3GBN",
+    "title": "medicube Triple Collagen Cream Hydrating & Firming Moisturiser With Hy"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 44,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Wrapping Mask Collagen Overnight Peel Off Facial Mask | Elast"
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 2,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pad 2.0 | Doppelseitige Toner-Pads mit 4,5% AHA & 0"
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 7,
+    "asin": "B0DBF65JYY",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Serum. Pink glow serum. Peptide."
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 22,
+    "asin": "B0DTKCN3Z4",
+    "title": "Medicube Salmon DNA PDRN Pink Kollagen-Kapselcreme – Leichte feuchtigk"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 1,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pad 2.0 | Doppelseitige Toner-Pads mit 4,5% AHA & 0"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 4,
+    "asin": "B0DBF65JYY",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Serum. Pink glow serum. Peptide."
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 13,
+    "asin": "B0DTKCN3Z4",
+    "title": "Medicube Salmon DNA PDRN Pink Kollagen-Kapselcreme – Leichte feuchtigk"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 25,
+    "asin": "B0DGPSZVW3",
+    "title": "medicube Kollagen Gelee Creme. Niacinamid und gefriergetrocknetes. hyd"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 30,
+    "asin": "B0BRMYHMS5",
+    "title": "Medicube Collagen Night Wrapping Cream | Overnight Sleeping Mask to pr"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 31,
+    "asin": "B0DGTMR754",
+    "title": "medicube Salmon Dna Pdrn Pink Collagen Jelly Gel Mask Overnight Face M"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 33,
+    "asin": "B0DWMSM6Y9",
+    "title": "Medicube Salmon DNA PDRN Pink Peptid-Augenserum mit Niacinamid und 99%"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 45,
+    "asin": "B0D1G7XF9X",
+    "title": "medicube Zero Pore Blackhead Mud Gesichtsmaske. hautkühlend und porens"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 4,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pads 2.0, Tonifiants Pour Le Visage À Double Textur"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 15,
+    "asin": "B0CM2PPNMW",
+    "title": "medicube - Crème Gelée Repulpante au Collagène - Niacinamide & Collagè"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 17,
+    "asin": "B0FPCC599C",
+    "title": "medicube Body Peel Shot à l’Acide hypochloreux | Exfoliant corps doux "
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 25,
+    "asin": "B0DBF65JYY",
+    "title": "medicube Sérum Con Péptido Rosa Salmon Dna Pdrn, Sérum Pink Glow, Pépt"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 28,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Hidratante Facial Deep Vitamin C Golden Capsule, Cápsulas Lip"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 30,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Masque de Nuit Wrapping au Collagène Peel-Off | Soin Élastici"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 46,
+    "asin": "B0DWMSM6Y9",
+    "title": "Medicube Salmon DNA PDRN Pink Peptide Eye Serum 1.01 fl.oz – Sérum yeu"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 4,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pads 2.0, Tonifiants Pour Le Visage À Double Textur"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 9,
+    "asin": "B0CM2PPNMW",
+    "title": "medicube - Crème Gelée Repulpante au Collagène - Niacinamide & Collagè"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 10,
+    "asin": "B0FPCC599C",
+    "title": "medicube Body Peel Shot à l’Acide hypochloreux | Exfoliant corps doux "
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 15,
+    "asin": "B0DBF65JYY",
+    "title": "medicube Sérum Con Péptido Rosa Salmon Dna Pdrn, Sérum Pink Glow, Pépt"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 17,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Hidratante Facial Deep Vitamin C Golden Capsule, Cápsulas Lip"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 19,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Masque de Nuit Wrapping au Collagène Peel-Off | Soin Élastici"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 21,
+    "asin": "B0DWMSM6Y9",
+    "title": "Medicube Salmon DNA PDRN Pink Peptide Eye Serum 1.01 fl.oz – Sérum yeu"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 26,
+    "asin": "B0DGTMR754",
+    "title": "medicube Masque en Gel au Collagène Rose et PDRN d'ADN de Saumon - Pou"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 29,
+    "asin": "B0D1G7XF9X",
+    "title": "medicube Mascarilla Facial Zero Pore Blackhead Mud Que Enfría Y Reafir"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 47,
+    "asin": "B0FD3HXCWZ",
+    "title": "medicube Tonique Lissant Visage & Corps à l’Acide kojique Curcuma | To"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 1,
+    "asin": "B0DBF65JYY",
+    "title": "medicube PDRN Pink Peptide Serum - Siero PDRN Viso con Peptidi e Niaci"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 2,
+    "asin": "B0CM2PPNMW",
+    "title": "MEDICUBE Collagen Jelly Cream (110 ml)"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 4,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pads 2.0 Tamponi Tonici Per Il Viso A Doppia Textur"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 5,
+    "asin": "B0D2Z3GGCY",
+    "title": "MEDICUBE Deep Vita C Capsule Cream (55 g)"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 9,
+    "asin": "B0D1G7XF9X",
+    "title": "Medicube Zero Pore Blackhead Mud Mask"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 13,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Eye Serum 1,01 fl.oz – Siero occ"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 14,
+    "asin": "B0DGTMR754",
+    "title": "medicube Pdrn Pink Collagen Gel Mask - Maschera Hydrogel per Glass Ski"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 16,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Collagen Night Wrapping Mask - Maschera Collagene Viso Nottur"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 39,
+    "asin": "B0GCC2JV65",
+    "title": "medicube EGF NAD Firming Serum"
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 48,
+    "asin": "B0BPXT3GBN",
+    "title": "medicube Triple Collagen Cream - Crema Viso Collagene contro i segni d"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 1,
+    "asin": "B0DBF65JYY",
+    "title": "medicube PDRN Pink Peptide Serum - Siero PDRN Viso con Peptidi e Niaci"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 2,
+    "asin": "B0CM2PPNMW",
+    "title": "MEDICUBE Collagen Jelly Cream (110 ml)"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 3,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pads 2.0 Tamponi Tonici Per Il Viso A Doppia Textur"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 4,
+    "asin": "B0D2Z3GGCY",
+    "title": "MEDICUBE Deep Vita C Capsule Cream (55 g)"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 6,
+    "asin": "B0D1G7XF9X",
+    "title": "Medicube Zero Pore Blackhead Mud Mask"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 8,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Eye Serum 1,01 fl.oz – Siero occ"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 9,
+    "asin": "B0DGTMR754",
+    "title": "medicube Pdrn Pink Collagen Gel Mask - Maschera Hydrogel per Glass Ski"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 11,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Collagen Night Wrapping Mask - Maschera Collagene Viso Nottur"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 20,
+    "asin": "B0GCC2JV65",
+    "title": "medicube EGF NAD Firming Serum"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 24,
+    "asin": "B0BPXT3GBN",
+    "title": "medicube Triple Collagen Cream - Crema Viso Collagene contro i segni d"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 41,
+    "asin": "B0DK3111J9",
+    "title": "medicube Toner Lenitivo Salmon Dna Pdrn Pink Cica Pink Glow Toner Per "
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 1,
+    "asin": "B0DBF65JYY",
+    "title": "medicube PDRN Pink Peptide Serum – Sérum Facial con PDRN de ADN de Sal"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 3,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Hidratante Facial Deep Vitamin C Golden Capsule, Cápsulas Lip"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 4,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pad 2.0 - Almohadillas Faciales de Doble Textura co"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 7,
+    "asin": "B0CM2PPNMW",
+    "title": "Medicube Crema de jalea de colágeno - niacinamida y colágeno hidroliza"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 11,
+    "asin": "B0DGTMR754",
+    "title": "medicube Mascarilla De Gel De Gelatina De Colágeno Rosa Salmon Dna Pdr"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 12,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Eye Serum con niacinamida y reti"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 14,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Collagen Night Wrapping Mask - Mascarilla Facial de Noche con"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 48,
+    "asin": "B0D1G7XF9X",
+    "title": "medicube Mascarilla Facial Zero Pore Blackhead Mud Que Enfría Y Reafir"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 1,
+    "asin": "B0DBF65JYY",
+    "title": "medicube PDRN Pink Peptide Serum – Sérum Facial con PDRN de ADN de Sal"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 3,
+    "asin": "B0D2Z3GGCY",
+    "title": "medicube Hidratante Facial Deep Vitamin C Golden Capsule, Cápsulas Lip"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 4,
+    "asin": "B09V7Z4TJG",
+    "title": "medicube Zero Pore Pad 2.0 - Almohadillas Faciales de Doble Textura co"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 6,
+    "asin": "B0CM2PPNMW",
+    "title": "Medicube Crema de jalea de colágeno - niacinamida y colágeno hidroliza"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 10,
+    "asin": "B0DGTMR754",
+    "title": "medicube Mascarilla De Gel De Gelatina De Colágeno Rosa Salmon Dna Pdr"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 11,
+    "asin": "B0DWMSM6Y9",
+    "title": "medicube Salmon DNA PDRN Pink Peptide Eye Serum con niacinamida y reti"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 12,
+    "asin": "B0BRMYHMS5",
+    "title": "medicube Collagen Night Wrapping Mask - Mascarilla Facial de Noche con"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 29,
+    "asin": "B0D1G7XF9X",
+    "title": "medicube Mascarilla Facial Zero Pore Blackhead Mud Que Enfría Y Reafir"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 34,
+    "asin": "B0BPXT3GBN",
+    "title": "medicube Triple Collagen Cream, Crema Hidratante y Reafirmante para Ar"
+   }
+  ],
+  "BIODANCE": [
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 8,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Mask, Hydrating Overnight Hydrogel Fac"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 60,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Collagen Peptide Eye Patches, Anti Wrinkle & Smile Line Patch"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 6,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Mask, Hydrating Overnight Hydrogel Fac"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 40,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Collagen Peptide Eye Patches, Anti Wrinkle & Smile Line Patch"
+   },
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 14,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Face Mask 4 Pcs | Hydrogel Overnight M"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 10,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Face Mask 4 Pcs | Hydrogel Overnight M"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 31,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Collagen Peptide Under Eye Patches 60 Counts. Advanced Hydrog"
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 4,
+    "asin": "B0B2RM68G2",
+    "title": "Biodance Bio-Collagen Real Deep Mask 4er Pack - Gesichtsmasken, Maske "
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 2,
+    "asin": "B0B2RM68G2",
+    "title": "Biodance Bio-Collagen Real Deep Mask 4er Pack - Gesichtsmasken, Maske "
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 49,
+    "asin": "B0GD6R7CFJ",
+    "title": "Biodance Collagen Peptide Augenpads, Anti-Falten-Pads für Gesicht und "
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 1,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep, Masque Visage Hydrogel au Collagène, "
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 26,
+    "asin": "B0GF86QJK7",
+    "title": "BIODANCE Collagen Peptides Jelly Serum Mist, Brume de Sérum Visage Hyd"
+   },
+   {
+    "market": "FR",
+    "cat": "Beauty",
+    "rank": 50,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Collagen Peptide Under Eye Patches, Patchs Yeux Hydrogel aux "
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 1,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep, Masque Visage Hydrogel au Collagène, "
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 16,
+    "asin": "B0GF86QJK7",
+    "title": "BIODANCE Collagen Peptides Jelly Serum Mist, Brume de Sérum Visage Hyd"
+   },
+   {
+    "market": "FR",
+    "cat": "SkinCare",
+    "rank": 23,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Collagen Peptide Under Eye Patches, Patchs Yeux Hydrogel aux "
+   },
+   {
+    "market": "IT",
+    "cat": "Beauty",
+    "rank": 10,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Mask, Maschera Viso Notturna in Idroge"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 7,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Mask, Maschera Viso Notturna in Idroge"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 8,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Mask - Mascarilla Nocturna Hidratante,"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 31,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Parches de Ojos con Péptidos de Colágeno, Antiarrugas para Lí"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 7,
+    "asin": "B0B2RM68G2",
+    "title": "BIODANCE Bio-Collagen Real Deep Mask - Mascarilla Nocturna Hidratante,"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 23,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Parches de Ojos con Péptidos de Colágeno, Antiarrugas para Lí"
+   }
+  ],
+  "Anua": [
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 88,
+    "asin": "B0DG1DQ2S7",
+    "title": "Anua Azelaic Acid 10 Hyaluron Redness Soothing Serum, Facial Serum for"
+   },
+   {
+    "market": "US",
+    "cat": "Beauty",
+    "rank": 100,
+    "asin": "B0FVT77ZLL",
+    "title": "Anua PDRN Collagen Glow Facial Serum Spray, Hydrating Face Mist, Hyalu"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 56,
+    "asin": "B0DG1DQ2S7",
+    "title": "Anua Azelaic Acid 10 Hyaluron Redness Soothing Serum, Facial Serum for"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 62,
+    "asin": "B0FVT77ZLL",
+    "title": "Anua PDRN Collagen Glow Facial Serum Spray, Hydrating Face Mist, Hyalu"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 78,
+    "asin": "B0BVV8BNYJ",
+    "title": "Anua Heartleaf Quercetinol Pore Deep Cleansing Foam, Face wash for Por"
+   },
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 100,
+    "asin": "B0DWFLY18Y",
+    "title": "Anua PDRN Hyaluronic Acid 100 Moisturizing Cream, Lightweight, Non-Gre"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 44,
+    "asin": "B0DX122DHW",
+    "title": "Anua Azelaic Acid 10 Hyaluron Redness Soothing Serum, Gesichtsserum fü"
+   }
+  ],
+  "d'Alba": [
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 67,
+    "asin": "B0BFQ9RD5B",
+    "title": "d'alba Piedmont Italian White Truffle First Spray Serum (3.38 fl oz) |"
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 16,
+    "asin": "B0BFQ9RD5B",
+    "title": "d'alba Piedmont Italienischer Weißer Trüffel First Spray Serum (100ml)"
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 49,
+    "asin": "B09SZ5JX2Y",
+    "title": "d'alba Piedmont Weißer Trüffel Double Serum All-in-one Multi Balm | Ve"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 9,
+    "asin": "B0BFQ9RD5B",
+    "title": "d'alba Piedmont Italienischer Weißer Trüffel First Spray Serum (100ml)"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 21,
+    "asin": "B09SZ5JX2Y",
+    "title": "d'alba Piedmont Weißer Trüffel Double Serum All-in-one Multi Balm | Ve"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 5,
+    "asin": "B09SZ5JX2Y",
+    "title": "d'alba Piedmont Trufa Blanca Double Serum All-in-one Multi Balm | Cuid"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 9,
+    "asin": "B0BFQ9RD5B",
+    "title": "d'alba Piedmont Trufa Blanca Italiana First Spray Serum (100ml) | Cuid"
+   },
+   {
+    "market": "ES",
+    "cat": "Beauty",
+    "rank": 16,
+    "asin": "B09D7QJP1M",
+    "title": "d'alba Loción Solar Tonificante Waterfull SPF50+PA++++ de Trufa Blanca"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 5,
+    "asin": "B09SZ5JX2Y",
+    "title": "d'alba Piedmont Trufa Blanca Double Serum All-in-one Multi Balm | Cuid"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 8,
+    "asin": "B0BFQ9RD5B",
+    "title": "d'alba Piedmont Trufa Blanca Italiana First Spray Serum (100ml) | Cuid"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 14,
+    "asin": "B09D7QJP1M",
+    "title": "d'alba Loción Solar Tonificante Waterfull SPF50+PA++++ de Trufa Blanca"
+   },
+   {
+    "market": "ES",
+    "cat": "SkinCare",
+    "rank": 43,
+    "asin": "B09NN88V83",
+    "title": "d'alba Piedmont Trufa Blanca Italiana Doble Sérum y Crema (70g) | Crem"
+   }
+  ],
+  "Melaxin": [
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 68,
+    "asin": "B0CNCL35CH",
+    "title": "Dr.Melaxin Collagen Multi Balm Stick, Calcium & Adenosine Korean Wrink"
+   },
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 40,
+    "asin": "B0CNCL35CH",
+    "title": "Dr.Melaxin Collagen Multi Balm Stick, koreanischer Anti-Falten-Stick m"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 19,
+    "asin": "B0CNCL35CH",
+    "title": "Dr.Melaxin Collagen Multi Balm Stick, koreanischer Anti-Falten-Stick m"
+   }
+  ],
+  "COSRX": [
+   {
+    "market": "US",
+    "cat": "SkinCare",
+    "rank": 96,
+    "asin": "B00PBX3L7K",
+    "title": "COSRX Snail Mucin 96% Repairing Serum for Sooothing & Hydrating 3.38 o"
+   }
+  ],
+  "Beauty of Joseon": [
+   {
+    "market": "UK",
+    "cat": "Beauty",
+    "rank": 28,
+    "asin": "B09JVNZVH3",
+    "title": "Beauty of Joseon Relief Sun Rice SPF | Daily Korean Skincare and Hydra"
+   },
+   {
+    "market": "UK",
+    "cat": "SkinCare",
+    "rank": 17,
+    "asin": "B09JVNZVH3",
+    "title": "Beauty of Joseon Relief Sun Rice SPF | Daily Korean Skincare and Hydra"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 35,
+    "asin": "B0B5PJ41ZT",
+    "title": "Beauty of Joseon Relief Sun Set(2pack) (50ml, 1.69fl.oz)"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 46,
+    "asin": "B0B45LL4DD",
+    "title": "Beauty of Joseon Revive eye serum Ginseng + Retinal | Korean Skincare "
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 48,
+    "asin": "B0DFMGBZ9Z",
+    "title": "Beauty of Joseon Relief Sun Aqua-Fresh Rice + B5 | Korean Skincare Kei"
+   }
+  ],
+  "Purito": [
+   {
+    "market": "DE",
+    "cat": "Beauty",
+    "rank": 36,
+    "asin": "B0D4Y6MNTF",
+    "title": "PURITO Panthenol 10% Cream | Koreanische Barrierereparatur & Glow"
+   },
+   {
+    "market": "DE",
+    "cat": "SkinCare",
+    "rank": 18,
+    "asin": "B0D4Y6MNTF",
+    "title": "PURITO Panthenol 10% Cream | Koreanische Barrierereparatur & Glow"
+   }
+  ],
+  "Coreana": [
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 35,
+    "asin": "B0GD6R7CFJ",
+    "title": "BIODANCE Patch Occhi al Collagene e Peptidi, Trattamento Antirughe per"
+   },
+   {
+    "market": "IT",
+    "cat": "SkinCare",
+    "rank": 48,
+    "asin": "B0DFY92NDB",
+    "title": "CENTELLIAN 24 Madeca Cream Time Reverse (50 ml) – Avanzato ad assorbim"
+   }
+  ]
+ },
+ "stats": {
+  "US/Beauty": {
+   "순위확보": 100,
+   "제목확보": 100,
+   "K뷰티": 14
+  },
+  "US/SkinCare": {
+   "순위확보": 100,
+   "제목확보": 100,
+   "K뷰티": 22
+  },
+  "UK/Beauty": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 11
+  },
+  "UK/SkinCare": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 14
+  },
+  "DE/Beauty": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 8
+  },
+  "DE/SkinCare": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 18
+  },
+  "FR/Beauty": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 10
+  },
+  "FR/SkinCare": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 13
+  },
+  "IT/Beauty": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 11
+  },
+  "IT/SkinCare": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 14
+  },
+  "ES/Beauty": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 13
+  },
+  "ES/SkinCare": {
+   "순위확보": 50,
+   "제목확보": 50,
+   "K뷰티": 15
+  }
+ },
+ "owners": {
+  "medicube": "에이피알 278470",
+  "AGE-R": "에이피알 278470",
+  "APRILSKIN": "에이피알 278470",
+  "LANEIGE": "아모레퍼시픽 090430",
+  "innisfree": "아모레퍼시픽 090430",
+  "COSRX": "아모레퍼시픽 090430",
+  "Sulwhasoo": "아모레퍼시픽 090430",
+  "illiyoon": "아모레퍼시픽 090430",
+  "Mamonde": "아모레퍼시픽 090430",
+  "ETUDE": "아모레퍼시픽 090430",
+  "HERA": "아모레퍼시픽 090430",
+  "belif": "LG생활건강 051900",
+  "CNP": "LG생활건강 051900",
+  "OHUI": "LG생활건강 051900",
+  "Dr.Groot": "LG생활건강 051900",
+  "THE FACE SHOP": "LG생활건강 051900",
+  "Wellage": "LG생활건강 051900",
+  "CLIO": "클리오 237880",
+  "peripera": "클리오 237880",
+  "goodal": "클리오 237880",
+  "Ma:nyo": "마녀공장 439090",
+  "Manyo": "마녀공장 439090",
+  "VT Cosmetics": "브이티 018290",
+  "Reedle": "브이티 018290",
+  "TONYMOLY": "토니모리 214420",
+  "MISSHA": "에이블씨엔씨 078520",
+  "A'PIEU": "에이블씨엔씨 078520",
+  "APIEU": "에이블씨엔씨 078520",
+  "d'Alba": "달바글로벌",
+  "dAlba": "달바글로벌",
+  "Real Barrier": "네오팜 092730",
+  "Atopalm": "네오팜 092730",
+  "Rejuran": "파마리서치 214450",
+  "rom&nd": "아이패밀리에스씨 114840",
+  "romand": "아이패밀리에스씨 114840",
+  "It's Skin": "잇츠한불 226320",
+  "Coreana": "코리아나 027050",
+  "Beauty of Joseon": "구다이글로벌",
+  "TIRTIR": "구다이글로벌",
+  "SKIN1004": "구다이글로벌",
+  "LAKA": "구다이글로벌",
+  "AMUSE": "구다이글로벌",
+  "Anua": "더파운더즈(IPO 준비)",
+  "BIODANCE": "바이오던스",
+  "Cellimax": "셀리맥스",
+  "Melaxin": "닥터멜락신",
+  "Round Lab": "라운드랩",
+  "Torriden": "토리든",
+  "numbuzin": "넘버즈인",
+  "Abib": "아비브",
+  "Purito": "퓨리토",
+  "Mediheal": "엘앤피코스메틱",
+  "Haruharu": "하루하루원더",
+  "Isntree": "이즈앤트리",
+  "Cell Fusion C": "셀퓨전씨",
+  "isoi": "아이소이",
+  "Huxley": "헉슬리",
+  "SKINFOOD": "스킨푸드",
+  "Dr.Jart": "닥터자르트(에스티로더)",
+  "Dr. Jart": "닥터자르트(에스티로더)",
+  "SOME BY MI": "썸바이미",
+  "Mixsoon": "믹순",
+  "AXIS-Y": "액시스와이",
+  "Beplain": "비플레인",
+  "Skinfood": "스킨푸드",
+  "TOCOBO": "토코보",
+  "I'm From": "아임프롬",
+  "ma:nyo": "마녀공장 439090",
+  "Nacific": "나시픽",
+  "Pyunkang Yul": "편강율",
+  "Klairs": "클레어스",
+  "By Wishtrend": "위시트렌드",
+  "Benton": "벤톤",
+  "Etude House": "아모레퍼시픽 090430",
+  "banila co": "바닐라코",
+  "hince": "힌스",
+  "dasique": "데이지크",
+  "BBIA": "삐아",
+  "Dr.G": "고운세상코스메틱",
+  "Sungboon": "성분에디터",
+  "MEDIPEEL": "메디필",
+  "Medi-Peel": "메디필",
+  "ONE THING": "원씽",
+  "Aromatica": "아로마티카",
+  "Innisfree": "아모레퍼시픽 090430"
+ }
+}

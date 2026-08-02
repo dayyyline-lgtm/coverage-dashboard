@@ -14,6 +14,7 @@ import re
 import csv
 import sys
 import shutil
+import unicodedata
 import argparse
 import datetime
 from pathlib import Path
@@ -21,12 +22,13 @@ from pathlib import Path
 import yaml
 import requests
 
-from scraper import scrape_all, match_brand, BlockedError
+from scraper import scrape_all, BlockedError
 
 BASE = Path(__file__).parent
-HISTORY_COLS = ["date", "market", "rank", "asin", "brand", "title",
-                "price", "currency", "rating", "reviews",
-                "sub_bsr_rank", "sub_bsr_cat"]
+HISTORY_COLS = ["date", "market", "brand", "asin", "title",
+                "list_cat", "list_rank",
+                "bsr_main", "bsr_main_cat", "bsr_sub", "bsr_sub_cat",
+                "price", "currency", "rating", "reviews"]
 
 FLAGS = {"US": "🇺🇸", "UK": "🇬🇧", "DE": "🇩🇪", "FR": "🇫🇷",
          "IT": "🇮🇹", "ES": "🇪🇸", "NL": "🇳🇱", "SE": "🇸🇪", "PL": "🇵🇱", "JP": "🇯🇵"}
@@ -90,7 +92,7 @@ def load_history(path: Path) -> list[dict]:
         return []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        if reader.fieldnames and "market" not in reader.fieldnames:
+        if reader.fieldnames and "bsr_main" not in reader.fieldnames:
             backup = path.with_name("history_v1_backup.csv")
             shutil.copy2(path, backup)
             print(f"[이전] 구버전 history.csv를 {backup.name}로 백업하고 새 스키마로 시작합니다.\n"
@@ -124,68 +126,157 @@ def fmt_int(n) -> str:
         return "?"
 
 
-def build_report(today, tracked, prev_by_key, prev_date, markets, failed) -> str:
-    lines = [f"💄 아마존 뷰티 베스트셀러 — {today}"]
+def _i(v):
+    """CSV에서 온 문자열/빈칸을 int 또는 None으로."""
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return None
+
+
+def _pad(s, w):
+    """CJK 문자를 2칸으로 세는 폭 맞춤 (모노스페이스 정렬용)."""
+    width = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+    return s + " " * max(0, w - width)
+
+
+def build_compact(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
+    """브랜드x국가 매트릭스 한 장 + 오늘 변동만. 한 화면에 들어가는 게 목표.
+
+    제품별 상세는 history.csv 와 대시보드에 그대로 쌓이므로, 텔레그램은
+    '무슨 일이 있었나'만 전한다.
+    """
+    codes = [m["code"] for m in markets if m.get("enabled", True)]
+    thr = float(rcfg.get("move_threshold", 20))
+    cap = int(rcfg.get("max_moves", 6))
+
+    head = f"💄 아마존 K뷰티 · {today[5:]}"
     if prev_date:
-        lines.append(f"(전일 비교 기준: {prev_date})")
-    lines.append("")
+        head += f" (vs {prev_date[5:]})"
+    out = [head, ""]
 
-    by_market: dict[str, list[dict]] = {}
-    for it in tracked:
-        by_market.setdefault(it["market"], []).append(it)
+    # ---- 매트릭스: 브랜드 x 국가 = 최고 BSR(추적 제품 수) ----
+    grid, counts = {}, {}
+    for r in rows:
+        b, mk = r["brand"], r["market"]
+        bsr = r.get("bsr_main")
+        counts[(b, mk)] = counts.get((b, mk), 0) + 1
+        if bsr is not None and (grid.get((b, mk)) is None or bsr < grid[(b, mk)]):
+            grid[(b, mk)] = bsr
 
+    brands = sorted({r["brand"] for r in rows},
+                    key=lambda b: (-sum(1 for m in codes if (b, m) in counts),
+                                   min([grid[(b, m)] for m in codes
+                                        if grid.get((b, m)) is not None] or [10**9])))
+    if brands:
+        bw = max(9, max(len(b) for b in brands) + 1)
+        out.append(_pad("브랜드", bw) + "".join(f"{c:>8}" for c in codes))
+        for b in brands:
+            cells = ""
+            for m in codes:
+                if (b, m) not in counts:
+                    cells += f"{'·':>8}"
+                else:
+                    v = grid.get((b, m))
+                    cells += f"{(str(v) if v else '?') + '(' + str(counts[(b, m)]) + ')':>8}"
+            out.append(_pad(b, bw) + cells)
+        out.append("   BSR 최고순위(추적 제품수)")
+    else:
+        out.append("추적 중인 제품이 없습니다.")
+    out.append("")
+
+    # ---- 변동: BSR 기준 (리스트 밖에서도 잡힌다) ----
+    ups, downs, news, lost = [], [], [], []
+    seen = set()
+    for r in rows:
+        key = (r["market"], r["asin"])
+        seen.add(key)
+        p = prev.get(key)
+        cur = r.get("bsr_main")
+        if not p:
+            if prev_date:
+                news.append((r["market"], r["brand"], cur, r["title"]))
+            continue
+        old = _i(p.get("bsr_main"))
+        if old and cur:
+            chg = (old - cur) / old * 100          # +면 순위 상승
+            if abs(chg) >= thr:
+                (ups if chg > 0 else downs).append(
+                    (abs(chg), r["market"], r["brand"], old, cur, r["title"]))
+    for key, p in prev.items():
+        if key not in seen:
+            lost.append((key[0], p.get("brand", ""), p.get("bsr_main"), p.get("title", "")))
+
+    def line(icon, m, brand, txt):
+        return f"{icon} {FLAGS.get(m, '')}{m} {brand} {txt}"
+
+    for tag, items in (("📈", ups), ("📉", downs)):
+        for c, m, b, o, n, t in sorted(items, reverse=True)[:cap]:
+            out.append(line(tag, m, b, f"BSR {fmt_int(o)}→{fmt_int(n)} ({c:.0f}%) {t[:26]}"))
+    for m, b, n, t in news[:cap]:
+        out.append(line("🆕", m, b, f"BSR {fmt_int(n)} {t[:30]}"))
+    for m, b, n, t in lost[:cap]:
+        out.append(line("⛔", m, b, f"측정 실패 {t[:30]}"))
+    if not (ups or downs or news or lost):
+        out.append("변동 없음" if prev_date else "첫 수집 — 내일부터 변동이 표시됩니다")
+    out.append("")
+
+    # ---- 꼬리말 ----
+    per = {c: sum(1 for r in rows if r["market"] == c) for c in codes}
+    inlist = sum(1 for r in rows if r.get("list_rank"))
+    out.append(f"총 {len(rows)}개 추적 (리스트 내 {inlist}) · "
+               + " ".join(f"{FLAGS.get(c, '')}{per[c]}" for c in codes))
+    if failed:
+        out.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))
+    return "\n".join(out).rstrip()
+
+
+def build_full(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
+    """제품별 전부 나열하는 상세판 (report.mode: full)."""
+    out = [f"💄 아마존 K뷰티 · {today}"]
+    if prev_date:
+        out.append(f"(전일 비교: {prev_date})")
+    out.append("")
     for m in markets:
-        code, top_n = m["code"], m.get("top_n", 50)
+        code = m["code"]
         if not m.get("enabled", True):
             continue
-        flag = FLAGS.get(code, "")
-        items = by_market.get(code, [])
-        if not items:
-            lines.append(f"{flag} {code} 탑{top_n} — 해당 브랜드 없음")
-            lines.append("")
+        mine = [r for r in rows if r["market"] == code]
+        if not mine:
+            out += [f"{FLAGS.get(code, '')} {code} — 없음", ""]
             continue
-
-        lines.append(f"{flag} {code} 탑{top_n}")
-        by_brand: dict[str, list[dict]] = {}
-        for it in items:
-            by_brand.setdefault(it["brand"], []).append(it)
-
-        for brand in sorted(by_brand, key=lambda b: min(x["rank"] for x in by_brand[b])):
-            ranks = sorted(by_brand[brand], key=lambda x: x["rank"])
-            lines.append(f"  ■ {brand} ({len(ranks)}개)")
-            for it in ranks:
-                prev = prev_by_key.get((code, it["asin"]))
-                if prev:
-                    d = int(prev["rank"]) - it["rank"]
-                    arrow = f"▲{d}" if d > 0 else (f"▼{-d}" if d < 0 else "-")
-                elif prev_date:
-                    arrow = "NEW"
-                else:
-                    arrow = "-"
-                title = it["title"][:52] + ("…" if len(it["title"]) > 52 else "")
-                lines.append(f"   #{it['rank']:<3} ({arrow}) {title}")
-
-                bits = [fmt_price(it["price"], it["currency"])]
-                if it.get("rating"):
-                    bits.append(f"★{it['rating']}({fmt_int(it.get('reviews'))})")
-                if it.get("sub_bsr_cat") and it.get("sub_bsr_rank"):
-                    bits.append(f"{it['sub_bsr_cat']} #{fmt_int(it['sub_bsr_rank'])}")
-                lines.append(f"        {' · '.join(bits)}")
-        lines.append("")
-
-    # 어제는 있었는데 오늘 빠진 제품
-    cur_keys = {(it["market"], it["asin"]) for it in tracked}
-    dropped = [p for k, p in prev_by_key.items() if k not in cur_keys]
-    if dropped:
-        lines.append("⛔ 랭킹 이탈")
-        for p in sorted(dropped, key=lambda x: (x["market"], int(x["rank"]))):
-            lines.append(f"  {FLAGS.get(p['market'], '')} {p['market']} "
-                         f"(전일 #{p['rank']}) {p['title'][:44]}")
-        lines.append("")
-
+        out.append(f"{FLAGS.get(code, '')} {code}")
+        by_brand = {}
+        for r in mine:
+            by_brand.setdefault(r["brand"], []).append(r)
+        for brand in sorted(by_brand, key=lambda b: min(
+                (x.get("bsr_main") or 10**9) for x in by_brand[b])):
+            out.append(f"  ■ {brand} ({len(by_brand[brand])}개)")
+            for r in sorted(by_brand[brand], key=lambda x: x.get("bsr_main") or 10**9):
+                p = prev.get((code, r["asin"]))
+                old = _i(p.get("bsr_main")) if p else None
+                cur = r.get("bsr_main")
+                arrow = ""
+                if old and cur:
+                    d = old - cur
+                    arrow = f" ({'▲' if d > 0 else '▼' if d < 0 else '-'}{abs(d) or ''})"
+                lr = f"리스트 #{r['list_rank']} · " if r.get("list_rank") else ""
+                out.append(f"   {r['title'][:50]}")
+                out.append(f"      {lr}BSR #{fmt_int(cur)}{arrow}"
+                           + (f" · {r['bsr_sub_cat']} #{fmt_int(r['bsr_sub'])}"
+                              if r.get("bsr_sub_cat") else "")
+                           + f" · {fmt_price(r.get('price'), r.get('currency'))}"
+                           + (f" · ★{r['rating']}({fmt_int(r.get('reviews'))})"
+                              if r.get("rating") else ""))
+        out.append("")
     if failed:
-        lines.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))
-    return "\n".join(lines).rstrip()
+        out.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))
+    return "\n".join(out).rstrip()
+
+
+def build_report(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
+    fn = build_full if (rcfg or {}).get("mode") == "full" else build_compact
+    return fn(today, rows, prev, prev_date, markets, failed, rcfg or {})
 
 
 # ------------------------------------------------------------------ 부가 기능
@@ -239,8 +330,9 @@ def send_telegram(token: str, chat_id: str, text: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-telegram", action="store_true", help="텔레그램 발송 생략")
-    ap.add_argument("--no-detail", action="store_true", help="31~50위 상세 보강 생략")
     ap.add_argument("--markets", help="쉼표로 구분한 마켓 코드만 수집 (예: US,UK)")
+    ap.add_argument("--full", action="store_true", help="압축 대신 제품별 상세 리포트")
+    ap.add_argument("--budget", type=int, help="마켓당 상세조회 상한 (기본 config)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -253,23 +345,20 @@ def main() -> int:
         want = {c.strip().upper() for c in args.markets.split(",")}
         for m in cfg["markets"]:
             m["enabled"] = m["code"].upper() in want
-    if args.no_detail:
-        cfg.setdefault("detail", {})["mode"] = "off"
+    if args.budget:
+        cfg.setdefault("tracking", {})["max_detail_per_run"] = args.budget
+    rcfg = dict(cfg.get("report") or {})
+    if args.full:
+        rcfg["mode"] = "full"
 
-    brands = cfg["brands"]
-    items, failed = scrape_all(cfg, brands)
-    if not items:
+    # scrape_all 이 브랜드 매칭까지 끝낸 행을 돌려준다 (고정 추적 ASIN 기준)
+    rows, failed = scrape_all(cfg, cfg["brands"])
+    if not rows:
         print("[중단] 수집된 항목이 없습니다.", file=sys.stderr)
         return 1
-
-    tracked = []
-    for it in items:
-        b = match_brand(it["title"], brands)
-        if b:
-            tracked.append({**it, "brand": b})
-    unknown = sum(1 for it in items if not it["title"])
-    print(f"\n[수집] 총 {len(items)}개 / 관심 브랜드 {len(tracked)}개"
-          + (f" / 제목 미확인 {unknown}개" if unknown else ""))
+    measured = sum(1 for r in rows if r.get("bsr_main") is not None)
+    inlist = sum(1 for r in rows if r.get("list_rank"))
+    print(f"\n[수집] 추적 {len(rows)}개 / BSR 측정 {measured}개 / 리스트 내 {inlist}개")
 
     history = load_history(history_path)
     prev_dates = sorted({r["date"] for r in history if r["date"] < today})
@@ -284,11 +373,12 @@ def main() -> int:
     refreshed -= {code for code, _ in failed}
     history = [r for r in history
                if not (r["date"] == today and r["market"] in refreshed)]
-    history += [{**it, "date": today} for it in tracked]
+    history += [{**r, "date": today} for r in rows]
     write_history(history_path, history)
-    print(f"[기록] {len(tracked)}행 추가 → {history_path}")
+    print(f"[기록] {len(rows)}행 추가 → {history_path}")
 
-    report = build_report(today, tracked, prev_by_key, prev_date, cfg["markets"], failed)
+    report = build_report(today, rows, prev_by_key, prev_date,
+                          cfg["markets"], failed, rcfg)
     print("\n" + report)
 
     tg = cfg.get("telegram", {})

@@ -10,6 +10,8 @@
 
 import re
 import json
+import functools
+import unicodedata
 import time
 import html as htmllib
 import random
@@ -69,13 +71,26 @@ def parse_rating(txt):
     return float(m.group(1).replace(",", ".")) if m else None
 
 
+def _norm(s):
+    """비교용 정규화: 유니코드 아포스트로피·공백 통일 + 소문자."""
+    s = unicodedata.normalize("NFKC", s or "")
+    s = s.replace("’", "'").replace("‘", "'").replace("\xa0", " ")
+    return re.sub(r"\s+", " ", s).lower()
+
+
+@functools.lru_cache(maxsize=512)
+def _brand_pattern(brand):
+    # 단어경계 매칭. 단순 부분일치를 쓰면 'Anua'가 'manual'에, 'isoi'가 'poison'에 걸린다.
+    return re.compile(r"(?<![a-z0-9])" + re.escape(_norm(brand)) + r"(?![a-z0-9])")
+
+
 def match_brand(title, brands):
-    """제목에 브랜드 문자열이 포함되면 그 브랜드명을 반환 (대소문자 무시)."""
+    """제목에서 브랜드를 찾아 그 이름을 반환. 대소문자·아포스트로피 표기차 무시."""
     if not title:
         return None
-    t = title.lower()
+    t = _norm(title)
     for b in brands:
-        if b.lower() in t:
+        if _brand_pattern(b).search(t):
             return b
     return None
 
@@ -189,22 +204,33 @@ _BSR_CONTAINERS = [
 ]
 
 
-def _parse_sub_bsr(soup):
-    """하위 카테고리 BSR을 (순위, 카테고리명)으로 반환. 없으면 (None, None).
+def _parse_bsr(soup):
+    """BSR을 최상위/하위 두 단계로 반환.
 
-    아마존 표기 (마켓마다 순위 접두사가 다르다):
-        US/UK  Best Sellers Rank: #31 in Beauty ( See Top 100 in Beauty )
-                                  #2 in Facial Masks
-        DE     Amazon Bestseller-Rang: Nr. 7 in Kosmetik ( Siehe Top 100 ... )
-                                       Nr. 1 in Gesichtsseren
-        FR/IT/ES 는 n° / n. / nº 를 쓴다.
+    {"main_rank","main_cat","sub_rank","sub_cat"}
 
-    그래서 '#숫자'로 찾으면 안 되고, **링크 텍스트가 곧 카테고리명**이라는 점을 이용한다.
-    카테고리명 앞부분에서 마지막 숫자를 뽑으면 접두사 표기와 무관하게 순위가 나온다.
-    최상위 항목만 'Top 100 보기' 링크를 괄호로 달고 있으므로 괄호가 있으면 건너뛴다
-    (전체 카테고리 순위는 어차피 리스트에서 이미 알고 있다).
+    **최상위 BSR이 실질 추적의 핵심이다.** 베스트셀러 리스트는 100위에서 잘리지만
+    BSR은 순위권 밖에서도 계속 매겨진다. 제품이 리스트에서 빠져도 이 숫자로
+    판매 추이를 이어서 볼 수 있다.
     """
-    found = []
+    main = _bsr_entries(soup, with_paren=True)
+    sub = _bsr_entries(soup, with_paren=False)
+    return {
+        "main_rank": main[-1][0] if main else None,
+        "main_cat": main[-1][1] if main else None,
+        "sub_rank": sub[-1][0] if sub else None,
+        "sub_cat": sub[-1][1] if sub else None,
+    }
+
+
+def _bsr_entries(soup, with_paren):
+    """BSR 줄에서 (순위, 카테고리명) 목록을 뽑는다.
+
+    최상위 줄만 'Top 100 보기' 링크를 **괄호**로 달고 있어서 그걸로 두 단계를 가른다.
+    with_paren=True 면 최상위 줄, False 면 하위 카테고리 줄.
+    최상위 줄의 카테고리명은 링크 텍스트('See Top 100 in X')가 아니라 앞부분에서 뽑는다.
+    """
+    out = []
     for sel in _BSR_CONTAINERS:
         box = soup.select_one(sel)
         if not box:
@@ -214,22 +240,28 @@ def _parse_sub_bsr(soup):
             if not block:
                 continue
             txt = block.get_text(" ", strip=True)
-            if "(" in txt:                       # 최상위 카테고리 줄
+            if ("(" in txt) != with_paren:
                 continue
             cat = a.get_text(strip=True)
-            if not cat or cat not in txt:
-                continue
-            head = txt[:txt.rfind(cat)]          # 카테고리명 앞의 '#2 in' / 'Nr. 1 in'
-            nums = re.findall(r"\d[\d.,]*", head)
-            if not nums:
-                continue
-            pair = (parse_int(nums[-1]), cat)
-            if pair[0] and pair not in found:
-                found.append(pair)
-        if found:
+            if with_paren:
+                # '#31 in Beauty & Personal Care ( See Top 100 in ... )' → 괄호 앞만 본다
+                head = txt.split("(")[0].strip()
+                m = re.match(r"[^\d]*([\d.,]+)\s+\S+\s+(.+)$", head)
+                if not m:
+                    continue
+                rank, cat = parse_int(m.group(1)), m.group(2).strip()
+            else:
+                if not cat or cat not in txt:
+                    continue
+                nums = re.findall(r"\d[\d.,]*", txt[:txt.rfind(cat)])
+                if not nums:
+                    continue
+                rank = parse_int(nums[-1])
+            if rank and (rank, cat) not in out:
+                out.append((rank, cat))
+        if out:
             break
-    # 여러 개면 가장 깊은(마지막) 카테고리를 채택
-    return found[-1] if found else (None, None)
+    return out
 
 
 def parse_detail(page):
@@ -243,15 +275,15 @@ def parse_detail(page):
     star_el = soup.select_one("#acrPopover span.a-icon-alt") or soup.select_one("span.a-icon-alt")
     rev_el = soup.select_one("#acrCustomerReviewText")
 
-    sub_rank, sub_cat = _parse_sub_bsr(soup)
+    bsr = _parse_bsr(soup)
 
     return {
         "title": title_el.get_text(strip=True) if title_el else "",
         "price": parse_price(price_el.get_text(strip=True) if price_el else None),
         "rating": parse_rating(star_el.get_text(strip=True) if star_el else None),
         "reviews": parse_int(rev_el.get_text(strip=True) if rev_el else None),
-        "sub_bsr_rank": sub_rank,
-        "sub_bsr_cat": sub_cat,
+        "bsr_main": bsr["main_rank"], "bsr_main_cat": bsr["main_cat"],
+        "bsr_sub": bsr["sub_rank"], "bsr_sub_cat": bsr["sub_cat"],
     }
 
 
@@ -270,148 +302,209 @@ def save_cache(path, cache):
     path.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+# ---------------------------------------------------------------- 고정 추적 목록
+
+def load_pinned(path):
+    """한 번이라도 관심 브랜드로 잡힌 ASIN 목록. {"US:B09...": {brand,title,...}}"""
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+
+def save_pinned(path, pinned):
+    path.write_text(json.dumps(pinned, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 # ---------------------------------------------------------------- 수집
 
-def bestsellers_url(market, page=1):
-    base = f"https://{market['domain']}/gp/bestsellers/{market['category'].strip('/')}"
+def list_url(market, node, page=1):
+    base = f"https://{market['domain']}/gp/bestsellers/{str(node).strip('/')}"
     return base if page == 1 else f"{base}/?pg={page}"
 
 
-def scrape_market(market, brands, cfg, cache, log=print):
-    """한 마켓의 top_n을 수집. [{market, rank, asin, title, price, ...}] 반환."""
+def categories(market):
+    """구버전 설정(category/top_n)도 받아주는 카테고리 목록."""
+    cats = market.get("categories")
+    if cats:
+        return cats
+    return [{"label": "Beauty", "node": market.get("category", "beauty"),
+             "top_n": market.get("top_n", 50)}]
+
+
+def collect_market(market, brands, cfg, cache, pinned, log=print):
+    """한 마켓 수집 → 행 리스트.
+
+    2단 구조다:
+      (1) **발견** — 베스트셀러 리스트를 훑어 관심 브랜드 신규 ASIN을 찾는다.
+      (2) **측정** — 고정 추적 중인 ASIN 전부의 BSR을 잰다. 리스트 100위 밖으로
+          밀려나도 BSR은 계속 매겨지므로 추이가 안 끊긴다. 이게 핵심이다.
+    """
+    code = market["code"]
     session = make_session(market, cfg.get("impersonate", "chrome"))
-    top_n = int(market.get("top_n", 50))
-    page_delay = cfg.get("page_delay", [2, 4])
+    today = datetime.date.today().isoformat()
+    tcfg = cfg.get("tracking", {})
+    budget = [int(tcfg.get("max_detail_per_run", 160))]
+    delay = cfg.get("detail", {}).get("delay", [1.5, 3.0])
+    cats = categories(market)
+    ref = list_url(market, cats[0]["node"])
 
-    rank_map, rendered = {}, {}
-    for page_no in range(1, (2 if top_n > 50 else 1) + 1):
-        url = bestsellers_url(market, page_no)
-        page = get(session, url, market)
-        if page is None:
-            raise BlockedError(f"{url} → 404 (category 설정을 확인하세요)")
-        rm = parse_rank_map(page)
-        if not rm:
-            debug = Path(cfg["data_dir"]) / f"debug_{market['code']}_p{page_no}.html"
-            debug.write_text(page, encoding="utf-8")
-            raise BlockedError(
-                f"[{market['code']}] data-client-recs-list를 못 찾았습니다. "
-                f"아마존이 구조를 바꿨을 수 있습니다 → {debug}"
-            )
-        rank_map.update(rm)
-        rendered.update(parse_rendered(page))
-        _sleep(page_delay)
+    # ---------- (1) 리스트 수집 ----------
+    sightings, rendered_by_asin = {}, {}
+    for cat in cats:
+        top_n = int(cat.get("top_n", 50))
+        rank_map, rendered = {}, {}
+        for pg in range(1, (2 if top_n > 50 else 1) + 1):
+            url = list_url(market, cat["node"], pg)
+            page = get(session, url, market)
+            if page is None:
+                raise BlockedError(f"{url} → 404 (categories 설정 확인)")
+            rm = parse_rank_map(page)
+            if not rm:
+                dbg = Path(cfg["data_dir"]) / f"debug_{code}_{cat['label']}_p{pg}.html"
+                dbg.write_text(page, encoding="utf-8")
+                raise BlockedError(
+                    f"[{code}/{cat['label']}] data-client-recs-list를 못 찾았습니다 → {dbg}")
+            rank_map.update(rm)
+            rendered.update(parse_rendered(page))
+            _sleep(cfg.get("page_delay", [2, 4]))
+        for rank, asin in rank_map.items():
+            if rank > top_n:
+                continue
+            cur = sightings.get(asin)
+            if cur is None or rank < cur["rank"]:
+                sightings[asin] = {"cat": cat["label"], "rank": rank}
+            d = rendered.get(rank)
+            if d and d.get("title"):
+                rendered_by_asin.setdefault(asin, d)
+        log(f"[{code}/{cat['label']}] 순위 {len(rank_map)}개")
 
-    items = []
-    for rank in sorted(rank_map):
-        if rank > top_n:
+    # ---------- 상세 조회 (마켓 단위 예산 공유) ----------
+    details = {}
+
+    def detail(asin):
+        if asin in details:
+            return details[asin]
+        if budget[0] <= 0:
+            return None
+        budget[0] -= 1
+        try:
+            page = get(session, f"https://{market['domain']}/dp/{asin}",
+                       market, referer=ref, retries=2)
+        except BlockedError as e:
+            log(f"  ! {code}:{asin} 조회 중단 — {e}")
+            budget[0] = 0
+            return None
+        _sleep(delay)
+        d = parse_detail(page) if page else None
+        if d and d["title"]:
+            details[asin] = d
+            cache[f"{code}:{asin}"] = {"title": d["title"], "first_seen": today}
+            return d
+        return None
+
+    # ---------- (2) 제목 확정 → 브랜드 매칭 → 고정 목록 갱신 ----------
+    titles, unknown = {}, []
+    for asin in sightings:
+        t = (rendered_by_asin.get(asin) or {}).get("title") \
+            or cache.get(f"{code}:{asin}", {}).get("title", "")
+        if t:
+            titles[asin] = t
+        else:
+            unknown.append(asin)
+    if unknown:
+        log(f"[{code}] 신규 ASIN {len(unknown)}개 정체 확인...")
+    for asin in unknown:
+        d = detail(asin)
+        if d:
+            titles[asin] = d["title"]
+
+    newly = 0
+    for asin, t in titles.items():
+        b = match_brand(t, brands)
+        if not b:
             continue
-        asin = rank_map[rank]
-        key = f"{market['code']}:{asin}"
-        d = dict(rendered.get(rank) or {})
-        if not d.get("title"):
-            d["title"] = cache.get(key, {}).get("title", "")
-        items.append({
-            "market": market["code"], "rank": rank, "asin": asin,
-            "title": d.get("title", ""), "price": d.get("price"),
-            "currency": market["currency"], "rating": d.get("rating"),
-            "reviews": d.get("reviews"),
-            "sub_bsr_rank": None, "sub_bsr_cat": None,
-            "_rendered": rank in rendered,
+        key = f"{code}:{asin}"
+        if key not in pinned:
+            pinned[key] = {"brand": b, "title": t, "first_seen": today}
+            newly += 1
+        pinned[key].update({"brand": b, "title": t, "last_seen": today})
+    if newly:
+        log(f"[{code}] 신규 추적 대상 {newly}개 추가")
+
+    # ---------- (3) 고정 ASIN 전부 BSR 측정 (리스트 밖 포함) ----------
+    mine = [k.split(":", 1)[1] for k in pinned if k.startswith(code + ":")]
+    todo = [a for a in mine if a not in details]
+    if todo:
+        log(f"[{code}] BSR 측정 {len(todo)}건 (리스트 밖 포함)...")
+    for asin in todo:
+        detail(asin)
+
+    # ---------- (4) 행 만들기 ----------
+    rows = []
+    for asin in mine:
+        key = f"{code}:{asin}"
+        info, d, s = pinned[key], details.get(asin), sightings.get(asin)
+        lst = rendered_by_asin.get(asin) or {}
+        if not d and not s:
+            continue                      # 이번 실행에서 아무것도 못 얻음
+        if d:
+            info["last_seen"] = today      # BSR이 잡히면 리스트 밖이어도 살아있는 것
+        rows.append({
+            "market": code, "brand": info["brand"], "asin": asin,
+            "title": (d or {}).get("title") or info.get("title", ""),
+            "list_cat": (s or {}).get("cat"), "list_rank": (s or {}).get("rank"),
+            "bsr_main": (d or {}).get("bsr_main"), "bsr_main_cat": (d or {}).get("bsr_main_cat"),
+            "bsr_sub": (d or {}).get("bsr_sub"), "bsr_sub_cat": (d or {}).get("bsr_sub_cat"),
+            # 리스트에 있으면 리스트 값이 그 순위에 오른 변형 기준이라 더 정확하다
+            "price": lst.get("price") if lst.get("price") is not None else (d or {}).get("price"),
+            "currency": market["currency"],
+            "rating": lst.get("rating") if lst.get("rating") is not None else (d or {}).get("rating"),
+            "reviews": lst.get("reviews") if lst.get("reviews") is not None else (d or {}).get("reviews"),
         })
 
-    log(f"[{market['code']}] 순위+ASIN {len(items)}개 / 페이지 렌더 "
-        f"{sum(1 for i in items if i['_rendered'])}개")
-
-    _fill_details(session, market, brands, cfg, cache, items, log)
-    for it in items:
-        it.pop("_rendered", None)
-    return items
+    if budget[0] <= 0:
+        log(f"[{code}] 상세 조회 예산 소진 — 나머지는 다음 실행에서 측정됩니다")
+    log(f"[{code}] 수집 완료: {len(rows)}행 (추적 {len(mine)}개 중)")
+    return rows
 
 
-def _fill_details(session, market, brands, cfg, cache, items, log):
-    """렌더 안 된 구간을 /dp/ 개별 조회로 보강.
-
-    mode=tracked(기본): 캐시에 없는 ASIN(정체 파악용) + 추적 브랜드 ASIN(최신 지표용)만.
-    브랜드가 아닌 걸로 이미 판명된 ASIN은 다시 조회하지 않으므로 요청 수가 안 늘어난다.
-    """
-    dcfg = cfg.get("detail", {})
-    mode = dcfg.get("mode", "tracked")
-    if mode == "off":
+def retire(pinned, days, today, log=print):
+    """오래 안 잡힌 ASIN은 추적 해제 (단종·리스팅 삭제 대응)."""
+    if not days:
         return
-
-    # 1~30위는 리스트에 상세가 이미 있으므로 기본적으로 건너뛴다.
-    # tracked_all_ranks: true 로 켜면 추적 브랜드는 순위와 무관하게 조회해서
-    # 하위 카테고리 BSR까지 받아온다 (요청 수가 늘어나는 대신 지표가 좋아진다).
-    all_ranks = bool(dcfg.get("tracked_all_ranks", False))
-
-    targets = []
-    for it in items:
-        key = f"{market['code']}:{it['asin']}"
-        cached_title = cache.get(key, {}).get("title", "")
-        is_tracked = bool(match_brand(it["title"] or cached_title, brands))
-        if it["_rendered"]:
-            if all_ranks and is_tracked:
-                targets.append(it)
-            continue
-        if mode == "all":
-            targets.append(it)
-        elif key not in cache:                       # 처음 보는 ASIN → 정체 확인 필요
-            targets.append(it)
-        elif is_tracked:
-            targets.append(it)                       # 추적 브랜드 → 가격/리뷰 갱신
-
-    cap = int(dcfg.get("max_per_run", 60))
-    if len(targets) > cap:
-        log(f"[{market['code']}] 상세 조회 대상 {len(targets)}개 중 {cap}개만 처리 "
-            f"(detail.max_per_run 제한). 나머지는 다음 실행에서 이어집니다.")
-        targets = targets[:cap]
-    if not targets:
-        return
-
-    log(f"[{market['code']}] 상세 조회 {len(targets)}건...")
-    ref = bestsellers_url(market)
-    today = datetime.date.today().isoformat()
-    ok = 0
-    for it in targets:
-        url = f"https://{market['domain']}/dp/{it['asin']}"
-        try:
-            page = get(session, url, market, referer=ref, retries=2)
-        except BlockedError as e:
-            log(f"  ! {it['asin']} 조회 중단: {e}")
-            break
-        if page:
-            d = parse_detail(page)
-            if d["title"]:
-                if it["_rendered"]:
-                    # 리스트 값이 그 순위에 실제로 오른 변형(variant) 기준이라 더 정확하다.
-                    # (상세 페이지는 기본 선택 변형의 가격을 보여주므로 다를 수 있다)
-                    fields = {k: d[k] for k in ("sub_bsr_rank", "sub_bsr_cat")
-                              if d[k] is not None}
-                else:
-                    fields = {k: v for k, v in d.items() if v is not None}
-                it.update(fields)
-                cache[f"{market['code']}:{it['asin']}"] = {
-                    "title": d["title"], "first_seen": today}
-                ok += 1
-        _sleep(dcfg.get("delay", [1.5, 3.0]))
-    log(f"[{market['code']}] 상세 조회 성공 {ok}/{len(targets)}")
+    cut = (datetime.date.fromisoformat(today) - datetime.timedelta(days=int(days))).isoformat()
+    gone = [k for k, v in pinned.items()
+            if v.get("last_seen", v.get("first_seen", today)) < cut]
+    for k in gone:
+        pinned.pop(k)
+    if gone:
+        log(f"[정리] {len(gone)}개 ASIN 추적 해제 ({days}일 이상 미확인)")
 
 
 def scrape_all(cfg, brands, log=print):
-    """설정된 모든 마켓 수집. (전체 아이템, 실패한 마켓 목록) 반환."""
+    """설정된 모든 마켓 수집. (행 리스트, 실패 마켓) 반환."""
     data_dir = Path(cfg["data_dir"])
     cache_path = data_dir / "asin_cache.json"
-    cache = load_cache(cache_path)
+    pin_path = data_dir / "tracked_asins.json"
+    cache, pinned = load_cache(cache_path), load_pinned(pin_path)
+    today = datetime.date.today().isoformat()
 
-    all_items, failed = [], []
+    rows, failed = [], []
     for market in cfg["markets"]:
         if not market.get("enabled", True):
             continue
         try:
-            all_items += scrape_market(market, brands, cfg, cache, log)
+            rows += collect_market(market, brands, cfg, cache, pinned, log)
         except BlockedError as e:
             log(f"[{market['code']}] 실패: {e}")
             failed.append((market["code"], str(e)))
         finally:
             save_cache(cache_path, cache)
-    return all_items, failed
+            save_pinned(pin_path, pinned)
+
+    retire(pinned, cfg.get("tracking", {}).get("retire_after_days", 30), today, log)
+    save_pinned(pin_path, pinned)
+    return rows, failed

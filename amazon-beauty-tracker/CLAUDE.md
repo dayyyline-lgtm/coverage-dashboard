@@ -37,7 +37,22 @@ JSON으로 들어있다.
 이 속성은 안 바뀐다. **순위와 ASIN은 항상 여기서 가져오고, CSS 셀렉터는 제목/가격/평점 보조용으로만
 쓸 것.** 이 속성을 못 찾으면 `BlockedError`를 던지고 debug HTML을 저장한다 (조용히 0개 반환 금지).
 
-### 3. 31~50위는 지연 로딩 → /dp/ 개별 조회로 보강
+### 3. ★ 리스트 스크래핑이 아니라 **ASIN 고정 + BSR 측정**이 본체다 (2026-08-02)
+
+베스트셀러 리스트는 100위에서 잘린다. 제품이 밖으로 밀려나면 **그날부터 데이터가 없다.**
+추이를 보려는데 정작 중요한 하락 국면이 통째로 비는 셈이다.
+
+그래서 2단 구조로 간다:
+- **발견** — 리스트를 훑어 관심 브랜드 신규 ASIN을 찾는다 (하루 14회 요청)
+- **측정** — `data/tracked_asins.json` 에 고정된 ASIN 전부의 BSR을 `/dp/` 로 잰다.
+  **순위권 밖에서도 BSR은 계속 매겨지므로 추이가 안 끊긴다.**
+
+실측 예 (2026-08-02 US): d'Alba BSR #107, 닥터멜락신 #108, COSRX #184 — 셋 다 Beauty
+top100 **밖**이라 리스트만 봤으면 안 보였을 숫자다.
+
+`retire_after_days`(기본 30) 동안 BSR도 안 잡히면 추적 해제한다(단종·리스팅 삭제 대응).
+
+### 3-1. 31~50위는 지연 로딩 → /dp/ 개별 조회로 보강
 
 아마존은 페이지당 **30개만 서버 렌더**한다. 31~50위(US는 81~100위도)는 상세가 비어 있다.
 
@@ -68,7 +83,16 @@ i18n-prefs=USD  -> ['$20.99', '$2.22', '$19.00']
 쌓이고 있었다.** 그래서 `main.py`가 구스키마 CSV를 발견하면 `history_v1_backup.csv`로 백업하고
 새로 시작한다. 구 데이터의 price는 신뢰하지 말 것.
 
-### 6. 하위 카테고리 BSR 파싱은 마켓마다 접두사가 다르다
+### 6. BSR은 2단계로 뽑는다 (전체 + 하위)
+
+`_parse_bsr()` 가 `{main_rank, main_cat, sub_rank, sub_cat}` 를 돌려준다.
+- **전체 BSR**(`bsr_main`) = 추이 추적의 기준. 순위권 밖에서도 존재.
+- **하위 BSR**(`bsr_sub`) = 가장 예리한 신호. 전체 Beauty에서 #31이어도
+  'Facial Masks #2' 처럼 세부 시장 지위가 드러난다.
+
+최상위 줄만 'Top 100 보기' 링크를 **괄호**로 달고 있어서 그걸로 두 단계를 가른다.
+
+### 6-1. 하위 카테고리 BSR 파싱은 마켓마다 접두사가 다르다
 
 ```
 US/UK   #31 in Beauty ( See Top 100 in Beauty )   /  #2 in Facial Masks
@@ -104,18 +128,39 @@ FR/IT/ES  n° / n. / nº
 - `scraper.py` — curl_cffi 수집 + 파싱. `scrape_all(cfg, brands)` 이 진입점.
   실패 시 `BlockedError`. 마켓 하나가 실패해도 나머지는 계속 수집한다.
 - `main.py` — 오케스트레이션: 수집 → 브랜드 필터(타이틀 부분일치) → CSV → 전일 diff → 텔레그램.
-- `data/history.csv` — `date, market, rank, asin, brand, title, price, currency, rating, reviews,
-  sub_bsr_rank, sub_bsr_cat`. 관심 브랜드만 저장. **커밋 대상**(대시보드 데이터 소스).
-- `data/asin_cache.json` — ASIN→제목 캐시. 요청 수 억제의 핵심. 커밋 대상.
+- `data/history.csv` — `date, market, brand, asin, title, list_cat, list_rank,
+  bsr_main, bsr_main_cat, bsr_sub, bsr_sub_cat, price, currency, rating, reviews`.
+  `list_rank` 가 비어 있으면 그날 리스트 밖이었다는 뜻(BSR은 그래도 있다). **커밋 대상.**
+- `data/tracked_asins.json` — ★ 고정 추적 ASIN. 이게 있어야 순위권 밖 추적이 된다. 커밋 대상.
+- `data/asin_cache.json` — ASIN→제목 캐시. 요청 수 억제용. 커밋 대상.
+- `survey_brands.py` — 일회성 브랜드 전수조사. 정기 실행 대상 아님.
 
-## 현황 메모 (2026-08-02 실측)
+## 브랜드 전수조사 결과 (2026-08-02, 6개국 x Beauty+SkinCare 700순위)
 
-- **medicube이 유럽 5개국을 전부 장악.** IT #1·#2·#4·#5, ES #1·#3·#4·#7, UK #1·#3·#4·#5·#6,
-  DE #2·#7, FR #4·#15. US는 #1 + 탑100 내 10개.
-- **COSRX·SKIN1004는 6개 마켓 전체 Beauty 리스트 어디에도 안 잡힘.** Anua는 US #88·#100,
-  Beauty of Joseon은 UK #28만.
-- → 이 브랜드들을 추적하려면 `category`를 **Skin Care 하위 노드**로 내려야 한다.
-  전체 Beauty는 샴푸·기저귀·면도기까지 섞여 있어 스킨케어 브랜드가 밀린다.
+`survey_brands.py` 로 K뷰티 85개 브랜드를 전수 탐색한 결과 **9개만 진입**해 있었다.
+
+| 브랜드 | 운영사 | 진입 국가 |
+|---|---|---|
+| medicube | 에이피알 278470 | **6개국 전부** (최고 1위) |
+| BIODANCE | 바이오던스(비상장) | **6개국 전부** (FR 1위) |
+| d'Alba | 달바글로벌 | US/DE/ES |
+| Beauty of Joseon | 구다이글로벌 | UK/DE |
+| Anua | 더파운더즈(IPO 준비) | US/DE |
+| Melaxin | 닥터멜락신(비상장) | US/DE |
+| Purito | 퓨리토 | DE |
+| Coreana | 코리아나 027050 | IT |
+| COSRX | 아모레퍼시픽 090430 | US 1개뿐 |
+
+**미진입:** 라네즈·이니스프리·TIRTIR·셀리맥스·라운드랩·토리든·넘버즈인·아비브·SKIN1004·
+마녀공장·클리오·미샤·VT/리들샷·메디힐 등 76개. config의 대기군에 남겨뒀고 진입하면 🆕로 뜬다.
+
+읽을 거리:
+- **BIODANCE가 발견.** 비상장인데 6개국 전부 + FR 1위. medicube 외 유일하게 전 유럽을 뚫었다.
+- **COSRX가 US BSR #184.** 아모레 인수(2024) 전 아마존 최강이었는데 지금 top100 밖이다.
+- **DE가 medicube 진입이 가장 얕다**(다른 나라 대비). 독일 여력이 남았다는 신호로 볼 수 있다.
+
+⚠️ 조사 범위는 Beauty + SkinCare 뿐이다. 라네즈 립슬리핑마스크는 **Lip Care**,
+선크림은 **Sun Care** 라 안 잡힌다. 카테고리를 넓히려면 config의 `categories` 에 추가.
 
 ## 유지보수 가이드
 
@@ -178,6 +223,9 @@ pathspec(`git commit -- data/history.csv data/asin_cache.json`)으로 **자기 �
 - 2026-08-02: 유럽 확장 검토 중 **전면 재작성**. Playwright → curl_cffi 전환,
   `data-client-recs-list` 앵커 도입, 6개 마켓 확장, 통화 버그 수정, ASIN 캐시 + 하위 BSR 추가.
   US/UK/DE/FR/IT/ES 전 마켓 실행 검증 완료.
+- 2026-08-02: **ASIN 고정 + BSR 측정 구조로 전환** (리스트 스크래핑은 발견 용도로 강등).
+  전체/하위 2단 BSR 파싱, 카테고리 다중화(Beauty+SkinCare), 브랜드 35개(진입 9 + 대기 26),
+  단어경계 매칭(`Anua`가 `manual`에 걸리던 오탐 제거), 압축 리포트(`report.mode: compact`).
 - 2026-08-02: coverage-dashboard 저장소 안(`amazon-beauty-tracker/`)으로 이동.
   작업 스케줄러 `AmazonBeautyTracker` 등록(평일 08:00, run.bat, 절전 해제 옵션 켬).
   텔레그램은 대시보드 봇 토큰을 공유하도록 `resolve_telegram()` 추가 —
