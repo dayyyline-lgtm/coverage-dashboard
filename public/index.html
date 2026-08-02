@@ -163,6 +163,15 @@
   .legend .li{display:flex;align-items:center;gap:6px}
   .legend .dot{width:10px;height:10px;border-radius:50%}
 
+  /* 날짜별 영화 비교 — 선 두 장(좌석·판매율)과 압축 표.
+     카드 열 장으로 늘어놓았더니 자리만 먹고 '날짜별 흐름'이 안 보였다.
+     장식용 음영은 두지 않는다 — 걸린 좌석·팔린 예매·판매율만. */
+  .scr-cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  @media(max-width:760px){.scr-cmp{grid-template-columns:1fr}}
+  .scr-lg{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:11px}
+  .scr-lg .li{display:flex;align-items:center;gap:5px;font-weight:700}
+  .scr-lg .dot{width:9px;height:9px;border-radius:50%}
+
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .note{font-size:12px;color:var(--muted);margin-top:10px}
   .seed{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--warn);
@@ -2920,14 +2929,12 @@ function renderScreens(){
           if(lb) s+=`<text x="${sx(dd)}" y="${(sy2(s2.seatTot)-16).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--warn)">${lb}</text>`;});
         s+=`</svg></div>`;
 
-        /* ── 같은 날 · 영화별 좌석 vs 예매 (일 단위로 모음) ──
-           영화마다 줄을 따로 그리면 같은 날짜를 눈으로 좇아야 한다.
-           날짜를 한 칸으로 잡고 그 안에 영화를 나란히 세우면
-           '그 날 누가 얼마나 걸었고 얼마나 팔았나'가 한 화면에 들어온다.
-           막대 형태는 위 '좌석 vs 예매' 와 같다 — 연한 몸통이 걸린 좌석,
-           그 안 진한 부분이 팔린 예매.
-           세로 눈금은 넷이 공유한다. 줄마다 따로 재면 채움 비율은 잘 보이지만
-           '누가 더 크게 걸었나'가 사라진다 — 그게 지금 제일 궁금한 값이다. */
+        /* ── 날짜별 비교: 추이 선 두 장 + 압축 표 ──
+           묶음 막대(한 줄에 40칸)도, 날짜별 카드(열 장)도 실패했다.
+           앞은 어디까지가 같은 날인지 안 갈렸고, 뒤는 자리만 먹고 흐름이 안 보였다.
+           날짜별로 궁금한 건 결국 둘이다 — 얼마나 걸었나(좌석), 얼마나 찼나(판매율).
+           그래서 그 둘만 날짜 축 위에 선으로 얹고, 정확한 값은 아래 표에 모은다.
+           주말 음영 같은 장식은 넣지 않는다. 요일은 축 라벨에 글자로 적으면 충분하다. */
         const PEERS=SC.peers||{};
         const peerNames=Object.keys(PEERS).filter(n=>norm(n)!==norm(title));
         if(peerNames.length){
@@ -2936,74 +2943,86 @@ function renderScreens(){
                              .sort((a,b)=>b.m-a.m).slice(0,3).map(x=>x.n);
           const rows=[{n:title, mine:true, get:p=>mine[p]||null},
                       ...top.map(n=>({n, mine:false, get:p=>PEERS[n][p]||null}))];
-          const days=[...new Set([...Object.keys(mine), ...top.flatMap(n=>Object.keys(PEERS[n]))])]
+          let days=[...new Set([...Object.keys(mine), ...top.flatMap(n=>Object.keys(PEERS[n]))])]
                      .sort()
                      .filter(p=>ddOf(p)!=null&&ddOf(p)>=dLo&&ddOf(p)<=dHi)
                      .filter(p=>rows.some(r=>((r.get(p)||{}).seatTot||0)>0));
-          const COL=["#eb6f92","#9ccfd8","#f6c177","#a6da95"];
+          const PAL=["#eb6f92","#9ccfd8","#f6c177","#a6da95"];
+          const COL={}; rows.forEach((r,i)=>COL[r.n]=PAL[i%PAL.length]);
           const WD=["일","월","화","수","목","금","토"];
           const wdOf=p=>WD[new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`).getDay()];
-          const pctOf=v=>(v&&v.seatTot>0)?v.seatSold/v.seatTot*100:null;
-          const shortN=n=>n.length>11?n.slice(0,11)+"…":n;
+          const md=p=>`${p.slice(4,6)}/${p.slice(6,8)}`;
+          const shortN=n=>{const b=n.split(/[:(（]/)[0].trim(); return b.length>7?b.slice(0,7)+"…":b;};
+          const man=v=>v>=1e4?(v/1e4).toFixed(1)+"만":fmt0(v);
+          /* 시사회는 뺀다. 3개 관에 팬만 들여 94% 매진되는데, 그 점 하나가
+             세로 눈금을 108% 까지 끌어올려 정작 봐야 할 3~17% 구간을 바닥에 깔아 버린다.
+             개봉 전 상영은 와이드 릴리즈와 아예 다른 물건이라 같은 자로 재면 안 된다. */
+          const at=(r,p)=>{ const v=r.get(p);
+            if(!v||!v.seatTot) return null;
+            if(r.mine&&op&&p<op) return null;
+            return v; };
+          days=days.filter(p=>rows.some(r=>at(r,p)));
           if(days.length){
-            // 날짜를 등간격 '칸'으로 쓴다 — D일차 좌표를 쓰면 스케줄이 안 열린 날에
-            // 빈 칸이 생겨 막대 묶음이 들쭉날쭉해진다.
-            const pc={l:54,r:14}, gw=(W-pc.l-pc.r)/days.length;
-            const bw=Math.max(6,Math.min(19,(gw-12)/rows.length));
-            const gap=Math.min(3,bw*0.16), grpW=rows.length*bw+(rows.length-1)*gap;
-            const gx=i=>pc.l+gw*i+gw/2;
-            const Hg=278, tg=36, bg=44;
-            const vmax=Math.max(...days.flatMap(p=>rows.map(r=>(r.get(p)||{}).seatTot||0)),1)*1.1;
-            const syg=v=>Hg-bg-(v/vmax)*(Hg-tg-bg);
-            s+=`<div class="sub-h" style="margin-top:14px">같은 날 · 영화별 좌석 vs 예매
-                <span class="tag-inline">3사 합산 · 연한=걸린 좌석 · 진한=팔린 예매</span></div>
-              <div class="chart-box"><svg viewBox="0 0 ${W} ${Hg}" width="100%" font-family="inherit">`;
-            let lx=pc.l;
-            rows.forEach((r,ri)=>{ const c=COL[ri%COL.length];
-              s+=`<rect x="${lx.toFixed(1)}" y="7" width="9" height="9" rx="2" fill="${c}" opacity=".95"/>`;
-              s+=`<text x="${(lx+13).toFixed(1)}" y="15.5" font-size="10.5" font-weight="${r.mine?800:600}" fill="${c}">${shortN(r.n)}</text>`;
-              lx+=28+shortN(r.n).length*11; });
-            for(let g=0;g<=4;g++){ const v=vmax*g/4, y=syg(v);
-              s+=`<line x1="${pc.l}" y1="${y}" x2="${W-pc.r}" y2="${y}" stroke="${gc}"/>`;
-              s+=`<text x="${pc.l-6}" y="${y+4}" text-anchor="end" font-size="10" fill="${mut}">${v>=1e4?(v/1e4).toFixed(0)+"만":fmt0(v)}</text>`; }
-            // 주말 칸에 옅은 띠 — 예매가 토·일에 몰리는 걸 눈으로 잡게
-            days.forEach((p,i)=>{ const w=wdOf(p);
-              if(w==="토"||w==="일")
-                s+=`<rect x="${(pc.l+gw*i).toFixed(1)}" y="${tg}" width="${gw.toFixed(1)}" height="${Hg-bg-tg}" fill="${mut}" opacity=".05"/>`; });
-            if(op){ const oi=days.findIndex(p=>p>=op);
-              if(oi>0){ const ox=(pc.l+gw*oi).toFixed(1);
-                s+=`<line x1="${ox}" y1="${tg}" x2="${ox}" y2="${Hg-bg}" stroke="${mut}" stroke-dasharray="3 4" opacity=".6"/>`;
-                s+=`<text x="${ox}" y="${tg-4}" text-anchor="middle" font-size="9" fill="${mut}">개봉</text>`; } }
-            days.forEach((p,i)=>{
-              const x0=gx(i)-grpW/2;
-              rows.forEach((r,ri)=>{ const v=r.get(p); if(!v||!v.seatTot) return;
-                const bx=x0+ri*(bw+gap), c=COL[ri%COL.length], pct=pctOf(v);
-                s+=`<rect x="${bx.toFixed(1)}" y="${syg(v.seatTot).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hg-bg-syg(v.seatTot)).toFixed(1)}" rx="2" fill="${c}" opacity=".2"><title>${r.n}
-${p.slice(4,6)}/${p.slice(6,8)}(${wdOf(p)}) · 걸린 좌석 ${fmt0(v.seatTot)}석 · ${fmt0(v.screens)}관</title></rect>`;
-                s+=`<rect x="${bx.toFixed(1)}" y="${syg(v.seatSold).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hg-bg-syg(v.seatSold)).toFixed(1)}" rx="2" fill="${c}" opacity=".95"><title>${r.n}
-${p.slice(4,6)}/${p.slice(6,8)}(${wdOf(p)}) · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)}석 · ${pct.toFixed(1)}%</title></rect>`;
-                if(bw>=11)
-                  s+=`<text x="${(bx+bw/2).toFixed(1)}" y="${(syg(v.seatTot)-4).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${c}" opacity=".85">${pct.toFixed(0)}</text>`; });
-              s+=`<text x="${gx(i)}" y="${Hg-bg+16}" text-anchor="middle" font-size="10" fill="${mut}">${p.slice(4,6)}/${p.slice(6,8)}</text>`;
-              s+=`<text x="${gx(i)}" y="${Hg-bg+28}" text-anchor="middle" font-size="9" fill="${mut}" opacity=".7">${wdOf(p)} · D${ddOf(p)>=0?"+":""}${ddOf(p)}</text>`; });
-            s+=`</svg></div>`;
-            // 같은 내용을 숫자로 한 번 더 — 막대는 추세를, 표는 값을 읽는 용도다.
-            s+=`<div class="tbl-wrap" style="margin-top:8px"><table class="mini-tbl"><thead><tr>
+            /* 눈금은 딱 떨어지는 수로 — 0/15만/30만/45만 처럼. 최댓값에 1.15 를 곱한
+               숫자를 그대로 3등분하면 36%·72% 같은 읽기 나쁜 라벨이 나온다. */
+            const niceMax=r=>{ const e=Math.pow(10,Math.floor(Math.log10(r/3||1)));
+              const m=(r/3)/e, s=[1,1.5,2,2.5,3,4,5,6,8,10].find(x=>m<=x)||10;
+              let st=s*e; while(st*3<r) st*=2; return st*3; };
+            /* 선 한 장을 찍는 틀. 가로는 날짜(등간격 — 안 열린 날에 구멍이 나면
+               흐름이 끊겨 보인다), 세로는 넘긴 값. 없는 날은 점을 건너뛴다. */
+            const mkLine=(hd,valOf,yf,tipf)=>{
+              const Wc=440,Hc=186,pl=42,pr=12,pt=12,pb=28;
+              const vmax=niceMax(Math.max(...days.flatMap(p=>rows.map(r=>valOf(at(r,p))??0)),1)*1.06);
+              const xx=i=>days.length<2?pl+(Wc-pl-pr)/2:pl+i*(Wc-pl-pr)/(days.length-1);
+              const yy=v=>Hc-pb-(v/vmax)*(Hc-pt-pb);
+              let o=`<div class="chart-box" style="padding:12px 12px 8px">
+                <div style="font-size:11.5px;font-weight:700;margin-bottom:3px">${hd}</div>
+                <svg viewBox="0 0 ${Wc} ${Hc}" width="100%" font-family="inherit">`;
+              for(let g=0;g<=3;g++){ const v=vmax*g/3, y=yy(v);
+                o+=`<line x1="${pl}" y1="${y.toFixed(1)}" x2="${Wc-pr}" y2="${y.toFixed(1)}" stroke="${gc}"/>`;
+                o+=`<text x="${pl-5}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="9" fill="${mut}">${yf(v)}</text>`; }
+              // 개봉일 — 장식이 아니라 기준선이라 남긴다(라벨을 붙여 뜻을 밝힌다)
+              const oi=op?days.indexOf(op):-1;
+              if(oi>0){ o+=`<line x1="${xx(oi).toFixed(1)}" y1="${pt}" x2="${xx(oi).toFixed(1)}" y2="${Hc-pb}" stroke="${mut}" stroke-dasharray="3 4" opacity=".5"/>`;
+                o+=`<text x="${(xx(oi)+3).toFixed(1)}" y="${pt+8}" font-size="8.5" fill="${mut}">개봉</text>`; }
+              days.forEach((p,i)=>{
+                o+=`<text x="${xx(i).toFixed(1)}" y="${Hc-pb+12}" text-anchor="middle" font-size="8.5" fill="${mut}">${md(p)}</text>`;
+                o+=`<text x="${xx(i).toFixed(1)}" y="${Hc-pb+22}" text-anchor="middle" font-size="8" fill="${mut}" opacity=".6">${wdOf(p)}</text>`; });
+              rows.forEach(r=>{
+                const pts=days.map((p,i)=>({i,p,v:valOf(at(r,p))})).filter(x=>x.v!=null);
+                if(!pts.length) return; const c=COL[r.n];
+                o+=`<path d="${pts.map((x,k)=>(k?"L":"M")+xx(x.i).toFixed(1)+","+yy(x.v).toFixed(1)).join(" ")}" fill="none" stroke="${c}" stroke-width="${r.mine?2.6:1.7}" stroke-linejoin="round" opacity="${r.mine?1:.8}"/>`;
+                pts.forEach(x=>{ o+=`<circle cx="${xx(x.i).toFixed(1)}" cy="${yy(x.v).toFixed(1)}" r="${r.mine?3:2.3}" fill="${c}"><title>${r.n}
+${md(x.p)}(${wdOf(x.p)}) · ${tipf(x.v)}</title></circle>`; }); });
+              return o+`</svg></div>`; };
+            const seatOf=v=>(v&&v.seatTot>0)?v.seatTot:null;
+            const pctOf=v=>(v&&v.seatTot>0)?v.seatSold/v.seatTot*100:null;
+            s+=`<div class="sub-h" style="margin-top:14px">날짜별 추이 · 영화 넷 비교
+                <span class="tag-inline">3사(CGV·롯데·메가) 합산</span></div>
+              <div class="scr-lg">`
+              +rows.map(r=>`<span class="li"><span class="dot" style="background:${COL[r.n]}"></span><span style="color:${COL[r.n]}">${shortN(r.n)}</span></span>`).join("")
+              +`</div><div class="scr-cmp">`
+              +mkLine("걸린 좌석 <span style='font-weight:500;color:var(--muted)'>— 그 날 극장이 연 좌석</span>",
+                      seatOf, v=>v>=1e4?(v/1e4).toFixed(0)+"만":fmt0(Math.round(v)), v=>`걸린 좌석 ${fmt0(v)}석`)
+              +mkLine("판매율 <span style='font-weight:500;color:var(--muted)'>— 팔린 예매 ÷ 걸린 좌석</span>",
+                      pctOf, v=>v.toFixed(0)+"%", v=>`판매율 ${v.toFixed(1)}%`)
+              +`</div>`;
+            // 정확한 값은 표로. 셀은 판매율을 크게, 예매/좌석을 작게 — 셋이 한 칸에 들어간다.
+            s+=`<div class="tbl-wrap" style="margin-top:9px"><table class="mini-tbl"><thead><tr>
               <th class="l">상영일</th>`
-              +rows.map((r,ri)=>`<th style="color:${COL[ri%COL.length]}">${shortN(r.n)}<span class="th-sub">예매/좌석 · 판매율</span></th>`).join("")
+              +rows.map(r=>`<th style="color:${COL[r.n]}">${shortN(r.n)}<span class="th-sub">판매율 · 예매/좌석</span></th>`).join("")
               +`</tr></thead><tbody>`
-              +days.map(p=>`<tr><td class="l">${p.slice(4,6)}/${p.slice(6,8)}<span class="th-sub">${wdOf(p)} · D${ddOf(p)>=0?"+":""}${ddOf(p)}</span></td>`
-                +rows.map(r=>{ const v=r.get(p);
-                  if(!v||!v.seatTot) return `<td style="color:var(--muted2)">—</td>`;
-                  return `<td><b>${(v.seatSold/1e4).toFixed(1)}</b> / ${(v.seatTot/1e4).toFixed(1)}<span class="th-sub">만석 · ${pctOf(v).toFixed(1)}%</span></td>`; }).join("")
+              +days.map(p=>`<tr><td class="l">${md(p)}<span class="th-sub">${wdOf(p)} · D${ddOf(p)>=0?"+":""}${ddOf(p)}</span></td>`
+                +rows.map(r=>{ const v=at(r,p);
+                  if(!v) return `<td style="color:var(--muted2)">—</td>`;
+                  return `<td><b>${pctOf(v).toFixed(1)}%</b><span class="th-sub">${man(v.seatSold)} / ${man(v.seatTot)}</span></td>`; }).join("")
                 +`</tr>`).join("")
-              +`</tbody></table></div>`;
-            s+=`<p class="note" style="margin:5px 0 0">날짜 한 칸에 영화 넷을 나란히 세웠습니다.
-              <b>연한 몸통 = 그 날 걸린 좌석</b>, <b>그 안 진한 부분 = 이미 팔린 예매</b>, 막대 위 숫자는 판매율(%).
-              3사(CGV·롯데·메가) 합산이라 네 영화의 분모가 같고, <b>세로 눈금도 공유</b>합니다 —
-              그래서 채움 비율뿐 아니라 <b>누가 더 크게 걸었는지</b>까지 같은 자로 읽힙니다.
-              회색 띠가 주말, 점선이 하츄핑2 개봉일입니다.
-              비교작은 이미 상영 중이고 하츄핑2는 개봉 전이라, 개봉 전 예매가 원래 어느 수준인지 가늠하는 용도로 보십시오.</p>`;
+              +`</tbody></table></div>
+              <p class="note" style="margin:6px 0 0">왼쪽 선이 <b>그 날 극장이 연 좌석</b>, 오른쪽 선이 <b>그중 팔린 비율</b>입니다.
+                표의 큰 숫자가 판매율, 작은 숫자가 <b>팔린 예매 / 걸린 좌석</b>. 네 영화 모두 3사 합산이라 분모가 같습니다.
+                하츄핑2의 <b>개봉 전 시사회는 뺐습니다</b> — 3개 관에 팬만 들여 90%대로 차는 터라
+                같은 눈금에 올리면 정작 봐야 할 구간이 바닥에 깔립니다(시사회 수치는 위 표에 그대로 있습니다).
+                비교작은 이미 상영 중이고 하츄핑2는 개봉 전이라, 개봉 전 예매가 원래 어느 수준인지 가늠하는 용도로 보십시오.</p>`;
           }
         }
         h+=s;
