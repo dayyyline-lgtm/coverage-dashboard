@@ -2669,133 +2669,167 @@ function renderScreens(){
     const dn=p=>{const dd=ddOf(p); return dd==null?"":`<span class="ye">D${dd>=0?"+":""}${dd}</span>`;};
 
     /* ── 예측 재료 ────────────────────────────────────────
-       기준 판매율: 이미 끝난 상영일의 최종 판매율(실측). 없으면 예측 안 한다.
-       전국 보정: 같은 상영일의 KOBIS 실측 관객 ÷ 3사 판매좌석 — 독립·소형관과
-                 현장구매를 한 계수로 흡수한다. 실측 쌍이 생겨야 곱한다. */
-    // 오늘 상영분도 기준에 넣는다 — 완료일이 없는 개봉 전 구간에서도
-    // '지금까지 실제로 찬 비율'이 가장 좋은 실측 기준이다. 저녁까지 더 차면 따라 오른다.
-    const done=arr.filter(x=>x.play<=todayISO&&x.ser[x.ser.length-1].screens>0);
-    const bench=done.length?done[done.length-1]:null;
-    const bs=bench?bench.ser[bench.ser.length-1]:null;
-    const benchFill=(bs&&bs.seatTot>0)?bs.seatSold/bs.seatTot:null;
-    const benchLive=bench&&bench.play===todayISO;    // 진행 중 실측인지(완료 실측인지) 라벨용
+       기준 판매율: 이미 지난(또는 오늘) 상영일이 실제로 채운 비율.
+         규모가 비슷한 날을 먼저 고른다 — 시사회(수십 관)와 와이드 릴리즈(수백 관)는
+         좌석이 차는 양상이 전혀 다르다. 규모가 크게 다르면 화면에 경고를 단다.
+       전국 보정: 같은 상영일의 KOBIS 실측 관객 ÷ 3사 예매좌석 — 독립·소형관과
+         현장 구매를 한 계수로 흡수한다. 실측 쌍이 생겨야 곱한다. */
+    const lastOf=x=>x.ser[x.ser.length-1];
+    // 오늘 상영분도 기준에 넣는다 — 개봉 전이라 '완료된' 날이 아직 없다.
+    const done=arr.filter(x=>x.play<=todayISO&&lastOf(x).seatTot>0);
+    const pickBench=target=>{
+      if(!done.length) return null;
+      return done.slice().sort((a,b)=>{
+        const ra=Math.abs(Math.log((lastOf(a).screens||1)/(target||1)));
+        const rb=Math.abs(Math.log((lastOf(b).screens||1)/(target||1)));
+        return (ra-rb) || b.play.localeCompare(a.play);
+      })[0];
+    };
     let natF=null, natSrc="";
     for(const x of done.slice().reverse()){
-      const s=x.ser[x.ser.length-1];
+      const s=lastOf(x);
       const kob=Object.values(MV.movies||{}).flatMap(m=>m.days||[]).find(d2=>d2.d===x.play);
       if(kob&&s.seatSold>0){ natF=Math.min(2.5,Math.max(1,kob.audi/s.seatSold));
         natSrc=`${x.play.slice(4,6)}/${x.play.slice(6,8)} KOBIS ${fmt0(kob.audi)}명 ÷ 3사 ${fmt0(s.seatSold)}석`; break; }
     }
-    const est=s=>{ if(benchFill==null||!s.seatTot) return null;
-      const three=Math.max(s.seatSold, s.seatTot*benchFill);   // 이미 판 것보다 낮게 예측하지 않는다
-      return three*(natF||1); };
+    const fillOf=s=>{ const b=pickBench(s.screens); if(!b) return null;
+      const bl=lastOf(b); return bl.seatTot>0?{f:bl.seatSold/bl.seatTot, b}:null; };
+    // 기준 시나리오: 좌석 x 기준 판매율. 이미 판 것보다 낮게 잡지 않는다.
+    const est=s=>{ if(!s.seatTot) return null; const r=fillOf(s); if(!r) return null;
+      return Math.max(s.seatSold, s.seatTot*r.f)*(natF||1); };
+    // 확보 하한: 지금 이미 팔린 예매만으로 계산. 날짜가 다가올수록 예상선에 붙는다.
+    const floorOf=s=>s.seatSold*(natF||1);
 
     const future=arr.filter(x=>x.play>=todayISO);
     const main=future.find(x=>op&&x.play===op)||future[future.length-1]||arr[arr.length-1];
-    const s1=main.ser[main.ser.length-1];
+    const s1=lastOf(main);
     const s0=[...main.ser].reverse().find(p=>p.t.slice(0,10)!==s1.t.slice(0,10))||null;
     const dv=k=> s0? `<span class="${cls(s1[k]-s0[k])}">${s1[k]===s0[k]?"변동 없음":sign(s1[k]-s0[k],0)+" 전일비"}</span>` : "첫 스냅샷";
     const rate1=s1.seatTot>0?(s1.seatSold/s1.seatTot*100):null;
     const by=s1.by?Object.entries(s1.by).map(([t2,v])=>`${t2} ${v.screens}`).join(" · "):"";
-    const e1=est(s1);
+    const e1=est(s1), r1=fillOf(s1);
+    const openLbl=op&&main.play===op?"개봉일":`${main.play.slice(4,6)}/${main.play.slice(6,8)}`;
     h+=`<div class="sub-h">스크린 확보 — ${title}
         <span class="tag-inline">3사 전수 · ${SC.chain}</span></div>
       <div class="kpis">
-        <div class="kpi"><div class="k">개봉일 스크린</div>
+        <div class="kpi"><div class="k">${openLbl} 스크린</div>
           <div class="v">${fmt0(s1.screens)}<small>개</small></div>
           <div class="d">${dv("screens")}${by?` · ${by}`:""}</div></div>
-        <div class="kpi"><div class="k">개봉일 좌석</div>
+        <div class="kpi"><div class="k">${openLbl} 좌석 <span class="th-sub">공급</span></div>
           <div class="v">${(s1.seatTot/1e4).toFixed(1)}<small>만석</small></div>
           <div class="d">지점 ${fmt0(s1.sites)}곳 · ${fmt0(s1.shows)}회차</div></div>
-        <div class="kpi"><div class="k">개봉일 예매율</div>
-          <div class="v">${rate1==null?"—":fmt(rate1,1)}<small>%</small></div>
-          <div class="d">판매 ${fmt0(s1.seatSold)}석 ${dv("seatSold")}</div></div>
-        <div class="kpi"><div class="k">개봉일 예상 관객</div>
+        <div class="kpi"><div class="k">${openLbl} 예매 <span class="th-sub">확보</span></div>
+          <div class="v">${fmt0(s1.seatSold)}<small>석</small></div>
+          <div class="d">예매율 ${rate1==null?"—":fmt(rate1,1)+"%"} · ${dv("seatSold")}</div></div>
+        <div class="kpi"><div class="k">${openLbl} 예상 관객</div>
           <div class="v">${e1==null?"—":"~"+(e1/1e4).toFixed(1)}<small>만명</small></div>
-          <div class="d">${benchFill==null?"기준 판매율 실측 대기":`좌석×${(benchFill*100).toFixed(0)}%${benchLive?"(진행 중)":""}${natF?`×${natF.toFixed(2)}`:""} · 배정 늘면 ↑`}</div></div>
+          <div class="d">${r1==null?"기준 판매율 실측 대기":`좌석×${(r1.f*100).toFixed(0)}%${natF?`×${natF.toFixed(2)}`:""} · 배정 늘면 ↑`}</div></div>
       </div>`;
 
-    /* ── 누적 관객 전망 — 가로축 = 상영 날짜, 세로축 = 누적 관객.
-       실선 = KOBIS 실측 누적(이미 본 사람). 그 끝에서 점선이 이어진다:
-       각 상영일의 예상 관객(걸린 좌석 x 기준 판매율 x 전국 보정)이 앞 값에 계속 누적.
-       예매가 매일 바뀌므로 이 점선도 매일 다시 그려진다.
-       1편 누적(같은 D일차)을 흐리게 깔아 페이스를 견준다. */
+    /* ── 차트 두 장, 같은 날짜 축을 세로로 맞춰 놓는다 ──
+       위: 누적 관객 — 실선(실측) 뒤로 점선 두 줄이 이어진다.
+           굵은 점선 = 기준 시나리오(좌석 x 기준 판매율), 얇은 점선 = 지금 확보된 예매만.
+           둘 사이 간격이 곧 '아직 안 팔린 몫'이고, 날짜가 다가올수록 좁혀진다.
+       아래: 좌석(공급) vs 예매(수요) — 같은 날짜에 뭘 얼마나 깔았고 얼마나 찼는지. */
     {
       const mvMine=Object.entries(MV.movies||{}).find(([t])=>norm(t)===norm(title));
       const actual=(mvMine?mvMine[1].days:[])
         .map(p=>({play:p.d, acc:p.acc})).sort((a,b)=>a.play.localeCompare(b.play));
-      // 실측 이후의 추적 상영일들(좌석이 걸린 것만)로 점선 누적을 만든다
       const lastAct=actual.length?actual[actual.length-1]:null;
-      let cum=lastAct?lastAct.acc:0;
-      const proj=[];
-      arr.filter(x=>(!lastAct||x.play>lastAct.play)&&x.ser[x.ser.length-1].screens>0)
-         .forEach(x=>{const e=est(x.ser[x.ser.length-1]); if(e==null) return;
-                      cum+=e; proj.push({play:x.play, acc:cum});});
-      // 1편 참조선 — 같은 D일차 구간만
+      const seatDays=arr.filter(x=>lastOf(x).seatTot>0&&ddOf(x.play)!=null);
+      // 실측이 끝난 뒤의 날짜들만 예측 대상 — 지난 날은 이미 KOBIS 가 답을 준다.
+      const todo=seatDays.filter(x=>!lastAct||x.play>lastAct.play);
+      let cA=lastAct?lastAct.acc:0, cB=lastAct?lastAct.acc:0;
+      const projEst=[], projLow=[];
+      todo.forEach(x=>{ const s=lastOf(x), e=est(s); if(e==null) return;
+        cA+=e; projEst.push({dd:ddOf(x.play), acc:cA});
+        cB+=floorOf(s); projLow.push({dd:ddOf(x.play), acc:cB}); });
       const ref=(()=>{
         const other=Object.entries(MV.movies||{}).find(([t])=>norm(t)!==norm(title));
         if(!other||!op) return null;
         const oOp=(other[1].openDt||"").replace(/-/g,""); if(!oOp) return null;
         const d0=new Date(`${oOp.slice(0,4)}-${oOp.slice(4,6)}-${oOp.slice(6,8)}`);
-        return {nm:other[0], pts:(other[1].days||[]).map(p=>({
-          dd:Math.round((new Date(`${p.d.slice(0,4)}-${p.d.slice(4,6)}-${p.d.slice(6,8)}`)-d0)/864e5),
-          acc:p.acc}))};
+        return (other[1].days||[]).map(p=>({
+          dd:Math.round((new Date(`${p.d.slice(0,4)}-${p.d.slice(4,6)}-${p.d.slice(6,8)}`)-d0)/864e5), acc:p.acc}));
       })();
-      if(actual.length||proj.length){
-        const ddAll=[...actual.map(p=>ddOf(p.play)),...proj.map(p=>ddOf(p.play))].filter(v=>v!=null);
-        const dLo=Math.min(...ddAll), dHi=Math.max(...ddAll)+1;
-        const refPts=ref?ref.pts.filter(p=>p.dd>=dLo&&p.dd<=dHi):[];
-        const ymax=Math.max(...actual.map(p=>p.acc),...proj.map(p=>p.acc),
-                            ...refPts.map(p=>p.acc),1)*1.12;
-        const W=900,H=260,pad={l:56,r:120,t:16,b:34};
+      const A=actual.map(p=>({dd:ddOf(p.play), acc:p.acc})).filter(p=>p.dd!=null);
+      if(A.length||projEst.length){
+        const ddAll=[...A.map(p=>p.dd), ...projEst.map(p=>p.dd), ...seatDays.map(x=>ddOf(x.play))];
+        const dLo=Math.min(...ddAll), dHi=Math.max(...ddAll);
+        const refPts=(ref||[]).filter(p=>p.dd>=dLo&&p.dd<=dHi);
+        const W=900,pad={l:58,r:118};
         const sx=dd=>pad.l+(dd-dLo)/Math.max(1,dHi-dLo)*(W-pad.l-pad.r);
-        const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
         const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
         const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
-        let s=`<div class="sub-h" style="margin-top:14px">누적 관객 전망 <span class="tag-inline">실선=실측 · 점선=예상 누적</span></div>
-          <div class="chart-box"><svg viewBox="0 0 ${W} ${H}" width="100%" font-family="inherit">`;
-        for(let g=0;g<=4;g++){const v=ymax*g/4,y=sy(v);
+        const calOf=dd=>{ if(!op) return "";
+          const c=new Date(new Date(`${op.slice(0,4)}-${op.slice(4,6)}-${op.slice(6,8)}`).getTime()+dd*864e5);
+          return `${String(c.getMonth()+1).padStart(2,"0")}/${String(c.getDate()).padStart(2,"0")}`; };
+        const xAxis=(H,b)=>{ let s="";
+          for(let dd=dLo;dd<=dHi;dd++){
+            s+=`<text x="${sx(dd)}" y="${H-b+15}" text-anchor="middle" font-size="9.5" fill="${mut}">${calOf(dd)}</text>`;
+            s+=`<text x="${sx(dd)}" y="${H-b+27}" text-anchor="middle" font-size="9" fill="${mut}" opacity=".7">D${dd>=0?"+":""}${dd}</text>`;}
+          return s; };
+
+        /* 위 — 누적 관객 */
+        const H1=250, t1=16, b1=36;
+        const yMax=Math.max(...A.map(p=>p.acc), ...projEst.map(p=>p.acc), ...refPts.map(p=>p.acc), 1)*1.14;
+        const sy=v=>H1-b1-(v/yMax)*(H1-t1-b1);
+        let s=`<div class="sub-h" style="margin-top:14px">누적 관객 전망
+            <span class="tag-inline">실선=실측 · 굵은점선=기준 · 얇은점선=현재 예매만</span></div>
+          <div class="chart-box"><svg viewBox="0 0 ${W} ${H1}" width="100%" font-family="inherit">`;
+        for(let g=0;g<=4;g++){const v=yMax*g/4,y=sy(v);
           s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
           s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${(v/1e4).toFixed(0)}만</text>`;}
-        if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${pad.t}" x2="${sx(0)}" y2="${H-pad.b}" stroke="${mut}" stroke-dasharray="3 4" opacity=".6"/>`;
-        for(let dd=dLo;dd<=dHi;dd++){
-          const cal=op?new Date(new Date(`${op.slice(0,4)}-${op.slice(4,6)}-${op.slice(6,8)}`).getTime()+dd*864e5):null;
-          const lab=cal?`${String(cal.getMonth()+1).padStart(2,"0")}/${String(cal.getDate()).padStart(2,"0")}`:"";
-          s+=`<text x="${sx(dd)}" y="${H-pad.b+15}" text-anchor="middle" font-size="9.5" fill="${mut}">${lab}</text>`;
-          s+=`<text x="${sx(dd)}" y="${H-pad.b+27}" text-anchor="middle" font-size="9" fill="${mut}" opacity=".7">D${dd>=0?"+":""}${dd}</text>`;
-        }
-        // 1편 참조(흐린 실선)
+        if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${t1}" x2="${sx(0)}" y2="${H1-b1}" stroke="${mut}" stroke-dasharray="3 4" opacity=".55"/>`;
+        s+=xAxis(H1,b1);
         if(refPts.length>1){
-          s+=`<path d="${refPts.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}"
-               fill="none" stroke="#c4a7e7" stroke-width="2" opacity=".38"/>`;
+          s+=`<path d="${refPts.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="#c4a7e7" stroke-width="2" opacity=".36"/>`;
           const rl=refPts[refPts.length-1];
-          s+=`<text x="${sx(rl.dd)+6}" y="${sy(rl.acc)+4}" font-size="10.5" fill="#c4a7e7" opacity=".7">1편 실측</text>`;
-        }
-        // 2편 실측(실선) + 예상(점선, 실측 끝점에서 이어짐)
-        const A=actual.map(p=>[ddOf(p.play),p.acc]).filter(([d])=>d!=null);
+          s+=`<text x="${sx(rl.dd)+6}" y="${sy(rl.acc)+4}" font-size="10.5" fill="#c4a7e7" opacity=".75">1편 실측</text>`;}
         if(A.length){
-          s+=`<path d="${A.map(([d,v],i)=>(i?"L":"M")+sx(d).toFixed(1)+","+sy(v).toFixed(1)).join(" ")}"
-               fill="none" stroke="#eb6f92" stroke-width="2.6" stroke-linejoin="round"/>`;
-          A.forEach(([d,v])=>{s+=`<circle cx="${sx(d)}" cy="${sy(v)}" r="3" fill="#eb6f92"><title>D${d>=0?"+":""}${d} 실측 누적 ${fmt0(v)}명</title></circle>`;});
-        }
-        const P=proj.map(p=>[ddOf(p.play),p.acc]).filter(([d])=>d!=null);
-        if(P.length){
-          const startPt=A.length?A[A.length-1]:P[0];
-          const path=[startPt,...P];
-          s+=`<path d="${path.map(([d,v],i)=>(i?"L":"M")+sx(d).toFixed(1)+","+sy(v).toFixed(1)).join(" ")}"
-               fill="none" stroke="#eb6f92" stroke-width="2.4" stroke-dasharray="6 5" opacity=".9"/>`;
-          P.forEach(([d,v])=>{s+=`<circle cx="${sx(d)}" cy="${sy(v)}" r="3" fill="none" stroke="#eb6f92" stroke-width="1.6"><title>D${d>=0?"+":""}${d} 예상 누적 ~${fmt0(v)}명</title></circle>`;});
-          const pl=P[P.length-1];
-          s+=`<text x="${sx(pl[0])+7}" y="${sy(pl[1])+4}" font-size="11.5" font-weight="700" fill="#eb6f92">~${(pl[1]/1e4).toFixed(1)}만 (D${pl[0]>=0?"+":""}${pl[0]})</text>`;
-        }
+          s+=`<path d="${A.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="#eb6f92" stroke-width="2.6" stroke-linejoin="round"/>`;
+          A.forEach(p=>{s+=`<circle cx="${sx(p.dd)}" cy="${sy(p.acc)}" r="3" fill="#eb6f92"><title>${calOf(p.dd)} D${p.dd>=0?"+":""}${p.dd} · 실측 누적 ${fmt0(p.acc)}명</title></circle>`;});}
+        const head=A.length?A[A.length-1]:null;
+        const draw=(pts,w,dash,op2,lbl)=>{ if(!pts.length) return "";
+          const path=(head?[head,...pts]:pts);
+          let o=`<path d="${path.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="#eb6f92" stroke-width="${w}" stroke-dasharray="${dash}" opacity="${op2}"/>`;
+          pts.forEach(p=>{o+=`<circle cx="${sx(p.dd)}" cy="${sy(p.acc)}" r="2.8" fill="none" stroke="#eb6f92" stroke-width="1.5" opacity="${op2}"><title>${calOf(p.dd)} D${p.dd>=0?"+":""}${p.dd} · ${lbl} 누적 ~${fmt0(p.acc)}명</title></circle>`;});
+          return o; };
+        s+=draw(projLow,1.6,"3 4",.5,"현재 예매만");
+        s+=draw(projEst,2.4,"6 5",.95,"기준");
+        if(projEst.length){ const pl=projEst[projEst.length-1];
+          s+=`<text x="${sx(pl.dd)+7}" y="${sy(pl.acc)+4}" font-size="11.5" font-weight="700" fill="#eb6f92">~${(pl.acc/1e4).toFixed(1)}만</text>`;}
+        if(projLow.length){ const ql=projLow[projLow.length-1];
+          s+=`<text x="${sx(ql.dd)+7}" y="${sy(ql.acc)+4}" font-size="10" fill="#eb6f92" opacity=".65">확보 ~${(ql.acc/1e4).toFixed(1)}만</text>`;}
+        s+=`</svg></div>`;
+
+        /* 아래 — 좌석(공급) vs 예매(수요) */
+        const H2=170, t2=14, b2=36;
+        const sMax=Math.max(...seatDays.map(x=>lastOf(x).seatTot),1)*1.16;
+        const sy2=v=>H2-b2-(v/sMax)*(H2-t2-b2);
+        const bw=Math.min(46,(W-pad.l-pad.r)/Math.max(1,dHi-dLo+1)*0.64);
+        s+=`<div class="sub-h" style="margin-top:12px">좌석 vs 예매
+            <span class="tag-inline">연한 막대=걸린 좌석 · 진한 막대=팔린 예매</span></div>
+          <div class="chart-box"><svg viewBox="0 0 ${W} ${H2}" width="100%" font-family="inherit">`;
+        for(let g=0;g<=3;g++){const v=sMax*g/3,y=sy2(v);
+          s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
+          s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${v>=1e4?(v/1e4).toFixed(0)+"만":fmt0(v)}</text>`;}
+        if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${t2}" x2="${sx(0)}" y2="${H2-b2}" stroke="${mut}" stroke-dasharray="3 4" opacity=".55"/>`;
+        s+=xAxis(H2,b2);
+        seatDays.forEach(x=>{ const dd=ddOf(x.play), s2=lastOf(x);
+          const x0=sx(dd)-bw/2, r=s2.seatTot>0?s2.seatSold/s2.seatTot*100:0;
+          s+=`<rect x="${x0.toFixed(1)}" y="${sy2(s2.seatTot).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H2-b2-sy2(s2.seatTot)).toFixed(1)}" rx="3" fill="${mut}" opacity=".22"><title>${calOf(dd)} 좌석 ${fmt0(s2.seatTot)}석 · 스크린 ${fmt0(s2.screens)}</title></rect>`;
+          s+=`<rect x="${x0.toFixed(1)}" y="${sy2(s2.seatSold).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H2-b2-sy2(s2.seatSold)).toFixed(1)}" rx="3" fill="#eb6f92" opacity=".9"><title>${calOf(dd)} 예매 ${fmt0(s2.seatSold)}석 (${r.toFixed(1)}%)</title></rect>`;
+          s+=`<text x="${sx(dd)}" y="${(sy2(s2.seatTot)-5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${mut}">${r.toFixed(0)}%</text>`;});
         s+=`</svg></div>`;
         h+=s;
       }
     }
-
     /* ── 날짜별 표 (예상 관객 포함) ── */
     h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
-      <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th><th>예상 관객</th></tr></thead><tbody>`
+      <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th>
+      <th>좌석<span class="th-sub">공급</span></th><th>예매<span class="th-sub">확보</span></th>
+      <th>예매율</th><th>예상 관객</th></tr></thead><tbody>`
       +arr.map(({play,ser})=>{
         const s=ser[ser.length-1];
         const prev=[...ser].reverse().find(p=>p.t.slice(0,10)!==s.t.slice(0,10))||null;
@@ -2814,8 +2848,11 @@ function renderScreens(){
           <td>${fmt0(s.seatTot)}</td><td>${fmt0(s.seatSold)}</td>
           <td><b>${r2==null?"—":fmt(r2,1)+"%"}</b></td><td>${eCell}</td></tr>`;}).join("")
       +`</tbody></table></div>
-      <p class="note" style="margin:6px 0 0"><b>예상 관객</b> = 걸린 좌석 × 기준 판매율${benchFill!=null?` <b>${(benchFill*100).toFixed(0)}%</b>(${benchLive?`오늘 ${bench.play.slice(4,6)}/${bench.play.slice(6,8)} 상영분 진행 중 실측`:"직전 완료 상영일 실측"})`:"(실측 대기)"}${natF?` × 전국 보정 <b>${natF.toFixed(2)}</b>(${natSrc})`:" · 전국 보정은 KOBIS 실측이 잡히면 자동 적용"} —
-      배정이 매일 늘므로 예상치도 따라 올라갑니다. 이미 판 좌석보다 낮게 예측하지 않습니다.</p>`;
+      <p class="note" style="margin:6px 0 0"><b>예상 관객</b> = 걸린 좌석 × 기준 판매율${r1?` <b>${(r1.f*100).toFixed(0)}%</b>(${r1.b.play===todayISO?"오늘":""} ${r1.b.play.slice(4,6)}/${r1.b.play.slice(6,8)} 상영분 실측)`:"(실측 대기)"}${natF?` × 전국 보정 <b>${natF.toFixed(2)}</b>(${natSrc})`:" · 전국 보정은 KOBIS 실측이 잡히면 자동 적용"} —
+      배정이 매일 늘므로 예상치도 따라 올라갑니다. 이미 판 좌석보다 낮게 예측하지 않습니다.
+      ${r1&&lastOf(r1.b).screens*3<s1.screens?`<b style="color:var(--warn)">주의:</b> 기준으로 쓴 ${r1.b.play.slice(4,6)}/${r1.b.play.slice(6,8)}은 ${fmt0(lastOf(r1.b).screens)}개 관짜리 소수 상영이라 잘 찹니다.
+      ${fmt0(s1.screens)}개 관으로 넓게 걸리는 날의 점유율은 이보다 낮은 게 보통이라, 위 예상은 상단으로 보십시오 —
+      규모가 비슷한 상영일이 하루라도 끝나면 그날 실측으로 기준이 자동 교체됩니다.`:""}</p>`;
   });
   h+=`<p class="note">예매율 = 그 상영일에 이미 팔린 좌석 ÷ 걸린 좌석 · 스크린 증감은 전일 스냅샷 대비 ·
     CGV·롯데·메가 각 체인은 전수(상영 걸린 지점 전부), 독립·소형관(전국 스크린 ~10%)은 예매 API 가 없어 미포함

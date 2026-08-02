@@ -203,9 +203,9 @@ def main():
     today = now.date()
     crt = today.strftime("%Y%m%d")
 
-    # 오늘부터 3일 뒤까지 + 개봉일 — '앞으로 날짜별' 배정 표를 만들기 위해.
-    # 더 멀리는 극장들이 스케줄을 아직 안 연 경우가 많아 빈 값만 쌓인다.
-    dates = {today + datetime.timedelta(days=i) for i in range(4)}
+    # 오늘부터 7일 뒤까지 + 개봉일. 개봉일에서 끊으면 안 된다 —
+    # 8/5 개봉인데 8/6·8/7 예매가 이미 열려 있어서, 거기까지 봐야 개봉 주가 보인다.
+    dates = {today + datetime.timedelta(days=i) for i in range(8)}
     mb_blk = re.search(r"const MOVIE = (\{.*?\});\n", html, re.S)
     canon = {}                       # 정규화 제목 -> 대시보드 표기(예매 데이터 기준)
     if mb_blk:
@@ -221,7 +221,7 @@ def main():
                             pass
         except json.JSONDecodeError:
             pass
-    dates = sorted(d for d in dates if d >= today)[:6]
+    dates = sorted(d for d in dates if d >= today)[:9]
 
     m = re.search(r"const MOVIE_SCREENS = (\{.*?\});", html, re.S)
     old = {}
@@ -275,6 +275,11 @@ def main():
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:400]); return
+    # 수집에 십수 분이 걸린다. 시작 시점에 읽어 둔 html 로 덮어쓰면 그 사이의
+    # 다른 편집(화면 코드 수정 등)이 통째로 날아간다 — 실제로 한 번 날렸다.
+    # 쓰기 직전에 파일을 다시 읽고, MOVIE_SCREENS 블록만 갈아 끼운다.
+    html = open(HTML, encoding="utf-8").read()
+    m = re.search(r"const MOVIE_SCREENS = \{.*?\};", html, re.S)
     if m:
         html = html[:m.start()] + block + html[m.end():]
     else:
