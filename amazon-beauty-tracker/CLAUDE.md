@@ -130,12 +130,47 @@ FR/IT/ES  n° / n. / nº
 - **호출 예절**: 하루 1~2회. 재시도에는 백오프 필수(구현되어 있음). robots.txt는 `/gp/bestsellers`,
   `/zgbs/`, `/dp/<ASIN>`을 막고 있지 않지만, 저빈도 개인 모니터링 전제를 지킬 것.
 
-## 로드맵 (coverage dashboard 통합)
+## 대시보드 통합 (이 폴더는 coverage-dashboard 저장소 안에 있다)
 
-- `history.csv` → 마켓별·브랜드별 순위 추이 라인차트(y축 반전), 가격 변동, 리뷰 수 일간 Δ,
-  신규 진입/이탈 마커, 국가별 침투도 히트맵.
-- 통화가 섞여 있으므로 가격 비교 시 반드시 환산할 것 (`currency` 컬럼).
-- 며칠치 쌓인 뒤 통합할 것 (1일치로는 추이가 없음).
+위치: `coverage-dashboard/amazon-beauty-tracker/`. 루트의 다른 수집 스크립트들과 같은 층위다.
+`public/` 만 배포되므로 이 폴더는 공개되지 않는다.
+
+**통합 방식은 기존 데이터 파이프라인과 똑같이 간다** (루트 CLAUDE.md의 `LIVE`/`NEWS`/`TREND`/
+`TRADE` 규약). 새 파이프라인을 만들지 말 것:
+
+1. `inject_amazon.py`(미작성)가 `amazon-beauty-tracker/data/history.csv`를 읽어
+   `public/index.html` 의 `const AMAZON = {...}` 블록만 **정규식으로 교체**한다.
+   다른 상수 블록은 절대 건드리지 않는다 (스크립트끼리 서로 덮어쓰지 않는 게 이 구조의 핵심).
+2. 데이터 변동이 없으면 파일을 건드리지 않는다 (Cloudflare 무료 빌드 500회/월 절약).
+3. 차트는 `index.html` 안에서 그린다. 빌드 단계·프레임워크 도입 금지.
+
+담을 것: 마켓별·브랜드별 순위 추이 라인차트(y축 반전, 1위가 위), 리뷰 수 일간 Δ,
+신규 진입/이탈 마커, 국가별 침투도(medicube은 IT/ES/UK 상위권, DE는 얕음).
+
+주의:
+- **통화가 마켓마다 다르다.** 가격을 비교·합산하려면 `currency` 컬럼으로 환산할 것.
+  (`LIVE` 에 환율이 이미 있으니 그걸 쓴다.)
+- **"판매량"이라 쓰지 말 것.** 랭킹 추이다.
+- 며칠치 쌓인 뒤 붙일 것. 1일치로는 추이가 없다.
+
+### git 자동 커밋 주의
+
+`git.enabled: true` 면 매 실행 끝에 `git_push()` 가 커밋·push 한다. 이 저장소는
+봇이 매시간 커밋하고 **다른 세션이 동시에 작업 중일 수 있으므로**, 커밋은 반드시
+pathspec(`git commit -- data/history.csv data/asin_cache.json`)으로 **자기 파일만** 잡는다.
+그냥 `git commit` 을 쓰면 인덱스에 올라와 있던 남의 작업까지 데이터 커밋에 휩쓸린다.
+
+### 부분 실행 시 히스토리 보존
+
+`--markets US` 처럼 일부만 돌리거나 한 마켓이 실패해도, 오늘자 행은 **실제로 수집한 마켓만**
+지우고 다시 쓴다. 전체를 지우면 부분 실행 한 번에 그날 다른 나라 데이터가 통째로 날아간다.
+
+### 텔레그램은 기존 봇 공유
+
+봇을 새로 만들지 않았다. `resolve_telegram()` 이 환경변수 → `secrets_local.py` →
+`config.yaml` 순으로 토큰을 찾고, `secrets_local.py` 는 이 폴더뿐 아니라 **상위(대시보드
+저장소 루트)까지** 뒤진다. 대시보드 알림 봇 토큰 하나를 두 프로젝트가 같이 쓴다.
+토큰이 없으면 수집만 하고 발송은 조용히 건너뛴다 (파이프라인을 막지 않는다).
 
 ## 히스토리
 
@@ -143,3 +178,7 @@ FR/IT/ES  n° / n. / nº
 - 2026-08-02: 유럽 확장 검토 중 **전면 재작성**. Playwright → curl_cffi 전환,
   `data-client-recs-list` 앵커 도입, 6개 마켓 확장, 통화 버그 수정, ASIN 캐시 + 하위 BSR 추가.
   US/UK/DE/FR/IT/ES 전 마켓 실행 검증 완료.
+- 2026-08-02: coverage-dashboard 저장소 안(`amazon-beauty-tracker/`)으로 이동.
+  작업 스케줄러 `AmazonBeautyTracker` 등록(평일 08:00, run.bat, 절전 해제 옵션 켬).
+  텔레그램은 대시보드 봇 토큰을 공유하도록 `resolve_telegram()` 추가 —
+  **사용자가 `secrets_local.py` 에 토큰을 넣기 전까지 발송은 생략된다.**
