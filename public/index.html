@@ -2651,61 +2651,134 @@ function renderScreens(){
   const norm=t=>t.replace(/[\s:\-·]+/g,"");
   const todayISO=new Date().toISOString().slice(0,10).replace(/-/g,"");
   const ups=Object.fromEntries((MOVIE_UPCOMING||[]).map(x=>[norm(x.title),x]));
-  // 작품별로 묶는다 (특별판 등 여러 편이 잡힐 수 있다)
+  const MV=(typeof MOVIE!=="undefined")?MOVIE:{};
+  // 작품별로 (상영일 -> 스냅샷들) 을 묶는다. 과거 상영일도 들고 간다 —
+  // 기준 판매율(예측의 근거)과 전국 보정계수가 거기서 나온다.
   const byTitle={};
   Object.entries(SC.series).forEach(([k,ser])=>{
     const [t,play]=k.split("|");
-    if(play<todayISO) return;
     (byTitle[t]=byTitle[t]||[]).push({play, ser});
   });
   let h="";
   Object.entries(byTitle).forEach(([title,arr])=>{
     arr.sort((a,b)=>a.play.localeCompare(b.play));
-    // 재개봉 특별판처럼 몇 개 관짜리 소규모는 KPI 넉 장을 차지할 가치가 없다 — 생략
-    if(Math.max(...arr.map(x=>x.ser[x.ser.length-1].screens))<10) return;
+    if(Math.max(...arr.map(x=>x.ser[x.ser.length-1].screens))<10) return;   // 소규모(재개봉 특별판) 생략
     const u=ups[norm(title)];
     const op=u?u.open.replace(/-/g,""):null;
-    const dn=p=>{ if(!op) return "";
-      const dd=Math.round((new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`)-new Date(u.open))/864e5);
-      return `<span class="ye">D${dd>=0?"+":""}${dd}</span>`; };
-    // 개봉일(없으면 마지막 날짜) 스냅샷으로 KPI
-    const main=arr.find(x=>op&&x.play===op)||arr[arr.length-1];
+    const ddOf=p=>op?Math.round((new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`)-new Date(u.open))/864e5):null;
+    const dn=p=>{const dd=ddOf(p); return dd==null?"":`<span class="ye">D${dd>=0?"+":""}${dd}</span>`;};
+
+    /* ── 예측 재료 ────────────────────────────────────────
+       기준 판매율: 이미 끝난 상영일의 최종 판매율(실측). 없으면 예측 안 한다.
+       전국 보정: 같은 상영일의 KOBIS 실측 관객 ÷ 3사 판매좌석 — 독립·소형관과
+                 현장구매를 한 계수로 흡수한다. 실측 쌍이 생겨야 곱한다. */
+    // 오늘 상영분도 기준에 넣는다 — 완료일이 없는 개봉 전 구간에서도
+    // '지금까지 실제로 찬 비율'이 가장 좋은 실측 기준이다. 저녁까지 더 차면 따라 오른다.
+    const done=arr.filter(x=>x.play<=todayISO&&x.ser[x.ser.length-1].screens>0);
+    const bench=done.length?done[done.length-1]:null;
+    const bs=bench?bench.ser[bench.ser.length-1]:null;
+    const benchFill=(bs&&bs.seatTot>0)?bs.seatSold/bs.seatTot:null;
+    const benchLive=bench&&bench.play===todayISO;    // 진행 중 실측인지(완료 실측인지) 라벨용
+    let natF=null, natSrc="";
+    for(const x of done.slice().reverse()){
+      const s=x.ser[x.ser.length-1];
+      const kob=Object.values(MV.movies||{}).flatMap(m=>m.days||[]).find(d2=>d2.d===x.play);
+      if(kob&&s.seatSold>0){ natF=Math.min(2.5,Math.max(1,kob.audi/s.seatSold));
+        natSrc=`${x.play.slice(4,6)}/${x.play.slice(6,8)} KOBIS ${fmt0(kob.audi)}명 ÷ 3사 ${fmt0(s.seatSold)}석`; break; }
+    }
+    const est=s=>{ if(benchFill==null||!s.seatTot) return null;
+      const three=Math.max(s.seatSold, s.seatTot*benchFill);   // 이미 판 것보다 낮게 예측하지 않는다
+      return three*(natF||1); };
+
+    const future=arr.filter(x=>x.play>=todayISO);
+    const main=future.find(x=>op&&x.play===op)||future[future.length-1]||arr[arr.length-1];
     const s1=main.ser[main.ser.length-1];
     const s0=[...main.ser].reverse().find(p=>p.t.slice(0,10)!==s1.t.slice(0,10))||null;
     const dv=k=> s0? `<span class="${cls(s1[k]-s0[k])}">${s1[k]===s0[k]?"변동 없음":sign(s1[k]-s0[k],0)+" 전일비"}</span>` : "첫 스냅샷";
-    const rate=s1.seatTot>0?(s1.seatSold/s1.seatTot*100):null;
-    const by=s1.by?Object.entries(s1.by).map(([t,v])=>`${t} ${v.screens}`).join(" · "):"";
+    const rate1=s1.seatTot>0?(s1.seatSold/s1.seatTot*100):null;
+    const by=s1.by?Object.entries(s1.by).map(([t2,v])=>`${t2} ${v.screens}`).join(" · "):"";
+    const e1=est(s1);
     h+=`<div class="sub-h">스크린 확보 — ${title}
         <span class="tag-inline">3사 전수 · ${SC.chain}</span></div>
       <div class="kpis">
         <div class="kpi"><div class="k">개봉일 스크린</div>
           <div class="v">${fmt0(s1.screens)}<small>개</small></div>
           <div class="d">${dv("screens")}${by?` · ${by}`:""}</div></div>
-        <div class="kpi"><div class="k">개봉일 회차</div>
-          <div class="v">${fmt0(s1.shows)}<small>회</small></div>
-          <div class="d">${dv("shows")}</div></div>
         <div class="kpi"><div class="k">개봉일 좌석</div>
           <div class="v">${(s1.seatTot/1e4).toFixed(1)}<small>만석</small></div>
-          <div class="d">지점 ${fmt0(s1.sites)}곳</div></div>
+          <div class="d">지점 ${fmt0(s1.sites)}곳 · ${fmt0(s1.shows)}회차</div></div>
         <div class="kpi"><div class="k">개봉일 예매율</div>
-          <div class="v">${rate==null?"—":fmt(rate,1)}<small>%</small></div>
-          <div class="d">판매 ${fmt0(s1.seatSold)}석</div></div>
-      </div>
-      <div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
-        <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th></tr></thead><tbody>`
+          <div class="v">${rate1==null?"—":fmt(rate1,1)}<small>%</small></div>
+          <div class="d">판매 ${fmt0(s1.seatSold)}석 ${dv("seatSold")}</div></div>
+        <div class="kpi"><div class="k">개봉일 예상 관객</div>
+          <div class="v">${e1==null?"—":"~"+(e1/1e4).toFixed(1)}<small>만명</small></div>
+          <div class="d">${benchFill==null?"기준 판매율 실측 대기":`좌석×${(benchFill*100).toFixed(0)}%${benchLive?"(진행 중)":""}${natF?`×${natF.toFixed(2)}`:""} · 배정 늘면 ↑`}</div></div>
+      </div>`;
+
+    /* ── 병렬 점선 그래프 — 상영일별로 예매율(왼쪽)·스크린(오른쪽)이 차오르는 과정.
+       x = 수집 스냅샷 시각. 상영일 하나가 선 하나. 점선 = 아직 확정 아님(잠정 배정). */
+    const snaps=[...new Set(arr.flatMap(x=>x.ser.map(p=>p.t)))].sort();
+    const t2s=t=>t.slice(5,16);
+    if(snaps.length>1){
+      const COLS=["#c4a7e7","#eb6f92","#9ccfd8","#f6c177","#a6da95","#3e8fb0"];
+      const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
+      const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+      const mkChart=(valOf,ymax,fmtY,titleTxt)=>{
+        const W=460,H=200,pad={l:44,r:64,t:14,b:26};
+        const sx=i=>pad.l+(snaps.length===1?0.5:i/(snaps.length-1))*(W-pad.l-pad.r);
+        const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
+        let s=`<div class="sm-cell" style="min-width:0"><div class="sm-h">${titleTxt}</div>
+          <svg viewBox="0 0 ${W} ${H}" width="100%" font-family="inherit">`;
+        for(let g=0;g<=3;g++){const v=ymax*g/3,y=sy(v);
+          s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
+          s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10" fill="${mut}">${fmtY(v)}</text>`;}
+        const step=Math.max(1,Math.ceil(snaps.length/5));
+        snaps.forEach((t,i)=>{ if(i%step===0||i===snaps.length-1)
+          s+=`<text x="${sx(i)}" y="${H-pad.b+16}" text-anchor="middle" font-size="9.5" fill="${mut}">${t.slice(5,10)}</text>`;});
+        arr.forEach((x,xi)=>{
+          const dd=ddOf(x.play), c=COLS[xi%COLS.length];
+          const pts=snaps.map((t,i)=>{const p=x.ser.find(q=>q.t===t); return p?[i,valOf(p)]:null;}).filter(Boolean);
+          if(pts.length<1) return;
+          const past=x.play<todayISO;
+          s+=`<path d="${pts.map(([i,v],j)=>(j?"L":"M")+sx(i).toFixed(1)+","+sy(v).toFixed(1)).join(" ")}"
+               fill="none" stroke="${c}" stroke-width="2.2"${past?"":' stroke-dasharray="5 4"'} opacity="${past?0.55:1}"/>`;
+          pts.forEach(([i,v])=>{s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.4" fill="${c}"><title>${x.play.slice(4,6)}/${x.play.slice(6,8)} 상영분 · ${t2s(snaps[i])} 시점: ${fmtY(v)}</title></circle>`;});
+          const last=pts[pts.length-1];
+          s+=`<text x="${sx(last[0])+6}" y="${sy(last[1])+4}" font-size="10.5" font-weight="700" fill="${c}">${x.play.slice(4,6)}/${x.play.slice(6,8)}${dd!=null?` D${dd>=0?"+":""}${dd}`:""}</text>`;
+        });
+        s+=`</svg></div>`;
+        return s;
+      };
+      const scMax=Math.max(...arr.flatMap(x=>x.ser.map(p=>p.screens)),1)*1.15;
+      h+=`<div class="sm-grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:10px">`
+        +mkChart(p=>p.seatTot>0?p.seatSold/p.seatTot*100:0, 100, v=>v.toFixed(0)+"%", "예매율 채움 — 상영일별 (점선=예정)")
+        +mkChart(p=>p.screens, scMax, v=>fmt0(v), "스크린 확보 — 상영일별 (점선=예정)")
+        +`</div>`;
+    }
+
+    /* ── 날짜별 표 (예상 관객 포함) ── */
+    h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
+      <th class="l">상영일</th><th>일차</th><th>지점</th><th>스크린</th><th>회차</th><th>좌석</th><th>판매</th><th>예매율</th><th>예상 관객</th></tr></thead><tbody>`
       +arr.map(({play,ser})=>{
         const s=ser[ser.length-1];
         const prev=[...ser].reverse().find(p=>p.t.slice(0,10)!==s.t.slice(0,10))||null;
+        const isPast=play<todayISO;
         if(!s.screens&&!s.shows)
           return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
-            <td colspan="6" style="color:var(--muted2)">스케줄 미오픈 (통상 1~2일 전 오픈)</td></tr>`;
+            <td colspan="7" style="color:var(--muted2)">스케줄 미오픈 (통상 1~2일 전 오픈)</td></tr>`;
         const r2=s.seatTot>0?(s.seatSold/s.seatTot*100):null;
         const dscr=prev?` <small class="${cls(s.screens-prev.screens)}">${s.screens===prev.screens?"":sign(s.screens-prev.screens,0)}</small>`:"";
-        return `<tr><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
+        const kob=Object.values(MV.movies||{}).flatMap(m=>m.days||[]).find(d2=>d2.d===play);
+        const eCell=isPast
+          ? (kob?`<b>${fmt0(kob.audi)}</b><span class="th-sub">실측</span>`:`<span style="color:var(--muted2)">확정 대기</span>`)
+          : (est(s)==null?"—":`~${fmt0(est(s))}`);
+        return `<tr${isPast?' style="opacity:.6"':''}><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
           <td>${fmt0(s.sites)}</td><td><b>${fmt0(s.screens)}</b>${dscr}</td><td>${fmt0(s.shows)}</td>
           <td>${fmt0(s.seatTot)}</td><td>${fmt0(s.seatSold)}</td>
-          <td><b>${r2==null?"—":fmt(r2,1)+"%"}</b></td></tr>`;}).join("")
-      +`</tbody></table></div>`;
+          <td><b>${r2==null?"—":fmt(r2,1)+"%"}</b></td><td>${eCell}</td></tr>`;}).join("")
+      +`</tbody></table></div>
+      <p class="note" style="margin:6px 0 0"><b>예상 관객</b> = 걸린 좌석 × 기준 판매율${benchFill!=null?` <b>${(benchFill*100).toFixed(0)}%</b>(${benchLive?`오늘 ${bench.play.slice(4,6)}/${bench.play.slice(6,8)} 상영분 진행 중 실측`:"직전 완료 상영일 실측"})`:"(실측 대기)"}${natF?` × 전국 보정 <b>${natF.toFixed(2)}</b>(${natSrc})`:" · 전국 보정은 KOBIS 실측이 잡히면 자동 적용"} —
+      배정이 매일 늘므로 예상치도 따라 올라갑니다. 이미 판 좌석보다 낮게 예측하지 않습니다.</p>`;
   });
   h+=`<p class="note">예매율 = 그 상영일에 이미 팔린 좌석 ÷ 걸린 좌석 · 스크린 증감은 전일 스냅샷 대비 ·
     CGV·롯데·메가 각 체인은 전수(상영 걸린 지점 전부), 독립·소형관(전국 스크린 ~10%)은 예매 API 가 없어 미포함
