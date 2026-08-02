@@ -14,7 +14,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: events
+  # public/index.html 을 쓰는 워크플로는 한 그룹으로 묶어 동시 실행을 막는다.
+  # 따로 두면 커밋 단계에서 리베이스 충돌로 죽는다(실측 실패율 15%).
+  group: repo-write
   cancel-in-progress: false
 
 jobs:

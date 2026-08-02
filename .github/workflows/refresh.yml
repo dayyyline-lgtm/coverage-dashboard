@@ -1,21 +1,27 @@
 name: 시세 자동 갱신
 
+# ⚠ schedule: 블록을 일부러 뺐다 (2026-08-02)
+#
+#   Cloudflare Worker 가 이 워크플로를 workflow_dispatch 로 부르는데,
+#   GitHub 자체 cron 도 (예전엔 안 뜨더니) 지금은 뜬다. 둘이 겹쳐서
+#   7일간 schedule 18회(206분) + dispatch 70회(609분) = 88회가 돌았다.
+#   같은 일을 두 번 한 셈이고, 비공개 저장소라 그 분이 그대로 과금된다.
+#   워커 쪽이 훨씬 안정적(70 vs 18)이라 그쪽만 남긴다.
+#
+#   주기를 바꾸려면 Cloudflare → Workers → coverage-cron → Cron Trigger 를 고칠 것.
+#   급할 땐 Actions 탭 수동 실행이나 워커 주소에 ?wf=refresh.yml 을 붙이면 된다.
+
 on:
-  schedule:
-    # ── 평일 한국시간 07~18시, 매시 정각 ──
-    - cron: "0 22,23 * * 0-4"     # KST 07,08시 (UTC 전일 22,23시)
-    - cron: "0 0-9 * * 1-5"       # KST 09~18시
-    # ── 주말 한국시간 4시간마다 (00,04,08,12,16,20시) ──
-    - cron: "0 15,19,23 * * 5"    # KST 토 00,04,08시
-    - cron: "0 3,7,11,15,19,23 * * 6"  # KST 토 12,16,20 / 일 00,04,08시
-    - cron: "0 3,7,11 * * 0"      # KST 일 12,16,20시
-  workflow_dispatch: {}   # Actions 탭에서 수동 실행 버튼
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
+# public/index.html 을 쓰는 워크플로는 전부 같은 그룹에 둔다.
+# 따로 두었더니 둘이 동시에 돌아 커밋 단계에서 리베이스 충돌로 죽었다
+# (최근 40회 중 6회 실패, 실패 회차가 평균 18분씩을 태웠다).
 concurrency:
-  group: refresh
+  group: repo-write
   cancel-in-progress: false
 
 jobs:
@@ -30,68 +36,75 @@ jobs:
         with:
           python-version: "3.11"
 
+      # 워커가 밤·주말에도 부르는데 그 시각엔 값이 안 바뀌면서 시간만 먹는다.
+      # 무거운 단계는 필요한 시간대에만 돌린다. 아래 스텝들이 이 값을 본다.
+      - name: 시간대 판정(KST)
+        id: t
+        run: |
+          echo "h=$(TZ=Asia/Seoul date +%H)" >> $GITHUB_OUTPUT
+          echo "d=$(TZ=Asia/Seoul date +%u)" >> $GITHUB_OUTPUT   # 1=월 … 7=일
+
+      # 가장 무거운 단계(4.7분 — 이 워크플로 시간의 절반). 워커가 하루 12번 부르는데
+      # 매번 돌리면 이것만 월 1,100분이라 무료 한도 2,000분을 혼자 반 이상 먹는다.
+      # 장이 서는 평일에, 2시간 간격(08 개장 전 ~ 18 마감 후)으로만 돌린다.
       - name: 시세·리포트·일정 재수집
-        run: python refresh_live.py
+        run: |
+          case "${{ steps.t.outputs.d }}:${{ steps.t.outputs.h }}" in
+            [1-5]:08|[1-5]:10|[1-5]:12|[1-5]:14|[1-5]:16|[1-5]:18) python refresh_live.py ;;
+            *) echo "2시간 슬롯이 아니거나 장 시간 밖 - 생략" ;;
+          esac
 
       - name: 종목 뉴스 재수집
-        run: python fetch_news.py || echo "뉴스 수집 건너뜀(네이버 응답 이상)"
+        run: |
+          h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
+          if [ "$d" -le 5 ] && [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 19 ]; then
+            python fetch_news.py || echo "뉴스 수집 건너뜀(네이버 응답 이상)"
+          else
+            echo "장 시간 밖 - 생략"
+          fi
 
-      # DART 공시·IR·실적 일정을 매시간 갱신 — 장중에 올라온 공시가 하루 늦지 않게.
-      # (events.yml 은 아침 1번뿐이라, 그때그때 반영은 여기서 한다.)
+      # DART 공시는 장중에 올라오지만 2.25분짜리라 매시간은 과하다.
+      # 개장 직후·점심·장 마감 후 세 번이면 당일 안에 다 잡힌다.
       - name: DART 공시·IR 재수집
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: python fetch_events.py || echo "DART 수집 건너뜀"
+        run: |
+          case "${{ steps.t.outputs.d }}:${{ steps.t.outputs.h }}" in
+            [1-5]:09|[1-5]:13|[1-5]:17) python fetch_events.py || echo "DART 수집 건너뜀" ;;
+            *) echo "해당 시간대 아님 - 생략" ;;
+          esac
 
-      # 잠정실적 — DART '영업(잠정)실적(공정공시)'에서 매출·영업익을 끌어와 PRELIM 에 넣는다.
-      # 정식 실적이 네이버 API 에 잡히면 화면이 자동으로 그쪽을 우선(잠정은 물러남).
+      # 잠정실적 — DART '영업(잠정)실적(공정공시)'. 하루 두 번이면 충분하다.
       - name: 잠정실적 수집(DART)
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
-        run: python fetch_prelim.py || echo "잠정실적 수집 건너뜀"
+        run: |
+          case "${{ steps.t.outputs.d }}:${{ steps.t.outputs.h }}" in
+            [1-5]:09|[1-5]:17) python fetch_prelim.py || echo "잠정실적 수집 건너뜀" ;;
+            *) echo "해당 시간대 아님 - 생략" ;;
+          esac
 
-      # 영화 예매·박스오피스 — KOBIS 실시간 예매값은 하루 종일 바뀌므로 매시간 갱신
-      # (값 변동 없으면 파일 안 건드림). 개봉 전 하츄핑2 예매수·누적관객이 이걸로 신선해진다.
+      # 영화 예매·박스오피스 — KOBIS 실시간 예매값은 종일 바뀌므로 주말에도 돈다.
+      # (예전엔 이 스텝과 '주말' 스텝이 따로 있어 토·일엔 같은 걸 두 번 받았다.
+      #  0.73분짜리 중복이라 지웠다 — 요일 구분 없이 여기서 한 번만 한다.)
       - name: 영화 예매·박스오피스 수집
         env:
           KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
         run: python fetch_movie.py || echo "영화 수집 건너뜀"
 
-      # 치지직 게임 시청자(키 불필요). 매시간 돌아 그날 최댓값(저녁 피크)을 잡는다.
+      # 치지직·트위치는 회당 10초 안쪽이라 매번 돈다.
+      # 그날 최댓값(저녁 피크)을 잡는 게 목적이라 자주 볼수록 정확하다.
       - name: 치지직 게임 시청자
         run: python fetch_chzzk.py || echo "치지직 수집 건너뜀"
 
-      # 트위치 게임 시청자(글로벌). TWITCH_CLIENT_ID/SECRET 있어야 동작, 없으면 스킵.
       - name: 트위치 게임 시청자
         env:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: python fetch_twitch.py || echo "트위치 수집 건너뜀"
 
-      # 영화는 주말에도 갱신해야 한다 — 개봉 전후 주말이 흥행의 핵심 구간인데
-      # 평일 수집(events.yml)만으로는 토·일이 통째로 빈다.
-      # movie.yml 자체 cron 은 이 저장소에서 주말에 발화하지 않았다(7/25·26 실행 0회).
-      # refresh.yml 은 워커가 주말에도 4시간마다 부르므로 여기 붙이는 게 가장 확실하다.
-      # 평일엔 events.yml 이 이미 하므로 토·일만 돈다. 같은 날 재실행은 값만 갱신된다
-      # (예매율은 장중에 계속 바뀌므로 여러 번 받는 게 오히려 낫다).
-      - name: 영화 예매·박스오피스 (주말)
-        env:
-          KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
-        run: |
-          d=$(TZ=Asia/Seoul date +%u)      # 6=토, 7=일
-          if [ "$d" -ge 6 ]; then
-            python fetch_movie.py || echo "영화 수집 건너뜀"
-          else
-            echo "평일 - events.yml 이 담당"
-          fi
+      # 스크린 배정·예매는 screens.yml 이 전담한다(여기 붙였더니 회당 20분이 됐다).
 
-      # 스크린 배정·예매는 screens.yml 이 전담한다.
-      # 여기 붙였더니 이 워크플로(평균 20.5분)가 더 길어졌다 — 비공개 저장소라
-      # Actions 분이 과금 대상이고, 이게 사용량의 대부분을 차지한다.
-      # 대신 screens.yml 을 가볍게(매시간 1~2분) 따로 돌린다.
-
-      # 시세 갱신 직후에 돌려야 방금 확정된 실적을 바로 잡는다.
-      # 토큰이 없으면 조용히 넘어가므로 수집 자체는 영향받지 않는다.
       - name: 실적 발표 알림
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -104,11 +117,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # notified.json 도 같이 본다 — 알림 발송 기록이라 빠지면 같은 실적을 또 쏜다
           git add archive 2>/dev/null || true
-          if git diff --quiet --cached -- . && git diff --quiet -- public/index.html notified.json; then
-            echo "변경 없음 - 커밋 생략"
-          else
-            git add public/index.html notified.json
-            git commit -m "시세 자동 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
-            git pull --rebase
-            git push
+          if git diff --quiet --cached -- . && git diff --quiet -- public/index.html notified.json health.json; then
+            echo "변경 없음 - 커밋 생략"; exit 0
           fi
+          git add public/index.html notified.json health.json 2>/dev/null || true
+          git commit -m "시세 자동 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+          # 사람이 로컬에서 밀어 넣는 일도 있어 푸시가 밀릴 수 있다. 몇 번 다시 붙인다.
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "푸시 밀림 - 재시도 $i"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              # 같은 블록이 동시에 바뀌면 리베이스가 막힌다. 억지로 풀면 남의 수정을
+              # 덮어쓴다 — 이번 회차는 접고 다음 실행이 다시 수집하게 둔다.
+              git rebase --abort || true
+              echo "리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)"; exit 0
+            fi
+            sleep $((i * 3))
+          done
+          echo "푸시 5회 실패"; exit 1

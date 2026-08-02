@@ -12,7 +12,15 @@ name: 스크린 배정·예매 추적
 
 on:
   schedule:
-    - cron: "5 * * * *"      # 매시 5분(UTC). 실제 발화는 늦을 수 있음
+    # 8시간마다(UTC 00·08·16 = KST 09·17·01).
+    #
+    # 원래 매시간이었다. 그런데 비공개 저장소라 Actions 분이 과금되는데,
+    # 회당 2~3분 x 24회 = 월 2,160분이면 무료 한도 2,000분을 이것 하나로 넘긴다.
+    # (게다가 매시간 cron 은 이 저장소에서 거의 발화하지 않아 7일간 1회만 돌았다 —
+    #  '시간별 추적'은 실제로 작동한 적이 없다.)
+    # 다른 워크플로 몫을 남기면 8시간이 상한이다. 더 촘촘히 보려면 저장소를
+    # 공개로 돌리거나(Actions 무제한 무료) Actions 요금제를 올려야 한다.
+    - cron: "5 */8 * * *"
   workflow_dispatch:
     inputs:
       full:
@@ -24,7 +32,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: screens
+  # public/index.html 을 쓰는 워크플로는 한 그룹으로 묶어 동시 실행을 막는다.
+  # 따로 두면 커밋 단계에서 리베이스 충돌로 죽는다(실측 실패율 15%).
+  group: repo-write
   cancel-in-progress: false
 
 jobs:
