@@ -171,7 +171,7 @@ def cgv(play):
     lst = http_json(f"{CGV}/api/v1/booking/searchAtktTopPostrList?coCd=A420&movNm=&div=&attrCd=")
     targets = {x["movNo"]: x["movNm"] for x in (lst.get("data") or [])
                if any(w in (x.get("movNm") or "") for w in WATCH)}
-    out = {}
+    out, peers = {}, {}          # peers = 같은 지점·같은 날의 다른 영화들(비교군)
     for no, nm in targets.items():
         reg = http_json(f"{CGV}/api/v1/booking/searchRegnList?movNo={no}&coCd=A420")
         sites = {s["siteNo"] for g in (reg.get("data") or [])
@@ -194,18 +194,26 @@ def cgv(play):
                         if isinstance(v, (list, dict)): scan(v)
             scan(d.get("data"))
             for x in rows:
-                if not any(w in (x.get("prodNm") or "") for w in WATCH):
+                t = int(x.get("stcnt") or 0)
+                r = int(x.get("frSeatCnt") or 0)
+                pn = (x.get("prodNm") or "").strip()
+                # 같은 요청이 그 지점의 '전 영화'를 준다. 우리 영화만 걸러 버리면
+                # 비교군(스파이더맨·오디세이…)을 공짜로 얻을 수 있는 걸 버리는 셈이다.
+                # 예매율이 원래 저조한 건지 이 영화만 저조한 건지는 옆 영화를 봐야 안다.
+                if pn:
+                    b = peers.setdefault(pn, acc_new())
+                    b["sites"].add(sn); b["screens"].add((sn, x.get("scnsNo")))
+                    b["shows"] += 1; b["seatTot"] += t; b["seatSold"] += max(0, t - r)
+                if not any(w in pn for w in WATCH):
                     continue
                 a["sites"].add(sn)
                 a["screens"].add((sn, x.get("scnsNo")))
                 a["shows"] += 1
-                t = int(x.get("stcnt") or 0)
-                r = int(x.get("frSeatCnt") or 0)
                 a["seatTot"] += t
                 a["seatSold"] += max(0, t - r)
             time.sleep(0.12)
         out[nm] = acc_fin(a)
-    return out
+    return out, {k: acc_fin(v) for k, v in peers.items()}
 
 
 # ── 편성 탐침 ────────────────────────────────────────────
@@ -321,6 +329,9 @@ def main():
     stamp = now.strftime("%Y-%m-%d %H:%M")
     got = 0
     horizon = None                     # 편성이 확인된 마지막 날짜
+    # 비교군은 CGV 만 쓴다 — 롯데·메가는 영화별 루프라 편당 수백 요청이 더 든다.
+    # 어차피 '같은 체인·같은 지점·같은 날' 끼리 견주는 게 비교로도 더 깨끗하다.
+    peer_series = dict(old.get("peers") or {})
     for d in dates:
         play, play_iso = d.strftime("%Y%m%d"), d.isoformat()
         if not programmed(play):
@@ -328,12 +339,25 @@ def main():
             continue
         horizon = play
         # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
-        chains = {}
+        chains, peers = {}, {}
         for tag, fn, arg in (("CGV", cgv, play), ("LC", lotte, play_iso), ("MB", megabox, None)):
             try:
-                chains[tag] = fn(arg) if arg else megabox(play, crt)
+                r = fn(arg) if arg else megabox(play, crt)
+                if tag == "CGV":
+                    chains[tag], peers = r        # CGV 는 (대상, 비교군) 을 같이 준다
+                else:
+                    chains[tag] = r
             except Exception as e:
                 print(f"  {play} {tag} 실패: {type(e).__name__} {str(e)[:70]}")
+        # 비교군 — 같은 지점·같은 날의 상위 편성작. 스크린 많은 순 6편만 남긴다.
+        if peers:
+            top = sorted(peers.items(), key=lambda kv: -kv[1]["screens"])[:6]
+            for pn, pv in top:
+                if pv["seatTot"] <= 0:
+                    continue
+                peer_series.setdefault(pn, {})[play] = {
+                    "screens": pv["screens"], "seatTot": pv["seatTot"],
+                    "seatSold": pv["seatSold"], "t": stamp}
         # 제목 정규화로 3사 결과를 합친다
         merged = {}
         for tag, per in chains.items():
@@ -367,7 +391,7 @@ def main():
     out = {"asOf": stamp, "chain": "CGV+롯데+메가박스",
            "horizon": horizon or (old.get("horizon")),
            "lastFull": today.isoformat() if want_full else last_full,
-           "series": series}
+           "series": series, "peers": peer_series}
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:400]); return
