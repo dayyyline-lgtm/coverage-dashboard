@@ -2922,50 +2922,56 @@ function renderScreens(){
 
         /* ── 같은 날 다른 영화와 비교 ──
            12.7% 가 낮은 건지 원래 그런 건지는 옆 영화를 봐야 안다.
-           CGV 의 지점별 요청이 그 지점의 전 영화를 같이 주므로 비교군 수집 비용은 0이다.
-           같은 체인·같은 지점·같은 날끼리라 비교가 깨끗하다(롯데·메가는 영화별 루프라 뺐다). */
+           퍼센트만 나열하면 규모 감각이 사라져서, 위 '좌석 vs 예매' 와 똑같은 형태로
+           영화마다 한 줄씩 그린다 — 연한 막대가 걸린 좌석, 진한 막대가 팔린 예매.
+           3사 합산이라 우리 영화와 분모가 같다. */
         const PEERS=SC.peers||{};
         const peerNames=Object.keys(PEERS).filter(n=>norm(n)!==norm(title));
         if(peerNames.length){
-          /* 비교군은 CGV 만 모은다. 우리 영화를 3사 합산으로 놓으면 분모가 달라
-             비교가 어긋난다 — 여기서는 우리 것도 CGV 몫만 꺼내 쓴다. */
-          const mine=Object.fromEntries(seatDays.map(x=>{
-            const v=lastOf(x); return [x.play,(v.by&&v.by.CGV)||null];}));
+          const mine=Object.fromEntries(seatDays.map(x=>[x.play,lastOf(x)]));
           const days=[...new Set([...Object.keys(mine),
                       ...peerNames.flatMap(n=>Object.keys(PEERS[n]))])].sort()
                       .filter(p=>ddOf(p)!=null&&ddOf(p)>=dLo&&ddOf(p)<=dHi);
-          // 스크린 많은 순 3편만 — 비교는 대표작 몇 편이면 충분하다
           const top=peerNames.map(n=>({n, m:Math.max(...Object.values(PEERS[n]).map(v=>v.screens||0))}))
                              .sort((a,b)=>b.m-a.m).slice(0,3).map(x=>x.n);
-          const rows=[{n:title+" (CGV분)", mine:true, get:p=>{const v=mine[p]; return v&&v.seatTot? {t:v.seatTot,s:v.seatSold}:null;}},
-                      ...top.map(n=>({n, mine:false, get:p=>{const v=PEERS[n][p]; return v&&v.seatTot?{t:v.seatTot,s:v.seatSold}:null;}}))];
-          const H3=150,t3=22,b3=34;
-          const gmax=Math.max(...rows.flatMap(r=>days.map(p=>{const v=r.get(p); return v?v.s/v.t*100:0})),12)*1.2;
-          const sy3=v=>H3-b3-(v/gmax)*(H3-t3-b3);
-          const gw=Math.min(52,(W-pad.l-pad.r)/Math.max(1,dHi-dLo+1)*0.7);
-          const bw3=gw/rows.length;
+          const rows=[{n:title, mine:true, get:p=>mine[p]||null},
+                      ...top.map(n=>({n, mine:false, get:p=>PEERS[n][p]||null}))];
           const COL=["#eb6f92","#9ccfd8","#f6c177","#a6da95"];
           s+=`<div class="sub-h" style="margin-top:12px">같은 날 · 다른 영화와 비교
-              <span class="tag-inline">CGV 기준 · 좌석 판매율</span></div>
-            <div class="chart-box"><svg viewBox="0 0 ${W} ${H3}" width="100%" font-family="inherit">`;
-          for(let g=0;g<=3;g++){const v=gmax*g/3,y=sy3(v);
-            s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
-            s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${v.toFixed(0)}%</text>`;}
-          s+=xAxis(H3,b3);
-          days.forEach(p=>{ const dd=ddOf(p), x0=sx(dd)-gw/2;
-            rows.forEach((r,ri)=>{ const v=r.get(p); if(!v) return;
-              const pct=v.s/v.t*100, x1=x0+ri*bw3;
-              s+=`<rect x="${x1.toFixed(1)}" y="${sy3(pct).toFixed(1)}" width="${(bw3-1.5).toFixed(1)}" height="${Math.max(0,H3-b3-sy3(pct)).toFixed(1)}" rx="2"
-                   fill="${COL[ri%COL.length]}" opacity="${r.mine?0.95:0.55}"><title>${r.n}
-${calOf(dd)} · 좌석 ${fmt0(v.t)} · 예매 ${fmt0(v.s)} · ${pct.toFixed(1)}%</title></rect>`;});});
-          // 범례 (위쪽)
-          rows.forEach((r,ri)=>{ const lx=pad.l+ri*((W-pad.l-pad.r)/rows.length);
-            s+=`<rect x="${lx}" y="4" width="9" height="9" rx="2" fill="${COL[ri%COL.length]}" opacity="${r.mine?0.95:0.55}"/>`;
-            s+=`<text x="${lx+13}" y="12.5" font-size="10.5" font-weight="${r.mine?800:600}" fill="${mut}">${r.n.length>16?r.n.slice(0,15)+"…":r.n}</text>`;});
-          s+=`</svg></div>
-            <p class="note" style="margin:4px 0 0">막대는 <b>그 날짜의 좌석 중 몇 %가 팔렸나</b>입니다.
-            같은 CGV 지점·같은 날짜라 조건이 같습니다 — 다만 <b>다른 영화들은 이미 개봉해 상영 중</b>이고
-            하츄핑2 는 개봉 전이라, 개봉 전 예매가 원래 어느 수준인지 가늠하는 용도로 보십시오.</p>`;
+              <span class="tag-inline">3사 합산 · 연한=좌석 · 진한=예매</span></div>`;
+          const Hc=118, tc=26, bc=30;
+          const bwc=Math.min(40,(W-pad.l-pad.r)/Math.max(1,dHi-dLo+1)*0.6);
+          rows.forEach((r,ri)=>{
+            const vals=days.map(p=>r.get(p)).filter(Boolean);
+            if(!vals.length) return;
+            // 세로 눈금은 영화마다 따로 — 스파이더맨 19만석과 하츄핑 6만석을 같은 자로 재면
+            // 채움 비율이 안 보인다. 대신 좌석 절대값을 막대 위에 숫자로 적어 규모를 남긴다.
+            const vmax=Math.max(...vals.map(v=>v.seatTot),1)*1.2;
+            const syc=v=>Hc-bc-(v/vmax)*(Hc-tc-bc);
+            const col=COL[ri%COL.length];
+            const peak=vals.reduce((a,v)=>v.seatTot>a.seatTot?v:a,vals[0]);
+            s+=`<div class="chart-box" style="margin-top:6px"><svg viewBox="0 0 ${W} ${Hc}" width="100%" font-family="inherit">
+              <text x="${pad.l}" y="13" font-size="11.5" font-weight="${r.mine?800:700}" fill="${col}">${r.n}${r.mine?"":""}</text>
+              <text x="${pad.l+Math.min(240,r.n.length*13+14)}" y="13" font-size="10" fill="${mut}">최대 ${fmt0(peak.seatTot)}석 · ${fmt0(peak.screens)}관</text>`;
+            for(let g=0;g<=2;g++){const v=vmax*g/2,y=syc(v);
+              s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
+              s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="9.5" fill="${mut}">${v>=1e4?(v/1e4).toFixed(0)+"만":fmt0(v)}</text>`;}
+            if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${tc}" x2="${sx(0)}" y2="${Hc-bc}" stroke="${mut}" stroke-dasharray="3 4" opacity=".5"/>`;
+            days.forEach(p=>{ const v=r.get(p); if(!v||!v.seatTot) return;
+              const dd=ddOf(p), x0=sx(dd)-bwc/2, pct=v.seatSold/v.seatTot*100;
+              s+=`<rect x="${x0.toFixed(1)}" y="${syc(v.seatTot).toFixed(1)}" width="${bwc.toFixed(1)}" height="${Math.max(0,Hc-bc-syc(v.seatTot)).toFixed(1)}" rx="2.5" fill="${col}" opacity=".18"><title>${r.n}
+${calOf(dd)} · 걸린 좌석 ${fmt0(v.seatTot)}석 · ${fmt0(v.screens)}관</title></rect>`;
+              s+=`<rect x="${x0.toFixed(1)}" y="${syc(v.seatSold).toFixed(1)}" width="${bwc.toFixed(1)}" height="${Math.max(0,Hc-bc-syc(v.seatSold)).toFixed(1)}" rx="2.5" fill="${col}" opacity=".92"><title>${r.n}
+${calOf(dd)} · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)}석 · ${pct.toFixed(1)}%</title></rect>`;
+              s+=`<text x="${sx(dd)}" y="${(syc(v.seatTot)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${mut}">${pct.toFixed(0)}%</text>`;});
+            // 맨 아래 줄에만 날짜 축을 단다(칸을 아끼려고)
+            if(ri===rows.length-1) s+=xAxis(Hc,bc);
+            s+=`</svg></div>`;});
+          s+=`<p class="note" style="margin:5px 0 0">각 줄이 영화 하나입니다. <b>연한 막대 = 그 날 걸린 좌석</b>,
+            <b>진한 막대 = 이미 팔린 예매</b>, 위 숫자는 그 비율. 3사(CGV·롯데·메가) 합산이라 우리 영화와 분모가 같습니다.
+            <b>세로 눈금은 줄마다 따로</b>입니다 — 스파이더맨 19만석과 하츄핑2 6만석을 같은 자로 재면 채움이 안 보여서,
+            대신 규모는 제목 옆 '최대 N석 · N관'으로 적었습니다.
+            비교작은 이미 개봉해 상영 중이고 하츄핑2는 개봉 전이라, 개봉 전 예매가 원래 어느 수준인지 가늠하는 용도로 보십시오.</p>`;
         }
         h+=s;
       }

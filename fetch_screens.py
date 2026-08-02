@@ -50,7 +50,19 @@ HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 KEEP = 90
 WATCH = ["하츄핑", "티니핑"]
+# 비교군 — 같은 시기 흥행작만. '예매율 12% 가 낮은 건가'를 가르는 기준선이다.
+# 전 영화를 담으면 소규모 재개봉·예술영화까지 섞여 오히려 안 읽힌다.
+PEER_TITLES = ["스파이더맨", "오디세이", "호프"]
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+
+
+def is_peer(nm):
+    return any(p in (nm or "") for p in PEER_TITLES)
+
+
+def _nap(sec):
+    """요청 간격 — 살짝 흔들어 준다. 규칙적인 간격이 차단 규칙에 더 잘 걸린다."""
+    time.sleep(sec * (0.75 + 0.5 * (int(time.time() * 1000) % 100) / 100))
 
 
 def http_json(url, data=None, headers=None, timeout=40, tries=2):
@@ -89,15 +101,19 @@ def mb_post(body):
         "Referer": "https://www.megabox.co.kr/booking/timetable"})
 
 
-def megabox(play, crt):
+def megabox(play, crt, peer_names=()):
+    """(대상, 비교군). 메가는 영화별 x 지역8 이라 비교군은 요청한 제목만 훑는다."""
     rows = (mb_post({"masterType": "brch", "brchNo": "1372", "firstAt": "N",
                      "brchNo1": "1372", "crtDe": crt, "playDe": play})
             .get("megaMap", {}).get("movieFormList")) or []
-    targets = {x["rpstMovieNo"]: x.get("rpstMovieNm", "")
-               for x in rows if any(w in (x.get("rpstMovieNm") or "") for w in WATCH)
-               and x.get("rpstMovieNo")}
-    out = {}
-    for no, nm in targets.items():
+    allm = {x["rpstMovieNo"]: (x.get("rpstMovieNm") or "").strip()
+            for x in rows if x.get("rpstMovieNo")}
+    targets = {no: nm for no, nm in allm.items() if any(w in nm for w in WATCH)}
+    want_peer = {norm_title(p) for p in peer_names}
+    peers_sel = {no: nm for no, nm in allm.items()
+                 if no not in targets and norm_title(nm) in want_peer}
+
+    def sweep(no):
         a = acc_new()
         for cd in MB_AREAS:
             d = mb_post({"masterType": "movie", "movieNo": no, "firstAt": "N",
@@ -109,9 +125,12 @@ def megabox(play, crt):
                 t, r = int(x.get("totSeatCnt") or 0), int(x.get("restSeatCnt") or 0)
                 a["seatTot"] += t
                 a["seatSold"] += max(0, t - r)
-            time.sleep(0.25)
-        out[nm] = acc_fin(a)
-    return out
+            _nap(0.25)
+        return acc_fin(a)
+
+    out = {nm: sweep(no) for no, nm in targets.items()}
+    peers = {nm: sweep(no) for no, nm in peers_sel.items()}
+    return out, peers
 
 
 # ── 롯데시네마 ───────────────────────────────────────────
@@ -129,38 +148,44 @@ def lc_call(param):
 
 
 def lotte(play_iso):
+    """(대상, 비교군).
+
+    representationMovieCode 를 '비워서' 부르면 그 영화관의 전 영화가 한 번에 온다.
+    (건대입구 8/5: 53회차 6편) 예전엔 영화별로 237개관을 따로 돌아서 요청이 2배였다 —
+    비우면 절반으로 줄면서 비교군까지 공짜로 딸려온다. IP 부담도 그만큼 준다.
+    """
     base = {"channelType": "HO", "osType": "W", "osVersion": UA, "memberOnNo": ""}
     d = lc_call({"MethodName": "GetTicketingPage", **base})
-    movies = ((d.get("Movies") or {}).get("Movies") or {}).get("Items") or []
     cins = ((d.get("Cinemas") or {}).get("Cinemas") or {}).get("Items") or []
-    targets = {m["RepresentationMovieCode"]: m["MovieNameKR"]
-               for m in movies if any(w in (m.get("MovieNameKR") or "") for w in WATCH)}
-    out = {}
-    for code, nm in targets.items():
-        a = acc_new()
-        for c in cins:
-            cid = f"{c['DivisionCode']}|{c['DetailDivisionCode']}|{c['CinemaID']}"
-            try:
-                s = lc_call({"MethodName": "GetPlaySequence", **base,
-                             "playDate": play_iso, "cinemaID": cid,
-                             "representationMovieCode": code})
-            except Exception:
+    out, peers = {}, {}
+    for c in cins:
+        cid = f"{c['DivisionCode']}|{c['DetailDivisionCode']}|{c['CinemaID']}"
+        try:
+            s = lc_call({"MethodName": "GetPlaySequence", **base,
+                         "playDate": play_iso, "cinemaID": cid,
+                         "representationMovieCode": ""})
+        except Exception:
+            _nap(0.12)
+            continue
+        for x in ((s.get("PlaySeqs") or {}).get("Items")) or []:
+            nm = (x.get("MovieNameKR") or "").strip()
+            if not nm:
                 continue
-            items = ((s.get("PlaySeqs") or {}).get("Items")) or []
-            if not items:
-                time.sleep(0.08)
-                continue
-            for x in items:
+            t = int(x.get("TotalSeatCount") or 0)
+            r = int(x.get("BookingSeatCount") or 0)   # 이름과 달리 '잔여'다(실측 199/208)
+            tgt = any(w in nm for w in WATCH)
+            for bucket, key in ((out, nm) if tgt else (None, None), (peers, nm) if is_peer(nm) else (None, None)):
+                if bucket is None:
+                    continue
+                a = bucket.setdefault(key, acc_new())
                 a["sites"].add(cid)
                 a["screens"].add((cid, x.get("ScreenNameKR")))
                 a["shows"] += 1
-                t = int(x.get("TotalSeatCount") or 0)
-                r = int(x.get("BookingSeatCount") or 0)   # 이름과 달리 '잔여'다(실측 199/208)
                 a["seatTot"] += t
                 a["seatSold"] += max(0, t - r)
-            time.sleep(0.08)
-        out[nm] = acc_fin(a)
-    return out
+        _nap(0.12)
+    return ({k: acc_fin(v) for k, v in out.items()},
+            {k: acc_fin(v) for k, v in peers.items()})
 
 
 # ── CGV ─────────────────────────────────────────────────
@@ -200,7 +225,7 @@ def cgv(play):
                 # 같은 요청이 그 지점의 '전 영화'를 준다. 우리 영화만 걸러 버리면
                 # 비교군(스파이더맨·오디세이…)을 공짜로 얻을 수 있는 걸 버리는 셈이다.
                 # 예매율이 원래 저조한 건지 이 영화만 저조한 건지는 옆 영화를 봐야 안다.
-                if pn:
+                if is_peer(pn):
                     b = peers.setdefault(pn, acc_new())
                     b["sites"].add(sn); b["screens"].add((sn, x.get("scnsNo")))
                     b["shows"] += 1; b["seatTot"] += t; b["seatSold"] += max(0, t - r)
@@ -211,7 +236,7 @@ def cgv(play):
                 a["shows"] += 1
                 a["seatTot"] += t
                 a["seatSold"] += max(0, t - r)
-            time.sleep(0.12)
+            _nap(0.15)
         out[nm] = acc_fin(a)
     return out, {k: acc_fin(v) for k, v in peers.items()}
 
@@ -244,7 +269,7 @@ def programmed(play):
         scan(d.get("data"))
         if hit:
             return True
-        time.sleep(0.1)
+        _nap(0.12)
     return None          # None = CGV 기준 미편성(다른 체인 단독 편성은 드물다)
 
 
@@ -339,25 +364,28 @@ def main():
             continue
         horizon = play
         # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
-        chains, peers = {}, {}
-        for tag, fn, arg in (("CGV", cgv, play), ("LC", lotte, play_iso), ("MB", megabox, None)):
+        chains, peer_by = {}, {}
+        for tag in ("CGV", "LC", "MB"):
             try:
-                r = fn(arg) if arg else megabox(play, crt)
                 if tag == "CGV":
-                    chains[tag], peers = r        # CGV 는 (대상, 비교군) 을 같이 준다
+                    o, p = cgv(play)
+                elif tag == "LC":
+                    o, p = lotte(play_iso)
                 else:
-                    chains[tag] = r
+                    o, p = megabox(play, crt, PEER_TITLES)
+                chains[tag] = o
+                for pn, pv in p.items():
+                    peer_by.setdefault(norm_title(pn), {"nm": pn, "by": {}})["by"][tag] = pv
             except Exception as e:
                 print(f"  {play} {tag} 실패: {type(e).__name__} {str(e)[:70]}")
-        # 비교군 — 같은 지점·같은 날의 상위 편성작. 스크린 많은 순 6편만 남긴다.
-        if peers:
-            top = sorted(peers.items(), key=lambda kv: -kv[1]["screens"])[:6]
-            for pn, pv in top:
-                if pv["seatTot"] <= 0:
-                    continue
-                peer_series.setdefault(pn, {})[play] = {
-                    "screens": pv["screens"], "seatTot": pv["seatTot"],
-                    "seatSold": pv["seatSold"], "t": stamp}
+        # 비교군도 3사 합산. 어느 체인이 빠졌는지 같이 남겨 화면에서 구분한다.
+        for pk, pv in peer_by.items():
+            tot = {f: sum(v[f] for v in pv["by"].values())
+                   for f in ("sites", "screens", "shows", "seatTot", "seatSold")}
+            if tot["seatTot"] <= 0:
+                continue
+            peer_series.setdefault(pv["nm"], {})[play] = {
+                **tot, "t": stamp, "by": pv["by"]}
         # 제목 정규화로 3사 결과를 합친다
         merged = {}
         for tag, per in chains.items():
