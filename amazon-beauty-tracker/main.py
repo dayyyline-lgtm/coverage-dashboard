@@ -28,6 +28,7 @@ BASE = Path(__file__).parent
 HISTORY_COLS = ["date", "market", "brand", "asin", "title",
                 "list_cat", "list_rank",
                 "bsr_main", "bsr_main_cat", "bsr_sub", "bsr_sub_cat",
+                "bought", "bought_period", "parent_asin",
                 "price", "currency", "rating", "reviews"]
 
 FLAGS = {"US": "🇺🇸", "UK": "🇬🇧", "DE": "🇩🇪", "FR": "🇫🇷",
@@ -92,7 +93,7 @@ def load_history(path: Path) -> list[dict]:
         return []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        if reader.fieldnames and "bsr_main" not in reader.fieldnames:
+        if reader.fieldnames and "parent_asin" not in reader.fieldnames:
             backup = path.with_name("history_v1_backup.csv")
             shutil.copy2(path, backup)
             print(f"[이전] 구버전 history.csv를 {backup.name}로 백업하고 새 스키마로 시작합니다.\n"
@@ -138,6 +139,65 @@ def _pad(s, w):
     """CJK 문자를 2칸으로 세는 폭 맞춤 (모노스페이스 정렬용)."""
     width = sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
     return s + " " * max(0, w - width)
+
+
+# 아마존 제목은 검색 키워드를 욱여넣어서 길다. 사람이 읽을 제품명만 남긴다.
+# (원문은 history.csv 에 그대로 보존되므로 나중에 대조할 수 있다)
+_CUT_SEPARATORS = re.compile(r"\s*[|–—•‧]\s*|\s+-\s+|\s*[(\[,;:]")
+_SIZE = re.compile(
+    r"\s*\b\d+([.,]\d+)?\s*(fl\.?\s?oz|oz|ml|mL|g\b|kg|pcs?|ea|count|ct|pack|"
+    r"매|개|장|정)\.?", re.I)
+_CONNECTORS = re.compile(
+    r"\s+(with|for|and|mit|für|con|para|avec|pour|per|da|de|di|com)\s+.*$", re.I)
+_TRAIL_JUNK = re.compile(r"[\s\-–—|,.&/]+$")
+
+
+def clean_name(title, brand=""):
+    """긴 아마존 제목 → 짧은 제품명. 'medicube Toner Pads Zero Pore Pad 2.0 |
+    Dual-Textured Facial Pad for Exfoliating...' → 'Toner Pads Zero Pore Pad 2.0'"""
+    s = unicodedata.normalize("NFKC", title or "").replace("\xa0", " ")
+    if brand:
+        s = re.sub(rf"^\s*{re.escape(brand)}[\s\-–—|,:]*", "", s, flags=re.I)
+    s = _CUT_SEPARATORS.split(s, 1)[0]          # 첫 구분자 앞까지만
+    s = _SIZE.sub("", s)
+    s = _TRAIL_JUNK.sub("", s).strip()
+    if len(s) > 46:                              # 아직 길면 서술 연결어에서 한 번 더 자른다
+        s = _TRAIL_JUNK.sub("", _CONNECTORS.sub("", s)).strip()
+    if len(s) > 46:
+        s = s[:45].rsplit(" ", 1)[0] + "…"
+    return s or (title or "")[:46]
+
+
+def est_revenue(rows):
+    """월 매출 추정 = Σ(아마존 공개 판매량 x 가격). 통화별로 나눠 반환.
+
+    판매량 배지는 구간 하한(100K+ 는 10만 이상)이라 이 값도 **하한**이다.
+    배지가 없는 제품은 빠지므로 실제 매출은 이보다 크다.
+    """
+    out = {}
+    for r in rows:
+        u, p = _i(r.get("bought")), r.get("price")
+        try:
+            p = float(p)
+        except (TypeError, ValueError):
+            p = None
+        if u and p:
+            out[r.get("currency") or "?"] = out.get(r.get("currency") or "?", 0) + u * p
+    return out
+
+
+def fmt_rev(rev):
+    """{'USD': 2100000} → '$2.1M'"""
+    parts = []
+    for cur, v in sorted(rev.items(), key=lambda kv: -kv[1]):
+        sym = SYMBOLS.get(cur, cur + " ")
+        if v >= 1_000_000:
+            parts.append(f"{sym}{v/1_000_000:.1f}M")
+        elif v >= 1_000:
+            parts.append(f"{sym}{v/1_000:.0f}K")
+        else:
+            parts.append(f"{sym}{v:.0f}")
+    return " ".join(parts)
 
 
 def build_compact(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
@@ -282,8 +342,10 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
             continue
         pm = [p for p in prev_rows if p.get("market") == code]
         sc, osc = bsr_score(mine), bsr_score(pm)
+        rev = est_revenue(mine)
         out.append(f"{FLAGS.get(code, '')} {code} · {len(mine)}개 · "
-                   f"점수 {sc:,.0f}{_delta(sc, osc)}")
+                   f"점수 {sc:,.0f}{_delta(sc, osc)}"
+                   + (f" · 월매출 {fmt_rev(rev)}+" if rev else ""))
 
         by_brand = {}
         for r in mine:
@@ -297,16 +359,15 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
                 cur = _i(r.get("bsr_main"))
                 old = _i((prev.get((code, r["asin"])) or {}).get("bsr_main"))
                 mark = _rank_delta(cur, old)
-                # 브랜드명은 바로 위 헤더에 있으니 제목에서 떼고 제품명에 자리를 준다
-                name = re.sub(rf"^{re.escape(brand)}[\s\-|,]*", "", r["title"],
-                              flags=re.I).strip() or r["title"]
-                # 가격은 메시지에 안 넣는다. history.csv 에는 계속 쌓이므로
-                # 나중에 BSR→판매량 환산으로 매출을 역산할 때 쓴다.
-                sub = ""
+                # 가격은 메시지에 안 넣는다(CSV에는 쌓인다). 대신 아마존이 공개하는
+                # 월 판매량을 붙인다 — 매출 추정의 근거가 되는 숫자다.
+                name = clean_name(r["title"], brand)
+                u = _i(r.get("bought"))
+                units = f"  {fmt_int(u)}+/월" if u else ""
                 sr = _i(r.get("bsr_sub"))
-                if r.get("bsr_sub_cat") and sr and sr <= 10:
-                    sub = f"  [{r['bsr_sub_cat'][:26]} {sr}]"
-                out.append(f"  {fmt_int(cur):>6} {mark:<6}{name[:46]:<46}{sub}")
+                sub = (f"  [{r['bsr_sub_cat'][:22]} {sr}]"
+                       if r.get("bsr_sub_cat") and sr and sr <= 10 else "")
+                out.append(f"  {fmt_int(cur):>6} {mark:<6}{name[:42]:<42}{units:>12}{sub}")
         out.append("")
 
     # ---------------- 브랜드 총합 ----------------
@@ -320,11 +381,20 @@ def build_detail(today, rows, prev, prev_date, markets, failed, rcfg) -> str:
         osc = bsr_score([p for p in prev_rows if p.get("brand") == brand])
         best = min((_i(x.get("bsr_main")) or 10**9) for x in items)
         n_mk = len({x["market"] for x in items})
+        u = sum(_i(x.get("bought")) or 0 for x in items)
         out.append(f"{brand:<17}{sc:>7,.0f}{_delta(sc, osc):<9}"
-                   f"{len(items):>3}개  최고 {best:<5} {n_mk}개국")
+                   f"{len(items):>3}개 {n_mk}개국 최고{best:<5}"
+                   + (f" {fmt_int(u)}+개/월" if u else ""))
+
+    total_rev = est_revenue(rows)
+    if total_rev:
+        out += ["", f"■ 월매출 추정 {fmt_rev(total_rev)} 이상"]
+
     out += ["", "점수 = Σ(1000÷BSR) — BSR은 순위라 단순합산이 무의미해서",
             "1위=1000 / 10위=100 / 100위=10점으로 환산해 더한 값입니다.",
-            "절대 판매량이 아니라 추이 비교용 지수입니다."]
+            "판매량은 아마존이 상품페이지에 직접 공개하는 구간값(하한)입니다.",
+            "상위 구간이 100K+에서 잘려 1위가 과소평가되고, 판매량은 변형 합계인데",
+            "가격은 대표 변형 기준이라 매출은 자릿수 참고용으로만 보세요."]
 
     if failed:
         out.append("⚠️ 수집 실패: " + ", ".join(c for c, _ in failed))

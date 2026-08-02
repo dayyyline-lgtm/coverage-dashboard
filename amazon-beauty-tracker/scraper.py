@@ -204,6 +204,62 @@ _BSR_CONTAINERS = [
 ]
 
 
+# ★ 아마존이 스스로 공개하는 판매량 배지.
+#
+# 'BSR → 판매량' 환산의 **정답지**다. 정글스카우트가 셀러 패널로 사 모으는 그 데이터를
+# 아마존이 상품 페이지에 직접 띄워준다. 6개 마켓 전부 있고 표기만 다르다:
+#
+#   US  100K+ bought in past month      UK  10K+ bought in past week
+#   DE  8000+ gekauft Mal im letzten Monat
+#   FR  Plus de 4 k achetés au cours du mois dernier      ← '+' 기호가 없다
+#   IT  10.000+ acquistati nel mese scorso                ← 천단위 점
+#   ES  4 mil+ comprados el mes pasado                    ← 'mil' = 천
+#
+# 주의 1: 구간값이라 정확한 수가 아니라 **하한**이다(100K+ 는 10만 이상).
+# 주의 2: 월간 배지와 주간 배지가 따로 있다. 주간은 4.33을 곱해 월 기준으로 맞춘 뒤,
+#         둘 중 **큰 쪽**을 쓴다. 하한값이므로 큰 쪽이 정보량이 많다.
+_BOUGHT_SELECTORS = [
+    "#socialProofingAsinFaceout_feature_div",
+    "#social-proofing-faceout-title",
+    "#pqv-bought-in-last-month",
+]
+# 숫자부는 **탐욕적으로** 잡아야 한다. 비탐욕이면 이탈리아 '10.000+'에서 '10'만 먹는다.
+_BOUGHT_NUM = re.compile(r"(\d[\d.,]*\d|\d)\s*(k|m|mil|mila|tsd)?\b", re.I)
+_WEEK_WORDS = ("week", "woche", "semaine", "semana", "settimana")
+_MONTH_WORDS = ("month", "monat", "mois", "mes", "mese")
+_MULT = {"k": 1_000, "m": 1_000_000, "mil": 1_000, "mila": 1_000, "tsd": 1_000}
+WEEKS_PER_MONTH = 4.33
+
+
+def _parse_bought(soup):
+    """판매량 배지 → (월간 환산 개수, 원표기 기간). 없으면 (None, None)."""
+    best, best_period = None, None
+    for sel in _BOUGHT_SELECTORS:
+        el = soup.select_one(sel)
+        if not el:
+            continue
+        txt = el.get_text(" ", strip=True)
+        if not txt:
+            continue
+        low = txt.lower()
+        # 주 단위 표현을 먼저 본다 ('mes'가 'mese'의 일부라 월을 먼저 보면 오판한다)
+        period = "week" if any(w in low for w in _WEEK_WORDS) else (
+            "month" if any(w in low for w in _MONTH_WORDS) else None)
+        if period is None:
+            continue
+        m = _BOUGHT_NUM.search(txt)
+        if not m:
+            continue
+        num = parse_price(m.group(1))
+        if not num:
+            continue
+        units = num * _MULT.get((m.group(2) or "").lower(), 1)
+        monthly = units * (WEEKS_PER_MONTH if period == "week" else 1)
+        if best is None or monthly > best:
+            best, best_period = monthly, period
+    return (int(round(best)), best_period) if best else (None, None)
+
+
 def _parse_bsr(soup):
     """BSR을 최상위/하위 두 단계로 반환.
 
@@ -264,6 +320,20 @@ def _bsr_entries(soup, with_paren):
     return out
 
 
+_PARENT_RE = re.compile(r'"parentAsin"\s*:\s*"([A-Z0-9]{10})"')
+
+
+def parse_parent(page):
+    """부모 ASIN. 변형(용량·색상)들이 이걸 공유한다.
+
+    판매량 배지는 **부모 단위(제품군 합계)** 로 보인다. 그래서 같은 부모를 가진
+    ASIN을 둘 이상 추적하면 판매량이 중복 집계된다. 이 값을 기록해 두면
+    중복을 자동으로 걸러낼 수 있다.
+    """
+    m = _PARENT_RE.search(page or "")
+    return m.group(1) if m else None
+
+
 def parse_detail(page):
     """/dp/{ASIN} 상세 페이지 파싱. 하위 카테고리 BSR까지 뽑는다."""
     soup = BeautifulSoup(page, "html.parser")
@@ -276,8 +346,11 @@ def parse_detail(page):
     rev_el = soup.select_one("#acrCustomerReviewText")
 
     bsr = _parse_bsr(soup)
+    bought, period = _parse_bought(soup)
 
     return {
+        "bought": bought, "bought_period": period,
+        "parent_asin": parse_parent(page),
         "title": title_el.get_text(strip=True) if title_el else "",
         "price": parse_price(price_el.get_text(strip=True) if price_el else None),
         "rating": parse_rating(star_el.get_text(strip=True) if star_el else None),
@@ -458,12 +531,27 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
             "list_cat": (s or {}).get("cat"), "list_rank": (s or {}).get("rank"),
             "bsr_main": (d or {}).get("bsr_main"), "bsr_main_cat": (d or {}).get("bsr_main_cat"),
             "bsr_sub": (d or {}).get("bsr_sub"), "bsr_sub_cat": (d or {}).get("bsr_sub_cat"),
+            # 아마존이 직접 공개하는 월간 판매량(하한). 가격과 곱하면 매출 추정이 된다.
+            "bought": (d or {}).get("bought"), "bought_period": (d or {}).get("bought_period"),
+            "parent_asin": (d or {}).get("parent_asin"),
             # 리스트에 있으면 리스트 값이 그 순위에 오른 변형 기준이라 더 정확하다
             "price": lst.get("price") if lst.get("price") is not None else (d or {}).get("price"),
             "currency": market["currency"],
             "rating": lst.get("rating") if lst.get("rating") is not None else (d or {}).get("rating"),
             "reviews": lst.get("reviews") if lst.get("reviews") is not None else (d or {}).get("reviews"),
         })
+
+    seen_parents = {}
+    for r in rows:
+        pa = r.get("parent_asin")
+        if pa:
+            seen_parents.setdefault(pa, []).append(r["asin"])
+    dups = {k: v for k, v in seen_parents.items() if len(v) > 1}
+    if dups:
+        # 판매량 배지가 부모 단위라 같은 부모를 여러 개 세면 매출이 부풀려진다
+        for pa, asins in dups.items():
+            log(f"[{code}] ⚠ 같은 부모({pa}) ASIN {len(asins)}개 — 판매량 중복 가능: "
+                + ", ".join(asins))
 
     if budget[0] <= 0:
         log(f"[{code}] 상세 조회 예산 소진 — 나머지는 다음 실행에서 측정됩니다")
