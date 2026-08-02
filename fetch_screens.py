@@ -190,6 +190,38 @@ def cgv(play):
     return out
 
 
+# ── 편성 탐침 ────────────────────────────────────────────
+# 날짜 하나를 전수 조사하면 CGV 147 + 롯데 237 = 384 요청이 든다.
+# 그런데 편성이 안 된 날은 그게 통째로 헛수고다(오늘 기준 8/12 이후가 그렇다).
+# 대형 멀티플렉스 몇 곳만 먼저 찔러 본다 — 와이드 릴리즈가 편성됐다면
+# 강변·용산·영등포·왕십리 중 하나에는 반드시 걸린다.
+PROBE_SITES = ["0001", "0013", "0059", "0074"]
+
+
+def programmed(play):
+    """그 상영일에 대상 영화가 편성됐는가 (값싼 확인)."""
+    for sn in PROBE_SITES:
+        try:
+            d = http_json(f"{CGV}/api/v1/booking/searchMovScnInfo"
+                          f"?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08", tries=1)
+        except Exception:
+            continue
+        hit = []
+        def scan(o):
+            if isinstance(o, list):
+                for v in o: scan(v)
+            elif isinstance(o, dict):
+                if any(w in (o.get("prodNm") or "") for w in WATCH):
+                    hit.append(1)
+                for v in o.values():
+                    if isinstance(v, (list, dict)): scan(v)
+        scan(d.get("data"))
+        if hit:
+            return True
+        time.sleep(0.1)
+    return None          # None = CGV 기준 미편성(다른 체인 단독 편성은 드물다)
+
+
 # ── 통합 ────────────────────────────────────────────────
 def norm_title(nm):
     """체인마다 표기가 다르다(CGV '하츄핑-고래보석', 메가 '하츄핑: 고래보석').
@@ -203,9 +235,11 @@ def main():
     today = now.date()
     crt = today.strftime("%Y%m%d")
 
-    # 오늘부터 7일 뒤까지 + 개봉일. 개봉일에서 끊으면 안 된다 —
-    # 8/5 개봉인데 8/6·8/7 예매가 이미 열려 있어서, 거기까지 봐야 개봉 주가 보인다.
-    dates = {today + datetime.timedelta(days=i) for i in range(8)}
+    # 예매 지평선 끝까지 본다. 개봉일에서 끊으면 안 되고(8/5 개봉인데 8/6·8/7 예매가
+    # 이미 열려 있다), 고정 7일로 끊어도 안 된다 — CGV 는 8/18 까지 달력을 열어 둔다.
+    # 다만 편성은 그보다 앞서 끝나므로(오늘 기준 8/10 이 마지막), 값싼 탐침으로
+    # '이 날짜에 이 영화가 걸렸는가'만 먼저 보고 걸린 날만 전수 조사한다.
+    dates = {today + datetime.timedelta(days=i) for i in range(15)}
     mb_blk = re.search(r"const MOVIE = (\{.*?\});\n", html, re.S)
     canon = {}                       # 정규화 제목 -> 대시보드 표기(예매 데이터 기준)
     if mb_blk:
@@ -221,7 +255,7 @@ def main():
                             pass
         except json.JSONDecodeError:
             pass
-    dates = sorted(d for d in dates if d >= today)[:9]
+    dates = sorted(d for d in dates if d >= today)[:16]
 
     m = re.search(r"const MOVIE_SCREENS = (\{.*?\});", html, re.S)
     old = {}
@@ -234,8 +268,13 @@ def main():
 
     stamp = now.strftime("%Y-%m-%d %H:%M")
     got = 0
+    horizon = None                     # 편성이 확인된 마지막 날짜
     for d in dates:
         play, play_iso = d.strftime("%Y%m%d"), d.isoformat()
+        if not programmed(play):
+            print(f"  {play} 미편성 — 전수 조사 생략")
+            continue
+        horizon = play
         # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
         chains = {}
         for tag, fn, arg in (("CGV", cgv, play), ("LC", lotte, play_iso), ("MB", megabox, None)):
@@ -271,7 +310,10 @@ def main():
         print("배정 스케줄 없음 — 기존 데이터 유지")
         return
 
-    out = {"asOf": stamp, "chain": "CGV+롯데+메가박스", "series": series}
+    # horizon = 편성이 확인된 마지막 상영일. 이 근처 날짜는 스케줄이 아직 채워지는 중이라
+    # 좌석·스크린이 실제보다 적게 잡힌다 — 화면에서 '축소'로 오독하지 않게 같이 넘긴다.
+    out = {"asOf": stamp, "chain": "CGV+롯데+메가박스",
+           "horizon": horizon or (old.get("horizon")), "series": series}
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:400]); return
