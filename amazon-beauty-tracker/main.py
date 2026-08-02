@@ -210,7 +210,18 @@ def git_push(today: str) -> None:
         return
     p = run("git", "push")
     if p.returncode != 0:
-        print(f"[git] push 실패 (커밋은 로컬에 저장됨): {p.stderr.strip()}", file=sys.stderr)
+        # 이 저장소는 봇이 매시간 커밋한다. 원격이 앞서 있으면 push가 거절되므로
+        # rebase 후 한 번 더 시도한다. --autostash 는 작업 중인 파일(대시보드 편집 등)이
+        # 있어도 알아서 넣었다 빼주므로 남의 작업을 건드리지 않는다.
+        print("[git] 원격이 앞서 있어 rebase 후 재시도", file=sys.stderr)
+        r = run("git", "pull", "--rebase", "--autostash")
+        if r.returncode != 0:
+            print(f"[git] rebase 실패 (커밋은 로컬에 남음): {r.stderr.strip()[:300]}", file=sys.stderr)
+            return
+        p = run("git", "push")
+
+    if p.returncode != 0:
+        print(f"[git] push 실패 (커밋은 로컬에 저장됨): {p.stderr.strip()[:300]}", file=sys.stderr)
     else:
         print("[git] GitHub push 완료")
 
