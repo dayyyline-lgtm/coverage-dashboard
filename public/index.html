@@ -129,7 +129,10 @@
   thead th.sorted .ar{opacity:1;color:var(--accent)}
   /* 헤더 보조설명 — 아랫줄로 내려 컬럼 폭을 줄인다 */
   /* 9.5px 는 너무 작았다 — 흐린 색까지 겹쳐 사실상 안 읽혔다. 10px + 밝아진 muted2 */
-  thead th .th-sub{display:block;font-size:10px;font-weight:600;color:var(--muted2);letter-spacing:-.02em;margin-top:1px}
+  /* 보조설명 — 헤더 아래에도, 셀 안에도 쓴다.
+     `thead th .th-sub` 로만 잡아 뒀더니 td 안(극장 탭만 58곳)에서는 규칙이 아예 안 먹어
+     12.5px 본문색으로 나왔다. 큰 숫자와 구분이 안 되니 보조설명 노릇을 못 했다. */
+  .th-sub{display:block;font-size:10px;font-weight:600;color:var(--muted2);letter-spacing:-.02em;margin-top:1px}
   tbody td{text-align:right;padding:11px 12px;border-bottom:1px solid var(--line-soft)}
   tbody td.l{text-align:left}
   tbody tr:hover{background:color-mix(in srgb, var(--panel2) 70%, transparent)}
