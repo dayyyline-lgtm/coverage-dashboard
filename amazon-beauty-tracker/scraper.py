@@ -448,7 +448,19 @@ def search_brand(session, market, brand, max_pages=3, delay=(2.0, 3.5), log=prin
             break
         cards = BeautifulSoup(page, "html.parser").select(_CARD)
         if not cards:
-            break
+            # 검색 요청을 연달아 많이 하면 아마존이 카드 없는 페이지를 돌려준다.
+            # 조용히 넘어가면 그 마켓 전체가 통째로 비는데 로그엔 아무것도 안 남는다
+            # (실제로 UK/DE가 이렇게 0건이 됐다). 한 번 쉬었다 재시도한다.
+            if pg == 1:
+                log(f"  · {market['code']}/{brand} 검색 결과 0 — 20초 쉬고 재시도")
+                time.sleep(20)
+                page = get(session, url, market,
+                           referer=f"https://{market['domain']}/", retries=2)
+                cards = BeautifulSoup(page, "html.parser").select(_CARD) if page else []
+                if not cards:
+                    log(f"  ! {market['code']}/{brand} 검색 실패 (카드 0) — 이 브랜드 건너뜀")
+            if not cards:
+                break
         added = 0
         for c in cards:
             asin = c.get("data-asin")
@@ -627,6 +639,7 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
             if hits:
                 log(f"[{code}] 검색 {b}: 카탈로그 {len(hits)}개 "
                     f"(판매량 {sum(1 for v in hits.values() if v['bought'])}개)")
+        _sleep(scfg.get("market_gap", [10, 20]))   # 마켓 넘어가기 전에 한 박자 쉰다
 
     # ---------- (4) 판매량 상위는 /dp/ 로 정밀 측정 ----------
     # 검색 카드의 배지 커버리지는 24~72%로 들쭉날쭉하지만 상세페이지는 100%다.
