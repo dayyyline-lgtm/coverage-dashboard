@@ -2,12 +2,50 @@ date,market,rank,asin,brand,title,price,currency,rating,reviews,sub_bsr_rank,sub
 2026-08-02,US,1,B09V7Z4TJG,medicube,"medicube Toner Pads Zero Pore Pad 2.0 | Dual-Textured Facial Pad for Exfoliation and Pore Care with 4.5% AHA Lactic Acid, 0.4",20.99,USD,4.6,28932,,
 2026-08-02,US,15,B0DBF65JYY,medicube,medicube PDRN Pink Peptide Serum with Salmon DNA | Pink Glow Serum with Peptides & Niacinamide for Hydration & Firm-Looking S,18.9,USD,4.7,19347,,
 2026-08-02,US,23,B0DYTQ5GYQ,medicube,"medicube Facial Cleanser Zero Pore Capsule Cleansing Foam | Daily Gentle Cleanser for Skin Texture, Blackhead & Pore Care - A",14.9,USD,4.7,3415,,
-2026-08-02,US,31,B0BRMYHMS5,medicube,"medicube Wrapping Mask Collagen Overnight Peel Off Facial Mask | Elasticity & Hydration Care, Reduces Sagging & Dullness | Hydrolyzed Collagen For Glowing Skin | Korean Skin Care, 2.53 fl.oz",,USD,,,,
-2026-08-02,US,32,B0D2Z3GGCY,medicube,"medicube Capsule Cream with Deep Vitamin C | Liposome Vitamin C Golden Capsule for Radiance & Firm-Looking Skin | Hydrating Glow Gel Texture | Korean Skincare, 1.94 oz",,USD,,,,
-2026-08-02,US,46,B0DGTMR754,medicube,"medicube Jelly Gel Mask with Salmon DNA PDRN Pink Collagen | Overnight Face Mask for Glass Glow Skin | Elasticity, Hydrating, Firming and Moisturizing | Korean Skincare, 28g x 4ea",,USD,,,,
-2026-08-02,US,48,B0GHMZXX8Y,medicube,"medicube PDRN Pink Collagen Volume Multi Balm Stick - Face & Body Balm | Volufiline, PDRN, NAD, Collagen - Under-Eyes, Neck, Forehead, Smile Lines, Lips, Plumping & Radiance for Line Care, K-Beauty",,USD,,,,
+2026-08-02,US,31,B0BRMYHMS5,medicube,"medicube Wrapping Mask Collagen Overnight Peel Off Facial Mask | Elasticity & Hydration Care, Reduces Sagging & Dullness | Hydrolyzed Collagen For Glowing Skin | Korean Skin Care, 2.53 fl.oz",19.0,USD,4.5,22128,2,Facial Masks
+2026-08-02,US,32,B0D2Z3GGCY,medicube,"medicube Capsule Cream with Deep Vitamin C | Liposome Vitamin C Golden Capsule for Radiance & Firm-Looking Skin | Hydrating Glow Gel Texture | Korean Skincare, 1.94 oz",18.9,USD,4.6,14555,3,Face Moisturizers
+2026-08-02,US,46,B0DGTMR754,medicube,"medicube Jelly Gel Mask with Salmon DNA PDRN Pink Collagen | Overnight Face Mask for Glass Glow Skin | Elasticity, Hydrating, Firming and Moisturizing | Korean Skincare, 28g x 4ea",19.0,USD,4.6,11775,3,Facial Masks
+2026-08-02,US,48,B0GHMZXX8Y,medicube,"medicube PDRN Pink Collagen Volume Multi Balm Stick - Face & Body Balm | Volufiline, PDRN, NAD, Collagen - Under-Eyes, Neck, Forehead, Smile Lines, Lips, Plumping & Radiance for Line Care, K-Beauty",30.99,USD,3.9,1318,1,Eye Treatment Balms
 2026-08-02,US,66,B0CM2PPNMW,medicube,"medicube Jelly Cream with Collagen & Niacinamide, 3.71 fl.oz | Freeze-Dried Hydrolyzed Collagen for Skin Barrier Hydration &",19.98,USD,4.4,16582,,
 2026-08-02,US,77,B0GCC2JV65,medicube,"medicube NAD EGF Firming Serum for Face & Neck | Anti-Aging Serum with EGF Peptide, NAD+ & Collagen | Wrinkle Appearance, Ela",35.99,USD,4.6,860,,
-2026-08-02,US,88,B0DG1DQ2S7,Anua,"Anua Azelaic Acid 10 Hyaluron Redness Soothing Serum, Facial Serum for Blemish-Prone & Oily-Prone Skin, Lightweight & Hydrating Blemish Care, Hyaluronic Acid, Korean Skincare, 1.01 fl oz.",,USD,,,,
-2026-08-02,US,94,B0G38FGSKL,medicube,"medicube Eye Patch PDRN Caffeine Collagen | Gel Eye Patches for the appearance of Dark Circles, Undereye Bags | Firming, Age-Defying Care with Retinol, Collagen | Korean Skincare | 30 Pairs",,USD,,,,
-2026-08-02,US,100,B0FVT77ZLL,Anua,"Anua PDRN Collagen Glow Facial Serum Spray, Hydrating Face Mist, Hyaluronic Acid, dewy glass finish, All Skin Types, Instant Plumping Hydration, Firming Care, Korean Skincare, 3.38 fl oz",,USD,,,,
+2026-08-02,US,88,B0DG1DQ2S7,Anua,"Anua Azelaic Acid 10 Hyaluron Redness Soothing Serum, Facial Serum for Blemish-Prone & Oily-Prone Skin, Lightweight & Hydrating Blemish Care, Hyaluronic Acid, Korean Skincare, 1.01 fl oz.",22.0,USD,4.5,5725,8,Facial Serums
+2026-08-02,US,94,B0G38FGSKL,medicube,"medicube Eye Patch PDRN Caffeine Collagen | Gel Eye Patches for the appearance of Dark Circles, Undereye Bags | Firming, Age-Defying Care with Retinol, Collagen | Korean Skincare | 30 Pairs",21.98,USD,4.5,753,2,Eye Masks
+2026-08-02,US,100,B0FVT77ZLL,Anua,"Anua PDRN Collagen Glow Facial Serum Spray, Hydrating Face Mist, Hyaluronic Acid, dewy glass finish, All Skin Types, Instant Plumping Hydration, Firming Care, Korean Skincare, 3.38 fl oz",21.0,USD,4.5,5120,2,Face Mists
+2026-08-02,UK,1,B09V7Z4TJG,medicube,"medicube Zero Pore Pads 2.0, Dual-Textured Facial Toner Pads for Exfoliation and Pore Care with 4.5% AHA Lactic Acid & 0.45%",16.99,GBP,4.6,28114,,
+2026-08-02,UK,3,B0DGTMR754,medicube,"medicube Salmon DNA PDRN pink collagen jelly gel mask | overnight face mask for glass glow skin- elasticity, hydrating, firmi",8.32,GBP,4.4,11604,,
+2026-08-02,UK,4,B0DGPSZVW3,medicube,medicube Collagen Jelly Cream- Niacinamide & Freeze-Dried Hydrolyzed Collagen - Boosts skin's barrier hydration and gives 24h,11.66,GBP,4.3,33441,,
+2026-08-02,UK,5,B0GHMZXX8Y,medicube,"medicube PDRN Pink Collagen Volume Multi Balm Stick | Volufiline, PDRN, NAD, Collagen | Face & Body Balm for Under-Eyes, Neck",16.9,GBP,3.9,1282,,
+2026-08-02,UK,6,B0DBF65JYY,medicube,"medicube Salmon DNA PDRN Pink Peptide Serum, Pink glow serum, Peptide, Niacinamide, Hydrating & Moisturising & Firming, Uneve",14.3,GBP,4.5,19092,,
+2026-08-02,UK,12,B0DWMSM6Y9,medicube,medicube Eye Cream with Salmon DNA PDRN & Pink Peptides | 99% Purity Retinol for Fine Lines | PDRN & Niacinamide Eye Serum fo,9.99,GBP,4.4,5107,,
+2026-08-02,UK,24,B0D1G7XF9X,medicube,"medicube Zero Pore Blackhead Mud Facial Mask - Skin Cooling & Pore Tightening - 3 Minute Quick Dry Formula with AHA, BHA, PHA",14.17,GBP,4.3,6159,,
+2026-08-02,UK,28,B09JVNZVH3,Beauty of Joseon,"Beauty of Joseon Relief Sun Rice SPF | Daily Korean Skincare and Hydrating Korean Sunscreen, Lightweight, Non-Sticky, and Les",10.33,GBP,4.6,12435,,
+2026-08-02,UK,33,B0GCC2JV65,medicube,"medicube NAD EGF Firming Serum for Face & Neck | Anti-Aging Serum with EGF Peptide, NAD+ & Collagen | Wrinkle Appearance, Elasticity & Pore Care | Korean Skincare, 1.01 fl.oz",14.3,GBP,4.6,825,3,Face Serums
+2026-08-02,UK,39,B0D2Z3GGCY,medicube,"medicube Deep Vitamin C Golden Capsule Face Moisturiser - Liposome Capsules For Wrinkles, Skin Radiance - Transparent Gel for Glow Hydration - Korean Skin Care 1.94 oz",13.33,GBP,4.5,14240,4,Face Day Care Creams
+2026-08-02,DE,2,B09V7Z4TJG,medicube,"medicube Zero Pore Pad 2.0 | Doppelseitige Toner-Pads mit 4,5% AHA & 0,45% BHA | Für Porenverfeinerung und ein glattes Hautbi",23.49,EUR,4.6,28092,,
+2026-08-02,DE,7,B0DBF65JYY,medicube,medicube Salmon DNA PDRN Pink Peptide Serum. Pink glow serum. Peptide. Niacinamide. Hydrating & Moisturizing & Firming. Uneve,14.32,EUR,4.6,19090,,
+2026-08-02,DE,22,B0DTKCN3Z4,medicube,Medicube Salmon DNA PDRN Pink Kollagen-Kapselcreme – Leichte feuchtigkeitsspendende Gesichtscreme – PDRN & Niacinamid für ung,18.9,EUR,4.6,7231,,
+2026-08-02,FR,4,B09V7Z4TJG,medicube,"medicube Zero Pore Pads 2.0, Tonifiants Pour Le Visage À Double Texture Pour L'Exfoliation Et Le Soin Des Pores Avec 4,5% D'A",19.71,EUR,4.6,28076,,
+2026-08-02,FR,15,B0CM2PPNMW,medicube,medicube - Crème Gelée Repulpante au Collagène - Niacinamide & Collagène Lyophilisé - Soin Raffermissant | Boost d'hydratatio,20.0,EUR,4.4,16253,,
+2026-08-02,FR,17,B0FPCC599C,medicube,"medicube Body Peel Shot à l’Acide hypochloreux | Exfoliant corps doux pour cellules mortes & texture irrégulière, avec extrai",18.25,EUR,4.3,1340,,
+2026-08-02,FR,25,B0DBF65JYY,medicube,"medicube Sérum Con Péptido Rosa Salmon Dna Pdrn, Sérum Pink Glow, Péptido, Niacinamida, Hidratante Y Reafirmante, 1,01 Fl.Oz.",24.73,EUR,4.6,19072,,
+2026-08-02,FR,28,B0D2Z3GGCY,medicube,"medicube Hidratante Facial Deep Vitamin C Golden Capsule, Cápsulas Liposomales Para Arrugas, Gel Transparente Para Una Piel R",14.96,EUR,4.6,14228,,
+2026-08-02,FR,30,B0BRMYHMS5,medicube,medicube Masque de Nuit Wrapping au Collagène Peel-Off | Soin Élasticité & Hydratation | Effet Glass Skin Repulpant | Anti-Re,21.4,EUR,4.4,21700,,
+2026-08-02,FR,46,B0DWMSM6Y9,medicube,Medicube Salmon DNA PDRN Pink Peptide Eye Serum 1.01 fl.oz – Sérum yeux avec Niacinamide & Rétinol pur – Pour rides fines & teint irrégulier,17.5,EUR,4.5,5093,1,Crèmes contour des yeux
+2026-08-02,IT,1,B0DBF65JYY,medicube,"medicube PDRN Pink Peptide Serum - Siero PDRN Viso con Peptidi e Niacinamide, Idratazione e Pelle Più Tonica, Per un Incarnat",16.31,EUR,4.6,19148,,
+2026-08-02,IT,2,B0CM2PPNMW,medicube,MEDICUBE Collagen Jelly Cream (110 ml),20.95,EUR,4.4,16272,,
+2026-08-02,IT,4,B09V7Z4TJG,medicube,medicube Zero Pore Pads 2.0 Tamponi Tonici Per Il Viso A Doppia Texture Per L'Esfoliazione E La Cura Dei Pori Con Acido Latti,20.48,EUR,4.6,28083,,
+2026-08-02,IT,5,B0D2Z3GGCY,medicube,MEDICUBE Deep Vita C Capsule Cream (55 g),21.65,EUR,4.4,25775,,
+2026-08-02,IT,9,B0D1G7XF9X,medicube,Medicube Zero Pore Blackhead Mud Mask,14.04,EUR,4.5,6143,,
+2026-08-02,IT,13,B0DWMSM6Y9,medicube,"medicube Salmon DNA PDRN Pink Peptide Eye Serum 1,01 fl.oz – Siero occhi con Niacinamide e Retinolo puro per linee sottili e",14.46,EUR,4.5,5091,,
+2026-08-02,IT,14,B0DGTMR754,medicube,"medicube Pdrn Pink Collagen Gel Mask - Maschera Hydrogel per Glass Skin Coreana con Collagene, Pelle Radiosa, Idratata e Toni",29.95,EUR,4.5,13661,,
+2026-08-02,IT,16,B0BRMYHMS5,medicube,"medicube Collagen Night Wrapping Mask - Maschera Collagene Viso Notturna, Idratazione e Incarnato Radioso, Effetto Rimpolpant",17.2,EUR,4.4,21647,,
+2026-08-02,IT,39,B0GCC2JV65,medicube,medicube EGF NAD Firming Serum,18.83,EUR,4.6,825,2,Sieri e liquidi per il viso
+2026-08-02,IT,48,B0BPXT3GBN,medicube,"medicube Triple Collagen Cream - Crema Viso Collagene contro i segni del tempo, Pelle Idratata per 24h, Effetto Rassodante e Idratante, con Acido Ialuronico - Skincare Coreana, 50 ml",20.48,EUR,4.5,9517,3,Creme da giorno per il viso
+2026-08-02,ES,1,B0DBF65JYY,medicube,"medicube PDRN Pink Peptide Serum – Sérum Facial con PDRN de ADN de Salmón, Péptidos y Niacinamida – Hidratación y Piel Más Fi",19.45,EUR,4.7,19113,,
+2026-08-02,ES,3,B0D2Z3GGCY,medicube,"medicube Hidratante Facial Deep Vitamin C Golden Capsule, Cápsulas Liposomales Para Arrugas, Gel Transparente Para Una Piel R",22.45,EUR,4.6,25730,,
+2026-08-02,ES,4,B09V7Z4TJG,medicube,"medicube Zero Pore Pad 2.0 - Almohadillas Faciales de Doble Textura con Ácidos Exfoliantes (4,5% AHA y 0,45% BHA) para Exfoli",18.9,EUR,4.8,28085,,
+2026-08-02,ES,7,B0CM2PPNMW,medicube,Medicube Crema de jalea de colágeno - niacinamida y colágeno hidrolizado - aumenta la hidratación de la barrera de la piel du,29.95,EUR,4.4,33419,,
+2026-08-02,ES,11,B0DGTMR754,medicube,"medicube Mascarilla De Gel De Gelatina De Colágeno Rosa Salmon Dna Pdrn De Uso Nocturno Para Piel Radiante, Elástica, Hidrata",13.21,EUR,4.7,11587,,
+2026-08-02,ES,12,B0DWMSM6Y9,medicube,medicube Salmon DNA PDRN Pink Peptide Eye Serum con niacinamida y retinol de pureza 99% para líneas finas y tono desigual | C,16.94,EUR,4.6,5098,,
+2026-08-02,ES,14,B0BRMYHMS5,medicube,"medicube Collagen Night Wrapping Mask - Mascarilla Facial de Noche con Colágeno, Hidratación Profunda, Elasticidad y Luminosi",20.99,EUR,4.5,21820,,
+2026-08-02,ES,48,B0D1G7XF9X,medicube,"medicube Mascarilla Facial Zero Pore Blackhead Mud Que Enfría Y Reafirma Los Poros, Fórmula De 3 Minutos De Secado Rápido Con Aha, Bha, Pha Y Arcilla Purificadora De Poros De 3.52 Oz",16.36,EUR,4.5,6149,4,Mascarillas para el cuidado de la cara
