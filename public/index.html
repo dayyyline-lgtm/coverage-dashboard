@@ -1376,9 +1376,17 @@ function makeTable(el, cols, rows, initSort){
   }
   render();
 }
+/* 운영사 로고 — 비상장이라 토스 CDN 에 없는 회사들. 회사 이름으로 찾는다.
+   stockLogo 가 종목코드를 못 찾을 때만 본다(상장사는 종목 로고가 우선).
+   여기 없는 회사는 지금까지대로 이니셜 배지로 떨어진다. */
+const NAME_LOGO = {"구다이글로벌":"data:image/webp;base64,UklGRpICAABXRUJQVlA4WAoAAAAQAAAARwAARwAAQUxQSDoCAAABkETb2rE353mft7atqLZt27Yb205q27Zt27bdjjuz43lXREwA/4Mo5l9iEjIJmEQZSbk0KaqqGFUVjKoKxuIUgKimo+VywahaSRdSFKuKjSiANaCq6fCuhklIBEAEEAEQwVDnnACGBhMFASHTlcoYIOMdJ0REAMOxHmgCQvHlh0KmZ3VYcywgPeXXHvNSqm7bNvkY9fdsDvMtFw555hwPm+1wujIeRzdWMFdj9653JlPkqQkzy+zomZCQ7sqSJoc/Otye3uzGhIzPx7e4G571VWTrh5dc3vh2/LCj6QU4uK3Ruh9OFxy8H7WOflbk+eVm0x8w52LTqT9r7uidkNL2PJQ84XsAqp523wsNTnhthdYHYhdBn12Nz1H5biay3K54uvLJZrDd90xVODL6jAucbrI1Uc2uWspfcj0ODU4NOwqtjo3aB10Ohq6BYX+VfZCb/M8qnKhwvBMccD1bH04POFsVLjfe3DMhYNdR1xtvC53a6frSm+ub3F+PlntrPd5dKvhkoe+nbU0vwNLLrsc/O19w7PvOc9313M8fue68QMSTcRt/1tzRO1EVfMYPvZY1R+Sq7pA/ZmUnKDJ5Xq/ROMya3revszs4j5vS76bjmKJ0WBFfwHh0XxKTBxmwdsw4x8GVMYk4Pt1hy1oUEBFARABE+KewebXD/MOAACIAIkKShSJLT8/MjrGqIFYVjFU1GGvViBFyzjq9pCBWMGoFo2oFVFXFSCJAACFFBRBSoVijKWWNTRX/QwhWUDggMgAAAPADAJ0BKkgASAA+KRSJQyGhIRCkABgChLSAAAT40aNGjRo0aNGjPwAA/v7QHAAAAAAA"};
+
 /* 종목 로고(토스 CDN, 종목코드 기준). 실패하면 이니셜 배지로. name 만 있으면 코드는 LIVE 에서 찾는다. */
 function stockLogo(name){
   const code=((typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[name])||{}).code;
+  // 상장사가 아니면 직접 넣어 둔 회사 로고를 먼저 본다(구다이글로벌 등)
+  if(!code && typeof NAME_LOGO!=="undefined" && NAME_LOGO[name])
+    return `<span class="nm-logo plate"><img src="${NAME_LOGO[name]}" alt=""></span>`;
   const init=(name||"?").trim().slice(0,1);
   const hue=[...(name||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%360;
   /* 밝기 50% 에 흰 글씨였는데 색상에 따라 대비가 2.2~4.5 로 널뛰었다(노랑 계열이 최악).
