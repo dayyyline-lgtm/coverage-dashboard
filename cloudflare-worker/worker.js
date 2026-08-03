@@ -20,8 +20,9 @@
 const OWNER = "dayyyline-lgtm";
 const REPO  = "coverage-dashboard";
 
-async function dispatch(workflow, token) {
-  const url = `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${workflow}/dispatches`;
+// 뉴스봇은 별도 저장소라 repo 를 넘길 수 있게 해 둔다.
+async function dispatch(workflow, token, repo = REPO, ref = "main") {
+  const url = `https://api.github.com/repos/${OWNER}/${repo}/actions/workflows/${workflow}/dispatches`;
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -31,10 +32,10 @@ async function dispatch(workflow, token) {
       "User-Agent": "coverage-dashboard-cron",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ ref: "main" }),
+    body: JSON.stringify({ ref }),
   });
   // 성공 시 204 No Content
-  return { workflow, status: res.status, ok: res.status === 204,
+  return { repo, workflow, status: res.status, ok: res.status === 204,
            body: res.status === 204 ? "" : (await res.text()).slice(0, 200) };
 }
 
@@ -66,6 +67,19 @@ export default {
     for (const wf of jobs) {
       const r = await dispatch(wf, token);
       console.log(JSON.stringify({ cron: event.cron, ...r }));
+    }
+
+    // 뉴스봇(별도 저장소)도 같은 슬롯에 부른다.
+    // 그쪽 GitHub 예약은 이 계정에서 한 번도 뜬 적이 없다(2026-08-04 확인: 실행 기록이 전부 수동).
+    // 브랜치가 master 다. 토큰 권한이 그 저장소에 없으면 404 가 찍히고 넘어간다 —
+    // 여기서 실패해도 대시보드 쪽 작업은 이미 위에서 끝났으므로 영향이 없다.
+    if (isEventSlot) {
+      try {
+        const r = await dispatch("daily-briefing.yml", token, "news-bot", "master");
+        console.log(JSON.stringify({ cron: event.cron, ...r }));
+      } catch (e) {
+        console.log("news-bot 트리거 실패: " + e);
+      }
     }
   },
 
