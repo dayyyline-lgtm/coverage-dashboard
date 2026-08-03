@@ -1,0 +1,84 @@
+name: 봇 점검 (수동)
+
+# 지금 이 저장소가 어느 텔레그램 봇으로 알림을 쏘는지 확인한다.
+#
+# 왜 필요한가
+#   토큰은 GitHub Secrets 에 있어서 값을 볼 수가 없다. 그래서 '데일리레터가
+#   @guroadway_bot 에서 오는지 @cosmetics_guroadway_bot 에서 오는지'를
+#   저장소만 봐서는 알 수 없었다. 여기서 봇에게 직접 물어본다.
+#
+# 안전
+#   토큰은 절대 출력하지 않는다 — getMe/getChat 응답에서 이름·아이디만 꺼내 찍는다.
+#   (GitHub 이 시크릿을 로그에서 가려 주지만, 애초에 안 찍는 게 맞다.)
+#   메시지를 보내지 않으므로 폰에 알림이 가지 않는다. 'send' 를 고르면 그때만 보낸다.
+#
+# 회당 20초 안쪽 — 수동 실행 전용이라 안 누르면 Actions 분을 전혀 안 쓴다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      send:
+        description: "실제 테스트 메시지도 보낼까요? (보내려면 send 입력, 비우면 확인만)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 어느 봇인지 확인
+        env:
+          T: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          C: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEND: ${{ github.event.inputs.send }}
+        run: |
+          if [ -z "$T" ]; then echo "::error::TELEGRAM_BOT_TOKEN 시크릿이 없습니다"; exit 1; fi
+          echo "토큰 길이: ${#T}자 · chat_id 설정됨: $([ -n "$C" ] && echo 예 || echo 아니오)"
+
+          me=$(curl -s --max-time 20 "https://api.telegram.org/bot$T/getMe")
+          python3 - "$me" <<'PY'
+          import json, sys
+          d = json.loads(sys.argv[1] or "{}")
+          if not d.get("ok"):
+              print("❌ getMe 실패:", d.get("description")); raise SystemExit(1)
+          r = d["result"]
+          print(f"✅ 이 저장소가 쓰는 봇 = @{r.get('username')}  ({r.get('first_name')})")
+          print(f"   봇 ID {r.get('id')} · 그룹참여 {r.get('can_join_groups')} · 메시지읽기 {r.get('can_read_all_group_messages')}")
+          PY
+
+          if [ -n "$C" ]; then
+            ch=$(curl -s --max-time 20 "https://api.telegram.org/bot$T/getChat?chat_id=$C")
+            python3 - "$ch" <<'PY'
+          import json, sys
+          d = json.loads(sys.argv[1] or "{}")
+          if d.get("ok"):
+              r = d["result"]
+              who = r.get("title") or r.get("username") or r.get("first_name")
+              print(f"✅ 발송 대상 = {r.get('type')} · {who}")
+          else:
+              print("❌ 대화방 접근 불가:", d.get("description"))
+          PY
+          fi
+
+          wh=$(curl -s --max-time 20 "https://api.telegram.org/bot$T/getWebhookInfo")
+          python3 - "$wh" <<'PY'
+          import json, sys
+          d = json.loads(sys.argv[1] or "{}").get("result", {})
+          u = d.get("url")
+          print(f"   웹훅: {u or '(없음 — 발송 전용, 명령은 못 받음)'}")
+          if d.get("last_error_message"):
+              print(f"   최근 웹훅 오류: {d['last_error_message']}")
+          PY
+
+          if [ "$SEND" = "send" ]; then
+            echo "테스트 메시지 발송…"
+            curl -s --max-time 20 -X POST "https://api.telegram.org/bot$T/sendMessage" \
+              --data-urlencode "chat_id=$C" \
+              --data-urlencode "text=🔧 봇 점검 — 이 메시지가 보이면 대시보드 알림이 이 대화방으로 옵니다. $(TZ=Asia/Seoul date +'%m/%d %H:%M KST')" \
+              -o /dev/null -w "  발송 HTTP %{http_code}\n"
+          else
+            echo "  (확인만 함 — 메시지는 안 보냈습니다)"
+          fi
