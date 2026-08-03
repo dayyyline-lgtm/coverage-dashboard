@@ -45,19 +45,22 @@ export default {
     const token = env.GH_TOKEN;
     if (!token) { console.log("GH_TOKEN 시크릿이 없습니다"); return; }
 
-    // 07:00 KST(=22:00 UTC) 전용 슬롯 → 아침 전체수집 + 데일리 레터(events.yml).
+    // 어느 슬롯이 '아침 전체수집 + 데일리 레터'인가.
     //
-    // 전체 문자열을 비교하면 안 된다. Cloudflare 는 요일을 숫자("0-4")로 쓰면 거부해서
-    // 실제 저장값은 "0 22 * * SUN-THU" 인데, 코드가 "0 22 * * 0-4" 를 기다리고 있었다.
-    // 그래서 이 슬롯이 한 번도 참이 되지 않았고 매번 refresh.yml 만 돌아
-    // 데일리 레터가 통째로 발송되지 않았다.
-    // 요일 표기와 무관하게 '분 0 · 시 22' 만 본다. 시세 슬롯은 시가 "22,23" 이라 안 겹친다.
+    // ⚠ 이 판정이 두 번 틀렸다. 처음엔 cron 문자열 전체를 비교했는데 Cloudflare 가
+    //   요일 숫자("0-4")를 거부해 "SUN-THU"로 저장되는 바람에 안 맞았고,
+    //   그다음엔 '분 0 · 시 22'로 고쳤는데 실제 저장값이 "30 22 * * SUN-THU"(분 30)라
+    //   또 안 맞았다. 그 결과 워커는 매일 아침 레터 대신 refresh.yml 만 돌렸고
+    //   레터는 자동으로 나간 적이 없었다(2026-08-04 확인).
+    //
+    // 그래서 값 하나에 기대지 않게 폭을 넓혔다:
+    //   - 시가 20 이면 레터 (KST 05:45 — 6시 도착용 새 슬롯)
+    //   - 시가 22 인데 분이 0 이 아니면 레터 (옛 07:30 슬롯)
+    //   - 시가 22 이고 분이 0 이면 시세 ("0 22,23" 슬롯과 겹치지 않게)
+    // 시 칸에 "20,23" 처럼 여러 값이 들어와도 잡히도록 쉼표로 쪼개 본다.
     const [mi, hh] = String(event.cron || "").trim().split(/\s+/);
-    // 레터를 아침 6시에 받으려고 이 슬롯을 UTC 20:45(=KST 05:45)로 옮겼다.
-    // 옛 슬롯(UTC 22:00 = KST 07:00)도 계속 인정한다 — 이 코드를 배포했는데
-    // Cloudflare 쪽 Cron Trigger 를 아직 안 고쳤다면 레터가 통째로 안 나가기 때문이다.
-    // 둘 다 걸려 있어도 digest.py --once 가 하루 한 통만 보낸다.
-    const isEventSlot = hh === "20" || (mi === "0" && hh === "22");
+    const hours = String(hh || "").split(",");
+    const isEventSlot = hours.includes("20") || (hours.includes("22") && mi !== "0");
     // 일요일 22:00 UTC = 한국시간 월요일 07:00 이므로 트렌드도 같이 돌린다.
     const jobs = isEventSlot ? ["events.yml"] : ["refresh.yml"];
     if (isEventSlot && new Date(event.scheduledTime).getUTCDay() === 0) {
