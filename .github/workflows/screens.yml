@@ -92,8 +92,14 @@ jobs:
           # Cloudflare 는 푸시 1건 = 빌드 1건이고 무료 한도가 월 500 이다.
           # 하루 4번 다 배포할 필요는 없어 아침·저녁 두 번만 내보낸다.
           # 나머지 회차 데이터는 다음 배포가 같이 싣는다(git 에는 이미 들어가 있다).
+          # 단, 손으로 돌린 회차는 무조건 배포한다 — 지금 보려고 누른 것이라
+          # 시각이 슬롯이 아니라는 이유로 화면이 안 바뀌면 누른 의미가 없다.
           h=$(TZ=Asia/Seoul date +%H)
-          case "$h" in 08|09|16|17) SKIP="" ;; *) SKIP=" [CI Skip]" ;; esac
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SKIP=""; echo "수동 실행 - 바로 배포"
+          else
+            case "$h" in 08|09|16|17) SKIP="" ;; *) SKIP=" [CI Skip]" ;; esac
+          fi
           git commit -m "스크린·예매 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')${SKIP}"
           for i in 1 2 3 4 5; do
             if git push; then exit 0; fi
