@@ -2767,12 +2767,24 @@ function renderBooking(){
     }
     if(pts.length>1){
       h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl"><thead><tr>
-        <th class="l">날짜</th><th>순위</th><th>예매율</th><th>예매관객</th><th>증분</th><th>누적관객</th></tr></thead><tbody>`
+        <th class="l">날짜</th><th>일차</th><th>순위</th><th>예매율</th><th>예매관객</th><th>증분</th>
+        <th>1편 예매율<span class="th-sub">같은 일차</span></th>
+        <th>1편 예매관객<span class="th-sub">같은 일차 · 대비</span></th>
+        <th>누적관객</th></tr></thead><tbody>`
         +pts.slice().reverse().map((p,i,ar)=>{
           const q=ar[i+1];   // 역순이라 다음 원소가 전일
-          return `<tr><td class="l">${p.d.slice(5)}</td><td>${p.rank?p.rank+"위":"—"}</td><td>${fmt(p.rate,1)}%</td>
+          // 1편 앵커는 날짜가 아니라 일차(D-n)로 물린다. 개봉일이 2년 차이라 날짜로는 못 맞춘다.
+          const dd=p.open?Math.round((new Date(p.d)-new Date(p.open))/864e5):null;
+          const a=(ref&&ref.anchors||[]).find(x=>x.x===dd);
+          const cmp=a&&p.book?p.book/a.book*100:null;
+          return `<tr><td class="l">${p.d.slice(5)}</td>
+            <td>${dd==null?"—":`D${dd>=0?"+":""}${dd}`}</td>
+            <td>${p.rank?p.rank+"위":"—"}</td><td>${fmt(p.rate,1)}%</td>
             <td>${fmt0(p.book)}</td>
             <td>${q?`<span class="${cls(p.book-q.book)}">${sign(p.book-q.book,0)}</span>`:"—"}</td>
+            <td>${a?`${fmt(a.rate,1)}%`:`<span style="color:var(--muted2)">—</span>`}</td>
+            <td>${a?`${fmt0(a.book)}<span class="th-sub ${cmp>=100?"up":"down"}">${cmp.toFixed(0)}%</span>`
+                   :`<span style="color:var(--muted2)">—</span>`}</td>
             <td>${fmt0(p.acc)}</td></tr>`;}).join("")
         +`</tbody></table></div>`;
     }
