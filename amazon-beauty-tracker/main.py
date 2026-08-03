@@ -763,12 +763,20 @@ def main() -> int:
             m["enabled"] = m["code"].upper() in want
     # 주간 집계일에는 /dp/ 를 깊게 판다. 주간배지는 상세 페이지에만 있어서,
     # 이 날 확보한 만큼이 그 주 판매량 커버리지가 된다.
-    if (args.weekly or is_weekly_day(cfg)) and not args.report_only:
+    weekly_today = (args.weekly or is_weekly_day(cfg)) and not args.report_only
+    if weekly_today:
         deep = (cfg.get("detail") or {}).get("top_per_market_weekly")
         if deep:
             cfg["detail"]["top_per_market"] = int(deep)
             cfg["detail"]["top_per_brand"] = int(cfg["detail"].get("top_per_brand_weekly", 12))
             print(f"[주간] 집계일 — 상세조회를 마켓당 {deep}개로 늘립니다")
+    # 브랜드 검색은 '새 SKU 발견'용이라 매일 할 이유가 없다.
+    # 6개국 x 9브랜드 x 3페이지 = 162요청으로 한 회 요청량의 3분의 1을 차지하는데,
+    # 2026-08-04 차단 때 이 검색들이 줄줄이 503 을 맞으며 차단을 키웠다.
+    # 주간 집계일에만 돌리고 평일엔 이미 추적 중인 ASIN 의 BSR 만 잰다.
+    if not weekly_today and (cfg.get("search") or {}).get("weekly_only", True):
+        cfg.setdefault("search", {})["enabled"] = False
+        print("[검색] 평일은 브랜드 검색 생략 — 주간 집계일에만 돕니다(차단 회피)")
     if args.budget:
         cfg.setdefault("tracking", {})["max_detail_per_run"] = args.budget
     rcfg = dict(cfg.get("report") or {})

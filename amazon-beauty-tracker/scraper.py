@@ -459,8 +459,12 @@ def search_brand(session, market, brand, max_pages=3, delay=(2.0, 3.5), log=prin
         try:
             page = get(session, url, market, referer=f"https://{market['domain']}/", retries=2)
         except BlockedError as e:
+            # 삼키지 않고 올린다. 예전엔 여기서 break 만 하고 다음 브랜드로 넘어가
+            # 이미 막힌 마켓을 9개 브랜드 내내 두드렸다(2026-08-04: US·ES 가 그렇게
+            # 503 을 줄줄이 맞았고 그 뒤 DE·FR·IT 가 CAPTCHA 로 막혔다).
+            # 차단 신호를 받으면 그 마켓에서 바로 물러나는 게 회복이 빠르다.
             log(f"  ! {market['code']}/{brand} 검색 중단 — {e}")
-            break
+            raise
         if not page:
             break
         cards = BeautifulSoup(page, "html.parser").select(_CARD)
@@ -648,8 +652,12 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
         if want == "auto":
             want = sorted({v["brand"] for v in pinned.values()})
         for b in want:
-            hits = search_brand(session, market, b, scfg.get("max_pages", 3),
-                                scfg.get("delay", [2.0, 3.5]), log)
+            try:
+                hits = search_brand(session, market, b, scfg.get("max_pages", 3),
+                                    scfg.get("delay", [2.0, 3.5]), log)
+            except BlockedError as e:
+                log(f"[{code}] 차단 감지 — 이 마켓 브랜드 검색을 여기서 접습니다: {e}")
+                break
             for asin, info in hits.items():
                 key = f"{code}:{asin}"
                 if key not in pinned:
@@ -659,7 +667,6 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
             if hits:
                 log(f"[{code}] 검색 {b}: 카탈로그 {len(hits)}개 "
                     f"(판매량 {sum(1 for v in hits.values() if v['bought'])}개)")
-        _sleep(scfg.get("market_gap", [10, 20]))   # 마켓 넘어가기 전에 한 박자 쉰다
 
     # ---------- (4) 판매량 상위는 /dp/ 로 정밀 측정 ----------
     # 검색 카드의 배지 커버리지는 24~72%로 들쭉날쭉하지만 상세페이지는 100%다.
@@ -765,14 +772,23 @@ def scrape_all(cfg, brands, log=print):
     today = datetime.date.today().isoformat()
 
     rows, failed = [], []
+    gap = cfg.get("market_gap", [60, 90])
+    first = True
     for market in cfg["markets"]:
         if not market.get("enabled", True):
             continue
+        # 마켓을 갈아탈 때 한 박자 쉰다. 예전엔 이 휴식이 브랜드 검색 블록 안에 있어서
+        # 검색을 끄면 같이 사라졌고, 6개국을 쉬지 않고 이어 두드리게 됐다.
+        if not first:
+            _sleep(gap)
+        first = False
         try:
             rows += collect_market(market, brands, cfg, cache, pinned, log)
         except BlockedError as e:
             log(f"[{market['code']}] 실패: {e}")
             failed.append((market["code"], str(e)))
+            # 한 마켓이 막히면 다음 마켓도 곧 막힌다(같은 IP다). 더 길게 쉰다.
+            _sleep([g * 3 for g in gap])
         finally:
             save_cache(cache_path, cache)
             save_pinned(pin_path, pinned)
