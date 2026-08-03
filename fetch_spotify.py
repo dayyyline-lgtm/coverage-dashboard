@@ -40,12 +40,30 @@ ARTISTS = [
     ("하이브", "투바투",   "TOMORROW X TOGETHER", None),
     ("하이브", "캣츠아이", "KATSEYE",             "3c0gDdb9lhnHGFtP4prQpn"),
     ("하이브", "코르티스", "CORTIS",              "1ebt9HnXdyYA6KgLXr1n4P"),
+    ("하이브", "뉴진스",   "NewJeans",            "6HvZYsbFfjnjFrWF950C9d"),
+    ("하이브", "아일릿",   "ILLIT",               "36cgvBn0aadzOijnjjwqMN"),
+    ("하이브", "투어스",   "TWS",                 None),
+    ("하이브", "보이넥스트도어", "BOYNEXTDOOR",    None),
     # 에스엠 (SM)
     ("에스엠", "에스파",     "aespa",       "6YVMFz59CuY7ngCxTxjpxE"),
     ("에스엠", "라이즈",     "RIIZE",       "2jOm3cYujQx6o1dxuiuqaX"),
     ("에스엠", "엔시티드림", "NCT DREAM",   "1gBUSTR3TyDdTVFIaQnc02"),
+    ("에스엠", "엔시티위시", "NCT WISH",    None),
     ("에스엠", "레드벨벳",   "Red Velvet",  "1z4g3DjTBBZKhvAroFlhOM"),
     ("에스엠", "엑소",       "EXO",         "3cjEqqelV9zb4BYE3qDQ4O"),
+    # JYP — 여태 한 팀도 안 보고 있었다. 회사 단위로 견줄 수가 없었다.
+    ("JYP Ent.", "스트레이키즈", "Stray Kids", "2dIgFjalVxs4ThymZ67YCE"),
+    ("JYP Ent.", "트와이스",     "TWICE",      "7n2Ycct7Beij7Dj7meI4X0"),
+    ("JYP Ent.", "있지",         "ITZY",       None),
+    ("JYP Ent.", "엔믹스",       "NMIXX",      None),
+    # 와이지 — 마찬가지로 공백이었다.
+    # 솔로(제니·로제·리사)는 팀과 따로 잡힌다. 합산할 땐 중복 성격을 감안할 것 —
+    # 제니 혼자 5,087만명이라 넷을 그냥 더하면 회사 규모가 부풀려 보인다.
+    ("와이지엔터", "블랙핑크",     "BLACKPINK",   "41MozSoPIsD1dJM0CLPjZF"),
+    ("와이지엔터", "베이비몬스터", "BABYMONSTER", "1SIocsqdEefUTE6XKGUiVS"),
+    ("와이지엔터", "제니",         "JENNIE",      "250b0Wlc5Vk0CoUsaCY84M"),
+    ("와이지엔터", "로제",         "ROSÉ",        "3eVa5w3URK5duf6eyVDbu9"),
+    ("와이지엔터", "리사",         "LISA",        "5L1lO4eRHmJ7a0Q6csE5cT"),
 ]
 
 
