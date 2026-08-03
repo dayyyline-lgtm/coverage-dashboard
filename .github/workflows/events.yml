@@ -140,8 +140,16 @@ jobs:
             echo "변경 없음 - 커밋 생략"
           else
             git commit -m "이벤트/수출 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
-            git pull --rebase
-            git push
+            for i in 1 2 3 4 5; do
+              if git push; then break; fi
+              echo "푸시 밀림 - 재시도 $i"
+              git fetch origin main
+              if ! git rebase origin/main; then
+                git rebase --abort || true
+                echo '리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)'; break
+              fi
+              sleep $((i * 3))
+            done
           fi
 
       # 수집 직후 데일리 레터 발송(한 번에). 월간 수출 레터는 아래 별도 스텝(10~26일 매일 확인).
@@ -169,8 +177,16 @@ jobs:
           git add digest_sent.json digest_debug.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "데일리 레터 발송기록/디버그 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
-            git pull --rebase
-            git push
+            for i in 1 2 3 4 5; do
+              if git push; then break; fi
+              echo "푸시 밀림 - 재시도 $i"
+              git fetch origin main
+              if ! git rebase origin/main; then
+                git rebase --abort || true
+                echo '리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)'; break
+              fi
+              sleep $((i * 3))
+            done
           fi
 
       # 월간 수출 레터 — 새 월이 잡힌 날 딱 1번(trade_sent.json). 10~26일에만 확인.
@@ -186,7 +202,15 @@ jobs:
             git add trade_sent.json 2>/dev/null || true
             if ! git diff --cached --quiet -- trade_sent.json 2>/dev/null; then
               git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
-              git pull --rebase
-              git push
+              for i in 1 2 3 4 5; do
+                if git push; then break; fi
+                echo "푸시 밀림 - 재시도 $i"
+                git fetch origin main
+                if ! git rebase origin/main; then
+                  git rebase --abort || true
+                  echo '리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)'; break
+                fi
+                sleep $((i * 3))
+              done
             fi
           fi
