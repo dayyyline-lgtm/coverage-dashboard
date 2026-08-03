@@ -8,7 +8,9 @@
  *   GH_TOKEN : GitHub Personal Access Token (repo + workflow 권한)
  *
  * Cron Triggers (Worker > Settings > Trigger Events) — 모두 UTC 기준
- *   0 22 * * 0-4             → 한국시간 평일 07:00 (아침 전체수집 + 데일리 레터)  ← 이 슬롯이 events.yml
+ *   45 20 * * SUN-THU        → 한국시간 평일 05:45 (아침 전체수집 + 데일리 레터)  ← 이 슬롯이 events.yml
+ *                             레터가 6시에 도착하도록 시작을 앞당긴 값이다(수집에 4~5분 걸린다).
+ *                             옛 값 `0 22 * * SUN-THU`(KST 07:00)도 코드가 계속 인정한다.
  *   0 22,23 * * 0-4          → 한국시간 평일 07,08시 (시세)
  *   0 0-9 * * 1-5            → 한국시간 평일 09~18시 (시세)
  *   0 3,7,11,15,19,23 * * 6  → 한국시간 주말 (시세)
@@ -50,7 +52,11 @@ export default {
     // 데일리 레터가 통째로 발송되지 않았다.
     // 요일 표기와 무관하게 '분 0 · 시 22' 만 본다. 시세 슬롯은 시가 "22,23" 이라 안 겹친다.
     const [mi, hh] = String(event.cron || "").trim().split(/\s+/);
-    const isEventSlot = mi === "0" && hh === "22";
+    // 레터를 아침 6시에 받으려고 이 슬롯을 UTC 20:45(=KST 05:45)로 옮겼다.
+    // 옛 슬롯(UTC 22:00 = KST 07:00)도 계속 인정한다 — 이 코드를 배포했는데
+    // Cloudflare 쪽 Cron Trigger 를 아직 안 고쳤다면 레터가 통째로 안 나가기 때문이다.
+    // 둘 다 걸려 있어도 digest.py --once 가 하루 한 통만 보낸다.
+    const isEventSlot = hh === "20" || (mi === "0" && hh === "22");
     // 일요일 22:00 UTC = 한국시간 월요일 07:00 이므로 트렌드도 같이 돌린다.
     const jobs = isEventSlot ? ["events.yml"] : ["refresh.yml"];
     if (isEventSlot && new Date(event.scheduledTime).getUTCDay() === 0) {
