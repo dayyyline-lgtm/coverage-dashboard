@@ -41,7 +41,9 @@ jobs:
           # 이 워크플로는 Cloudflare 빌드를 소비하지 않는다 — refresh.yml 이 같은
           # fetch_movie.py 를 하루 12번 돌리고 그중 6번을 배포하므로, 여기서 또 빌드하면
           # 월 30건(한도 500건의 6%)을 같은 데이터에 쓰는 셈이다. 다음 배포가 같이 싣는다.
-          git commit -m "영화 흥행 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          # 손으로 돌린 회차는 배포한다 — 지금 보려고 누른 것이라 화면이 안 바뀌면 의미가 없다.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then SKIP=""; else SKIP=" [CI Skip]"; fi
+          git commit -m "영화 흥행 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')${SKIP}"
           for i in 1 2 3 4 5; do
             if git push; then exit 0; fi
             git fetch origin main
