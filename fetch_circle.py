@@ -97,11 +97,22 @@ ARTIST_CANON = [
 ]
 
 
-def _tokens(s):
-    """아티스트/키를 토큰으로. 괄호(현지명)는 떼고 영숫자·한글 덩어리로 나눈다.
-       'Stray Kids (스트레이 키즈)' -> ['stray','kids'] · '방탄소년단' -> ['방탄소년단']"""
-    s = re.sub(r"\([^)]*\)", "", s or "").lower()
-    return re.findall(r"[0-9a-z]+|[가-힣]+", s)
+# 괄호를 떼는 건 현지명 중복('Stray Kids (스트레이 키즈)')을 지우려던 것인데,
+# 써클차트엔 괄호 안이 '진짜 아티스트'인 표기도 있다 — 'V8 (SEVENTEEN)' 처럼
+# 앞이 유닛·프로젝트명이고 뒤가 소속팀이다. 그걸 버려서 25만장짜리 세븐틴 앨범이
+# 6월 내내 미분류로 빠졌다(하이브 196.8만장, 증권사 리포트는 227.1만장).
+# 그래서 '괄호 뗀 것'과 '통째로' 둘 다 만들어 어느 쪽이든 걸리면 인정한다.
+NOISE = {"feat", "featuring", "with", "prod", "ver", "version", "inst", "remix"}
+
+
+def _tokens(s, keep_paren=False):
+    """아티스트/키를 토큰으로. 영숫자·한글 덩어리로 나눈다.
+       keep_paren=False: 괄호 안을 뗀다 — 'Stray Kids (스트레이 키즈)' -> ['stray','kids']
+       keep_paren=True : 괄호 안까지 산다 — 'V8 (SEVENTEEN)' -> ['v8','seventeen']"""
+    s = (s or "").lower()
+    if not keep_paren:
+        s = re.sub(r"\([^)]*\)", "", s)
+    return [t for t in re.findall(r"[0-9a-z]+|[가-힣]+", s) if t not in NOISE]
 
 
 def _keymatch(art_tokens, art_concat, key_tokens):
@@ -121,19 +132,21 @@ _CANON_K = [(st, lab, [_tokens(k) for k in ks]) for st, lab, ks in ARTIST_CANON]
 
 
 def _stock_of(artist):
-    at = _tokens(artist); ac = "".join(at)
-    for st, keylist in _ROSTER_K.items():
-        if any(_keymatch(at, ac, kt) for kt in keylist):
-            return st
+    for keep in (False, True):          # 괄호 뗀 것 먼저, 그래도 없으면 통째로
+        at = _tokens(artist, keep); ac = "".join(at)
+        for st, keylist in _ROSTER_K.items():
+            if any(_keymatch(at, ac, kt) for kt in keylist):
+                return st
     return None
 
 
 def _canon_of(artist):
     """아티스트 -> 브레이크다운 표시라벨(없으면 None → '기타' 로 묶임)."""
-    at = _tokens(artist); ac = "".join(at)
-    for st, lab, keylist in _CANON_K:
-        if any(_keymatch(at, ac, kt) for kt in keylist):
-            return lab
+    for keep in (False, True):
+        at = _tokens(artist, keep); ac = "".join(at)
+        for st, lab, keylist in _CANON_K:
+            if any(_keymatch(at, ac, kt) for kt in keylist):
+                return lab
     return None
 
 
