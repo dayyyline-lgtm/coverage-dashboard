@@ -103,22 +103,24 @@ tracking:
 # 실측: COSRX 미국은 리스트에 1개뿐인데 검색으로는 110개가 나온다(연 86억 -> 321억).
 search:
   enabled: true
-  max_pages: 3              # 브랜드당 검색 페이지 수 (1페이지 = 48개)
+  weekly_only: true         # 평일엔 생략, 주간 집계일에만 (차단 회피)
+  max_pages: 2              # 브랜드당 검색 페이지 수 (1페이지 = 48개)
   brands: auto              # auto = 한 번이라도 잡힌 브랜드만 검색 (미진입 대기군은 생략)
-  delay: [2.0, 3.5]
+  delay: [4.0, 7.0]
 
 detail:
   top_per_brand: 5          # 브랜드당 최소 몇 개를 /dp/ 로 정밀 측정할지.
                             # 브랜드별로 나눠야 큰 브랜드가 예산을 독식하지 않는다
-  top_per_market: 45        # 마켓당 /dp/ 총 상한 (평일)
+  top_per_market: 35        # 마켓당 /dp/ 총 상한 (평일)
   # 주간 집계일에는 깊게 판다. **주간 판매량 배지는 상품 상세에만 있고
   # 검색 결과에는 없어서**, 이 날 조회한 만큼이 그 주 커버리지가 된다.
   top_per_market_weekly: 120
   top_per_brand_weekly: 12
-  delay: [1.5, 3.0]         # 상세 조회 사이 대기 (초, 랜덤)
+  delay: [3.0, 6.0]         # 상세 조회 사이 대기 (초, 랜덤)
 
-page_delay: [2.0, 4.0]      # 리스트 페이지 사이 대기 (초, 랜덤)
-impersonate: chrome         # curl_cffi TLS 지문. 막히면 chrome131 등으로 고정
+page_delay: [4.0, 7.0]
+market_gap: [60, 90]        # 마켓 갈아탈 때 휴식(초). 막힌 마켓 뒤엔 3배      # 리스트 페이지 사이 대기 (초, 랜덤)
+impersonate: chrome131         # curl_cffi TLS 지문. 막히면 chrome131 등으로 고정
 
 report:
   mode: daily               # daily   = 국가별 top100 SKU 수 + 신규 편입/이탈만 (기본, 짧다)
