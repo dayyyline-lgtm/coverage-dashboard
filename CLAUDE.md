@@ -161,8 +161,12 @@ ZIP(STORE) + CRC32 + inline string + styles.xml 레지스트리를 직접 구성
 
 **Cloudflare Worker의 Cron Trigger**가 GitHub Actions를 호출한다.
 
-- Worker: https://coverage-cron.dayyyline.workers.dev — `?wf=refresh.yml` 로 수동 실행 가능
-  (`events.yml`, `trends.yml` 도 동일). 성공 시 `{"ok":true,"status":204}`
+- Worker: https://coverage-cron.dayyyline.workers.dev — `?wf=refresh.yml&key=<TRIGGER_KEY>` 로
+  수동 실행 가능 (`events.yml`, `trends.yml` 도 동일). 성공 시 `{"ok":true,"status":204}`
+- 🔑 **`TRIGGER_KEY` 없이는 전부 404 다** (2026-08-04 추가). 예전엔 검사가 없어서
+  이 주소만 알면 누구나 워크플로를 무한히 돌릴 수 있었다 — 한 달 2,000분을 몇 분이면 태운다.
+  키는 Cloudflare > Workers > coverage-cron > Settings > Variables and Secrets 에 Secret 으로.
+  **열어 두는 쪽으로 되돌리지 말 것.** 특히 저장소를 공개로 바꾸면 이 주소가 그대로 노출된다.
 - 소스: `cloudflare-worker/worker.js`, 설치 안내: `cloudflare-worker/설정방법.md`
 - Cloudflare cron은 요일 숫자(`0-4`)를 거부한다. **`SUN-THU` 같은 이름**으로 써야 통과.
 - ⚠ 워크플로가 초록불인데 커밋이 없으면, 커밋 단계의 경로가 `public/index.html` 인지부터 확인.
