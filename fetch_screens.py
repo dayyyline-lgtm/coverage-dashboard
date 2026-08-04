@@ -456,8 +456,15 @@ def main():
 
     # horizon = 편성이 확인된 마지막 상영일. 이 근처 날짜는 스케줄이 아직 채워지는 중이라
     # 좌석·스크린이 실제보다 적게 잡힌다 — 화면에서 '축소'로 오독하지 않게 같이 넘긴다.
+    #
+    # ⚠ hot 회차의 horizon 은 쓰지 않는다.
+    #   horizon 은 '이번에 조사한 날짜 중 마지막'이라, 가까운 3일+개봉일만 보는 hot 이
+    #   덮어쓰면 지평선이 그 앞으로 쪼그라든다(실측: 전수 직후 20260817 -> hot 뒤 20260805).
+    #   화면은 play > horizon 이면 '편성 중' 표시를 빼므로, 그렇게 되면 뒤쪽 날짜 전부가
+    #   '편성 중'이 아니게 되어 스크린 감소가 축소로 읽힌다 — 이 값이 막으려던 바로 그 오독이다.
+    #   지평선은 전 날짜를 훑는 전수 회차만 알 수 있다.
     out = {"asOf": stamp, "chain": "CGV+롯데+메가박스",
-           "horizon": horizon or (old.get("horizon")),
+           "horizon": (horizon if want_full else None) or old.get("horizon"),
            "lastFull": today.isoformat() if want_full else last_full,
            "series": series, "peers": peer_series}
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
