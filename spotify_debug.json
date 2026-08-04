@@ -1,8 +1,8 @@
 {
- "asOf": "2026-08-03 07:53 KST",
+ "asOf": "2026-08-05 05:48 KST",
  "token_ok": true,
- "zero_count": 12,
- "total": 12,
+ "zero_count": 26,
+ "total": 26,
  "blocked": {
   "top": true,
   "top_why": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
@@ -164,6 +164,94 @@
    }
   },
   {
+   "label": "뉴진스",
+   "aid": "6HvZYsbFfjnjFrWF950C9d",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "아일릿",
+   "aid": "36cgvBn0aadzOijnjjwqMN",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "투어스",
+   "aid": "4GgBKgxhc649frZDHcXIEz",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "보이넥스트도어",
+   "aid": "4hnHLgMSOiqERWBL4jINP1",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
    "label": "에스파",
    "aid": "6YVMFz59CuY7ngCxTxjpxE",
    "fol": null,
@@ -230,6 +318,28 @@
    }
   },
   {
+   "label": "엔시티위시",
+   "aid": "4FqmqIspLaUGtxAFFLsZxc",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
    "label": "레드벨벳",
    "aid": "1z4g3DjTBBZKhvAroFlhOM",
    "fol": null,
@@ -254,6 +364,204 @@
   {
    "label": "엑소",
    "aid": "3cjEqqelV9zb4BYE3qDQ4O",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "스트레이키즈",
+   "aid": "2dIgFjalVxs4ThymZ67YCE",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "트와이스",
+   "aid": "7n2Ycct7Beij7Dj7meI4X0",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "있지",
+   "aid": "2KC9Qb60EaY0kW4eH68vr3",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "엔믹스",
+   "aid": "28ot3wh4oNmoFOdVajibBl",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "블랙핑크",
+   "aid": "41MozSoPIsD1dJM0CLPjZF",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "베이비몬스터",
+   "aid": "1SIocsqdEefUTE6XKGUiVS",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "제니",
+   "aid": "250b0Wlc5Vk0CoUsaCY84M",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "로제",
+   "aid": "3eVa5w3URK5duf6eyVDbu9",
+   "fol": null,
+   "pop": null,
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
+  },
+  {
+   "label": "리사",
+   "aid": "5L1lO4eRHmJ7a0Q6csE5cT",
    "fol": null,
    "pop": null,
    "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
