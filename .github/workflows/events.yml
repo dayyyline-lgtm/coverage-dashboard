@@ -84,7 +84,8 @@ jobs:
       # 개봉 전엔 예매(예매율·예매수)를 일별 누적, 개봉 후엔 일별 관객수까지 자동으로 쌓인다.
       - name: 영화 예매·박스오피스 수집
         continue-on-error: true
-        timeout-minutes: 7
+        # KOBIS 는 느린 날 편차가 크다 — 8/4 07시 회차가 7.1분이었다(상한 7분에 걸릴 뻔).
+        timeout-minutes: 12
         env:
           KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
         run: python fetch_movie.py || echo "영화 수집 건너뜀"
