@@ -2880,18 +2880,31 @@ function renderScreens(){
     const chDates={};
     arr.forEach(x=>Object.keys(lastOf(x).by||{}).forEach(c=>{
       (chDates[c]=chDates[c]||[]).push(x.play);}));
+    /* 체인별 지평선(수집기의 chainHz) = 그 체인이 예매를 열어 둔 마지막 날.
+       이게 있으면 '더 이른 날엔 있는데 여기 없다'는 추측 대신 정확히 가른다.
+       없으면(옛 데이터) 예전 추측 방식으로 떨어진다. */
+    const CHZ=SC.chainHz
+      ? (SC.chainHz[title]||(Object.entries(SC.chainHz).find(([k])=>norm(k)===norm(title))||[])[1]||null)
+      : null;
     const missOf=(s,play)=>Object.keys(chDates).filter(c=>
-      !(s.by&&s.by[c]) && chDates[c].some(d2=>d2<play));
+      !(s.by&&s.by[c]) &&
+      ((CHZ&&CHZ[c]) ? play>CHZ[c] : chDates[c].some(d2=>d2<play)));
     /* 편성 지평선 — 극장은 예매 달력을 2~3주 열어 두지만 편성은 그보다 훨씬 앞서 끝난다.
        (8/2 현재 CGV 달력은 8/18 까지 열려 있는데 하츄핑2 는 8/10 까지만 걸려 있다.)
        그래서 뒤쪽 날짜는 스크린·좌석이 실제보다 적게 잡히고, 그대로 두면
        621->408->318->207 이 '개봉하자마자 관을 뺏기는 영화'처럼 읽힌다.
        지평선 근처(2일 이내) 날짜는 '편성 중'으로 표시해 그 오독을 막는다. */
+    /* ⚠ 오늘·과거는 '편성 중'이 될 수 없다 — 이미 상영표가 확정된 날이다.
+         이 가드가 없어서 지평선이 앞으로 당겨진 날(수집 버그) 오늘 날짜에도 딱지가 붙었다. */
     const HZ=SC.horizon||null;
-    const fillingOf=play=>{ if(!HZ||play>HZ) return false;
+    const fillingOf=play=>{ if(!HZ||play>HZ||play<=todayISO) return false;
       const g=(a,b)=>(new Date(`${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)}`)
                      -new Date(`${a.slice(0,4)}-${a.slice(4,6)}-${a.slice(6,8)}`))/864e5;
       return g(play,HZ)<=2; };
+    /* 지평선 '너머' — 편성이 아직 시작도 안 된 날. 그래도 값이 잡히는 건
+       극장 한두 곳이 먼저 연 파편이다(8/4 실측: 8/17 은 CGV 왕십리 한 곳뿐인데 20관).
+       '편성 중'(거의 다 찬 날)과 섞으면 안 된다 — 이건 아예 안 채워진 날이다. */
+    const preOf=play=>!!HZ&&play>HZ&&play>todayISO;
     /* 1편의 같은 일차 실측(당일·누적) — 예상치를 못 내는 구간에서 비교 기준이 된다.
        같은 시리즈·같은 여름 성수기라 페이스를 견주기에 이만한 게 없다. */
     const refDay={}, refAcc={}, refScrn={};
@@ -3084,7 +3097,7 @@ function renderScreens(){
           s+=`<rect x="${x0.toFixed(1)}" y="${sy2(s2.seatTot).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H2-b2-sy2(s2.seatTot)).toFixed(1)}" rx="3" fill="${mut}" opacity=".22"><title>${calOf(dd)} 좌석 ${fmt0(s2.seatTot)}석 · 스크린 ${fmt0(s2.screens)}</title></rect>`;
           s+=`<rect x="${x0.toFixed(1)}" y="${sy2(s2.seatSold).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H2-b2-sy2(s2.seatSold)).toFixed(1)}" rx="3" fill="#eb6f92" opacity=".9"><title>${calOf(dd)} 예매 ${fmt0(s2.seatSold)}석 (${r.toFixed(1)}%)</title></rect>`;
           s+=`<text x="${sx(dd)}" y="${(sy2(s2.seatTot)-5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${mut}">${r.toFixed(0)}%</text>`;
-          const ms=missOf(s2,x.play), lb=fillingOf(x.play)?"편성 중":(ms.length?ms.join("·")+" 미오픈":"");
+          const ms=missOf(s2,x.play), lb=fillingOf(x.play)?"편성 중":preOf(x.play)?"편성 전":(ms.length?ms.join("·")+" 미오픈":"");
           if(lb) s+=`<text x="${sx(dd)}" y="${(sy2(s2.seatTot)-16).toFixed(1)}" text-anchor="middle" font-size="8.5" fill="var(--warn)">${lb}</text>`;});
         s+=`</svg></div>`;
 
@@ -3263,6 +3276,7 @@ ${md(p)}(${wdOf(p)}) · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)
           : `${fmt0(r1s)}<span class="th-sub ${s.screens>=r1s?"up":"down"}">${s.screens?fmt(s.screens/r1s*100,0)+"%":"—"}</span>`;
         const ms=missOf(s,play), fl=fillingOf(play);
         const mark=fl?`<span class="th-sub" style="color:var(--warn)">편성 중 · 더 늘어남</span>`
+                   :preOf(play)?`<span class="th-sub" style="color:var(--warn)">편성 전 · 일부 극장만 열림</span>`
                      :(ms.length?`<span class="th-sub" style="color:var(--warn)">${ms.join("·")} 미오픈</span>`:"");
         return `<tr${isPast?' style="opacity:.6"':''}><td class="l">${play.slice(4,6)}/${play.slice(6,8)}</td><td>${dn(play)}</td>
           <td>${fmt0(s.sites)}</td><td><b>${fmt0(s.screens)}</b>${dscr}${mark}</td>
@@ -3282,7 +3296,10 @@ ${md(p)}(${wdOf(p)}) · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)
   h+=`<details class="fold"><summary>읽는 법 · 데이터 범위 <span class="sub">미편성 착시 · 판매율 정의 · 3사 커버리지</span></summary>
     <div class="fold-b">
     <p class="note"><b style="color:var(--warn)">뒤 날짜 스크린이 적은 건 축소가 아니라 미편성입니다.</b>
-    예매 달력은 2~3주 열려도 편성은 훨씬 앞서 끝납니다(메가박스는 3일치만). <b>편성 중</b>·<b>미오픈</b> 표시가 붙은 날의 값은 전부 <b>하한</b>이고 날짜가 가까워지면 채워집니다.
+    예매 달력은 2~3주 열려도 편성은 훨씬 앞서 끝나고, 여는 시점도 체인마다 다릅니다
+    (8/4 실측: 메가박스 8/6까지 · CGV 8/12까지 · 롯데는 더 멀리).
+    <b>편성 중</b>(거의 다 찬 날) · <b>편성 전</b>(아직 시작도 안 된 날, 극장 한두 곳이 먼저 연 파편) ·
+    <b>미오픈</b>(그 체인만 아직 안 엶) 표시가 붙은 날의 값은 전부 <b>하한</b>이고 날짜가 가까워지면 채워집니다.
     실제 축소는 <b>같은 날짜 값이 날이 갈수록 줄어드는지</b>로 판별하며, 스크린 옆 전일비에 나타납니다.</p>
     <p class="note"><b>좌석 판매율</b> = 그 상영일에 팔린 좌석 ÷ 걸린 좌석. 위 예매 패널의 <b>KOBIS 예매율</b>(전체 영화 중 이 영화 몫)과는 다른 지표입니다.
     오늘 날짜는 끝난 회차가 스케줄에서 빠지므로 그날 관측된 <b>최댓값</b>을 씁니다(저녁에 판매율이 부풀지 않도록).

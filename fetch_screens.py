@@ -374,7 +374,16 @@ def main():
 
     stamp = now.strftime("%Y-%m-%d %H:%M")
     got = 0
-    horizon = None                     # 편성이 확인된 마지막 날짜
+    # 편성 지평선 — '가장 먼 편성일'로 잡으면 안 된다.
+    #   실측(8/4): 8/13~8/16 은 어느 지점에도 안 걸리는데 8/17 왕십리 한 곳만 걸려 있다.
+    #   최댓값으로 잡으면 지평선이 8/17 이 되어, 정작 채워지는 중인 8/10~8/12 가
+    #   '편성 확정'으로 읽히고 8/17 의 20관짜리 파편이 정상 배정처럼 보인다.
+    #   그래서 '첫 편성일부터 끊기지 않고 이어지는 마지막 날'을 쓴다.
+    # 체인별로도 따로 잡는다 — 예매 달력을 여는 시점이 체인마다 다르다
+    #   (8/4 실측: 메가박스 8/6 까지 · CGV ~8/12 · 롯데 8/17+).
+    #   하나의 지평선으로 뭉뚱그리면 '메가가 빠진 것'과 '편성이 준 것'이 구분되지 않는다.
+    attempted = [d.strftime("%Y%m%d") for d in dates]
+    prog = {}                          # 제목 -> {체인 -> 편성 확인된 날짜 집합}
     # 비교군은 CGV 만 쓴다 — 롯데·메가는 영화별 루프라 편당 수백 요청이 더 든다.
     # 어차피 '같은 체인·같은 지점·같은 날' 끼리 견주는 게 비교로도 더 깨끗하다.
     # 예전 수집의 잔재(전 영화 담던 시절)를 걷어낸다
@@ -384,7 +393,6 @@ def main():
         if not programmed(play):
             print(f"  {play} 미편성 — 전수 조사 생략")
             continue
-        horizon = play
         # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
         chains, peer_by = {}, {}
         # 매시간 도는 hot 은 CGV 만 본다. 롯데는 237개관, 메가는 지역8 순회라
@@ -427,6 +435,12 @@ def main():
                 merged.setdefault(k, {"nm": canon.get(k, nm), "by": {}})["by"][tag] = v
         for k, mv2 in merged.items():
             key = f"{mv2['nm']}|{play}"
+            # 지평선 판정은 '이번에 실제로 재서 관이 잡힌 체인'만 센다.
+            # 아래에서 직전 값을 이어받으므로, 그 뒤에 세면 미오픈 날짜까지
+            # 편성된 것으로 잡혀 지평선이 무한정 뒤로 밀린다.
+            for t2, v2 in mv2["by"].items():
+                if (v2.get("screens") or 0) > 0:
+                    prog.setdefault(mv2["nm"], {}).setdefault(t2, set()).add(play)
             # hot 은 CGV 만 새로 재므로, 안 잰 체인은 직전 스냅샷 값을 이어받는다.
             # 안 그러면 3사 합산이던 숫자가 갑자기 CGV 몫으로 뚝 떨어져
             # '배정이 반토막 났다'는 가짜 신호가 된다.
@@ -463,8 +477,24 @@ def main():
     #   화면은 play > horizon 이면 '편성 중' 표시를 빼므로, 그렇게 되면 뒤쪽 날짜 전부가
     #   '편성 중'이 아니게 되어 스크린 감소가 축소로 읽힌다 — 이 값이 막으려던 바로 그 오독이다.
     #   지평선은 전 날짜를 훑는 전수 회차만 알 수 있다.
+    def contig(days):
+        """첫 편성일부터 끊기지 않고 이어지는 마지막 날. 앞쪽 공백(오늘 미편성 등)은 건너뛴다."""
+        end, started = None, False
+        for p in attempted:
+            if p in days:
+                started, end = True, p
+            elif started:
+                break
+        return end
+    chain_hz = {nm: {t: contig(s) for t, s in per.items()} for nm, per in prog.items()}
+    all_days = {p for per in prog.values() for s in per.values() for p in s}
+    hz_contig = contig(all_days)
+
     out = {"asOf": stamp, "chain": "CGV+롯데+메가박스",
-           "horizon": (horizon if want_full else None) or old.get("horizon"),
+           "horizon": (hz_contig if want_full else None) or old.get("horizon"),
+           # 제목 -> 체인 -> 그 체인이 예매를 열어 둔 마지막 날.
+           # 화면은 이걸로 '아직 안 연 체인'과 '원래 안 하는 체인'을 가른다.
+           "chainHz": (chain_hz if want_full else None) or old.get("chainHz") or {},
            "lastFull": today.isoformat() if want_full else last_full,
            "series": series, "peers": peer_series}
     block = "const MOVIE_SCREENS = " + json.dumps(out, ensure_ascii=False) + ";"
