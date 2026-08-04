@@ -777,6 +777,21 @@ def main() -> int:
     if not weekly_today and (cfg.get("search") or {}).get("weekly_only", True):
         cfg.setdefault("search", {})["enabled"] = False
         print("[검색] 평일은 브랜드 검색 생략 — 주간 집계일에만 돕니다(차단 회피)")
+
+    # 평일은 베스트셀러 리스트만 본다.
+    #
+    # 화면 대표 지표인 '진입 SKU'는 리스트 안 61행이면 끝이고, 그건 요청 7건으로 얻어진다
+    # (US 2페이지 + 나머지 5개국 1페이지). 나머지 2,871행은 리스트 밖 제품의 BSR 인데
+    # 그건 /dp/ 를 ASIN 마다 한 번씩 쳐야 해서 요청의 대부분을 차지하고,
+    # 2026-08-04 CAPTCHA 도 거기서 났다. 판매량·매출 집계는 어차피 주간 리포트에서 낸다.
+    #
+    # 새로 발견된 ASIN 의 정체 확인(/dp/)만 소량 남긴다 — 이게 없으면 신규 진입 제품의
+    # 브랜드를 못 가려서 리스트에 떠도 우리 브랜드인 줄 모른다.
+    if not weekly_today and (cfg.get("tracking") or {}).get("weekday_list_only", True):
+        cfg.setdefault("detail", {})["top_per_market"] = 0
+        cfg.setdefault("tracking", {})["max_detail_per_run"] = int(
+            (cfg.get("tracking") or {}).get("weekday_detail_budget", 20))
+        print("[평일] 리스트만 수집 — /dp/ 정밀측정은 주간 집계일에(차단 회피)")
     if args.budget:
         cfg.setdefault("tracking", {})["max_detail_per_run"] = args.budget
     rcfg = dict(cfg.get("report") or {})
