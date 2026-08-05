@@ -2282,58 +2282,44 @@ const TREND_STOCK={
       };
       (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
     }
-    // 월간 청취자(ml)는 가수별로 쪼개지 않는다 — 아래 injectSpotifyCompany 에서 엔터사별 막대로 모은다.
-    // 일간 스트림(Spotify) — 실시간 소비/수요 플로우(kworb). 컴백 때 즉시 튄다(월간청취자보다 빠름).
-    // 절대수라 peak=100 선형정규화(비율 보존 → 범례 전일비·기간% 정확). 절대 스트림수는 각주.
-    const hs=(a.hist||[]).filter(x=>x&&x.sd!=null);
-    if(hs.length>=2){
-      const sv=hs.map(x=>x.sd), peak=Math.max(...sv)||1, cur=sv[sv.length-1], prv=sv[sv.length-2]||cur;
-      const norm=sv.map(v=>Math.round(v/peak*10000)/100);
-      const dchg=prv?(cur/prv-1)*100:0;
-      const strv=n=>manTxt(n).replace("명","회");   // 스트림은 사람 수가 아니라 재생 '회'
-      const name=a.label+" 일간 스트림(Spotify)";
-      TREND.groups[name]={
-        products:[a.label], productsGoogle:[a.label],
-        months:hs.map(dlab), naver:[norm], google:[norm],
-        only:"naver", freq:"date",
-        srcName:"Spotify 일간 스트림(kworb · 피크=100 정규화)",
-        reviewNote:`일 ${strv(cur)} · 전일 ${dchg>=0?"+":""}${dchg.toFixed(1)}%`
-      };
-      (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
-    }
+    // 월간청취자(ml)·일간스트림(sd) 둘 다 가수별로 쪼개지 않고 injectSpotifyCompany 에서 엔터사별 막대로 모은다.
   });
 })();
-/* 월간청취자 — 가수별로 쪼개지 않고 엔터사별 막대로 모아 비교(하이브 vs 에스엠).
-   x축=회사, 막대=소속 아티스트 스택, 막대 높이=회사 총 월간청취자(현재값 스냅샷). */
+/* 월간청취자·일간스트림 — 가수별로 쪼개지 않고 엔터사별 막대로 모아 비교(하이브·와이지·JYP·에스엠).
+   x축=회사, 막대=소속 아티스트 스택, 막대 높이=회사 합계(현재값 스냅샷).
+   컴백으로 한 아티스트가 튀는 '이상치'는 막대에 마우스를 올리면 아티스트별 내역으로 드러난다. */
 (function injectSpotifyCompany(){
   if(typeof SPOTIFY==="undefined"||!SPOTIFY.artists) return;
   const manTxt=n=>n>=1e8?(n/1e8).toFixed(2)+"억명":n>=1e4?Math.round(n/1e4).toLocaleString()+"만명":(n||0).toLocaleString()+"명";
-  const byCo={};
-  SPOTIFY.artists.forEach(a=>{
-    const hm=(a.hist||[]).filter(x=>x&&x.ml!=null);
-    if(!hm.length) return;
-    (byCo[a.stock]=byCo[a.stock]||[]).push({label:a.label, ml:hm[hm.length-1].ml});
-  });
-  const cos=Object.keys(byCo); if(!cos.length) return;
+  const strTxt=n=>manTxt(n).replace("명","회");   // 스트림은 사람 수가 아니라 재생 '회'
   const PAL=["#c4a7e7","#f6c177","#9ccfd8","#eb6f92","#a6da95","#3e8fb0","#ea9a97","#c9a227","#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
-  const products=[], series=[], colors=[]; let ci=0;
-  cos.forEach(co=>{
-    byCo[co].sort((x,y)=>y.ml-x.ml).forEach(art=>{
-      products.push(art.label);
-      series.push(cos.map(c=> c===co ? art.ml : 0));   // 자기 회사 칸에만 값, 나머진 0 → 회사별 스택 막대
-      colors.push(PAL[ci++ % PAL.length]);
+  function build(metric, groupName, unit, fmt, srcName){
+    const byCo={};
+    SPOTIFY.artists.forEach(a=>{
+      const h=(a.hist||[]).filter(x=>x&&x[metric]!=null);
+      if(!h.length) return;
+      (byCo[a.stock]=byCo[a.stock]||[]).push({label:a.label, v:h[h.length-1][metric]});
     });
-  });
-  const total=cos.map(co=>byCo[co].reduce((s,a)=>s+a.ml,0));
-  const name="엔터사 월간청취자(Spotify)";
-  TREND.groups[name]={
-    products, productsGoogle:products, months:cos,
-    naver:series, google:series, only:"naver", freq:"date",
-    stack:true, snapshot:true, colors, fmt:manTxt, unit:"명",
-    srcName:"Spotify 월간청취자 · 엔터사별 합산(소속 아티스트 스택)",
-    reviewNote:cos.map((c,i)=>`${c} ${manTxt(total[i])}`).join(" · ")
-  };
-  cos.forEach(co=>(TREND_STOCK[co]=TREND_STOCK[co]||[]).push(name));
+    const cos=Object.keys(byCo); if(!cos.length) return;
+    const products=[], series=[], colors=[]; let ci=0;
+    cos.forEach(co=>{
+      byCo[co].sort((x,y)=>y.v-x.v).forEach(art=>{
+        products.push(art.label);
+        series.push(cos.map(c=> c===co ? art.v : 0));   // 자기 회사 칸에만 값 → 회사별 스택 막대
+        colors.push(PAL[ci++ % PAL.length]);
+      });
+    });
+    const total=cos.map(co=>byCo[co].reduce((s,a)=>s+a.v,0));
+    TREND.groups[groupName]={
+      products, productsGoogle:products, months:cos,
+      naver:series, google:series, only:"naver", freq:"date",
+      stack:true, snapshot:true, colors, fmt, unit,
+      srcName, reviewNote:cos.map((c,i)=>`${c} ${fmt(total[i])}`).join(" · ")
+    };
+    cos.forEach(co=>(TREND_STOCK[co]=TREND_STOCK[co]||[]).push(groupName));
+  }
+  build("ml","엔터사 월간청취자(Spotify)","명",manTxt,"Spotify 월간청취자 · 엔터사별 합산(소속 아티스트 스택)");
+  build("sd","엔터사 일간 스트림(Spotify)","회",strTxt,"Spotify 일간 스트림 · 엔터사별 합산(소속 아티스트 스택)");
 })();
 /* 앱스토어(Apple) 게임 매출순위 — 게임 종목 소비/수요 신호(Spotify 스트림과 짝).
    순위는 낮을수록 좋으니 101−순위 점수로 변환(높을수록 상위 = 선이 위로). 실제 순위는 각주.
