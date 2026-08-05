@@ -1006,7 +1006,7 @@ function setSecUpdates(){
   const L=(typeof LIVE!=="undefined"&&LIVE.asOf)||"";
   const M={overview:L,coverage:L,valuation:L,reports:L,calendar:L,preview:L,
     news:(typeof NEWS!=="undefined"&&NEWS.asOf)||L,
-    trends:(typeof TREND!=="undefined"&&TREND.asOf)||"",
+    trends:"",   // 트렌드는 소스마다 주기가 달라 맨 위 하나로 안 뭉치고, 계열별로 trendTopicNow 에 표시
     boxoffice:(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"",
     altdata:(typeof TRADE!=="undefined"&&TRADE.asOf)||""};
   document.querySelectorAll("section.view").forEach(s=>{
@@ -3468,6 +3468,30 @@ function renderMovie(){
 }
 
 /* 종목 줄 + (주제가 둘 이상일 때만) 주제 줄 을 다시 그린다 */
+/* 각 트렌드 계열의 소스별 '최신화 시각' — 맨 위 하나로 뭉치지 않고 계열마다 표시.
+   소스마다 주기가 다르다: 네이버 검색·편입지표(스포티파이/스팀/유튜브 등)는 매일,
+   구글·얀덱스·국가별 검색은 주 1회(월). srcName 으로 소스를 판별해 각 asOf 를 붙인다. */
+const TREND_SRC_ASOF=[
+  ["Spotify", ()=>(typeof SPOTIFY!=="undefined")&&SPOTIFY.asOf],
+  ["SteamCharts", ()=>(typeof STEAM!=="undefined")&&STEAM.asOf],
+  ["Steam", ()=>(typeof STEAM!=="undefined")&&STEAM.asOf],
+  ["치지직", ()=>(typeof CHZZK!=="undefined")&&CHZZK.asOf],
+  ["YouTube", ()=>(typeof YT!=="undefined")&&YT.asOf],
+  ["트위치", ()=>(typeof TWITCH!=="undefined")&&TWITCH.asOf],
+  ["앱스토어", ()=>(typeof APPRANK!=="undefined")&&APPRANK.asOf],
+  ["한국관광", ()=>(typeof TOURISM!=="undefined")&&TOURISM.asOf],
+  ["방한", ()=>(typeof TOURISM!=="undefined")&&TOURISM.asOf],
+  ["써클", ()=>(typeof CIRCLE!=="undefined")&&CIRCLE.asOf],
+];
+function trendFresh(G){
+  if(!G) return "";
+  const sn=G.srcName||"";
+  for(const [k,fn] of TREND_SRC_ASOF){ if(sn.indexOf(k)>=0){ const v=fn(); if(v) return "갱신 "+fmtUpd(v); } }
+  // 검색 트렌드(srcName 없음) — 네이버(매일)·구글/얀덱스(주1회)를 각각 표시
+  const nav=(typeof TREND!=="undefined"&&(TREND.asOfNaver||TREND.asOf))||"";
+  const full=(typeof TREND!=="undefined"&&TREND.asOfFull)||"";
+  return "네이버 "+(nav?fmtUpd(nav):"—")+" · 구글/얀덱스 "+(full?fmtUpd(full):"주1회(월)");
+}
 function renderTrendSegs(){
   document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
     .map(n=>`<button data-stk="${attr(n)}" class="${n===trendStock?'active':''}">${n}</button>`).join("");
@@ -3505,8 +3529,10 @@ function renderTrendSegs(){
   }
   // 주제 줄이 숨겨져 있어도 지금 보는 게 뭔지 알 수 있게 제목으로 남긴다
   const kw=(viewGroup(G)||{}).products||[];
-  document.getElementById("trendTopicNow").textContent= !trendStock ? ""
-    : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "");
+  const fresh=trendFresh(G);
+  document.getElementById("trendTopicNow").innerHTML= !trendStock ? ""
+    : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "")
+      + (fresh? ` <span style="color:var(--muted);font-weight:600;font-size:12px">· ${fresh}</span>` : "");
 }
 document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;

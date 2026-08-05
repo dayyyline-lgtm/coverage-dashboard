@@ -757,8 +757,15 @@ def main():
     # 수집 시각 — 다른 데이터(시세·뉴스·수출·영화)엔 다 있는데 트렌드에만 없었다.
     # 검색 트렌드는 주 1회라 화면에서 '언제 것인지'를 모르면 판단이 어긋난다.
     # 비교(아래 SKIP 판정)에는 넣지 않는다 — 시각만 바뀐 걸로 매주 커밋이 생긴다.
-    trend = {"asOf": datetime.datetime.now(
-                 datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M"),
+    _now = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+    # 소스별 갱신 시각 — 네이버는 매일(--naver-only 포함 모든 실행) 새로 받고,
+    # 구글·얀덱스·국가별은 전체 실행(주 1회)에만 받는다. 화면에서 계열마다 신선도를 따로 보여준다.
+    _prev = prev or {}
+    _asOfFull = _prev.get("asOfFull") if NAVER_ONLY else _now
+    if not _asOfFull:
+        _asOfFull = _prev.get("asOf")           # 예전 블록 하위호환
+    trend = {"asOf": _now, "asOfNaver": _now, "asOfFull": _asOfFull,
              "months": labels, "colors": COLORS,
              "sources": have, "groups": groups_out}
 
