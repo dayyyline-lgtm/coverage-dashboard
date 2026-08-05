@@ -22,7 +22,14 @@ name: 스크린 배정·예매 추적
 
 on:
   schedule:
-    - cron: "5 */8 * * *"      # 백업. 정시성은 기대하지 않는다
+    # 하루 한 번만. 워커가 죽은 날의 최후 보루다.
+    #
+    # 예전엔 "5 */8 * * *" (하루 3회) 였는데, cron 회차는 시간 게이트를 그냥
+    # 통과하는 데다 그날 첫 회차는 3사 전수 스윕(롯데 237개관 + 메가 8지역)을
+    # 하므로 회당 22~49분이다. 실측 8/03~8/05 에 이 3회가 스크린 비용의
+    # 68%(168분 중 114분)를 먹었다. 게다가 GitHub cron 은 4시간씩 밀려서
+    # 새벽 05:15 에 떠 놓고 "그날 첫 회차"를 차지하는 일이 생긴다.
+    - cron: "0 23 * * *"      # KST 08:00 목표. 밀릴 것을 전제로 한 백업이다
   workflow_run:
     workflows: ["시세 자동 갱신"]
     types: [completed]
@@ -81,9 +88,9 @@ jobs:
         if: steps.gate.outputs.go == '1'
         run: |
           if [ -n "${{ github.event.inputs.full }}" ]; then
-            python fetch_screens.py --force || echo "스크린 추적 건너뜀"
+            python runstep.py "스크린·예매" fetch_screens.py --force
           else
-            python fetch_screens.py --hot || echo "스크린 추적 건너뜀"
+            python runstep.py "스크린·예매" fetch_screens.py --hot
           fi
 
       # 수집이 막히거나 굳으면 별도 메시지로 알린다(데일리 레터와 섞지 않는다).

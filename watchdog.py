@@ -27,22 +27,39 @@ HTML = "public/index.html"
 STATE = "watchdog_state.json"
 HEALTH = "health.json"
 KST = datetime.timezone(datetime.timedelta(hours=9))
-RENOTIFY_H = 6           # 같은 문제를 다시 알리기까지
+RENOTIFY_H = 24          # 같은 문제를 다시 알리기까지 (하루 한 번으로 묶는다)
+
+# 문제가 이 시간 이상 이어져야 알린다.
+#   네이버가 잠깐 흔들리는 건 늘 있는 일이라, 즉시 쏘면 하루 몇 통씩 오고
+#   그러면 진짜 고장 났을 때 무시하게 된다. 다음 날 아침에도 여전히 깨져
+#   있는 것만 알린다 — 그 사이 스스로 풀리면 아무 일도 없었던 게 된다.
+PERSIST_H = 12
 DASH = '<a href="https://coverage-dashboard.pages.dev">📊 대시보드 열기</a>'
 
 # 블록별 허용 지연(시간). 주기가 느린 것은 넉넉하게 준다.
 #   장이 안 열리는 주말엔 시세가 안 바뀌므로 LIVE 는 주말 보정을 따로 한다.
 LIMITS = {
-    "MOVIE_SCREENS": ("스크린·예매", 5),
-    "MOVIE":         ("영화 예매·박스오피스", 8),
+    "MOVIE_SCREENS": ("스크린·예매", 8),
+    "MOVIE":         ("영화 예매·박스오피스", 10),
     "LIVE":          ("시세·컨센", 30),
     "NEWS":          ("종목 뉴스", 30),
     "TREND":         ("검색 트렌드", 200),      # 주 1회 전체수집
     "TRADE":         ("수출입(관세청)", 24 * 40),  # 월 1회 갱신
+    # 아래는 감시 밖이었다 — 며칠 멈춰 있어도 아무도 몰랐다.
+    "AMAZON":        ("아마존 뷰티", 24 * 3),   # 평일 리스트 수집, 주말은 건너뛴다
+    "CIRCLE":        ("써클차트 앨범", 24 * 9),  # 주간 차트라 넉넉하게
+    "SPOTIFY":       ("Spotify 아티스트", 48),
+    "STEAM":         ("Steam 동접", 48),
+    "TOURISM":       ("방한 관광객", 24 * 10),   # 월간 통계
+    "SHOP":          ("해외 쇼핑 수요", 24 * 10),
+    "CHZZK":         ("치지직 시청자", 30),
+    "TWITCH":        ("트위치 시청자", 30),
 }
 
 
 def parse_ts(s):
+    # 수집기마다 "2026-08-05 16:29" 과 "2026-08-04 06:25 KST" 가 섞여 있다.
+    s = (s or "").replace("KST", "").strip()
     for f in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
         try:
             return datetime.datetime.strptime(s, f).replace(tzinfo=KST)
@@ -55,7 +72,9 @@ def freshness(html, now):
     """[(키, 라벨, 지연시간, 한도)] — 한도를 넘긴 것만."""
     bad = []
     for key, (label, limit_h) in LIMITS.items():
-        m = re.search(r'const %s = \{"asOf": "([^"]+)"' % key, html)
+        # 상수마다 `= {"asOf": "..."` 와 `={"asOf":"..."` 가 섞여 있어서
+        # 예전 정규식은 AMAZON·SPOTIFY·STEAM 등을 통째로 놓치고 있었다.
+        m = re.search(r'const %s\s*=\s*\{\s*"asOf"\s*:\s*"([^"]+)"' % key, html)
         if not m:
             continue
         ts = parse_ts(m.group(1))
@@ -107,17 +126,37 @@ def main():
     except Exception:
         st = {}
 
+    # 상태 파일에는 두 시각을 남긴다.
+    #   first — 이 문제를 처음 본 때. 지속 여부 판정에 쓴다.
+    #   t     — 마지막으로 알린 때. 하루 한 번으로 묶는 데 쓴다.
+    #   알린 적 없으면 t 는 없다(관찰 중인 상태).
     lines, keep = [], {}
+    watching = []
     for k, msg in issues.items():
-        prev = st.get(k)
-        last = parse_ts((prev or {}).get("t") or "")
-        if prev and last and (now - last).total_seconds() / 3600 < RENOTIFY_H:
-            keep[k] = prev            # 최근에 알렸으면 조용히 유지
-            continue
-        lines.append(msg)
-        keep[k] = {"t": now.strftime("%Y-%m-%d %H:%M")}
+        prev = st.get(k) or {}
+        first = parse_ts(prev.get("first") or "") or now
+        keep[k] = {"first": first.strftime("%Y-%m-%d %H:%M")}
 
-    fixed = [k for k in st if k not in issues]
+        held = (now - first).total_seconds() / 3600
+        if held < PERSIST_H:
+            # 아직 일시적일 수 있다. 기록만 하고 조용히 지켜본다.
+            watching.append(f"{k.split(':', 1)[1]}({held:.0f}h)")
+            continue
+
+        last = parse_ts(prev.get("t") or "")
+        if last and (now - last).total_seconds() / 3600 < RENOTIFY_H:
+            keep[k]["t"] = prev["t"]   # 오늘 이미 알렸다
+            continue
+
+        lines.append(f"{msg} <i>({held:.0f}시간째)</i>")
+        keep[k]["t"] = now.strftime("%Y-%m-%d %H:%M")
+
+    if watching:
+        print(f"[watchdog] 관찰 중(아직 {PERSIST_H}시간 미만): " + ", ".join(watching))
+
+    # 복구 알림은 '알린 적 있는 것'만 — 조용히 지켜보다 스스로 풀린 건
+    # 사용자가 애초에 몰랐으므로 복구를 알릴 이유도 없다.
+    fixed = [k for k in st if k not in issues and (st[k] or {}).get("t")]
     if fixed:
         names = ", ".join(k.split(":", 1)[1] for k in fixed)
         lines.append(f"✅ <b>복구됨</b> — {names} 수집이 다시 돌고 있습니다")
@@ -140,7 +179,12 @@ def main():
         json.dump(keep, open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
         print(f"[watchdog] {len(lines)}건 발송")
     else:
-        print("[watchdog] 발송 실패 — 상태 저장 생략(다음에 다시 시도)")
+        # 발송이 실패해도 first(처음 본 때)는 남긴다. 이걸 잃으면 지속 시간이
+        # 매번 0 으로 리셋돼 영영 PERSIST_H 를 못 넘긴다.
+        for k in keep:
+            keep[k].pop("t", None)
+        json.dump(keep, open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
+        print("[watchdog] 발송 실패 — 다음 실행에서 다시 시도합니다")
 
 
 if __name__ == "__main__":

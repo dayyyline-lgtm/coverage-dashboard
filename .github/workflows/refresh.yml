@@ -12,7 +12,12 @@ name: 시세 자동 갱신
 #   급할 땐 Actions 탭 수동 실행이나 워커 주소에 ?wf=refresh.yml 을 붙이면 된다.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "슬롯이 아니어도 강제로 돌릴까요? (아무 값이나 넣으면 강제)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -28,10 +33,38 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
+      # 워커는 평일 07~18시를 매시간 부른다. 그런데 회당 실측 7.7분이라
+      # 하루 93분·월 2,790분이 나간다 — 한도 2,000분을 이것 하나로 넘긴다.
+      #
+      # 스텝마다 시간대를 보게 해 뒀지만 그건 이미 러너를 띄우고 체크아웃과
+      # 파이썬 설치를 끝낸 뒤의 이야기라, 아무 일도 안 하는 회차도 분을 먹는다.
+      # 그래서 체크아웃보다 먼저 판정한다(빈 회차는 10초 안쪽).
+      #
+      # 슬롯을 08·10·12·14·16·18 로 잡은 이유는 collector_health.deploy_slot()
+      # 과 같은 값이기 때문이다. 다르게 잡으면 수집은 했는데 배포 슬롯이 아니라
+      # [CI Skip] 이 붙어 화면이 안 바뀌는 회차가 생긴다.
+      # 주말은 워커가 KST 00·04·08·12·16·20 을 부르는데 장이 안 열리므로 12·20 만.
+      - name: 지금 돌 시각인가
+        id: gate
+        run: |
+          h=$(TZ=Asia/Seoul date +%H); d=$(TZ=Asia/Seoul date +%u)
+          go=0
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.force }}" ]; then
+            go=1; echo "수동 강제 실행"
+          elif [ "$d" -le 5 ]; then
+            case "$h" in 08|10|12|14|16|18) go=1 ;; esac
+          else
+            case "$h" in 12|20) go=1 ;; esac
+          fi
+          echo "go=$go" >> $GITHUB_OUTPUT
+          [ "$go" = "1" ] && echo "KST ${h}시 - 수집 슬롯" || echo "KST ${h}시 - 슬롯 아님, 여기서 끝냅니다"
+
       - name: 저장소 가져오기
+        if: steps.gate.outputs.go == '1'
         uses: actions/checkout@v4
 
       - name: 파이썬 준비
+        if: steps.gate.outputs.go == '1'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -39,6 +72,7 @@ jobs:
       # 워커가 밤·주말에도 부르는데 그 시각엔 값이 안 바뀌면서 시간만 먹는다.
       # 무거운 단계는 필요한 시간대에만 돌린다. 아래 스텝들이 이 값을 본다.
       - name: 시간대 판정(KST)
+        if: steps.gate.outputs.go == '1'
         id: t
         run: |
           echo "h=$(TZ=Asia/Seoul date +%H)" >> $GITHUB_OUTPUT
@@ -53,19 +87,21 @@ jobs:
       #   리포트가 나와야 바뀌는 값이라 매시간 받아도 같은 값이고, 요청량만 2.5배가 된다.
       #   네이버 금융은 키 없는 비공개 엔드포인트라 차단 위험 1순위다.
       - name: 시세·리포트·일정 재수집
+        if: steps.gate.outputs.go == '1'
         run: |
           h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
           if [ "$d" -le 5 ] && [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 18 ]; then
-            python refresh_live.py
+            python runstep.py "시세·컨센" refresh_live.py
           else
             echo "장 시간 밖 또는 주말 - 생략"
           fi
 
       - name: 종목 뉴스 재수집
+        if: steps.gate.outputs.go == '1'
         run: |
           h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
           if [ "$d" -le 5 ] && [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 19 ]; then
-            python fetch_news.py || echo "뉴스 수집 건너뜀(네이버 응답 이상)"
+            python runstep.py "종목 뉴스" fetch_news.py
           else
             echo "장 시간 밖 - 생략"
           fi
@@ -73,21 +109,23 @@ jobs:
       # DART 공시는 장중에 올라오지만 2.25분짜리라 매시간은 과하다.
       # 개장 직후·점심·장 마감 후 세 번이면 당일 안에 다 잡힌다.
       - name: DART 공시·IR 재수집
+        if: steps.gate.outputs.go == '1'
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
           case "${{ steps.t.outputs.d }}:${{ steps.t.outputs.h }}" in
-            [1-5]:09|[1-5]:13|[1-5]:17) python fetch_events.py || echo "DART 수집 건너뜀" ;;
+            [1-5]:10|[1-5]:14|[1-5]:18) python runstep.py "DART 공시" fetch_events.py ;;
             *) echo "해당 시간대 아님 - 생략" ;;
           esac
 
       # 잠정실적 — DART '영업(잠정)실적(공정공시)'. 하루 두 번이면 충분하다.
       - name: 잠정실적 수집(DART)
+        if: steps.gate.outputs.go == '1'
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
           case "${{ steps.t.outputs.d }}:${{ steps.t.outputs.h }}" in
-            [1-5]:09|[1-5]:17) python fetch_prelim.py || echo "잠정실적 수집 건너뜀" ;;
+            [1-5]:10|[1-5]:18) python runstep.py "잠정실적" fetch_prelim.py ;;
             *) echo "해당 시간대 아님 - 생략" ;;
           esac
 
@@ -95,24 +133,28 @@ jobs:
       # (예전엔 이 스텝과 '주말' 스텝이 따로 있어 토·일엔 같은 걸 두 번 받았다.
       #  0.73분짜리 중복이라 지웠다 — 요일 구분 없이 여기서 한 번만 한다.)
       - name: 영화 예매·박스오피스 수집
+        if: steps.gate.outputs.go == '1'
         env:
           KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
-        run: python fetch_movie.py || echo "영화 수집 건너뜀"
+        run: python runstep.py "영화 예매" fetch_movie.py
 
       # 치지직·트위치는 회당 10초 안쪽이라 매번 돈다.
       # 그날 최댓값(저녁 피크)을 잡는 게 목적이라 자주 볼수록 정확하다.
       - name: 치지직 게임 시청자
-        run: python fetch_chzzk.py || echo "치지직 수집 건너뜀"
+        if: steps.gate.outputs.go == '1'
+        run: python runstep.py "치지직" fetch_chzzk.py
 
       - name: 트위치 게임 시청자
+        if: steps.gate.outputs.go == '1'
         env:
           TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
-        run: python fetch_twitch.py || echo "트위치 수집 건너뜀"
+        run: python runstep.py "트위치" fetch_twitch.py
 
       # 스크린 배정·예매는 screens.yml 이 전담한다(여기 붙였더니 회당 20분이 됐다).
 
       - name: 실적 발표 알림
+        if: steps.gate.outputs.go == '1'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -122,12 +164,14 @@ jobs:
       # screens.yml 에만 두었더니 8시간에 한 번뿐이라, 재알림 주기(6시간)보다 느렸다.
       # 회당 5초라 여기서 매번 돌려도 부담이 없다. 정상이면 아무것도 안 보낸다.
       - name: 건강검진 알림
+        if: steps.gate.outputs.go == '1'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python watchdog.py || echo "건강검진 건너뜀"
 
       - name: 변경분 커밋
+        if: steps.gate.outputs.go == '1'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
