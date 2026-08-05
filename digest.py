@@ -203,12 +203,20 @@ def _notable(tr):
     return rows
 
 
-def _prev_run(mv, nm, dday):
+def _prev_run(mv, nm, dday, mine=None):
     """같은 IP 전작을 '같은 일차(D-N)' 기준으로 견준 한 줄. 없으면 None.
 
        예매 숫자만 던지면 잘한 건지 못한 건지 알 수 없다. 전작의 같은 시점과 나란히 놓는다.
        개봉일이 2년 차이 나므로 달력 날짜가 아니라 D-N 으로 맞춰야 비교가 된다.
-       (2편 이름에는 1편 제목이 통째로 들어 있어 그걸로 짝을 찾는다)"""
+       (2편 이름에는 1편 제목이 통째로 들어 있어 그걸로 짝을 찾는다)
+
+       ⚠ dday 는 '오늘'이 아니라 '우리 누적관객이 실제로 몇 일차 것인가'다.
+         레터는 아침에 나가는데 KOBIS 확정치는 전날 것까지만 있다. 오늘 날짜로
+         맞춰 버리면 우리 D+0 숫자를 전작 D+1 과 견주게 된다 — 2026-08-06 실측으로
+         100,386 vs 142,342(-29%) 로 보였지만 제대로 맞추면 vs 107,156(-6%) 이었다.
+         호출부가 movies[].days 의 마지막 날짜에서 뽑아 넘긴다.
+
+       mine 을 주면 배수(전작 대비 몇 배)까지 붙인다."""
     head = nm.split(":")[0].strip()
     for t, m in (mv.get("movies") or {}).items():
         if t == nm or head not in t or not m.get("days"):
@@ -229,7 +237,10 @@ def _prev_run(mv, nm, dday):
         final = pts[-1][1]["acc"]
         same = next((p for x, p in pts if x == dday), None)
         if same:
-            return f"전작 같은 시점 {same['acc']:,}명 · 최종 {final:,}명"
+            # '같은 시점'이라고만 쓰면 어느 일차인지 안 보여서, 하루 어긋나 있어도
+            # 아무도 눈치를 못 챈다. 일차를 명시한다.
+            r = f" ({mine / same['acc']:.2f}배)" if mine and same['acc'] else ""
+            return f"전작 같은 일차(D{dday:+d}) {same['acc']:,}명{r} · 최종 {final:,}명"
         # 같은 일차 기록이 없으면(전작은 Top10 에 든 날부터라 개봉 직전 며칠뿐) 그 사실을 말한다
         f_x, f_p = pts[0]
         return (f"전작은 D{f_x:+d}부터 집계 · D{f_x:+d} {f_p['acc']:,}명 → 최종 {final:,}명")
@@ -893,14 +904,28 @@ def build(html, alerts_only=False):
                         - datetime.date.fromisoformat(p["d"])).days * -1
             except (KeyError, ValueError):
                 pass
+            # 누적관객은 오늘 것이 아니다. KOBIS 확정치는 전날까지라 아침 레터에는
+            # 하루 전 숫자가 실린다. 전작과 견줄 때는 그 '하루 전'의 일차로 맞춘다.
+            acc_dd = None
+            try:
+                ds = ((mv.get("movies") or {}).get(nm) or {}).get("days") or []
+                acc_dd = (datetime.datetime.strptime(ds[-1]["d"], "%Y%m%d").date()
+                          - datetime.date.fromisoformat(p["open"])).days
+            except (IndexError, KeyError, ValueError):
+                # 박스오피스 기록이 아직 없으면(개봉 전) 하루 뺀 값으로 갈음한다
+                acc_dd = dday - 1 if dday is not None else None
             # 제목을 ':' 앞에서 자르면 2편이 1편과 똑같은 이름이 된다
             # ('사랑의 하츄핑: 고래보석의 전설' -> '사랑의 하츄핑'). 그대로 쓴다.
             lines.append(f"<b>{nm}</b>"
                          + (f"  <code>D{dday:+d}</code>" if dday is not None else ""))
             # acc = KOBIS 누적'관객'수(개봉 전이면 시사회·유료시사 관객). 예매가 아니다.
-            lines.append(f"예매율 {p['rate']}%{dr} · 예매 {p['book']:,}명 · "
-                         f"누적관객 {p['acc']:,}명" + ("(시사회)" if dday is not None and dday < 0 else ""))
-            base = _prev_run(mv, nm, dday) if dday is not None else None
+            lines.append(f"예매율 {p['rate']}%{dr} · 예매 {p['book']:,}명")
+            # 예매는 지금 이 순간 값이고 누적관객은 어제까지 값이다. 한 줄에 섞어
+            # 놓으면 둘 다 오늘 것으로 읽힌다 — 줄을 나누고 기준일을 적는다.
+            lines.append(f"누적관객 {p['acc']:,}명"
+                         + (f" <i>(D{acc_dd:+d}까지)</i>" if acc_dd is not None else "")
+                         + ("(시사회)" if dday is not None and dday < 0 else ""))
+            base = _prev_run(mv, nm, acc_dd, p.get("acc")) if acc_dd is not None else None
             if base:
                 lines.append(_sub(base))       # 숫자만 던지면 잘한 건지 못한 건지 모른다
         out.append("<b>🎬 예매</b>\n" + "\n".join(lines))
