@@ -2312,7 +2312,7 @@ function injectCompanyStack(items, opt){
   const strTxt=n=>manTxt(n).replace("명","회");
   const items=metric=>SPOTIFY.artists.map(a=>({stock:a.stock, label:a.label,
     pts:(a.hist||[]).filter(x=>x&&x[metric]!=null).map(x=>({d:x.d, v:x[metric]}))}));
-  injectCompanyStack(items("ml"), {suffix:"월간청취자(Spotify)", unit:"명", fmt:manTxt, srcName:"Spotify 월간청취자 · 소속 아티스트 스택(기간 추이)"});
+  injectCompanyStack(items("ml"), {suffix:"월간청취자 추이(Spotify)", unit:"명", fmt:manTxt, srcName:"Spotify 월간청취자(최근 28일 순청취자, 매일 기록) · 소속 아티스트 스택"});
   injectCompanyStack(items("sd"), {suffix:"일간 스트림(Spotify)", unit:"회", fmt:strTxt, srcName:"Spotify 일간 스트림 · 소속 아티스트 스택(기간 추이)"});
 })();
 /* 앱스토어(Apple) 게임 매출순위 — 게임 종목 소비/수요 신호(Spotify 스트림과 짝).
