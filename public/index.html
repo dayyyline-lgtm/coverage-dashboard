@@ -2282,26 +2282,7 @@ const TREND_STOCK={
       };
       (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
     }
-    // 월간 청취자 — 공식 API엔 없어 kworb/Spotify 메타로 수집(절대수).
-    // 차트 y축이 0~100 고정이라 절대수를 그대로 못 그린다. '첫 점=50' 으로 두고 선형
-    // 스케일(v/ref*50)만 한다 — 비율이 보존돼 범례의 '전일비/기간' 자동계산이 실제 %와
-    // 일치한다(증폭하면 선은 커 보여도 표시 %가 거짓이 된다). 일 변동은 1% 미만이라
-    // 초반엔 잔잔하고, 주 단위로 실제 증감이 쌓이며 형태가 드러난다. 절대수는 각주에.
-    const hm=(a.hist||[]).filter(x=>x&&x.ml!=null);
-    if(hm.length>=2){
-      const mv=hm.map(x=>x.ml), ref=mv[0]||1, cur=mv[mv.length-1];
-      const norm=mv.map(v=>Math.round(v/ref*5000)/100);   // 첫점=50, 비율 보존(소수2자리 — 반올림오차로 전일비≠기간 되는 것 방지)
-      const chg=(cur/ref-1)*100;
-      const name=a.label+" 월간청취자(Spotify)";
-      TREND.groups[name]={
-        products:[a.label], productsGoogle:[a.label],
-        months:hm.map(dlab), naver:[norm], google:[norm],
-        only:"naver", freq:"date",
-        srcName:"Spotify 월간 청취자(kworb·Spotify 메타 · 지수 첫날=50)",
-        reviewNote:`현재 ${manTxt(cur)} · 기간 ${chg>=0?"+":""}${chg.toFixed(1)}%`+rel
-      };
-      (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
-    }
+    // 월간 청취자(ml)는 가수별로 쪼개지 않는다 — 아래 injectSpotifyCompany 에서 엔터사별 막대로 모은다.
     // 일간 스트림(Spotify) — 실시간 소비/수요 플로우(kworb). 컴백 때 즉시 튄다(월간청취자보다 빠름).
     // 절대수라 peak=100 선형정규화(비율 보존 → 범례 전일비·기간% 정확). 절대 스트림수는 각주.
     const hs=(a.hist||[]).filter(x=>x&&x.sd!=null);
@@ -2321,6 +2302,38 @@ const TREND_STOCK={
       (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
     }
   });
+})();
+/* 월간청취자 — 가수별로 쪼개지 않고 엔터사별 막대로 모아 비교(하이브 vs 에스엠).
+   x축=회사, 막대=소속 아티스트 스택, 막대 높이=회사 총 월간청취자(현재값 스냅샷). */
+(function injectSpotifyCompany(){
+  if(typeof SPOTIFY==="undefined"||!SPOTIFY.artists) return;
+  const manTxt=n=>n>=1e8?(n/1e8).toFixed(2)+"억명":n>=1e4?Math.round(n/1e4).toLocaleString()+"만명":(n||0).toLocaleString()+"명";
+  const byCo={};
+  SPOTIFY.artists.forEach(a=>{
+    const hm=(a.hist||[]).filter(x=>x&&x.ml!=null);
+    if(!hm.length) return;
+    (byCo[a.stock]=byCo[a.stock]||[]).push({label:a.label, ml:hm[hm.length-1].ml});
+  });
+  const cos=Object.keys(byCo); if(!cos.length) return;
+  const PAL=["#c4a7e7","#f6c177","#9ccfd8","#eb6f92","#a6da95","#3e8fb0","#ea9a97","#c9a227","#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
+  const products=[], series=[], colors=[]; let ci=0;
+  cos.forEach(co=>{
+    byCo[co].sort((x,y)=>y.ml-x.ml).forEach(art=>{
+      products.push(art.label);
+      series.push(cos.map(c=> c===co ? art.ml : 0));   // 자기 회사 칸에만 값, 나머진 0 → 회사별 스택 막대
+      colors.push(PAL[ci++ % PAL.length]);
+    });
+  });
+  const total=cos.map(co=>byCo[co].reduce((s,a)=>s+a.ml,0));
+  const name="엔터사 월간청취자(Spotify)";
+  TREND.groups[name]={
+    products, productsGoogle:products, months:cos,
+    naver:series, google:series, only:"naver", freq:"date",
+    stack:true, snapshot:true, colors, fmt:manTxt, unit:"명",
+    srcName:"Spotify 월간청취자 · 엔터사별 합산(소속 아티스트 스택)",
+    reviewNote:cos.map((c,i)=>`${c} ${manTxt(total[i])}`).join(" · ")
+  };
+  cos.forEach(co=>(TREND_STOCK[co]=TREND_STOCK[co]||[]).push(name));
 })();
 /* 앱스토어(Apple) 게임 매출순위 — 게임 종목 소비/수요 신호(Spotify 스트림과 짝).
    순위는 낮을수록 좋으니 101−순위 점수로 변환(높을수록 상위 = 선이 위로). 실제 순위는 각주.
@@ -2617,17 +2630,20 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   const COL=G.colors||TREND.colors, F=G.fmt||(x=>x);   // 스택은 자체 색/장수 포맷을 쓴다
   document.getElementById("trendLegend").innerHTML=
     PRODUCTS.map((p,i)=>{
-      const ser=series[i], base=ser[ser.length-2];
+      const ser=series[i];
+      const cur=G.snapshot?Math.max(...ser):ser[ser.length-1];   // 스냅샷(회사별 막대)은 자기 회사 칸 값
+      const base=G.snapshot?0:ser[ser.length-2];
       const mom=(base>0)?((ser[ser.length-1]/base-1)*100):null;
+      const momTxt=G.snapshot?"":` · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}`;
       // 계열마다 출처가 섞인 그룹에서만 출처를 붙인다(러시아=얀덱스 같은 경우)
       const mixed=G.srcOf && new Set(G.srcOf).size>1;
       const tag=mixed?` <small class="th-sub">${G.srcOf[i]}</small>`:"";
       return `<div class="li"><span class="dot" style="background:${COL[i]}"></span>${p}${tag}
-        <small>최근 ${F(ser[ser.length-1])} · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}</small></div>`;
+        <small>최근 ${F(cur)}${momTxt}</small></div>`;
     }).join("")+(function(){
       if(G.stack){
         const rv=G.reviewNote?` · ${G.reviewNote}`:"";
-        return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 총 판매량) · 단위 ${G.unit||"장"}${rv}</small></div>`;
+        return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 합계) · 단위 ${G.unit||"장"}${rv}</small></div>`;
       }
       if(G.multi){
         // 계열마다 출처가 다를 수 있다(러시아는 얀덱스). 있는 그대로 적는다.
@@ -3528,7 +3544,7 @@ function renderTrendSegs(){
     frow.style.display="none";
   }
   // 주제 줄이 숨겨져 있어도 지금 보는 게 뭔지 알 수 있게 제목으로 남긴다
-  const kw=(viewGroup(G)||{}).products||[];
+  const kw=(G&&G.stack)?[]:((viewGroup(G)||{}).products||[]);   // 스택(회사 막대)은 아티스트 목록이 길어 제목에 안 붙임
   const fresh=trendFresh(G);
   document.getElementById("trendTopicNow").innerHTML= !trendStock ? ""
     : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "")
