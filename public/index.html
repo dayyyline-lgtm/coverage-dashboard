@@ -2319,7 +2319,42 @@ const TREND_STOCK={
     cos.forEach(co=>(TREND_STOCK[co]=TREND_STOCK[co]||[]).push(groupName));
   }
   build("ml","엔터사 월간청취자(Spotify)","명",manTxt,"Spotify 월간청취자 · 엔터사별 합산(소속 아티스트 스택)");
-  build("sd","엔터사 일간 스트림(Spotify)","회",strTxt,"Spotify 일간 스트림 · 엔터사별 합산(소속 아티스트 스택)");
+})();
+/* 일간 스트림 — 엔터사마다 '기간별 추이'를 스택 막대로(써클 앨범판매와 같은 형태). 회사 4개 → 그래프 4개.
+   x축=날짜, 막대=소속 아티스트 스택, 막대 높이=그날 회사 총 일간스트림. 이상치는 호버로 아티스트별 확인. */
+(function injectSpotifyStreamCompany(){
+  if(typeof SPOTIFY==="undefined"||!SPOTIFY.artists) return;
+  const strTxt=n=>n>=1e8?(n/1e8).toFixed(2)+"억회":n>=1e4?Math.round(n/1e4).toLocaleString()+"만회":(n||0).toLocaleString()+"회";
+  const dlab=d=>{const p=(d||"").slice(5).split("-");return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const PAL=["#c4a7e7","#f6c177","#9ccfd8","#eb6f92","#a6da95","#3e8fb0","#ea9a97","#c9a227","#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
+  const byCo={};
+  SPOTIFY.artists.forEach(a=>{
+    const hs=(a.hist||[]).filter(x=>x&&x.sd!=null);
+    if(!hs.length) return;
+    (byCo[a.stock]=byCo[a.stock]||[]).push({label:a.label, pts:hs});
+  });
+  Object.entries(byCo).forEach(([co, arts])=>{
+    const dates=[...new Set(arts.flatMap(ar=>ar.pts.map(p=>p.d)))].sort();
+    if(dates.length<2) return;                       // 추이는 2일 이상 있어야
+    arts.sort((x,y)=> y.pts[y.pts.length-1].sd - x.pts[x.pts.length-1].sd);
+    const products=[], series=[], colors=[];
+    arts.forEach((ar,i)=>{
+      const map=Object.fromEntries(ar.pts.map(p=>[p.d,p.sd]));
+      products.push(ar.label);
+      series.push(dates.map(d=> map[d]!=null?map[d]:0));  // 날짜별 아티스트 sd(없으면 0)
+      colors.push(PAL[i%PAL.length]);
+    });
+    const total=dates.map((_,i)=>series.reduce((s,ser)=>s+(ser[i]||0),0));
+    const name=`${co} 일간 스트림(Spotify)`;
+    TREND.groups[name]={
+      products, productsGoogle:products, months:dates.map(dlab),
+      naver:series, google:series, only:"naver", freq:"date",
+      stack:true, colors, fmt:strTxt, unit:"회",
+      srcName:"Spotify 일간 스트림 · 소속 아티스트 스택(기간 추이)",
+      reviewNote:`최근 ${strTxt(total[total.length-1])}`
+    };
+    (TREND_STOCK[co]=TREND_STOCK[co]||[]).push(name);
+  });
 })();
 /* 앱스토어(Apple) 게임 매출순위 — 게임 종목 소비/수요 신호(Spotify 스트림과 짝).
    순위는 낮을수록 좋으니 101−순위 점수로 변환(높을수록 상위 = 선이 위로). 실제 순위는 각주.
