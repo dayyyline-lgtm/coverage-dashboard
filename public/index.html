@@ -2729,18 +2729,50 @@ function renderBooking(){
   const names=Object.keys(B).filter(n=>(B[n]||[]).length);
   if(!names.length){ el.innerHTML=""; return; }
   const up=Object.fromEntries((MOVIE_UPCOMING||[]).map(x=>[x.title,x]));
-  let h=`<div class="sub-h">실시간 예매</div>`;
+  const MV=(typeof MOVIE!=="undefined")?MOVIE:{};
+  const D=s=>new Date(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8));
+  // 개봉 판정 — 박스오피스 실측이 잡혔고 개봉일이 지났으면 '개봉 후'로 본다.
+  const isOpen=nm=>{const bo=(MV.movies||{})[nm];const u2=up[nm];return !!(bo&&bo.days&&bo.days.length)&&(!u2||new Date(u2.open)<=new Date());};
+  const anyOpened=names.some(isOpen);
+  let h=`<div class="sub-h">${anyOpened?"개봉 실적 · 실시간 예매":"실시간 예매"}</div>`;
   names.forEach(nm=>{
     const pts=B[nm], last=pts[pts.length-1], prev=pts.length>1?pts[pts.length-2]:null;
     const u=up[nm];
-    const dday=u? Math.ceil((new Date(u.open)-new Date(last.d))/864e5) : null;
+    const opened=isOpen(nm);
+    const bo=(MV.movies||{})[nm], boDays=(bo&&bo.days)||[];
+    const bl=boDays[boDays.length-1]||null, bp=boDays.length>1?boDays[boDays.length-2]:null;
+    const openDate=(u&&u.open)||(bo&&bo.openDt)||null;
+    const dday=openDate? Math.ceil((new Date(openDate)-new Date(last.d))/864e5) : null;
     // 증분은 점이 2개 이상 쌓여야 나온다. 첫날은 '수집 시작'으로 두고 빈 값을 보여준다.
     const delta=(k)=> prev? `<span class="${cls(last[k]-prev[k])}">${sign(last[k]-prev[k],k==="rate"?1:0)}${k==="rate"?"%p":"명"} 전일비</span>`
                           : `전일 대비는 내일부터`;
-    h+=`<div class="kpis">
+    const bdelta=(k)=> bp? `<span class="${cls(bl[k]-bp[k])}">${sign(bl[k]-bp[k],0)}명 전일비</span>` : ``;
+    if(opened){
+      // 개봉 후 — 헤드라인을 박스오피스 실측(당일 관객·누적·상영관)으로. 예매율은 다음 날 페이스의 선행지표로 보조.
+      const dN=bl?Math.round((D(bl.d)-new Date(openDate))/864e5):null;
+      const md=bl?bl.d.slice(4,6)+"/"+bl.d.slice(6,8):"";
+      h+=`<div class="kpis">
+      <div class="kpi"><div class="k">${nm}</div>
+        <div class="v">${dN==null?"개봉":(dN===0?"개봉일":"개봉 D+"+dN)}</div>
+        <div class="d">${openDate} 개봉</div></div>
+      <div class="kpi"><div class="k">박스오피스 순위<span class="th-sub">${md} 확정</span></div>
+        <div class="v">${bl&&bl.rank?bl.rank+"<small>위</small>":"—"}</div>
+        <div class="d">전국 일별</div></div>
+      <div class="kpi"><div class="k">당일 관객<span class="th-sub">${md}</span></div>
+        <div class="v">${bl&&bl.audi!=null?fmt0(bl.audi):"—"}<small>명</small></div>
+        <div class="d">${bdelta("audi")}</div></div>
+      <div class="kpi"><div class="k">누적 관객</div>
+        <div class="v">${bl?fmt0(bl.acc):"—"}<small>명</small></div>
+        <div class="d">${bl&&bl.scrn?fmt0(bl.scrn)+"개 상영관":""}</div></div>
+      <div class="kpi"><div class="k">실시간 예매율<span class="th-sub">오늘</span></div>
+        <div class="v">${fmt(last.rate,1)}<small>%</small></div>
+        <div class="d">${delta("rate")}</div></div>
+    </div>`;
+    } else {
+      h+=`<div class="kpis">
       <div class="kpi"><div class="k">${nm}</div>
         <div class="v">${dday!=null?(dday>0?"D-"+dday:"개봉"):"—"}</div>
-        <div class="d">${u?u.open+" 개봉":""}</div></div>
+        <div class="d">${openDate?openDate+" 개봉":""}</div></div>
       <div class="kpi"><div class="k">예매 순위</div>
         <div class="v">${last.rank?last.rank+"<small>위</small>":"—"}</div>
         <div class="d">${prev&&prev.rank&&last.rank
@@ -2756,6 +2788,7 @@ function renderBooking(){
         <div class="v">${fmt0(last.acc)}<small>명</small></div>
         <div class="d">${delta("acc")}</div></div>
     </div>`;
+    }
     /* 1편 동시점 앵커 — 예매 이력은 KOBIS 가 안 남겨서 당시 보도 수치에 대고 잰다 */
     const ref=(typeof MOVIE_BOOKING_REF!=="undefined")&&MOVIE_BOOKING_REF[nm];
     const an=ref&&ref.anchors&&ref.anchors[0];
@@ -2789,8 +2822,8 @@ function renderBooking(){
         +`</tbody></table></div>`;
     }
   });
-  h+=`<p class="note">KOBIS 실시간 예매 · <b>매시간 갱신</b>(기준 ${(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"—"}) — 개봉 전 유일한 실시간 지표입니다.
-      실시간 예매수·누적관객은 하루 종일 변하므로 위 값은 그 시각의 스냅샷입니다.
+  h+=`<p class="note">KOBIS ${anyOpened?"박스오피스 <b>전일 확정치</b> + 예매 <b>실시간</b>":"실시간 예매 · <b>매시간 갱신</b>"}(기준 ${(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"—"}).
+      ${anyOpened?"개봉 후엔 당일 관객·누적이 흥행의 실측이고, 예매율은 다음 날 페이스의 선행지표입니다":"개봉 전 유일한 실시간 지표입니다"}. 예매수·누적은 하루 종일 변하므로 위 값은 그 시각의 스냅샷입니다.
       1편 기준선: 개봉 4일 전 시사회 누적 30,553명 → 개봉일 107,156명 → 최종 1,212,652명.</p>`;
   el.innerHTML=h;
   renderScreens();
@@ -3369,7 +3402,10 @@ function renderMovie(){
   if(movieRange==="zoom"){
     const newest=draw.reduce((a,r)=>{const mx=Math.max(...r.pts.map(p=>p.x));
       return (a==null||r.openDt>a.openDt)?{openDt:r.openDt,mx}:a;},null);
-    const lo=-10, hi=Math.max(14,(newest?newest.mx:0)+7);
+    // 창을 최신작 진행에 맞춘다. 예전엔 max(14,…)로 항상 D+14까지 열어서, 옛 흥행작
+    // (1편, 개봉 74일 실측)의 먼 뒷날 누적이 y축 최댓값을 끌어올려 신작 개봉 급증을
+    // 납작하게 눌렀다. 이제 hi를 최신작 진도+3(최소 3)로 잡아 같은 스케일에서 겹쳐 본다.
+    const lo=-10, hi=Math.max(3,(newest?newest.mx:0)+3);
     draw=draw.map(r=>({...r,pts:r.pts.filter(p=>p.x>=lo&&p.x<=hi)})).filter(r=>r.pts.length);
     if(!draw.length){ draw=[...runs,...preLive]; }   // 창이 비면 전체로 폴백
   }
