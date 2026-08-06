@@ -1,3 +1,6 @@
 # 검색엔진 색인 차단 — 도용 억제(링크 아는 사람만 접근)
 User-agent: *
 Disallow: /
+
+# 자동 수집은 functions/_middleware.js 가 User-Agent 로 한 번 더 거른다.
+# (robots.txt 는 '지켜 주는 크롤러'에게만 유효해서, 안 지키는 쪽을 거기서 막는다)
