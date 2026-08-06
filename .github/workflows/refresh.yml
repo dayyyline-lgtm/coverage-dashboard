@@ -1,17 +1,27 @@
 name: 시세 자동 갱신
 
-# ⚠ schedule: 블록을 일부러 뺐다 (2026-08-02)
+# schedule 를 다시 붙였다 (2026-08-06)
 #
-#   Cloudflare Worker 가 이 워크플로를 workflow_dispatch 로 부르는데,
-#   GitHub 자체 cron 도 (예전엔 안 뜨더니) 지금은 뜬다. 둘이 겹쳐서
-#   7일간 schedule 18회(206분) + dispatch 70회(609분) = 88회가 돌았다.
-#   같은 일을 두 번 한 셈이고, 비공개 저장소라 그 분이 그대로 과금된다.
-#   워커 쪽이 훨씬 안정적(70 vs 18)이라 그쪽만 남긴다.
+#   예전엔(2026-08-02) 워커 dispatch 와 GitHub cron 이 겹쳐 같은 일을 두 번 하길래
+#   schedule 을 지우고 워커만 남겼다. 그런데 워커(무료 플랜 cron)가 오후 슬롯을
+#   통째로 빼먹는 날이 있어(08-06: 오전만 뜨고 09~18시 하나도 안 뜸) 시세가 21시간
+#   멈췄다. 다른 워크플로(events·movie·screens·trade)는 전부 GitHub schedule 백업이
+#   있어 멀쩡했다 — 시세만 워커 단독이라 죽은 것.
 #
-#   주기를 바꾸려면 Cloudflare → Workers → coverage-cron → Cron Trigger 를 고칠 것.
-#   급할 땐 Actions 탭 수동 실행이나 워커 주소에 ?wf=refresh.yml 을 붙이면 된다.
+#   그래서 schedule 을 되살리되, 겹침 과금은 아래 gate 의 '중복 방지'로 막는다:
+#   직전 '시세 자동 갱신' 커밋이 90분 안쪽이면 그 회차는 체크아웃 전에 끝낸다(과금 1분).
+#   워커가 살아있는 날엔 GitHub 회차가 대부분 여기서 빠지고, 워커가 죽은 날만 실제 수집.
+#   concurrency: repo-write 가 직렬화하므로 뒤 회차는 앞 회차의 커밋을 보고 판정한다.
+#
+#   주기를 바꾸려면 아래 cron 과 Cloudflare 워커의 Cron Trigger 를 함께 볼 것.
 
 on:
+  schedule:
+    # 슬롯(KST 평일 08·10·12·14·16·18, 주말 12·20)을 UTC 로 적는다. UTC 시각:
+    #   23→08, 01→10, 03→12, 05→14, 07→16, 09→18 (평일) · 03→12, 11→20 (주말)
+    # gate 가 실제 KST 요일·시각으로 다시 정밀 필터하므로 여기선 합집합만 건다.
+    # :05 로 둬 워커(:00)를 먼저 태우고, 워커가 죽은 날만 이쪽이 실제 수집한다.
+    - cron: "5 23,1,3,5,7,9,11 * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -46,6 +56,8 @@ jobs:
       # 주말은 워커가 KST 00·04·08·12·16·20 을 부르는데 장이 안 열리므로 12·20 만.
       - name: 지금 돌 시각인가
         id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           h=$(TZ=Asia/Seoul date +%H); d=$(TZ=Asia/Seoul date +%u)
           go=0
@@ -56,8 +68,23 @@ jobs:
           else
             case "$h" in 12|20) go=1 ;; esac
           fi
+          # 중복 방지 — 워커와 GitHub schedule 두 트리거가 같은 슬롯을 두 번 수집하면
+          # 비공개 저장소 분이 이중 과금된다. 직전 '시세 자동 갱신' 커밋이 90분 안쪽이면
+          # 다른 트리거가 이미 이 슬롯을 처리한 것이므로 체크아웃 전에 끝낸다.
+          # (강제 실행은 예외 — 사람이 일부러 돌린 것이니 건너뛰지 않는다.)
+          if [ "$go" = "1" ] && [ -z "${{ github.event.inputs.force }}" ]; then
+            last=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/commits?per_page=10" \
+              | jq -r '[.[] | select(.commit.message | startswith("시세 자동 갱신")) | .commit.committer.date] | first // empty' 2>/dev/null)
+            if [ -n "$last" ]; then
+              age=$(( ( $(date +%s) - $(date -d "$last" +%s) ) / 60 ))
+              if [ "$age" -ge 0 ] && [ "$age" -lt 90 ]; then
+                go=0; echo "직전 시세 갱신이 ${age}분 전 - 다른 트리거가 처리함, 중복 방지로 건너뜁니다"
+              fi
+            fi
+          fi
           echo "go=$go" >> $GITHUB_OUTPUT
-          [ "$go" = "1" ] && echo "KST ${h}시 - 수집 슬롯" || echo "KST ${h}시 - 슬롯 아님, 여기서 끝냅니다"
+          [ "$go" = "1" ] && echo "KST ${h}시 - 수집 슬롯" || echo "KST ${h}시 - 슬롯 아님/중복, 여기서 끝냅니다"
 
       - name: 저장소 가져오기
         if: steps.gate.outputs.go == '1'
