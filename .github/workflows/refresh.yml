@@ -63,6 +63,21 @@ jobs:
           go=0
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.force }}" ]; then
             go=1; echo "수동 강제 실행"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            # ⚠ 예약 회차는 정시 슬롯으로 판정하면 안 된다.
+            #   GitHub 예약은 이 계정에서 3~12시간씩 밀린다(실측 5건: +3.0 +3.6 +3.6 +11.0 +11.7).
+            #   08시 예약이 11시에 도착하는데 게이트가 짝수 시만 받으면 전부 튕긴다 —
+            #   계산해 보니 21가지 도착 경우 중 슬롯에 걸리는 게 0건이었다.
+            #   즉 백업이 영영 수집을 안 한다. 워커가 죽은 날 시세가 하루 종일 멈춘다.
+            #
+            #   그래서 예약 회차는 '장 시간 안이면' 통과시키고, 겹침 과금은 아래
+            #   중복 방지(직전 시세 커밋 90분)가 막는다. 워커가 살아 있는 날엔
+            #   예약 회차가 거기서 대부분 걸러져 12초로 끝난다.
+            if [ "$d" -le 5 ]; then
+              [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 19 ] && go=1
+            else
+              [ "$((10#$h))" -ge 10 ] && [ "$((10#$h))" -le 20 ] && go=1
+            fi
           elif [ "$d" -le 5 ]; then
             case "$h" in 08|10|12|14|16|18) go=1 ;; esac
           else
@@ -212,7 +227,10 @@ jobs:
           # 30일 실측 472건으로 이미 94% 를 쓰고 있었다. 수집은 자주 하되 배포는
           # 시세가 실제로 바뀌는 슬롯에서만 한다 — 사이 회차 커밋에 '[CI Skip]' 을 달면
           # Cloudflare 가 그 푸시를 건너뛰고, 다음 배포가 그 데이터까지 같이 싣는다.
-          if python -c "import sys,collector_health as c; sys.exit(0 if c.deploy_slot() else 1)"; then
+          # 예약(schedule) 회차가 여기까지 왔다는 건 중복 방지를 통과했다는 뜻 —
+          # 즉 워커가 그 슬롯을 못 했다는 것이다. 그런 회차까지 [CI Skip] 을 달면
+          # 수집은 했는데 화면이 안 바뀐다. 워커가 죽은 날 하루 종일 옛 숫자가 뜬다.
+          if [ "${{ github.event_name }}" = "schedule" ] || python -c "import sys,collector_health as c; sys.exit(0 if c.deploy_slot() else 1)"; then
             SKIP=""
           else
             SKIP=" [CI Skip]"
