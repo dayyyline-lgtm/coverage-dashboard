@@ -8,9 +8,10 @@
  *   GH_TOKEN : GitHub Personal Access Token (repo + workflow 권한)
  *
  * Cron Triggers (Worker > Settings > Trigger Events) — 모두 UTC 기준
- *   45 20 * * SUN-THU        → 한국시간 평일 05:45 (아침 전체수집 + 데일리 레터)  ← 이 슬롯이 events.yml
- *                             레터가 6시에 도착하도록 시작을 앞당긴 값이다(수집에 4~5분 걸린다).
- *                             옛 값 `0 22 * * SUN-THU`(KST 07:00)도 코드가 계속 인정한다.
+ *   0 20 * * SUN-THU         → 한국시간 평일 05:00 (아침 전체수집: events.yml, 트렌드 포함)
+ *   0 21 * * SUN-THU         → 한국시간 평일 06:00 (데일리 레터: letter.yml + 뉴스봇)
+ *                             ↑ 2026-08-07: '05시 수집 → 06시 레터' 분리. 옛 값은
+ *                               `45 20 * * SUN-THU`(05:45 수집+레터 한 번에) 였다.
  *   0 22,23 * * 0-4          → 한국시간 평일 07,08시 (시세)
  *   0 0-9 * * 1-5            → 한국시간 평일 09~18시 (시세)
  *   0 3,7,11,15,19,23 * * 6  → 한국시간 주말 (시세)
@@ -45,38 +46,27 @@ export default {
     const token = env.GH_TOKEN;
     if (!token) { console.log("GH_TOKEN 시크릿이 없습니다"); return; }
 
-    // 어느 슬롯이 '아침 전체수집 + 데일리 레터'인가.
-    //
-    // ⚠ 이 판정이 두 번 틀렸다. 처음엔 cron 문자열 전체를 비교했는데 Cloudflare 가
-    //   요일 숫자("0-4")를 거부해 "SUN-THU"로 저장되는 바람에 안 맞았고,
-    //   그다음엔 '분 0 · 시 22'로 고쳤는데 실제 저장값이 "30 22 * * SUN-THU"(분 30)라
-    //   또 안 맞았다. 그 결과 워커는 매일 아침 레터 대신 refresh.yml 만 돌렸고
-    //   레터는 자동으로 나간 적이 없었다(2026-08-04 확인).
-    //
-    // 그래서 값 하나에 기대지 않게 폭을 넓혔다:
-    //   - 시가 20 이면 레터 (KST 05:45 — 6시 도착용 새 슬롯)
-    //   - 시가 22 인데 분이 0 이 아니면 레터 (옛 07:30 슬롯)
-    //   - 시가 22 이고 분이 0 이면 시세 ("0 22,23" 슬롯과 겹치지 않게)
-    // 시 칸에 "20,23" 처럼 여러 값이 들어와도 잡히도록 쉼표로 쪼개 본다.
+    // 어느 슬롯인가 — cron 의 '시(hour)' 로 가른다 (2026-08-07 '05시 수집→06시 레터' 분리).
+    //   시 20(UTC) = KST 05:00 → 아침 전체수집 (events.yml, 트렌드 포함)
+    //   시 21(UTC) = KST 06:00 → 데일리 레터 (letter.yml) + 뉴스봇
+    //   그 외        = 시세 (refresh.yml)
+    // 시 칸에 "20,23" 처럼 여러 값이 와도 잡히게 쉼표로 쪼개 본다.
+    // ⚠ Cloudflare Cron Trigger 를 "0 20 * * SUN-THU"(수집)·"0 21 * * SUN-THU"(레터)로 설정할 것.
+    //   시세 슬롯(22,23,0-9…)엔 20·21 이 없으므로 겹치지 않는다.
     const [mi, hh] = String(event.cron || "").trim().split(/\s+/);
     const hours = String(hh || "").split(",");
-    const isEventSlot = hours.includes("20") || (hours.includes("22") && mi !== "0");
-    // 일요일 22:00 UTC = 한국시간 월요일 07:00 이므로 트렌드도 같이 돌린다.
-    const jobs = isEventSlot ? ["events.yml"] : ["refresh.yml"];
-    if (isEventSlot && new Date(event.scheduledTime).getUTCDay() === 0) {
-      jobs.push("trends.yml");
-    }
+    const isCollect = hours.includes("20");   // KST 05:00 — 아침 전체수집
+    const isLetter  = hours.includes("21");   // KST 06:00 — 데일리 레터
 
+    const jobs = isCollect ? ["events.yml"] : isLetter ? ["letter.yml"] : ["refresh.yml"];
     for (const wf of jobs) {
       const r = await dispatch(wf, token);
       console.log(JSON.stringify({ cron: event.cron, ...r }));
     }
 
-    // 뉴스봇(별도 저장소)도 같은 슬롯에 부른다.
-    // 그쪽 GitHub 예약은 이 계정에서 한 번도 뜬 적이 없다(2026-08-04 확인: 실행 기록이 전부 수동).
-    // 브랜치가 master 다. 토큰 권한이 그 저장소에 없으면 404 가 찍히고 넘어간다 —
-    // 여기서 실패해도 대시보드 쪽 작업은 이미 위에서 끝났으므로 영향이 없다.
-    if (isEventSlot) {
+    // 뉴스봇(별도 저장소)은 레터 슬롯(06:00)에 부른다 — 05시 수집분 기반 브리핑.
+    // 브랜치가 master 다. 토큰 권한이 없으면 404 가 찍히고 넘어간다(대시보드 쪽엔 영향 없음).
+    if (isLetter) {
       try {
         const r = await dispatch("daily-briefing.yml", token, "news-bot", "master");
         console.log(JSON.stringify({ cron: event.cron, ...r }));

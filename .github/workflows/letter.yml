@@ -1,0 +1,85 @@
+name: 데일리 레터 발송
+
+# 2026-08-07: '05시 수집(events.yml) → 06시 레터' 분리의 뒷단.
+#   05시에 받아 커밋해 둔 신선한 데이터로 06시에 데일리 레터를 보낸다.
+#   digest.py --once 가 digest_sent.json 으로 '오늘 이미 보냈는지'를 기억해,
+#   워커·cron 이 둘 다 떠도 한 통만 나간다(concurrency 로 직렬화되어 뒤 회차가 앞의 기록을 본다).
+#
+# 트리거: Cloudflare 워커(KST 06:00, 정시성) + GitHub cron(백업, 밀릴 수 있음).
+on:
+  schedule:
+    - cron: "0 21 * * 0-4"     # KST 평일 06:00 (백업). 정시성은 워커가 담당.
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  letter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 데일리 레터 — 05시 수집분 기반. digest_sent.json 으로 하루 한 통만.
+      # ⚠ '어제 데이터로라도 나가는 게 안 나가는 것보다 낫다' — 발송 자체는 막지 않는다.
+      - name: 데일리 레터 발송
+        timeout-minutes: 5
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python digest.py --once || echo "데일리 레터 건너뜀"
+
+      # 발송 기록을 남겨야 '오늘 이미 보냈는지'가 다음 실행까지 이어진다.
+      - name: 발송 기록/디버그 커밋
+        if: always()
+        timeout-minutes: 5
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add digest_sent.json digest_debug.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "데일리 레터 발송기록/디버그 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            for i in 1 2 3 4 5; do
+              if git push; then break; fi
+              echo "푸시 밀림 - 재시도 $i"
+              git fetch origin main
+              if ! git rebase origin/main; then
+                git rebase --abort || true
+                echo '리베이스 충돌 - 이번 회차 커밋 포기'; break
+              fi
+              sleep $((i * 3))
+            done
+          fi
+
+      # 월간 수출 레터 — 새 월이 잡힌 날 딱 1번(trade_sent.json). 10~26일에만 확인.
+      - name: 월간 수출 레터 (10~26일)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          d=$(TZ=Asia/Seoul date +%d)
+          if [ "$d" -ge 10 ] && [ "$d" -le 26 ]; then
+            python trade_digest.py || echo "수출 레터 건너뜀"
+            git add trade_sent.json 2>/dev/null || true
+            if ! git diff --cached --quiet -- trade_sent.json 2>/dev/null; then
+              git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
+              for i in 1 2 3 4 5; do
+                if git push; then break; fi
+                echo "푸시 밀림 - 재시도 $i"
+                git fetch origin main
+                if ! git rebase origin/main; then
+                  git rebase --abort || true
+                  echo '리베이스 충돌 - 이번 회차 커밋 포기'; break
+                fi
+                sleep $((i * 3))
+              done
+            fi
+          fi

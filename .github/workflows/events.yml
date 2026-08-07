@@ -1,16 +1,15 @@
-name: 아침 데이터 갱신 + 데일리 레터
+name: 아침 데이터 수집
 
+# 2026-08-07: '05시 수집 → 06시 레터' 로 분리했다.
+#   이 워크플로는 '수집만' 한다(레터는 letter.yml). 매일 새로 받아야 하는 걸 전부 여기서
+#   받고 커밋해 두면, 한 시간 뒤 letter.yml 이 그 신선한 데이터로 레터를 보낸다.
+#   트렌드도 여기서 '전체(네이버·구글·얀덱스)' 를 받는다 — 예전엔 레터를 안 늦추려 네이버만
+#   받고 구글·얀덱스는 주 1회였는데, 이제 수집이 레터보다 1시간 앞서 도니 전체를 받아도 된다.
+#
+# 트리거: Cloudflare 워커(KST 05:00, 정시성) + GitHub cron(백업, 밀릴 수 있음).
 on:
-  # 목표는 '아침 6시 도착'이다. 도착 시각이 아니라 시작 시각을 거는 것이라
-  # 수집·요약에 걸리는 시간(회당 4~5분)만큼 앞당겨 둔다.
-  #
-  # 트리거가 둘이다 — GitHub cron 이 먼저 돌고, Cloudflare 워커가 그날 cron 이 안 뜬 경우를 받는다.
-  # GitHub cron 은 발화가 불규칙해서(08:01·10:56 등) 이것만 믿을 수 없다.
-  # digest.py --once 가 '오늘 이미 보냈는지'를 기억하므로 둘 다 떠도 한 통만 나간다.
-  #
-  # ⚠ 정각·30분은 GitHub 예약이 가장 밀리는 시각이라 피한다(뉴스봇에서 실측한 교훈).
   schedule:
-    - cron: "40 20 * * 0-4"     # KST 평일 05:40 시작 → 06:00 전 도착이 목표
+    - cron: "0 20 * * 0-4"     # KST 평일 05:00 (백업). 정시성은 워커가 담당.
   workflow_dispatch: {}
 
 permissions:
@@ -18,53 +17,47 @@ permissions:
 
 concurrency:
   # public/index.html 을 쓰는 워크플로는 한 그룹으로 묶어 동시 실행을 막는다.
-  # 따로 두면 커밋 단계에서 리베이스 충돌로 죽는다(실측 실패율 15%).
   group: repo-write
   cancel-in-progress: false
 
 jobs:
-  # 워커(05:45)와 GitHub cron 이 둘 다 이 워크플로를 부른다.
-  # 레터는 digest_sent.json 이 걸러 한 통만 나가지만, 그 앞의 15.5분짜리
-  # 수집은 두 번 다 돌고 있었다 — 8/04 는 06:14 와 09:15, 8/05 는 05:45 와
-  # 09:14 에 각각 한 번씩. 월 465분을 같은 데이터를 두 번 받는 데 썼다.
-  #
-  # cron 을 지우지 않는 이유: 워커가 오늘(8/05) 낮부터 5슬롯을 통째로 걸렀다.
-  # 단일 장애점을 없애려면 백업은 남겨야 한다. 대신 "오늘 레터가 이미 나갔으면"
-  # 백업 회차는 15초 안에 끝낸다.
+  # 워커(05:00)와 GitHub cron(05:00 백업)이 둘 다 부를 수 있다. 백업 cron 회차는
+  # '오늘 수집이 이미 돌았으면' 여기서 끝낸다 — 같은 데이터를 두 번 받지 않게(특히 구글 429).
   gate:
     runs-on: ubuntu-latest
     outputs:
       go: ${{ steps.c.outputs.go }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 25
       - id: c
         run: |
           go=1
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            t=$(TZ=Asia/Seoul date +%F)
-            if grep -q "\"$t\"" digest_sent.json 2>/dev/null; then
-              go=0
-              echo "오늘($t) 레터가 이미 나갔습니다 — 워커 회차가 돌았다는 뜻."
-              echo "백업 cron 회차는 여기서 끝냅니다(중복 수집 방지)."
+            t=$(TZ=Asia/Seoul date +'%Y-%m-%d')
+            if git log -25 --pretty=%s | grep -q "이벤트/수출 갱신 $t"; then
+              go=0; echo "오늘($t) 수집이 이미 돌았습니다 - 백업 cron 회차는 여기서 끝냅니다."
             else
-              echo "오늘 레터 기록이 없습니다 — 워커가 걸렀거나 아직 안 돌았습니다. 진행합니다."
+              echo "오늘 수집 기록이 없습니다 - 진행합니다."
             fi
           fi
           echo "go=$go" >> $GITHUB_OUTPUT
 
-  events:
+  collect:
     needs: gate
     if: needs.gate.outputs.go == '1'
     runs-on: ubuntu-latest
-    # 아침 레터는 정시성이 전부다. 수집이 늘어지면 레터가 그만큼 늦는다.
-    # 스텝마다 상한을 두고, 전체도 25분에서 자른다(기본값은 6시간 — 하나가 멈추면
-    # 레터가 아예 안 오고 Actions 분만 태운다).
-    timeout-minutes: 25
+    # 06시 레터 전에 끝나야 한다. 스텝마다 상한 + 전체 30분 컷.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      # 트렌드 전체 수집에 필요(구글=trendspy, 얀덱스/네이버=requests). 다른 수집기는 stdlib.
+      - name: 트렌드 의존성
+        run: pip install --quiet requests trendspy
 
       - name: DART 공시 수집
         continue-on-error: true
@@ -105,49 +98,38 @@ jobs:
         run: python runstep.py "앱스토어" fetch_appstore.py
 
       # 방한 외래관광객 월별(호텔/면세/카지노). 한국관광 데이터랩 내부 JSON, 키 불필요.
-      # (미국 러너에서 지역차단되면 실패해도 기존 데이터 보존)
       - name: 방한 외래관광객 수집
         continue-on-error: true
         timeout-minutes: 3
         run: python runstep.py "방한관광" fetch_tourism.py
 
       # 영화 예매·박스오피스(KOBIS). movie.yml 은 워커가 안 불러서 여기 매일 붙인다.
-      # 개봉 전엔 예매(예매율·예매수)를 일별 누적, 개봉 후엔 일별 관객수까지 자동으로 쌓인다.
       - name: 영화 예매·박스오피스 수집
         continue-on-error: true
-        # KOBIS 는 느린 날 편차가 크다 — 8/4 07시 회차가 7.1분이었다(상한 7분에 걸릴 뻔).
         timeout-minutes: 12
         env:
           KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
         run: python runstep.py "영화 예매" fetch_movie.py
 
-      # ⚠ 스크린 배정 추적(fetch_screens.py)은 여기 두지 말 것 — screens.yml 전담이다.
-      #   회당 20분짜리라 여기 붙이면 그 뒤에 있는 '데일리 레터 발송'을 그만큼 밀어낸다.
-      #   실제로 2026-08-03 아침 레터가 이것 때문에 07:30 → 07:50+ 로 밀렸다.
-      #   refresh.yml 에서는 같은 이유로 이미 뺐는데 여기만 남아 있었다.
-
       # 써클차트 앨범 판매량(월간·주간) — 엔터 종목의 실물 수요/매출 신호. 키 불필요.
-      # (한국 사이트라 미국 러너에서 지역차단되면 실패해도 기존 데이터 보존)
       - name: 써클차트 앨범판매 수집
         continue-on-error: true
         timeout-minutes: 4
         run: python runstep.py "써클차트" fetch_circle.py
 
-      # 트렌드(검색량) — 구글은 429 때문에 trends.yml 이 주 1회만 전체수집.
-      # 국내 검색(네이버 데이터랩)은 429 걱정이 없어 매일 신선하게 갱신한다.
-      # --naver-only 는 구글·얀덱스·국가별·롱텀(alt)은 기존값 그대로 두고 네이버 계열만 새로 받는다.
-      - name: 트렌드 네이버 일간 갱신
+      # 트렌드 전체(네이버·구글·얀덱스). 06시 레터 前에 다 받는다.
+      # 구글은 429 로 자주 막히지만 fetch_trends 가 막힌 출처는 기존값을 보존한다(데이터 손실 없음).
+      - name: 트렌드 전체 갱신 (네이버·구글·얀덱스)
         continue-on-error: true
-        timeout-minutes: 6
+        timeout-minutes: 15
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: python runstep.py "네이버 트렌드" fetch_trends.py --naver-only
+          YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+          YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+        run: python runstep.py "트렌드" fetch_trends.py
 
-      # 수출입(관세청) — 발표일(전월 확정 ~15일, 잠정 10일단위)이 매월 조금씩 달라
-      # 고정일(5·20일) 수집은 며칠 늦는다. 워커가 매일 트리거하는 여기서 10~26일에 매일
-      # 확인하고, fetch_trade 가 '새 월/현행화가 있을 때만' 파일을 바꾸므로(그 외엔 skip)
-      # 실제 갱신되는 날 바로 반영된다. 발송은 trade_sent.json 으로 월 1회.
+      # 수출입(관세청) — 10~26일에 매일 확인, fetch_trade 가 새 월/현행화 있을 때만 파일 변경.
       - name: 월간 수출 갱신 (10~26일)
         continue-on-error: true
         timeout-minutes: 6
@@ -182,67 +164,4 @@ jobs:
               fi
               sleep $((i * 3))
             done
-          fi
-
-      # 수집 직후 데일리 레터 발송(한 번에). 월간 수출 레터는 아래 별도 스텝(10~26일 매일 확인).
-      #
-      # ⚠ if: always() 는 지우지 말 것.
-      #   앞 스텝이 하나라도 실패하면 기본 동작은 '이후 스텝 전부 건너뜀'이다.
-      #   그러면 수집기 하나가 죽었다는 이유로 레터가 통째로 안 온다. 실제로 그랬다.
-      #   레터는 어제 데이터로라도 나가는 게 안 나가는 것보다 낫다.
-      - name: 데일리 레터 발송
-        if: always()
-        timeout-minutes: 5
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python digest.py --once || echo "데일리 레터 건너뜀"
-
-      # 발송 기록을 남겨야 '오늘 이미 보냈는지'가 다음 실행까지 이어진다.
-      # 이게 없으면 워커와 깃허브 cron 이 둘 다 뜨는 날 레터가 두 번 나간다.
-      - name: 발송 기록/디버그 커밋
-        if: always()
-        timeout-minutes: 5
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digest_sent.json digest_debug.json 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "데일리 레터 발송기록/디버그 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
-            for i in 1 2 3 4 5; do
-              if git push; then break; fi
-              echo "푸시 밀림 - 재시도 $i"
-              git fetch origin main
-              if ! git rebase origin/main; then
-                git rebase --abort || true
-                echo '리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)'; break
-              fi
-              sleep $((i * 3))
-            done
-          fi
-
-      # 월간 수출 레터 — 새 월이 잡힌 날 딱 1번(trade_sent.json). 10~26일에만 확인.
-      - name: 월간 수출 레터 (10~26일)
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          d=$(TZ=Asia/Seoul date +%d)
-          if [ "$d" -ge 10 ] && [ "$d" -le 26 ]; then
-            python trade_digest.py || echo "수출 레터 건너뜀"
-            # 추적 안 된 상태파일은 git diff 에 안 잡힌다 — add 먼저, --cached 로 확인 (trade.yml 과 동일)
-            git add trade_sent.json 2>/dev/null || true
-            if ! git diff --cached --quiet -- trade_sent.json 2>/dev/null; then
-              git commit -m "수출 레터 발송상태 $(TZ=Asia/Seoul date +'%Y-%m KST')"
-              for i in 1 2 3 4 5; do
-                if git push; then break; fi
-                echo "푸시 밀림 - 재시도 $i"
-                git fetch origin main
-                if ! git rebase origin/main; then
-                  git rebase --abort || true
-                  echo '리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)'; break
-                fi
-                sleep $((i * 3))
-              done
-            fi
           fi

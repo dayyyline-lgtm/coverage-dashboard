@@ -171,6 +171,16 @@ ZIP(STORE) + CRC32 + inline string + styles.xml 레지스트리를 직접 구성
 > ④ 커밋 배포판정에서 'schedule 이면 무조건 배포' 예외 제거(매시간이라 그거 두면 한도 초과)
 > ⑤ `deploy_slot()` 08·10·12·14·16·18 → **평일 09~16 매시간**.
 
+> **2026-08-07 아침 파이프라인 분리: 05시 수집 → 06시 레터.**
+> 예전엔 `events.yml` 하나가 05:45에 수집+레터를 같이 했다. 이제 둘로 쪼갰다:
+> **`events.yml` = 수집 전용(KST 05:00)**, **`letter.yml` = 데일리 레터(KST 06:00)**.
+> 수집이 레터보다 1시간 앞서 끝나므로, 느린 **트렌드 전체(네이버·구글·얀덱스)를 수집에 포함**시켜도
+> 레터가 안 밀린다(예전엔 이것 때문에 네이버만 받고 구글·얀덱스는 주1회 `trends.yml` 이었다).
+> `trends.yml` 은 이제 **주1회 백업**으로만 둔다. 뉴스봇도 06시 슬롯으로 옮겼다.
+> **트리거는 워커의 cron '시(hour)'로 가른다** — UTC **20시=수집(events)**, **21시=레터(letter)+뉴스봇**,
+> 그 외=시세(refresh). ⚠ **Cloudflare Cron Trigger 를 `0 20 * * SUN-THU`(수집)·`0 21 * * SUN-THU`(레터)로
+> 바꿔야** 정시성이 산다. GitHub cron(`0 20`·`0 21 * * 0-4`)은 밀리는 백업. `digest.py --once` 가 중복 발송 차단.
+
 **Cloudflare Worker의 Cron Trigger**가 GitHub Actions를 호출한다.
 
 - Worker: https://coverage-cron.dayyyline.workers.dev — `?wf=refresh.yml&key=<TRIGGER_KEY>` 로
