@@ -41,9 +41,12 @@ WINDOWS = [
 MAX_BACKFILL = 40      # 한 번에 훑을 최대 날짜 수 (남은 구간은 다음 실행이 이어받음)
 
 
-def getj(url, timeout=60, tries=3):
-    """KOBIS 는 깃허브 러너에서 응답이 느려 20초로는 절반이 타임아웃난다.
-       넉넉히 잡고 재시도한다."""
+def getj(url, timeout=100, tries=4):
+    """KOBIS 는 깃허브 러너에서 응답이 아주 느리다 — 60초×3 으로도 어제치 일별
+       박스오피스가 통째로 타임아웃나 하루 밀리는 날이 있었다(2026-08-07 실측).
+       KOBIS 는 간헐적으로 느려질 뿐 응답은 하므로, 한 방을 길게(100초) + 시도를
+       늘려(4회) '느리지만 결국 오는' 응답을 붙잡는다. 재시도 간격도 벌린다.
+       그래도 실패하면 그 날짜는 scanned 에 안 남아 다음 슬롯이 재시도한다(자가복구)."""
     last = None
     for i in range(tries):
         try:
@@ -52,7 +55,7 @@ def getj(url, timeout=60, tries=3):
         except Exception as e:
             last = e
             if i < tries - 1:
-                time.sleep(3 * (i + 1))
+                time.sleep(5 * (i + 1))
     raise last
 
 
