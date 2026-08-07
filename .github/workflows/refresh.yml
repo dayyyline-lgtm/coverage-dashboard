@@ -17,11 +17,12 @@ name: 시세 자동 갱신
 
 on:
   schedule:
-    # 슬롯(KST 평일 08·10·12·14·16·18, 주말 12·20)을 UTC 로 적는다. UTC 시각:
-    #   23→08, 01→10, 03→12, 05→14, 07→16, 09→18 (평일) · 03→12, 11→20 (주말)
-    # gate 가 실제 KST 요일·시각으로 다시 정밀 필터하므로 여기선 합집합만 건다.
-    # :05 로 둬 워커(:00)를 먼저 태우고, 워커가 죽은 날만 이쪽이 실제 수집한다.
-    - cron: "5 23,1,3,5,7,9,11 * * *"
+    # 시세는 '매시간' 수집한다(2026-08-07, 저장소 공개로 Actions 분 무제한이 됨).
+    # 장 시간대(KST 평일 08~18, 주말 10~20)를 UTC 로 매시간 건다. UTC 시각:
+    #   23→08, 00→09, 01→10 … 09→18 (평일) · 01→10 … 11→20 (주말)
+    # gate 가 실제 KST 요일·시각으로 다시 필터하고, 겹침은 dedup(45분)이 막는다.
+    # :05 로 둬 워커(:00)를 먼저 태우고, 워커가 안 뜬 시간만 이쪽이 실제 수집한다.
+    - cron: "5 23,0,1,2,3,4,5,6,7,8,9,10,11 * * *"
   workflow_dispatch:
     inputs:
       force:
@@ -83,9 +84,10 @@ jobs:
           else
             case "$h" in 12|20) go=1 ;; esac
           fi
-          # 중복 방지 — 워커와 GitHub schedule 두 트리거가 같은 슬롯을 두 번 수집하면
-          # 비공개 저장소 분이 이중 과금된다. 직전 '시세 자동 갱신' 커밋이 90분 안쪽이면
-          # 다른 트리거가 이미 이 슬롯을 처리한 것이므로 체크아웃 전에 끝낸다.
+          # 중복 방지 — 워커(:00)와 GitHub schedule(:05) 두 트리거가 같은 '시간'을 두 번
+          # 수집하지 않게, 직전 '시세 자동 갱신' 커밋이 45분 안쪽이면 체크아웃 전에 끝낸다.
+          # ⚠ 임계값은 45분: 시세가 매시간(60분 간격)이라 90분이면 정상 시간당 회차까지
+          #   건너뛰어 버린다. 45분이면 같은 시각의 워커·스케줄 중복(5분 차)만 걸러낸다.
           # (강제 실행은 예외 — 사람이 일부러 돌린 것이니 건너뛰지 않는다.)
           if [ "$go" = "1" ] && [ -z "${{ github.event.inputs.force }}" ]; then
             last=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
@@ -93,7 +95,7 @@ jobs:
               | jq -r '[.[] | select(.commit.message | startswith("시세 자동 갱신")) | .commit.committer.date] | first // empty' 2>/dev/null)
             if [ -n "$last" ]; then
               age=$(( ( $(date +%s) - $(date -d "$last" +%s) ) / 60 ))
-              if [ "$age" -ge 0 ] && [ "$age" -lt 90 ]; then
+              if [ "$age" -ge 0 ] && [ "$age" -lt 45 ]; then
                 go=0; echo "직전 시세 갱신이 ${age}분 전 - 다른 트리거가 처리함, 중복 방지로 건너뜁니다"
               fi
             fi
@@ -138,14 +140,16 @@ jobs:
             echo "장 시간 밖 또는 주말 - 생략"
           fi
 
+      # 시세는 매시간이지만 뉴스는 2시간마다(짝수 시)만. 네이버는 차단 위험 1순위라
+      # 요청량을 굳이 2배로 올릴 이유가 없다 — 뉴스는 2시간이면 충분하다.
       - name: 종목 뉴스 재수집
         if: steps.gate.outputs.go == '1'
         run: |
           h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
-          if [ "$d" -le 5 ] && [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 19 ]; then
+          if [ "$d" -le 5 ] && [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 19 ] && [ $((10#$h % 2)) -eq 0 ]; then
             python runstep.py "종목 뉴스" fetch_news.py
           else
-            echo "장 시간 밖 - 생략"
+            echo "홀수 시 또는 장 시간 밖 - 생략(뉴스는 2시간마다)"
           fi
 
       # DART 공시는 장중에 올라오지만 2.25분짜리라 매시간은 과하다.
@@ -172,13 +176,19 @@ jobs:
           esac
 
       # 영화 예매·박스오피스 — KOBIS 실시간 예매값은 종일 바뀌므로 주말에도 돈다.
-      # (예전엔 이 스텝과 '주말' 스텝이 따로 있어 토·일엔 같은 걸 두 번 받았다.
-      #  0.73분짜리 중복이라 지웠다 — 요일 구분 없이 여기서 한 번만 한다.)
+      # 시세는 매시간이지만 KOBIS 는 2시간마다(짝수 시)만 — KOBIS 일별 조회가 러너에서
+      # 느려 자주 부르면 타임아웃만 늘고 얻는 게 없다(2026-08-07 실측). 2시간이면 충분.
       - name: 영화 예매·박스오피스 수집
         if: steps.gate.outputs.go == '1'
         env:
           KOBIS_KEY: ${{ secrets.KOBIS_KEY }}
-        run: python runstep.py "영화 예매" fetch_movie.py
+        run: |
+          h=${{ steps.t.outputs.h }}
+          if [ $((10#$h % 2)) -eq 0 ]; then
+            python runstep.py "영화 예매" fetch_movie.py
+          else
+            echo "홀수 시 - 영화는 2시간마다라 생략"
+          fi
 
       # 치지직·트위치는 회당 10초 안쪽이라 매번 돈다.
       # 그날 최댓값(저녁 피크)을 잡는 게 목적이라 자주 볼수록 정확하다.
@@ -223,14 +233,13 @@ jobs:
             echo "변경 없음 - 커밋 생략"; exit 0
           fi
           git add public/index.html notified.json health.json watchdog_state.json 2>/dev/null || true
-          # Cloudflare Pages 는 푸시 1건 = 빌드 1건이고 무료 한도가 월 500건이다.
-          # 30일 실측 472건으로 이미 94% 를 쓰고 있었다. 수집은 자주 하되 배포는
-          # 시세가 실제로 바뀌는 슬롯에서만 한다 — 사이 회차 커밋에 '[CI Skip]' 을 달면
-          # Cloudflare 가 그 푸시를 건너뛰고, 다음 배포가 그 데이터까지 같이 싣는다.
-          # 예약(schedule) 회차가 여기까지 왔다는 건 중복 방지를 통과했다는 뜻 —
-          # 즉 워커가 그 슬롯을 못 했다는 것이다. 그런 회차까지 [CI Skip] 을 달면
-          # 수집은 했는데 화면이 안 바뀐다. 워커가 죽은 날 하루 종일 옛 숫자가 뜬다.
-          if [ "${{ github.event_name }}" = "schedule" ] || python -c "import sys,collector_health as c; sys.exit(0 if c.deploy_slot() else 1)"; then
+          # Cloudflare Pages 는 푸시 1건 = 빌드 1건이고 무료 한도가 월 500건이다(공개해도 이건 그대로).
+          # 수집은 매시간 하되 '배포(빌드)'는 deploy_slot() 이 정한 시각에만 — 사이 회차 커밋엔
+          # '[CI Skip]' 을 달아 Cloudflare 가 건너뛰게 하고, 다음 배포가 그 데이터까지 같이 싣는다.
+          # ⚠ 예전엔 여기 'event==schedule 이면 무조건 배포' 예외가 있었다(스케줄이 드문 백업이던 시절).
+          #   이제 스케줄이 매시간 주 트리거라 그 예외를 두면 매시간 빌드→월 한도를 넘긴다.
+          #   그래서 트리거 무관하게 deploy_slot() 만 본다(장중 매시간이 슬롯이라 화면도 매시간 갱신).
+          if python -c "import sys,collector_health as c; sys.exit(0 if c.deploy_slot() else 1)"; then
             SKIP=""
           else
             SKIP=" [CI Skip]"

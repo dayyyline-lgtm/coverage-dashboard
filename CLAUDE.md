@@ -159,6 +159,18 @@ ZIP(STORE) + CRC32 + inline string + styles.xml 레지스트리를 직접 구성
 
 ## 자동 갱신
 
+> **2026-08-07 대전환: 저장소를 공개로 바꾸고 시세를 매시간으로.**
+> 공개 저장소는 **GitHub Actions 분이 무제한**이라, 지금까지 분 한도(2,000분/월) 때문에
+> 2시간 간격으로 눌러 두던 시세를 **매시간 수집**으로 올렸다(refresh.yml 의 schedule cron 을
+> 장 시간대 UTC 매시간으로). 아래 문서 중 '2,000분 한도로 게이팅한다'류 서술은 GitHub Actions
+> 한정으로는 더 이상 구속이 아니다. **단, Cloudflare Pages 빌드 500건/월은 그대로다** — 그래서
+> 수집은 매시간이어도 **배포(빌드)는 `deploy_slot()` = 평일 장중 09~16시 매시간**으로만 한다
+> (나머지 시간·홀수 시 수집분은 `[CI Skip]`, 다음 배포가 같이 싣는다). 관련 변경:
+> ① `refresh.yml` schedule cron 매시간 ② dedup 90→**45분**(매시간 회차가 자기끼리 안 걸리게)
+> ③ 뉴스·KOBIS영화는 그대로 **2시간마다**(짝수 시 — 네이버 차단·KOBIS 타임아웃 회피)
+> ④ 커밋 배포판정에서 'schedule 이면 무조건 배포' 예외 제거(매시간이라 그거 두면 한도 초과)
+> ⑤ `deploy_slot()` 08·10·12·14·16·18 → **평일 09~16 매시간**.
+
 **Cloudflare Worker의 Cron Trigger**가 GitHub Actions를 호출한다.
 
 - Worker: https://coverage-cron.dayyyline.workers.dev — `?wf=refresh.yml&key=<TRIGGER_KEY>` 로
