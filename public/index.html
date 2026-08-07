@@ -1192,12 +1192,23 @@ function drawSectorTrend(){
   const prow=document.getElementById("secPeriodSeg"); if(prow&&prow.closest(".ctl-row")) prow.closest(".ctl-row").style.display=isPort?"none":"";
   let D, keys, ref=null; const S={};
   if(usingIntraday){
-    // 매수일=0% 기준점 + 시간별 점(이미 '매수일 대비 %'라 rebase 불필요)
+    // 매수일=0% 기준점 + 점(이미 '매수일 대비 %'라 rebase 불필요)
     const bd=intr.buy||PORTFOLIO.date;
     const base0={t:`${+bd.slice(4,6)}/${+bd.slice(6,8)}`,"탑픽":0,"소비재":0,"코스피":0,"코스닥":0};
-    const pts=[base0].concat(intr.points);
+    const raw=intr.points||[];
+    // 지난 날은 '하루 한 점(그날 마지막=종가)'으로 접어 날짜(MM/DD)로, 오늘만 시간별 그대로 시각(HH:MM)으로.
+    // 안 그러면 시간별 점이 많은 날(예: 7점)이 1점짜리 날보다 7배 넓게 그려져 장중 추이가 과대표시되고,
+    // 라벨이 전부 HH:MM 이라 며칠치인지도 안 보인다.
+    const todayMD = raw.length ? raw[raw.length-1].t.slice(0,5) : "";
+    const byDay={}, order=[];
+    raw.forEach(p=>{ const k=(p.t||"").slice(0,5); if(!(k in byDay)){byDay[k]=[];order.push(k);} byDay[k].push(p); });
+    const pts=[{...base0,_lbl:base0.t}];
+    order.forEach(k=>{
+      if(k===todayMD) byDay[k].forEach(p=>pts.push({...p,_lbl:(p.t||"").slice(-5)}));      // 오늘: 시각
+      else { const p=byDay[k][byDay[k].length-1]; pts.push({...p,_lbl:k.replace("-","/")}); } // 지난날: 날짜(종가)
+    });
     keys=["탑픽","소비재","코스피","코스닥"].filter(k=>pts.some(p=>p[k]!=null));
-    D=pts.map(p=>p.t);
+    D=pts.map(p=>p._lbl);
     keys.forEach(k=>{ S[k]=pts.map(p=>p[k]==null?null:p[k]); });
   } else {
     let from;
@@ -1223,8 +1234,8 @@ function drawSectorTrend(){
   const sy=v=>H-pad.b-(v-yMin)/(yMax-yMin)*(H-pad.t-pad.b);
   const gc=getComputedStyle(document.documentElement).getPropertyValue('--line');
   const mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
-  const md=d=> usingIntraday ? (String(d).length>6? String(d).slice(-5) : d)   // "07-29 11:27"→"11:27", 기준점 "7/28"
-                             : `${+d.slice(4,6)}/${+d.slice(6,8)}`;
+  // intraday 는 위에서 이미 라벨(_lbl: 지난날=MM/DD, 오늘=HH:MM)을 D 에 담았으므로 그대로 쓴다.
+  const md=d=> usingIntraday ? d : `${+d.slice(4,6)}/${+d.slice(6,8)}`;
   const line=(a)=>{ let d="",pen=false;
     a.forEach((y,i)=>{ if(y==null){pen=false;return;}
       d+=(pen?"L":"M")+sx(i).toFixed(1)+","+sy(y).toFixed(1)+" "; pen=true; }); return d; };
