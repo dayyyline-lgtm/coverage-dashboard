@@ -22,14 +22,11 @@ name: 스크린 배정·예매 추적
 
 on:
   schedule:
-    # 하루 한 번만. 워커가 죽은 날의 최후 보루다.
-    #
-    # 예전엔 "5 */8 * * *" (하루 3회) 였는데, cron 회차는 시간 게이트를 그냥
-    # 통과하는 데다 그날 첫 회차는 3사 전수 스윕(롯데 237개관 + 메가 8지역)을
-    # 하므로 회당 22~49분이다. 실측 8/03~8/05 에 이 3회가 스크린 비용의
-    # 68%(168분 중 114분)를 먹었다. 게다가 GitHub cron 은 4시간씩 밀려서
-    # 새벽 05:15 에 떠 놓고 "그날 첫 회차"를 차지하는 일이 생긴다.
-    - cron: "0 23 * * *"      # KST 08:00 목표. 밀릴 것을 전제로 한 백업이다
+    # 2026-08-07: 저장소 공개(Actions 무제한)로 '주중 4시간마다 3사 전수'로 올렸다.
+    # 08·12·16 은 매시간 도는 시세(refresh.yml) 뒤에 얹혀 돈다(아래 workflow_run + gate).
+    # 시세는 평일 08~18 만 도므로 20시(장 끝난 저녁)는 트리거가 없다 → cron 으로 받는다.
+    - cron: "0 23 * * *"      # KST 08:00 목표. 워커가 죽은 날의 백업(밀릴 것 전제)
+    - cron: "0 11 * * 1-5"    # KST 20:00 목표. 평일 저녁 전수(시세가 안 도는 시각이라 cron)
   workflow_run:
     workflows: ["시세 자동 갱신"]
     types: [completed]
@@ -71,11 +68,15 @@ jobs:
           if [ "${{ github.event_name }}" != "workflow_run" ]; then
             echo "go=1" >> $GITHUB_OUTPUT; echo "cron/수동 실행 - 그냥 진행"; exit 0
           fi
-          h=$(TZ=Asia/Seoul date +%H)
-          case "$h" in
-            08|10|12|14|16|18|20) echo "go=1" >> $GITHUB_OUTPUT; echo "KST ${h}시 - 수집 슬롯" ;;
-            *)                    echo "go=0" >> $GITHUB_OUTPUT; echo "KST ${h}시 - 슬롯 아님, 건너뜀" ;;
-          esac
+          # 주중 4시간마다(08·12·16). 시세는 평일 08~18 만 돌아 workflow_run 이
+          # 그 안에서만 오므로 여기선 08·12·16 만 받는다. 20시 저녁분은 cron 이 받는다.
+          h=$(TZ=Asia/Seoul date +%H); d=$(TZ=Asia/Seoul date +%u)
+          go=0
+          if [ "$d" -le 5 ]; then
+            case "$h" in 08|12|16) go=1 ;; esac
+          fi
+          echo "go=$go" >> $GITHUB_OUTPUT
+          [ "$go" = "1" ] && echo "KST ${h}시 - 전수조사 슬롯(4시간마다)" || echo "KST ${h}시 - 슬롯 아님, 건너뜀"
 
       - uses: actions/checkout@v4
         if: steps.gate.outputs.go == '1'
@@ -84,13 +85,16 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: 스크린 배정·예매 수집
+      # 슬롯마다 3사(CGV·롯데·메가) 전수. 예전의 --hot(CGV만)을 떼서 매 슬롯이 전수다.
+      # 4시간 간격이라 fetch_screens 의 min_gap(45분)에 안 걸리고, 롯데237·메가8 순회로
+      # 회당 20~30분이지만 시세 시간 간격(60분) 안에 끝나 매시간 시세를 막지 않는다.
+      - name: 스크린 배정·예매 수집 (3사 전수)
         if: steps.gate.outputs.go == '1'
         run: |
           if [ -n "${{ github.event.inputs.full }}" ]; then
             python runstep.py "스크린·예매" fetch_screens.py --force
           else
-            python runstep.py "스크린·예매" fetch_screens.py --hot
+            python runstep.py "스크린·예매" fetch_screens.py
           fi
 
       # 수집이 막히거나 굳으면 별도 메시지로 알린다(데일리 레터와 섞지 않는다).
@@ -120,7 +124,8 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SKIP=""; echo "수동 실행 - 바로 배포"
           else
-            case "$h" in 08|09|16|17) SKIP="" ;; *) SKIP=" [CI Skip]" ;; esac
+            # 전수 슬롯(08·12·16·20)마다 배포해 화면에 바로 반영. 그 외(밀린 cron 등)는 [CI Skip].
+            case "$h" in 08|12|16|20) SKIP="" ;; *) SKIP=" [CI Skip]" ;; esac
           fi
           git commit -m "스크린·예매 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')${SKIP}"
           for i in 1 2 3 4 5; do
