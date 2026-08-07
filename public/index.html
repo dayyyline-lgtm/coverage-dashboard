@@ -2961,7 +2961,11 @@ function renderScreens(){
        그래서 개봉 전/후를 가르고, 그 안에서 스크린 규모가 가장 가까운 날을 고른다. */
     const sideOf=play=>{ const d=ddOf(play); return d==null?0:(d<0?-1:1); };
     const pickBench=(target,play)=>{
-      const cands=done.filter(x=>sideOf(x.play)===sideOf(play));
+      let cands=done.filter(x=>sideOf(x.play)===sideOf(play));
+      // 완료된 날(오늘 이전)이 있으면 오늘(아직 채워지는 중)은 기준에서 뺀다.
+      // 오늘 자신을 기준으로 삼으면 판매율이 '현재 진행값'이라 기준선이 확보선에 붙어버린다.
+      const fin=cands.filter(x=>x.play<todayISO);
+      if(fin.length) cands=fin;
       if(!cands.length) return null;
       return cands.slice().sort((a,b)=>{
         const ra=Math.abs(Math.log((lastOf(a).screens||1)/(target||1)));
@@ -2969,13 +2973,18 @@ function renderScreens(){
         return (ra-rb) || b.play.localeCompare(a.play);
       })[0];
     };
-    let natF=null, natSrc="";
-    for(const x of done.slice().reverse()){
-      const s=lastOf(x);
+    /* natF 는 '3사 예매좌석'을 분모로 역산하는데, 지나간 날은 끝난 회차가 스케줄에서
+       빠져 예매좌석이 껍데기만 남는다(8/6 실측: 3사 299관·6,317석인데 KOBIS 는 801관·43,744명).
+       그런 오염된 날로 역산하면 natF 가 6.9→상한 2.5 로 튀어 예측이 통째로 2배가 된다.
+       그래서 '3사가 그날 스크린을 충분히(70%+) 잡은' 온전한 날로만 역산한다(8/5: 91% → 1.31). */
+    const natCand=x=>{ const s=lastOf(x);
       const kob=Object.values(MV.movies||{}).flatMap(m=>m.days||[]).find(d2=>d2.d===x.play);
-      if(kob&&s.seatSold>0){ natF=Math.min(2.5,Math.max(1,kob.audi/s.seatSold));
-        natSrc=`${x.play.slice(4,6)}/${x.play.slice(6,8)} KOBIS ${fmt0(kob.audi)}명 ÷ 3사 ${fmt0(s.seatSold)}석`; break; }
-    }
+      return (kob&&s.seatSold>0&&kob.scrn>0)?{s,kob,cov:(s.screens||0)/kob.scrn}:null; };
+    const setNat=c=>{ natF=Math.min(2.5,Math.max(1,c.kob.audi/c.s.seatSold));
+      natSrc=`${c.kob.d.slice(4,6)}/${c.kob.d.slice(6,8)} KOBIS ${fmt0(c.kob.audi)}명 ÷ 3사 ${fmt0(c.s.seatSold)}석`; };
+    let natF=null, natSrc="";
+    for(const x of done.slice().reverse()){ const c=natCand(x); if(c&&c.cov>=0.7){ setNat(c); break; } }
+    if(natF==null) for(const x of done.slice().reverse()){ const c=natCand(x); if(c){ setNat(c); break; } }  // 온전한 날 없으면 종전 방식
     /* 규모가 다른 날의 판매율을 갖다 쓰면 숫자가 망가진다.
        71개 관 시사회는 81% 가 차지만, 621개 관으로 넓게 거는 날이 그렇게 찰 리 없다
        — 그대로 곱하면 개봉 첫 주 누적 42만이 나온다(1편 전체가 121만인데).
@@ -2994,7 +3003,9 @@ function renderScreens(){
     const floorOf=s=>s.seatSold*(natF||1);
 
     const future=arr.filter(x=>x.play>=todayISO);
-    const main=future.find(x=>op&&x.play===op)||future[future.length-1]||arr[arr.length-1];
+    // 헤드라인 상영일: 개봉 전이면 개봉일, 개봉 후면 '가장 가까운 날(오늘)'.
+    // 예전엔 future[마지막] 이라 개봉 후엔 제일 먼 날(8/17, 21관짜리 파편)이 대문짝만하게 떴다.
+    const main=future.find(x=>op&&x.play===op)||future[0]||arr[arr.length-1];
     const s1=lastOf(main);
     const s0=prevSer(main.ser,main.play);            // 전일 관측치(그 날의 최댓값)와 견준다
     const dv=k=> s0? `<span class="${cls(s1[k]-s0[k])}">${s1[k]===s0[k]?"변동 없음":sign(s1[k]-s0[k],0)+" 전일비"}</span>` : "첫 스냅샷";
