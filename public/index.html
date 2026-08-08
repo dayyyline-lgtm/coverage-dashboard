@@ -2755,8 +2755,21 @@ function renderBooking(){
     const openDate=(u&&u.open)||(bo&&bo.openDt)||null;
     const dday=openDate? Math.ceil((new Date(openDate)-new Date(last.d))/864e5) : null;
     // 증분은 점이 2개 이상 쌓여야 나온다. 첫날은 '수집 시작'으로 두고 빈 값을 보여준다.
-    const delta=(k)=> prev? `<span class="${cls(last[k]-prev[k])}">${sign(last[k]-prev[k],k==="rate"?1:0)}${k==="rate"?"%p":"명"} 전일비</span>`
-                          : `전일 대비는 내일부터`;
+    // 예매율·예매관객은 '전일 같은 시각'과 견준다.
+    //   KOBIS 실시간 예매는 남은 상영분이라 하루가 갈수록 줄어든다
+    //   (2026-08-08 실측: 05:38 145,190명 → 12:54 90,562명).
+    //   전날 마지막 스냅샷과 빼면 시간대 차이를 재는 꼴이라 증감이 뒤집힌다.
+    //   수집기가 archive 에서 전일 동시각 점을 찾아 pRate·pBook·pAt 로 실어 준다.
+    //   누적관객(acc)은 하루 한 번 확정치라 종전대로 전일 대비다.
+    const SAME={rate:"pRate", book:"pBook"};
+    const delta=(k)=>{
+      const sameKey=SAME[k], hasSame=sameKey && last[sameKey]!=null;
+      const base=hasSame? last[sameKey] : (prev? prev[k] : null);
+      if(base==null) return `전일 대비는 내일부터`;
+      const dv=last[k]-base, unit=(k==="rate"?"%p":"명");
+      const lab=hasSame? `전일 ${last.pAt} 대비` : "전일비";
+      return `<span class="${cls(dv)}">${sign(dv,k==="rate"?1:0)}${unit} ${lab}</span>`;
+    };
     const bdelta=(k)=> bp? `<span class="${cls(bl[k]-bp[k])}">${sign(bl[k]-bp[k],0)}명 전일비</span>` : ``;
     if(opened){
       // 개봉 후 — 헤드라인을 박스오피스 실측(당일 관객·누적·상영관)으로. 예매율은 다음 날 페이스의 선행지표로 보조.

@@ -127,6 +127,49 @@ def fetch_booking():
     return out
 
 
+
+def prev_same_time(title, now):
+    """전날 '같은 시각'의 예매 스냅샷. 없으면 None.
+
+       왜 필요한가
+         KOBIS 실시간 예매는 '앞으로 남은 상영분'이라 하루가 갈수록 줄어든다.
+         2026-08-08 실측: 05:38 에 145,190명 → 12:54 에 90,562명.
+         그런데 화면의 전일비는 '전날 마지막 스냅샷'과 견주고 있었다.
+         전날 20:08 값과 오늘 12:54 값을 빼면 사실상 시간대 차이를 재는 셈이라
+         숫자가 늘었는지 줄었는지조차 알 수 없다.
+
+       archive/booking.jsonl 에 시각이 찍힌 스냅샷이 쌓여 있으므로,
+       전날 것 중 지금과 시계 시각이 가장 가까운 점을 고른다."""
+    path = "archive/booking.jsonl"
+    if not os.path.exists(path):
+        return None
+    want = (now.date() - datetime.timedelta(days=1)).isoformat()
+    mins = now.hour * 60 + now.minute
+    best = None
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                except Exception:
+                    continue
+                if r.get("title") != title:
+                    continue
+                parts = (r.get("t") or "").split()
+                # 옛 기록은 날짜만 있고 시각이 없다(2026-08-02 이전) — 비교에 못 쓴다.
+                if len(parts) < 2 or parts[0] != want:
+                    continue
+                hh, mm = parts[1][:2], parts[1][3:5]
+                gap = abs(int(hh) * 60 + int(mm) - mins)
+                if best is None or gap < best[0]:
+                    best = (gap, parts[1], r)
+    except Exception:
+        return None
+    if not best:
+        return None
+    _, at, r = best
+    return {"pAt": at, "pRate": r.get("rate"), "pBook": r.get("book")}
+
 def main():
     if not KEY:
         print("KOBIS_KEY 가 없습니다."); sys.exit(1)
@@ -155,8 +198,13 @@ def main():
             pts = [p for p in (booking.get(b["nm"]) or []) if p["d"] != ts]
             # 개봉일도 같이 담는다 — 이게 있어야 받는 쪽에서 'D-몇' 을 셀 수 있다.
             # 미개봉작은 박스오피스에 없어 openDt 를 얻을 데가 여기뿐이다.
-            pts.append({"d": ts, "open": b["openDt"], "rank": b["rank"],
-                        "rate": b["rate"], "book": b["book"], "acc": b["acc"]})
+            # 전일 동시각 스냅샷을 같이 실어 둔다 — 화면이 그걸로 증감을 잰다.
+            pt = {"d": ts, "open": b["openDt"], "rank": b["rank"],
+                  "rate": b["rate"], "book": b["book"], "acc": b["acc"]}
+            ref = prev_same_time(b["nm"], datetime.datetime.now(kst))
+            if ref:
+                pt.update(ref)
+            pts.append(pt)
             booking[b["nm"]] = pts[-180:]
             # 영구 아카이브 — 예매는 KOBIS 가 이력을 안 남기는 값이라(현재값만 공개)
             # 우리가 안 쌓으면 사라진다. 1편은 이게 없어서 보도 기사로 복원해야 했다.
