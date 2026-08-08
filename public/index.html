@@ -3023,9 +3023,65 @@ function renderScreens(){
       const a=bl.screens||1, c=s.screens||1;
       const ratio=Math.max(a/c, c/a);
       return {f:bl.seatSold/bl.seatTot, b, bl, ratio, ok:ratio<=SCALE_TOL}; };
-    const est=(s,play)=>{ if(!s.seatTot) return null; const r=fillOf(s,play);
-      if(!r||!r.ok) return null;                        // 근거 없는 숫자는 내지 않는다
-      return Math.max(s.seatSold, s.seatTot*r.f)*(natF||1); };
+
+    /* ── 예매 축적 곡선 ─────────────────────────────────────
+       예전 식은 `총좌석 × 기준일 판매율 × 전국보정` 이었다. 기준일(개봉일)이 30% 를
+       채웠으니 다른 날도 30% 채울 것이라고 본 셈인데, 그게 안 맞는다 —
+       8/07 실측 41,684명인데 그 식은 7.6만(+82%)을 냈다. 개봉일 판매율을
+       평일에 갖다 쓴 탓이다(8/07 은 실제로 15% 만 찼다).
+
+       그래서 공급(총좌석)이 아니라 수요(이미 팔린 좌석)에 건다.
+       배수는 아카이브에서 직접 잰다 — 같은 영화의 지난 상영일들에 대해
+       "상영 N일 전 시점의 3사 예매좌석" 대비 "KOBIS 실측 관객" 이 몇 배였는가.
+
+         D-0  1.31 · 1.40  → 1.35
+         D-1  1.75 · 2.00  → 1.88
+         D-2  2.44 · 3.15  → 2.79
+
+       ⚠ D-2 이후는 쓰지 않는다. 그 배수는 개봉일·금요일에서 나온 값인데,
+         평일은 예매가 훨씬 늦게 붙는다. 8/10(월)에 2.79 를 곱하면 1.5만이
+         나오는데 실제로는 4만+ 나올 날이다. 근거 없는 숫자를 내느니
+         1편 같은 일차 실측을 보여주는 게 낫다(아래에서 자동으로 그렇게 된다).
+
+       표본이 쌓일수록 저절로 정확해진다 — 하드코딩이 아니라 매번 다시 잰다. */
+    const LEAD_MAX=1;
+    const dayKey=t=>t.slice(0,10).replace(/-/g,"");
+    const kobOf=play=>Object.values(MV.movies||{}).flatMap(m=>m.days||[]).find(x=>x.d===play);
+    const gapDays=(a,b)=>Math.round((new Date(`${b.slice(0,4)}-${b.slice(4,6)}-${b.slice(6,8)}`)
+                                    -new Date(`${a.slice(0,4)}-${a.slice(4,6)}-${a.slice(6,8)}`))/864e5);
+    const LEADK=(()=>{
+      const acc={};
+      arr.forEach(x=>{
+        const kb=kobOf(x.play); if(!kb||!kb.audi) return;
+        const fin=lastOf(x);
+        if(!fin||fin.screens<100) return;                       // 시사회·소규모는 양상이 다르다
+        if(!(kb.scrn>0)||fin.screens < 0.7*kb.scrn) return;      // 수집이 덜 된 날은 분모가 껍데기다
+        const per={};                                           // 관측일 -> 그날 최댓값
+        (x.ser||[]).forEach(pt=>{ if(!(pt.seatSold>0)) return;
+          const k=dayKey(pt.t); if(!per[k]||pt.seatSold>per[k]) per[k]=pt.seatSold; });
+        Object.entries(per).forEach(([obs,sold])=>{
+          const lead=gapDays(obs,x.play);
+          if(lead<0||lead>4) return;
+          (acc[lead]=acc[lead]||[]).push(kb.audi/sold);
+        });
+      });
+      const out={};
+      Object.entries(acc).forEach(([k,v])=>{ out[k]={k:v.reduce((a,b)=>a+b,0)/v.length, n:v.length}; });
+      return out;
+    })();
+
+    const est=(s,play)=>{
+      if(!(s.seatSold>0)) return null;
+      const lead=gapDays(todayISO, play);
+      if(lead<0||lead>LEAD_MAX) return null;                    // 근거 없는 숫자는 내지 않는다
+      const c=LEADK[lead];
+      if(!c||c.n<2) return null;                                // 표본 1건짜리 배수는 안 쓴다
+      return s.seatSold*c.k;
+    };
+    const estWhy=(s,play)=>{
+      const lead=gapDays(todayISO, play), c=LEADK[lead];
+      return (c&&c.n>=2)?{lead, k:c.k, n:c.n}:null;
+    };
     // 확보 하한: 지금 이미 팔린 예매만으로 계산. 날짜가 다가올수록 예상선에 붙는다.
     const floorOf=s=>s.seatSold*(natF||1);
 
@@ -3056,7 +3112,8 @@ function renderScreens(){
           <div class="v">${e1!=null?"~"+(e1/1e4).toFixed(1)
              :(refDay[ddOf(main.play)]!=null?fmt0(refDay[ddOf(main.play)]):"—")}<small>${e1!=null?"만명":"명"}</small></div>
           <div class="d">${e1!=null
-             ? `좌석×${(r1.f*100).toFixed(0)}%${natF?`×${natF.toFixed(2)}`:""} · 배정 늘면 ↑`
+             ? (()=>{const w=estWhy(s1,main.play);
+                 return `예매 ${fmt0(s1.seatSold)}석 × ${w.k.toFixed(2)} <span class="th-sub">D-${w.lead} 실측 ${w.n}건 평균</span>`;})()
              : (r1?`<span style="color:var(--warn)">기준 대기</span> · 기준일 ${fmt0(r1.bl.screens)}관 vs ${fmt0(s1.screens)}관`
                   :`<span style="color:var(--warn)">기준 대기</span> · 시사회 판매율은 못 씀`)}</div></div>
       </div>`;
