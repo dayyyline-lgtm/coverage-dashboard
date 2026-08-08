@@ -1421,6 +1421,19 @@ const nmCellPlain = r=>`<span class="nm-cell clickable" data-stock="${r.name}">$
 const avg = arr=> arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 /* 리포트/뉴스 셀 — 리포트는 최근 1개월 조회수 1위, 뉴스는 최근 3일 최신 기사.
    (네이버 금융 뉴스는 조회수를 제공하지 않아 뉴스는 조회수 대신 최신순) */
+/* ==== 오늘 ====
+   화면의 모든 "지났나/다가오나" 판정은 여기 하나를 본다.
+
+   ⚠ LIVE.asOf 를 오늘로 쓰면 안 된다.
+     시세는 장이 열려야 갱신되므로 주말·공휴일엔 며칠 전에 멈춰 있다.
+     2026-08-08(토) 실측: asOf 가 08-07 이라 8/7 실적발표가 아직 '다가오는 일정'으로 떴다.
+
+   ⚠ toISOString() 도 쓰면 안 된다 — UTC 라 한국 아침 9시 이전엔 어제가 나온다.
+     아침 레터 보고 들어오는 시간대가 정확히 거기다.
+   그래서 브라우저 로컬 날짜를 직접 조립한다. */
+const TODAY=(()=>{const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
+const TODAY_C=TODAY.replace(/-/g,"");            // 20260808 형식
 const _asOf=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
 const _ago=d=>{const t=new Date(_asOf); t.setDate(t.getDate()-d); return t.toISOString().slice(0,10);};
 const attr=s=>String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
@@ -1711,7 +1724,7 @@ const PRELIM = {"그래피":{"202606":{"rev":6.5,"op":-3.0}},"하이브":{"20260
 /* ==== 실적 프리뷰 — 당사 추정 vs 컨센, 발표 후엔 실제까지 3자 비교 ====
    CAL 이 여기서야 만들어지므로 표 렌더링도 여기서 한다(앞의 R.forEach 는 값 계산만). */
 (function renderPreview(){
-  const today=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
+  const today=TODAY;
   const nextEarn={};
   CAL.filter(e=>e.ty==="earn" && e.d>=today).forEach(e=>{
     if(!nextEarn[e.co] || e.d<nextEarn[e.co]) nextEarn[e.co]=e.d;
@@ -1867,7 +1880,7 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
 /* ==== 임박 이벤트 보드 — 실적/잠정실적을 따로, 그 외 다가오는 일정을 따로 ==== */
 (function renderUpcoming(){
   const host=document.getElementById("upcoming"); if(!host) return;
-  const today=new Date((LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10));
+  const today=new Date(TODAY);
   today.setHours(0,0,0,0);
   const dday=d=>Math.round((new Date(d)-today)/86400000);
   const isPrelim=t=>/잠정|공정공시/.test(t||"");           // 잠정실적 판별
@@ -1956,7 +1969,7 @@ const CTYPE_LABEL={earn:"실적발표",ir:"IR·컨퍼런스",reg:"규제·승인
   const p2=panel("52주 낙폭 상위","저가 매수 후보",
     rows(top("mdd",1), r=>`<span class="v down">${fmt(r.mdd,0)}%</span>`));
   // 3) 다가오는 일정 (실적발표 우선)
-  const today=(LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10);
+  const today=TODAY;
   const up=CAL.filter(e=>e.d>=today).sort((a,b)=>a.d.localeCompare(b.d)).slice(0,6);
   const p3=panel("다가오는 일정","DART · IR",
     up.length? up.map(e=>{
@@ -2866,7 +2879,7 @@ function renderScreens(){
   const SC=(typeof MOVIE_SCREENS!=="undefined")?MOVIE_SCREENS:null;
   if(!SC||!Object.keys(SC.series||{}).length){ el.innerHTML=""; return; }
   const norm=t=>t.replace(/[\s:\-·]+/g,"");
-  const todayISO=new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const todayISO=TODAY_C;
   const ups=Object.fromEntries((MOVIE_UPCOMING||[]).map(x=>[norm(x.title),x]));
   const MV=(typeof MOVIE!=="undefined")?MOVIE:{};
   // 작품별로 (상영일 -> 스냅샷들) 을 묶는다. 과거 상영일도 들고 간다 —
@@ -3184,7 +3197,13 @@ function renderScreens(){
         for(let g=0;g<=4;g++){const v=yMax*g/4,y=sy(v);
           s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
           s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${(v/1e4).toFixed(0)}만</text>`;}
-        if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${t1}" x2="${sx(0)}" y2="${H1-b1}" stroke="${mut}" stroke-dasharray="3 4" opacity=".55"/>`;
+        // 세로선은 개봉일이 아니라 '오늘'을 표시한다.
+        //   모든 판단이 오늘 기준이라, 어디까지가 실측이고 어디부터가 전망인지를
+        //   가르는 선이 개봉일보다 훨씬 자주 쓰인다.
+        {const tdd=ddOf(todayISO);
+         if(tdd!=null&&tdd>=dLo&&tdd<=dHi){
+           s+=`<line x1="${sx(tdd)}" y1="${t1}" x2="${sx(tdd)}" y2="${H1-b1}" stroke="var(--accent)" stroke-dasharray="3 4" opacity=".75"/>`;
+           s+=`<text x="${sx(tdd)}" y="${t1-4}" text-anchor="middle" font-size="9.5" fill="var(--accent)" opacity=".9">오늘</text>`;}}
         s+=xAxis(H1,b1);
         if(refPts.length>1){
           s+=`<path d="${refPts.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="#c4a7e7" stroke-width="2" opacity=".36"/>`;
@@ -3218,7 +3237,9 @@ function renderScreens(){
         for(let g=0;g<=3;g++){const v=sMax*g/3,y=sy2(v);
           s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
           s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${v>=1e4?(v/1e4).toFixed(0)+"만":fmt0(v)}</text>`;}
-        if(dLo<0&&dHi>0) s+=`<line x1="${sx(0)}" y1="${t2}" x2="${sx(0)}" y2="${H2-b2}" stroke="${mut}" stroke-dasharray="3 4" opacity=".55"/>`;
+        {const tdd=ddOf(todayISO);
+         if(tdd!=null&&tdd>=dLo&&tdd<=dHi)
+           s+=`<line x1="${sx(tdd)}" y1="${t2}" x2="${sx(tdd)}" y2="${H2-b2}" stroke="var(--accent)" stroke-dasharray="3 4" opacity=".75"/>`;}
         s+=xAxis(H2,b2);
         seatDays.forEach(x=>{ const dd=ddOf(x.play), s2=lastOf(x);
           const x0=sx(dd)-bw/2, r=s2.seatTot>0?s2.seatSold/s2.seatTot*100:0;
@@ -3516,8 +3537,14 @@ function renderMovie(){
   for(let g=0;g<=4;g++){const v=ymax*g/4, y=sy(v);
     s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}"/>`;
     s+=`<text x="${pad.l-6}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${(v/10000).toFixed(0)}만</text>`;}
-  // 개봉일(D+0) 세로선 — 시사회 구간과 본 개봉을 눈으로 가른다
-  if(x0<0){ s+=`<line x1="${sx(0)}" y1="${pad.t}" x2="${sx(0)}" y2="${H-pad.b}" stroke="${mut}" stroke-dasharray="4 4"/>`; }
+  // 세로선 = '오늘'. 이 차트는 여러 영화를 같은 D±N 축에 겹쳐 놓으므로,
+  // 오늘은 '상영 중인 영화가 지금 몇 일차인가' 로 잡는다.
+  // (개봉일 D+0 선을 쓰던 자리다 — 개봉일은 축 눈금에 이미 D+0 으로 나온다.)
+  {const cur=runs.slice().filter(r=>r.openDt).sort((a,b)=>b.openDt.localeCompare(a.openDt))[0]||runs[0];
+   const tdd=cur&&cur.openDt? Math.round((new Date(TODAY)-new Date(cur.openDt))/864e5) : null;
+   if(tdd!=null&&tdd>=x0&&tdd<=x1){
+     s+=`<line x1="${sx(tdd)}" y1="${pad.t}" x2="${sx(tdd)}" y2="${H-pad.b}" stroke="var(--accent)" stroke-dasharray="4 4" opacity=".8"/>`;
+     s+=`<text x="${sx(tdd)}" y="${pad.t-3}" text-anchor="middle" font-size="9.5" fill="var(--accent)">오늘</text>`;}}
   for(let t=0;t<=6;t++){const v=Math.round(x0+(x1-x0)*t/6);
     s+=`<text x="${sx(v)}" y="${H-pad.b+17}" text-anchor="middle" font-size="11" fill="${mut}">D${v>=0?"+":""}${v}</text>`;}
   draw.forEach(r=>{
@@ -3535,7 +3562,7 @@ function renderMovie(){
         <small>${r.openDt} 개봉 · D+${e.x} 누적 <b>${fmt0(e.acc)}</b>명</small></div>`;}).join("")
     +upcoming.map(x=>{
       const p=preOf[x.title], e=p&&p.pts.length?p.pts[p.pts.length-1]:null;
-      const d=Math.ceil((new Date(x.open)-new Date((LIVE.asOf||"").slice(0,10)))/864e5);
+      const d=Math.ceil((new Date(x.open)-new Date(TODAY))/864e5);
       return `<div class="li"><span class="dot" style="background:${e?p.color:mut}"></span>${x.title}
         <small>${x.open} 개봉 · ${d>0?"D-"+d:"개봉"}`
         +(e?` · D${e.x} 시사회 누적 <b>${fmt0(e.acc)}</b>명 (점선 = 예매 기준)`
@@ -4684,7 +4711,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     try{
       const a=document.createElement("a");
       a.href=URL.createObjectURL(buildXlsx());
-      const d=((LIVE.asOf||"").slice(0,10)||new Date().toISOString().slice(0,10)).replace(/-/g,"");
+      const d=TODAY_C;
       a.download=(DATA.analyst||"신주현")+"_소비재_커버리지_"+d+".xlsx";
       document.body.appendChild(a); a.click();
       setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },1000);
