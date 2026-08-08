@@ -211,8 +211,20 @@ addEventListener("load", syncTabOverflow);
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncTabOverflow);
 syncTabOverflow();
 
-// 주소에 탭이 적혀 있으면 그 탭으로 연다(공유 링크·새로고침·뒤로가기)
-if(location.hash) activateTab(location.hash.slice(1), false);
+/* 주소에 탭이 적혀 있으면 그 탭으로 연다(공유 링크·새로고침·뒤로가기).
+   ⚠ **여기서 바로 부르면 안 된다.** 렌더 함수들은 이 파일 아래쪽의 const 를 쓰는데
+   (MOVIE_UPCOMING 2021줄·TREND_STOCK·secView·amzMetric …), 스크립트가 아직 그 줄까지
+   못 갔으므로 TDZ 에 걸려 ReferenceError 로 죽는다 — 페이지가 통째로 백지가 된다.
+   `(MOVIE_UPCOMING||[])` 같은 방어는 TDZ 에는 안 먹는다(선언 전 '접근' 자체가 예외).
+   스크립트가 다 돈 뒤(DOMContentLoaded)에 연다.
+
+   2026-08-08 실제로 배포까지 나간 버그다. 해시 없이 열면 이 경로를 안 타서
+   점검이 통과했고, 배포본 콘솔에서야 잡혔다. check_render.py 가 이제 탭마다
+   **새 페이지로** #해시를 열어 본다(같은 페이지에서 해시만 바꾸면 재평가가 안 일어나
+   이 버그가 안 보인다 — 그게 처음 놓친 이유다). */
+function openHashTab(){ if(location.hash) activateTab(location.hash.slice(1), false); }
+if(document.readyState === "loading") addEventListener("DOMContentLoaded", openHashTab);
+else openHashTab();
 
 /* 섹션 헤더 오른쪽에 '업데이트 MM/DD HH:MM' — 데이터가 언제 갱신됐는지 항상 표시 */
 function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);return m?`${+m[2]}/${+m[3]} ${m[4]}:${m[5]}`:"";}

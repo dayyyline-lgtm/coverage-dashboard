@@ -137,6 +137,32 @@ def main():
                     empty.append((k, len(txt)))
                 if shot_dir:
                     page.screenshot(path=os.path.join(shot_dir, f"{i:02d}-{k}.png"))
+            page.close()
+
+            # ── 2차: 탭마다 '#해시로 새로 여는' 경로도 본다.
+            #
+            # 클릭으로 여는 것과 주소로 여는 것은 **다른 코드 경로**다. 주소로 열면
+            # 스크립트를 평가하는 도중에 렌더가 불리므로, 아래쪽에 선언된 const 를
+            # 건드리면 TDZ 로 죽는다. 2026-08-08 에 이 버그가 배포까지 나갔다.
+            #
+            # ⚠ 반드시 **새 페이지**로 열 것. 이미 떠 있는 페이지에서 해시만 바꾸면
+            #    같은 문서 내 이동이라 스크립트가 재평가되지 않아 이 버그가 안 보인다.
+            #    (처음 놓친 이유가 정확히 이것이다.)
+            for k in TABS:
+                pg = browser.new_page(viewport={"width": 1440, "height": 900})
+                cur["tab"] = "#" + k
+                pg.on("pageerror", lambda e, _k=k: note("#" + _k, "예외", e))
+                pg.on("console", lambda m, _k=k: note("#" + _k, "콘솔", m.text)
+                      if m.type == "error" else None)
+                pg.goto(f"http://127.0.0.1:{port}/index.html#{k}",
+                        wait_until="load", timeout=60000)
+                pg.wait_for_timeout(700)
+                shown = pg.evaluate("() => { const a = document.querySelector('section.view.active');"
+                                    "        return a ? a.dataset.view : null; }")
+                if shown != k:
+                    errs.append(("#" + k, "라우팅",
+                                 f"주소로 열었을 때 '{shown}' 이 떴습니다 — 링크가 엉뚱한 탭을 엽니다"))
+                pg.close()
 
             browser.close()
     finally:
