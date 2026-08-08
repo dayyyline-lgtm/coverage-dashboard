@@ -598,11 +598,11 @@
     <p class="sec-desc"><b>실적 발표 시 실제 vs 컨센서스 서프라이즈</b>를 봅니다. 컨센·실제는 자동 수집됩니다.
       (당사 분기 추정을 넣으면 <b>당사 ↔ 컨센 ↔ 실제 3자 비교</b>로 자동 확장됩니다.)</p>
     <div class="trend-ctl">
-      <div class="ctl-row"><span class="ctl-label">보기</span>
-        <div class="seg" id="prevViewSeg">
-          <button data-view="upcoming" class="active">예정</button>
-          <button data-view="done">발표완료</button>
-        </div>
+      <div class="ctl-row"><span class="ctl-label">분기</span>
+        <!-- 분기 버튼은 데이터에서 자동 생성한다(2Q26 · 3Q26 …).
+             발표완료·예정을 한 표에 놓고 분기로만 가른다 — 같은 분기의
+             '나온 것'과 '아직인 것'을 나란히 봐야 시즌 진행이 읽힌다. -->
+        <div class="seg" id="prevQSeg"></div>
       </div>
     </div>
     <div class="tbl-wrap"><table id="prevTable"></table></div>
@@ -1839,39 +1839,58 @@ const PRELIM = {"그래피":{"202606":{"rev":6.5,"op":-3.0}},"하이브":{"20260
     verdictDone:{key:"surpOp",label:"판정",render:verdictDone},
     cmt:{key:"dqRaw",label:"코멘트",l:true,render:earnComment},
   };
-  const COLS={
-    upcoming: hasMyEst
-      ? [C.nm,C.earn,C.q,C.myRev,C.qRev,C.myRevGap,C.myOp,C.qOp,C.myOpGap,C.verdict]
-      : [C.nm,C.earn,C.q,C.qRev,C.qOp],                       // 당사 없이: 발표일 + 컨센 기대치
-    done: hasMyEst
-      ? [C.nm,C.dq,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.verdictDone,C.myOpD,C.myErrOp,C.win,C.cmt]
-      : [C.nm,C.dq,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.verdictDone,C.cmt],  // 실제 vs 컨센 + 판정·코멘트
+  /* ---- 발표완료 + 예정을 한 표로 묶고, 분기로만 가른다 ----
+     예전엔 '예정' 과 '발표완료' 두 보기였다. 그런데 실적시즌 중에는 같은 분기 안에서
+     이미 나온 종목과 아직인 종목이 섞여 있고, 그 둘을 나란히 놔야 시즌이 어디까지
+     왔는지 읽힌다. 보기를 오가며 맞춰 보게 할 이유가 없다.
+
+     상태 칸이 그 구분을 대신한다: 발표완료(잠정 포함) / D-N / 일정 미정. */
+  const uni=[];
+  const doneKey=new Set(done.map(x=>x.name+"|"+x.dqRaw));
+  done.forEach(x=>uni.push({...x, q:x.dqRaw, announced:true}));
+  R.forEach(r=>{
+    const qk=(((LIVE.stocks[r.name]||{}).cons||{}).quarter||{}).key||null;
+    if(!qk || doneKey.has(r.name+"|"+qk)) return;
+    uni.push({...r, q:qk, dqRaw:qk, dq:qLab(qk), announced:false,
+      actRev:null, actOp:null, consRev:r.qRev, consOp:r.qOp,
+      surpRev:null, surpOp:null, myErrRev:null, myErrOp:null, win:null, isPrelim:false});
+  });
+
+  const QS=[...new Set(uni.map(x=>x.q))].sort().reverse();      // 최신 분기가 앞
+  const seg=document.getElementById("prevQSeg");
+
+  const C2={
+    state:{key:"stateSort",label:"상태",l:true,render:r=> r.announced
+      ? `<span class="tag-beat">발표완료</span>`+(r.isPrelim?` <span class="tag-inline" title="공시 잠정실적(정식 재무제표 반영 전)">잠정</span>`:``)
+      : (r.earnD
+          ? `<span class="ye">${r.earnD.slice(5).replace("-","/")}</span>`
+            +`<span class="th-sub" style="margin-left:5px">${r.earnDday===0?"D-DAY":(r.earnDday>0?"D-"+r.earnDday:"발표 대기")}</span>`
+          : `<span class="th-sub">일정 미정</span>`)},
   };
+  uni.forEach(x=>{ x.stateSort = x.announced ? "0" : (x.earnD||"9999-99-99"); });
+
+  const COLS = hasMyEst
+    ? [C.nm,C2.state,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.verdictDone,C.myOpD,C.myErrOp,C.win,C.cmt]
+    : [C.nm,C2.state,C.actRev,C.consRev,C.surpRev,C.actOp,C.consOp,C.surpOp,C.verdictDone,C.cmt];
 
   const note=document.getElementById("prevNote");
-  function render(view){
-    const rows = view==="upcoming" ? R : done;
-    const sort = view==="upcoming" ? {key:"earnSort",dir:1} : {key:"dqRaw",dir:-1};
-    makeTable(document.getElementById("prevTable"), COLS[view], rows, sort);
-    if(view==="upcoming"){
-      note.textContent = hasMyEst
-        ? `단위 억 원 · 괴리 = 당사 ÷ 컨센 − 1 · 발표일이 안 잡힌 종목은 뒤로. 당사 추정 ${R.filter(r=>r.myOp!=null).length}/${R.length}종목 입력됨.`
-        : `단위 억 원 · 다가오는 분기의 컨센 기대치입니다. 발표되면 '발표완료' 탭에 실제 vs 컨센 서프라이즈가 쌓입니다.`;
-    }else{
-      const preN=done.filter(r=>r.isPrelim).length;
-      note.textContent = `단위 억 원 · 서프라이즈 = 실제 ÷ 컨센 − 1(발표 전 저장한 컨센 스냅샷 대비) · `
-        +(done.length
-          ? `실적시즌 발표 ${done.length}개${preN?` (잠정 ${preN}개 — 정식 재무제표 반영 전)`:``}.`
-            +(hasMyEst?` 당사 오차 = 당사 ÷ 실제 − 1(±3% 초록).`:``)
-          : `아직 발표된 분기가 없습니다 — 발표되면 여기에 실제 vs 컨센 서프라이즈가 쌓입니다.`);
-    }
+  function render(q){
+    const rows=uni.filter(x=>x.q===q);
+    makeTable(document.getElementById("prevTable"), COLS, rows, {key:"stateSort",dir:1});
+    const dn=rows.filter(x=>x.announced), preN=dn.filter(x=>x.isPrelim).length;
+    note.textContent = `단위 억 원 · ${qLab(q)} — 발표 ${dn.length}/${rows.length}종목`
+      + (preN?` (잠정 ${preN}개 — 정식 재무제표 반영 전)`:``)
+      + ` · 서프라이즈 = 실제 ÷ 컨센 − 1(발표 전 저장한 컨센 스냅샷 대비)`
+      + (dn.length?``:` · 아직 발표된 종목이 없어 컨센 기대치만 보입니다`)
+      + (hasMyEst?` · 당사 오차 = 당사 ÷ 실제 − 1(±3% 초록)`:``);
   }
-  document.getElementById("prevViewSeg").addEventListener("click",e=>{
+  seg.innerHTML=QS.map((q,i)=>`<button data-q="${q}"${i===0?' class="active"':''}>${qLab(q)}</button>`).join("");
+  seg.addEventListener("click",e=>{
     const b=e.target.closest("button"); if(!b) return;
-    document.querySelectorAll("#prevViewSeg button").forEach(x=>x.classList.toggle("active",x===b));
-    render(b.dataset.view);
+    seg.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+    render(b.dataset.q);
   });
-  render("upcoming");
+  if(QS.length) render(QS[0]);
 })();
 
 const CTYPE={earn:"ev-earn",ir:"ev-ir",reg:"ev-reg",corp:"ev-corp",div:"ev-div"};
