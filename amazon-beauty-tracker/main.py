@@ -695,8 +695,9 @@ def git_push(today: str) -> None:
     # 배포 슬롯이 아니면 [CI Skip] — Cloudflare Pages 는 푸시 1건 = 빌드 1건(월 500 한도).
     # 슬롯이면 index.html 갱신이 실제로 배포돼야 하므로 안 붙인다.
     msg = f"data: amazon beauty bestsellers {today}"
-    if not deploy_slot():
-        msg += " [CI Skip]"
+    # 수집했으면 바로 배포한다 (2026-08-08). 예전엔 deploy_slot() 이 아닌 회차에
+    # [CI Skip] 을 붙여, 데이터는 들어왔는데 화면은 다음 배포까지 옛 값이었다.
+    # 봇 커밋을 전부 배포해도 월 394건으로 Cloudflare 무료 한도(500)의 79% 라 여유가 있다.
     c = run("git", "commit", "-m", msg, "--", *files)
     if "nothing to commit" in (c.stdout + c.stderr):
         print("[git] 변경 없음, push 생략")

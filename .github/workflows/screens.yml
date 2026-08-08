@@ -131,7 +131,7 @@ jobs:
             SKIP=""; echo "수동 실행 - 바로 배포"
           else
             # 전수 슬롯(08·12·16·20)마다 배포해 화면에 바로 반영. 그 외(밀린 cron 등)는 [CI Skip].
-            case "$h" in 08|12|16|20) SKIP="" ;; *) SKIP=" [CI Skip]" ;; esac
+            SKIP=""   # 수집했으면 바로 배포 (한도 여유 확인함 — 월 394/500)
           fi
           git commit -m "스크린·예매 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')${SKIP}"
           for i in 1 2 3 4 5; do

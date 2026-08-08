@@ -242,12 +242,11 @@ jobs:
           # ⚠ 예전엔 여기 'event==schedule 이면 무조건 배포' 예외가 있었다(스케줄이 드문 백업이던 시절).
           #   이제 스케줄이 매시간 주 트리거라 그 예외를 두면 매시간 빌드→월 한도를 넘긴다.
           #   그래서 트리거 무관하게 deploy_slot() 만 본다(장중 매시간이 슬롯이라 화면도 매시간 갱신).
-          if python -c "import sys,collector_health as c; sys.exit(0 if c.deploy_slot() else 1)"; then
-            SKIP=""
-          else
-            SKIP=" [CI Skip]"
-            echo "배포 슬롯 아님 - 커밋만 하고 Cloudflare 빌드는 건너뜀"
-          fi
+          # 슬롯 판정을 없앴다 (2026-08-08) — 수집한 회차는 전부 배포한다.
+          # 봇이 public/ 을 건드린 커밋은 하루 13.1건(8/01~8/08 실측)이고,
+          # 전부 배포해도 월 394건으로 Cloudflare 무료 한도 500 의 79% 다.
+          # 데이터는 있는데 화면만 옛 값인 상태를 만들지 않는 쪽이 낫다.
+          SKIP=""
           git commit -m "시세 자동 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')${SKIP}"
           # 사람이 로컬에서 밀어 넣는 일도 있어 푸시가 밀릴 수 있다. 몇 번 다시 붙인다.
           for i in 1 2 3 4 5; do

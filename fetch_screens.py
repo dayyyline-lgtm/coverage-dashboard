@@ -429,12 +429,23 @@ def main():
         play, play_iso = d.strftime("%Y%m%d"), d.isoformat()
         pg = programmed(play)
         if pg == PROBE_FAILED:
-            # 막힌 것을 '미편성'으로 넘기면 화면이 조용히 옛 값에 멈춘다.
-            # 기록을 남기고 이번 회차는 접는다 — 뒤 날짜도 어차피 같은 벽이다.
-            msg = f"CGV 편성 탐침이 전부 실패({play}) — 차단 가능성"
-            print(f"  ! {msg}")
-            note_health("스크린·예매", msg)
-            return
+            # 탐침이 막혔다고 수집을 통째로 접지 않는다.
+            #
+            #   탐침은 '편성 안 된 먼 날짜에 384요청을 낭비하지 말자'는 절약 장치지
+            #   수집의 관문이 아니다. 그런데 CGV 하나가 403 을 주면 그게 곧 전면 중단이
+            #   된다 — 2026-08-07~08 에 29시간이 그렇게 날아갔다.
+            #
+            #   ① 롯데·메가는 CGV 와 독립이라 CGV 가 막혀도 배정을 받아 올 수 있다.
+            #   ② 이미 아는 지평선(horizon) 안이거나 가까운 날짜면 편성은 거의 확실하다.
+            #      상영 중인 영화가 사흘 뒤 갑자기 안 걸리는 일은 없다.
+            #   그래서 그 범위는 탐침 없이 그대로 수집한다. 먼 날짜만 생략한다.
+            note_health("스크린·예매", f"CGV 편성 탐침 실패({play}) — 탐침 없이 진행 중")
+            hz = old.get("horizon") or ""
+            near = (d - today).days <= 3
+            if not (near or (hz and play <= hz)):
+                print(f"  {play} 탐침 실패 · 지평선({hz or '없음'}) 밖 — 생략")
+                continue
+            print(f"  {play} 탐침 실패지만 지평선 안 — 탐침 없이 수집 진행")
         if not pg:
             print(f"  {play} 미편성 — 전수 조사 생략")
             continue
