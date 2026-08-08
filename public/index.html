@@ -2778,6 +2778,9 @@ function renderBooking(){
       <div class="kpi"><div class="k">실시간 예매율<span class="th-sub">오늘</span></div>
         <div class="v">${fmt(last.rate,1)}<small>%</small></div>
         <div class="d">${delta("rate")}</div></div>
+      <div class="kpi"><div class="k">실시간 예매관객<span class="th-sub">오늘</span></div>
+        <div class="v">${fmt0(last.book)}<small>명</small></div>
+        <div class="d">${delta("book")}</div></div>
     </div>`;
     } else {
       h+=`<div class="kpis">
