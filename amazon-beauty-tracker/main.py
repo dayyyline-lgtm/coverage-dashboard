@@ -702,14 +702,46 @@ def git_push(today: str) -> None:
         print("[git] 변경 없음, push 생략")
         return
     p = run("git", "push")
-    if p.returncode != 0:
-        # 이 저장소는 봇이 매시간 커밋한다. 원격이 앞서 있으면 push가 거절되므로
-        # rebase 후 한 번 더 시도한다. --autostash 는 작업 중인 파일(대시보드 편집 등)이
-        # 있어도 알아서 넣었다 빼주므로 남의 작업을 건드리지 않는다.
-        print("[git] 원격이 앞서 있어 rebase 후 재시도", file=sys.stderr)
-        r = run("git", "pull", "--rebase", "--autostash")
-        if r.returncode != 0:
-            print(f"[git] rebase 실패 (커밋은 로컬에 남음): {r.stderr.strip()[:300]}", file=sys.stderr)
+
+    # ── 원격이 앞서 있을 때: rebase 하지 말고 '최신 위에 다시 주입'한다 ──────────
+    #
+    # 예전엔 `git pull --rebase` 를 썼는데, 그건 index.html 두 벌(옛 것 + 원격 것)을
+    # 통째로 합치려 드는 일이라 반드시 충돌한다. 800KB 파일에 상수 48개가 붙어 있어
+    # 서로 다른 상수를 고쳐도 git 은 '인접 변경'으로 본다.
+    #
+    # 2026-08-08 실측: AMAZON(우리, 08-08) 과 LIVE·APPRANK·TOURISM·SPOTIFY(원격, 08-07)
+    # 가 한 덩어리로 충돌했다. 어느 쪽을 골라도 하루치가 날아가는 상황이라 자동으로는
+    # 풀 수가 없고, 실제로 리베이스가 멈춘 채 아마존 데이터가 PC 에 갇혀 있었다.
+    #
+    # 그래서 합치지 않는다. 원격의 최신 index.html 을 그대로 받아서 그 위에 AMAZON
+    # 블록만 다시 주입한다. history.csv 로 만드는 것이라 재수집이 필요 없다.
+    # 커밋의 부모가 항상 origin/main 이므로 push 는 fast-forward 고, 충돌이 원리적으로
+    # 생길 수 없다. 남의 상수는 원격 것을 그대로 두므로 덮어쓸 일도 없다.
+    for attempt in (1, 2, 3):
+        if p.returncode == 0:
+            break
+        run("git", "fetch", "origin", "main")
+
+        # 안전장치 — 로컬에 우리 것이 아닌 커밋이 있으면 손대지 않는다.
+        # 사람이 작업 중일 수 있고, 그걸 조용히 뭉개면 안 된다.
+        ahead = run("git", "log", "--format=%s", "origin/main..HEAD").stdout.strip()
+        alien = [s for s in ahead.splitlines()
+                 if s and not s.startswith("data: amazon beauty bestsellers")]
+        if alien:
+            print(f"[git] 로컬에 다른 작업 커밋이 있어 자동 재시도를 멈춥니다: {alien[0][:60]}",
+                  file=sys.stderr)
+            return
+
+        print(f"[git] 원격이 앞서 있음 — 최신 위에 재주입 후 재시도 ({attempt}/3)", file=sys.stderr)
+        run("git", "reset", "--soft", "origin/main")
+        run("git", "checkout", "origin/main", "--", "../public/index.html")
+        if not inject_dashboard():
+            print("[git] 재주입 실패 — 이번 회차 push 를 포기합니다", file=sys.stderr)
+            return
+        run("git", "add", *files)
+        c = run("git", "commit", "-m", msg, "--", *files)
+        if "nothing to commit" in (c.stdout + c.stderr):
+            print("[git] 재주입 결과가 원격과 같음 — push 불필요")
             return
         p = run("git", "push")
 
