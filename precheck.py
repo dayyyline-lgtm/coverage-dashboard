@@ -175,6 +175,30 @@ def main():
     if not re.search(r'<script[^>]+src=["\']js/app\.js', html):
         fails.append("index.html 이 js/app.js 를 부르지 않습니다 — 화면이 백지가 됩니다")
 
+    # ── 5b. 화면의 신선도 한도가 watchdog 과 같은가
+    #
+    # 화면은 '수집이 멈췄다'를 배지로 알리는데, 그 한도를 app.js 가 따로 들고 있다
+    # (브라우저가 파이썬을 읽을 수 없으니 어쩔 수 없다). 등록처가 둘이면 반드시 갈라지고,
+    # 갈라지면 watchdog 은 조용한데 화면만 경고하거나 그 반대가 된다.
+    # 그래서 '두 벌 두되 어긋나면 실패' 로 묶는다.
+    m = re.search(r'const STALE_H\s*=\s*\{([^}]*)\}', app)
+    if not m:
+        fails.append("app.js 에 STALE_H 가 없습니다 — 화면이 수집 정지를 알릴 수 없습니다")
+    else:
+        front = {k: int(v) for k, v in re.findall(r'(\w+)\s*:\s*(\d+)', m.group(1))}
+        back = {}
+        try:
+            import watchdog
+            back = {k: int(v[1]) for k, v in watchdog.LIMITS.items()}
+        except Exception:
+            pass
+        for k, v in front.items():
+            if k in back and back[k] != v:
+                fails.append(f"신선도 한도가 어긋납니다 — {k}: app.js {v}시간 vs "
+                             f"watchdog.LIMITS {back[k]}시간. 둘을 같게 맞추세요")
+            elif k not in back and back:
+                fails.append(f"app.js 의 STALE_H 에 있는 {k} 가 watchdog.LIMITS 에 없습니다")
+
     # ── 6. 크기
     for p, floor in FLOOR.items():
         sz = os.path.getsize(p)

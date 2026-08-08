@@ -163,9 +163,11 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 
 const tabsEl = document.getElementById("tabs");
 tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
-tabsEl.addEventListener("click",e=>{
-  const b=e.target.closest("button"); if(!b) return;
-  const k=b.dataset.k;
+
+/* 탭 전환의 실체. 클릭·주소창·뒤로가기가 전부 여기로 모인다.
+   scroll=false 는 '첫 로드에 주소의 탭을 여는' 경우 — 그때는 이미 맨 위다. */
+function activateTab(k, scroll){
+  if(!TABS.some(([t])=>t===k)) return false;         // 주소에 엉뚱한 값이 와도 무시
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
   if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
@@ -173,22 +175,99 @@ tabsEl.addEventListener("click",e=>{
   if(k==="amazon") renderAmazon();
   if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); }
   if(k==="boxoffice") renderMovie();
-  window.scrollTo({top:0,behavior:"smooth"});
+  // 넘치는 탭 줄에서 지금 탭이 화면 밖이면 끌어온다(폰에서 11개 중 4개만 보인다)
+  const btn = tabsEl.querySelector(`button[data-k="${k}"]`);
+  if(btn && btn.scrollIntoView) btn.scrollIntoView({block:"nearest",inline:"nearest"});
+  if(scroll!==false){
+    // 움직임을 줄여 달라는 설정이면 부드러운 스크롤을 쓰지 않는다
+    const calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({top:0,behavior:calm?"auto":"smooth"});
+  }
+  return true;
+}
+
+/* 주소에 탭을 남긴다 — 애널리스트의 실제 사용 장면은 "이거 봐" 하고 링크를 던지는 것이다.
+   예전엔 어느 탭도 주소가 없어서 새로고침하면 개요로 돌아갔다.
+   hash 를 바꾸면 hashchange 가 뜨고 거기서 화면을 바꾼다(경로가 하나로 모인다). */
+tabsEl.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(location.hash.slice(1)===b.dataset.k) activateTab(b.dataset.k);   // 같은 탭 재클릭
+  else location.hash = b.dataset.k;
 });
+/* 해시가 비면 첫 탭으로 — '#news 에서 뒤로가기' 는 주소가 빈 상태로 돌아오는데,
+   그때 아무것도 안 하면 화면은 뉴스에 멈춘 채 주소만 바뀌어 둘이 어긋난다. */
+addEventListener("hashchange",()=>{ activateTab(location.hash.slice(1) || TABS[0][0]); });
+
+/* 가로로 넘치는 줄에 페이드를 붙인다(CSS 는 넘침을 알 수 없다).
+   탭 줄과 시세 스트립 둘 다 스크롤바를 숨겨 놔서, 페이드가 없으면 더 있다는 신호가 없다.
+   폰트가 늦게 로드되면 폭이 달라지므로 로드 후에도 한 번 더 잰다. */
+function syncTabOverflow(){
+  [tabsEl, document.querySelector(".mkt-strip")].forEach(el=>{
+    if(el) el.classList.toggle("overflowing", el.scrollWidth > el.clientWidth + 2);
+  });
+}
+addEventListener("resize", syncTabOverflow);
+addEventListener("load", syncTabOverflow);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncTabOverflow);
+syncTabOverflow();
+
+// 주소에 탭이 적혀 있으면 그 탭으로 연다(공유 링크·새로고침·뒤로가기)
+if(location.hash) activateTab(location.hash.slice(1), false);
 
 /* 섹션 헤더 오른쪽에 '업데이트 MM/DD HH:MM' — 데이터가 언제 갱신됐는지 항상 표시 */
 function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);return m?`${+m[2]}/${+m[3]} ${m[4]}:${m[5]}`:"";}
+
+/* 블록별 허용 지연(시간). **원본은 watchdog.py 의 LIMITS 다** — 여기 값이 그것과
+   어긋나면 precheck.py 가 실패시킨다(등록처를 둘로 쪼개면 반드시 갈라지기 때문).
+   새 데이터 블록을 넣을 때는 watchdog.LIMITS 와 여기를 같이 고칠 것. */
+const STALE_H = {LIVE:30, NEWS:30, MOVIE:10, TRADE:960, AMAZON:72};
+
+function ageHours(a){
+  const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  if(!m) return null;
+  // asOf 는 KST 로 적힌다. 보는 사람이 어느 시간대에 있든 같은 판정이 나오게 KST 로 맞춘다.
+  const t=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]) - 9*3600e3;
+  return (Date.now()-t)/3600e3;
+}
+
+/* '데이터 없음'과 '못 받았음'은 다른 말이다.
+   app.js 가 곳곳을 typeof 로 방어하고 있어서, 수집이 막히면 예외 없이 화면만 빈다 —
+   CGV 403 이 '미편성'으로 둔갑해 29시간 갔던 사고가 이 형태였다.
+   그래서 비어 보이는 이유를 화면이 직접 말하게 한다. 정상일 땐 아무것도 안 붙는다. */
+function staleNote(key, asOf){
+  const lim=STALE_H[key]; if(!lim) return "";
+  const age=ageHours(asOf); if(age==null) return "";
+  // 주말엔 장이 안 서니 시세는 늦어도 정상이다(watchdog 과 같은 보정).
+  const d=new Date(), wknd=(d.getDay()===0||d.getDay()===6);
+  const eff=(key==="LIVE"&&wknd)?Math.max(lim,72):lim;
+  if(age<=eff) return "";
+  return age>=48 ? `${Math.round(age/24)}일째 갱신 없음` : `${Math.round(age)}시간째 갱신 없음`;
+}
+
 function setSecUpdates(){
   const L=(typeof LIVE!=="undefined"&&LIVE.asOf)||"";
-  const M={overview:L,coverage:L,valuation:L,reports:L,calendar:L,preview:L,
-    news:(typeof NEWS!=="undefined"&&NEWS.asOf)||L,
-    trends:"",   // 트렌드는 소스마다 주기가 달라 맨 위 하나로 안 뭉치고, 계열별로 trendTopicNow 에 표시
-    boxoffice:(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"",
-    altdata:(typeof TRADE!=="undefined"&&TRADE.asOf)||""};
+  // [asOf, 신선도를 판정할 블록] — 블록이 null 이면 시각만 표시하고 판정은 안 한다.
+  const M={overview:[L,"LIVE"],coverage:[L,"LIVE"],valuation:[L,"LIVE"],
+    reports:[L,"LIVE"],calendar:[L,"LIVE"],preview:[L,"LIVE"],
+    news:[(typeof NEWS!=="undefined"&&NEWS.asOf)||L,"NEWS"],
+    trends:["",null],   // 트렌드는 소스마다 주기가 달라 맨 위 하나로 안 뭉치고, 계열별로 trendTopicNow 에 표시
+    boxoffice:[(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"","MOVIE"],
+    altdata:[(typeof TRADE!=="undefined"&&TRADE.asOf)||"","TRADE"],
+    amazon:[(typeof AMAZON!=="undefined"&&AMAZON.asOf)||"","AMAZON"]};
   document.querySelectorAll("section.view").forEach(s=>{
-    const h=s.querySelector("h2.sec"),t=fmtUpd(M[s.dataset.view]);if(!h||!t)return;
+    const [asOf,key]=M[s.dataset.view]||["",null];
+    const h=s.querySelector("h2.sec"),t=fmtUpd(asOf);if(!h||!t)return;
     let u=h.querySelector(".sec-upd");if(!u){u=document.createElement("span");u.className="sec-upd";h.appendChild(u);}
     u.textContent="업데이트 "+t;
+    const warn=key?staleNote(key,asOf):"";
+    let w=h.querySelector(".sec-stale");
+    if(warn){
+      if(!w){w=document.createElement("span");w.className="sec-stale";h.appendChild(w);}
+      // 글리프를 앞에 붙이지 않는다 — 색·테두리가 이미 경고를 말하고 있고,
+      // 이모지를 아이콘 자리에 쓰는 것이 이 화면의 지적 사항 중 하나다.
+      w.textContent=warn;
+      w.title="수집이 멈춰 있습니다. 아래 숫자는 이 시각의 값입니다 — 비어 보이는 칸은 '없는 것'이 아니라 '못 받은 것'일 수 있습니다.";
+    } else if(w) w.remove();
   });
 }
 
@@ -301,6 +380,8 @@ themeBtn.addEventListener("click",()=>{
     idx("KOSPI",M.KOSPI)+idx("KOSDAQ",M.KOSDAQ)+fx("USD/KRW",F.USDKRW)+
     `<span class="live-badge" title="네이버 금융 실시간 수집 · ${LIVE.asOf}"><span class="live-dot"></span></span>`;
   document.getElementById("metaPill").textContent=`신주현 · 시세 ${LIVE.asOf}`;
+  // 칩을 채운 지금이라야 넘치는지 알 수 있다(이 블록은 라우팅 설정보다 뒤에 돈다)
+  syncTabOverflow();
 })();
 
 /* ==== KPIs ==== */
@@ -552,9 +633,18 @@ function makeTable(el, cols, rows, initSort){
       return 0;
     });
     // c.hm = 모바일에서 숨길 컬럼(핵심만 남겨 폰에서 읽기 쉽게)
+    // 정렬 화살표는 라벨 **첫 줄** 에 붙인다. th-sub 은 display:block 이라, 라벨 뒤에
+    // 그냥 이어 붙이면 화살표가 보조설명 아래로 밀려 3줄이 된다 — 표의 행 높이는
+    // 가장 큰 칸을 따르므로 'OP성장/26·27평균' 한 칸 때문에 헤더 13칸이 전부 76px 이 됐다.
+    const headCell = (c) => {
+      const ar = `<span class="ar">${c.key===sortKey?(sortDir>0?'▲':'▼'):'↕'}</span>`;
+      const i = String(c.label).indexOf('<span class="th-sub"');
+      return i < 0 ? c.label + ar
+                   : c.label.slice(0, i) + ar + c.label.slice(i);
+    };
     el.innerHTML =
       "<thead><tr>"+cols.map(c=>
-        `<th class="${c.l?'l':''} ${c.hm?'hide-m':''} ${c.key===sortKey?'sorted':''}" data-k="${c.key}">${c.label}<span class="ar">${c.key===sortKey?(sortDir>0?'▲':'▼'):'↕'}</span></th>`
+        `<th class="${c.l?'l':''} ${c.hm?'hide-m':''} ${c.key===sortKey?'sorted':''}" data-k="${c.key}">${headCell(c)}</th>`
       ).join("")+"</tr></thead><tbody>"+
       sorted.map(r=>"<tr>"+cols.map(c=>`<td class="${c.l?'l':''} ${c.hm?'hide-m':''}">${c.render(r)}</td>`).join("")+"</tr>").join("")+
       "</tbody>";
