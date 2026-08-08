@@ -74,6 +74,12 @@ jobs:
           go=0
           if [ "$d" -le 5 ]; then
             case "$h" in 08|12|16) go=1 ;; esac
+          else
+            # 주말 분기가 없어서 토·일엔 go 가 0 으로 남아 한 번도 안 돌았다.
+            # 2026-08-08(토) 에 workflow_run 이 세 번 왔는데 전부 튕겼다.
+            # 개봉작은 주말이 흥행의 본판이라 배정이 제일 크게 움직이는 때다.
+            # 워커가 주말엔 KST 12·20 만 부르므로 그 둘을 받는다.
+            case "$h" in 12|20) go=1 ;; esac
           fi
           echo "go=$go" >> $GITHUB_OUTPUT
           [ "$go" = "1" ] && echo "KST ${h}시 - 전수조사 슬롯(4시간마다)" || echo "KST ${h}시 - 슬롯 아님, 건너뜀"

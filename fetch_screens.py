@@ -77,8 +77,26 @@ def is_peer(nm):
     return peer_key(nm) is not None
 
 
+# 체인별 Referer. 없으면 CGV 가 403 을 준다(2026-08-08 실측).
+_REFERER = {
+    "cgv.co.kr":          "https://cgv.co.kr/ticket/",
+    "lottecinema.co.kr":  "https://www.lottecinema.co.kr/NLCHS/Ticketing",
+    "megabox.co.kr":      "https://www.megabox.co.kr/bookingchoiceTheater.do",
+}
+
+
 def http_json(url, data=None, headers=None, timeout=40, tries=2):
-    h = {"User-Agent": UA, "Accept": "application/json"}
+    # ⚠ User-Agent 만 뽑아 쓰면 안 된다.
+    #   예전엔 `{"User-Agent": UA, "Accept": "application/json"}` 두 줄만 보냈는데,
+    #   2026-08-07 부터 CGV 가 그걸 403 으로 거절하기 시작했다. Accept-Language·
+    #   Referer 까지 붙은 collector_health.ua() 한 벌을 그대로 보내면 200 이 온다
+    #   (같은 시각 같은 IP 에서 실측: UA 만 → 403 / 한 벌 → 200, 상영작 36편).
+    #   CLAUDE.md 에 "새 수집기도 collector_health 를 쓸 것" 이라 적어 뒀는데
+    #   여기만 UA 한 줄만 꺼내 쓰고 있었다.
+    host = urllib.parse.urlsplit(url).netloc
+    ref = next((v for k, v in _REFERER.items() if k in host), None)
+    h = _ua(referer=ref)
+    h["Accept"] = "application/json, text/plain, */*"
     h.update(headers or {})
     req = urllib.request.Request(url, data=data, headers=h)
     last = None
@@ -270,13 +288,30 @@ def cgv(play):
 PROBE_SITES = ["0001", "0013", "0059", "0074"]
 
 
+# 탐침이 통째로 실패했을 때 쓰는 표식. '편성 안 됨'(None)과 반드시 구분한다.
+PROBE_FAILED = "probe-failed"
+
+
 def programmed(play):
-    """그 상영일에 대상 영화가 편성됐는가 (값싼 확인)."""
+    """그 상영일에 대상 영화가 편성됐는가 (값싼 확인).
+
+       True         편성됨
+       None         CGV 기준 미편성
+       PROBE_FAILED 탐침이 전부 실패 — 편성 여부를 알 수 없다
+
+       ⚠ 셋을 구분하는 게 핵심이다. 예전엔 예외를 그냥 삼키고 None 을 돌려줘서,
+         CGV 가 403 으로 막은 것이 화면에는 '미편성'으로 보였다. 그 바람에
+         2026-08-07 08:21 이후 29시간 동안 배정 데이터가 멈춰 있었는데도
+         로그에는 "미편성 — 전수 조사 생략" 만 찍혀 아무도 눈치채지 못했다."""
+    errs = 0
     for sn in PROBE_SITES:
         try:
             d = http_json(f"{CGV}/api/v1/booking/searchMovScnInfo"
                           f"?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08", tries=1)
-        except Exception:
+        except Exception as e:
+            errs += 1
+            if errs == 1:
+                print(f"  ! CGV 탐침 실패({sn}): {type(e).__name__} {str(e)[:60]}")
             continue
         hit = []
         def scan(o):
@@ -291,7 +326,9 @@ def programmed(play):
         if hit:
             return True
         _nap(0.12)
-    return None          # None = CGV 기준 미편성(다른 체인 단독 편성은 드물다)
+    if errs == len(PROBE_SITES):
+        return PROBE_FAILED   # 전부 실패 — 미편성인지 막힌 건지 알 수 없다
+    return None               # None = CGV 기준 미편성(다른 체인 단독 편성은 드물다)
 
 
 # ── 통합 ────────────────────────────────────────────────
@@ -390,7 +427,15 @@ def main():
     peer_series = {k: v for k, v in (old.get("peers") or {}).items() if k in PEER_TITLES}
     for d in dates:
         play, play_iso = d.strftime("%Y%m%d"), d.isoformat()
-        if not programmed(play):
+        pg = programmed(play)
+        if pg == PROBE_FAILED:
+            # 막힌 것을 '미편성'으로 넘기면 화면이 조용히 옛 값에 멈춘다.
+            # 기록을 남기고 이번 회차는 접는다 — 뒤 날짜도 어차피 같은 벽이다.
+            msg = f"CGV 편성 탐침이 전부 실패({play}) — 차단 가능성"
+            print(f"  ! {msg}")
+            note_health("스크린·예매", msg)
+            return
+        if not pg:
             print(f"  {play} 미편성 — 전수 조사 생략")
             continue
         # 체인별 독립 실행 — 하나가 막혀도 나머지는 간다
