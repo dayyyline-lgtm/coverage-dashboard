@@ -656,15 +656,26 @@ function makeTable(el, cols, rows, initSort){
     };
     el.innerHTML =
       "<thead><tr>"+cols.map(c=>
-        `<th class="${c.l?'l':''} ${c.hm?'hide-m':''} ${c.key===sortKey?'sorted':''}" data-k="${c.key}">${headCell(c)}</th>`
+        // 정렬 헤더는 키보드로도 눌러야 한다 — 마우스 없이는 표를 정렬할 방법이 없었다.
+        // tabindex 로 Tab 순서에 넣고, role/aria-sort 로 스크린리더가 '정렬 가능·현재 방향' 을 읽게 한다.
+        `<th class="${c.l?'l':''} ${c.hm?'hide-m':''} ${c.key===sortKey?'sorted':''}" data-k="${c.key}"`
+        + ` tabindex="0" role="button"`
+        + ` aria-sort="${c.key===sortKey?(sortDir>0?'ascending':'descending'):'none'}"`
+        + ` title="${c.key===sortKey?'정렬 방향 바꾸기':'이 열로 정렬'}">${headCell(c)}</th>`
       ).join("")+"</tr></thead><tbody>"+
       sorted.map(r=>"<tr>"+cols.map(c=>`<td class="${c.l?'l':''} ${c.hm?'hide-m':''}">${c.render(r)}</td>`).join("")+"</tr>").join("")+
       "</tbody>";
-    el.querySelectorAll("th").forEach(th=>th.onclick=(e)=>{
+    const doSort=(th,e)=>{
       if(e && e.target && e.target.closest("[data-w52toggle]")) return;  // 지표 전환 아이콘은 정렬 제외
       const k=th.dataset.k;
       if(k===sortKey) sortDir*=-1; else {sortKey=k; sortDir=(typeof rows[0][k]==="string")?1:-1;}
       render();
+      // 다시 그리면 포커스가 날아간다 — 방금 누른 열로 되돌려 놔야 연속으로 정렬할 수 있다
+      const back=el.querySelector(`th[data-k="${k}"]`); if(back) back.focus();
+    };
+    el.querySelectorAll("th").forEach(th=>{
+      th.onclick=(e)=>doSort(th,e);
+      th.onkeydown=(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); doSort(th,e); } };
     });
   }
   render();
@@ -768,7 +779,9 @@ const covCols = [
   {key:"score",label:"점수",render:r=>r.score==null?"—":`<b>${fmt(r.score,1)}</b>`},
   {key:"mktcapJo",label:"시총(억)",render:r=>`<b>${eok(mcJo(r),10000)}</b>`},
   {key:"fairMktcap",label:"견적(억)",render:r=>eok(r.fairMktcap,10)},
-  {key:"upsideOwn",label:"당사 여력",render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
+  // 개요 KPI 는 '평균 상승여력' 인데 여기만 '당사 여력' 이라 같은 값이 두 이름으로 불렸다.
+  // 이름을 맞추고, 컨센이 아니라 당사 견적 기준이라는 단서는 보조설명으로 남긴다.
+  {key:"upsideOwn",label:`상승여력<span class="th-sub">당사 견적</span>`,render:r=>r.upsideOwn==null?"—":`<span class="${cls(r.upsideOwn)}">${sign(r.upsideOwn,1)}%</span>`},
   {key:"per12mf",label:"12MF PER",render:r=>r.per12mf>0?fmt(r.per12mf)+"x":"—"},
   {key:"per26",label:"26E PER",render:r=>r.per26>0?fmt(r.per26)+"x":"—"},
   {key:"per27",label:"27E PER",hm:1,render:r=>r.per27>0?fmt(r.per27)+"x":"—"},
@@ -825,7 +838,7 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
           <span class="s-tag">${rows.length}종목</span>
           <span class="s-stat" style="margin-left:auto">평균 점수 <b>${fmt(aScore,1)}</b></span>
           <span class="s-stat">평균 12MF PER <b>${fmt(aPer)}x</b></span>
-          <span class="s-stat">평균 당사여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
+          <span class="s-stat">평균 상승여력 <b class="${cls(aUp)}">${sign(aUp)}%</b></span>
         </div>
         <div class="tbl-wrap"><table></table></div>`;
       host.appendChild(block);
@@ -950,7 +963,7 @@ function drawScatter(){
   s+=`<line x1="${pad.l}" y1="${sy(0)}" x2="${W-pad.r}" y2="${sy(0)}" stroke="${mut}" stroke-dasharray="4 4" stroke-width="1"/>`;
   pts.forEach(p=>{
     const c=catColor(CAT_OF[p.name]);
-    s+=`<circle cx="${sx(p.per12mf)}" cy="${sy(p.upsideOwn)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 12MF PER ${fmt(p.per12mf)}x · 당사 여력 ${sign(p.upsideOwn)}% · 시총 ${eok(mcJo(p),10000)}억 → 견적 ${eok(p.fairMktcap,10)}억</title></circle>`;
+    s+=`<circle cx="${sx(p.per12mf)}" cy="${sy(p.upsideOwn)}" r="${rad(p)}" fill="${c}33" stroke="${c}" stroke-width="1.5"><title>${p.name} · 12MF PER ${fmt(p.per12mf)}x · 상승여력(당사 견적) ${sign(p.upsideOwn)}% · 시총 ${eok(mcJo(p),10000)}억 → 견적 ${eok(p.fairMktcap,10)}억</title></circle>`;
     s+=`<text x="${sx(p.per12mf)}" y="${sy(p.upsideOwn)-rad(p)-3}" text-anchor="middle" font-size="10.5" fill="var(--text)" font-weight="600">${p.name}</text>`;
   });
   s+="</svg>";

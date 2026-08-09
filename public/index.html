@@ -261,8 +261,13 @@
   .news-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
   .news-grid .sector-block{margin-bottom:0}
   @media (max-width:820px){ .news-grid{grid-template-columns:1fr} }
+  /* 굵은 컬러 왼쪽 테두리(4px)를 뺐다 (2026-08-09).
+     섹터를 인코딩하는 게 아니라 88곳 전부 같은 --accent 였다 = 정보가 아니라 장식이고,
+     impeccable 탐지기가 이 저장소에서 유일하게 잡은 항목이다("1px 넘는 컬러 한쪽 테두리").
+     섹터 구분은 s-name 이 **섹터별 색**(app.js 가 style="color:..." 로 인라인)으로 이미 하고 있다 —
+     한 색뿐이던 테두리보다 정보가 많다. 즉 빼도 잃는 게 없다. */
   .sector-band{display:flex;align-items:center;flex-wrap:wrap;gap:8px 18px;padding:12px 18px;background:var(--panel2);
-    border:1px solid var(--line-soft);border-left:4px solid var(--accent);border-radius:var(--radius) var(--radius) 0 0}
+    border:1px solid var(--line-soft);border-radius:var(--radius) var(--radius) 0 0}
   .sector-band .s-name{font-weight:800;font-size:15px;letter-spacing:-.01em}
   .sector-band .s-tag{font-size:11px;color:var(--muted);background:var(--chip);border:1px solid var(--line);padding:2px 8px;border-radius:999px}
   .sector-band .s-stat{font-size:12px;color:var(--muted)}
