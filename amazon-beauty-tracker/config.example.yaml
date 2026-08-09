@@ -125,6 +125,8 @@ detail:
 
 page_delay: [4.0, 7.0]
 market_gap: [60, 90]        # 마켓 갈아탈 때 휴식(초). 막힌 마켓 뒤엔 3배      # 리스트 페이지 사이 대기 (초, 랜덤)
+retry_failed_markets: 1     # 막힌 마켓을 전 마켓 순회 뒤 한 번 더 (0=안 함)
+retry_cooldown: [180, 300]  # 재시도 전 냉각(초)
 impersonate: chrome131         # curl_cffi TLS 지문. 막히면 chrome131 등으로 고정
 
 report:

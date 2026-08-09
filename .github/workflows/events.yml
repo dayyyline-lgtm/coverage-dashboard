@@ -68,6 +68,20 @@ jobs:
           if [ -z "$DART_API_KEY" ]; then echo "DART_API_KEY 시크릿 없음"; exit 1; fi
           python fetch_events.py
 
+      # 종목 뉴스 — **레터 직전에 한 번 더 받는다** (2026-08-09 추가).
+      #
+      # 여기 없던 게 '아침 레터에 뉴스가 안 온다' 의 원인이었다. 뉴스는 refresh.yml 이
+      # 짝수 시(08~18)에만 받으므로, 06시 레터가 싣는 뉴스는 **늘 전날 18시 것**이었다.
+      # 밤사이·새벽 기사가 통째로 빠진 채 나갔다는 뜻이다.
+      #
+      # 이 워크플로는 05시에 돌고 레터(letter.yml)가 그 완료를 듣고 뜨므로,
+      # 여기서 받으면 레터가 그날 아침 기사를 싣는다.
+      # 네이버 요청량은 하루 1회분만 는다(refresh 쪽 짝수 시 수집은 그대로).
+      - name: 종목 뉴스 수집
+        continue-on-error: true
+        timeout-minutes: 6
+        run: python runstep.py "종목 뉴스" fetch_news.py
+
       # Steam 동접·리뷰(키 불필요). 매일 아침 1점씩 쌓아 게임 커버 종목의 실측 신호를 만든다.
       - name: Steam 동접·리뷰 수집
         continue-on-error: true

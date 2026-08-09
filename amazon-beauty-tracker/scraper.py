@@ -773,25 +773,67 @@ def scrape_all(cfg, brands, log=print):
 
     rows, failed = [], []
     gap = cfg.get("market_gap", [60, 90])
-    first = True
-    for market in cfg["markets"]:
-        if not market.get("enabled", True):
-            continue
-        # 마켓을 갈아탈 때 한 박자 쉰다. 예전엔 이 휴식이 브랜드 검색 블록 안에 있어서
-        # 검색을 끄면 같이 사라졌고, 6개국을 쉬지 않고 이어 두드리게 됐다.
+
+    live = [m for m in cfg["markets"] if m.get("enabled", True)]
+
+    # 마켓 순서를 날마다 한 칸씩 돌린다.
+    #
+    # 실측(2026-08-04~09 run.log): 막힌 마켓은 DE(3번째)·FR(4번째)·IT(5번째)뿐이고
+    # US·UK(1·2번째)는 한 번도 없었다. 늦게 도는 마켓일수록 그 회차에 이미 쌓인
+    # 요청량 때문에 불리하다. 순서를 고정해 두면 **늘 같은 나라만** 구멍이 나서
+    # 그 나라 시계열만 성기게 된다. 돌려 두면 손해가 고르게 퍼진다.
+    # (무작위가 아니라 날짜 기준이라 같은 날 재실행하면 순서가 같다 — 재현 가능.)
+    if len(live) > 1:
+        live = live[datetime.date.today().toordinal() % len(live):] + \
+               live[:datetime.date.today().toordinal() % len(live)]
+        log(f"[순서] {' → '.join(m['code'] for m in live)}")
+
+    def run_market(market, first):
+        """한 마켓 수집. 성공하면 True."""
         if not first:
+            # 마켓을 갈아탈 때 한 박자 쉰다. 예전엔 이 휴식이 브랜드 검색 블록 안에 있어서
+            # 검색을 끄면 같이 사라졌고, 6개국을 쉬지 않고 이어 두드리게 됐다.
             _sleep(gap)
-        first = False
         try:
-            rows += collect_market(market, brands, cfg, cache, pinned, log)
+            rows.extend(collect_market(market, brands, cfg, cache, pinned, log))
+            return True
         except BlockedError as e:
             log(f"[{market['code']}] 실패: {e}")
             failed.append((market["code"], str(e)))
             # 한 마켓이 막히면 다음 마켓도 곧 막힌다(같은 IP다). 더 길게 쉰다.
             _sleep([g * 3 for g in gap])
+            return False
         finally:
             save_cache(cache_path, cache)
             save_pinned(pin_path, pinned)
+
+    for i, market in enumerate(live):
+        run_market(market, i == 0)
+
+    # ── 실패한 마켓만 맨 끝에서 한 번 더
+    #
+    # CAPTCHA 는 `get()` 의 재시도 루프가 즉시 raise 한다(그 자리에서 다시 치면
+    # 또 CAPTCHA 만 맞고 차단 신호만 키운다 — 그 판단은 옳다). 문제는 **그 뒤로
+    # 아무 시도도 안 한다**는 것이었다. 첫 요청 한 번 운이 나쁘면 그 마켓 하루치가
+    # 통째로 날아갔다(실측: 6회차 중 4번, 늘 베스트셀러 첫 요청에서).
+    #
+    # 그래서 재시도를 '그 자리'가 아니라 **전 마켓을 다 돈 뒤**로 미룬다.
+    #   · 원래 시도와 수십 분 벌어진다 (가장 긴 냉각)
+    #   · collect_market 이 마켓마다 세션을 새로 만든다 = 쿠키·지문이 새것
+    #   · 실패가 없는 날엔 요청이 한 건도 안 는다
+    retry_n = int(cfg.get("retry_failed_markets", 1))
+    if failed and retry_n > 0:
+        # 냉각을 더 길게 잡을수록 통과율은 오르지만 아침 브리핑이 늦어진다.
+        # 3~5분 + 그 마켓 수집(~5분) = 실패한 날만 도착이 약 10분 밀린다.
+        cool = cfg.get("retry_cooldown", [180, 300])
+        stuck = [c for c, _ in failed]
+        log(f"[재시도] 막혔던 마켓 {', '.join(stuck)} — {cool[0]}~{cool[1]}초 쉬었다가 다시")
+        _sleep(cool)
+        failed.clear()
+        for i, code in enumerate(stuck):
+            market = next((m for m in live if m["code"] == code), None)
+            if market and run_market(market, i == 0):
+                log(f"[재시도] {code} 성공")
 
     retire(pinned, cfg.get("tracking", {}).get("retire_after_days", 30), today, log)
     save_pinned(pin_path, pinned)
