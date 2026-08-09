@@ -5,10 +5,30 @@ name: 데일리 레터 발송
 #   digest.py --once 가 digest_sent.json 으로 '오늘 이미 보냈는지'를 기억해,
 #   워커·cron 이 둘 다 떠도 한 통만 나간다(concurrency 로 직렬화되어 뒤 회차가 앞의 기록을 본다).
 #
-# 트리거: Cloudflare 워커(KST 06:00, 정시성) + GitHub cron(백업, 밀릴 수 있음).
+# 트리거: **수집이 끝나면 곧바로**(주 경로) + 워커/cron(백업).
+#
+# ⚠ 2026-08-09 사고 — 이 워크플로는 만들어진 뒤 **한 번도 안 돌았다**(실행 0건).
+#   8/08 새벽에 레터를 events.yml 에서 여기로 떼어냈는데, 부르는 쪽을 아무도 안 고쳤다.
+#     · morning_trigger.bat(이 PC, 실제로 유일하게 안 밀리는 트리거)은 events.yml 만 불렀다.
+#       로그에는 `OK daily-letter` 라고 찍혔다 — 성공 로그가 거짓말을 해서 더 안 보였다.
+#     · 아래 schedule 은 평일(0-4)뿐이라 분리 직후의 토·일엔 예약 자체가 없었다.
+#     · 워커는 Cloudflare Cron Trigger 에 `0 21 * * SUN-THU` 가 있어야 부른다.
+#   결과: 마지막 레터가 8/07 에 멈췄고 아무 알림도 없었다.
+#
+# 그래서 주 트리거를 **workflow_run** 으로 바꿨다. '수집이 끝나면 레터' 라는 실제 의존관계를
+# 그대로 적은 것이라, **누가 수집을 불렀든**(PC·워커·cron) 레터가 따라 나간다.
+# 트리거를 한 군데 더 만드는 대신, 이미 도는 것에 얹는 쪽이 단일 장애점을 안 만든다.
+#
+# - 수집이 실패해도 보낸다(conclusion 을 안 본다). '어제 데이터로라도 나가는 게 낫다'.
+# - 중복은 digest.py --once 가 digest_sent.json 으로 막는다 — 하루 한 통.
+# - 주말에도 나간다. 분리 전에는 PC 가 매일 불러 주말에도 왔는데, schedule(0-4)만
+#   남으면서 조용히 사라졌다. workflow_run 은 수집이 도는 날이면 같이 돈다.
 on:
+  workflow_run:
+    workflows: ["아침 데이터 수집"]
+    types: [completed]
   schedule:
-    - cron: "0 21 * * 0-4"     # KST 평일 06:00 (백업). 정시성은 워커가 담당.
+    - cron: "0 21 * * 0-4"     # KST 평일 06:00 (최후 백업). 3~12시간 밀린다.
   workflow_dispatch: {}
 
 permissions:

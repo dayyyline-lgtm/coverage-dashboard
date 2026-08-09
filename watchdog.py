@@ -90,6 +90,36 @@ def freshness(html, now):
     return bad
 
 
+# 데일리 레터가 마지막으로 나간 뒤 이만큼 지나면 알린다.
+#   레터는 매일 아침 06시경 나가므로, 보내기 직전(어제 것 기준 ~30시간)에도 안 울리게
+#   여유를 둔다. 40시간이면 '이틀째 안 왔다' 만 잡힌다.
+LETTER_LIMIT_H = 40
+SENT_PATH = "digest_sent.json"
+
+
+def letter_gap(now):
+    """데일리 레터가 끊겼는가 — (지난 시간, 마지막 발송일) 또는 None.
+
+    왜 여기서 보나
+      alert.yml 은 워크플로가 '실패'해야 알린다. 그런데 2026-08-08~09 의 사고는
+      **letter.yml 이 아예 한 번도 안 돈 것**이라 그 그물에 안 걸렸다(실행 0건).
+      안 도는 것은 실패가 아니어서, 이틀 동안 아무도 몰랐다.
+      watchdog 은 refresh.yml 에 얹혀 매시간 도니까 레터 경로가 통째로 죽어도 살아 있다.
+      **'무엇이 실패했나'가 아니라 '와야 할 것이 왔나'를 보는 눈이 하나는 있어야 한다.**
+    """
+    if not os.path.exists(SENT_PATH):
+        return None
+    try:
+        d = json.load(open(SENT_PATH, encoding="utf-8")) or {}
+    except Exception:
+        return None
+    ts = parse_ts(d.get("date") or "")      # 날짜만 있다 → 그 날 자정(KST)
+    if not ts:
+        return None
+    age = (now - ts).total_seconds() / 3600
+    return (age, d.get("date")) if age > LETTER_LIMIT_H else None
+
+
 def blocks():
     """수집기가 남긴 차단·오류 기록. {소스: {"msg":..., "t":...}}"""
     if not os.path.exists(HEALTH):
@@ -120,6 +150,14 @@ def main():
     for src, v in blk.items():
         issues["block:" + src] = (f"🚫 <b>{src}</b> 수집이 막혔습니다 — "
                                   f"{(v.get('msg') or '')[:120]}")
+    gap = letter_gap(now)
+    if gap:
+        age, last = gap
+        # 키는 반드시 '접두어:이름' 꼴로 — 관찰중/복구 표시가 k.split(":",1)[1] 을 쓴다
+        issues["letter:데일리 레터"] = (
+                           f"📮 <b>데일리 레터</b>가 안 나가고 있습니다 — "
+                            f"마지막 발송 <b>{last}</b> ({age / 24:.0f}일 전). "
+                            f"수집은 돌아도 레터만 끊길 수 있습니다(트리거가 따로입니다)")
 
     try:
         st = json.load(open(STATE, encoding="utf-8"))
@@ -163,7 +201,11 @@ def main():
 
     if not lines:
         print("[watchdog] 이상 없음 — 발송 생략")
-        json.dump(keep, open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
+        # --dry-run 은 상태 파일을 건드리면 안 된다. 여기서 쓰면 '처음 본 때'가
+        # 점검할 때마다 지금으로 밀려 지속시간이 리셋되고, 12시간을 영영 못 넘긴다.
+        # (봇이 쓰는 파일이라 로컬에서 돌릴 때마다 커밋 대상이 되는 문제도 있었다.)
+        if "--dry-run" not in sys.argv:
+            json.dump(keep, open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
         return
 
     head = "🛠 <b>대시보드 점검 알림</b>" if issues else "🛠 <b>대시보드 복구 알림</b>"

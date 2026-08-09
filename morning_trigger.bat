@@ -14,8 +14,12 @@ set LOG=%~dp0morning_trigger.log
 echo.>>"%LOG%"
 echo ===== %DATE% %TIME% =====>>"%LOG%"
 
+REM  events.yml COLLECTS ONLY since 2026-08-08. The daily letter is letter.yml,
+REM  which now fires by itself when this run completes (workflow_run trigger).
+REM  Do NOT relabel this line "daily-letter" again - that wrong label is exactly
+REM  what hid the 2026-08-09 outage: the log said OK while no letter was sent.
 %GH% workflow run events.yml --repo dayyyline-lgtm/coverage-dashboard --ref main >>"%LOG%" 2>&1
-if errorlevel 1 (echo   FAIL daily-letter>>"%LOG%") else (echo   OK   daily-letter>>"%LOG%")
+if errorlevel 1 (echo   FAIL collect ^(letter follows it^)>>"%LOG%") else (echo   OK   collect ^(letter follows it^)>>"%LOG%")
 
 %GH% workflow run daily-briefing.yml --repo dayyyline-lgtm/news-bot --ref master >>"%LOG%" 2>&1
 if errorlevel 1 (echo   FAIL news-bot>>"%LOG%") else (echo   OK   news-bot>>"%LOG%")

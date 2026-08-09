@@ -26,6 +26,7 @@
   `watchdog.py` 의 LIMITS 가 이미 '데이터 블록 등록처'다(CLAUDE.md 규칙).
   같은 목록을 두 곳에 두면 반드시 갈라진다 — 그래서 거기서 읽어 온다.
 """
+import difflib
 import json
 import os
 import re
@@ -111,6 +112,88 @@ def looks_hollow(body):
     elif isinstance(obj, list) and not obj:
         return "빈 배열입니다"
     return None
+
+
+WFDIR = ".github/workflows"
+
+
+def workflow_links():
+    """워크플로끼리 '이름·파일명' 으로 건 연결이 실재하는지 본다.
+
+    왜 이게 따로 필요한가 (2026-08-08~09 사고에서 배운 것)
+      GitHub 은 없는 이름을 가리켜도 **아무 말도 하지 않는다.** 그냥 영원히 안 걸린다.
+      실제로 두 건이 동시에 났다.
+        · alert.yml 이 개명 전 이름('아침 데이터 갱신 + 데일리 레터')을 계속 보고 있었다
+          → 수집이 실패해도 알림이 안 갔다.
+        · letter.yml 을 아무도 부르지 않아 레터가 이틀 끊겼다.
+      둘 다 '문법은 멀쩡한데 가리키는 대상이 없다' 이고, 조용해서 아무도 몰랐다.
+      이 검사가 그 부류를 통째로 막는다 — 이름을 바꾸면 즉시 배포가 막힌다.
+
+    yaml 모듈을 쓰지 않는다(precheck 는 의존성 0 이 원칙). 볼 것이 단순해서 정규식으로 충분하다.
+    """
+    out = []
+    if not os.path.isdir(WFDIR):
+        return out
+    srcs = {}
+    for fn in sorted(os.listdir(WFDIR)):
+        if fn.endswith((".yml", ".yaml")):
+            srcs[fn] = open(os.path.join(WFDIR, fn), encoding="utf-8", errors="replace").read()
+
+    names = {}
+    for fn, s in srcs.items():
+        m = re.search(r'^name:\s*(.+?)\s*$', s, re.M)
+        if m:
+            names[m.group(1).strip('"\'')] = fn
+
+    # ① workflow_run 이 가리키는 이름이 실재하는가
+    #
+    # 한 방 정규식으로는 안 된다. 이 저장소에 두 표기가 다 있고, 목록 사이에 주석도 들어간다.
+    #     workflows: ["아침 데이터 수집"]        ← 인라인 (letter.yml)
+    #     workflows:                            ← 블록 + 주석 (alert.yml)
+    #       # 설명...
+    #       - "시세 자동 갱신"
+    # 그래서 줄 단위로 읽는다. (처음엔 정규식으로 썼다가 둘 다 놓쳤다 —
+    #  하필 내가 alert.yml 에 넣은 주석이 내 검사를 무력화했다. 고장을 심어서 잡았다.)
+    for fn, s in srcs.items():
+        lines = s.splitlines()
+        for i, line in enumerate(lines):
+            m = re.match(r'^(\s*)workflows:\s*(.*)$', line)
+            if not m:
+                continue
+            indent, rest, want = len(m.group(1)), m.group(2).strip(), []
+            if rest.startswith("["):                       # 인라인 표기
+                want = [x.strip().strip('"\'') for x in rest.strip("[]").split(",")]
+            else:                                          # 블록 표기
+                for nxt in lines[i + 1:]:
+                    t = nxt.strip()
+                    if not t or t.startswith("#"):
+                        continue                           # 빈 줄·주석은 건너뛴다
+                    if not t.startswith("-") or len(nxt) - len(nxt.lstrip()) <= indent:
+                        break                              # 목록 끝
+                    want.append(t.lstrip("-").strip().strip('"\''))
+            for w in filter(None, want):
+                if w not in names:
+                    # 개명이 원인인 경우가 대부분이라, 가장 가까운 이름을 짚어 준다
+                    near = difflib.get_close_matches(w, names, n=1, cutoff=0.4)
+                    hint = f" 혹시 '{near[0]}' 입니까?" if near else ""
+                    out.append(f"{fn} 이 없는 워크플로 이름 '{w}' 을 가리킵니다 — "
+                               f"GitHub 은 조용히 무시하므로 영원히 안 걸립니다.{hint}")
+
+    # ② 바깥에서 파일명으로 부르는 것들(워커·이 PC)이 실재하는 파일인가
+    #    ⚠ 줄 단위로 본다 — 같은 줄에 다른 저장소가 적혀 있으면 여기서 확인할 수 없다.
+    #      (워커·이 PC 둘 다 뉴스봇의 daily-briefing.yml 을 부른다. 그건 별도 저장소다.)
+    for path, dec in (("cloudflare-worker/worker.js", "utf-8"),
+                      ("morning_trigger.bat", "cp949")):
+        if not os.path.exists(path):
+            continue
+        for ln, line in enumerate(open(path, "rb").read().decode(dec, "replace").splitlines(), 1):
+            if re.search(r'\b(news-bot|/[\w.-]+\.git)\b', line):
+                continue                      # 남의 저장소를 부르는 줄
+            for wf in re.findall(r'["\s]([a-z0-9_-]+\.yml)', line):
+                if wf not in srcs:
+                    out.append(f"{path}:{ln} 이 없는 워크플로 {wf} 를 부릅니다 — "
+                               f"호출이 조용히 실패합니다")
+    return out
 
 
 def main():
@@ -232,6 +315,9 @@ def main():
             if not os.path.exists(py):
                 fails.append(f"{fn} 이 없는 스크립트 {py} 를 부릅니다 — "
                              f"눌러도 아무 일이 일어나지 않습니다")
+
+    # ── 7b. 워크플로끼리 '이름'으로 건 연결이 실재하는가
+    fails += workflow_links()
 
     # ── 8. 신선도 (watchdog 의 판정을 그대로 빌린다)
     try:
