@@ -610,6 +610,10 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
         if d and d["title"]:
             details[asin] = d
             cache[f"{code}:{asin}"] = {"title": d["title"], "first_seen": today}
+            # 언제 마지막으로 '쟀는지' 를 남긴다. last_seen 은 리스트·검색에서 '보인' 날이라
+            # 다른 값이다. 회전 선택이 이 날짜를 보고 오래된 것부터 고른다.
+            if f"{code}:{asin}" in pinned:
+                pinned[f"{code}:{asin}"]["last_bsr"] = today
             return d
         return None
 
@@ -692,6 +696,34 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
     for b, asins in by_brand.items():
         todo += sorted(asins, key=_weight, reverse=True)[:per_brand]
     todo = sorted(todo, key=_weight, reverse=True)[:topn]
+
+    # ── 회전 측정: 오래 안 잰 것부터 채운다
+    #
+    # 위 선택은 **판매량 가중치 순** 이라 늘 같은 상위 ASIN 만 재고 꼬리는 영영 안 잰다.
+    # 실측(history.csv 2026-08-02~09): 3,197개를 추적한다면서 BSR 이 채워진 건
+    # 하루 0~265개(3~9%)뿐이었고, 그것도 랜덤 표본이 아니라 매번 같은 것들이었다.
+    # "순위권 밖에서도 BSR 로 추이를 잇는다" 는 이 트래커의 본체가 작동하지 않았다.
+    #
+    # rotation_cycle_days 일에 한 바퀴가 되도록 매 회차 ceil(추적수/주기) 개씩,
+    # **가장 오래 안 잰 것부터** 고른다. 마켓마다 추적수가 달라도 자동으로 맞는다.
+    # 하루 총량은 3,197/7 ≈ 457회 — 지금 일요일 버스트(536회)보다 적다.
+    # 몰아치기가 사라지므로 차단 확률 자체가 내려간다.
+    # 기본값을 7 로 둔다(설정이 없어도 켜지게). 0 을 명시하면 옛 동작으로 돌아간다.
+    cyc = int((cfg.get("tracking") or {}).get("rotation_cycle_days", 7))
+    if cyc > 0:
+        import math
+        quota = math.ceil(len(mine) / cyc)
+        picked = set(todo)
+        rest = [a for a in mine if a not in picked and a not in details]
+        # last_bsr 이 없으면 '한 번도 안 잰 것' → 가장 먼저
+        rest.sort(key=lambda a: (pinned.get(f"{code}:{a}", {}).get("last_bsr") or ""))
+        add = rest[:quota]
+        if add:
+            never = sum(1 for a in add if not pinned.get(f"{code}:{a}", {}).get("last_bsr"))
+            log(f"[{code}] 회전 측정 {len(add)}건 (추적 {len(mine)}개 / {cyc}일 주기"
+                + (f", 미측정 {never}건 우선)" if never else ")"))
+        todo += add
+
     if todo:
         log(f"[{code}] 정밀 측정(/dp/) {len(todo)}건")
     for asin in todo:

@@ -820,11 +820,22 @@ def main() -> int:
     #
     # 새로 발견된 ASIN 의 정체 확인(/dp/)만 소량 남긴다 — 이게 없으면 신규 진입 제품의
     # 브랜드를 못 가려서 리스트에 떠도 우리 브랜드인 줄 모른다.
-    if not weekly_today and (cfg.get("tracking") or {}).get("weekday_list_only", True):
-        cfg.setdefault("detail", {})["top_per_market"] = 0
+    # ⚠ 2026-08-09: '평일은 리스트만' 을 걷어냈다.
+    #
+    # 차단을 피하려고 평일 /dp/ 를 0 으로 눌러 놓았는데, 그 결과 **평일 BSR 이 0건**이 됐다
+    # (실측 8/06~08: 하루 44~45행 전부 리스트 진입분, BSR 있음 0). 대신 일요일에
+    # 536회를 몰아쳤고 CAPTCHA 는 거기서 났다. 즉 '몰아치기' 가 차단의 원인인데
+    # 그걸 유지한 채 평일 기능만 껐던 셈이다.
+    #
+    # 이제는 회전 측정(scraper 의 rotation_cycle_days)으로 **매일 조금씩** 잰다.
+    # 3,197개 / 7일 ≈ 하루 457회로, 지금 일요일 버스트보다도 적다.
+    # 주간 집계일은 여전히 깊게 판다(판매량 배지가 그날 커버리지를 정한다).
+    if not weekly_today:
+        cfg.setdefault("detail", {})["top_per_market"] = int(
+            (cfg.get("detail") or {}).get("top_per_market_weekday", 12))
         cfg.setdefault("tracking", {})["max_detail_per_run"] = int(
-            (cfg.get("tracking") or {}).get("weekday_detail_budget", 20))
-        print("[평일] 리스트만 수집 — /dp/ 정밀측정은 주간 집계일에(차단 회피)")
+            (cfg.get("tracking") or {}).get("weekday_detail_budget", 120))
+        print("[평일] 회전 측정 — 추적 ASIN 을 주기적으로 나눠 잽니다")
     if args.budget:
         cfg.setdefault("tracking", {})["max_detail_per_run"] = args.budget
     rcfg = dict(cfg.get("report") or {})

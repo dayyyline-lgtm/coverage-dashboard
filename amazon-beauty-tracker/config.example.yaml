@@ -98,7 +98,10 @@ tracking:
   weekday_list_only: true   # 평일엔 베스트셀러 리스트만. /dp/ 정밀측정은 주간 집계일에.
                             # 리스트는 요청 7건인데 /dp/ 는 ASIN 마다 한 번씩이라
                             # 요청의 대부분을 차지하고 CAPTCHA 도 거기서 난다.
-  weekday_detail_budget: 20 # 평일에 남겨 두는 /dp/ 예산 — 신규 ASIN 정체 확인용.
+  # 추적 ASIN 전부를 며칠에 한 바퀴 돌며 잴 것인가. 0 이면 회전 안 함(옛 동작).
+  # 매 회차 ceil(마켓 추적수 / 주기) 개를 '가장 오래 안 잰 것부터' 고른다.
+  rotation_cycle_days: 7
+  weekday_detail_budget: 120 # 평일 /dp/ 예산(마켓당) — 회전 몫 + 상위 가중치 몫
                             # 이게 0 이면 새로 진입한 제품의 브랜드를 못 가린다.
   max_detail_per_run: 160   # 마켓당 1회 실행 상세조회 상한 (초과분은 다음 실행에서)
   retire_after_days: 30     # 이 기간 내내 BSR도 안 잡히면 추적 해제 (단종 대응)
