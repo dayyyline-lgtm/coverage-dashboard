@@ -461,22 +461,29 @@ function drawSectorTrend(){
   const prow=document.getElementById("secPeriodSeg"); if(prow&&prow.closest(".ctl-row")) prow.closest(".ctl-row").style.display=isPort?"none":"";
   let D, keys, ref=null; const S={};
   if(usingIntraday){
-    // 매수일=0% 기준점 + 점(이미 '매수일 대비 %'라 rebase 불필요)
+    // 과거는 daily 지수(ST.idx, 매수일부터 rebase)로, 오늘만 intraday(intr.points)로 그린다.
+    // ⚠ intr.points 는 그날치만 담기고 주말·재시작에 리셋될 수 있어(2026-08-10: 1점만 남아
+    //   일별 추이가 통째로 사라졌다), 일별 히스토리를 여기 기대면 안 된다. 일별은 늘 온전한
+    //   ST.idx 에서 가져오고, intr.points 는 '오늘 장중'에만 쓴다.
     const bd=intr.buy||PORTFOLIO.date;
-    const base0={t:`${+bd.slice(4,6)}/${+bd.slice(6,8)}`,"탑픽":0,"소비재":0,"코스피":0,"코스닥":0};
+    const bi=ST.dates.indexOf(bd); const from=bi>=0?bi:0;
+    const allKeys=["탑픽","소비재","코스피","코스닥"].filter(k=>ST.idx[k]);
+    const reb={}; allKeys.forEach(k=>{ const b=ST.idx[k][from];
+      reb[k]=b?ST.idx[k].map(x=>x==null?null:(x/b-1)*100):ST.idx[k].map(()=>null); });
     const raw=intr.points||[];
-    // 지난 날은 '하루 한 점(그날 마지막=종가)'으로 접어 날짜(MM/DD)로, 오늘만 시간별 그대로 시각(HH:MM)으로.
-    // 안 그러면 시간별 점이 많은 날(예: 7점)이 1점짜리 날보다 7배 넓게 그려져 장중 추이가 과대표시되고,
-    // 라벨이 전부 HH:MM 이라 며칠치인지도 안 보인다.
-    const todayMD = raw.length ? raw[raw.length-1].t.slice(0,5) : "";
-    const byDay={}, order=[];
-    raw.forEach(p=>{ const k=(p.t||"").slice(0,5); if(!(k in byDay)){byDay[k]=[];order.push(k);} byDay[k].push(p); });
-    const pts=[{...base0,_lbl:base0.t}];
-    order.forEach(k=>{
-      if(k===todayMD) byDay[k].forEach(p=>pts.push({...p,_lbl:(p.t||"").slice(-5)}));      // 오늘: 시각
-      else { const p=byDay[k][byDay[k].length-1]; pts.push({...p,_lbl:k.replace("-","/")}); } // 지난날: 날짜(종가)
-    });
-    keys=["탑픽","소비재","코스피","코스닥"].filter(k=>pts.some(p=>p[k]!=null));
+    const todayMD = raw.length ? (raw[raw.length-1].t||"").slice(0,5) : "";   // 오늘 날짜(MM-DD)
+    const pts=[];
+    // 매수일(=0%) ~ 어제: daily 종가, 날짜(MM/DD) 라벨. 오늘 날짜는 intraday 로 대체하므로 제외.
+    for(let i=from;i<ST.dates.length;i++){
+      const md2=ST.dates[i].slice(4,6)+"-"+ST.dates[i].slice(6,8);
+      if(md2===todayMD) continue;
+      const o={_lbl:`${+ST.dates[i].slice(4,6)}/${+ST.dates[i].slice(6,8)}`};
+      allKeys.forEach(k=>o[k]=reb[k][i]); pts.push(o);
+    }
+    // 오늘 장중(intr.points 는 이미 '매수일 대비 %'), 시각(HH:MM) 라벨
+    raw.forEach(p=>{ const o={_lbl:(p.t||"").slice(-5)};
+      allKeys.forEach(k=>o[k]=(p[k]==null?null:p[k])); pts.push(o); });
+    keys=allKeys.filter(k=>pts.some(p=>p[k]!=null));
     D=pts.map(p=>p._lbl);
     keys.forEach(k=>{ S[k]=pts.map(p=>p[k]==null?null:p[k]); });
   } else {
