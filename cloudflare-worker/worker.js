@@ -8,14 +8,18 @@
  *   GH_TOKEN : GitHub Personal Access Token (repo + workflow 권한)
  *
  * Cron Triggers (Worker > Settings > Trigger Events) — 모두 UTC 기준
- *   0 20 * * SUN-THU         → 한국시간 평일 05:00 (아침 전체수집: events.yml, 트렌드 포함)
- *   0 21 * * SUN-THU         → 한국시간 평일 06:00 (데일리 레터: letter.yml + 뉴스봇)
- *                             ↑ 2026-08-07: '05시 수집 → 06시 레터' 분리. 옛 값은
- *                               `45 20 * * SUN-THU`(05:45 수집+레터 한 번에) 였다.
- *   0 22,23 * * 0-4          → 한국시간 평일 07,08시 (시세)
- *   0 0-9 * * 1-5            → 한국시간 평일 09~18시 (시세)
- *   0 3,7,11,15,19,23 * * 6  → 한국시간 주말 (시세)
- *   0 3,7,11 * * 0           → 한국시간 일요일 (시세)
+ *
+ * ⚠ **무료 플랜은 Cron Trigger 가 계정당 5개다.** 그래서 시각마다 하나씩 만들면 모자란다.
+ *   이 워커는 **실제 발화 시각**으로 분기하므로 한 트리거에 여러 시각을 묶어도 된다.
+ *
+ *   0 20,21 * * SUN-THU      → 한국시간 평일 05:00 수집(events) + 06:00 레터(letter)+뉴스봇
+ *                              ↑ 하나로 묶은 것. 옛 값 `45 20 * * SUN-THU`(05:45) 을 이걸로 교체.
+ *   0 22,23 * * SUN-THU      → 한국시간 평일 07,08시 (시세)
+ *   0 0-9 * * MON-FRI        → 한국시간 평일 09~18시 (시세)
+ *   0 3,7,11,15,19,23 * * SAT→ 한국시간 토요일 (시세)
+ *   0 3,7,11 * * SUN         → 한국시간 일요일 (시세)
+ *
+ *   요일은 이름(SUN-THU)으로 쓸 것 — Cloudflare 가 숫자(0-4)를 거부한다.
  */
 
 const OWNER = "dayyyline-lgtm";
@@ -46,17 +50,32 @@ export default {
     const token = env.GH_TOKEN;
     if (!token) { console.log("GH_TOKEN 시크릿이 없습니다"); return; }
 
-    // 어느 슬롯인가 — cron 의 '시(hour)' 로 가른다 (2026-08-07 '05시 수집→06시 레터' 분리).
-    //   시 20(UTC) = KST 05:00 → 아침 전체수집 (events.yml, 트렌드 포함)
-    //   시 21(UTC) = KST 06:00 → 데일리 레터 (letter.yml) + 뉴스봇
-    //   그 외        = 시세 (refresh.yml)
-    // 시 칸에 "20,23" 처럼 여러 값이 와도 잡히게 쉼표로 쪼개 본다.
-    // ⚠ Cloudflare Cron Trigger 를 "0 20 * * SUN-THU"(수집)·"0 21 * * SUN-THU"(레터)로 설정할 것.
-    //   시세 슬롯(22,23,0-9…)엔 20·21 이 없으므로 겹치지 않는다.
-    const [mi, hh] = String(event.cron || "").trim().split(/\s+/);
-    const hours = String(hh || "").split(",");
-    const isCollect = hours.includes("20");   // KST 05:00 — 아침 전체수집
-    const isLetter  = hours.includes("21");   // KST 06:00 — 데일리 레터
+    // 어느 슬롯인가 — **실제 발화 시각(UTC)** 으로 가른다.
+    //   20시(UTC) = KST 05:00 → 아침 전체수집 (events.yml, 트렌드 포함)
+    //   21시(UTC) = KST 06:00 → 데일리 레터 (letter.yml) + 뉴스봇
+    //   그 외      = 시세 (refresh.yml)
+    //
+    // ⚠ 2026-08-11 변경: 예전엔 **cron 문자열의 '시' 칸**을 파싱했다. 그 방식은
+    //   한 트리거에 여러 시각을 묶을 수 없다 — `0 20,21 * * SUN-THU` 로 묶으면
+    //   hours 에 "20" 이 있으니 21시에도 수집이 돌고 레터·뉴스봇은 영영 안 불린다.
+    //   그래서 시각마다 트리거를 따로 만들어야 했는데, **무료 플랜은 Cron Trigger 가
+    //   계정당 5개**라 자리가 없어 `0 21` 을 추가하지 못했다(실제로 Add 가 막혔다).
+    //
+    //   실제 발화 시각을 보면 트리거를 어떻게 묶든 분기가 정확해진다.
+    //   → `45 20 * * SUN-THU` 하나를 `0 20,21 * * SUN-THU` 로 고치면
+    //     05:00 수집 + 06:00 레터·뉴스봇이 **트리거 한 개**로 둘 다 된다.
+    //
+    //   scheduledTime 은 '예정된' 시각이라 발화가 조금 늦어도 값이 흔들리지 않는다.
+    //   혹시 없으면 옛 방식(cron 문자열)으로 떨어진다.
+    let h = -1;
+    if (event.scheduledTime) {
+      h = new Date(event.scheduledTime).getUTCHours();
+    } else {
+      const hh = String(event.cron || "").trim().split(/\s+/)[1] || "";
+      h = parseInt(hh.split(",")[0], 10);
+    }
+    const isCollect = h === 20;   // KST 05:00 — 아침 전체수집
+    const isLetter  = h === 21;   // KST 06:00 — 데일리 레터
 
     const jobs = isCollect ? ["events.yml"] : isLetter ? ["letter.yml"] : ["refresh.yml"];
     for (const wf of jobs) {
