@@ -183,16 +183,24 @@ jobs:
             *) echo "해당 시간대 아님 - 생략" ;;
           esac
 
-      # 잠정실적 — DART '영업(잠정)실적(공정공시)'. 하루 두 번이면 충분하다.
+      # 잠정실적 — DART '영업(잠정)실적(공정공시)'. 실적 알림이 여기에 달려 있다.
+      #
+      # 2026-08-21: 하루 2회(10·18시) → 장중 짝수 시(08·10·12·14·16·18)로 늘렸다.
+      #   실적 '발표'를 제때 잡는 건 네이버가 아니라 이 DART 공시다(네이버는 정식 보고서가
+      #   올라와야, 즉 분기말+45일에야 실적으로 바뀐다). notify.py 가 이 PRELIM 을 보고
+      #   알림을 쏘므로, 여기 주기가 곧 '실적 알림이 얼마나 빨리 오는가'다.
+      #   DART 는 키 있는 공식 API 라 차단 위험이 없고 사용률도 2% 수준이라 여유가 있다.
       - name: 잠정실적 수집(DART)
         if: steps.gate.outputs.go == '1'
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
-          case "${{ steps.t.outputs.d }}:${{ steps.t.outputs.h }}" in
-            [1-5]:10|[1-5]:18) python runstep.py "잠정실적" fetch_prelim.py ;;
-            *) echo "해당 시간대 아님 - 생략" ;;
-          esac
+          h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
+          if [ "$d" -le 5 ] && [ $((10#$h % 2)) -eq 0 ]; then
+            python runstep.py "잠정실적" fetch_prelim.py
+          else
+            echo "홀수 시 또는 주말 - 생략(잠정실적은 장중 2시간마다)"
+          fi
 
       # 영화 예매·박스오피스 — KOBIS 실시간 예매값은 종일 바뀌므로 주말에도 돈다.
       # 시세는 매시간이지만 KOBIS 는 2시간마다(짝수 시)만 — KOBIS 일별 조회가 러너에서

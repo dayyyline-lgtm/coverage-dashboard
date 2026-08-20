@@ -76,6 +76,19 @@ def main():
     live = json.loads(m.group(1))
     snap = live.get("consSnap") or {}
     stocks = live.get("stocks") or {}
+    # DART 잠정실적(PRELIM) — 발표를 '제때' 잡는 쪽은 이쪽이다.
+    #   네이버 재무 API 는 정식 보고서(분기말+45일)가 올라와야 그 분기를 '실적'으로 바꾼다.
+    #   그래서 네이버만 보면 회사가 발표한 지 한참 뒤에야 알림이 나갔다
+    #   (2026-08-21 실측: 앞서 발표된 4건이 8/21 아침에 몰려서 발송).
+    #   DART '영업(잠정)실적(공정공시)' 는 회사가 내는 즉시 뜨므로 fetch_prelim 이 받아 둔
+    #   PRELIM 을 같이 본다. 단위는 series 와 같은 십억원이라 그대로 비교된다.
+    prelim = {}
+    mp = re.search(r"const PRELIM = (\{.*?\});", html, re.S)
+    if mp:
+        try:
+            prelim = json.loads(mp.group(1))
+        except json.JSONDecodeError:
+            prelim = {}
 
     state = {}
     if os.path.exists(STATE_PATH):
@@ -104,6 +117,12 @@ def main():
                 continue
             # 그 분기가 '실적'으로 확정됐는지 — e=False 면 발표된 것
             act = next((s for s in series if s.get("k") == qk and not s.get("e")), None)
+            src = ""
+            if not act:
+                # 아직 정식 반영 전이면 DART 잠정실적으로 잡는다 — 발표 당일 알림이 나간다.
+                pv = (prelim.get(name) or {}).get(qk)
+                if pv and (pv.get("rev") is not None or pv.get("op") is not None):
+                    act, src = pv, " (DART 잠정)"
             if not act:
                 continue
 
@@ -125,7 +144,7 @@ def main():
                 else:
                     verdict += f" · 주가 {chg:+.1f}%"
             arrow = lambda v: "—" if v is None else f"{'+' if v > 0 else ''}{v:.1f}%"
-            msg = (f"<b>📊 {name} {qlab(qk)} 실적 발표</b>\n"
+            msg = (f"<b>📊 {name} {qlab(qk)} 실적 발표{src}</b>\n"
                    f"<code>매출  {eok(act.get('rev')):>10}억  (컨센 {eok(cons.get('rev'))}억, {arrow(sr)})\n"
                    f"영익  {eok(act.get('op')):>10}억  (컨센 {eok(cons.get('op'))}억, {arrow(so)})</code>\n"
                    f"{verdict}\n"
