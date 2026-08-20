@@ -567,9 +567,19 @@ def main():
             prev_day = (prev_live.get("asOf") or "")[:10]
         except json.JSONDecodeError:
             prev_live = None
-    today_str = datetime.datetime.now(
-        datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d")
-    deep = "--deep" in sys.argv or prev_day != today_str
+    _now_kst = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
+    today_str = _now_kst.strftime("%Y-%m-%d")
+    # 하루 첫 회차 외에 '장 마감 후'에도 컨센을 다시 받는다 (2026-08-21).
+    #   실적 발표는 대부분 장중~마감 후에 뜨는데, 컨센을 하루 첫 회차(08시)에만 받으면
+    #   그날 발표분이 다음 날 아침에야 '실적'으로 바뀐 걸 보게 된다 —
+    #   실제로 8/20 발표 4건(코스맥스·제닉·농심·롯데관광개발)이 8/21 08:06 에야 알림이 갔다.
+    #   16·18시를 추가하면 당일 마감 직후에 잡힌다(요청은 그 두 회차만 종목당 5, 나머지는 2).
+    DEEP_SLOTS = (16, 18)
+    prev_slot = (prev_live or {}).get("deepSlot") or ""
+    _slot = max([h for h in DEEP_SLOTS if _now_kst.hour >= h], default=None)
+    slot_key = f"{today_str}#{_slot}" if _slot is not None else ""
+    deep = ("--deep" in sys.argv or prev_day != today_str
+            or (slot_key and prev_slot != slot_key))
     print("수집 범위:", "전체(컨센·수익률 포함)" if deep else "시세만(컨센·수익률은 직전 값 유지)")
 
     stocks, researches, events, fails = collect(
@@ -603,6 +613,8 @@ def main():
     live = {"asOf": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M"),
             "market": market, "stocks": stocks, "researches": researches,
             "events": events}
+    # 어느 deep 슬롯까지 받았는지 기록 — 같은 슬롯에서 두 번 깊게 받지 않게 한다.
+    live["deepSlot"] = slot_key if (deep and slot_key) else prev_slot
     if sector_trend:
         live["sectorTrend"] = sector_trend
 
