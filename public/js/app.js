@@ -3273,7 +3273,7 @@ window.addEventListener("resize",()=>{
   /* 월 -> 분기 집계 */
   function agg(){
     const it=TRADE.items[itemIdx], c=it.byCountry[cIdx];
-    let M=TRADE.months.slice(), V=c.exp.slice(), P=M.map(()=>false);
+    let M=TRADE.months.slice(), V=c.exp.slice(), P=M.map(()=>false), PD=M.map(()=>0);
     /* 잠정치 덧붙이기 (단위 백만달러).
        확정치가 이미 있는 달은 건너뛴다 — 관세청 확정치가 들어오면 잠정치가 저절로 밀려난다.
        두 가지 형태를 받는다:
@@ -3291,26 +3291,30 @@ window.addEventListener("resize",()=>{
         const row=pv[ym];
         const v=(row!==null&&typeof row==="object")? row[c.code] : (c.code===""?row:undefined);
         if(v==null) return;                              // 그 국가 잠정치가 없으면 안 그린다
-        if(j>=0){ V[j]=v*1e6; P[j]=true; }               // 빈 확정치 자리를 잠정치로 채운다
-        else { M.push(ym); V.push(v*1e6); P.push(true); }   // 백만달러 -> 달러
+        // _d = '그 달 며칠까지의 누적인가'. 관세청 잠정은 10일·20일·월말 순으로 나오는데,
+        // 20일까지 누적을 월 막대로 그대로 그리면 그 달이 실제보다 작아 보이고
+        // YoY(12개월 전 '월 전체' 대비)까지 틀어진다. 그래서 부분월임을 들고 다닌다.
+        const pd=(row!==null&&typeof row==="object")? (row._d||0) : 0;
+        if(j>=0){ V[j]=v*1e6; P[j]=true; PD[j]=pd; }     // 빈 확정치 자리를 잠정치로 채운다
+        else { M.push(ym); V.push(v*1e6); P.push(true); PD.push(pd); }   // 백만달러 -> 달러
       });
     }
     /* 값이 없는 뒤쪽 달은 잘라낸다.
        관세청 API 가 아직 집계 안 된 달을 빈 값으로 주는데, 그대로 두면 그리는 쪽에서
        null 을 0 으로 바꿔 마지막에 바닥 막대가 하나 생긴다 — 수출이 0으로 무너진 것처럼 읽힌다.
        (잠정치가 채운 달은 값이 있으므로 남는다) */
-    while(V.length && V[V.length-1]==null){ V.pop(); M.pop(); P.pop(); }
-    if(period==="m") return {labels:M.map(m=>`${m.slice(2,4)}.${m.slice(4,6)}`), vals:V, keys:M, prelim:P};
+    while(V.length && V[V.length-1]==null){ V.pop(); M.pop(); P.pop(); PD.pop(); }
+    if(period==="m") return {labels:M.map(m=>`${m.slice(2,4)}.${m.slice(4,6)}`), vals:V, keys:M, prelim:P, pday:PD};
     const buckets=new Map();
     M.forEach((m,i)=>{
       const q=`${m.slice(0,4)}Q${Math.floor((+m.slice(4,6)-1)/3)+1}`;
       if(!buckets.has(q)) buckets.set(q,[]);
-      if(V[i]!=null) buckets.get(q).push(V[i]);
+      if(V[i]!=null && !PD[i]) buckets.get(q).push(V[i]);   // 부분월은 분기 합계에서 뺀다
     });
     const keys=[...buckets.keys()];
     return {labels:keys.map(k=>`${k.slice(2,4)}.${k.slice(4)}`), keys,
             vals:keys.map(k=>{const a=buckets.get(k);return a.length?a.reduce((x,y)=>x+y,0):null;}),
-            prelim:keys.map(()=>false)};
+            prelim:keys.map(()=>false), pday:keys.map(()=>0)};
   }
   /* YoY: 월별은 12개월 전, 분기별은 4분기 전 */
   function yoyOf(vals){
@@ -3320,7 +3324,9 @@ window.addEventListener("resize",()=>{
 
   function draw(){
     const it=TRADE.items[itemIdx], c=it.byCountry[cIdx];
-    const {labels,vals,prelim=[]}=agg(), yoy=yoyOf(vals);
+    const {labels,vals,prelim=[],pday=[]}=agg(), yoy=yoyOf(vals);
+    // 부분월(20일까지 등)은 전년 '월 전체'와 견주면 무조건 감소로 보인다 — YoY 를 비운다.
+    pday.forEach((d,i)=>{ if(d) yoy[i]=null; });
     document.getElementById("tradeChartTitle").textContent=`${it.label} · ${c.name}`;
     /* 집계 기준(HS 부호)을 차트 오른쪽 아래에 적는다.
        hs 는 수집기가 넣어 준 값으로, 합계 품목이면 '+'로 이어져 있다.
@@ -3394,7 +3400,7 @@ window.addEventListener("resize",()=>{
       let i=Math.round((p.x-pad.l)/plotW*labels.length-0.5);
       if(i<0||i>=labels.length){ hideTip(); return; }
       const v=shown[i], y=yoy[i];
-      tip.innerHTML=`<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정</span>`:''}</div>`
+      tip.innerHTML=`<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정${pday[i]?` ${+labels[i].slice(3)}/1~${pday[i]}일`:''}</span>`:''}</div>`
         +`<div class="tt-r"><span class="k">수출액</span><span class="v">${v==null?'—':fmt(v,1)+'<span style="color:var(--muted);font-weight:600;font-size:11px"> 백만$</span>'}</span></div>`
         +`<div class="tt-r"><span class="k">YoY</span><span class="v ${y==null?'':cls(y)}">${y==null?'—':sign(y,1)+'%'}</span></div>`;
       tip.style.display="block";
@@ -3414,7 +3420,7 @@ window.addEventListener("resize",()=>{
     document.getElementById("tradeLegend").innerHTML=
       `<div class="li"><span class="dot" style="background:var(--warn)"></span>수출액 (백만달러)</div>`+
       `<div class="li"><span class="dot" style="background:var(--up)"></span>YoY (%)</div>`+
-      (prelim.some(Boolean)?`<div class="li"><span class="dot" style="background:var(--warn);opacity:.35"></span>잠정치(관세청 발표)</div>`:"")+
+      (prelim.some(Boolean)?`<div class="li"><span class="dot" style="background:var(--warn);opacity:.35"></span>잠정치(관세청 발표)${pday.some(Boolean)?` · 마지막 달은 ${pday.filter(Boolean).slice(-1)[0]}일까지 누적(YoY 생략)`:''}</div>`:"")+
       `<div class="li" style="margin-left:auto"><small>${it.note}</small></div>`;
     // 테이블
     makeTable(document.getElementById("tradeTable"),[
