@@ -1505,6 +1505,37 @@ const TREND_STOCK={
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
+/* 탑툰챗(탑코미디어) — 웹툰 캐릭터 AI 채팅의 '일별 신규 대화수'.
+   ⚠ DAU 는 공개되지 않는다. 사이트가 공개하는 건 캐릭터별 **누적** 대화수라,
+   fetch_toptoonchat.py 가 매일 한 번 찍어 두고 여기서 **일별 증분**으로 바꾼다
+   (유튜브 조회수를 일일 증분으로 쌓는 방식과 같다). 대리지표이지 DAU 가 아니다.
+   한국·일본을 따로 둔다 — 2026년 일본(5월)·북미(7월) 진출이라 지역별 성장이 핵심이다.
+   증분은 점이 2개 이상 쌓여야 나오므로 수집 이튿날부터 그려진다. */
+(function injectToptoonChat(){
+  if(typeof TOPTOON==="undefined"||!TOPTOON.sites) return;
+  const NM={KR:"한국", JP:"일본"};
+  TOPTOON.sites.forEach(st=>{
+    const h=st.hist||[];
+    if(h.length<2) return;                      // 하루치뿐이면 증분을 못 만든다
+    const dates=[], inc=[];
+    for(let i=1;i<h.length;i++){
+      const d=(h[i].d||"").slice(5).split("-");
+      dates.push(d.length===2?`${+d[0]}/${+d[1]}`:h[i].d);
+      inc.push(Math.max(0,(h[i].chat||0)-(h[i-1].chat||0)));   // 누적이 줄면(집계 정정) 0
+    }
+    if(!inc.some(v=>v>0)) return;
+    const peak=Math.max(...inc)||1;
+    const name=`탑툰챗 대화(${NM[st.code]||st.code})`;
+    TREND.groups[name]={
+      products:["탑툰챗"], productsGoogle:["탑툰챗"],
+      months:dates, naver:[inc.map(v=>Math.round(v/peak*100))],
+      google:[inc.map(v=>Math.round(v/peak*100))],
+      only:"naver", freq:"date", peak:peak,
+      unit:"건(일 신규 대화)", srcName:"탑툰챗 · 캐릭터 대화수 일별 증분"
+    };
+    (TREND_STOCK["탑코미디어"]=TREND_STOCK["탑코미디어"]||[]).push(name);
+  });
+})();
 /* 치지직(CHZZK) 게임 시청자도 트렌드 비교 탭에 편입. 트위치가 한국을 떠나 국내 시청은
    치지직이 메인이라, Steam 동접(플레이)과 짝을 이룬다. 과거 시계열이 없어 며칠 쌓여야 뜬다. */
 (function injectChzzkTrends(){
@@ -2950,6 +2981,7 @@ const TREND_SRC_ASOF=[
   ["한국관광", ()=>(typeof TOURISM!=="undefined")&&TOURISM.asOf],
   ["방한", ()=>(typeof TOURISM!=="undefined")&&TOURISM.asOf],
   ["써클", ()=>(typeof CIRCLE!=="undefined")&&CIRCLE.asOf],
+  ["탑툰챗", ()=>(typeof TOPTOON!=="undefined")&&TOPTOON.asOf],
 ];
 function trendFresh(G){
   if(!G) return "";

@@ -131,6 +131,13 @@ jobs:
         timeout-minutes: 4
         run: python runstep.py "써클차트" fetch_circle.py
 
+      # 탑툰챗(탑코미디어 AI 챗봇) — 캐릭터별 누적 대화수를 하루 1점씩 찍어 일별 증분을 만든다.
+      # 매일 같은 시각에 받아야 증분이 깔끔하므로 아침 수집에만 둔다. 키 불필요.
+      - name: 탑툰챗 대화수 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "탑툰챗" fetch_toptoonchat.py
+
       # 트렌드 전체(네이버·구글·얀덱스). 06시 레터 前에 다 받는다.
       # 구글은 429 로 자주 막히지만 fetch_trends 가 막힌 출처는 기존값을 보존한다(데이터 손실 없음).
       - name: 트렌드 전체 갱신 (네이버·구글·얀덱스)
