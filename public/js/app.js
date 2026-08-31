@@ -1481,7 +1481,7 @@ const TREND_STOCK={
   "크래프톤":["배틀그라운드(크래프톤)"],
   "펄어비스":["펄어비스 IP"],
   "시프트업":["시프트업 IP"],
-  "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁"],   // 본업 경쟁 · 신사업 추이 · 상대위치
+  "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁","제타(경쟁)"],   // 본업 경쟁 · 신사업 추이 · 상대위치 · 경쟁사 단독
 };
 /* Steam 동접을 트렌드 비교 탭에 편입 — 게임사는 검색보다 동접·리뷰가 실측 신호라
    같은 탭에서 검색트렌드와 나란히 고르게 한다. 별도 탭을 두면 헷갈리고 과하다.
@@ -1535,6 +1535,40 @@ const TREND_STOCK={
       unit:"건(일 신규 대화)", srcName:"탑툰챗 · 캐릭터 대화수 일별 증분"
     };
     (TREND_STOCK["탑코미디어"]=TREND_STOCK["탑코미디어"]||[]).push(name);
+
+    // ② 누적 대화수 추이 — 증분이 흔들려도 '총량이 어디까지 왔나'는 이걸로 본다.
+    //    점 2개부터 그려진다(증분과 같은 조건).
+    const cum=h.map(x=>x.chat||0), cpk=Math.max(...cum)||1;
+    const cdates=h.map(x=>{const d=(x.d||"").slice(5).split("-");
+      return d.length===2?`${+d[0]}/${+d[1]}`:x.d;});
+    const cname=`탑툰챗 누적대화(${NM[st.code]||st.code})`;
+    TREND.groups[cname]={
+      products:["탑툰챗 누적"], productsGoogle:["탑툰챗 누적"],
+      months:cdates, naver:[cum.map(v=>Math.round(v/cpk*100))],
+      google:[cum.map(v=>Math.round(v/cpk*100))],
+      only:"naver", freq:"date", peak:cpk,
+      unit:"건(누적 대화)", srcName:"탑툰챗 · 캐릭터 대화수 누적"
+    };
+    TREND_STOCK["탑코미디어"].push(cname);
+
+    // ③ 캐릭터별 — 어느 캐릭터가 끌고 있나. 상위 6명만(계열이 많으면 선이 엉킨다).
+    const top=(st.chars||[]).slice(0,6).filter(c=>(c.hist||[]).length>=2);
+    if(top.length){
+      const days=[...new Set(top.flatMap(c=>(c.hist||[]).map(x=>x.d)))].sort();
+      const ser=top.map(c=>{const m={}; (c.hist||[]).forEach(x=>m[x.d]=x.chat||0);
+        return days.map(d=>m[d]==null?null:m[d]);});
+      const pk=Math.max(...ser.flat().filter(v=>v!=null),1);
+      const nm2=`탑툰챗 캐릭터별(${NM[st.code]||st.code})`;
+      TREND.groups[nm2]={
+        products:top.map(c=>c.name), productsGoogle:top.map(c=>c.name),
+        months:days.map(d=>{const p=d.slice(5).split("-"); return `${+p[0]}/${+p[1]}`;}),
+        naver:ser.map(a=>a.map(v=>v==null?null:Math.round(v/pk*100))),
+        google:ser.map(a=>a.map(v=>v==null?null:Math.round(v/pk*100))),
+        only:"naver", freq:"date", peak:pk,
+        unit:"건(누적 대화)", srcName:"탑툰챗 · 캐릭터별 누적 대화수"
+      };
+      TREND_STOCK["탑코미디어"].push(nm2);
+    }
   });
 })();
 /* 치지직(CHZZK) 게임 시청자도 트렌드 비교 탭에 편입. 트위치가 한국을 떠나 국내 시청은
