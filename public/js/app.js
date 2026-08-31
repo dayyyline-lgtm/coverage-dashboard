@@ -42,7 +42,7 @@ SECTORS.forEach(sec=>{ const subs=[..._subsBySec[sec]];
 /* 대섹터에 소섹터가 하나뿐이면 카테고리 = 대섹터명("엔터"), 여럿이면 소섹터명("기획"·"IP").
    지금 엔터는 기획 하나라 "엔터"가 쓰이지만, 소섹터를 늘리면 즉시 갈리므로 양쪽 다 넣어둔다. */
 const CAT_COLORS={"화장품":"#9370c6","유통":"#3f93a8","미용":"#c56f83","음식료":"#bd872c",
-  "엔터":"#c85b86","기획":"#c85b86","IP":"#b0507e","게임":"#3e8fb0","호텔":"#5f9e4a",
+  "엔터/미디어":"#c85b86","엔터":"#c85b86","기획":"#c85b86","IP":"#b0507e","게임":"#3e8fb0","호텔":"#5f9e4a",
   "레져":"#5f9e4a"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
 const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#908caa";
 const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -3655,7 +3655,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
   const cn=i=>{let s="",n=i+1;while(n){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}return s;};
 
   /* ---------- 색 ---------- */
-  const SEC_FILL={"소비재":"FF83CCEB","엔터":"FFF2CEEF","게임":"FFDAF2D0","호텔":"FFD0D0D0"};
+  const SEC_FILL={"소비재":"FF83CCEB","엔터/미디어":"FFF2CEEF","엔터":"FFF2CEEF","게임":"FFDAF2D0","호텔":"FFD0D0D0"};
   const RED =["FFFDF4F3","FFFCEEED","FFF9E1DF","FFF6C6C7","FFEE9D9E"];
   const BLUE=["FFF3F8FB","FFE7F0F6","FFDCE9F2","FFD0E1EE","FFBBD5E8"];
   const TITLE_BG="FF1F4E79", HDR1="FFDEDEDE", HDR2="FFF4F4F4", LINE="FF808080", LINE2="FF404040";
