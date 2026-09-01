@@ -417,6 +417,12 @@ python runstep.py "종목 뉴스" fetch_news.py
 
 ### 규칙
 
+⚠ **재주입 흐름의 함정 — `reset --soft` 는 봇 파일까지 스테이징한다 (두 번 밟음).**
+`git reset --soft origin/main` 뒤에는 '내 작업트리 전체 vs 새 HEAD' 의 차이가 전부
+스테이징된 상태다. 원격에서 봇이 방금 갱신한 파일(archive/booking.jsonl 등)도 내 옛
+로컬본으로 덮여 들어간다. **커밋 직전 `git status` 에서 내가 만지지 않은 파일이
+스테이징돼 있으면 `git restore --staged <파일>` 로 뺄 것.**
+
 **푸시가 거절되면 `git pull --rebase` 하지 말 것.** 대신:
 
 ```
