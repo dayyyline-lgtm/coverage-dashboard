@@ -2193,7 +2193,6 @@ TT_REG.forEach((r,i)=>{ r.c = TT_PAL[i % TT_PAL.length]; });
 const TT_FULL = 50;             // 랭킹 명단이 다 찬 기준. 이 아래는 '부분 집계'
 let ttPeriod = "weekly";
 let ttMode   = "abs";           // abs = 절대값 · idx = 성장(첫 기간=100)
-let ttMA     = true;            // 4주 이동평균 겹쳐 그리기
 
 function ttSite(code){
   if(typeof TOPTOON==="undefined") return null;
@@ -2324,22 +2323,6 @@ function drawToptoon(){
     if(li>=0) s+='<text x="'+(W-pad.r+8)+'" y="'+(sy(arr[li])+4)+'" font-size="11.5" font-weight="700" fill="'+c+'">'
       +TT_REG[gi].nm+'</text>';
   });
-  /* 4주 이동평균 — 주간 원본은 흔들림이 커서(한국 주간변동 표준편차 11.8%p) 추세가 안 보인다.
-     4주로 묶으면 4.5%p 로 떨어지고, 5주로 늘려도 4.3%p 라 더 나아지지 않는다 → 4주.
-     대가는 전환점을 1주 늦게 알려주는 것이라, 원본 선과 **같이** 그린다(하나만 보면 오독한다). */
-  if(ttPeriod==="weekly" && ttMA){
-    val.forEach((arr,gi)=>{
-      const c=TT_REG[gi].c, N=4, pts=[];
-      for(let i=0;i<arr.length;i++){
-        const win=arr.slice(Math.max(0,i-N+1),i+1).filter(v=>v!=null);
-        if(win.length<N) continue;                 // 창이 다 안 차면 안 그린다(가짜 시작점 방지)
-        pts.push([sx(i), sy(win.reduce((a,b)=>a+b,0)/win.length)]);
-      }
-      if(pts.length>1)
-        s+='<polyline points="'+pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")
-          +'" fill="none" stroke="'+c+'" stroke-width="3" stroke-dasharray="7 4" opacity="0.55"/>';
-    });
-  }
   s+='</svg>';
   box.innerHTML=s;
   attachChartTip(box,{W:W,H:H,pad:pad,n:keys.length,xOf:sx,html:i=>{
@@ -2664,7 +2647,6 @@ function renderToptoon(){
       [...el.querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x===b)); fn(b); }); };
   on("ttPeriodSeg", b=>{ ttPeriod=b.dataset.p; drawToptoon(); renderToptoonTable(); });
   on("ttModeSeg",   b=>{ ttMode=b.dataset.m; drawToptoon(); });
-  on("ttMASeg",     b=>{ ttMA=b.dataset.ma==="on"; drawToptoon(); });
   const pe=document.getElementById("ttPrice");
   if(pe) pe.addEventListener("input",()=>{ renderToptoonMonth(); renderToptoonModel(); });
   window.addEventListener("resize",()=>{
