@@ -2206,6 +2206,29 @@ function ttRows(code, kind){
 function ttFull(rows){ return rows.filter(r=>r.n>=TT_FULL); }
 function ttLive(code){ return (ttRows(code,"rt")||[]).slice(-1)[0]||null; }
 
+/* 월간 보기의 미발행 달 추정 — 사이트 월간 보드가 늦게 열리는 동안 주간 데이터로 미리 그린다.
+   보정식은 단순한 일수 환산이다: 월간보드 ≈ 주간합 × (달력일수 ÷ 관측주수×7).
+   실측 검증(4~7월, 3개 지역): 5월 예측 110.7% vs 실제 111.2% · 7월 88.6% vs 87.1% — 오차 1~3%.
+   비율이 들쭉날쭉해 보였던 건 전부 '4주 달 vs 5주 달' 차이였다. */
+function ttMonthlyAll(code){
+  const mon=ttRows(code,"monthly").slice();
+  if(!mon.length) return mon;                       // 보드가 하나도 없는 지역은 합성하지 않는다
+  const last=mon[mon.length-1].k;
+  const wk={};                                       // {k: {sum, weeks}}
+  ttRows(code,"weekly").forEach(w=>{
+    const m=/^(\d+)월/.exec(w.lab); if(!m) return;
+    const k="2026-"+String(+m[1]).padStart(2,"0");
+    (wk[k]=wk[k]||{sum:0,weeks:0}); wk[k].sum+=w.tot; wk[k].weeks++;
+  });
+  Object.keys(wk).sort().forEach(k=>{
+    if(k<=last) return;                              // 보드가 이미 있는 달은 실측 사용
+    const mm=+k.slice(5), days=new Date(+k.slice(0,4), mm, 0).getDate();
+    const est=wk[k].sum*days/(wk[k].weeks*7);
+    mon.push({k:k, lab:mm+"월≈", n:TT_FULL, tot:Math.round(est), est:true});
+  });
+  return mon;
+}
+
 function renderToptoonKpi(){
   const box=document.getElementById("ttKpi"); if(!box) return;
   /* 카드는 '큰 숫자 하나 + 판정 한 줄'만. 설명 문장을 카드마다 붙였더니 읽기 힘들다는
@@ -2253,10 +2276,11 @@ function drawToptoon(){
   const cs=getComputedStyle(document.documentElement);
   const gc=cs.getPropertyValue("--line").trim(), mut=cs.getPropertyValue("--muted").trim();
   const txt=cs.getPropertyValue("--text").trim();
-  const keys=[...new Set(TT_REG.flatMap(r=>ttRows(r.code,ttPeriod).map(x=>x.k)))].sort();
+  const src=g=> ttPeriod==="monthly" ? ttMonthlyAll(g.code) : ttRows(g.code,ttPeriod);
+  const keys=[...new Set(TT_REG.flatMap(r=>src(r).map(x=>x.k)))].sort();
   if(!keys.length){ box.innerHTML='<div class="ov-empty">수집된 랭킹 데이터가 없습니다.</div>';
     if(lg) lg.innerHTML=""; return; }
-  const raw=TT_REG.map(g=>{const m={}; ttRows(g.code,ttPeriod).forEach(x=>{ m[x.k]=x; });
+  const raw=TT_REG.map(g=>{const m={}; src(g).forEach(x=>{ m[x.k]=x; });
     return keys.map(k=>m[k]||null);});
   const M=keys.map((k,i)=>{const r=raw.map(a=>a[i]).find(Boolean); return ((r&&r.lab)||k).replace("주차","주");});
   const tots=keys.map((k,i)=>raw.reduce((a,arr)=>a+(arr[i]?arr[i].tot:0),0));
@@ -2279,32 +2303,44 @@ function drawToptoon(){
     const gw=Math.min(30,bw-8);
     keys.forEach((k,i)=>{
       let y=H-pad.b;
+      const isEst=raw.some(a=>a[i]&&a[i].est);
       TT_REG.forEach((g,gi)=>{
         const r=raw[gi][i]; if(!r||!r.tot) return;
         const h=(r.tot/max)*(H-pad.t-pad.b);
+        // 추정 달(보드 미발행 · 주간 환산)은 반투명 + 점선 테두리로 실측과 구분한다
         s+='<rect x="'+(sx(i)-gw/2).toFixed(1)+'" y="'+(y-h).toFixed(1)+'" width="'+gw.toFixed(1)
-          +'" height="'+Math.max(1,h).toFixed(1)+'" fill="'+g.c+'" rx="1.5"/>';
+          +'" height="'+Math.max(1,h).toFixed(1)+'" fill="'+g.c+'" rx="1.5"'
+          +(r.est?' fill-opacity="0.35" stroke="'+g.c+'" stroke-width="1.4" stroke-dasharray="4 3"':'')
+          +'/>';
         y-=h;
       });
-      // 합계 라벨 — 다 붙이면 겹치므로 끝 몇 개와 띄엄띄엄만
-      if(i===keys.length-1||i%Math.max(2,step)===0)
+      // 합계 라벨 — 다 붙이면 겹치므로 끝 몇 개와 띄엄띄엄만. 추정은 ≈ 를 붙인다
+      if(i===keys.length-1||i%Math.max(2,step)===0||isEst)
         s+='<text x="'+sx(i)+'" y="'+(y-6)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'
-          +(i===keys.length-1?txt:mut)+'">'+(tots[i]>=1000?Math.round(tots[i]/1000)+"k":tots[i])+'</text>';
+          +(i===keys.length-1||isEst?txt:mut)+'">'+(isEst?"≈":"")
+          +(tots[i]>=1000?Math.round(tots[i]/1000)+"k":tots[i])+'</text>';
     });
   }else{
     raw.forEach((arr,gi)=>{
       const c=TT_REG[gi].c;
-      let seg=[];
+      let seg=[], dashed=false;
       const flush=()=>{ if(seg.length>1)
         s+='<polyline points="'+seg.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")
-          +'" fill="none" stroke="'+c+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+          +'" fill="none" stroke="'+c+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'
+          +(dashed?' stroke-dasharray="6 4" opacity="0.75"':'')+'/>';
         seg=[]; };
-      arr.forEach((r,i)=>{ if(!r){ flush(); return; } seg.push([sx(i),sy(r.tot)]); });
-      flush();
+      arr.forEach((r,i)=>{
+        if(!r){ flush(); dashed=false; return; }
+        // 실측→추정 경계에서 선을 끊고 점선으로 이어 그린다
+        if(!!r.est!==dashed){ const tail=seg.length?seg[seg.length-1]:null;
+          flush(); dashed=!!r.est; if(tail) seg.push(tail); }
+        seg.push([sx(i),sy(r.tot)]);
+      });
+      flush(); dashed=false;
       arr.forEach((r,i)=>{ if(!r) return;
-        const partial=r.n<TT_FULL;
-        s+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(r.tot).toFixed(1)+'" r="'+(partial?2.8:2.6)+'"'
-          +(partial?' fill="none" stroke="'+c+'" stroke-width="1.6"':' fill="'+c+'"')+'/>'; });
+        const hollow=r.n<TT_FULL||r.est;
+        s+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(r.tot).toFixed(1)+'" r="'+(hollow?2.8:2.6)+'"'
+          +(hollow?' fill="none" stroke="'+c+'" stroke-width="1.6"':' fill="'+c+'"')+'/>'; });
       const li=arr.map((r,i)=>r?i:-1).filter(i=>i>=0).pop();
       if(li>=0) s+='<text x="'+(W-pad.r+8)+'" y="'+(sy(arr[li].tot)+4)+'" font-size="11.5" font-weight="700" fill="'+c+'">'
         +TT_REG[gi].nm+'</text>';
@@ -2316,7 +2352,9 @@ function drawToptoon(){
     const rows=TT_REG.map((g,gi)=>({g:g,r:raw[gi][i],p:i>0?raw[gi][i-1]:null})).filter(o=>o.r)
       .sort((a,b)=>b.r.tot-a.r.tot);
     if(!rows.length) return null;
-    let out='<div class="tt-h">'+M[i]+' · 합계 '+fmt0(tots[i])+'</div>';
+    const isEst=rows.some(o=>o.r.est);
+    let out='<div class="tt-h">'+M[i]+' · 합계 '+(isEst?"≈":"")+fmt0(tots[i])
+      +(isEst?' <span style="color:var(--muted);font-size:10.5px">주간 환산 추정</span>':"")+'</div>';
     rows.forEach(o=>{
       const d=(o.p&&o.p.tot>0&&o.p.n>=TT_FULL&&o.r.n>=TT_FULL)?(o.r.tot/o.p.tot-1)*100:null;
       out+='<div class="tt-r"><span class="k"><span class="dot" style="background:'+o.g.c
