@@ -95,10 +95,15 @@ def parse(html):
 
 
 def catalog(base):
-    """전체 캐릭터 카탈로그 -> ({id: (name, chat, view, like)}, 월별 신규 수).
+    """전체 캐릭터 + 작품 -> ({키: (name, chat, view, like)}, 월별 신규 수, 작품 수).
 
     limit 은 서버가 50 으로 자른다(100·200 을 넣어도 50). 지역당 2요청이면 끝난다.
-    startAt 이 없으면 createdAt 을 쓴다 — '언제부터 서비스에 있었나'가 우리가 보려는 것."""
+    startAt 이 없으면 createdAt 을 쓴다 — '언제부터 서비스에 있었나'가 우리가 보려는 것.
+
+    ⚠ '작품'(여러 캐릭터가 묶인 것)은 /api/characters 에 **안 들어 있다**. 별도 목록이다.
+      2026-09-01 실측: 한국 작품 2개(대화 6,057 = 카탈로그의 +0.38%)이고 일본·중화권·북미는 0개인데,
+      **둘 다 실시간 랭킹 1·2위**다. 지금은 작아도 회사가 새로 미는 포맷이라 빠질 수 없다.
+      캐릭터 id 와 겹치지 않게 'c' 접두어를 붙여 담는다(작품 6 ↔ 캐릭터 6 은 다른 것)."""
     out, new = {}, {}
     page = 1
     while True:
@@ -115,7 +120,19 @@ def catalog(base):
             break
         page += 1
         nap(0.25)
-    return out, new
+
+    ncon = 0
+    try:
+        for x in ((_api(base, "/api/content") or {}).get("items") or []):
+            out["c" + str(x.get("id"))] = (x.get("title"), x.get("chatCount"),
+                                           x.get("viewCount"), x.get("likeCount"))
+            ncon += 1
+            ym = (x.get("startAt") or x.get("createdAt") or "")[:7]
+            if ym:
+                new[ym] = new.get(ym, 0) + 1
+    except Exception:
+        pass                       # 작품이 없는 지역(일본·중화권·북미)은 그냥 넘어간다
+    return out, new, ncon
 
 
 def _snapshot(chars):
@@ -271,9 +288,9 @@ def main():
     ok_any, fails = False, []
     for code, url in SITES:
         base = url.rstrip("/")
-        chars, newmap, src = {}, {}, "cat"
+        chars, newmap, ncon, src = {}, {}, 0, "cat"
         try:
-            chars, newmap = catalog(base)
+            chars, newmap, ncon = catalog(base)
         except Exception as e:
             fails.append(f"{code} 카탈로그 {type(e).__name__} {str(e)[:40]}")
             if looks_blocked(e):
@@ -326,7 +343,8 @@ def main():
         # 카탈로그 규모와 월별 신규 캐릭터 투입 — 콘텐츠 투입은 이 사업의 비용이자 동력이다.
         # startAt 기준이라 과거가 통째로 들어온다(백필).
         if newmap:
-            s["cat"] = {"n": len(chars), "new": dict(sorted(newmap.items()))}
+            s["cat"] = {"n": len(chars), "con": ncon,     # con = 그중 '작품'(다중 캐릭터) 수
+                        "new": dict(sorted(newmap.items()))}
 
         # 캐릭터별 — 대화수 상위 CHAR_HIST 명만 시계열을 남긴다(나머지는 최신값만).
         prev = {c["id"]: c for c in (s.get("chars") or [])}

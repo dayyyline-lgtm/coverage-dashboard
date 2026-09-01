@@ -2263,7 +2263,11 @@ function renderToptoonKpi(){
       +'<div class="sm-h"><span class="dot" style="background:var(--muted)"></span>서비스 캐릭터'
       +'<span class="src">현재 카탈로그</span>'
       +'<span class="v">'+fmt0(cat.reduce((a,o)=>a+o.c.n,0))+'</span></div>'
-      +'<div class="shop-kv">'+cat.map(o=>o.r.nm+' <b>'+o.c.n+'</b>').join(" · ")+'</div></div>');
+      +'<div class="shop-kv">'+cat.map(o=>o.r.nm+' <b>'+o.c.n+'</b>'
+          // '작품' = 여러 캐릭터가 묶인 신형 포맷. 캐릭터 목록과 별도 API 라 놓치기 쉽다.
+          // 규모는 작아도 한국 실시간 랭킹 1·2위라 어디에 있는지 적어 둔다.
+          +(o.c.con?'<span class="th-sub">(작품 '+o.c.con+')</span>':"")).join(" · ")
+      +'</div></div>');
   }
   box.innerHTML = cells.length?'<div class="sm-grid">'+cells.join("")+'</div>':"";
 }
