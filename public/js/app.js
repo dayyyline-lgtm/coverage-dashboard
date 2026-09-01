@@ -2459,14 +2459,34 @@ function ttMonthly(){
   });
 }
 
+/* 자체 일간 누적 — 사이트 게시판을 기다리지 않는 우리 집계 (2026-09-02 첫 증분부터).
+   카탈로그 88명 전원 기준이라 커버리지 100% — 랭킹 게시판(상위 50, ~87%)보다 크게 나오는 게
+   정상이다. ⚠ 방당 단가(1,832원)는 랭킹 기준으로 보정된 값이라 이 계열에 곱하면 안 된다 —
+   두 계열이 몇 주 쌓여 비율이 확인되면 단가를 자체 집계 기준으로 갈아탈 수 있다. */
+function ttSelfMonthly(){
+  const out={};                        // {월: {sum, days:Set}}
+  TT_REG.forEach(g=>{
+    const st=ttSite(g.code); if(!st) return;
+    (st.hist||[]).forEach(h=>{
+      if(h.dchat==null) return;
+      const m=+h.d.slice(5,7);
+      const o=(out[m]=out[m]||{sum:0, days:new Set()});
+      o.sum+=h.dchat; o.days.add(h.d);
+    });
+  });
+  return out;
+}
+
 function renderToptoonMonth(){
   const t=document.getElementById("ttMonth"); if(!t) return;
   const rows=ttMonthly();
   if(!rows.length){ t.innerHTML=""; return; }
   const price=ttPrice();
+  const self=ttSelfMonthly();
   const body=rows.map((r,i)=>{
     const p=i>0?rows[i-1]:null;
     const mom=(p&&p.tot>0)?(r.tot/p.tot-1)*100:null;
+    const sf=self[r.m];
     const cells=TT_REG.map(g=>{
       const v=r.per[g.code], pv=p?p.per[g.code]:null;
       if(v==null) return '<td class="th-sub" style="text-align:right">—</td>';
@@ -2486,18 +2506,23 @@ function renderToptoonMonth(){
       +'<td style="text-align:right;font-weight:800" class="'+(mom==null?"":cls(mom))+'">'
         +(mom==null?"—":sign(mom,0)+"%")+'</td>'
       +'<td style="text-align:right;font-variant-numeric:tabular-nums">'
-        +(r.tot*4.33*price/1e8).toFixed(1)+'억</td></tr>';
+        +(r.tot*4.33*price/1e8).toFixed(1)+'억</td>'
+      +'<td style="text-align:right;font-variant-numeric:tabular-nums">'
+        +(sf?fmt0(sf.sum)+' <span class="th-sub">'+sf.days.size+'일</span>':'<span class="th-sub">—</span>')
+      +'</td></tr>';
   }).join("");
   t.innerHTML='<thead><tr><th>월</th>'
     +TT_REG.map(g=>'<th style="text-align:right">'+g.nm+'</th>').join("")
     +'<th style="text-align:right">합계<div class="th-sub">주평균</div></th>'
     +'<th style="text-align:right">MoM</th>'
-    +'<th style="text-align:right">월매출<div class="th-sub">추정</div></th></tr></thead><tbody>'+body+'</tbody>';
+    +'<th style="text-align:right">월매출<div class="th-sub">추정</div></th>'
+    +'<th style="text-align:right" title="사이트 게시판을 기다리지 않는 자체 집계 — 카탈로그 88명 전원의 일별 증분 합. 커버리지 100%라 랭킹 기준(상위 50, ~87%)보다 크게 나오는 게 정상">자체집계<div class="th-sub">전원·일간누적</div></th></tr></thead><tbody>'+body+'</tbody>';
   const n=document.getElementById("ttMonthNote");
   if(n) n.innerHTML='<b>주평균 기준</b>입니다 — 달마다 주 수가 달라(4·7월은 5주) 단순 합계로 MoM 을 내면 '
     +'7월→8월이 −16%로 잘못 찍힙니다. 주평균으로는 +5%입니다. · '
     +'매출 = 주평균 × 4.33주 × 방당 '+fmt0(price)+'원 · '
-    +'지역마다 마지막 주 공개가 늦을 수 있어(북미) <b>각 지역이 가진 주로만 평균</b>냅니다.';
+    +'지역마다 마지막 주 공개가 늦을 수 있어(북미) <b>각 지역이 가진 주로만 평균</b>냅니다. · '
+    +'<b>자체집계</b> = 사이트 게시판과 무관하게 우리가 매일 쌓는 값(88명 전원, 9/2 첫 증분부터) — 게시판 지연·상위50 제한이 없습니다.';
 }
 
 /* 방당 매출 단가 — 공시가 나올 때마다 재보정해야 하므로 화면에서 바꿀 수 있게 둔다.
