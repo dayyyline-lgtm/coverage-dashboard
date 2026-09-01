@@ -101,6 +101,105 @@ def _delta(base, cur):
     return dc, dv, n
 
 
+# ══════════════════════════════════════════════════════════════════
+# 랭킹 API — 여기가 이 수집기의 진짜 알맹이다 (2026-09-01 발견)
+#
+# 홈 HTML 의 누적 대화수는 '지금까지 얼마나'라 유량이 안 보이고, 명단이 흔들려 다루기 나쁘다.
+# 그런데 사이트가 랭킹 API 를 그대로 열어 두고 있다 — 키·로그인 불필요.
+#
+#   /api/ranking/realtime                    지금 이 순간 활동지수 (유량!)
+#   /api/ranking/weekly?periodKey=2026-28     주간 · 캐릭터 50명 + score
+#   /api/ranking/monthly?periodKey=2026-07    월간
+#   /api/ranking/{weekly,monthly}/periods     ★ 과거 기간 목록 = 백필이 된다
+#   /api/ranking/user/weekly?periodKey=...    유저 랭킹(30명) · isNew = 신규 진입
+#
+# 백필 실측(2026-09-01): KR 주간 22주(4월 1주~), JP 14주(5월 4주~ = 일본 진출 시점과 일치).
+# 다른 수집기 대부분이 '오늘부터 한 점씩'인데 이건 넉 달치를 한 번에 받는다.
+#
+# ⚠ tot 는 '상위 n명의 활동지수 합'이지 서비스 전체 활동량이 아니다.
+#   초기엔 n 이 27~46 이라 50 이 찬 주차와 직접 비교하면 안 된다(그래서 n 을 같이 저장한다).
+# 기간마다 남길 상위 캐릭터 수. 화면은 8명만 보여주지만 더 깊게 저장한다 —
+# 주간 상위권 회전이 빨라서 12 로는 '이번 주 4위'가 직전 주 목록에 없는 일이 잦고,
+# 그러면 순위변동을 '신규'로 오해하게 된다(실제로는 13위에서 올라온 것).
+RANK_TOP = 20
+RANK_REFRESH = 2           # 최신 N개 기간은 아직 집계 중일 수 있어 매번 다시 받는다
+
+
+def _api(base, path):
+    req = urllib.request.Request(base + path, headers=ua(referer=base))
+    r = urllib.request.urlopen(req, timeout=30)
+    raw = r.read()
+    if r.headers.get("Content-Encoding") == "gzip":
+        raw = gzip.decompress(raw)
+    d = json.loads(raw.decode("utf-8", "replace"))
+    if not d.get("success"):
+        raise RuntimeError(str(d.get("error"))[:60])
+    return d.get("data")
+
+
+def _row(k, lab, items):
+    return {"k": k, "lab": lab or k, "n": len(items),
+            "tot": sum(x.get("score") or 0 for x in items),
+            "top": [{"id": x.get("characterId"), "nm": x.get("name"),
+                     "s": x.get("score"), "kind": x.get("kind")}
+                    for x in items[:RANK_TOP]]}
+
+
+def _periods(base, kind, have):
+    """kind = weekly | monthly. 이미 받은 기간은 건너뛴다 — 첫 실행만 무겁다."""
+    pers = _api(base, f"/api/ranking/{kind}/periods") or []      # 최신순
+    fresh = {p["periodKey"] for p in pers[:RANK_REFRESH]}
+    out = dict(have)
+    got = 0
+    for p in pers:
+        k = p["periodKey"]
+        have_k = out.get(k)
+        # RANK_TOP 을 늘렸을 때 옛 기간이 얕은 채로 남지 않도록 스스로 다시 받는다.
+        # (n 이 RANK_TOP 보다 작았던 기간은 더 받을 게 없으므로 제외)
+        shallow = bool(have_k) and len(have_k.get("top") or []) < min(RANK_TOP, have_k.get("n") or 0)
+        if have_k and k not in fresh and not shallow:
+            continue
+        d = _api(base, f"/api/ranking/{kind}?periodKey={k}") or {}
+        out[k] = _row(k, p.get("label"), d.get("items") or [])
+        got += 1
+        nap(0.25)
+    return [out[k] for k in sorted(out)], got
+
+
+def _users(base, have):
+    """유저 주간 랭킹 — 이름은 안 쌓는다. 필요한 건 '몇 명이 랭크됐고 몇 명이 신규냐'뿐이다."""
+    pers = _api(base, "/api/ranking/user/weekly/periods") or []
+    fresh = {p["periodKey"] for p in pers[:RANK_REFRESH]}
+    out = dict(have)
+    for p in pers:
+        k = p["periodKey"]
+        if k in out and k not in fresh:
+            continue
+        it = (_api(base, f"/api/ranking/user/weekly?periodKey={k}") or {}).get("items") or []
+        out[k] = {"k": k, "lab": p.get("label") or k, "n": len(it),
+                  "new": sum(1 for x in it if x.get("isNew"))}
+        nap(0.25)
+    return [out[k] for k in sorted(out)]
+
+
+def rank(base, prev, today, hhmm):
+    """사이트 하나의 랭킹 묶음. 실패해도 캐릭터 수집을 죽이지 않도록 호출부에서 감싼다."""
+    prev = prev or {}
+    idx = lambda key: {r["k"]: r for r in (prev.get(key) or [])}
+    weekly,  gw = _periods(base, "weekly",  idx("weekly"))
+    monthly, gm = _periods(base, "monthly", idx("monthly"))
+    users = _users(base, idx("users"))
+
+    # 실시간 — 하루 1점. 롤링 윈도 스냅샷이라 매일 같은 시각에 찍어야 비교가 된다.
+    # 그래서 수집 시각(t)을 같이 남긴다 — 나중에 '이 점은 몇 시 것'인지 알아야 한다.
+    it = (_api(base, "/api/ranking/realtime") or {}).get("items") or []
+    r = _row(today, hhmm, it)
+    rt = [x for x in (prev.get("rt") or []) if x.get("d") != today]
+    rt.append({"d": today, "t": hhmm, "n": r["n"], "tot": r["tot"], "top": r["top"]})
+    return {"weekly": weekly, "monthly": monthly, "users": users,
+            "rt": rt[-DAYS:]}, (gw + gm)
+
+
 def _put(html, name, obj):
     """해당 상수 블록만 교체. 없으면 LIVE 뒤에 새로 삽입한다."""
     block = "const %s = %s;" % (name, json.dumps(obj, ensure_ascii=False, separators=(",", ":")))
@@ -187,6 +286,18 @@ def main():
                          "like": like, "hist": ph[-DAYS:]})
         s["chars"] = newc
         s["url"] = url
+
+        # 랭킹 — 실패해도 위의 캐릭터 수집은 살린다(둘은 별개 경로다).
+        try:
+            base = url.rstrip("/")
+            s["rank"], got = rank(base, s.get("rank"), today, now.strftime("%H:%M"))
+            wk = s["rank"]["weekly"]
+            print(f"  {code} 랭킹: 주간 {len(wk)}주(새로 {got}개) · "
+                  f"실시간 활동지수 {s['rank']['rt'][-1]['tot']:,}"
+                  + (f" · 최근주 {wk[-1]['lab']} {wk[-1]['tot']:,}" if wk else ""))
+        except Exception as e:
+            fails.append(f"{code} 랭킹 {type(e).__name__} {str(e)[:50]}")
+
         sites[code] = s
         print(f"  {code} 캐릭터 {len(chars)}명 · 대화 누적 {tot_chat:,} · 조회 누적 {tot_view:,}")
 
