@@ -1481,7 +1481,7 @@ const TREND_STOCK={
   "크래프톤":["배틀그라운드(크래프톤)"],
   "펄어비스":["펄어비스 IP"],
   "시프트업":["시프트업 IP"],
-  "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁","제타(경쟁)"],   // 본업 경쟁 · 신사업 추이 · 상대위치 · 경쟁사 단독
+  "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁","제타(경쟁)","네오나(경쟁)"],   // 본업 경쟁 · 신사업 추이 · 상대위치 · 경쟁사 단독
 };
 /* Steam 동접을 트렌드 비교 탭에 편입 — 게임사는 검색보다 동접·리뷰가 실측 신호라
    같은 탭에서 검색트렌드와 나란히 고르게 한다. 별도 탭을 두면 헷갈리고 과하다.
@@ -1511,45 +1511,50 @@ const TREND_STOCK={
    fetch_toptoonchat.py 가 매일 한 번 찍어 두고 여기서 **일별 증분**으로 바꾼다
    (유튜브 조회수를 일일 증분으로 쌓는 방식과 같다). 대리지표이지 DAU 가 아니다.
    한국·일본을 따로 둔다 — 2026년 일본(5월)·북미(7월) 진출이라 지역별 성장이 핵심이다.
+   ⚠ 여기서 합계끼리 빼지 말 것. 합계는 '그날 홈에 노출된 캐릭터들의 합' 이라
+   한 명이 홈에서 빠지면 그 사람 누적치가 통째로 사라져 증분이 음수가 된다
+   (2026-09-01 실측: 개별은 전부 늘었는데 KR 합계는 대화 -3,284 · 조회 -144,392).
+   그래서 증분은 fetch_toptoonchat.py 가 '어제·오늘 둘 다 있는 캐릭터'로 계산해
+   hist[].dchat 에 넣어 둔다. 누적도 같은 이유로 조정누적(cchat)을 쓴다.
    증분은 점이 2개 이상 쌓여야 나오므로 수집 이튿날부터 그려진다. */
 (function injectToptoonChat(){
   if(typeof TOPTOON==="undefined"||!TOPTOON.sites) return;
   const NM={KR:"한국", JP:"일본"};
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
   TOPTOON.sites.forEach(st=>{
     const h=st.hist||[];
-    if(h.length<2) return;                      // 하루치뿐이면 증분을 못 만든다
-    const dates=[], inc=[];
-    for(let i=1;i<h.length;i++){
-      const d=(h[i].d||"").slice(5).split("-");
-      dates.push(d.length===2?`${+d[0]}/${+d[1]}`:h[i].d);
-      inc.push(Math.max(0,(h[i].chat||0)-(h[i-1].chat||0)));   // 누적이 줄면(집계 정정) 0
-    }
-    if(!inc.some(v=>v>0)) return;
-    const peak=Math.max(...inc)||1;
-    const name=`탑툰챗 대화(${NM[st.code]||st.code})`;
-    TREND.groups[name]={
-      products:["탑툰챗"], productsGoogle:["탑툰챗"],
-      months:dates, naver:[inc.map(v=>Math.round(v/peak*100))],
-      google:[inc.map(v=>Math.round(v/peak*100))],
-      only:"naver", freq:"date", peak:peak,
-      unit:"건(일 신규 대화)", srcName:"탑툰챗 · 캐릭터 대화수 일별 증분"
-    };
-    (TREND_STOCK["탑코미디어"]=TREND_STOCK["탑코미디어"]||[]).push(name);
+    const add=(nm,obj)=>{ TREND.groups[nm]=obj;
+      (TREND_STOCK["탑코미디어"]=TREND_STOCK["탑코미디어"]||[]).push(nm); };
 
-    // ② 누적 대화수 추이 — 증분이 흔들려도 '총량이 어디까지 왔나'는 이걸로 본다.
-    //    점 2개부터 그려진다(증분과 같은 조건).
-    const cum=h.map(x=>x.chat||0), cpk=Math.max(...cum)||1;
-    const cdates=h.map(x=>{const d=(x.d||"").slice(5).split("-");
-      return d.length===2?`${+d[0]}/${+d[1]}`:x.d;});
-    const cname=`탑툰챗 누적대화(${NM[st.code]||st.code})`;
-    TREND.groups[cname]={
-      products:["탑툰챗 누적"], productsGoogle:["탑툰챗 누적"],
-      months:cdates, naver:[cum.map(v=>Math.round(v/cpk*100))],
-      google:[cum.map(v=>Math.round(v/cpk*100))],
-      only:"naver", freq:"date", peak:cpk,
-      unit:"건(누적 대화)", srcName:"탑툰챗 · 캐릭터 대화수 누적"
-    };
-    TREND_STOCK["탑코미디어"].push(cname);
+    // ① 일별 증분 — 교집합 기준. dchat 이 없는 옛 점(구조 변경 전)은 그냥 건너뛴다.
+    const dr=h.filter(x=>x.dchat!=null);
+    if(dr.length && dr.some(x=>x.dchat>0)){
+      const inc=dr.map(x=>x.dchat), peak=Math.max(...inc)||1;
+      const nc=dr[dr.length-1].nc;
+      add(`탑툰챗 대화(${NM[st.code]||st.code})`,{
+        products:["탑툰챗"], productsGoogle:["탑툰챗"],
+        months:dr.map(x=>md(x.d)),
+        naver:[inc.map(v=>Math.round(v/peak*100))],
+        google:[inc.map(v=>Math.round(v/peak*100))],
+        only:"naver", freq:"date", peak:peak,
+        unit:"건(일 신규 대화)",
+        srcName:`탑툰챗 · 전일 대비 신규 대화(공통 캐릭터 ${nc}명 기준)`
+      });
+    }
+
+    // ② 조정 누적 — 원합계(chat)는 명단이 바뀌면 꺾이므로 증분을 더해 올린 cchat 을 쓴다.
+    const cr=h.filter(x=>x.cchat!=null);
+    if(cr.length>=2){
+      const cum=cr.map(x=>x.cchat), cpk=Math.max(...cum)||1;
+      add(`탑툰챗 누적대화(${NM[st.code]||st.code})`,{
+        products:["탑툰챗 누적"], productsGoogle:["탑툰챗 누적"],
+        months:cr.map(x=>md(x.d)),
+        naver:[cum.map(v=>Math.round(v/cpk*100))],
+        google:[cum.map(v=>Math.round(v/cpk*100))],
+        only:"naver", freq:"date", peak:cpk,
+        unit:"건(누적 대화)", srcName:"탑툰챗 · 조정 누적(증분 합산)"
+      });
+    }
 
     // ③ 캐릭터별 — 어느 캐릭터가 끌고 있나. 상위 6명만(계열이 많으면 선이 엉킨다).
     const top=(st.chars||[]).slice(0,6).filter(c=>(c.hist||[]).length>=2);
@@ -1558,18 +1563,57 @@ const TREND_STOCK={
       const ser=top.map(c=>{const m={}; (c.hist||[]).forEach(x=>m[x.d]=x.chat||0);
         return days.map(d=>m[d]==null?null:m[d]);});
       const pk=Math.max(...ser.flat().filter(v=>v!=null),1);
-      const nm2=`탑툰챗 캐릭터별(${NM[st.code]||st.code})`;
-      TREND.groups[nm2]={
+      add(`탑툰챗 캐릭터별(${NM[st.code]||st.code})`,{
         products:top.map(c=>c.name), productsGoogle:top.map(c=>c.name),
-        months:days.map(d=>{const p=d.slice(5).split("-"); return `${+p[0]}/${+p[1]}`;}),
+        months:days.map(md),
         naver:ser.map(a=>a.map(v=>v==null?null:Math.round(v/pk*100))),
         google:ser.map(a=>a.map(v=>v==null?null:Math.round(v/pk*100))),
         only:"naver", freq:"date", peak:pk,
         unit:"건(누적 대화)", srcName:"탑툰챗 · 캐릭터별 누적 대화수"
-      };
-      TREND_STOCK["탑코미디어"].push(nm2);
+      });
     }
   });
+})();
+/* AI 캐릭터 챗봇 앱 순위 — 탑툰챗의 경쟁 지형을 '검색'이 아니라 '돈'으로 본다.
+   ⚠ 탑툰챗은 앱이 없다(웹 전용) → 이 순위에 안 잡힌다. 탑툰챗 자체 사용량은 위
+   injectToptoonChat(홈페이지 실측)이 담당하고, 여기서는 경쟁자 위치와 탑툰 본체 앱을 본다.
+   왜 앱순위인가: '크랙'은 소프트웨어 크랙과 동음이의어라 검색량이 통째로 오염되고,
+   이 시장은 이미 유료 구독으로 돈을 벌고 있어 매출순위가 훨씬 직접적이다.
+   순위는 작을수록 상위라 그대로 그리면 거꾸로 보인다 → 101-순위 로 뒤집어 그리고,
+   실제 순위는 rawSer 로 넘겨 툴팁에 '10위' 로 찍는다. Top100 밖은 null(선이 끊긴다). */
+(function injectAiChatRank(){
+  if(typeof AICHAT==="undefined"||!AICHAT.apps) return;
+  const days=[...new Set(AICHAT.apps.flatMap(a=>(a.hist||[]).map(x=>x.d)))].sort();
+  if(days.length<1) return;
+  const mm=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const add=(name, apps, key, note)=>{
+    const rows=apps.map(a=>{
+      const m={}; (a.hist||[]).forEach(x=>{ if(x[key]!=null) m[x.d]=x[key]; });
+      return {a, raw:days.map(d=>m[d]==null?null:m[d])};
+    }).filter(r=>r.raw.some(v=>v!=null))
+      // 지금 순위가 높은(작은) 것부터 — 범례·색 순서가 차트 위아래와 맞는다
+      .sort((x,y)=>{const lx=[...x.raw].reverse().find(v=>v!=null)||999,
+                          ly=[...y.raw].reverse().find(v=>v!=null)||999; return lx-ly;})
+      .slice(0,6);
+    if(!rows.length) return;
+    const lbl=rows.map(r=>r.a.co&&r.a.co!=="—"?`${r.a.n}(${r.a.co})`:r.a.n);
+    const ser=rows.map(r=>r.raw.map(v=>v==null?null:101-v));
+    TREND.groups[name]={
+      products:lbl, productsGoogle:lbl,
+      months:days.map(mm), naver:ser, google:ser, rawSer:rows.map(r=>r.raw),
+      only:"naver", freq:"date", unitShort:"위", srcName:note,
+      // 차트는 101-순위 로 뒤집어 그리지만, 범례·표에는 실제 순위를 적는다.
+      fmt:v=>(v==null?"—":(101-v)+"위")
+    };
+    (TREND_STOCK["탑코미디어"]=TREND_STOCK["탑코미디어"]||[]).push(name);
+  };
+  const ent=AICHAT.apps.filter(a=>a.g===6016), book=AICHAT.apps.filter(a=>a.g===6018);
+  add("AI챗 앱 매출순위", ent, "gr",
+      "애플 앱스토어(한국) 엔터테인먼트 매출 Top100 · 위로 갈수록 상위 · 100위권 밖은 끊김");
+  add("AI챗 앱 무료순위", ent, "fr",
+      "애플 앱스토어(한국) 엔터테인먼트 무료 Top100 · 위로 갈수록 상위 · 신규 유입/화제성");
+  add("웹툰앱 순위(도서)", book, "fr",
+      "애플 앱스토어(한국) 도서 무료 Top100 · 위로 갈수록 상위 · 탑툰 본체 앱");
 })();
 /* 치지직(CHZZK) 게임 시청자도 트렌드 비교 탭에 편입. 트위치가 한국을 떠나 국내 시청은
    치지직이 메인이라, Steam 동접(플레이)과 짝을 이룬다. 과거 시계열이 없어 며칠 쌓여야 뜬다. */
@@ -1900,7 +1944,9 @@ function drawTrend(){
     return;
   }
   const W=box.clientWidth||1000, H=360, pad={l:44,r:70,t:16,b:36};
-  const sx=i=>pad.l+i/(M.length-1)*(W-pad.l-pad.r);
+  // 점이 하나뿐인 계열(수집 첫날의 앱순위 등)은 M.length-1 == 0 이라 0/0 = NaN 이 된다.
+  // 그러면 <polyline points="NaN,.."> 로 SVG 가 통째로 깨진다. 그땐 가운데에 점 하나만 찍는다.
+  const sx=i=>M.length<2?pad.l+(W-pad.l-pad.r)/2:pad.l+i/(M.length-1)*(W-pad.l-pad.r);
   const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
   for(let g=0;g<=4;g++){const v=g*25;const y=sy(v);
@@ -1922,13 +1968,16 @@ function drawTrend(){
      얀덱스 그룹(peak)은 100 이 실제 몇 건인지 알고 있으므로 절대 건수도 같이 적는다. */
   attachChartTip(box,{W,H,pad,n:M.length,xOf:sx,html:i=>{
     const rows=series.map((ser,pi)=>({p:PRODUCTS[pi],c:TREND.colors[pi],v:ser[i],
-        d:(i>0&&ser[i-1]>0&&ser[i]!=null)?(ser[i]/ser[i-1]-1)*100:null}))
+        /* rawSer: 0-100 정규화 전의 실제 값. 순위처럼 peak 로 역산이 안 되는 계열이 쓴다. */
+        r0:(G.rawSer&&G.rawSer[pi])?G.rawSer[pi][i]:null,
+        /* 순위 계열(rawSer)은 전기간비 %가 뜻이 없다 — 10위→12위가 '-2.2%' 로 읽힌다. */
+        d:(!G.rawSer&&i>0&&ser[i-1]>0&&ser[i]!=null)?(ser[i]/ser[i-1]-1)*100:null}))
       .filter(r=>r.v!=null)
       .sort((a,b)=>b.v-a.v);                 // 큰 것부터 — 차트에서 위에 있는 선 순서와 같다
     if(!rows.length) return null;
     return `<div class="tt-h">${M[i]}</div>`+rows.map(r=>
       `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
-      +`<span class="v">${r.v}${G.peak?`<span style="color:var(--muted);font-weight:600;font-size:10.5px"> · ${fmt0(r.v*G.peak/100)}건</span>`:""}`
+      +`<span class="v">${r.r0!=null?"":r.v}${(r.r0!=null||G.peak)?`<span style="color:var(--muted);font-weight:600;font-size:10.5px">${r.r0!=null?"":" · "}${fmt0(r.r0!=null?r.r0:r.v*G.peak/100)}${G.unitShort||"건"}</span>`:""}`
       +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}</span></div>`).join("");
   }});
   fillTrendLegendTable(G, PRODUCTS, series, M, U);
@@ -2017,8 +2066,9 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       const ser=series[i];
       const cur=G.snapshot?Math.max(...ser):ser[ser.length-1];   // 스냅샷(회사별 막대)은 자기 회사 칸 값
       const base=G.snapshot?0:ser[ser.length-2];
-      const mom=(base>0)?((ser[ser.length-1]/base-1)*100):null;
-      const momTxt=G.snapshot?"":` · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}`;
+      const mom=(!G.rawSer&&base>0)?((ser[ser.length-1]/base-1)*100):null;
+      // 순위 계열(rawSer)은 %가 뜻이 없다 — 10위→12위를 '-2.2%' 로 적으면 오독한다.
+      const momTxt=(G.snapshot||G.rawSer)?"":` · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}`;
       // 계열마다 출처가 섞인 그룹에서만 출처를 붙인다(러시아=얀덱스 같은 경우)
       const mixed=G.srcOf && new Set(G.srcOf).size>1;
       const tag=mixed?` <small class="th-sub">${G.srcOf[i]}</small>`:"";
@@ -2060,7 +2110,9 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   ], PRODUCTS.map((p,i)=>{
     const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];
     const bk=ser.length>back?ser[ser.length-1-back]:null;
-    return {p,color:COL[i],cur,m3:bk,mom:prev>0?(cur/prev-1)*100:null,q:(bk>0)?(cur/bk-1)*100:null};
+    const pct=!G.rawSer;   // 순위 계열은 증감률 칸을 비운다(위 momTxt 와 같은 이유)
+    return {p,color:COL[i],cur,m3:bk,mom:(pct&&prev>0)?(cur/prev-1)*100:null,
+            q:(pct&&bk>0)?(cur/bk-1)*100:null};
   }), {key:"cur",dir:-1});
 }
 /* ==== 해외 쇼핑몰 수요 (SHOP) ====

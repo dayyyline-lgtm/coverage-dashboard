@@ -138,6 +138,13 @@ jobs:
         timeout-minutes: 4
         run: python runstep.py "탑툰챗" fetch_toptoonchat.py
 
+      # AI 캐릭터 챗봇 앱 순위(애플 RSS, 키 불필요) — 탑툰챗 경쟁 지형 + 탑툰 본체 앱.
+      # '크랙'은 검색어가 소프트웨어 크랙과 겹쳐 오염되므로 추이는 여기(매출순위)로 본다.
+      - name: AI챗 앱순위 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "AI챗 앱순위" fetch_aichat.py
+
       # 트렌드 전체(네이버·구글·얀덱스). 06시 레터 前에 다 받는다.
       # 구글은 429 로 자주 막히지만 fetch_trends 가 막힌 출처는 기존값을 보존한다(데이터 손실 없음).
       - name: 트렌드 전체 갱신 (네이버·구글·얀덱스)
@@ -170,7 +177,10 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/index.html spotify_debug.json archive 2>/dev/null || true
+          # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
+          # 그래서 탑툰챗이 8/31~9/1 내내 죽어 있었는데 watchdog 도 나도 이유를 못 봤다.
+          # (refresh.yml·screens.yml 은 이미 커밋하고 있었다 — 여기만 빠져 있었다.)
+          git add public/index.html spotify_debug.json archive health.json watchdog_state.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else

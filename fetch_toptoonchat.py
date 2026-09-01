@@ -11,6 +11,17 @@
   매일 한 번 찍어 두고 **일별 증분**을 만든다 — 그게 '하루에 대화가 몇 건 새로 시작됐나'다.
   DAU 그 자체가 아니라 대리지표다. (유튜브 조회수를 일일 증분으로 쌓는 방식과 같다.)
 
+⚠ 합계끼리 빼면 안 된다 (2026-09-01 실측)
+  합계는 '그날 홈에 노출된 캐릭터들의 합' 이다. 누적값이 단조증가하는 건 **캐릭터별로만**이고,
+  한 명이 홈에서 빠지면 그 사람 누적치가 통째로 사라져 합계가 줄어든다.
+
+      KR  08-31 대화 1,320,016 (51명) → 09-01 1,316,732 (50명)   합계 -3,284
+          같은 날 개별은 전부 증가 (신아영 +349 · 한나리 +316 · 장선영 +411 · 박채원 +675)
+
+  그래서 증분은 **어제·오늘 둘 다 있는 캐릭터(교집합)** 로만 낸다 → hist 의 dchat·dview.
+  그러려면 상위 16명뿐 아니라 **전 캐릭터의 직전값**이 필요하다 → sites[].snaps (최근 2일).
+  누적 그래프도 원합계를 쓰면 같은 이유로 꺾이므로, 증분을 더해 올린 조정누적(cchat)을 쓴다.
+
 수집 방법
   홈페이지 HTML 안 Next.js flight 페이로드에 캐릭터 배열이 그대로 들어 있다(브라우저 불필요).
   한 번 요청에 캐릭터 80~90개가 잡힌다(홈에 노출된 것 기준. 전체 목록은 아니다).
@@ -19,7 +30,7 @@
   python fetch_toptoonchat.py            # 수집·기록
   python fetch_toptoonchat.py --dry-run  # 출력만
 """
-import re, json, sys, gzip, datetime, urllib.request
+import re, json, sys, gzip, copy, datetime, urllib.request
 
 from collector_health import ua, nap, note_health, looks_blocked
 
@@ -69,6 +80,27 @@ def parse(html):
     return out
 
 
+def _snapshot(chars):
+    """{id: [대화, 조회]} — 교집합 증분에 쓸 '전 캐릭터' 스냅샷.
+       화면용 chars 는 상위 16명만 남기지만, 증분 계산은 전원이 있어야 정확하다."""
+    return {cid: [c[1] or 0, c[2] or 0] for cid, c in chars.items()}
+
+
+def _delta(base, cur):
+    """어제·오늘 둘 다 있는 캐릭터만 더해 (대화증분, 조회증분, 교집합 인원)."""
+    dc = dv = 0
+    n = 0
+    for cid, v in cur.items():
+        b = base.get(cid)
+        if not b:
+            continue                       # 오늘 새로 뜬 캐릭터 — 증분을 알 수 없다
+        n += 1
+        # 개별 누적이 줄면 사이트 집계 정정이다. 음수를 그대로 더하면 총합이 오염된다.
+        dc += max(0, v[0] - b[0])
+        dv += max(0, v[1] - b[1])
+    return dc, dv, n
+
+
 def _put(html, name, obj):
     """해당 상수 블록만 교체. 없으면 LIVE 뒤에 새로 삽입한다."""
     block = "const %s = %s;" % (name, json.dumps(obj, ensure_ascii=False, separators=(",", ":")))
@@ -93,7 +125,12 @@ def main():
         except json.JSONDecodeError:
             old = {}
 
-    sites = {s.get("code"): s for s in (old.get("sites") or [])}
+    # ⚠ 반드시 복사본을 만든다. 아래에서 sites[code] 를 제자리 수정(s["hist"]=...)하는데,
+    #    얕게 가져오면 그 객체가 old 안의 바로 그 객체라 old 까지 같이 바뀐다.
+    #    그러면 맨 끝의 '변동 없음' 비교가 자기 자신끼리 비교하게 돼 **항상 SKIP** 된다.
+    #    도입 첫날(2026-08-31)은 블록이 없어서 비교를 안 탔기에 한 번 저장됐고,
+    #    그 뒤로는 매 회차가 조용히 SKIP 돼 데이터가 9/1 까지 하루치에 멈춰 있었다.
+    sites = {s.get("code"): s for s in copy.deepcopy(old.get("sites") or [])}
     ok_any, fails = False, []
     for code, url in SITES:
         try:
@@ -113,11 +150,30 @@ def main():
         tot_like = sum(c[3] or 0 for c in chars.values())
 
         s = sites.get(code) or {"code": code, "url": url, "hist": [], "chars": []}
+
+        # 전 캐릭터 스냅샷 — 최근 2일치만 들고 있는다(교집합 증분용, 사이트당 ~2KB).
+        # 같은 날 재실행이면 오늘 것은 버리고 '오늘이 아닌 가장 최근 날'을 기준으로 삼는다.
+        snap = _snapshot(chars)
+        snaps = [x for x in (s.get("snaps") or []) if x.get("d") != today]
+        base = snaps[-1] if snaps else None
+
         # 합계 시계열 — 하루 1점. 같은 날 다시 돌면 그 날 값을 갱신한다.
         hist = [h for h in (s.get("hist") or []) if h.get("d") != today]
-        hist.append({"d": today, "chat": tot_chat, "view": tot_view,
-                     "like": tot_like, "n": len(chars)})
+        row = {"d": today, "chat": tot_chat, "view": tot_view,
+               "like": tot_like, "n": len(chars)}
+        if base:
+            dc, dv, nc = _delta(base["v"], snap)
+            row["dchat"], row["dview"], row["nc"] = dc, dv, nc
+            # 조정 누적 — 원합계는 명단이 바뀌면 꺾이므로 증분을 더해 올린다.
+            prev_c = next((h["cchat"] for h in reversed(hist) if h.get("cchat") is not None), None)
+            row["cchat"] = (tot_chat if prev_c is None else prev_c) + dc
+            print(f"  {code} 증분(교집합 {nc}명): 대화 +{dc:,} · 조회 +{dv:,}")
+        else:
+            row["cchat"] = tot_chat        # 첫 점은 원합계에서 출발한다
+            print(f"  {code} 기준점 없음 — 증분은 다음 회차부터")
+        hist.append(row)
         s["hist"] = hist[-DAYS:]
+        s["snaps"] = (snaps + [{"d": today, "v": snap}])[-2:]
 
         # 캐릭터별 — 대화수 상위 CHAR_HIST 명만 시계열을 남긴다(나머지는 최신값만).
         prev = {c["id"]: c for c in (s.get("chars") or [])}
