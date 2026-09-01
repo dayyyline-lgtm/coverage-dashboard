@@ -2170,19 +2170,29 @@ function renderShop(){
 }
 
 /* ══════════ 탑툰챗 (탑코미디어) ══════════
-   왜 랭킹 API 인가: 홈의 누적 대화수는 '지금까지 얼마나'라 유량이 안 보이고,
-   합계가 그날 홈에 뜬 명단에 좌우돼 다루기 나쁘다. 랭킹의 활동지수는 기간별 유량이고
-   과거 기간까지 준다(KR 4월~, JP 5월 4주~). 그래서 이 탭의 주인공은 이쪽이다.
+   왜 랭킹 API 인가: 홈의 누적 대화수는 '지금까지 얼마나'라 유량이 안 보인다.
+   랭킹의 활동지수는 기간별 유량이고 과거 기간까지 준다(백필).
 
-   ⚠ tot 는 '상위 n명의 활동지수 합'이지 서비스 전체가 아니다.
-     초기 주차는 n 이 27~46 이라 50 이 찬 주차와 직접 비교하면 안 된다 —
-     그래서 n<50 인 기간은 흐리게 그리고 표에도 '부분'이라고 적는다. */
+   지역이 넷이다 — JS 번들에서 찾았다. 홈만 봐서는 국내·일본밖에 안 보인다.
+   각 지역의 백필 시작 주가 진출 시점과 맞아 데이터 신뢰도를 교차검증해 준다:
+     KR 4월 1주 · JP 5월 4주 · TW 5월 4주 · GLOBAL 7월 1주(북미 진출)
+
+   ⚠ 규모가 20배 넘게 벌어져(한국 61,589 vs 북미 2,868) 절대값 한 장으로는
+     작은 지역이 바닥에 붙어 안 보인다. 그래서 '성장(첫 기간=100)' 보기를 같이 둔다.
+   ⚠ tot 는 '상위 n명의 score 합'이지 서비스 전체가 아니다. 초기 주차는 n 이 27~46 이라
+     50 이 찬 주차와 직접 비교하면 안 된다 → n<50 은 점을 비워 그리고 표에 '부분'이라 적는다. */
+const TT_PAL = (typeof TREND!=="undefined" && TREND.colors && TREND.colors.length>=4)
+  ? TREND.colors : ["#c4a7e7","#f6c177","#9ccfd8","#eb6f92"];
 const TT_REG = [
-  {code:"KR", nm:"한국", cv:"--accent"},
-  {code:"JP", nm:"일본", cv:"--accent2"}
+  {code:"KR",     nm:"한국"},
+  {code:"JP",     nm:"일본"},
+  {code:"TW",     nm:"중화권"},
+  {code:"GLOBAL", nm:"북미·글로벌"}
 ];
-const TT_FULL = 50;
+TT_REG.forEach((r,i)=>{ r.c = TT_PAL[i % TT_PAL.length]; });
+const TT_FULL = 50;             // 랭킹 명단이 다 찬 기준. 이 아래는 '부분 집계'
 let ttPeriod = "weekly";
+let ttMode   = "abs";           // abs = 절대값 · idx = 성장(첫 기간=100)
 
 function ttSite(code){
   if(typeof TOPTOON==="undefined") return null;
@@ -2191,9 +2201,10 @@ function ttSite(code){
 function ttRows(code, kind){
   const s=ttSite(code); return (s && s.rank && s.rank[kind]) ? s.rank[kind] : [];
 }
-/* 비교 가능한 구간만 — 명단이 덜 찬(n<50) 기간을 섞으면 '성장'이 집계 확대로 오염된다.
-   판단(정점比·전주비)은 여기서만 하고, 차트는 전 구간을 그리되 부분 구간을 흐리게 표시한다. */
+/* 비교 가능한 구간만 — 명단이 덜 찬 기간을 섞으면 '성장'이 집계 확대로 오염된다.
+   판단(전주비·정점比)은 여기서만 한다. */
 function ttFull(rows){ return rows.filter(r=>r.n>=TT_FULL); }
+function ttLive(code){ return (ttRows(code,"rt")||[]).slice(-1)[0]||null; }
 
 function renderToptoonKpi(){
   const box=document.getElementById("ttKpi"); if(!box) return;
@@ -2205,38 +2216,54 @@ function renderToptoonKpi(){
     const peak=full.reduce((a,b)=>b.tot>a.tot?b:a);
     const wow=prev?(last.tot/prev.tot-1)*100:null;
     const vsPk=peak.tot>0?(last.tot/peak.tot-1)*100:null;
+    const atPeak=Math.abs(vsPk)<0.01;
     cells.push('<div class="sm-cell">'
-      +'<div class="sm-h"><span class="dot" style="background:var('+reg.cv+')"></span>'+reg.nm
+      +'<div class="sm-h"><span class="dot" style="background:'+reg.c+'"></span>'+reg.nm
       +'<span class="src">'+last.lab+'</span>'
-      +'<span class="v" style="color:var('+reg.cv+')">'+fmt0(last.tot)+'</span></div>'
-      +'<div class="shop-kv">전주비 <b class="'+cls(wow)+'">'+(wow==null?"—":sign(wow,1)+"%")+'</b>'
-      +' · 정점('+peak.lab+') 대비 <b class="'+cls(vsPk)+'">'+(vsPk==null?"—":sign(vsPk,1)+"%")+'</b>'
+      +'<span class="v" style="color:'+reg.c+'">'+fmt0(last.tot)+'</span></div>'
+      +'<div class="shop-kv">전주비 <b class="'+cls(wow)+'">'+(wow==null?"—":sign(wow,1)+"%")+'</b> · '
+      +(atPeak?'<b>지금이 정점</b>':'정점('+peak.lab+') 대비 <b class="'+cls(vsPk)+'">'+sign(vsPk,1)+'%</b>')
       +' · 상위 '+last.n+'명 합</div></div>');
   });
-  // 지역 믹스 — 일본이 한국의 몇 %까지 왔나. 이 사업의 핵심 질문이다.
-  const kr=ttFull(ttRows("KR","weekly")), jp=ttFull(ttRows("JP","weekly"));
-  if(kr.length && jp.length){
-    const m={}; kr.forEach(r=>m[r.k]=r.tot);
-    const pair=jp.filter(r=>m[r.k]).map(r=>({lab:r.lab, v:r.tot/m[r.k]*100}));
-    if(pair.length){
-      const a=pair[0], b=pair[pair.length-1];
+  // 해외 비중 — '국내가 꺾인 자리를 해외가 메우나'가 이 사업의 핵심 질문이다.
+  const kr=ttFull(ttRows("KR","weekly"));
+  if(kr.length){
+    const km={}; kr.forEach(r=>km[r.k]=r.tot);
+    const ov={};
+    TT_REG.filter(r=>r.code!=="KR").forEach(r=>ttFull(ttRows(r.code,"weekly"))
+      .forEach(x=>{ if(km[x.k]) ov[x.k]=(ov[x.k]||0)+x.tot; }));
+    const ks=Object.keys(ov).sort();
+    if(ks.length){
+      const f=ks[0], l=ks[ks.length-1];
+      const rf=ov[f]/km[f]*100, rl=ov[l]/km[l]*100;
+      const labOf=k=>{const r=TT_REG.map(g=>ttRows(g.code,"weekly").find(x=>x.k===k)).find(Boolean);
+        return (r&&r.lab)||k;};
       cells.push('<div class="sm-cell">'
-        +'<div class="sm-h"><span class="dot" style="background:var(--good)"></span>일본 / 한국'
+        +'<div class="sm-h"><span class="dot" style="background:var(--good)"></span>해외 / 한국'
         +'<span class="src">활동지수 비율</span>'
-        +'<span class="v" style="color:var(--good)">'+b.v.toFixed(0)+'%</span></div>'
-        +'<div class="shop-kv">'+a.lab+' <b>'+a.v.toFixed(0)+'%</b> → '+b.lab+' <b>'+b.v.toFixed(0)+'%</b>'
-        +' · 일본 비중이 '+(b.v>a.v?"커지는":"작아지는")+' 중</div></div>');
+        +'<span class="v" style="color:var(--good)">'+rl.toFixed(0)+'%</span></div>'
+        +'<div class="shop-kv">'+labOf(f)+' <b>'+rf.toFixed(0)+'%</b> → '+labOf(l)+' <b>'+rl.toFixed(0)+'%</b>'
+        +' · 해외 3개 지역 합 기준</div></div>');
     }
   }
   // 실시간 — 롤링 스냅샷이라 '지금 얼마나 돌고 있나'만 본다(추세는 주간으로).
-  const rt=TT_REG.map(r=>({r:r, x:(ttRows(r.code,"rt")||[]).slice(-1)[0]})).filter(o=>o.x);
+  const rt=TT_REG.map(r=>({r:r,x:ttLive(r.code)})).filter(o=>o.x);
   if(rt.length){
     cells.push('<div class="sm-cell">'
       +'<div class="sm-h"><span class="dot" style="background:var(--muted)"></span>실시간 활동지수'
       +'<span class="src">'+rt[0].x.d+' '+rt[0].x.t+'</span>'
-      +'<span class="v">'+rt.map(o=>fmt0(o.x.tot)).join(" / ")+'</span></div>'
+      +'<span class="v">'+fmt0(rt.reduce((a,o)=>a+o.x.tot,0))+'</span></div>'
       +'<div class="shop-kv">'+rt.map(o=>o.r.nm+' <b>'+fmt0(o.x.tot)+'</b>').join(" · ")
-      +' · 사이트 실시간 랭킹 값 · 접속자 수가 아니라 최근 활동량</div></div>');
+      +' · 접속자 수가 아니라 최근 활동량</div></div>');
+  }
+  // 캐릭터 수 — 콘텐츠 투입은 이 사업의 비용이자 성장 동력이다.
+  const cat=TT_REG.map(r=>({r:r,c:(ttSite(r.code)||{}).cat})).filter(o=>o.c);
+  if(cat.length){
+    cells.push('<div class="sm-cell">'
+      +'<div class="sm-h"><span class="dot" style="background:var(--muted)"></span>서비스 캐릭터'
+      +'<span class="src">현재 카탈로그</span>'
+      +'<span class="v">'+fmt0(cat.reduce((a,o)=>a+o.c.n,0))+'</span></div>'
+      +'<div class="shop-kv">'+cat.map(o=>o.r.nm+' <b>'+o.c.n+'</b>').join(" · ")+'</div></div>');
   }
   box.innerHTML = cells.length?'<div class="sm-grid">'+cells.join("")+'</div>':"";
 }
@@ -2246,54 +2273,76 @@ function drawToptoon(){
   const lg=document.getElementById("ttLegend");
   const cs=getComputedStyle(document.documentElement);
   const gc=cs.getPropertyValue("--line").trim(), mut=cs.getPropertyValue("--muted").trim();
-  const col=TT_REG.map(r=>cs.getPropertyValue(r.cv).trim());
-  // 기간 축은 두 지역의 합집합 — 일본은 5월부터라 앞이 비고, 그 빈칸 자체가 '진출 전'이다.
+  // 기간 축은 네 지역의 합집합 — 늦게 시작한 지역은 앞이 비고, 그 빈칸이 곧 '진출 전'이다.
   const keys=[...new Set(TT_REG.flatMap(r=>ttRows(r.code,ttPeriod).map(x=>x.k)))].sort();
   if(!keys.length){ box.innerHTML='<div class="ov-empty">수집된 랭킹 데이터가 없습니다.</div>';
     if(lg) lg.innerHTML=""; return; }
-  const ser=TT_REG.map(g=>{const m={}; ttRows(g.code,ttPeriod).forEach(x=>m[x.k]=x);
+  const raw=TT_REG.map(g=>{const m={}; ttRows(g.code,ttPeriod).forEach(x=>m[x.k]=x);
     return keys.map(k=>m[k]||null);});
-  const M=keys.map((k,i)=>{const r=ser.map(a=>a[i]).find(Boolean); return (r&&r.lab)||k;});
-  const max=Math.max.apply(null,ser.flat().filter(Boolean).map(x=>x.tot).concat([1]));
-  const W=1000,H=340,pad={l:58,r:16,t:14,b:44};
-  const bw=(W-pad.l-pad.r)/keys.length;
-  const gw=Math.max(4,Math.min(20,(bw-6)/TT_REG.length));
-  const sx=i=>pad.l+bw*(i+0.5);
+  const M=keys.map((k,i)=>{const r=raw.map(a=>a[i]).find(Boolean); return (r&&r.lab)||k;});
+  /* 성장 보기 — 각 지역의 '비교 가능한 첫 기간(n>=50)'을 100 으로. 진출 시점이 다른 지역을
+     같은 출발선에 세워야 '누가 빠르게 크나'가 보인다. 절대 규모는 절대값 보기로. */
+  const val=raw.map(arr=>{
+    if(ttMode==="abs") return arr.map(r=>r?r.tot:null);
+    const b=arr.find(r=>r&&r.n>=TT_FULL);
+    return arr.map(r=>(r&&b&&b.tot>0)?r.tot/b.tot*100:null);
+  });
+  const nums=val.flat().filter(v=>v!=null);
+  const max=Math.max.apply(null,nums.concat([1]));
+  const W=1000,H=340,pad={l:62,r:110,t:14,b:44};
+  const sx=i=>pad.l+(keys.length<2?0.5:i/(keys.length-1))*(W-pad.l-pad.r);
   const sy=v=>H-pad.b-(v/max)*(H-pad.t-pad.b);
   let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" font-family="inherit">';
   for(let g=0;g<=4;g++){ const v=max*g/4;
     s+='<line x1="'+pad.l+'" y1="'+sy(v)+'" x2="'+(W-pad.r)+'" y2="'+sy(v)+'" stroke="'+gc+'" stroke-width="1"/>';
-    s+='<text x="'+(pad.l-8)+'" y="'+(sy(v)+4)+'" text-anchor="end" font-size="11" fill="'+mut+'">'+fmt0(v)+'</text>'; }
+    s+='<text x="'+(pad.l-8)+'" y="'+(sy(v)+4)+'" text-anchor="end" font-size="11" fill="'+mut+'">'
+      +(ttMode==="abs"?fmt0(v):Math.round(v))+'</text>'; }
   const step=Math.max(1,Math.ceil(keys.length/14));
   M.forEach((m,i)=>{ if(i%step===0||i===M.length-1)
     s+='<text x="'+sx(i)+'" y="'+(H-pad.b+18)+'" text-anchor="middle" font-size="10.5" fill="'+mut+'">'+m+'</text>'; });
-  ser.forEach((arr,gi)=>{ arr.forEach((r,i)=>{ if(!r) return;
-    const x=sx(i)-gw*TT_REG.length/2+gw*gi, y=sy(r.tot), h=Math.max(1,H-pad.b-y);
-    // n<50 = 집계 명단이 덜 찬 기간. 같은 색이되 흐리게 — 있는 그대로 보여주되 섞이지 않게.
-    s+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+(gw-2).toFixed(1)+'" height="'+h.toFixed(1)
-      +'" fill="'+col[gi]+'" opacity="'+(r.n>=TT_FULL?0.9:0.36)+'" rx="2"/>'; }); });
+  val.forEach((arr,gi)=>{
+    const c=TT_REG[gi].c;
+    // 값이 없는 구간(진출 전)에서 선이 이어지면 안 된다 — 연속 구간마다 따로 그린다.
+    let seg=[];
+    const flush=()=>{ if(seg.length>1)
+      s+='<polyline points="'+seg.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")
+        +'" fill="none" stroke="'+c+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+      seg=[]; };
+    arr.forEach((v,i)=>{ if(v==null){ flush(); return; } seg.push([sx(i),sy(v)]); });
+    flush();
+    // n<50(부분 집계)은 속 빈 점으로 — 같은 선 위에 있되 '이건 덜 찬 값'이라고 말해 준다.
+    arr.forEach((v,i)=>{ if(v==null) return;
+      const partial=!raw[gi][i]||raw[gi][i].n<TT_FULL;
+      s+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(v).toFixed(1)+'" r="'+(partial?2.8:2.6)+'"'
+        +(partial?' fill="none" stroke="'+c+'" stroke-width="1.6"':' fill="'+c+'"')+'/>'; });
+    const li=arr.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
+    if(li>=0) s+='<text x="'+(W-pad.r+8)+'" y="'+(sy(arr[li])+4)+'" font-size="11.5" font-weight="700" fill="'+c+'">'
+      +TT_REG[gi].nm+'</text>';
+  });
   s+='</svg>';
   box.innerHTML=s;
   attachChartTip(box,{W:W,H:H,pad:pad,n:keys.length,xOf:sx,html:i=>{
-    const rows=TT_REG.map((g,gi)=>({g:g,c:col[gi],r:ser[gi][i],p:i>0?ser[gi][i-1]:null})).filter(o=>o.r);
+    const rows=TT_REG.map((g,gi)=>({g:g,r:raw[gi][i],p:i>0?raw[gi][i-1]:null,v:val[gi][i]}))
+      .filter(o=>o.r).sort((a,b)=>b.r.tot-a.r.tot);
     if(!rows.length) return null;
     let out='<div class="tt-h">'+M[i]+'</div>';
     rows.forEach(o=>{
       const d=(o.p&&o.p.tot>0&&o.p.n>=TT_FULL&&o.r.n>=TT_FULL)?(o.r.tot/o.p.tot-1)*100:null;
-      out+='<div class="tt-r"><span class="k"><span class="dot" style="background:'+o.c
+      out+='<div class="tt-r"><span class="k"><span class="dot" style="background:'+o.g.c
         +';width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>'+o.g.nm+'</span>'
         +'<span class="v">'+fmt0(o.r.tot)
+        +(ttMode==="idx"&&o.v!=null?' <span style="color:var(--muted);font-size:10.5px">지수 '+Math.round(o.v)+'</span>':"")
         +(d==null?"":' <span class="'+cls(d)+'" style="font-size:10.5px">'+sign(d,0)+'%</span>')
         +(o.r.n<TT_FULL?' <span style="color:var(--muted);font-size:10.5px">부분 '+o.r.n+'명</span>':"")
         +'</span></div>';
     });
-    out+='<div class="tt-r"><span class="k">1위</span><span class="v">'
-      +rows.map(o=>(o.r.top&&o.r.top[0])?o.r.top[0].nm.slice(0,12)+" "+fmt0(o.r.top[0].s):"—").join(" / ")
-      +'</span></div>';
+    const t0=rows[0].r.top&&rows[0].r.top[0];
+    if(t0) out+='<div class="tt-r"><span class="k">'+rows[0].g.nm+' 1위</span><span class="v">'
+      +t0.nm.slice(0,16)+' '+fmt0(t0.s)+'</span></div>';
     return out;
   }});
-  if(lg) lg.innerHTML=TT_REG.map((g,gi)=>'<span class="lg"><i style="background:'+col[gi]+'"></i>'+g.nm+'</span>').join("")
-    +'<span class="lg" style="opacity:.6"><i style="background:'+col[0]+';opacity:.36"></i>흐림 = 상위 50명 미만(부분 집계)</span>';
+  if(lg) lg.innerHTML=TT_REG.map(g=>'<span class="lg"><i style="background:'+g.c+'"></i>'+g.nm+'</span>').join("")
+    +'<span class="lg" style="opacity:.65"><i style="background:transparent;border:1.6px solid '+TT_REG[0].c+'"></i>속 빈 점 = 상위 50명 미만(부분 집계)</span>';
 }
 
 function renderToptoonRank(){
@@ -2303,23 +2352,24 @@ function renderToptoonRank(){
     const rows=ttRows(g.code,"weekly"); if(!rows.length) return;
     const last=rows[rows.length-1], prev=rows.length>1?rows[rows.length-2]:null;
     const pr={}; if(prev) (prev.top||[]).forEach((x,i)=>{ pr[x.id]={rank:i+1, s:x.s}; });
-    const top=(last.top||[]).slice(0,8);
+    const top=(last.top||[]).slice(0,5);
+    if(!top.length) return;
     top.forEach((x,i)=>{
       const p=pr[x.id];
       const mv=p?p.rank-(i+1):null;                    // +면 순위 상승
       const ds=(p&&p.s>0)?(x.s/p.s-1)*100:null;
       parts.push('<tr>'
-        +(i===0?'<td rowspan="'+top.length+'" style="vertical-align:top;font-weight:800;color:var('+g.cv+')">'
+        +(i===0?'<td rowspan="'+top.length+'" style="vertical-align:top;font-weight:800;color:'+g.c+'">'
             +g.nm+'<div class="th-sub">'+last.lab+'</div></td>':"")
         +'<td style="text-align:center;font-weight:800">'+(i+1)+'</td>'
         +'<td>'+x.nm+(x.kind==="content"?' <span class="th-sub">작품</span>':"")+'</td>'
         +'<td style="text-align:right;font-variant-numeric:tabular-nums">'+fmt0(x.s)+'</td>'
         +'<td style="text-align:right" class="'+(ds==null?"":cls(ds))+'">'+(ds==null?"—":sign(ds,0)+"%")+'</td>'
-        // 이전 주 목록에 없다 = '신규'가 아니라 '보관 범위(상위 12) 밖'이다.
-        // 신규라고 적으면 13위에서 4위로 올라온 캐릭터가 새로 생긴 것처럼 읽힌다.
+        // 직전 기간 목록에 없다 = '신규'가 아니라 '보관 범위(상위 20) 밖'이다.
+        // 신규라고 적으면 21위에서 3위로 올라온 캐릭터가 새로 생긴 것처럼 읽힌다.
         +'<td style="text-align:center">'+(p
             ? (mv===0?'<span class="th-sub">—</span>':'<span class="'+cls(mv)+'">'+(mv>0?"▲":"▼")+Math.abs(mv)+'</span>')
-            : '<span class="th-sub" title="직전 기간 상위 '+((prev&&prev.top||[]).length||12)+'위 밖 — 보관 범위를 벗어나 변동폭을 알 수 없습니다">권외↑</span>')
+            : '<span class="th-sub" title="직전 기간 상위 '+(((prev&&prev.top)||[]).length||20)+'위 밖 — 변동폭을 알 수 없습니다">권외↑</span>')
         +'</td></tr>');
     });
   });
@@ -2329,6 +2379,24 @@ function renderToptoonRank(){
     : '<tbody><tr><td class="th-sub">아직 순위 데이터가 없습니다.</td></tr></tbody>';
 }
 
+/* 월별 신규 캐릭터 투입 — 카탈로그의 startAt 에서 나온다(백필).
+   활동지수가 '결과'라면 이건 '투입'이다. 둘이 같이 꺾이는지 보는 게 요점. */
+function renderToptoonSupply(){
+  const t=document.getElementById("ttSupply"); if(!t) return;
+  const cats=TT_REG.map(g=>({g:g,c:(ttSite(g.code)||{}).cat})).filter(o=>o.c&&o.c.new);
+  if(!cats.length){ t.innerHTML=""; return; }
+  const months=[...new Set(cats.flatMap(o=>Object.keys(o.c.new)))].sort();
+  const head='<thead><tr><th>월</th>'+cats.map(o=>'<th style="text-align:right">'+o.g.nm+'</th>').join("")
+    +'<th style="text-align:right">합계</th></tr></thead>';
+  const body=months.map(m=>{
+    const vs=cats.map(o=>o.c.new[m]||0);
+    return '<tr><td style="font-weight:700">'+m.replace("-",".")+'</td>'
+      +vs.map(v=>'<td style="text-align:right;font-variant-numeric:tabular-nums">'+(v||'<span class="th-sub">—</span>')+'</td>').join("")
+      +'<td style="text-align:right;font-weight:700">'+vs.reduce((a,b)=>a+b,0)+'</td></tr>';
+  }).join("");
+  t.innerHTML=head+'<tbody>'+body+'</tbody>';
+}
+
 function renderToptoonTable(){
   const t=document.getElementById("ttTable"); if(!t) return;
   const keys=[...new Set(TT_REG.flatMap(r=>ttRows(r.code,ttPeriod).map(x=>x.k)))].sort().reverse();
@@ -2336,12 +2404,12 @@ function renderToptoonTable(){
   const body=keys.map(k=>{
     const cellFor=g=>{
       const arr=ttRows(g.code,ttPeriod), i=arr.findIndex(x=>x.k===k);
-      if(i<0) return '<td class="th-sub" style="text-align:right">—</td><td class="th-sub" style="text-align:right">—</td>';
+      if(i<0) return '<td class="th-sub" style="text-align:right">—</td>';
       const r=arr[i], p=i>0?arr[i-1]:null;
       const d=(p&&p.tot>0&&p.n>=TT_FULL&&r.n>=TT_FULL)?(r.tot/p.tot-1)*100:null;
       return '<td style="text-align:right;font-variant-numeric:tabular-nums">'+fmt0(r.tot)
-        +(r.n<TT_FULL?' <span class="th-sub">부분 '+r.n+'</span>':"")+'</td>'
-        +'<td style="text-align:right" class="'+(d==null?"":cls(d))+'">'+(d==null?"—":sign(d,1)+"%")+'</td>';
+        +(r.n<TT_FULL?' <span class="th-sub">부분'+r.n+'</span>':"")
+        +(d==null?"":' <span class="'+cls(d)+'" style="font-size:11px">'+sign(d,1)+'%</span>')+'</td>';
     };
     const lab=(TT_REG.map(g=>ttRows(g.code,ttPeriod).find(x=>x.k===k)).find(Boolean)||{}).lab||k;
     const u=(ttPeriod==="weekly")?users[k]:null;
@@ -2349,8 +2417,8 @@ function renderToptoonTable(){
       +'<td style="text-align:right" class="th-sub">'+(u?u.new+"/"+u.n:"—")+'</td></tr>';
   }).join("");
   t.innerHTML='<thead><tr><th>기간</th>'
-    +TT_REG.map(g=>'<th style="text-align:right">'+g.nm+'</th><th style="text-align:right">전기비</th>').join("")
-    +'<th style="text-align:right" title="유저 주간 랭킹 30명 중 신규 진입 수 — 이용자 회전율">신규유저</th>'
+    +TT_REG.map(g=>'<th style="text-align:right">'+g.nm+'</th>').join("")
+    +'<th style="text-align:right" title="한국 유저 주간 랭킹 30명 중 신규 진입 수 — 이용자 회전율">신규유저</th>'
     +'</tr></thead><tbody>'+body+'</tbody>';
 }
 
@@ -2360,23 +2428,22 @@ function renderToptoon(){
   if(typeof TOPTOON==="undefined"||!TOPTOON.sites){
     if(kpi) kpi.innerHTML='<div class="ov-empty">탑툰챗 데이터가 아직 없습니다.</div>'; return;
   }
-  renderToptoonKpi(); drawToptoon(); renderToptoonRank(); renderToptoonTable();
+  renderToptoonKpi(); drawToptoon(); renderToptoonRank();
+  renderToptoonSupply(); renderToptoonTable();
   const n=document.getElementById("ttNote");
-  if(n) n.innerHTML=TOPTOON.asOf+' 기준 · 활동지수는 사이트 랭킹 API 의 score 합(상위 50명) — '
-    +'<b>서비스 전체 활동량이 아니라 상위 구간</b>입니다. '
-    +'한국 '+ttRows("KR","weekly").length+'주 · 일본 '+ttRows("JP","weekly").length+'주 수집 · '
-    +'일본은 2026년 5월 진출이라 그 앞이 비어 있습니다 · '
+  if(n) n.innerHTML=TOPTOON.asOf+' 기준 · 활동지수 = 사이트 랭킹 API 의 score 합(상위 50명) — '
+    +'<b>서비스 전체가 아니라 상위 구간</b>입니다. '
+    +TT_REG.map(g=>g.nm+' '+ttRows(g.code,"weekly").length+'주').join(" · ")+' 수집 · '
+    +'백필 시작 주가 각 지역 진출 시점과 일치합니다(북미 7월 1주차) · '
     +'누적 대화수·캐릭터별 추이는 <b>트렌드 비교</b> 탭에도 있습니다.';
 }
 
 (function bindToptoon(){
-  const seg=document.getElementById("ttPeriodSeg");
-  if(seg) seg.addEventListener("click",e=>{
-    const b=e.target.closest("button"); if(!b) return;
-    ttPeriod=b.dataset.p;
-    [...seg.querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x===b));
-    drawToptoon(); renderToptoonTable();
-  });
+  const on=(id,fn)=>{ const el=document.getElementById(id); if(!el) return;
+    el.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+      [...el.querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x===b)); fn(b); }); };
+  on("ttPeriodSeg", b=>{ ttPeriod=b.dataset.p; drawToptoon(); renderToptoonTable(); });
+  on("ttModeSeg",   b=>{ ttMode=b.dataset.m; drawToptoon(); });
   window.addEventListener("resize",()=>{
     const s=document.querySelector('section[data-view="toptoon"]');
     if(s&&s.classList.contains("active")) drawToptoon();

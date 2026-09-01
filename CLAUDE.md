@@ -172,8 +172,49 @@ ZIP(STORE) + CRC32 + inline string + styles.xml 레지스트리를 직접 구성
 /api/ranking/user/weekly?periodKey=...   유저 랭킹 30명 · isNew = 신규 진입
 ```
 
-실측(2026-09-01): **KR 22주(4월 1주~) · JP 14주(5월 4주~)**. JP 시작 주가 일본 진출 시점과
-정확히 일치해 데이터 신뢰도를 교차검증해 준다. `chat.toptoon.jp` 도 같은 API 를 쓴다.
+### 지역이 넷이다 — 홈만 보면 둘밖에 안 보인다
+
+주소는 **JS 번들에서 찾았다.** 홈 화면·메뉴에는 국내·일본밖에 없다.
+
+```
+curl -s https://chat.toptoon.com/ | grep -o 'src="https://showcase[^"]*\.js"'   # 청크 31개
+# 청크를 받아 grep 'https://chat\.' → 다섯 주소가 박혀 있다
+```
+
+| 코드 | 주소 | 백필 시작 | 캐릭터 | 최근주 활동지수 |
+|---|---|---|---|---|
+| KR | `chat.toptoon.com` | 4월 1주 | 88 | 61,589 |
+| JP | `chat.toptoon.jp` | 5월 4주 | 79 | 26,445 |
+| TW | `chat.toptoon.net` | 5월 4주 | 82 | 7,150 |
+| GLOBAL | `chat.global.toptoon.com` | **7월 1주** | 86 | 2,868 |
+
+- `chat.cn.toptoon.net` 은 `chat.toptoon.net` 과 **응답이 완전히 같다**(같은 서비스). 하나만 받는다.
+- **각 지역의 백필 시작 주가 실제 진출 시점과 일치한다** — JP·TW 5월, 북미 7월.
+  데이터가 맞다는 교차검증이자, 새 지역이 열리면 그 주부터 데이터가 생긴다는 뜻이다.
+
+### 캐릭터는 카탈로그 API 로 받는다 — 홈 긁기는 19% 과소집계였다
+
+```
+/api/characters?limit=50&page=N     전체 카탈로그 (limit 은 서버가 50 으로 자른다 · 지역당 2요청)
+```
+
+필드: `chatCount` `viewCount` `likeCount` `startAt` `createdAt` `genre` `isOfficial` `creationType`.
+
+- 홈 HTML 을 긁던 옛 방식은 **홈에 노출된 것만** 잡혔다 — KR 88명 중 51명.
+  대화 누적이 실제 1,574,260 인데 1,321,441 로 보였다(**-19%**).
+- 카탈로그는 명단이 흔들리지 않아 증분도 안정적이다. 홈 파서(`parse`)는 예비로만 남긴다.
+- ⚠ **기반이 다른 두 계열을 이어 붙이면 가짜 점프가 생긴다.** `hist.src` 에 `cat`/`home` 을
+  적어 두고, src 가 바뀌는 날은 증분을 내지 않는다(51명→88명 = 하루 25만 건 급증으로 보인다).
+- `startAt` 으로 **월별 신규 캐릭터 투입량이 백필된다**. 활동지수가 '결과'면 이건 '투입'이다.
+  실측: 전 지역 합 5월 111 → 6월 71 → 7월 32 → 8월 41. 한국은 3월 20 → 8월 8 로 반감.
+- `followCount` 는 전 지역 0 이다(미사용 필드).
+
+### 없는 것 — 확인해 봤다
+
+`/api/ranking/daily` `/api/stats` `/api/statistics` `/api/active-users` 전부 404.
+i18n 사전에 `activeUsersStat: "지금 {count}명이 빠져드는 중"` 이 있어 **실시간 접속자 표시 기능은
+존재하지만**, 그 숫자를 주는 공개 엔드포인트는 없다(아직 안 켠 기능으로 보인다).
+**일별 지표는 `/api/ranking/realtime` 을 매일 같은 시각에 찍어 만드는 수밖에 없다.**
 
 - ⚠ `tot` 는 **상위 n명의 score 합**이지 서비스 전체 활동량이 아니다.
   초기 주차는 n 이 27~46 이라 50 이 찬 주차와 **직접 비교하면 안 된다.**

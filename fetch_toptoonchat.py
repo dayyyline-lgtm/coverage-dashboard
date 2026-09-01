@@ -22,10 +22,16 @@
   그러려면 상위 16명뿐 아니라 **전 캐릭터의 직전값**이 필요하다 → sites[].snaps (최근 2일).
   누적 그래프도 원합계를 쓰면 같은 이유로 꺾이므로, 증분을 더해 올린 조정누적(cchat)을 쓴다.
 
-수집 방법
-  홈페이지 HTML 안 Next.js flight 페이로드에 캐릭터 배열이 그대로 들어 있다(브라우저 불필요).
-  한 번 요청에 캐릭터 80~90개가 잡힌다(홈에 노출된 것 기준. 전체 목록은 아니다).
-  같은 캐릭터가 여러 섹션(인기/신규/트렌드)에 중복 등장하므로 id 로 합친다.
+수집 방법 — 카탈로그 API 가 우선, 홈 HTML 은 예비 (2026-09-01 전환)
+  `/api/characters?limit=50&page=N` 이 **전체 캐릭터 목록**을 준다(지역당 2요청).
+  홈 HTML 을 긁던 옛 방식은 '홈에 노출된 것'만 잡혀 KR 88명 중 51명뿐이었다 —
+  대화 누적이 1,574,260 인데 1,321,441 로 보였다(**19% 과소집계**).
+  카탈로그는 명단이 흔들리지 않아 증분도 훨씬 안정적이다.
+  홈 파서(parse)는 카탈로그가 막힐 때를 위해 남겨 두고, 어느 쪽을 썼는지 hist 의 src 에 적는다
+  — **기반이 다른 두 계열을 이어 붙이면 가짜 점프가 생기므로, src 가 바뀌는 날은 증분을 내지 않는다.**
+
+  카탈로그에는 `startAt`·`createdAt` 이 있어 **월별 신규 캐릭터 투입량이 백필로 계산된다**
+  (KR 3월 20 → 8월 8 로 반감). 콘텐츠 투입은 이 사업의 비용이자 성장 동력이라 같이 본다.
 
   python fetch_toptoonchat.py            # 수집·기록
   python fetch_toptoonchat.py --dry-run  # 출력만
@@ -38,8 +44,16 @@ HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 DAYS = 400                 # 합계 시계열 보관 일수
 CHAR_HIST = 16             # 캐릭터별 시계열을 남길 상위 N명(파일 크기 관리)
-SITES = [("KR", "https://chat.toptoon.com/"),
-         ("JP", "https://chat.toptoon.jp/")]
+
+# 4개 지역. JS 번들(showcase.chat.toptoon.com/.../chunks/*.js)에 다섯 주소가 박혀 있어 찾았다 —
+# 홈 화면만 봐서는 국내·일본밖에 안 보인다.
+#   chat.toptoon.net 과 chat.cn.toptoon.net 은 응답이 완전히 같다(같은 서비스) → 하나만 받는다.
+# 각 지역의 주간 백필 시작 주가 진출 시점과 맞아떨어져 데이터 신뢰도를 교차검증해 준다:
+#   KR 4월 1주 · JP 5월 4주 · TW 5월 4주 · GLOBAL 7월 1주(= 북미 진출)
+SITES = [("KR",     "https://chat.toptoon.com/"),
+         ("JP",     "https://chat.toptoon.jp/"),
+         ("TW",     "https://chat.toptoon.net/"),
+         ("GLOBAL", "https://chat.global.toptoon.com/")]
 
 
 def fetch(url):
@@ -78,6 +92,30 @@ def parse(html):
         if not old or (chat or 0) > (old[1] or 0):
             out[cid] = (name, chat, view, like)
     return out
+
+
+def catalog(base):
+    """전체 캐릭터 카탈로그 -> ({id: (name, chat, view, like)}, 월별 신규 수).
+
+    limit 은 서버가 50 으로 자른다(100·200 을 넣어도 50). 지역당 2요청이면 끝난다.
+    startAt 이 없으면 createdAt 을 쓴다 — '언제부터 서비스에 있었나'가 우리가 보려는 것."""
+    out, new = {}, {}
+    page = 1
+    while True:
+        d = _api(base, f"/api/characters?limit=50&page={page}")
+        rows = (d or {}).get("data") or []
+        pg = (d or {}).get("pagination") or {}
+        for x in rows:
+            cid = str(x.get("id"))
+            out[cid] = (x.get("name"), x.get("chatCount"), x.get("viewCount"), x.get("likeCount"))
+            ym = (x.get("startAt") or x.get("createdAt") or "")[:7]
+            if ym:
+                new[ym] = new.get(ym, 0) + 1
+        if page >= (pg.get("totalPages") or 1) or not rows:
+            break
+        page += 1
+        nap(0.25)
+    return out, new
 
 
 def _snapshot(chars):
@@ -232,13 +270,19 @@ def main():
     sites = {s.get("code"): s for s in copy.deepcopy(old.get("sites") or [])}
     ok_any, fails = False, []
     for code, url in SITES:
+        base = url.rstrip("/")
+        chars, newmap, src = {}, {}, "cat"
         try:
-            chars = parse(fetch(url))
+            chars, newmap = catalog(base)
         except Exception as e:
-            fails.append(f"{code} {type(e).__name__} {str(e)[:60]}")
+            fails.append(f"{code} 카탈로그 {type(e).__name__} {str(e)[:40]}")
             if looks_blocked(e):
                 note_health("탑툰챗", f"{code} 차단 의심: {str(e)[:60]}")
-            continue
+        if not chars:                       # 카탈로그가 막히면 옛 방식(홈 HTML)으로 버틴다
+            try:
+                chars, src = parse(fetch(url)), "home"
+            except Exception as e:
+                fails.append(f"{code} 홈 {type(e).__name__} {str(e)[:40]}")
         nap(0.4)
         if not chars:
             fails.append(f"{code} 캐릭터 0개(구조 변경 의심)")
@@ -250,29 +294,39 @@ def main():
 
         s = sites.get(code) or {"code": code, "url": url, "hist": [], "chars": []}
 
-        # 전 캐릭터 스냅샷 — 최근 2일치만 들고 있는다(교집합 증분용, 사이트당 ~2KB).
+        # 전 캐릭터 스냅샷 — 최근 2일치만 들고 있는다(교집합 증분용, 사이트당 ~3KB).
         # 같은 날 재실행이면 오늘 것은 버리고 '오늘이 아닌 가장 최근 날'을 기준으로 삼는다.
         snap = _snapshot(chars)
         snaps = [x for x in (s.get("snaps") or []) if x.get("d") != today]
-        base = snaps[-1] if snaps else None
+        prev_row = snaps[-1] if snaps else None
 
         # 합계 시계열 — 하루 1점. 같은 날 다시 돌면 그 날 값을 갱신한다.
         hist = [h for h in (s.get("hist") or []) if h.get("d") != today]
         row = {"d": today, "chat": tot_chat, "view": tot_view,
-               "like": tot_like, "n": len(chars)}
-        if base:
-            dc, dv, nc = _delta(base["v"], snap)
+               "like": tot_like, "n": len(chars), "src": src}
+        # 수집 경로(카탈로그/홈)가 바뀐 날은 기반이 달라 증분이 뜻을 잃는다 —
+        # 51명 합계에서 88명 합계로 넘어가면 '하루에 25만 건'이라는 가짜 급증이 나온다.
+        same_src = bool(prev_row) and (prev_row.get("src") or "home") == src
+        if prev_row and not same_src:
+            print(f"  {code} 수집 경로 {prev_row.get('src') or 'home'} → {src} · 이 날 증분은 건너뛴다")
+        if prev_row and same_src:
+            dc, dv, nc = _delta(prev_row["v"], snap)
             row["dchat"], row["dview"], row["nc"] = dc, dv, nc
             # 조정 누적 — 원합계는 명단이 바뀌면 꺾이므로 증분을 더해 올린다.
             prev_c = next((h["cchat"] for h in reversed(hist) if h.get("cchat") is not None), None)
             row["cchat"] = (tot_chat if prev_c is None else prev_c) + dc
             print(f"  {code} 증분(교집합 {nc}명): 대화 +{dc:,} · 조회 +{dv:,}")
         else:
-            row["cchat"] = tot_chat        # 첫 점은 원합계에서 출발한다
-            print(f"  {code} 기준점 없음 — 증분은 다음 회차부터")
+            row["cchat"] = tot_chat        # 첫 점 / 경로 전환 직후는 원합계에서 다시 출발
+            if not prev_row:
+                print(f"  {code} 기준점 없음 — 증분은 다음 회차부터")
         hist.append(row)
         s["hist"] = hist[-DAYS:]
-        s["snaps"] = (snaps + [{"d": today, "v": snap}])[-2:]
+        s["snaps"] = (snaps + [{"d": today, "v": snap, "src": src}])[-2:]
+        # 카탈로그 규모와 월별 신규 캐릭터 투입 — 콘텐츠 투입은 이 사업의 비용이자 동력이다.
+        # startAt 기준이라 과거가 통째로 들어온다(백필).
+        if newmap:
+            s["cat"] = {"n": len(chars), "new": dict(sorted(newmap.items()))}
 
         # 캐릭터별 — 대화수 상위 CHAR_HIST 명만 시계열을 남긴다(나머지는 최신값만).
         prev = {c["id"]: c for c in (s.get("chars") or [])}
@@ -289,7 +343,6 @@ def main():
 
         # 랭킹 — 실패해도 위의 캐릭터 수집은 살린다(둘은 별개 경로다).
         try:
-            base = url.rstrip("/")
             s["rank"], got = rank(base, s.get("rank"), today, now.strftime("%H:%M"))
             wk = s["rank"]["weekly"]
             print(f"  {code} 랭킹: 주간 {len(wk)}주(새로 {got}개) · "
