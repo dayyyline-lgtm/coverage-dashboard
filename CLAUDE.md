@@ -372,6 +372,7 @@ if old == out: return                           # 자기 자신과 비교 → �
 |---|---|---|
 | `refresh.yml` | 워커. 평일 **08·10·12·14·16·18**, 주말 12·20 | 시세·뉴스·DART(10/14/18)·잠정(10/18)·영화·치지직·트위치 |
 | `events.yml` | 워커 05:45 (+ cron 백업) | 아침 전체수집 + 데일리 레터 |
+| `letter.yml` | 수집 완료 후(workflow_run) | 데일리 레터 + **트렌드 레터**(`trend_letter.py` · 움직인 것만 ±15% · SAMG·제타 제외) |
 | `screens.yml` | `refresh` 뒤에 얹혀서 + cron 하루 1회 백업 | 스크린 배정·예매 |
 | `movie.yml`·`trade.yml`·`digest.yml` | **수동 전용** | 급할 때만 |
 

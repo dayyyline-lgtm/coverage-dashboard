@@ -57,6 +57,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python digest.py --once || echo "데일리 레터 건너뜀"
 
+      # 트렌드 레터 — '움직인 것만'(±15%) + 탑툰챗 상세. trend_letter_sent.json 으로 하루 한 통.
+      # 데일리 레터와 별개 메시지다. 실패해도 데일리 레터를 막지 않는다.
+      - name: 트렌드 레터 발송
+        timeout-minutes: 5
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python trend_letter.py || echo "트렌드 레터 건너뜀"
+
       # 발송 기록을 남겨야 '오늘 이미 보냈는지'가 다음 실행까지 이어진다.
       - name: 발송 기록/디버그 커밋
         if: always()
@@ -64,7 +73,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add digest_sent.json digest_debug.json 2>/dev/null || true
+          git add digest_sent.json digest_debug.json trend_letter_sent.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
             git commit -m "데일리 레터 발송기록/디버그 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
             for i in 1 2 3 4 5; do
