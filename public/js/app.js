@@ -2193,6 +2193,7 @@ TT_REG.forEach((r,i)=>{ r.c = TT_PAL[i % TT_PAL.length]; });
 const TT_FULL = 50;             // 랭킹 명단이 다 찬 기준. 이 아래는 '부분 집계'
 let ttPeriod = "weekly";
 let ttMode   = "abs";           // abs = 절대값 · idx = 성장(첫 기간=100)
+let ttMA     = true;            // 4주 이동평균 겹쳐 그리기
 
 function ttSite(code){
   if(typeof TOPTOON==="undefined") return null;
@@ -2323,6 +2324,22 @@ function drawToptoon(){
     if(li>=0) s+='<text x="'+(W-pad.r+8)+'" y="'+(sy(arr[li])+4)+'" font-size="11.5" font-weight="700" fill="'+c+'">'
       +TT_REG[gi].nm+'</text>';
   });
+  /* 4주 이동평균 — 주간 원본은 흔들림이 커서(한국 주간변동 표준편차 11.8%p) 추세가 안 보인다.
+     4주로 묶으면 4.5%p 로 떨어지고, 5주로 늘려도 4.3%p 라 더 나아지지 않는다 → 4주.
+     대가는 전환점을 1주 늦게 알려주는 것이라, 원본 선과 **같이** 그린다(하나만 보면 오독한다). */
+  if(ttPeriod==="weekly" && ttMA){
+    val.forEach((arr,gi)=>{
+      const c=TT_REG[gi].c, N=4, pts=[];
+      for(let i=0;i<arr.length;i++){
+        const win=arr.slice(Math.max(0,i-N+1),i+1).filter(v=>v!=null);
+        if(win.length<N) continue;                 // 창이 다 안 차면 안 그린다(가짜 시작점 방지)
+        pts.push([sx(i), sy(win.reduce((a,b)=>a+b,0)/win.length)]);
+      }
+      if(pts.length>1)
+        s+='<polyline points="'+pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")
+          +'" fill="none" stroke="'+c+'" stroke-width="3" stroke-dasharray="7 4" opacity="0.55"/>';
+    });
+  }
   s+='</svg>';
   box.innerHTML=s;
   attachChartTip(box,{W:W,H:H,pad:pad,n:keys.length,xOf:sx,html:i=>{
@@ -2426,13 +2443,111 @@ function renderToptoonTable(){
     +'</tr></thead><tbody>'+body+'</tbody>';
 }
 
+/* 월별 추이 — 반드시 '주평균' 으로 낸다 (2026-09-01)
+   달마다 주 수가 다르다(4월 5주 · 5월 4주 · 7월 5주 · 8월 4주). 단순 합계로 MoM 을 내면
+   7월(5주) → 8월(4주) 이 -16% 로 찍히는데, 그건 주가 하나 적어서지 수요가 준 게 아니다.
+   주평균으로 내면 같은 구간이 +5% 다. 여기가 이 표의 존재 이유다.
+
+   ⚠ 분모는 **그 달의 전체 주 수**로 통일한다. 지역마다 자기가 가진 주로 나누면
+     런칭 달이 부풀어 오른다 — 일본은 5월에 1주(5월 4주차)만 운영했는데 그 1주를
+     '주평균 8,432' 으로 잡으면 한 달 내내 그 페이스였던 것처럼 되고, 5월 MoM 이
+     +49% 가 아니라 +70% 로 찍힌다. 실제로는 3주간 서비스가 없었으므로 0 이 맞다.
+   주가 모자란 칸은 이유를 나눠 표시한다:
+     · 앞이 비면  = 그 달에 런칭 (0 으로 채우는 게 맞다)
+     · 뒤가 비면  = 집계 지연 (북미는 한 주 늦게 공개된다) — 그만큼 과소평가된다 */
+function ttMonthly(){
+  const mon={};                        // {월: Set(주키)}  — 그 달에 존재하는 주(전 지역 합집합)
+  const val={};                        // {월: {code: {sum, ks:Set}}}
+  TT_REG.forEach(g=>{
+    ttRows(g.code,"weekly").forEach(w=>{
+      const m=/^(\d+)월/.exec(w.lab||""); if(!m) return;
+      const k=+m[1];
+      (mon[k]=mon[k]||new Set()).add(w.k);
+      const c=((val[k]=val[k]||{})[g.code]=(val[k]||{})[g.code]||{sum:0, ks:new Set()});
+      c.sum+=w.tot; c.ks.add(w.k);
+    });
+  });
+  // 지역별 전체 관측 구간 — '앞이 빈 것(런칭)' 과 '뒤가 빈 것(지연)' 을 가르는 기준
+  const span={};
+  TT_REG.forEach(g=>{
+    const ks=ttRows(g.code,"weekly").map(w=>w.k).sort();
+    if(ks.length) span[g.code]={first:ks[0], last:ks[ks.length-1]};
+  });
+  return Object.keys(mon).map(Number).sort((a,b)=>a-b).map(k=>{
+    const weeks=[...mon[k]].sort(), n=weeks.length;
+    const per={}, note={};
+    let tot=0;
+    TT_REG.forEach(g=>{
+      const c=(val[k]||{})[g.code];
+      if(!c){ per[g.code]=null; return; }
+      per[g.code]=c.sum/n;             // ← 분모는 언제나 그 달의 전체 주 수
+      tot+=per[g.code];
+      if(c.ks.size<n){
+        const sp=span[g.code]||{};
+        const missTail=weeks.some(w=>w>sp.last && !c.ks.has(w));
+        note[g.code]= missTail ? "지연" : "런칭";   // 뒤가 비면 집계 지연, 앞이 비면 그 달 런칭
+      }
+    });
+    return {m:k, per:per, note:note, n:n, weeks:weeks, tot:tot};
+  });
+}
+
+function renderToptoonMonth(){
+  const t=document.getElementById("ttMonth"); if(!t) return;
+  const rows=ttMonthly();
+  if(!rows.length){ t.innerHTML=""; return; }
+  const price=ttPrice();
+  const body=rows.map((r,i)=>{
+    const p=i>0?rows[i-1]:null;
+    const mom=(p&&p.tot>0)?(r.tot/p.tot-1)*100:null;
+    const cells=TT_REG.map(g=>{
+      const v=r.per[g.code], pv=p?p.per[g.code]:null;
+      if(v==null) return '<td class="th-sub" style="text-align:right">—</td>';
+      const d=(pv!=null&&pv>0)?(v/pv-1)*100:null;
+      // 런칭 달은 앞이 비어 있어 낮게 나오는 게 맞고, '지연'은 그만큼 과소평가라 뜻이 다르다
+      const nt=r.note[g.code];
+      return '<td style="text-align:right;font-variant-numeric:tabular-nums">'+fmt0(v)
+        +(nt?' <span class="th-sub" title="'+(nt==="런칭"
+            ?"이 달에 서비스를 시작해 앞 주가 비어 있습니다 — 0 으로 채워 평균냈습니다"
+            :"이 지역은 최신 주 집계가 늦게 올라옵니다 — 그만큼 과소평가된 값입니다")
+          +'">'+nt+'</span>':"")
+        +(d==null?"":' <span class="'+cls(d)+'" style="font-size:11px">'+sign(d,0)+'%</span>')+'</td>';
+    }).join("");
+    return '<tr><td style="font-weight:700">'+r.m+'월<span class="th-sub"> '+r.n+'주</span></td>'
+      +cells
+      +'<td style="text-align:right;font-weight:800;font-variant-numeric:tabular-nums">'+fmt0(r.tot)+'</td>'
+      +'<td style="text-align:right;font-weight:800" class="'+(mom==null?"":cls(mom))+'">'
+        +(mom==null?"—":sign(mom,0)+"%")+'</td>'
+      +'<td style="text-align:right;font-variant-numeric:tabular-nums">'
+        +(r.tot*4.33*price/1e8).toFixed(1)+'억</td></tr>';
+  }).join("");
+  t.innerHTML='<thead><tr><th>월</th>'
+    +TT_REG.map(g=>'<th style="text-align:right">'+g.nm+'</th>').join("")
+    +'<th style="text-align:right">합계<div class="th-sub">주평균</div></th>'
+    +'<th style="text-align:right">MoM</th>'
+    +'<th style="text-align:right">월매출<div class="th-sub">추정</div></th></tr></thead><tbody>'+body+'</tbody>';
+  const n=document.getElementById("ttMonthNote");
+  if(n) n.innerHTML='<b>주평균 기준</b>입니다 — 달마다 주 수가 달라(4·7월은 5주) 단순 합계로 MoM 을 내면 '
+    +'7월→8월이 −16%로 잘못 찍힙니다. 주평균으로는 +5%입니다. · '
+    +'매출 = 주평균 × 4.33주 × 방당 '+fmt0(price)+'원 · '
+    +'지역마다 마지막 주 공개가 늦을 수 있어(북미) <b>각 지역이 가진 주로만 평균</b>냅니다.';
+}
+
+/* 방당 매출 단가 — 공시가 나올 때마다 재보정해야 하므로 화면에서 바꿀 수 있게 둔다.
+   기본 1,832원 = 사용자가 준 2Q26 AI 매출 15억 ÷ 2Q 대화방 818,956개. */
+function ttPrice(){
+  const el=document.getElementById("ttPrice");
+  const v=el?parseFloat(el.value):NaN;
+  return (isFinite(v)&&v>0)?v:1832;
+}
+
 function renderToptoon(){
   const sec=document.querySelector('section[data-view="toptoon"]'); if(!sec) return;
   const kpi=document.getElementById("ttKpi");
   if(typeof TOPTOON==="undefined"||!TOPTOON.sites){
     if(kpi) kpi.innerHTML='<div class="ov-empty">탑툰챗 데이터가 아직 없습니다.</div>'; return;
   }
-  renderToptoonKpi(); drawToptoon(); renderToptoonRank();
+  renderToptoonKpi(); drawToptoon(); renderToptoonMonth(); renderToptoonRank();
   renderToptoonSupply(); renderToptoonTable();
   const n=document.getElementById("ttNote");
   if(n) n.innerHTML=TOPTOON.asOf+' 기준 · 활동지수 = 사이트 랭킹 API 의 score 합(상위 50명) — '
@@ -2448,6 +2563,9 @@ function renderToptoon(){
       [...el.querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x===b)); fn(b); }); };
   on("ttPeriodSeg", b=>{ ttPeriod=b.dataset.p; drawToptoon(); renderToptoonTable(); });
   on("ttModeSeg",   b=>{ ttMode=b.dataset.m; drawToptoon(); });
+  on("ttMASeg",     b=>{ ttMA=b.dataset.ma==="on"; drawToptoon(); });
+  const pe=document.getElementById("ttPrice");
+  if(pe) pe.addEventListener("input",()=>renderToptoonMonth());
   window.addEventListener("resize",()=>{
     const s=document.querySelector('section[data-view="toptoon"]');
     if(s&&s.classList.contains("active")) drawToptoon();

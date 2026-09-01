@@ -777,12 +777,29 @@
         <button data-m="abs" class="active">절대값</button>
         <button data-m="idx" title="각 지역의 비교 가능한 첫 기간을 100 으로 — 진출 시점이 달라도 성장 속도를 겹쳐 볼 수 있습니다">성장지수</button>
       </div>
+      <!-- 주간 원본은 변동 표준편차가 11.8%p 라 추세가 안 보인다. 4주로 묶으면 4.5%p. -->
+      <div class="seg" id="ttMASeg" style="margin-bottom:0">
+        <button data-ma="on" class="active" title="점선 = 4주 이동평균. 주간 원본의 흔들림을 걷어냅니다(전환점은 1주 늦게 잡힙니다)">4주평균 겹치기</button>
+        <button data-ma="off">원본만</button>
+      </div>
     </div>
     <div class="chart-box">
       <div id="ttChart"></div>
       <div class="legend" id="ttLegend"></div>
     </div>
     <p class="note" id="ttNote"></p>
+
+    <!-- 월별은 반드시 주평균으로. 달마다 주 수가 달라 단순 합계 MoM 은 거짓말을 한다. -->
+    <div class="sub-h">월별 추이 &amp; 매출 환산</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <label for="ttPrice" style="font-weight:800;font-size:13px;color:var(--muted)">방당 매출</label>
+      <input id="ttPrice" type="number" value="1832" min="100" max="10000" step="50"
+        class="theme-btn" style="width:110px;padding:7px 10px;font-weight:700;font-size:13.5px"
+        title="공시가 나올 때마다 재보정하세요 — (그 분기 AI 매출) ÷ (그 분기 대화방 수)">
+      <span class="th-sub">원 · 기본값은 2Q26 15억 ÷ 818,956방에서 역산</span>
+    </div>
+    <div class="tbl-wrap"><table id="ttMonth"></table></div>
+    <p class="note" id="ttMonthNote"></p>
     <div class="sub-h">상위 캐릭터 — 최근 주 순위 변동</div>
     <div class="tbl-wrap"><table id="ttRank"></table></div>
     <!-- 활동지수가 '결과'라면 이건 '투입'이다. 카탈로그의 startAt 에서 백필된다. -->
