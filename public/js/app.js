@@ -2541,13 +2541,114 @@ function ttPrice(){
   return (isFinite(v)&&v>0)?v:1832;
 }
 
+/* ══ 분기 매출 추정 모델 ══
+   매출 = 신규 대화방 수 × 방당 단가.  단가는 화면 입력(기본 1,832원 = 2Q 15억 ÷ 818,956방).
+   '대화방 수' 단위는 3중으로 검증됨(2026-09-01):
+     ① 사이트 문구 "{sessionCount}개의 대화" · turnCount 는 별도 개념
+     ② 턴이라면 누적 157만×120원=1.9억이 상한 → 2Q 15억과 모순 (귀류)
+     ③ 실측: 12분간 +56건 = 하루 6,764건 — 세션 기대치(8,798)와 부합, 턴 필요치(137,000)의 1/20 */
+function ttQuarter(w1, w2){          // ISO 주차 w1~w2 의 지역합 [합계, 관측주수, 최근4주평균]
+  const ks=[]; for(let w=w1; w<=w2; w++) ks.push("2026-"+String(w).padStart(2,"0"));
+  let tot=0; const wkTot={};
+  TT_REG.forEach(g=>ttRows(g.code,"weekly").forEach(r=>{
+    if(ks.includes(r.k)){ tot+=r.tot; wkTot[r.k]=(wkTot[r.k]||0)+r.tot; }
+  }));
+  const seen=Object.keys(wkTot).sort();
+  const last4=seen.slice(-4).map(k=>wkTot[k]);
+  return {tot:tot, n:seen.length, pace:last4.length?last4.reduce((a,b)=>a+b,0)/last4.length:0};
+}
+function renderToptoonModel(){
+  const box=document.getElementById("ttModel"); if(!box) return;
+  const price=ttPrice(), R=v=>(v*price/1e8);
+  const q2=ttQuarter(14,26), q3=ttQuarter(27,39);
+  const q3p=q3.tot+q3.pace*(13-q3.n);                  // 잔여 주는 최근 4주 페이스로
+  // Q4 시나리오 — 한국이 결정한다(비중 ~63%). 지역별 마지막 관측주를 출발점으로.
+  const lastOf=c=>{const a=ttRows(c,"weekly"); return a.length?a[a.length-1].tot:0;};
+  const krLast=lastOf("KR"), othLast=TT_REG.filter(g=>g.code!=="KR").reduce((a,g)=>a+lastOf(g.code),0);
+  const krRows=ttRows("KR","weekly"), krPeak=Math.max.apply(null,krRows.map(r=>r.tot).concat([1]));
+  const scen=[["한국 7월 정점 복귀",krPeak],["한국 현 수준 유지",krLast],["한국 10% 추가 하락",krLast*0.9]]
+    .map(([lab,kr])=>({lab:lab, tot:(kr+othLast)*13}));
+  const card=(t,rooms,rev,sub,hl)=>'<div class="sm-cell"'+(hl?' style="border-color:color-mix(in srgb,var(--accent) 45%,transparent)"':'')+'>'
+    +'<div class="sm-h">'+t+'<span class="v" style="color:var(--accent)">'+rev.toFixed(1)+'억</span></div>'
+    +'<div class="shop-kv">대화방 '+fmt0(rooms)+' · '+sub+'</div></div>';
+  box.innerHTML='<div class="sm-grid">'
+    +card('2Q26 <span class="src">실측 · 앵커</span>', q2.tot, R(q2.tot),
+          '실제 AI 매출(약 15억)로 단가를 역산한 기준 분기')
+    +card('3Q26 <span class="src">'+q3.n+'/13주 경과</span>', Math.round(q3p), R(q3p),
+          '실측 '+fmt0(q3.tot)+' + 잔여 '+(13-q3.n)+'주×최근페이스 · QoQ '+sign((q3p/q2.tot-1)*100,0)+'%', true)
+    +scen.map((s,i)=>card('4Q26 <span class="src">'+s.lab+'</span>', Math.round(s.tot), R(s.tot),
+          '3Q 대비 '+sign((s.tot/q3p-1)*100,0)+'%')).join("")
+    +'</div>';
+}
+
+/* 한국 심층(주간) — 총량 하나로는 안 보이는 세 결.
+   기존캐릭터(bk) = 4월 코호트 40명 고정 바스켓. 전체가 늘어도 이게 빠지면 돌려막기.
+   활동/컬렉션 = 유저 랭킹 상위 30명의 냥 사용 등급(1~5). 활동=턴과금, 컬렉션=앨범해금.
+   결제 믹스가 어디로 이동하는지 공개 데이터로 볼 수 있는 유일한 창이다. */
+function renderToptoonKr(){
+  const t=document.getElementById("ttKrDeep"); if(!t) return;
+  const wk=ttRows("KR","weekly"); if(!wk.length){ t.innerHTML=""; return; }
+  const um={}; (ttRows("KR","users")||[]).forEach(u=>{ um[u.k]=u; });
+  const rows=wk.slice(-10).reverse().map((w,i,arr)=>{
+    const p=arr[i+1];
+    const d=(p&&p.tot>0&&p.n>=TT_FULL&&w.n>=TT_FULL)?(w.tot/p.tot-1)*100:null;
+    const bs=(w.bk!=null&&w.tot>0)?w.bk/w.tot*100:null;
+    const u=um[w.k]||{};
+    return '<tr><td style="font-weight:700">'+w.lab+'</td>'
+      +'<td style="text-align:right;font-variant-numeric:tabular-nums">'+fmt0(w.tot)
+      +(d==null?"":' <span class="'+cls(d)+'" style="font-size:11px">'+sign(d,0)+'%</span>')+'</td>'
+      +'<td style="text-align:right;font-variant-numeric:tabular-nums">'+(w.bk!=null?fmt0(w.bk):"—")
+      +(bs!=null?' <span class="th-sub">'+bs.toFixed(0)+'%</span>':"")+'</td>'
+      +'<td style="text-align:right">'+(u.act!=null?u.act.toFixed(1):"—")+'</td>'
+      +'<td style="text-align:right">'+(u.col!=null?u.col.toFixed(1):"—")+'</td>'
+      +'<td style="text-align:right" class="th-sub">'+(u.new!=null?u.new+"/"+u.n:"—")+'</td></tr>';
+  }).join("");
+  t.innerHTML='<thead><tr><th>주차</th><th style="text-align:right">신규 대화방</th>'
+    +'<th style="text-align:right" title="4월까지 출시된 40명 고정 바스켓 — 전체가 늘어도 이게 빠지면 신규 공급으로 돌려막는 중">기존캐릭터<div class="th-sub">4월 코호트</div></th>'
+    +'<th style="text-align:right" title="유저 랭킹 상위 30명의 채팅 냥 사용 등급(1~5)">활동<div class="th-sub">턴과금</div></th>'
+    +'<th style="text-align:right" title="유저 랭킹 상위 30명의 이미지 해금 냥 사용 등급(1~5)">컬렉션<div class="th-sub">앨범해금</div></th>'
+    +'<th style="text-align:right">신규유저</th></tr></thead><tbody>'+rows+'</tbody>';
+}
+
+/* 일일 지표 — 매일 아침 수집이 쌓이면 여기부터 살아난다.
+   br=대화가 늘어난 캐릭터 수(확산) · t5=증분 중 상위5 비중(집중) · cv=조회→대화 전환율 · bd=기존 바스켓 몫 */
+function renderToptoonDaily(){
+  const t=document.getElementById("ttDaily"); if(!t) return;
+  const rows=[];
+  TT_REG.forEach(g=>{
+    const s=ttSite(g.code); if(!s) return;
+    (s.hist||[]).filter(h=>h.dchat!=null).slice(-14).forEach(h=>rows.push({g:g,h:h}));
+  });
+  if(!rows.length){
+    t.innerHTML='<tbody><tr><td class="th-sub">일일 증분은 카탈로그 스냅샷이 이틀 쌓이면 나타납니다 — 내일 아침 수집부터.</td></tr></tbody>';
+    return;
+  }
+  rows.sort((a,b)=>(b.h.d+b.g.code).localeCompare(a.h.d+a.g.code));
+  t.innerHTML='<thead><tr><th>일자</th><th>지역</th><th style="text-align:right">대화방+</th>'
+    +'<th style="text-align:right">조회+</th>'
+    +'<th style="text-align:right" title="일일 조회 증가 대비 대화 증가 — 구경만 하는지 실제로 대화하는지">전환율</th>'
+    +'<th style="text-align:right" title="대화가 실제로 늘어난 캐릭터 수 — 한둘만 늘면 신작 효과, 널리 늘면 플랫폼 성장">확산</th>'
+    +'<th style="text-align:right" title="증분 중 상위 5개 캐릭터 비중">상위5</th>'
+    +'<th style="text-align:right" title="기존 캐릭터(초기 코호트) 몫">기존</th></tr></thead><tbody>'
+    +rows.map(o=>'<tr><td>'+o.h.d.slice(5)+'</td>'
+      +'<td><span class="dot" style="background:'+o.g.c+'"></span>'+o.g.nm+'</td>'
+      +'<td style="text-align:right;font-variant-numeric:tabular-nums">+'+fmt0(o.h.dchat)+'</td>'
+      +'<td style="text-align:right;font-variant-numeric:tabular-nums">+'+fmt0(o.h.dview)+'</td>'
+      +'<td style="text-align:right">'+(o.h.cv!=null?o.h.cv+"%":"—")+'</td>'
+      +'<td style="text-align:right">'+(o.h.br!=null?o.h.br+"명":"—")+'</td>'
+      +'<td style="text-align:right">'+(o.h.t5!=null?o.h.t5+"%":"—")+'</td>'
+      +'<td style="text-align:right">'+(o.h.bd!=null?fmt0(o.h.bd):"—")+'</td></tr>').join("")
+    +'</tbody>';
+}
+
 function renderToptoon(){
   const sec=document.querySelector('section[data-view="toptoon"]'); if(!sec) return;
   const kpi=document.getElementById("ttKpi");
   if(typeof TOPTOON==="undefined"||!TOPTOON.sites){
     if(kpi) kpi.innerHTML='<div class="ov-empty">탑툰챗 데이터가 아직 없습니다.</div>'; return;
   }
-  renderToptoonKpi(); drawToptoon(); renderToptoonMonth(); renderToptoonRank();
+  renderToptoonKpi(); renderToptoonModel(); drawToptoon(); renderToptoonMonth();
+  renderToptoonKr(); renderToptoonDaily(); renderToptoonRank();
   renderToptoonSupply(); renderToptoonTable();
   const n=document.getElementById("ttNote");
   if(n) n.innerHTML=TOPTOON.asOf+' 기준 · 활동지수 = 사이트 랭킹 API 의 score 합(상위 50명) — '
@@ -2565,7 +2666,7 @@ function renderToptoon(){
   on("ttModeSeg",   b=>{ ttMode=b.dataset.m; drawToptoon(); });
   on("ttMASeg",     b=>{ ttMA=b.dataset.ma==="on"; drawToptoon(); });
   const pe=document.getElementById("ttPrice");
-  if(pe) pe.addEventListener("input",()=>renderToptoonMonth());
+  if(pe) pe.addEventListener("input",()=>{ renderToptoonMonth(); renderToptoonModel(); });
   window.addEventListener("resize",()=>{
     const s=document.querySelector('section[data-view="toptoon"]');
     if(s&&s.classList.contains("active")) drawToptoon();

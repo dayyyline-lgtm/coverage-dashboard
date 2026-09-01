@@ -104,7 +104,7 @@ def catalog(base):
       2026-09-01 실측: 한국 작품 2개(대화 6,057 = 카탈로그의 +0.38%)이고 일본·중화권·북미는 0개인데,
       **둘 다 실시간 랭킹 1·2위**다. 지금은 작아도 회사가 새로 미는 포맷이라 빠질 수 없다.
       캐릭터 id 와 겹치지 않게 'c' 접두어를 붙여 담는다(작품 6 ↔ 캐릭터 6 은 다른 것)."""
-    out, new = {}, {}
+    out, new, born = {}, {}, {}
     page = 1
     while True:
         d = _api(base, f"/api/characters?limit=50&page={page}")
@@ -116,6 +116,7 @@ def catalog(base):
             ym = (x.get("startAt") or x.get("createdAt") or "")[:7]
             if ym:
                 new[ym] = new.get(ym, 0) + 1
+                born[cid] = ym
         if page >= (pg.get("totalPages") or 1) or not rows:
             break
         page += 1
@@ -130,9 +131,10 @@ def catalog(base):
             ym = (x.get("startAt") or x.get("createdAt") or "")[:7]
             if ym:
                 new[ym] = new.get(ym, 0) + 1
+                born["c" + str(x.get("id"))] = ym
     except Exception:
         pass                       # 작품이 없는 지역(일본·중화권·북미)은 그냥 넘어간다
-    return out, new, ncon
+    return out, new, ncon, born
 
 
 def _snapshot(chars):
@@ -192,15 +194,21 @@ def _api(base, path):
     return d.get("data")
 
 
-def _row(k, lab, items):
-    return {"k": k, "lab": lab or k, "n": len(items),
-            "tot": sum(x.get("score") or 0 for x in items),
-            "top": [{"id": x.get("characterId"), "nm": x.get("name"),
-                     "s": x.get("score"), "kind": x.get("kind")}
-                    for x in items[:RANK_TOP]]}
+def _row(k, lab, items, basket=None):
+    r = {"k": k, "lab": lab or k, "n": len(items),
+         "tot": sum(x.get("score") or 0 for x in items),
+         "top": [{"id": x.get("characterId"), "nm": x.get("name"),
+                  "s": x.get("score"), "kind": x.get("kind")}
+                 for x in items[:RANK_TOP]]}
+    # 기존 캐릭터 바스켓 합 — 전체(tot)가 늘어도 이게 빠지면 '신규 공급으로 돌려막는 중'이다.
+    # 바스켓은 지역별 초기 로스터로 고정(frozen)한다. 아래 rank() 참고.
+    if basket is not None:
+        r["bk"] = sum(x.get("score") or 0 for x in items
+                      if str(x.get("characterId")) in basket)
+    return r
 
 
-def _periods(base, kind, have):
+def _periods(base, kind, have, basket=None):
     """kind = weekly | monthly. 이미 받은 기간은 건너뛴다 — 첫 실행만 무겁다."""
     pers = _api(base, f"/api/ranking/{kind}/periods") or []      # 최신순
     fresh = {p["periodKey"] for p in pers[:RANK_REFRESH]}
@@ -209,30 +217,44 @@ def _periods(base, kind, have):
     for p in pers:
         k = p["periodKey"]
         have_k = out.get(k)
-        # RANK_TOP 을 늘렸을 때 옛 기간이 얕은 채로 남지 않도록 스스로 다시 받는다.
-        # (n 이 RANK_TOP 보다 작았던 기간은 더 받을 게 없으므로 제외)
+        # 옛 기간을 스스로 다시 받는 두 경우: ① RANK_TOP 을 늘려 얕게 남은 것
+        # ② 바스켓 합(bk)이 아직 없는 것 — 바스켓 지수 도입 때 과거를 한 번에 백필한다.
         shallow = bool(have_k) and len(have_k.get("top") or []) < min(RANK_TOP, have_k.get("n") or 0)
-        if have_k and k not in fresh and not shallow:
+        nobk = bool(have_k) and basket is not None and "bk" not in have_k
+        if have_k and k not in fresh and not shallow and not nobk:
             continue
         d = _api(base, f"/api/ranking/{kind}?periodKey={k}") or {}
-        out[k] = _row(k, p.get("label"), d.get("items") or [])
+        out[k] = _row(k, p.get("label"), d.get("items") or [], basket)
         got += 1
         nap(0.25)
     return [out[k] for k in sorted(out)], got
 
 
 def _users(base, have):
-    """유저 주간 랭킹 — 이름은 안 쌓는다. 필요한 건 '몇 명이 랭크됐고 몇 명이 신규냐'뿐이다."""
+    """유저 주간 랭킹 — 이름은 안 쌓는다.
+
+    buckets(1~5 등급)가 이 API 의 알맹이다. 사이트 안내로는
+    '활동' = 채팅에 사용한 냥, '컬렉션' = 이미지 해금에 사용한 냥, '출석' = 출석일.
+    즉 상위 30명의 **결제 믹스**다 — 턴과금(act)과 앨범해금(col) 중 어디에 돈이 가는지.
+    실측(KR): 활동 7월 1주 3.80 → 8월 4주 2.73 · 컬렉션 2.77 → 1.57 · 출석 4.30 → 3.00.
+    (최애 캐릭터 분산은 30명 중 20명이 비공개(None)라 지표로 못 쓴다 — 넣지 않는다.)"""
     pers = _api(base, "/api/ranking/user/weekly/periods") or []
     fresh = {p["periodKey"] for p in pers[:RANK_REFRESH]}
     out = dict(have)
     for p in pers:
         k = p["periodKey"]
-        if k in out and k not in fresh:
-            continue
+        have_k = out.get(k)
+        if have_k and k not in fresh and "act" in have_k:
+            continue                        # act 없는 옛 기간은 믹스 도입 때 한 번 재수집
         it = (_api(base, f"/api/ranking/user/weekly?periodKey={k}") or {}).get("items") or []
-        out[k] = {"k": k, "lab": p.get("label") or k, "n": len(it),
-                  "new": sum(1 for x in it if x.get("isNew"))}
+        row = {"k": k, "lab": p.get("label") or k, "n": len(it),
+               "new": sum(1 for x in it if x.get("isNew"))}
+        if it:
+            bs = [x.get("buckets") or {} for x in it]
+            row["act"] = round(sum(b.get("activity") or 0 for b in bs) / len(bs), 2)
+            row["col"] = round(sum(b.get("collection") or 0 for b in bs) / len(bs), 2)
+            row["att"] = round(sum(b.get("attendance") or 0 for b in bs) / len(bs), 2)
+        out[k] = row
         nap(0.25)
     return [out[k] for k in sorted(out)]
 
@@ -253,12 +275,12 @@ def price(base):
             "sel": d.get("selectableDepths") or []}
 
 
-def rank(base, prev, today, hhmm):
+def rank(base, prev, today, hhmm, basket=None):
     """사이트 하나의 랭킹 묶음. 실패해도 캐릭터 수집을 죽이지 않도록 호출부에서 감싼다."""
     prev = prev or {}
     idx = lambda key: {r["k"]: r for r in (prev.get(key) or [])}
-    weekly,  gw = _periods(base, "weekly",  idx("weekly"))
-    monthly, gm = _periods(base, "monthly", idx("monthly"))
+    weekly,  gw = _periods(base, "weekly",  idx("weekly"),  basket)
+    monthly, gm = _periods(base, "monthly", idx("monthly"), basket)
     users = _users(base, idx("users"))
 
     # 실시간 — 하루 1점. 롤링 윈도 스냅샷이라 매일 같은 시각에 찍어야 비교가 된다.
@@ -304,9 +326,9 @@ def main():
     ok_any, fails = False, []
     for code, url in SITES:
         base = url.rstrip("/")
-        chars, newmap, ncon, src = {}, {}, 0, "cat"
+        chars, newmap, ncon, born, src = {}, {}, 0, {}, "cat"
         try:
-            chars, newmap, ncon = catalog(base)
+            chars, newmap, ncon, born = catalog(base)
         except Exception as e:
             fails.append(f"{code} 카탈로그 {type(e).__name__} {str(e)[:40]}")
             if looks_blocked(e):
@@ -327,6 +349,15 @@ def main():
 
         s = sites.get(code) or {"code": code, "url": url, "hist": [], "chars": []}
 
+        # 기존 캐릭터 바스켓 — 지역별 초기 로스터로 **한 번 정해 고정**한다(절대 재계산 금지 —
+        # 명단이 바뀌면 지수가 이어지지 않는다). KR 은 4월까지 출시분(활동 100% 를 차지하던
+        # 코호트), 나중에 연 지역은 초기 두 달 출시분. 전체가 늘어도 이 합이 빠지면
+        # '신규 공급으로 기존 수요를 돌려막는 중'이라는 신호다.
+        if "basket" not in s and born:
+            cut = "2026-05" if code == "KR" else "2026-07"
+            s["basket"] = {"cut": cut, "ids": sorted(k for k, m in born.items() if m < cut)}
+        basket = set((s.get("basket") or {}).get("ids") or []) or None
+
         # 전 캐릭터 스냅샷 — 최근 2일치만 들고 있는다(교집합 증분용, 사이트당 ~3KB).
         # 같은 날 재실행이면 오늘 것은 버리고 '오늘이 아닌 가장 최근 날'을 기준으로 삼는다.
         snap = _snapshot(chars)
@@ -345,6 +376,19 @@ def main():
         if prev_row and same_src:
             dc, dv, nc = _delta(prev_row["v"], snap)
             row["dchat"], row["dview"], row["nc"] = dc, dv, nc
+            # 확산·집중·전환·바스켓 — '어제 몇 개 늘었나'를 넷으로 쪼갠다.
+            #   br = 오늘 대화가 실제로 늘어난 캐릭터 수(확산). 한둘만 늘면 신작 효과, 널리 늘면 플랫폼 성장.
+            #   t5 = 증분 중 상위 5개 캐릭터 비중 %(집중).  cv = 조회→대화 전환율 %.
+            #   bd = 그중 기존 바스켓 몫 — 전체는 느는데 이게 빠지면 돌려막기다.
+            per = {cid: v[0] - prev_row["v"][cid][0] for cid, v in snap.items()
+                   if cid in prev_row["v"] and v[0] > prev_row["v"][cid][0]}
+            row["br"] = len(per)
+            if dc > 0:
+                row["t5"] = round(sum(sorted(per.values(), reverse=True)[:5]) / dc * 100)
+            if dv > 0:
+                row["cv"] = round(dc / dv * 100, 1)
+            if basket:
+                row["bd"] = sum(d for cid, d in per.items() if cid in basket)
             # 조정 누적 — 원합계는 명단이 바뀌면 꺾이므로 증분을 더해 올린다.
             prev_c = next((h["cchat"] for h in reversed(hist) if h.get("cchat") is not None), None)
             row["cchat"] = (tot_chat if prev_c is None else prev_c) + dc
@@ -377,7 +421,7 @@ def main():
 
         # 랭킹 — 실패해도 위의 캐릭터 수집은 살린다(둘은 별개 경로다).
         try:
-            s["rank"], got = rank(base, s.get("rank"), today, now.strftime("%H:%M"))
+            s["rank"], got = rank(base, s.get("rank"), today, now.strftime("%H:%M"), basket)
             wk = s["rank"]["weekly"]
             print(f"  {code} 랭킹: 주간 {len(wk)}주(새로 {got}개) · "
                   f"실시간 활동지수 {s['rank']['rt'][-1]['tot']:,}"
