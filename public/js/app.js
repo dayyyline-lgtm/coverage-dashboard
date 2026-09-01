@@ -2564,15 +2564,15 @@ function renderToptoonMonth(){
 }
 
 /* 방당 매출 단가 — 공시가 나올 때마다 재보정해야 하므로 화면에서 바꿀 수 있게 둔다.
-   기본 1,832원 = 사용자가 준 2Q26 AI 매출 15억 ÷ 2Q 대화방 818,956개. */
+   기본 2,050원 = 2Q26 AI 매출 15~18.6억(중간 16.8억) ÷ 2Q 대화방 818,956개 → 1,832~2,271원의 중간. */
 function ttPrice(){
   const el=document.getElementById("ttPrice");
   const v=el?parseFloat(el.value):NaN;
-  return (isFinite(v)&&v>0)?v:1832;
+  return (isFinite(v)&&v>0)?v:2050;
 }
 
 /* ══ 분기 매출 추정 모델 ══
-   매출 = 신규 대화방 수 × 방당 단가.  단가는 화면 입력(기본 1,832원 = 2Q 15억 ÷ 818,956방).
+   매출 = 신규 대화방 수 × 방당 단가.  단가는 화면 입력(기본 2,050원 = 2Q 15~18.6억 중간 ÷ 818,956방).
    '대화방 수' 단위는 3중으로 검증됨(2026-09-01):
      ① 사이트 문구 "{sessionCount}개의 대화" · turnCount 는 별도 개념
      ② 턴이라면 누적 157만×120원=1.9억이 상한 → 2Q 15억과 모순 (귀류)
@@ -2603,7 +2603,7 @@ function renderToptoonModel(){
     +'<div class="shop-kv">대화방 '+fmt0(rooms)+' · '+sub+'</div></div>';
   box.innerHTML='<div class="sm-grid">'
     +card('2Q26 <span class="src">실측 · 앵커</span>', q2.tot, R(q2.tot),
-          '실제 AI 매출(약 15억)로 단가를 역산한 기준 분기')
+          '실제 AI 매출(15~18.6억 추정범위)로 단가를 역산한 기준 분기')
     +card('3Q26 <span class="src">'+q3.n+'/13주 경과</span>', Math.round(q3p), R(q3p),
           '실측 '+fmt0(q3.tot)+' + 잔여 '+(13-q3.n)+'주×최근페이스 · QoQ '+sign((q3p/q2.tot-1)*100,0)+'%', true)
     +scen.map((s,i)=>card('4Q26 <span class="src">'+s.lab+'</span>', Math.round(s.tot), R(s.tot),
