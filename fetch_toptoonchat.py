@@ -237,6 +237,22 @@ def _users(base, have):
     return [out[k] for k in sorted(out)]
 
 
+def price(base):
+    """턴당 가격. 이 사업의 P 다 — Q(대화수)만 봐서는 매출로 못 넘어간다.
+
+    /api/chat/pricing 은 캐릭터를 지정하든 말든 같은 값을 준다(전 캐릭터 공통).
+    단위는 '냥' 이고 냥 = 원 1:1 이다(FAQ: 1코인 = 220원 충전 · 일상톡 100 / 설렘톡 150).
+    base* 가 정가, 접두어 없는 값이 현재가 — isDiscounted 로 할인 여부가 온다.
+    **할인 종료는 그 자체로 ARPU 이벤트**라 매일 찍어 둔다."""
+    d = _api(base, "/api/chat/pricing") or {}
+    keep = ("daily", "thrill", "honey", "love", "pro", "high", "deluxe")
+    cur = {k: d.get(k) for k in keep if d.get(k) is not None}
+    bas = {k: d.get("base" + k.capitalize() + "Price") for k in keep
+           if d.get("base" + k.capitalize() + "Price") is not None}
+    return {"cur": cur, "base": bas, "disc": bool(d.get("isDiscounted")),
+            "sel": d.get("selectableDepths") or []}
+
+
 def rank(base, prev, today, hhmm):
     """사이트 하나의 랭킹 묶음. 실패해도 캐릭터 수집을 죽이지 않도록 호출부에서 감싼다."""
     prev = prev or {}
@@ -368,6 +384,17 @@ def main():
                   + (f" · 최근주 {wk[-1]['lab']} {wk[-1]['tot']:,}" if wk else ""))
         except Exception as e:
             fails.append(f"{code} 랭킹 {type(e).__name__} {str(e)[:50]}")
+
+        # 턴당 가격 — 하루 1점. 값이 바뀐 날만 기록해 자리를 아낀다(대개 몇 달째 그대로다).
+        try:
+            p = price(base)
+            ph = [x for x in (s.get("price") or []) if x.get("d") != today]
+            if not ph or {k: v for k, v in ph[-1].items() if k != "d"} != p:
+                ph.append(dict(p, d=today))
+                print(f"  {code} 가격 변동 기록: {p['cur']} (정가 {p['base']}) 할인={p['disc']}")
+            s["price"] = ph[-60:]
+        except Exception as e:
+            fails.append(f"{code} 가격 {type(e).__name__}")
 
         sites[code] = s
         print(f"  {code} 캐릭터 {len(chars)}명 · 대화 누적 {tot_chat:,} · 조회 누적 {tot_view:,}")
