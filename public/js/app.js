@@ -2192,7 +2192,7 @@ const TT_REG = [
 TT_REG.forEach((r,i)=>{ r.c = TT_PAL[i % TT_PAL.length]; });
 const TT_FULL = 50;             // 랭킹 명단이 다 찬 기준. 이 아래는 '부분 집계'
 let ttPeriod = "weekly";
-let ttMode   = "abs";           // abs = 절대값 · idx = 성장(첫 기간=100)
+let ttMode   = "stack";         // stack = 전체 쌓기(기본) · line = 지역별 선
 
 function ttSite(code){
   if(typeof TOPTOON==="undefined") return null;
@@ -2208,6 +2208,8 @@ function ttLive(code){ return (ttRows(code,"rt")||[]).slice(-1)[0]||null; }
 
 function renderToptoonKpi(){
   const box=document.getElementById("ttKpi"); if(!box) return;
+  /* 카드는 '큰 숫자 하나 + 판정 한 줄'만. 설명 문장을 카드마다 붙였더니 읽기 힘들다는
+     피드백을 받았다 — 공통 각주(상위 50 기준 등)는 ttNote 한 곳으로 모은다. */
   const cells=[];
   TT_REG.forEach(reg=>{
     const full=ttFull(ttRows(reg.code,"weekly"));
@@ -2219,55 +2221,28 @@ function renderToptoonKpi(){
     const atPeak=Math.abs(vsPk)<0.01;
     cells.push('<div class="sm-cell">'
       +'<div class="sm-h"><span class="dot" style="background:'+reg.c+'"></span>'+reg.nm
-      +'<span class="src">'+last.lab+'</span>'
+      +'<span class="src">'+last.lab.replace("주차","주")+'</span>'
       +'<span class="v" style="color:'+reg.c+'">'+fmt0(last.tot)+'</span></div>'
-      +'<div class="shop-kv">전주비 <b class="'+cls(wow)+'">'+(wow==null?"—":sign(wow,1)+"%")+'</b> · '
-      +(atPeak?'<b>지금이 정점</b>':'정점('+peak.lab+') 대비 <b class="'+cls(vsPk)+'">'+sign(vsPk,1)+'%</b>')
-      +' · 상위 '+last.n+'명 합</div></div>');
+      +'<div class="shop-kv">전주 <b class="'+cls(wow)+'">'+(wow==null?"—":sign(wow,1)+"%")+'</b>'
+      +(atPeak?' · <b class="up">신고점</b>'
+              :' · 고점比 <b class="'+cls(vsPk)+'">'+sign(vsPk,0)+'%</b>')
+      +'</div></div>');
   });
-  // 해외 비중 — '국내가 꺾인 자리를 해외가 메우나'가 이 사업의 핵심 질문이다.
+  // 해외 비중 — '국내 하락을 해외가 메우나'가 이 사업의 핵심 질문이라 카드로 남긴다.
   const kr=ttFull(ttRows("KR","weekly"));
   if(kr.length){
-    const km={}; kr.forEach(r=>km[r.k]=r.tot);
+    const km={}; kr.forEach(r=>{ km[r.k]=r.tot; });
     const ov={};
     TT_REG.filter(r=>r.code!=="KR").forEach(r=>ttFull(ttRows(r.code,"weekly"))
       .forEach(x=>{ if(km[x.k]) ov[x.k]=(ov[x.k]||0)+x.tot; }));
     const ks=Object.keys(ov).sort();
     if(ks.length){
       const f=ks[0], l=ks[ks.length-1];
-      const rf=ov[f]/km[f]*100, rl=ov[l]/km[l]*100;
-      const labOf=k=>{const r=TT_REG.map(g=>ttRows(g.code,"weekly").find(x=>x.k===k)).find(Boolean);
-        return (r&&r.lab)||k;};
       cells.push('<div class="sm-cell">'
-        +'<div class="sm-h"><span class="dot" style="background:var(--good)"></span>해외 / 한국'
-        +'<span class="src">활동지수 비율</span>'
-        +'<span class="v" style="color:var(--good)">'+rl.toFixed(0)+'%</span></div>'
-        +'<div class="shop-kv">'+labOf(f)+' <b>'+rf.toFixed(0)+'%</b> → '+labOf(l)+' <b>'+rl.toFixed(0)+'%</b>'
-        +' · 해외 3개 지역 합 기준</div></div>');
+        +'<div class="sm-h"><span class="dot" style="background:var(--good)"></span>해외/한국'
+        +'<span class="v" style="color:var(--good)">'+(ov[l]/km[l]*100).toFixed(0)+'%</span></div>'
+        +'<div class="shop-kv">'+(ov[f]/km[f]*100).toFixed(0)+'%에서 상승 중</div></div>');
     }
-  }
-  // 실시간 — 롤링 스냅샷이라 '지금 얼마나 돌고 있나'만 본다(추세는 주간으로).
-  const rt=TT_REG.map(r=>({r:r,x:ttLive(r.code)})).filter(o=>o.x);
-  if(rt.length){
-    cells.push('<div class="sm-cell">'
-      +'<div class="sm-h"><span class="dot" style="background:var(--muted)"></span>실시간 활동지수'
-      +'<span class="src">'+rt[0].x.d+' '+rt[0].x.t+'</span>'
-      +'<span class="v">'+fmt0(rt.reduce((a,o)=>a+o.x.tot,0))+'</span></div>'
-      +'<div class="shop-kv">'+rt.map(o=>o.r.nm+' <b>'+fmt0(o.x.tot)+'</b>').join(" · ")
-      +' · 접속자 수가 아니라 최근 활동량</div></div>');
-  }
-  // 캐릭터 수 — 콘텐츠 투입은 이 사업의 비용이자 성장 동력이다.
-  const cat=TT_REG.map(r=>({r:r,c:(ttSite(r.code)||{}).cat})).filter(o=>o.c);
-  if(cat.length){
-    cells.push('<div class="sm-cell">'
-      +'<div class="sm-h"><span class="dot" style="background:var(--muted)"></span>서비스 캐릭터'
-      +'<span class="src">현재 카탈로그</span>'
-      +'<span class="v">'+fmt0(cat.reduce((a,o)=>a+o.c.n,0))+'</span></div>'
-      +'<div class="shop-kv">'+cat.map(o=>o.r.nm+' <b>'+o.c.n+'</b>'
-          // '작품' = 여러 캐릭터가 묶인 신형 포맷. 캐릭터 목록과 별도 API 라 놓치기 쉽다.
-          // 규모는 작아도 한국 실시간 랭킹 1·2위라 어디에 있는지 적어 둔다.
-          +(o.c.con?'<span class="th-sub">(작품 '+o.c.con+')</span>':"")).join(" · ")
-      +'</div></div>');
   }
   box.innerHTML = cells.length?'<div class="sm-grid">'+cells.join("")+'</div>':"";
 }
@@ -2277,76 +2252,85 @@ function drawToptoon(){
   const lg=document.getElementById("ttLegend");
   const cs=getComputedStyle(document.documentElement);
   const gc=cs.getPropertyValue("--line").trim(), mut=cs.getPropertyValue("--muted").trim();
-  // 기간 축은 네 지역의 합집합 — 늦게 시작한 지역은 앞이 비고, 그 빈칸이 곧 '진출 전'이다.
+  const txt=cs.getPropertyValue("--text").trim();
   const keys=[...new Set(TT_REG.flatMap(r=>ttRows(r.code,ttPeriod).map(x=>x.k)))].sort();
   if(!keys.length){ box.innerHTML='<div class="ov-empty">수집된 랭킹 데이터가 없습니다.</div>';
     if(lg) lg.innerHTML=""; return; }
-  const raw=TT_REG.map(g=>{const m={}; ttRows(g.code,ttPeriod).forEach(x=>m[x.k]=x);
+  const raw=TT_REG.map(g=>{const m={}; ttRows(g.code,ttPeriod).forEach(x=>{ m[x.k]=x; });
     return keys.map(k=>m[k]||null);});
-  const M=keys.map((k,i)=>{const r=raw.map(a=>a[i]).find(Boolean); return (r&&r.lab)||k;});
-  /* 성장 보기 — 각 지역의 '비교 가능한 첫 기간(n>=50)'을 100 으로. 진출 시점이 다른 지역을
-     같은 출발선에 세워야 '누가 빠르게 크나'가 보인다. 절대 규모는 절대값 보기로. */
-  const val=raw.map(arr=>{
-    if(ttMode==="abs") return arr.map(r=>r?r.tot:null);
-    const b=arr.find(r=>r&&r.n>=TT_FULL);
-    return arr.map(r=>(r&&b&&b.tot>0)?r.tot/b.tot*100:null);
-  });
-  const nums=val.flat().filter(v=>v!=null);
-  const max=Math.max.apply(null,nums.concat([1]));
-  const W=1000,H=340,pad={l:62,r:110,t:14,b:44};
-  const sx=i=>pad.l+(keys.length<2?0.5:i/(keys.length-1))*(W-pad.l-pad.r);
+  const M=keys.map((k,i)=>{const r=raw.map(a=>a[i]).find(Boolean); return ((r&&r.lab)||k).replace("주차","주");});
+  const tots=keys.map((k,i)=>raw.reduce((a,arr)=>a+(arr[i]?arr[i].tot:0),0));
+  const stack=(ttMode!=="line");
+  const max=stack?Math.max.apply(null,tots.concat([1]))
+                 :Math.max.apply(null,raw.flat().filter(Boolean).map(x=>x.tot).concat([1]));
+  const W=1000,H=340,pad={l:58,r:stack?16:110,t:26,b:44};
+  const bw=(W-pad.l-pad.r)/keys.length;
+  const sx=i=>pad.l+bw*(i+0.5);
   const sy=v=>H-pad.b-(v/max)*(H-pad.t-pad.b);
   let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" font-family="inherit">';
   for(let g=0;g<=4;g++){ const v=max*g/4;
     s+='<line x1="'+pad.l+'" y1="'+sy(v)+'" x2="'+(W-pad.r)+'" y2="'+sy(v)+'" stroke="'+gc+'" stroke-width="1"/>';
-    s+='<text x="'+(pad.l-8)+'" y="'+(sy(v)+4)+'" text-anchor="end" font-size="11" fill="'+mut+'">'
-      +(ttMode==="abs"?fmt0(v):Math.round(v))+'</text>'; }
+    s+='<text x="'+(pad.l-8)+'" y="'+(sy(v)+4)+'" text-anchor="end" font-size="11" fill="'+mut+'">'+fmt0(v)+'</text>'; }
   const step=Math.max(1,Math.ceil(keys.length/14));
   M.forEach((m,i)=>{ if(i%step===0||i===M.length-1)
     s+='<text x="'+sx(i)+'" y="'+(H-pad.b+18)+'" text-anchor="middle" font-size="10.5" fill="'+mut+'">'+m+'</text>'; });
-  val.forEach((arr,gi)=>{
-    const c=TT_REG[gi].c;
-    // 값이 없는 구간(진출 전)에서 선이 이어지면 안 된다 — 연속 구간마다 따로 그린다.
-    let seg=[];
-    const flush=()=>{ if(seg.length>1)
-      s+='<polyline points="'+seg.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")
-        +'" fill="none" stroke="'+c+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
-      seg=[]; };
-    arr.forEach((v,i)=>{ if(v==null){ flush(); return; } seg.push([sx(i),sy(v)]); });
-    flush();
-    // n<50(부분 집계)은 속 빈 점으로 — 같은 선 위에 있되 '이건 덜 찬 값'이라고 말해 준다.
-    arr.forEach((v,i)=>{ if(v==null) return;
-      const partial=!raw[gi][i]||raw[gi][i].n<TT_FULL;
-      s+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(v).toFixed(1)+'" r="'+(partial?2.8:2.6)+'"'
-        +(partial?' fill="none" stroke="'+c+'" stroke-width="1.6"':' fill="'+c+'"')+'/>'; });
-    const li=arr.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
-    if(li>=0) s+='<text x="'+(W-pad.r+8)+'" y="'+(sy(arr[li])+4)+'" font-size="11.5" font-weight="700" fill="'+c+'">'
-      +TT_REG[gi].nm+'</text>';
-  });
+  if(stack){
+    /* 전체가 기본이다 — "합계가 자라고 있나"부터 보여야 한다. 지역은 색으로 쌓는다. */
+    const gw=Math.min(30,bw-8);
+    keys.forEach((k,i)=>{
+      let y=H-pad.b;
+      TT_REG.forEach((g,gi)=>{
+        const r=raw[gi][i]; if(!r||!r.tot) return;
+        const h=(r.tot/max)*(H-pad.t-pad.b);
+        s+='<rect x="'+(sx(i)-gw/2).toFixed(1)+'" y="'+(y-h).toFixed(1)+'" width="'+gw.toFixed(1)
+          +'" height="'+Math.max(1,h).toFixed(1)+'" fill="'+g.c+'" rx="1.5"/>';
+        y-=h;
+      });
+      // 합계 라벨 — 다 붙이면 겹치므로 끝 몇 개와 띄엄띄엄만
+      if(i===keys.length-1||i%Math.max(2,step)===0)
+        s+='<text x="'+sx(i)+'" y="'+(y-6)+'" text-anchor="middle" font-size="10" font-weight="700" fill="'
+          +(i===keys.length-1?txt:mut)+'">'+(tots[i]>=1000?Math.round(tots[i]/1000)+"k":tots[i])+'</text>';
+    });
+  }else{
+    raw.forEach((arr,gi)=>{
+      const c=TT_REG[gi].c;
+      let seg=[];
+      const flush=()=>{ if(seg.length>1)
+        s+='<polyline points="'+seg.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")
+          +'" fill="none" stroke="'+c+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+        seg=[]; };
+      arr.forEach((r,i)=>{ if(!r){ flush(); return; } seg.push([sx(i),sy(r.tot)]); });
+      flush();
+      arr.forEach((r,i)=>{ if(!r) return;
+        const partial=r.n<TT_FULL;
+        s+='<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(r.tot).toFixed(1)+'" r="'+(partial?2.8:2.6)+'"'
+          +(partial?' fill="none" stroke="'+c+'" stroke-width="1.6"':' fill="'+c+'"')+'/>'; });
+      const li=arr.map((r,i)=>r?i:-1).filter(i=>i>=0).pop();
+      if(li>=0) s+='<text x="'+(W-pad.r+8)+'" y="'+(sy(arr[li].tot)+4)+'" font-size="11.5" font-weight="700" fill="'+c+'">'
+        +TT_REG[gi].nm+'</text>';
+    });
+  }
   s+='</svg>';
   box.innerHTML=s;
   attachChartTip(box,{W:W,H:H,pad:pad,n:keys.length,xOf:sx,html:i=>{
-    const rows=TT_REG.map((g,gi)=>({g:g,r:raw[gi][i],p:i>0?raw[gi][i-1]:null,v:val[gi][i]}))
-      .filter(o=>o.r).sort((a,b)=>b.r.tot-a.r.tot);
+    const rows=TT_REG.map((g,gi)=>({g:g,r:raw[gi][i],p:i>0?raw[gi][i-1]:null})).filter(o=>o.r)
+      .sort((a,b)=>b.r.tot-a.r.tot);
     if(!rows.length) return null;
-    let out='<div class="tt-h">'+M[i]+'</div>';
+    let out='<div class="tt-h">'+M[i]+' · 합계 '+fmt0(tots[i])+'</div>';
     rows.forEach(o=>{
       const d=(o.p&&o.p.tot>0&&o.p.n>=TT_FULL&&o.r.n>=TT_FULL)?(o.r.tot/o.p.tot-1)*100:null;
       out+='<div class="tt-r"><span class="k"><span class="dot" style="background:'+o.g.c
         +';width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>'+o.g.nm+'</span>'
         +'<span class="v">'+fmt0(o.r.tot)
-        +(ttMode==="idx"&&o.v!=null?' <span style="color:var(--muted);font-size:10.5px">지수 '+Math.round(o.v)+'</span>':"")
         +(d==null?"":' <span class="'+cls(d)+'" style="font-size:10.5px">'+sign(d,0)+'%</span>')
-        +(o.r.n<TT_FULL?' <span style="color:var(--muted);font-size:10.5px">부분 '+o.r.n+'명</span>':"")
+        +(o.r.n<TT_FULL?' <span style="color:var(--muted);font-size:10.5px">부분</span>':"")
         +'</span></div>';
     });
-    const t0=rows[0].r.top&&rows[0].r.top[0];
-    if(t0) out+='<div class="tt-r"><span class="k">'+rows[0].g.nm+' 1위</span><span class="v">'
-      +t0.nm.slice(0,16)+' '+fmt0(t0.s)+'</span></div>';
     return out;
   }});
   if(lg) lg.innerHTML=TT_REG.map(g=>'<span class="lg"><i style="background:'+g.c+'"></i>'+g.nm+'</span>').join("")
-    +'<span class="lg" style="opacity:.65"><i style="background:transparent;border:1.6px solid '+TT_REG[0].c+'"></i>속 빈 점 = 상위 50명 미만(부분 집계)</span>';
+    +(stack?'':'<span class="lg" style="opacity:.6"><i style="background:transparent;border:1.6px solid '
+      +TT_REG[0].c+'"></i>속 빈 점 = 부분 집계</span>');
 }
 
 function renderToptoonRank(){
@@ -2634,7 +2618,7 @@ function renderToptoon(){
   renderToptoonKr(); renderToptoonDaily(); renderToptoonRank();
   renderToptoonSupply(); renderToptoonTable();
   const n=document.getElementById("ttNote");
-  if(n) n.innerHTML=TOPTOON.asOf+' 기준 · 활동지수 = 사이트 랭킹 API 의 score 합(상위 50명) — '
+  if(n) n.innerHTML=TOPTOON.asOf+' 기준 · 카드·차트의 값 = 그 기간 <b>새로 열린 대화방 수</b>(랭킹 API score 합, 상위 50명) — '
     +'<b>서비스 전체가 아니라 상위 구간</b>입니다. '
     +TT_REG.map(g=>g.nm+' '+ttRows(g.code,"weekly").length+'주').join(" · ")+' 수집 · '
     +'백필 시작 주가 각 지역 진출 시점과 일치합니다(북미 7월 1주차) · '
