@@ -1603,6 +1603,49 @@ const TREND_STOCK={
     TREND_STOCK[stock].push(pname);
   });
 })();
+
+/* 디시 갤러리 글 양 — 관심의 온도. 글번호는 연속 증가하므로 하루 차이 = 그날 글 수.
+   과거는 페이지 샘플 앵커(x:true) 사이를 선형 보간한 '구간 평균'이라 정확한 일별치가 아니다 —
+   그래서 보간 구간의 점은 속을 비운다. 매일 쌓이는 점부터가 정확한 값. */
+(function injectDcGall(){
+  if(typeof DCGALL==="undefined"||!DCGALL.galls) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const dayMs=864e5;
+  const by={};
+  DCGALL.galls.forEach(g=>{
+    const h=(g.hist||[]).slice().sort((a,b)=>a.d<b.d?-1:1);
+    if(h.length<2) return;
+    // 앵커 사이를 하루 단위로 보간해 (일자, 글번호) → 차분 = 일 글수
+    const t0=Date.parse(h[0].d), t1=Date.parse(h[h.length-1].d);
+    const days=[], nums=[], est=[];
+    for(let t=t0;t<=t1;t+=dayMs){
+      const d=new Date(t).toISOString().slice(0,10);
+      let i=h.findIndex(x=>x.d>=d);
+      if(i<0) i=h.length-1;
+      const b=h[i], a=h[Math.max(0,i-1)];
+      let n, e;
+      if(b.d===d){ n=b.n; e=!!b.x; }
+      else { const f=(t-Date.parse(a.d))/(Date.parse(b.d)-Date.parse(a.d)||1); n=a.n+(b.n-a.n)*f; e=true; }
+      days.push(d); nums.push(n); est.push(e);
+    }
+    const posts=nums.map((n,i)=>i?Math.max(0,Math.round(n-nums[i-1])):null);
+    (by[g.stock]=by[g.stock]||[]).push({g:g, days:days.slice(1), posts:posts.slice(1), est:est.slice(1)});
+  });
+  Object.keys(by).forEach(stock=>{
+    const its=by[stock];
+    const days=[...new Set(its.flatMap(o=>o.days))].sort();
+    const raw=its.map(o=>{const m={}; o.days.forEach((d,i)=>{ m[d]=o.posts[i]; }); return days.map(d=>m[d]==null?null:m[d]);});
+    const norm=raw.map(a=>{const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*100));});
+    const name=`디시 글수(${stock})`;
+    TREND.groups[name]={
+      products:its.map(o=>o.g.name+"갤"), productsGoogle:its.map(o=>o.g.name),
+      months:days.map(md), naver:norm, google:norm, rawSer:raw,
+      only:"naver", freq:"date", unit:"글/일", unitShort:"글",
+      srcName:"디시인사이드 갤러리 글번호 차분 · 과거는 페이지 샘플 보간(구간 평균) · 100 = 각 갤 기간 최고"
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
 /* 탑툰챗(탑코미디어) — 웹툰 캐릭터 AI 채팅의 '일별 신규 대화수'.
    ⚠ DAU 는 공개되지 않는다. 사이트가 공개하는 건 캐릭터별 **누적** 대화수라,
    fetch_toptoonchat.py 가 매일 한 번 찍어 두고 여기서 **일별 증분**으로 바꾼다
