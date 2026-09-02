@@ -1565,6 +1565,44 @@ const TREND_STOCK={
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
+/* 게임비트(gamebit.co.kr) — 거래소 합산 쌀먹 거래대금. 아이템매니아 시세가 '가격'이라면 이쪽은 '양'이다.
+   분봉 volume(원화)을 서버 전체로 하루씩 합산한 값 = 그날 현금거래 규모. 플랫폼 M/B 합산이라
+   아이템매니아 단독보다 넓다. 사이트가 2주치만 들고 있어서 과거는 짧고 매일 쌓아 늘린다.
+   종목별 한 그룹: 계열 = 게임. 값 = 일 거래대금(만원). */
+(function injectGameBit(){
+  if(typeof GAMEBIT==="undefined"||!GAMEBIT.games) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const by={};
+  // 오늘 행은 수집 시각까지의 부분치(partial) — 그대로 그리면 마지막 점이 급락처럼 보인다. 전일까지만.
+  GAMEBIT.games.forEach(g=>{ const h=(g.hist||[]).filter(x=>!x.partial);
+    if(h.length>=2) (by[g.stock]=by[g.stock]||[]).push({...g, hist:h}); });
+  Object.keys(by).forEach(stock=>{
+    const its=by[stock];
+    const days=[...new Set(its.flatMap(g=>g.hist.map(h=>h.d)))].sort();
+    const raw=its.map(g=>{const m={}; g.hist.forEach(h=>{ m[h.d]=Math.round((h.krw||0)/1e4); });
+      return days.map(d=>m[d]==null?null:m[d]);});
+    const norm=raw.map(a=>{const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*100));});
+    const name=`쌀먹 거래대금(${stock})`;
+    TREND.groups[name]={
+      products:its.map(g=>g.name), productsGoogle:its.map(g=>g.name),
+      months:days.map(md), naver:norm, google:norm, rawSer:raw,
+      only:"naver", freq:"date", unit:"만원/일", unitShort:"만원",
+      srcName:"게임비트 · 전 서버 분봉 거래량 합산(원화) · 거래소 M/B 합산 · 100 = 각 게임 기간 최고"
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+    // 전 서버 평균 시세도 같이 — 아이템매니아 대표서버 시세와 교차검증용
+    const praw=its.map(g=>{const m={}; g.hist.forEach(h=>{ m[h.d]=h.p; }); return days.map(d=>m[d]==null?null:m[d]);});
+    const pnorm=praw.map(a=>{const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*100));});
+    const pname=`전서버 평균시세(${stock})`;
+    TREND.groups[pname]={
+      products:its.map(g=>`${g.name} · ${g.unit||""}`), productsGoogle:its.map(g=>g.name),
+      months:days.map(md), naver:pnorm, google:pnorm, rawSer:praw,
+      only:"naver", freq:"date", unit:"원", unitShort:"원",
+      srcName:"게임비트 · 전 서버 종가 평균 · 100 = 각 게임 기간 최고"
+    };
+    TREND_STOCK[stock].push(pname);
+  });
+})();
 /* 탑툰챗(탑코미디어) — 웹툰 캐릭터 AI 채팅의 '일별 신규 대화수'.
    ⚠ DAU 는 공개되지 않는다. 사이트가 공개하는 건 캐릭터별 **누적** 대화수라,
    fetch_toptoonchat.py 가 매일 한 번 찍어 두고 여기서 **일별 증분**으로 바꾼다

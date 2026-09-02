@@ -145,6 +145,12 @@ jobs:
         timeout-minutes: 4
         run: python runstep.py "게임머니" fetch_gamemoney.py
 
+      # 게임비트 쌀먹 거래대금(키 불필요) — 거래소 합산 분봉 volume 을 일별로 합산. 하루 ~130요청.
+      - name: 게임비트 거래대금 수집
+        continue-on-error: true
+        timeout-minutes: 6
+        run: python runstep.py "게임비트" fetch_gamebit.py
+
       # AI 캐릭터 챗봇 앱 순위(애플 RSS, 키 불필요) — 탑툰챗 경쟁 지형 + 탑툰 본체 앱.
       # '크랙'은 검색어가 소프트웨어 크랙과 겹쳐 오염되므로 추이는 여기(매출순위)로 본다.
       - name: AI챗 앱순위 수집
