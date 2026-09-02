@@ -10,8 +10,10 @@
 무엇을 받나
   /_xml/gamemoney_avg.xml.php?gamecode=G&servercode=S&count=N
     → <data date="2026/09/01" price="7790" amount="160" .../>  일별, N일치 (백필 60일 확인)
-  price = 게임머니 1,000(multiple) 당 원. amount = 그날 거래 건수로 보이나 확인되지 않았다 —
-  방향 신호로만 쓰고 절대값 해석은 보류한다.
+  price = 게임머니 multiple(100·1,000·10,000)당 원.
+  ⚠ amount 는 거래량이 아니다 — **전일 대비 가격 변동액**이다(2026-09-02 확인). 시세 페이지 JS 가
+    amount_type(up/down/none)에 따라 ▲▼ 아이콘 옆에 찍는 값이고, 7,630→7,790 일 때 amount=160 이었다.
+    저장 필드 a 는 그래서 '등락'이지 '거래량'이 아니다. 거래량은 다른 페이지(순위정보)를 봐야 한다.
 
 어디를 보나
   '서버전체' 옵션이 없어서 게임마다 대표 서버 몇 개를 정해 평균낸다. 리니지M 은 232서버라
@@ -43,7 +45,8 @@ XML = BASE + "/_xml/gamemoney_avg.xml.php?gamecode={g}&servercode={s}&count={n}"
 DAYS = 400
 BACKFILL = 60              # 첫 수집 때 과거 N일 (사이트가 주는 최대치 확인: 60일 OK)
 
-# 종목 · 게임 · 대표 서버. 시세는 서버별 평균, 거래량은 합.
+# 종목 · 게임 · 대표 서버. 시세는 서버별 평균, a(등락)는 합.
+# 거래량은 시세 XML 에 없다 → 아래 fetch_rank() 의 거래순위 TOP30 이 그 대용이다.
 GAMES = [
     {"stock": "컴투스", "game": "제우스:오만의신", "code": 6027,
      "servers": [(24868, "아테나1"), (24869, "아테나2"), (24870, "아테나3"), (24871, "아레스1")],
@@ -75,6 +78,33 @@ def fetch_xml(code, server, n):
     for d, p, a in re.findall(r'<data date="([\d/]+)" price="(\d+)" amount="(\d+)"', x):
         rows.append((d.replace("/", "-"), int(p), int(a)))
     return rows, mult
+
+
+RANK_URL = BASE + "/game_info/rank_game/"
+
+
+def fetch_rank():
+    """거래순위 TOP30 (오늘). 절대 거래 건수는 안 주고 순위만 준다 — 거래량의 대용.
+    페이지가 서버 렌더링이라 urllib 로 열린다(_ajax 봇 게이트와 무관). 반환: (날짜, [(순위, 게임명)…])"""
+    req = urllib.request.Request(RANK_URL, headers=ua(referer=BASE + "/"))
+    r = urllib.request.urlopen(req, timeout=30)
+    raw = r.read()
+    if r.headers.get("Content-Encoding") == "gzip":
+        raw = gzip.decompress(raw)
+    h = raw.decode("utf-8", "replace")
+    if "59.18.34.179" in h:
+        raise RuntimeError("봇 게이트")
+    m = re.search(r'id="today_rank".*?</table>', h, re.S)
+    if not m:
+        raise RuntimeError("today_rank 표 없음(구조 변경?)")
+    tb = m.group(0)
+    dm = re.search(r'class="top_label">(\d{4})\.\s*(\d{2})\.\s*(\d{2})', tb)
+    d = f"{dm.group(1)}-{dm.group(2)}-{dm.group(3)}" if dm else datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    rows = re.findall(r'<td class="rank[^"]*">(\d+)</td>\s*<td class="game_name">\s*<span[^>]*>\s*([^<]+?)\s*<', tb)
+    top = [(int(rk), nm.strip()) for rk, nm in rows]
+    if len(top) < 10:
+        raise RuntimeError(f"순위 {len(top)}개뿐(파싱 실패?)")
+    return d, top
 
 
 def _put(html, name, obj):
@@ -132,7 +162,7 @@ def main():
                       "servers": [s for _, s in g["servers"]], "mult": mult,
                       "note": g["note"], "hist": hs})
         last = hs[-1]
-        print(f"  {g['game']:12s} {last['d']} {last['p']:,}원/{mult}머니 · 거래량 {last['a']} · {len(hs)}일치")
+        print(f"  {g['game']:12s} {last['d']} {last['p']:,}원/{mult}머니 · 등락 {last['a']:+} · {len(hs)}일치")
 
     if not ok_any:
         note_health("게임머니", "전부 실패: " + "; ".join(fails)[:120])
@@ -142,8 +172,18 @@ def main():
     else:
         note_health("게임머니", None)
 
+    ranks = [x for x in copy.deepcopy(old.get("ranks") or [])]
+    try:
+        d, top = fetch_rank()
+        ranks = [x for x in ranks if x.get("d") != d] + [{"d": d, "top": [[r, n] for r, n in top]}]
+        ranks = sorted(ranks, key=lambda x: x["d"])[-DAYS:]
+        mine = {n: r for r, n in top if n in ("제우스:오만의신", "아이온2", "리니지M", "리니지W", "리니지클래식", "TL쓰론앤리버티")}
+        print(f"  거래순위 {d}: " + " · ".join(f"{n} {r}위" for n, r in mine.items()))
+    except Exception as e:
+        fails.append(f"거래순위 {type(e).__name__} {str(e)[:40]}")
+
     out = {"asOf": now.strftime("%Y-%m-%d %H:%M KST"), "src": "아이템매니아 게임머니 시세",
-           "items": items}
+           "items": items, "ranks": ranks}
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:800]); return
     if m:

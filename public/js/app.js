@@ -1539,6 +1539,32 @@ const TREND_STOCK={
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
+/* 게임 거래순위(아이템매니아 TOP30) — 거래량의 대용. 절대 건수는 안 주고 순위만 준다.
+   순위는 작을수록 상위라 31-순위 로 뒤집어 그리고, 실제 순위는 rawSer 로 툴팁에 찍는다(앱순위와 같은 처리).
+   31위 밖(미집계)은 null — 선이 끊긴다. 종목별로 추적 게임을 묶는다(NC 는 리니지 3종+아이온2+TL). */
+(function injectGameRank(){
+  if(typeof GAMEMONEY==="undefined"||!GAMEMONEY.ranks||!GAMEMONEY.ranks.length) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const TRACK={"컴투스":["제우스:오만의신"],
+               "NC":["리니지클래식","아이온2","리니지M","리니지W","TL쓰론앤리버티","리니지"]};
+  const days=GAMEMONEY.ranks.map(r=>r.d);
+  Object.keys(TRACK).forEach(stock=>{
+    const games=TRACK[stock];
+    const raw=games.map(g=>GAMEMONEY.ranks.map(r=>{const hit=(r.top||[]).find(x=>x[1]===g); return hit?hit[0]:null;}));
+    const rows=games.map((g,i)=>({g:g,raw:raw[i]})).filter(o=>o.raw.some(v=>v!=null));
+    if(!rows.length) return;
+    const name=`거래순위(${stock})`;
+    TREND.groups[name]={
+      products:rows.map(o=>o.g), productsGoogle:rows.map(o=>o.g),
+      months:days.map(md),
+      naver:rows.map(o=>o.raw.map(v=>v==null?null:31-v)), google:rows.map(o=>o.raw.map(v=>v==null?null:31-v)),
+      rawSer:rows.map(o=>o.raw), only:"naver", freq:"date",
+      unit:"위", unitShort:"위",
+      srcName:"아이템매니아 게임 거래순위 TOP30 · 위로 갈수록 상위 · 30위 밖은 끊김 · 거래량의 대용(절대 건수 비공개)"
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
 /* 탑툰챗(탑코미디어) — 웹툰 캐릭터 AI 채팅의 '일별 신규 대화수'.
    ⚠ DAU 는 공개되지 않는다. 사이트가 공개하는 건 캐릭터별 **누적** 대화수라,
    fetch_toptoonchat.py 가 매일 한 번 찍어 두고 여기서 **일별 증분**으로 바꾼다
