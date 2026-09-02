@@ -1508,6 +1508,37 @@ const TREND_STOCK={
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
+/* 게임머니 시세(아이템매니아) — MMORPG 경제의 온도계.
+   게임머니 원화 가격이 오르면 사려는 쪽(신규·복귀)이 파는 쪽보다 많다는 뜻, 내리면 반대.
+   아이온2 실측: 7/4 890원 → 9/1 390원(-56%) — 해외 검색은 뛰는데 국내 경제는 식는 중.
+   제우스(컴투스, 8/26 출시)가 첫 실전 대상. 가격은 대표 서버 평균, 거래량(a)은 합.
+   거래량의 절대값 의미는 미확인이라 방향으로만 읽는다. */
+(function injectGameMoney(){
+  if(typeof GAMEMONEY==="undefined"||!GAMEMONEY.items) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  // 종목별로 묶어 한 그룹(여러 게임 = 여러 계열)으로 — NC 는 리니지M·W·아이온2·TL 이 한 장에.
+  const by={};
+  GAMEMONEY.items.forEach(it=>{ if((it.hist||[]).length>=2) (by[it.stock]=by[it.stock]||[]).push(it); });
+  Object.keys(by).forEach(stock=>{
+    const its=by[stock];
+    const days=[...new Set(its.flatMap(it=>it.hist.map(h=>h.d)))].sort();
+    const ser=its.map(it=>{const m={}; it.hist.forEach(h=>{ m[h.d]=h.p; });
+      return days.map(d=>m[d]==null?null:m[d]);});
+    // 게임마다 단가 자릿수가 달라(제우스 7,790 vs 아이온2 390) 한 축에 못 그린다 → 각자 정규화.
+    // 툴팁에는 rawSer 로 실제 원가를 찍는다(순위 계열과 같은 처리).
+    const norm=ser.map(a=>{const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*100));});
+    const name=`게임머니 시세(${stock})`;
+    TREND.groups[name]={
+      products:its.map(it=>`${it.game} · 원/${(it.mult||1000).toLocaleString()}머니`),
+      productsGoogle:its.map(it=>it.game),
+      months:days.map(md), naver:norm, google:norm, rawSer:ser,
+      only:"naver", freq:"date",
+      unit:"원", unitShort:"원",
+      srcName:"아이템매니아 게임머니 시세 · 대표서버 평균 · 100 = 각 게임 기간 최고가"
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
 /* 탑툰챗(탑코미디어) — 웹툰 캐릭터 AI 채팅의 '일별 신규 대화수'.
    ⚠ DAU 는 공개되지 않는다. 사이트가 공개하는 건 캐릭터별 **누적** 대화수라,
    fetch_toptoonchat.py 가 매일 한 번 찍어 두고 여기서 **일별 증분**으로 바꾼다
