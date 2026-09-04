@@ -705,7 +705,7 @@
   <!-- 트렌드 비교 -->
   <section class="view" data-view="trends">
     <h2 class="sec">트렌드 비교</h2>
-    <p class="sec-desc">종목·주제별 검색·소비 트렌드. 상대값 0–100. <b>구간</b>을 단기(최근 30일)·중기·장기로 바꿔 보세요 — 단기는 y축을 구간 안 최대까지 확대합니다.</p>
+    <p class="sec-desc">종목·주제별 검색·소비 트렌드. 상대값 0–100. <b>구간</b>은 슬라이더로 최근 N일을 직접 잡거나 단기(30일)·중기(90일)·장기(전체) 프리셋으로 — 짧게 볼수록 y축을 구간 안 최대까지 확대합니다.</p>
     <div id="trendHighlights" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px"></div>
     <div class="trend-ctl">
       <div class="ctl-row"><span class="ctl-label">종목</span><div class="seg" id="trendGroupSeg"></div></div>
@@ -717,7 +717,9 @@
         </div>
       </div>
       <div class="ctl-row" id="trendFreqRow" style="display:none"><span class="ctl-label">구간</span>
-        <div class="seg" id="trendFreqSeg"></div></div>
+        <div class="seg" id="trendFreqSeg"></div>
+        <input type="range" id="trendDays" min="7" max="365" step="1" value="30" style="width:200px;accent-color:var(--accent);margin-left:6px" title="최근 N일 — 끝까지 밀면 전체">
+        <span id="trendDaysLab" style="font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap"></span></div>
     </div>
     <div class="sub-h" id="trendTopicNow"></div>
     <div class="chart-box">

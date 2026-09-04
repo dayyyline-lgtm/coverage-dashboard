@@ -2012,10 +2012,14 @@ const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
    검색 트렌드는 주별 52주가 기본이라 최근 한 달 움직임이 안 읽혔다.
    이제 구간을 고르면 빈도는 자동으로 정한다(단기=일별, 장기=가장 긴 빈도). trendFreq 는 파생값. */
 let trendStock="", trendGroup="", trendFreq="week";
-let trendWin=(()=>{ try{ return ["short","mid","long"].includes(localStorage.getItem("trendWin"))?localStorage.getItem("trendWin"):"short"; }catch(_){ return "short"; } })();
-const WIN_PTS={short:{date:30,week:8,month:6}, mid:{date:90,week:26,month:12}, long:{date:Infinity,week:Infinity,month:Infinity}};
-const WIN_LAB={short:"단기",mid:"중기",long:"장기"};
+/* 구간은 '최근 N일' 숫자 하나다(trendDays · null=전체). 단기30·중기90·장기전체는 그 숫자의 프리셋이고,
+   슬라이더로 아무 길이나 잡는다(2026-09-04 사용자 요청: 고정 3단이 아니라 직접 조정). */
+let trendDays=(()=>{ try{ const v=localStorage.getItem("trendDays"); if(v===null) return 30; if(v==="all") return null;
+  const n=+v; return (n>=7&&n<=3650)?n:30; }catch(_){ return 30; } })();
+const WIN_PRESET=[["단기",30],["중기",90],["장기",null]];
+const winName=days=>{ const p=WIN_PRESET.find(x=>x[1]===days); return p?p[0]:`최근 ${days}일`; };
 const FREQ_DAYS={date:1,week:7,month:30}, FREQ_UNIT={date:"일",week:"주",month:"개월"};
+const MIN_PTS={date:7,week:6,month:6};        // 주별·월별은 이보다 적으면 선이 안 된다
 /* 그룹의 기본 빈도(freq). 하위호환: 옛 daily 플래그도 인식 */
 const nativeFreq=G=> (G&&G.freq) || (G&&G.daily?"date":"month");
 /* 그 그룹이 가진 빈도 목록. alt 에 반대 빈도가 있으면 둘 다. */
@@ -2030,21 +2034,21 @@ function freqView(G,f){ if(!G) return null;
    단기: 일별이 있으면 일별(최근 30일). 중기: 일별이 90일의 2/3 이상 쌓였으면 일별, 아니면 주별 26주.
    장기: 실제 달력 기간이 가장 긴 빈도의 전체(검색은 주별 52주, 동접은 일별 180일).
    점이 목표보다 적으면 있는 만큼(n<total 이 아니면 자르지 않는다). */
-function winPlan(G, win){
-  win=win||trendWin;
+function winPlan(G, days){
+  if(days===undefined) days=trendDays;
   const fs=freqsOf(G); if(!fs.length) return null;
   const S=fs.map(f=>{ const V=freqView(G,f); const n=((V&&V.months)||TREND.months).length; return {f,n,days:n*FREQ_DAYS[f]}; });
+  const maxDays=Math.max(...S.map(x=>x.days));
   let pick;
-  if(win==="long") pick=S.slice().sort((a,b)=>b.days-a.days)[0];
+  if(days==null || days>=maxDays){ days=null; pick=S.slice().sort((a,b)=>b.days-a.days)[0]; }
   else{
     const d=S.find(x=>x.f==="date"), w=S.find(x=>x.f==="week")||S.find(x=>x.f==="month")||S[0];
-    // 중기: 일별이 90일의 2/3 이상 쌓였으면 일별. 아니면 주별 — 단, 주별이 일별보다 달력으로
-    // 1.5배 넘게 길 때만(쿨로아600 은 주별 6주=42일 뿐이라 일별 30일이 더 낫다).
-    // 단기: 일별이 5점도 안 되면(수집 첫 주) 선이 안 되니 주별로.
-    pick=(d && d.n>=5 && (win==="short" || d.n>=WIN_PTS.mid.date*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
+    // 일별이 요청 일수의 2/3 이상 덮으면 일별. 아니면 주별 — 단, 주별이 일별보다 달력으로 1.5배 넘게 길 때만
+    // (쿨로아600 은 주별 6주=42일 뿐이라 일별 30일이 더 낫다). 일별이 5점도 안 되면(수집 첫 주) 주별로.
+    pick=(d && d.n>=5 && (d.days>=days*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
   }
-  const n=Math.min(pick.n, WIN_PTS[win][pick.f]);
-  return {win, freq:pick.f, n, total:pick.n, label:`${n}${FREQ_UNIT[pick.f]}`};
+  const n=days==null?pick.n:Math.min(pick.n, Math.max(MIN_PTS[pick.f], Math.ceil(days/FREQ_DAYS[pick.f])));
+  return {days, name:winName(days), freq:pick.f, n, total:pick.n, maxDays, label:`${n}${FREQ_UNIT[pick.f]}`};
 }
 /* 현재 구간에 맞는 뷰 — 빈도를 고르고 뒤에서 n 개만 남긴다(months·naver·google·rawSer 를 같이 자른다).
    스냅샷(회사별 막대)은 시간축이 아니라 자르지 않는다. */
@@ -2284,7 +2288,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
     }).join("")+(function(){
       // 구간을 잘라 보는 중이면 그 사실을 적는다 — 100 은 '전체 기간 고점'이지 이 구간 고점이 아니다
       const P=G._win, ym=G.stack?100:trendYmax(series);
-      const wn=(P&&P.n<P.total)?` · <b>${WIN_LAB[P.win]} 최근 ${P.label}</b>(전체 ${P.total}${FREQ_UNIT[P.freq]} 중)${ym<100?` · y축 ${ym}까지 확대(전체 고점=100)`:""}`:"";
+      const wn=(P&&P.n<P.total)?` · <b>${P.name} · ${P.label}</b>(전체 ${P.total}${FREQ_UNIT[P.freq]} 중)${ym<100?` · y축 ${ym}까지 확대(전체 고점=100)`:""}`:"";
       if(G.stack){
         const rv=G.reviewNote?` · ${G.reviewNote}`:"";
         return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 합계) · 단위 ${G.unit||"장"}${rv}${wn}</small></div>`;
@@ -2313,7 +2317,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   const P=G._win, hasWin=!!(P&&M.length>back+1&&!G.snapshot);
   const lWin=P?`${P.label} 변화`:"구간 변화";
   const tt=document.getElementById("trendTblTitle");
-  if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`+(P?` · ${WIN_LAB[P.win]} ${P.label}`:"");
+  if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`+(P?` · ${P.name} ${P.label}`:"");
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"cur",label:"최근값",render:r=>F(r.cur)},
@@ -3857,25 +3861,27 @@ function renderTrendSegs(){
   }else{
     srow.style.display="none";
   }
-  // 구간 줄 — 단기·중기·장기. 버튼마다 그 주제에서 실제로 보이게 될 길이(30일·26주·전체 52주)를 적는다.
-  // 같은 계획이 나오는 버튼(데이터가 짧아 단기=중기=장기)은 하나로 접는다.
+  // 구간 줄 — 프리셋(단기·중기·장기) + '최근 N일' 슬라이더. 버튼마다 그 주제에서 실제로 보이게 될 길이를 적는다.
+  // 같은 계획이 나오는 프리셋(데이터가 짧아 단기=중기=장기)은 하나로 접는다.
   const frow=document.getElementById("trendFreqRow");
   if(G && !G.snapshot){
     frow.style.display="";
-    // 중기가 단기나 장기와 같으면 중기를 뺀다. 단기까지 장기와 같으면(데이터가 한 창보다 짧음) '장기' 하나만.
-    const plan=Object.fromEntries(["short","mid","long"].map(w=>[w,winPlan(G,w)]));
     const key=P=>P?P.freq+"/"+P.n:"";
-    let btns=[["short",plan.short],["mid",plan.mid],["long",plan.long]].filter(x=>x[1]);
-    btns=btns.filter(([w,P])=>!(w==="mid"&&(key(P)===key(plan.short)||key(P)===key(plan.long))));
-    btns=btns.filter(([w,P])=>!(w==="short"&&key(P)===key(plan.long)));
+    let btns=WIN_PRESET.map(([nm,d])=>[nm,d,winPlan(G,d)]).filter(x=>x[2]);
+    const plan=Object.fromEntries(btns.map(([nm,d,P])=>[nm,P]));
+    btns=btns.filter(([nm,d,P])=>!(nm==="중기"&&(key(P)===key(plan["단기"])||key(P)===key(plan["장기"]))));
+    btns=btns.filter(([nm,d,P])=>!(nm==="단기"&&key(P)===key(plan["장기"])));
     // 바로 위 창이 같은 빈도로 15% 도 안 길면(단기 30일 vs 장기 34일) 굳이 둘 다 둘 이유가 없다 — 긴 쪽만
-    btns=btns.filter(([w,P],i)=>{ const nx=btns[i+1]; return !(nx && nx[1].freq===P.freq && nx[1].n<P.n*1.15); });
-    btns=btns.map(([w,P])=>({w,P}));
-    const cur=winPlan(G,trendWin), curKey=cur?cur.freq+"/"+cur.n:"";
-    document.getElementById("trendFreqSeg").innerHTML=btns.map(({w,P})=>{
+    btns=btns.filter(([nm,d,P],i)=>{ const nx=btns[i+1]; return !(nx && nx[2].freq===P.freq && nx[2].n<P.n*1.15); });
+    const cur=winPlan(G), curKey=key(cur);
+    document.getElementById("trendFreqSeg").innerHTML=btns.map(([nm,d,P])=>{
       const gran=P.freq==="date"?"":`·${P.freq==="week"?"주별":"월별"}`;
-      return `<button data-win="${w}" class="${(P.freq+"/"+P.n)===curKey?'active':''}">${WIN_LAB[w]}<span style="font-weight:600;font-size:11px;opacity:.8;margin-left:5px">${P.label}${gran}</span></button>`;
+      return `<button data-days="${d==null?"all":d}" class="${key(P)===curKey?'active':''}">${nm}<span style="font-weight:600;font-size:11px;opacity:.8;margin-left:5px">${P.label}${gran}</span></button>`;
     }).join("");
+    // 슬라이더 — 최근 N일. 끝까지 밀면 전체. 드래그 중엔 이 줄을 다시 그리지 않는다(요소가 바뀌면 드래그가 끊긴다).
+    const rg=document.getElementById("trendDays"), lab=document.getElementById("trendDaysLab");
+    if(rg&&cur){ rg.max=cur.maxDays; rg.min=Math.min(7,cur.maxDays); rg.value=cur.days==null?cur.maxDays:Math.min(cur.days,cur.maxDays);
+      lab.textContent=(cur.days==null?`전체 ${cur.maxDays}일`:`최근 ${cur.days}일`)+` → ${cur.label}${cur.freq==="date"?"":cur.freq==="week"?"·주별":"·월별"}`; }
   }else{
     frow.style.display="none";
   }
@@ -3885,7 +3891,7 @@ function renderTrendSegs(){
   const P=G?winPlan(G):null;
   document.getElementById("trendTopicNow").innerHTML= !trendStock ? ""
     : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "")
-      + (P? ` <span style="color:var(--accent);font-weight:700;font-size:12px">· ${WIN_LAB[P.win]} ${P.label}</span>`:"")
+      + (P? ` <span style="color:var(--accent);font-weight:700;font-size:12px">· ${P.name} ${P.label}</span>`:"")
       + (fresh? ` <span style="color:var(--muted);font-weight:600;font-size:12px">· ${fresh}</span>` : "");
 }
 document.getElementById("trendGroupSeg").addEventListener("click",e=>{
@@ -3970,12 +3976,30 @@ document.getElementById("trendSeg").addEventListener("click",e=>{
   document.querySelectorAll("#trendSeg button").forEach(x=>x.classList.toggle("active",x===b));
   drawTrend();
 });
+function setTrendDays(v, redrawSegs){
+  trendDays=(v==null||v==="all")?null:+v;            // 전역 유지 · 다음 방문에도 기억
+  try{ localStorage.setItem("trendDays",trendDays==null?"all":String(trendDays)); }catch(_){}
+  if(redrawSegs) renderTrendSegs();
+  else{                                              // 슬라이더 드래그 중: 줄을 다시 그리지 않고 라벨·활성만 갱신
+    const G=TREND.groups[trendGroup], cur=G?winPlan(G):null;
+    if(cur){
+      document.getElementById("trendDaysLab").textContent=(cur.days==null?`전체 ${cur.maxDays}일`:`최근 ${cur.days}일`)+` → ${cur.label}${cur.freq==="date"?"":cur.freq==="week"?"·주별":"·월별"}`;
+      const k=cur.freq+"/"+cur.n;
+      document.querySelectorAll("#trendFreqSeg button").forEach(b=>{ const P=winPlan(G,b.dataset.days==="all"?null:+b.dataset.days); b.classList.toggle("active",!!P&&(P.freq+"/"+P.n)===k); });
+      const t=document.getElementById("trendTopicNow"); if(t){ const sp=t.querySelector("span"); if(sp) sp.textContent=`· ${cur.name} ${cur.label}`; }
+    }
+  }
+  drawTrend();
+}
 document.getElementById("trendFreqSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
-  trendWin=b.dataset.win;                          // 단기↔장기 전환(전역 유지 · 다음 방문에도 기억)
-  try{ localStorage.setItem("trendWin",trendWin); }catch(_){}
-  renderTrendSegs(); drawTrend();
+  setTrendDays(b.dataset.days, true);
 });
+document.getElementById("trendDays").addEventListener("input",e=>{
+  const rg=e.target, v=+rg.value;
+  setTrendDays(v>=+rg.max?null:v, false);
+});
+document.getElementById("trendDays").addEventListener("change",()=>renderTrendSegs());
 window.addEventListener("resize",()=>{
   if(document.querySelector('section[data-view="trends"]').classList.contains("active")) drawTrend();
 });
