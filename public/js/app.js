@@ -1994,18 +1994,58 @@ const topicsOf=n=>{
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
 /* 처음엔 아무 종목도 고르지 않은 상태 — 눌러야 그래프가 나온다 */
-let trendStock="", trendGroup="", trendFreq="week";   // 기간: 주별(롱텀)/일별(숏텀)
+/* 구간(trendWin) — 단기·중기·장기. 예전엔 '주별↔일별' 빈도만 바꿀 수 있었는데,
+   동접·디시 글수처럼 일별만 180일 쌓인 계열은 전환할 게 없어 늘 롱텀으로 눌려 보였고,
+   검색 트렌드는 주별 52주가 기본이라 최근 한 달 움직임이 안 읽혔다.
+   이제 구간을 고르면 빈도는 자동으로 정한다(단기=일별, 장기=가장 긴 빈도). trendFreq 는 파생값. */
+let trendStock="", trendGroup="", trendFreq="week";
+let trendWin=(()=>{ try{ return ["short","mid","long"].includes(localStorage.getItem("trendWin"))?localStorage.getItem("trendWin"):"short"; }catch(_){ return "short"; } })();
+const WIN_PTS={short:{date:30,week:8,month:6}, mid:{date:90,week:26,month:12}, long:{date:Infinity,week:Infinity,month:Infinity}};
+const WIN_LAB={short:"단기",mid:"중기",long:"장기"};
+const FREQ_DAYS={date:1,week:7,month:30}, FREQ_UNIT={date:"일",week:"주",month:"개월"};
 /* 그룹의 기본 빈도(freq). 하위호환: 옛 daily 플래그도 인식 */
 const nativeFreq=G=> (G&&G.freq) || (G&&G.daily?"date":"month");
 /* 그 그룹이 가진 빈도 목록. alt 에 반대 빈도가 있으면 둘 다. */
 function freqsOf(G){ if(!G) return []; const f=[nativeFreq(G)];
   if(G.alt&&G.alt.freq&&!f.includes(G.alt.freq)) f.push(G.alt.freq); return f; }
-/* 현재 선택된 기간(trendFreq)에 맞는 뷰를 돌려준다. 없으면 원본(네이티브).
-   alt 는 반대 빈도의 완전한 그룹이라, 있으면 그쪽 months/naver/google/products 로 갈아끼운다. */
+/* 그 빈도의 원본 뷰(네이티브 또는 alt). alt 는 반대 빈도의 완전한 그룹이라 months/naver/google/products 를 통째로 갈아끼운다. */
+function freqView(G,f){ if(!G) return null;
+  if(nativeFreq(G)===f) return G;
+  if(G.alt&&G.alt.freq===f) return Object.assign({}, G, G.alt);
+  return null; }
+/* 구간에 맞는 빈도·점 수 계획.
+   단기: 일별이 있으면 일별(최근 30일). 중기: 일별이 90일의 2/3 이상 쌓였으면 일별, 아니면 주별 26주.
+   장기: 실제 달력 기간이 가장 긴 빈도의 전체(검색은 주별 52주, 동접은 일별 180일).
+   점이 목표보다 적으면 있는 만큼(n<total 이 아니면 자르지 않는다). */
+function winPlan(G, win){
+  win=win||trendWin;
+  const fs=freqsOf(G); if(!fs.length) return null;
+  const S=fs.map(f=>{ const V=freqView(G,f); const n=((V&&V.months)||TREND.months).length; return {f,n,days:n*FREQ_DAYS[f]}; });
+  let pick;
+  if(win==="long") pick=S.slice().sort((a,b)=>b.days-a.days)[0];
+  else{
+    const d=S.find(x=>x.f==="date"), w=S.find(x=>x.f==="week")||S.find(x=>x.f==="month")||S[0];
+    // 중기: 일별이 90일의 2/3 이상 쌓였으면 일별. 아니면 주별 — 단, 주별이 일별보다 달력으로
+    // 1.5배 넘게 길 때만(쿨로아600 은 주별 6주=42일 뿐이라 일별 30일이 더 낫다).
+    // 단기: 일별이 5점도 안 되면(수집 첫 주) 선이 안 되니 주별로.
+    pick=(d && d.n>=5 && (win==="short" || d.n>=WIN_PTS.mid.date*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
+  }
+  const n=Math.min(pick.n, WIN_PTS[win][pick.f]);
+  return {win, freq:pick.f, n, total:pick.n, label:`${n}${FREQ_UNIT[pick.f]}`};
+}
+/* 현재 구간에 맞는 뷰 — 빈도를 고르고 뒤에서 n 개만 남긴다(months·naver·google·rawSer 를 같이 자른다).
+   스냅샷(회사별 막대)은 시간축이 아니라 자르지 않는다. */
 function viewGroup(G){ if(!G) return G;
-  if(trendFreq===nativeFreq(G)) return G;
-  if(G.alt&&G.alt.freq===trendFreq) return Object.assign({}, G, G.alt);
-  return G; }
+  const P=winPlan(G); if(!P) return G;
+  trendFreq=P.freq;
+  const V=freqView(G,P.freq)||G;
+  if(G.snapshot || !(P.n<P.total)) return Object.assign({}, V, {_win:P});
+  const cut=a=>Array.isArray(a)?a.slice(-P.n):a;
+  const o=Object.assign({}, V, {_win:P});
+  o.months=cut(V.months||TREND.months);
+  ["naver","google"].forEach(k=>{ if(Array.isArray(V[k])) o[k]=V[k].map(cut); });
+  if(Array.isArray(V.rawSer)) o.rawSer=V.rawSer.map(cut);
+  return o; }
 /* 그 주제가 실제로 가진 출처만 남긴다.
    only 가 붙어 있으면 반대쪽은 같은 값을 복사해 둔 것이라 눌러도 그래프가 안 바뀐다. */
 const srcOfGroup=G=> G && G.only ? [G.only] : ["naver","google"];
@@ -2087,11 +2127,14 @@ function drawTrend(){
   // 점이 하나뿐인 계열(수집 첫날의 앱순위 등)은 M.length-1 == 0 이라 0/0 = NaN 이 된다.
   // 그러면 <polyline points="NaN,.."> 로 SVG 가 통째로 깨진다. 그땐 가운데에 점 하나만 찍는다.
   const sx=i=>M.length<2?pad.l+(W-pad.l-pad.r)/2:pad.l+i/(M.length-1)*(W-pad.l-pad.r);
-  const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
+  // 값은 전체 기간 고점=100 인 지수라, 단기 구간만 보면 30~40 언저리에 납작하게 깔린다.
+  // 구간 안 최댓값까지만 y축을 잡아 움직임이 보이게 한다(범례에 '전체 고점=100' 을 적는다).
+  const ymax=trendYmax(series);
+  const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
-  for(let g=0;g<=4;g++){const v=g*25;const y=sy(v);
+  for(let g=0;g<=4;g++){const v=ymax*g/4;const y=sy(v);
     s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
-    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${v}</text>`;}
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${Number.isInteger(v)?v:v.toFixed(1)}</text>`;}
   const step=Math.max(1,Math.ceil(M.length/12));   // 라벨이 빽빽하면 솎아낸다(일별 대응)
   M.forEach((m,i)=>{ if(i%step===0 || i===M.length-1) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
   series.forEach((ser,pi)=>{
@@ -2126,17 +2169,24 @@ function drawTrend(){
 /* 계열별 미니 차트 격자. y축은 0–100 고정 —
    칸마다 자기 최대로 늘이면 작은 계열이 큰 계열처럼 보여 크기를 오해한다.
    대신 최근값을 헤더에 크게 적어 수치로 읽게 한다. */
+/* 구간 안 y축 상한 — 계열 전체의 최대를 10 단위로 올림. 90 넘으면 100 으로 고정(전체 보기와 같음). */
+function trendYmax(series){
+  const vmax=Math.max(0,...series.flatMap(a=>(a||[]).filter(v=>v!=null)));
+  return vmax>=90?100:Math.max(10, Math.ceil(vmax/10)*10);
+}
 function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
   const W=300, H=110, pad={l:6,r:6,t:10,b:16};
   const sx=i=>pad.l+i/Math.max(1,M.length-1)*(W-pad.l-pad.r);
-  const sy=v=>H-pad.b-(v/100)*(H-pad.t-pad.b);
+  // 칸끼리는 같은 상한을 쓴다(구간 안 최대) — 칸마다 자기 최대로 늘이면 크기를 오해한다
+  const ymax=trendYmax(series);
+  const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
   // 계열별 출처 — 국가별은 수집 때 기록해 둔 값, 나머지는 지금 고른 출처
   const srcs=G.srcOf || PRODUCTS.map(()=> trendSrc==="naver" ? "네이버" : "구글");
   box.innerHTML=`<div class="sm-grid">`+PRODUCTS.map((p,i)=>{
     const ser=series[i]||[], c=TREND.colors[i], last=ser[ser.length-1];
     const src=srcs[i];
     let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" preserveAspectRatio="none">`;
-    [0,50,100].forEach(v=>{ s+=`<line x1="${pad.l}" y1="${sy(v)}" x2="${W-pad.r}" y2="${sy(v)}" stroke="${gc}"/>`; });
+    [0,ymax/2,ymax].forEach(v=>{ s+=`<line x1="${pad.l}" y1="${sy(v)}" x2="${W-pad.r}" y2="${sy(v)}" stroke="${gc}"/>`; });
     s+=`<polyline points="${ser.map((v,j)=>`${sx(j).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}"
          fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
     // x축은 양끝만 — 칸이 좁아 다 넣으면 뭉갠다
@@ -2215,14 +2265,17 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       return `<div class="li"><span class="dot" style="background:${COL[i]}"></span>${p}${tag}
         <small>최근 ${F(cur)}${momTxt}</small></div>`;
     }).join("")+(function(){
+      // 구간을 잘라 보는 중이면 그 사실을 적는다 — 100 은 '전체 기간 고점'이지 이 구간 고점이 아니다
+      const P=G._win, ym=G.stack?100:trendYmax(series);
+      const wn=(P&&P.n<P.total)?` · <b>${WIN_LAB[P.win]} 최근 ${P.label}</b>(전체 ${P.total}${FREQ_UNIT[P.freq]} 중)${ym<100?` · y축 ${ym}까지 확대(전체 고점=100)`:""}`:"";
       if(G.stack){
         const rv=G.reviewNote?` · ${G.reviewNote}`:"";
-        return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 합계) · 단위 ${G.unit||"장"}${rv}</small></div>`;
+        return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 합계) · 단위 ${G.unit||"장"}${rv}${wn}</small></div>`;
       }
       if(G.multi){
         // 계열마다 출처가 다를 수 있다(러시아는 얀덱스). 있는 그대로 적는다.
         const s=[...new Set(G.srcOf||["구글"])].join("·");
-        return `<div class="li" style="margin-left:auto"><small>출처: ${s} · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b></small></div>`;
+        return `<div class="li" style="margin-left:auto"><small>출처: ${s} · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b>${wn}</small></div>`;
       }
       const gGeo=G.geo==="KR"?'국내':(G.geo?G.geo:'전세계');
       // srcOf 가 있으면 그게 실제 출처다. only:"google" 은 '출처 전환 없음' 표시일 뿐이라
@@ -2235,24 +2288,34 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       // 얀덱스·Steam 은 절대값이라 100 이 얼마인지 밝혀야 크기 감각이 산다
       const pk=G.peak?` · 100 = ${G.unit?"":"주당 "}${fmt0(G.peak)}${G.unit||"건"}`:"";
       const rv=G.reviewNote?` · ${G.reviewNote}`:"";
-      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100${pk} · 진행 중인 ${U.p} 제외${rv}${solo}</small></div>`;
+      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100${pk} · 진행 중인 ${U.p} 제외${rv}${solo}${wn}</small></div>`;
     })();
   // table — 표시 단위에 맞춰 라벨/기준 전환
   const back=U.n, uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
+  // 구간 열 — 지금 보는 창의 시작점 대비·창 안 고점 대비. 단기/장기를 바꾸면 이 두 열이 따라 바뀐다.
+  const P=G._win, hasWin=!!(P&&M.length>back+1&&!G.snapshot);
+  const lWin=P?`${P.label} 변화`:"구간 변화";
   const tt=document.getElementById("trendTblTitle");
-  if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`;
+  if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`+(P?` · ${WIN_LAB[P.win]} ${P.label}`:"");
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"cur",label:"최근값",render:r=>F(r.cur)},
     {key:"m3",label:lBack,render:r=>r.m3==null?"—":F(r.m3)},
     {key:"mom",label:uMom,render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom)}%</span>`},
     {key:"q",label:lChg,render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
+    ...(hasWin?[
+      {key:"w",label:lWin,render:r=>r.w==null?"—":`<span class="${cls(r.w)}">${sign(r.w,0)}%</span>`},
+      {key:"hi",label:"구간 고점比",render:r=>r.hi==null?"—":`<span class="${cls(r.hi)}">${sign(r.hi,0)}%</span>`},
+    ]:[]),
   ], PRODUCTS.map((p,i)=>{
     const ser=series[i];const cur=ser[ser.length-1];const prev=ser[ser.length-2];
     const bk=ser.length>back?ser[ser.length-1-back]:null;
     const pct=!G.rawSer;   // 순위 계열은 증감률 칸을 비운다(위 momTxt 와 같은 이유)
+    const first=ser.find(v=>v!=null&&v>0), hi=Math.max(0,...ser.filter(v=>v!=null));
     return {p,color:COL[i],cur,m3:bk,mom:(pct&&prev>0)?(cur/prev-1)*100:null,
-            q:(pct&&bk>0)?(cur/bk-1)*100:null};
+            q:(pct&&bk>0)?(cur/bk-1)*100:null,
+            w:(pct&&hasWin&&first>0&&cur!=null)?(cur/first-1)*100:null,
+            hi:(pct&&hasWin&&hi>0&&cur!=null)?(cur/hi-1)*100:null};
   }), {key:"cur",dir:-1});
 }
 /* ==== 해외 쇼핑몰 수요 (SHOP) ====
@@ -3777,22 +3840,35 @@ function renderTrendSegs(){
   }else{
     srow.style.display="none";
   }
-  // 기간 줄 — 그 주제가 일별·주별 둘 다 가질 때만 띄운다(롱텀↔숏텀 전환).
-  const freqs=freqsOf(G), frow=document.getElementById("trendFreqRow");
-  if(freqs.length>1){
+  // 구간 줄 — 단기·중기·장기. 버튼마다 그 주제에서 실제로 보이게 될 길이(30일·26주·전체 52주)를 적는다.
+  // 같은 계획이 나오는 버튼(데이터가 짧아 단기=중기=장기)은 하나로 접는다.
+  const frow=document.getElementById("trendFreqRow");
+  if(G && !G.snapshot){
     frow.style.display="";
-    const shown=freqs.includes(trendFreq)?trendFreq:freqs[0];
-    const LAB={week:"주별(롱텀)",date:"일별(숏텀)",month:"월별"};
-    document.getElementById("trendFreqSeg").innerHTML=freqs.map(f=>
-      `<button data-frq="${f}" class="${f===shown?'active':''}">${LAB[f]||f}</button>`).join("");
+    // 중기가 단기나 장기와 같으면 중기를 뺀다. 단기까지 장기와 같으면(데이터가 한 창보다 짧음) '장기' 하나만.
+    const plan=Object.fromEntries(["short","mid","long"].map(w=>[w,winPlan(G,w)]));
+    const key=P=>P?P.freq+"/"+P.n:"";
+    let btns=[["short",plan.short],["mid",plan.mid],["long",plan.long]].filter(x=>x[1]);
+    btns=btns.filter(([w,P])=>!(w==="mid"&&(key(P)===key(plan.short)||key(P)===key(plan.long))));
+    btns=btns.filter(([w,P])=>!(w==="short"&&key(P)===key(plan.long)));
+    // 바로 위 창이 같은 빈도로 15% 도 안 길면(단기 30일 vs 장기 34일) 굳이 둘 다 둘 이유가 없다 — 긴 쪽만
+    btns=btns.filter(([w,P],i)=>{ const nx=btns[i+1]; return !(nx && nx[1].freq===P.freq && nx[1].n<P.n*1.15); });
+    btns=btns.map(([w,P])=>({w,P}));
+    const cur=winPlan(G,trendWin), curKey=cur?cur.freq+"/"+cur.n:"";
+    document.getElementById("trendFreqSeg").innerHTML=btns.map(({w,P})=>{
+      const gran=P.freq==="date"?"":`·${P.freq==="week"?"주별":"월별"}`;
+      return `<button data-win="${w}" class="${(P.freq+"/"+P.n)===curKey?'active':''}">${WIN_LAB[w]}<span style="font-weight:600;font-size:11px;opacity:.8;margin-left:5px">${P.label}${gran}</span></button>`;
+    }).join("");
   }else{
     frow.style.display="none";
   }
   // 주제 줄이 숨겨져 있어도 지금 보는 게 뭔지 알 수 있게 제목으로 남긴다
   const kw=(G&&G.stack)?[]:((viewGroup(G)||{}).products||[]);   // 스택(회사 막대)은 아티스트 목록이 길어 제목에 안 붙임
   const fresh=trendFresh(G);
+  const P=G?winPlan(G):null;
   document.getElementById("trendTopicNow").innerHTML= !trendStock ? ""
     : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "")
+      + (P? ` <span style="color:var(--accent);font-weight:700;font-size:12px">· ${WIN_LAB[P.win]} ${P.label}</span>`:"")
       + (fresh? ` <span style="color:var(--muted);font-weight:600;font-size:12px">· ${fresh}</span>` : "");
 }
 document.getElementById("trendGroupSeg").addEventListener("click",e=>{
@@ -3879,7 +3955,8 @@ document.getElementById("trendSeg").addEventListener("click",e=>{
 });
 document.getElementById("trendFreqSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
-  trendFreq=b.dataset.frq;                         // 주별↔일별 전환(전역 유지)
+  trendWin=b.dataset.win;                          // 단기↔장기 전환(전역 유지 · 다음 방문에도 기억)
+  try{ localStorage.setItem("trendWin",trendWin); }catch(_){}
   renderTrendSegs(); drawTrend();
 });
 window.addEventListener("resize",()=>{
