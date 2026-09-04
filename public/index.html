@@ -730,6 +730,22 @@
     <div class="tbl-wrap"><table id="trendTable"></table></div>
     <p class="note" id="trendFoot">네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널.</p>
 
+    <!-- 게임 판매·매출 추정 — 순위가 아니라 공시 판매량에서 매출을 세운다. 게임 종목일 때만 뜬다. -->
+    <div id="geSec" style="display:none">
+      <div class="sub-h" id="geTitle">게임 판매·매출 추정</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--muted);font-weight:700">
+        <span>리뷰당 판매 <input id="ge_box" type="number" value="20.5" min="1" max="200" step="0.5" class="theme-btn" style="width:72px;padding:6px 8px;font-weight:700;font-size:13px" title="Steam 리뷰 1건당 판매량. 기본 20.5 = 공시 600만장×Steam비중 53% ÷ 그 시점 리뷰수(역추정). 업계 통상 20~60배이고 대형작일수록 낮다."></span>
+        <span>순ASP <input id="ge_asp" type="number" value="52000" min="1000" max="200000" step="1000" class="theme-btn" style="width:86px;padding:6px 8px;font-weight:700;font-size:13px" title="장당 순매출(원). 기본 52,000 = (1Q·2Q 공시 기여매출 3,301억) ÷ (그 기간 판매량 633만장). 플랫폼 수수료 차감 후.">원</span>
+        <span>DLC 부착률 <input id="ge_attach" type="number" value="15" min="1" max="100" step="1" class="theme-btn" style="width:64px;padding:6px 8px;font-weight:700;font-size:13px" title="본편 보유자 중 DLC를 사는 비율(%). 유료 확장팩 통상 10~25%.">%</span>
+        <span>예약 비중 <input id="ge_pre" type="number" value="25" min="1" max="100" step="1" class="theme-btn" style="width:64px;padding:6px 8px;font-weight:700;font-size:13px" title="DLC 출시분기 판매 중 예약이 차지하는 비율(%).">%</span>
+        <span>Zipf α <input id="ge_alpha" type="number" value="1.0" min="0.3" max="2.5" step="0.1" class="theme-btn" style="width:60px;padding:6px 8px;font-weight:700;font-size:13px" title="순위→매출 감쇠 지수. 매출 ∝ 순위^(−α). 1.0 이 기본."></span>
+        <span>환율 <input id="ge_fx" type="number" value="1370" min="800" max="2000" step="10" class="theme-btn" style="width:68px;padding:6px 8px;font-weight:700;font-size:13px" title="원/달러"></span>
+      </div>
+      <div id="geBox"></div>
+      <p class="note">계수는 전부 <b>가정</b>입니다 — 공시가 나올 때마다 백테스트 오차를 보고 다시 맞추세요.
+        순위만으로 절대 매출을 뽑는 방법은 없습니다(목록 총액이 비공개). 그래서 <b>수준은 판매량에서, 순위는 추이·지역배분에만</b> 씁니다.</p>
+    </div>
+
     <div class="sub-h" id="shopTitle">해외 쇼핑몰 수요</div>
     <div id="shopBox"></div>
     <p class="note" id="shopNote"></p>

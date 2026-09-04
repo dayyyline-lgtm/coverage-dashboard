@@ -173,7 +173,7 @@ function activateTab(k, scroll){
   if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
   if(k==="amazon") renderAmazon();
-  if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); }
+  if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); renderGameEst(); }
   if(k==="boxoffice") renderMovie();
   if(k==="toptoon") renderToptoon();
   // 넘치는 탭 줄에서 지금 탭이 화면 밖이면 끌어온다(폰에서 11개 중 4개만 보인다)
@@ -3948,19 +3948,195 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend(); renderShop();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
   if(stock) trendStock=stock;
   if(group) trendGroup=group;
-  renderTrendSegs(); drawTrend(); renderShop();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+/* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
+   "랭킹이 이 정도면 매출이 얼마쯤" 을 세우려면 앵커가 있어야 한다. 붉은사막은 드물게 그게 다 있다 —
+   회사가 판매량을 발표했고(600만장), 플랫폼 비중이 공개됐고(알리네아), 출시 분기 실적이 공시됐다.
+   그래서 순위가 아니라 **판매량에서 매출을 세우고, 순위는 추이·지역배분에만 쓴다.**
+   (순위만으로 절대 매출을 뽑는 방법은 없다 — 목록 총액을 모르기 때문이다. 억지로 하면 틀린다.)
+
+   구조 3층:
+     ① 설치기반  = 공시 앵커(600만장) + 그 뒤 Steam 리뷰 증분 × 리뷰당판매 ÷ Steam비중
+     ② 매출      = 판매량 × 순ASP.  순ASP 는 공시 두 분기로 역산(백테스트 표에 분기별로 보인다)
+     ③ DLC 예약  = 설치기반 × 부착률 × 예약비중 × 순단가.  지역배분은 예약순위 × 지역 시장규모
+   계수는 전부 화면에서 조정한다(탑툰챗 '방당 단가' 와 같은 방식). 공시가 나오면 재보정할 것.
+
+   ⚠ 여기 숫자는 API 가 아니라 **공시·보도**다. 자동 갱신이 없으므로 새 발표가 나오면 손으로 고친다. */
+const GAMEEST={
+  "붉은사막":{
+    stock:"펄어비스", launch:"2026-03-20", listUsd:69.99,
+    // 회사·조사기관 발표 누적 판매량(장). 사이 구간은 선형보간한다.
+    units:[["2026-03-19",0,"출시 전"],["2026-03-20",2000000,"출시 1일"],["2026-03-23",3000000,"출시 4일"],
+           ["2026-04-15",5000000,"출시 26일"],["2026-06-11",6000000,"출시 83일 · 회사 발표"]],
+    plat:{steam:0.53, ps:0.34, xbox:0.13},          // 알리네아 애널리틱스(2026-05) — Steam 53 · PS5 34 · Xbox 13
+    steamRevUsd:190e6,                              // 알리네아 · 2026-07 기준 Steam 매출 $190M+
+    baseQ:"202512",                                 // 출시 전 기준분기(이 분기 매출을 본업 기준선으로 뺀다)
+    dlc:{name:"미지의 여정", priceUsd:24.99, release:"2026-10-15",
+         psTitle:"붉은사막 DLC(미지의 여정)"},
+    psTitle:"붉은사막"                                // STORERANK 의 본편 표시명
+  }
+};
+/* 지역별 PS5 설치대수(백만대, 대략) — 순위를 매출로 바꾸려면 '그 나라 시장이 얼마나 큰가'가 반드시 필요하다.
+   같은 3위라도 한국 3위와 미국 3위는 자릿수가 다르다. 이 가중이 없으면 한국이 70% 로 나온다(실측: 틀림). */
+const PS_MARKET={us:25, gb:5, jp:6, kr:1, de:6};
+const GE_DEF={box:20.5, asp:52000, attach:15, pre:25, alpha:1.0, fx:1370};
+function geVal(id){ const el=document.getElementById("ge_"+id);
+  const v=el?parseFloat(el.value):NaN; return (isFinite(v)&&v>0)?v:GE_DEF[id]; }
+
+/* 누적 판매량(장) — 앵커 사이는 선형보간, 마지막 앵커 뒤는 Steam 리뷰 증분으로 잇는다. */
+function geUnits(G, dateStr){
+  const A=G.units, t=+new Date(dateStr);
+  const last=A[A.length-1], lastT=+new Date(last[0]);
+  if(t<=lastT){
+    for(let i=1;i<A.length;i++){
+      const t0=+new Date(A[i-1][0]), t1=+new Date(A[i][0]);
+      if(t<=t1) return A[i-1][1]+(A[i][1]-A[i-1][1])*(t-t0)/Math.max(1,t1-t0);
+    }
+    return A[0][1];
+  }
+  // 앵커 이후 — 리뷰 증분 × 리뷰당판매 ÷ Steam비중. 리뷰 관측 전 구간은 관측 페이스로 되돌려 잇는다.
+  const r=geReviews(G); if(!r) return last[1];
+  const per=geVal("box")/G.plat.steam;
+  const obsT0=+new Date(r.rows[0].d), obsT1=+new Date(r.rows[r.rows.length-1].d);
+  const upTo=Math.min(t, obsT1);
+  let add=0;
+  if(upTo>obsT0){                                    // 관측 구간(리뷰 실측)
+    const rv=r.rows.filter(x=>+new Date(x.d)<=upTo);
+    add+=(rv[rv.length-1].t-rv[0].t)*per;
+  }
+  if(obsT0>lastT){                                   // 앵커~관측시작 사이(리뷰 없음) — 관측 페이스로 메움
+    add+=r.pace*((Math.min(t,obsT0)-lastT)/864e5)*per;
+  }
+  if(t>obsT1){                                       // 관측 이후(미래) — 같은 페이스로 전망. 진행 중인 분기용.
+    add+=r.pace*((t-obsT1)/864e5)*per;
+  }
+  return last[1]+add;
+}
+function geReviews(G){
+  if(typeof STEAM==="undefined"||!STEAM.games) return null;
+  const g=STEAM.games.find(x=>x.title===(G.psTitle||"")); if(!g) return null;
+  const rows=(g.reviews||[]).filter(x=>x&&x.t!=null); if(rows.length<2) return null;
+  const days=Math.max(1,(+new Date(rows[rows.length-1].d)-+new Date(rows[0].d))/864e5);
+  return {rows, pace:(rows[rows.length-1].t-rows[0].t)/days};   // 하루당 신규 리뷰
+}
+/* 지역 배분 — 매출점유 ∝ (그 나라 시장규모) × rank^(−α). 순위만 쓰면 작은 나라가 과대평가된다. */
+function geMix(title, src){
+  if(typeof STORERANK==="undefined"||!STORERANK.items) return null;
+  const a=geVal("alpha");
+  const rows=STORERANK.items.filter(it=>it.title===title&&it.src===src).map(it=>{
+    const r=[...(it.hist||[])].reverse().find(h=>h.r!=null);
+    return r?{region:it.region, rank:r.r, w:(PS_MARKET[it.region]||1)*Math.pow(r.r,-a)}:null;
+  }).filter(Boolean);
+  if(!rows.length) return null;
+  const tot=rows.reduce((x,y)=>x+y.w,0);
+  rows.forEach(x=>{ x.share=x.w/tot; });
+  return rows.sort((x,y)=>y.share-x.share);
+}
+function renderGameEst(){
+  const box=document.getElementById("geBox"), sec=document.getElementById("geSec");
+  if(!box||!sec) return;
+  const name=Object.keys(GAMEEST).find(k=>GAMEEST[k].stock===trendStock);
+  if(!name){ sec.style.display="none"; return; }
+  sec.style.display="";
+  const G=GAMEEST[name], today=TODAY, R=geReviews(G);
+  document.getElementById("geTitle").innerHTML=
+    `게임 판매·매출 추정 — ${name} <span class="th-sub">공시 판매량·플랫폼 비중을 앵커로, 그 뒤는 Steam 리뷰로 잇는다</span>`;
+
+  // ① 설치기반 · 최근 30일
+  const nowU=geUnits(G,today), agoU=geUnits(G,new Date(+new Date(today)-30*864e5).toISOString().slice(0,10));
+  const anch=G.units[G.units.length-1];
+  const asp=geVal("asp"), fx=geVal("fx");
+  const M=v=>(v/1e4).toFixed(0)+"만";
+  const EOK=v=>(v/1e8).toFixed(0)+"억";
+
+  // ② 백테스트 — 모델이 공시를 재현하는가. 분기 기여매출 ÷ 분기 판매량 = 그 분기 실현 순ASP.
+  const S=(typeof LIVE!=="undefined"&&LIVE.stocks)?LIVE.stocks[G.stock]:null;
+  const qs=(S&&S.cons&&S.cons.quarter&&S.cons.quarter.series)||[];
+  const baseRev=(qs.find(q=>q.k===G.baseQ)||{}).rev;              // 십억원
+  const QE={"202603":"2026-03-31","202606":"2026-06-30","202609":"2026-09-30"};
+  const bt=Object.keys(QE).map(k=>{
+    const q=qs.find(x=>x.k===k); if(!q||baseRev==null) return null;
+    const end=QE[k], st=new Date(+new Date(end)-0);
+    const prevK=Object.keys(QE)[Object.keys(QE).indexOf(k)-1];
+    const u0=geUnits(G, prevK?QE[prevK]:G.units[0][0]), u1=geUnits(G,end);   // 출시 분기는 0(출시 전날)부터
+    const du=Math.max(0,u1-u0), contrib=(q.rev-baseRev)*1e9;      // 원
+    return {k, t:q.t, est:q.e, du, contrib, impl:du>0?contrib/du:null, model:du*asp};
+  }).filter(Boolean);
+
+  // ③ DLC 예약
+  const D=G.dlc, attach=geVal("attach")/100, pre=geVal("pre")/100;
+  const dlcNet=D.priceUsd*0.7*fx;                                  // 플랫폼 30% 차감 후 원화
+  const dlcU=nowU*attach, dlcRev=dlcU*dlcNet, preRev=dlcRev*pre;
+  const dd=Math.ceil((+new Date(D.release)-+new Date(today))/864e5);
+
+  const card=(t,v,sub,hl)=>`<div class="sm-cell"${hl?' style="border-color:color-mix(in srgb,var(--accent) 45%,transparent)"':''}>`
+    +`<div class="sm-h">${t}<span class="v" style="color:var(--accent)">${v}</span></div>`
+    +`<div class="shop-kv">${sub}</div></div>`;
+  let h=`<div class="sm-grid">`
+    +card(`누적 판매량 <span class="src">추정</span>`, M(nowU)+"장",
+        `앵커 <b>${M(anch[1])}장</b>(${anch[0]} ${anch[2]}) + 그 뒤 리뷰 증분 ×${geVal("box")}÷${(G.plat.steam*100).toFixed(0)}%`)
+    +card(`최근 30일 판매 <span class="src">추정</span>`, M(nowU-agoU)+"장",
+        R?`리뷰 하루 ${fmt0(R.pace)}건 페이스 · Steam ${M((nowU-agoU)*G.plat.steam)}장`:"리뷰 데이터 부족")
+    +card(`설치기반 매출환산 <span class="src">누적</span>`, EOK(nowU*asp),
+        `판매량 × 순ASP ${fmt0(asp)}원(공시 역산) · 공시 누적 기여 ${EOK(bt.filter(b=>!b.est).reduce((a,b)=>a+b.contrib,0))}`)
+    +card(`DLC 예약 <span class="src">D-${dd} · ${D.release}</span>`, EOK(preRev),
+        `설치기반 ${M(nowU)} × 부착 ${(attach*100).toFixed(0)}% = ${M(dlcU)}장 × 순단가 ${fmt0(dlcNet)}원 = <b>${EOK(dlcRev)}</b> 중 예약 ${(pre*100).toFixed(0)}%`, true)
+    +`</div>`;
+
+  // 백테스트 표 — 모델이 공시를 얼마나 재현하나. 여기가 벌어지면 계수를 고쳐야 한다.
+  if(bt.length){
+    h+=`<div class="sub-h" style="margin-top:14px">백테스트 — 모델이 공시를 재현하는가`
+      +` <span class="th-sub">기준선 = ${G.baseQ.slice(0,4)}.${G.baseQ.slice(4)} 매출 ${baseRev}십억(출시 전 본업) · 본업이 그 뒤 커졌다면 기여매출이 과대계상된다</span></div>`
+      +`<div class="tbl-wrap"><table><thead><tr><th style="text-align:left">분기</th><th>모델 판매량</th>`
+      +`<th>모델 매출</th><th>공시 기여매출</th><th>실현 순ASP</th><th>오차</th></tr></thead><tbody>`
+      +bt.map(b=>{
+        const err=b.contrib>0?(b.model/b.contrib-1)*100:null;
+        const fut=+new Date(QE[b.k])>+new Date(today);
+        return `<tr><td style="text-align:left"><span class="ye">${b.t}</span>${b.est?'<span class="th-sub" style="margin-left:4px">컨센</span>':''}`
+          +`${fut?'<span class="th-sub" style="margin-left:4px">진행중·페이스 전망</span>':''}</td>`
+          +`<td>${M(b.du)}장</td><td>${EOK(b.model)}</td><td>${EOK(b.contrib)}</td>`
+          +`<td>${b.impl==null?"—":fmt0(b.impl)+"원"}</td>`
+          +`<td>${err==null?"—":`<span class="${cls(err)}">${sign(err,0)}%</span>`}</td></tr>`;
+      }).join("")+`</tbody></table></div>`;
+  }
+
+  // 지역 배분 — 순위를 매출로 바꾸는 유일한 정당한 쓰임. 본편으로 검증하고 DLC 에 적용한다.
+  const mixBase=geMix(G.psTitle,"ps_sales"), mixDlc=geMix(D.psTitle,"ps_pre");
+  if(mixBase||mixDlc){
+    const REG={kr:"한국",us:"미국",jp:"일본",gb:"영국",de:"독일"};
+    const row=(m,label,total)=>!m?"":`<tr><td style="text-align:left"><b>${label}</b></td>`
+      +["kr","us","jp","gb"].map(r=>{const x=m.find(y=>y.region===r);
+        return `<td>${x?`${x.rank}위<br><span class="th-sub">${(x.share*100).toFixed(0)}%`
+          +(total?` · ${EOK(total*x.share)}`:"")+`</span>`:"—"}</td>`;}).join("")+`</tr>`;
+    h+=`<div class="sub-h" style="margin-top:14px">지역 배분 — 순위 × 시장규모`
+      +` <span class="th-sub">점유 ∝ PS5 설치대수 × 순위^−${geVal("alpha")} · 순위만 쓰면 작은 나라가 과대평가된다</span></div>`
+      +`<div class="tbl-wrap"><table><thead><tr><th style="text-align:left">계열</th>`
+      +["한국","미국","일본","영국"].map(x=>`<th>${x}</th>`).join("")+`</tr></thead><tbody>`
+      +row(mixBase,"본편 PS5 판매순위",null)+row(mixDlc,"DLC 예약순위",preRev)
+      +`</tbody></table></div>`;
+    if(mixBase){
+      const west=mixBase.filter(x=>x.region==="us"||x.region==="gb").reduce((a,b)=>a+b.share,0);
+      h+=`<p class="note">검증: 이 가중으로 본편 <b>미국+영국 ${(west*100).toFixed(0)}%</b> — `
+        +`회사 공시의 '북미·유럽 81%'(독일·프랑스 등 미포함)와 방향이 맞는다. `
+        +`가중 없이 순위만 쓰면 한국이 70%로 나와 공시와 정반대가 된다. `
+        +`⚠ 목록 <b>바닥 순위는 검열</b>돼 있다 — DLC 의 한국·일본·영국 104~109위는 '목록 끝'이라 `
+        +`실제로는 더 아래일 수 있고, 반대로 갓 진입한 것일 수도 있다. 며칠 추이를 봐야 갈린다.</p>`;
+    }
+  }
+  box.innerHTML=h;
 }
 /* 트렌드 탭 상단 '주목할 추이' — 모든 계열을 훑어 상위 몇 개를 칩으로(클릭 시 이동).
    앨범판매(스택)는 0→대량이라 %가 무의미 → 최신 기간 '신보'(그 아티스트 신고점, 10만장+)를
@@ -4019,7 +4195,10 @@ function renderTrendHighlights(){
     }).join("");
   return top;   // 최상위 = 그날 가장 주목할 추이(트렌드 탭 진입 시 기본 표시)
 }
-renderTrendSegs(); renderShop(); renderTrendHighlights();
+renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst();
+// 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
+["box","asp","attach","pre","alpha","fx"].forEach(id=>{
+  const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
@@ -4521,7 +4700,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }
