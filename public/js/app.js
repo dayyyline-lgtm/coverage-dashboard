@@ -1780,7 +1780,10 @@ const TREND_STOCK={
       products:[g.title], productsGoogle:[g.title],
       months:dates, naver:[norm], google:[norm],
       only:"naver", freq:"date", peak:peak,
-      unit:"명(치지직 시청자)", srcName:"치지직 CHZZK · 국내 스트리밍"
+      unit:"명(치지직 시청자)", srcName:"치지직 CHZZK · 국내 스트리밍 · 값 = 그날 표본 중 최댓값",
+      // 언제 찍은 값인지 — 저녁 피크(21시)와 낮(11시)은 다른 숫자다. 표본이 1회뿐인 날은 그 사실도 적는다.
+      reviewNote:(()=>{const l=(g.hist||[]).slice(-1)[0]||{}; if(l.h==null) return "";
+        return `최근 ${l.d?l.d.slice(5).replace("-","/"):""} 최댓값은 ${l.h}시 표본(하루 ${l.n||1}회 관측${l.a!=null&&(l.n||1)>1?` · 관측 평균 ${fmt0(l.a)}명`:""})`;})()
     };
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
@@ -1815,7 +1818,10 @@ const TREND_STOCK={
       products:[g.title], productsGoogle:[g.title],
       months:dates, naver:[norm], google:[norm],
       only:"naver", freq:"date", peak:peak,
-      unit:"명(트위치 시청자)", srcName:"트위치 · 글로벌 스트리밍"
+      unit:"명(트위치 시청자)", srcName:"트위치 · 글로벌 스트리밍 · 값 = 그날 표본 중 최댓값",
+      // 언제 찍은 값인지 — 저녁 피크(21시)와 낮(11시)은 다른 숫자다. 표본이 1회뿐인 날은 그 사실도 적는다.
+      reviewNote:(()=>{const l=(g.hist||[]).slice(-1)[0]||{}; if(l.h==null) return "";
+        return `최근 ${l.d?l.d.slice(5).replace("-","/"):""} 최댓값은 ${l.h}시 표본(하루 ${l.n||1}회 관측${l.a!=null&&(l.n||1)>1?` · 관측 평균 ${fmt0(l.a)}명`:""})`;})()
     };
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
@@ -1940,6 +1946,47 @@ function injectCompanyStack(items, opt){
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
+/* 스토어 판매·예약 순위(STORERANK · fetch_storerank.py) — '구매 시점'에 가장 가까운 신호.
+   PS 스토어(예약 · PS5 전체 30일 판매 · 다운로드) · Steam(국가별 최고판매 · 위시리스트) · MS 스토어(Xbox·PC 유료 인기).
+   소스별로 한 그룹, 지역이 계열. 순위는 작을수록 상위라 (n+1−r)/n×100 으로 뒤집어 그리고(목록 크기 n 은
+   소스마다 다르다: PS 300 · Steam 100 · MS 50), 실제 순위는 rawSer 로 툴팁·표에 'N위'. 목록 밖은 null(선 끊김).
+   ⚠ 목록 크기가 다른 소스끼리 점수를 비교하지 말 것 — 그래서 한 그룹에 한 소스만 둔다. */
+(function injectStoreRank(){
+  if(typeof STORERANK==="undefined"||!STORERANK.items) return;
+  const SRC={ps_pre:["예약순위(PS 스토어)","PS 스토어 예약 카테고리 · 30일 최다판매순 · 위로 갈수록 상위 · DLC 예약은 여기서만 잡힌다"],
+             ps_sales:["판매순위(PS 스토어)","PS 스토어 PS5 전체 30일 최다판매순(상위 300) · 위로 갈수록 상위"],
+             ps_dl:["다운로드순위(PS 스토어)","PS 스토어 PS5 전체 30일 최다다운로드순(상위 300) · 무료 체험·F2P 포함"],
+             steam_top:["판매순위(Steam)","Steam 국가별 최고 판매 100(수익 기준 · DLC·번들 포함) · 위로 갈수록 상위"],
+             steam_wish:["위시리스트순위(Steam)","Steam 인기 위시리스트 100(미출시작 = 예약 관심) · 위로 갈수록 상위"],
+             xbox_top:["유료순위(Xbox 스토어)","MS 스토어 Xbox 유료 인기 50 · 위로 갈수록 상위"],
+             pc_top:["유료순위(PC 스토어)","MS 스토어 PC 유료 인기 50 · 위로 갈수록 상위"],
+             xbox_soon:["출시예정 순위(Xbox)","MS 스토어 Xbox 출시 예정 50(예약) · 위로 갈수록 상위"]};
+  const REG={kr:"한국",us:"미국",jp:"일본",gb:"영국",de:"독일",global:"글로벌"};
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  // 그룹 = (제목, 소스). 계열 = 지역.
+  const by={};
+  STORERANK.items.forEach(it=>{ if(!SRC[it.src]) return; (by[it.title+"|"+it.src]=by[it.title+"|"+it.src]||[]).push(it); });
+  Object.keys(by).forEach(k=>{
+    const its=by[k], src=its[0].src, stock=its[0].stock, title=its[0].title;
+    const n=Math.max(...its.map(i=>i.n||100))||100;
+    const days=[...new Set(its.flatMap(i=>(i.hist||[]).map(h=>h.d)))].sort();
+    if(!days.length) return;
+    const order=["kr","us","jp","gb","de","global"];
+    its.sort((a,b)=>order.indexOf(a.region)-order.indexOf(b.region));
+    const raw=its.map(i=>{const m={}; (i.hist||[]).forEach(h=>{ m[h.d]=h.r; }); return days.map(d=>m[d]==null?null:m[d]);});
+    const ser=raw.map(a=>a.map(r=>r==null?null:Math.round((n+1-r)/n*1000)/10));
+    const name=`${title} ${SRC[src][0]}`;
+    const last=its.map((i,k)=>{const r=[...raw[k]].reverse().find(v=>v!=null); return `${REG[i.region]||i.region} ${r==null?"목록 밖":r+"위"}`;}).join(" · ");
+    TREND.groups[name]={
+      products:its.map(i=>REG[i.region]||i.region), productsGoogle:its.map(i=>REG[i.region]||i.region),
+      months:days.map(md), naver:ser, google:ser, rawSer:raw,
+      only:"naver", freq:"date", unitShort:"위", srcName:SRC[src][1]+` · 목록 ${n}개`,
+      fmt:v=>(v==null?"—":Math.round(n+1-v*n/100)+"위"),
+      reviewNote:`최근 ${last}`
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
 /* 방한 외래관광객(월별)을 호텔/면세/카지노 종목의 트렌드로 편입 — 인바운드 관광 = 수요 매크로. */
 (function injectTourismTrends(){
   if(typeof TOURISM==="undefined"||!TOURISM.total||TOURISM.total.length<2) return;
@@ -2000,8 +2047,8 @@ function injectCompanyStack(items, opt){
    앨범판매(써클)는 엔터 실물수요라 검색보다 앞. 나머지는 삽입 순서를 유지(안정 정렬). */
 const topicsOf=n=>{
   const list=(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);
-  const pri=g=> g.includes("동접")?0 : (g.includes("리뷰")||g.includes("시청"))?1
-             : g.includes("앨범판매")?2 : 3;
+  const pri=g=> g.includes("동접")?0 : (g.includes("예약순위")||g.includes("판매순위"))?1
+             : (g.includes("리뷰")||g.includes("시청"))?2 : g.includes("앨범판매")?3 : 4;
   return list.map((g,i)=>[g,i]).sort((a,b)=>pri(a[0])-pri(b[0])||a[1]-b[1]).map(x=>x[0]);
 };
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
@@ -3817,6 +3864,9 @@ function renderMovie(){
    구글·얀덱스·국가별 검색은 주 1회(월). srcName 으로 소스를 판별해 각 asOf 를 붙인다. */
 const TREND_SRC_ASOF=[
   ["Spotify", ()=>(typeof SPOTIFY!=="undefined")&&SPOTIFY.asOf],
+  ["스토어", ()=>(typeof STORERANK!=="undefined")&&STORERANK.asOf],
+  ["Steam 국가별", ()=>(typeof STORERANK!=="undefined")&&STORERANK.asOf],
+  ["Steam 인기 위시", ()=>(typeof STORERANK!=="undefined")&&STORERANK.asOf],
   ["SteamCharts", ()=>(typeof STEAM!=="undefined")&&STEAM.asOf],
   ["Steam", ()=>(typeof STEAM!=="undefined")&&STEAM.asOf],
   ["치지직", ()=>(typeof CHZZK!=="undefined")&&CHZZK.asOf],

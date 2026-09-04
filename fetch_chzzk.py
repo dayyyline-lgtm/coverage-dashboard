@@ -74,6 +74,21 @@ def _put(html, name, obj):
     return html[:liv.end()] + "\n" + block + html[liv.end():]
 
 
+def _merge_day(hist, today, v):
+    """같은 날 여러 번 찍은 표본을 한 점으로. v=그날 최댓값, h=최댓값이 찍힌 KST 시각, n=표본 수, a=표본 평균.
+    시청자는 '언제 찍었나'가 값만큼 중요하다(저녁 피크 vs 낮). 예전엔 최댓값만 남겨 그게 21시 값인지
+    11시 값인지 알 수 없었다(2026-09-04). 저녁 표본은 viewers.yml(KST 21·22·23시)이 추가로 찍는다."""
+    hour = datetime.datetime.now(KST).hour
+    if hist and hist[-1].get("d") == today:
+        e = hist[-1]; n = int(e.get("n") or 1); s = float(e.get("s") if e.get("s") is not None else e.get("v", 0)) + v
+        peak = v > (e.get("v") or 0)
+        hist[-1] = {"d": today, "v": max(e.get("v") or 0, v), "h": hour if peak else e.get("h", hour),
+                    "n": n + 1, "s": round(s), "a": round(s / (n + 1))}
+    else:
+        hist.append({"d": today, "v": v, "h": hour, "n": 1, "s": v, "a": v})
+    return hist
+
+
 def main():
     html = open(HTML, encoding="utf-8").read()
     today = datetime.datetime.now(KST).date().isoformat()
@@ -90,10 +105,7 @@ def main():
     for stock, title, keys in GAMES:
         v = sum(val for cat, val in agg.items() if any(k in cat for k in keys))
         hist = list(prev.get((stock, title), []))
-        if hist and hist[-1].get("d") == today:
-            hist[-1] = {"d": today, "v": max(hist[-1].get("v", 0), v)}   # 같은 날 → 최댓값
-        else:
-            hist.append({"d": today, "v": v})
+        hist = _merge_day(hist, today, v)
         hist = hist[-DAYS:]
         games.append({"stock": stock, "title": title, "hist": hist})
         print(f"  {title}: 시청자 {v:,}")

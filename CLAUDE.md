@@ -307,6 +307,54 @@ MMORPG 게임머니의 원화 시세 = 게임 경제 온도계. 오르면 사려
 /v3_get_chart_data.php?game=&sid=&type=min  분봉 OHLC + volume(**게임머니 수량** · aion 은 만키나라 ×10,000)
 ```
 
+## 스토어 판매·예약 순위 — PS·Steam·MS 스토어 (2026-09-04 신설, `fetch_storerank.py` → `STORERANK`)
+
+'지금 팔리고 있나'. 동접(플레이)·리뷰(구매 후행)보다 구매 시점에 가깝고, **예약 순위는 출시 전 유일한 판매 신호**다.
+첫 대상 = 붉은사막 Enhanced DLC '미지의 여정'(10/15 · $24.99) 예약. 절대 판매량은 어디도 안 주므로 **순위만** 하루 1점.
+
+| 소스 | 주소 | 목록 | 지역 |
+|---|---|---|---|
+| PS 예약 | `web.np.playstation.com/api/graphql/v1/op` categoryGridRetrieve · 카테고리 `3bf499d7…` | ~110 (전체) | US·KR·JP·GB |
+| PS PS5 전체 | 같은 API · 카테고리 `d0446d4b…` · `sortBy` sales30 / downloads30 | 상위 300 | US·KR·JP·GB |
+| Steam 최고판매 | `store.steampowered.com/search/results/?filter=topsellers&cc=` | 100 (DLC·번들 포함) | kr·us·jp·de |
+| Steam 위시리스트 | `filter=popularwishlist` (미출시작 = 예약 관심) | 100 | 글로벌 |
+| MS 스토어 | `microsoft.com/{loc}/store/top-paid/games/xbox` · `/pc` · `coming-soon/games/xbox` (SSR JSON 카드) | 50 | us·kr·jp |
+
+- **PS 예약 카테고리의 기본 정렬이 `sales30`(30일 최다판매)** 이라 목록 순서가 곧 예약 판매순위다. `sortingOptions` 에
+  Best Selling / Most Downloaded / 이름 / 출시일이 있고 `sortedBy` 로 확인된다.
+- 지역은 `x-psn-store-locale-override` 헤더. PS 는 **persisted query 해시**라 사이트 배포로 깨질 수 있다 —
+  절반 넘게 빠지면 `note_health` → watchdog. 해시는 브라우저에서 카테고리 페이지를 열고
+  `performance.getEntriesByType('resource')` 로 다시 딴다(네트워크 탭은 이 환경에서 안 잡혔다).
+- Steam 공식 `IStoreTopSellersService.GetWeeklyTopSellers` 는 access_token 이 필요해 빈 객체만 준다(번들에서 확인).
+  차트 페이지(`/charts/topselling/KR`)는 SSR 에 데이터가 없고 JS 가 그 API 를 부른다. 그래서 검색 페이지 topsellers 를 쓴다.
+- 안 되는 것: 에픽(컬렉션 API 가 정적 큐레이션) · 아마존(urllib 캡차) · Xbox 옛 reco API(호스트 소멸).
+- 첫날 실측(9/4): DLC 예약 미국 11위/121, 한국·일본·영국은 104~109위(꼴찌권 — 8/25 개시라 30일 집계가 덜 찬 것일 수 있음, 며칠 봐야 함).
+  본편 PS5 판매 한국 3위·미국 18위·일본 26위, Steam 한국 3위·미국 14위, Xbox 미국 31·한국 23·일본 22위, PC 스토어 미국 11위.
+- 화면: 소스별 한 그룹(지역이 계열). 목록 크기 n 이 소스마다 달라 `(n+1−r)/n×100` 으로 뒤집고 실제 순위는 `rawSer`.
+  **소스끼리 점수 비교 금지**(그래서 한 그룹에 한 소스만).
+- 매칭은 카드 제목 키워드 — `'PUBG'` 만 쓰면 Black Budget 도 잡히고 `'Crimson'` 은 Crimson Moon 과 겹친다. 좁게.
+
+## 시청자 표본은 '언제 찍었나'가 값이다 (2026-09-04)
+
+치지직·트위치는 회차마다 순간값을 찍고 그날 최댓값만 남겼는데, refresh.yml 이 08~20시라 **국내 방송 피크(21~24시)를 통째로 놓쳤다.**
+이제 `hist[]` 에 `h`(최댓값이 찍힌 KST 시), `n`(표본 수), `a`(표본 평균)를 같이 남기고, **`viewers.yml` 이 KST 21·22·23시에
+세 번 더 찍는다**([CI Skip] · repo-write 그룹). 화면 각주에 '최댓값은 21시 표본(하루 n회 관측)'으로 나온다.
+⚠ 워커 Cron Trigger 에 `0 12,13,14 * * *`(wf=viewers.yml)을 사람이 넣어야 정시성이 산다 — GitHub cron 은 밀린다.
+
+## Steam 동접 — SteamCharts 해상도가 기간마다 다르다 (2026-09-04 외부 대조로 발견)
+
+`chart-data.json` 은 최근 ~1개월 시간별 · 그 전 일별 1점 · 3개월 전은 **월별 1점(그 달 최고)** 이다. 월별 점을 일별 선에
+이어 붙였더니 3/1·4/1·5/1·6/1 네 점이 x축 네 칸을 차지해 '출시 직후 절벽' 아티팩트가 생겼다(넉 달 감쇠가 나흘처럼).
+지금은 앞쪽 성긴 점을 버리고(`_daily_peak` 의 while), 시간별 자료가 있는 날은 **평균동접(`avg`)** 도 같이 낸다 —
+peak 만 뛰고 avg 가 안 오르면 '잠깐 몰렸다 빠진' 유입이다. 정규화는 소수 1자리(정수면 저점 1틱이 수백~수천 명).
+리뷰 Δ는 수집이 빈 날을 날수로 나눠 '하루당'으로(안 나누면 이틀치가 하루 스파이크로 보인다).
+
+## 트렌드 탭 구간 — '최근 N일' 슬라이더 (2026-09-04)
+
+`trendDays`(null=전체) 하나로 창을 잡고, 빈도(일별/주별/월별)는 요청 일수를 가장 잘 덮는 쪽을 `winPlan()` 이 고른다.
+단기 30·중기 90·장기 전체는 프리셋. 짧게 볼수록 y축을 구간 안 최대까지 확대하고 범례에 '전체 고점=100' 을 적는다.
+겹침·격자 차트는 null 에서 선을 끊는다(`trendPath`) — 예전엔 null 이 0 으로 바닥에 찍혔다.
+
 ## 디시 갤러리 글 양 — 글번호 차분 (2026-09-02 · fetch_dc.py → `DCGALL`)
 
 커뮤니티 글 양 = 관심의 온도. 검색 트렌드보다 거칠지만 훨씬 빠르다(게임은 런칭·사건이 그날 찍힌다).

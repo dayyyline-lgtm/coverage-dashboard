@@ -1,0 +1,61 @@
+# 저녁 시청자 표본 — 치지직·트위치만 KST 21·22·23시에 찍는다 (2026-09-04 신설).
+#
+# refresh.yml 은 08~20시 매시간이라 국내 게임 방송의 피크(21~24시)를 통째로 놓쳤다.
+# '그날 최댓값'이라고 적어 둔 값이 사실은 20시 이전 최댓값이었다. 여기서 세 번 더 찍어
+# 진짜 저녁 피크를 잡는다. 회당 10초 안쪽. 배포는 하지 않는다([CI Skip] — 다음 아침 수집이 같이 싣는다).
+#
+# GitHub cron 은 3~12시간 밀릴 수 있다(CLAUDE.md). 워커 Cron Trigger 에 `0 12,13,14 * * *`(UTC)
+# 를 wf=viewers.yml 로 걸면 정시성이 산다 — 워커 쪽은 사람이 Cloudflare 에서 넣어야 한다.
+name: viewers
+
+on:
+  schedule:
+    - cron: "5 12,13,14 * * *"      # UTC 12·13·14 = KST 21·22·23
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  viewers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 치지직 게임 시청자(저녁)
+        run: python runstep.py "치지직" fetch_chzzk.py
+
+      - name: 트위치 게임 시청자(저녁)
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+        run: python runstep.py "트위치" fetch_twitch.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html health.json watchdog_state.json; then
+            echo "변경 없음 - 커밋 생략"; exit 0
+          fi
+          git add public/index.html health.json watchdog_state.json 2>/dev/null || true
+          git commit -m "저녁 시청자 표본 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "푸시 밀림 - 재시도 $i"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)"; exit 0
+            fi
+            sleep $((i * 3))
+          done
+          echo "푸시 5회 실패"; exit 1
