@@ -1495,15 +1495,24 @@ const TREND_STOCK={
     const raw=g.players||[]; const vals=raw.filter(x=>x!=null);
     if(vals.length<2) return;
     const peak=Math.max(...vals)||1;
-    const norm=raw.map(v=>v==null?0:Math.round(v/peak*100));
+    // 소수 1자리 — 정수로 반올림하면 저점에서 1틱 = peak 의 1%(붉은사막 기준 수백 명)가 통째로 뭉개져
+    // 11,000명과 12,400명이 같은 값으로 찍혔다(2026-09-04 외부 대조). 툴팁의 실제 명수도 여기서 역산한다.
+    const n1=v=>v==null?null:Math.round(v/peak*1000)/10;
+    const norm=raw.map(n1);
+    // 평균동접(avg) — SteamCharts 가 시간별을 주는 최근 ~1개월만 있다(그 전은 null → 선이 끊김).
+    // peak 만 뛰고 avg 가 안 따라오면 '잠깐 몰렸다 빠진' 유입이라 둘을 같은 축에 놓는다.
+    const avg=g.avg||[], hasAvg=avg.some(v=>v!=null);
     const lr=(g.reviews||[]).slice(-1)[0];
     const name=g.title+" 동접";
+    const ser=hasAvg?[norm, avg.map(n1)]:[norm];
+    const prods=hasAvg?[g.title+" 최고",g.title+" 평균"]:[g.title];
     TREND.groups[name]={
-      products:[g.title], productsGoogle:[g.title],
-      months:g.dates||[], naver:[norm], google:[norm],
+      products:prods, productsGoogle:prods,
+      months:g.dates||[], naver:ser, google:ser,
       only:"naver", freq:"date", peak:peak,
-      unit:"명(일 최고동접)", srcName:"SteamCharts · 일별 최고동접",
-      reviewNote:(lr&&lr.pos!=null)?`리뷰 긍정 ${lr.pos.toFixed(0)}% · ${lr.t>=1e4?(lr.t/1e4).toFixed(0)+"만":lr.t}개`:""
+      unit:"명(동접)", srcName:"SteamCharts · 일 최고동접"+(hasAvg?"·평균동접":""),
+      reviewNote:((lr&&lr.pos!=null)?`리뷰 긍정 ${lr.pos.toFixed(0)}% · ${lr.t>=1e4?(lr.t/1e4).toFixed(0)+"만":lr.t}개 · `:"")
+        +"UTC 일 기준(끝나지 않은 날 제외 → KST 아침엔 이틀 전까지)"+(hasAvg?" · 평균은 시간별 자료가 있는 최근 한 달만":"")
     };
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
@@ -1820,17 +1829,21 @@ const TREND_STOCK={
     if(rv.length<3) return;
     const d=[], dates=[];
     for(let i=1;i<rv.length;i++){
-      d.push(Math.max(0,rv[i].t-rv[i-1].t));
+      // 수집이 빈 날(8/2·8/22~23 같은)은 Δ가 며칠치 합이다 → 날수로 나눠 '하루당'으로.
+      // 안 나누면 8/3 에 309 가 찍혀 '원인 불명 스파이크'로 읽힌다(실제는 이틀치 155/일).
+      const gap=Math.max(1,Math.round((new Date(rv[i].d)-new Date(rv[i-1].d))/864e5));
+      d.push(Math.max(0,Math.round((rv[i].t-rv[i-1].t)/gap)));
       const p=(rv[i].d||"").slice(5).split("-"); dates.push(p.length===2?`${+p[0]}/${+p[1]}`:rv[i].d);
     }
     const peak=Math.max(...d)||1, pos=rv[rv.length-1].pos;
+    const n1=v=>Math.round(v/peak*1000)/10;
     const name=g.title+" 리뷰↑";
     TREND.groups[name]={
       products:[g.title], productsGoogle:[g.title],
-      months:dates, naver:[d.map(v=>Math.round(v/peak*100))], google:[d.map(v=>Math.round(v/peak*100))],
+      months:dates, naver:[d.map(n1)], google:[d.map(n1)],
       only:"naver", freq:"date", peak:peak,
-      unit:"개(일일 신규리뷰)", srcName:"Steam · 일일 신규리뷰(판매 대리지표)",
-      reviewNote:(pos!=null?`현재 긍정 ${pos.toFixed(0)}%`:"")
+      unit:"개/일(신규리뷰)", srcName:"Steam · 일일 신규리뷰(구매 방향의 대리지표 — 작성 시점 lag·복귀유저 리뷰 포함)",
+      reviewNote:(pos!=null?`현재 긍정 ${pos.toFixed(0)}% · `:"")+"수집이 빈 날은 하루당으로 나눔"
     };
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
@@ -2139,11 +2152,10 @@ function drawTrend(){
   M.forEach((m,i)=>{ if(i%step===0 || i===M.length-1) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
   series.forEach((ser,pi)=>{
     const c=TREND.colors[pi];
-    const pts=ser.map((v,i)=>`${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
-    s+=`<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    ser.forEach((v,i)=>{ s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
-    const last=ser[ser.length-1];
-    s+=`<text x="${W-pad.r+8}" y="${sy(last)+4}" font-size="12" font-weight="700" fill="${c}">${PRODUCTS[pi]}</text>`;
+    s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    ser.forEach((v,i)=>{ if(v==null) return; s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
+    const li=ser.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
+    if(li!=null) s+=`<text x="${W-pad.r+8}" y="${sy(ser[li])+4}" font-size="12" font-weight="700" fill="${c}">${PRODUCTS[pi]}</text>`;
   });
   s+="</svg>";
   box.innerHTML=s;
@@ -2169,6 +2181,12 @@ function drawTrend(){
 /* 계열별 미니 차트 격자. y축은 0–100 고정 —
    칸마다 자기 최대로 늘이면 작은 계열이 큰 계열처럼 보여 크기를 오해한다.
    대신 최근값을 헤더에 크게 적어 수치로 읽게 한다. */
+/* null 에서 끊기는 꺾은선 path — null 을 0 으로 그리면 '100위권 밖'·'평균 없는 날'이 바닥 급락으로 보인다 */
+function trendPath(ser,sx,sy){
+  let d="", pen=false;
+  ser.forEach((v,i)=>{ if(v==null){ pen=false; return; } d+=(pen?"L":"M")+sx(i).toFixed(1)+","+sy(v).toFixed(1)+" "; pen=true; });
+  return d.trim();
+}
 /* 구간 안 y축 상한 — 계열 전체의 최대를 10 단위로 올림. 90 넘으면 100 으로 고정(전체 보기와 같음). */
 function trendYmax(series){
   const vmax=Math.max(0,...series.flatMap(a=>(a||[]).filter(v=>v!=null)));
@@ -2187,8 +2205,7 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
     const src=srcs[i];
     let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" preserveAspectRatio="none">`;
     [0,ymax/2,ymax].forEach(v=>{ s+=`<line x1="${pad.l}" y1="${sy(v)}" x2="${W-pad.r}" y2="${sy(v)}" stroke="${gc}"/>`; });
-    s+=`<polyline points="${ser.map((v,j)=>`${sx(j).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}"
-         fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
+    s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
     // x축은 양끝만 — 칸이 좁아 다 넣으면 뭉갠다
     s+=`<text x="${pad.l}" y="${H-3}" font-size="9" fill="${mut}">${M[0]||""}</text>`;
     s+=`<text x="${W-pad.r}" y="${H-3}" text-anchor="end" font-size="9" fill="${mut}">${M[M.length-1]||""}</text>`;
@@ -2314,7 +2331,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
     const first=ser.find(v=>v!=null&&v>0), hi=Math.max(0,...ser.filter(v=>v!=null));
     return {p,color:COL[i],cur,m3:bk,mom:(pct&&prev>0)?(cur/prev-1)*100:null,
             q:(pct&&bk>0)?(cur/bk-1)*100:null,
-            w:(pct&&hasWin&&first>0&&cur!=null)?(cur/first-1)*100:null,
+            w:(pct&&hasWin&&first>0&&cur!=null&&ser[0]!=null)?(cur/first-1)*100:null,   // window start missing -> no window change
             hi:(pct&&hasWin&&hi>0&&cur!=null)?(cur/hi-1)*100:null};
   }), {key:"cur",dir:-1});
 }
