@@ -428,7 +428,7 @@ peak 만 뛰고 avg 가 안 오르면 '잠깐 몰렸다 빠진' 유입이다. �
   예매·스크린은 **개봉 전이면 펼친 채로** 뜬다(`days.length<=3` 판정).
 - `#boxoffice` 로 들어오는 옛 링크는 `activateTab` 이 트렌드+SAMG 로 돌려보낸다. 지우지 말 것.
 - 갱신 시각은 섹션 제목(`#movieSecTitle`)에 적는다 — KOBIS 는 주기가 달라(2시간) 탭 헤더로 못 뭉친다.
-- `app.js` 아래쪽의 랜딩 팝업 IIFE(`samgOverlay`)는 **이미 죽은 코드**다(index.html 에 그 요소가 없다).
+- 랜딩 팝업 IIFE(`samgOverlay`, 154줄)는 index.html 에 그 요소가 없어 죽어 있었다 — 2026-09-07 제거했다.
 
 ## 디시 갤러리 글 양 — 글번호 차분 (2026-09-02 · fetch_dc.py → `DCGALL`)
 
