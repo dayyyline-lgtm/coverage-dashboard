@@ -167,14 +167,16 @@ tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'ac
 /* 탭 전환의 실체. 클릭·주소창·뒤로가기가 전부 여기로 모인다.
    scroll=false 는 '첫 로드에 주소의 탭을 여는' 경우 — 그때는 이미 맨 위다. */
 function activateTab(k, scroll){
+  // 옛 링크 구제 — 극장 흥행은 탭에서 트렌드 탭 SAMG 섹션으로 옮겼다(2026-09-07).
+  // 던져 둔 #boxoffice 링크가 개요로 튕기지 않게 그 자리로 돌려보낸다.
+  if(k==="boxoffice"){ trendStock="SAMG엔터"; trendGroup=topicsOf("SAMG엔터")[0]||trendGroup; k="trends"; }
   if(!TABS.some(([t])=>t===k)) return false;         // 주소에 엉뚱한 값이 와도 무시
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
   if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
   if(k==="amazon") renderAmazon();
-  if(k==="trends"){ const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } drawTrend(); setTrendFoot(); renderGameEst(); }
-  if(k==="boxoffice") renderMovie();
+  if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); }
   if(k==="toptoon") renderToptoon();
   // 넘치는 탭 줄에서 지금 탭이 화면 밖이면 끌어온다(폰에서 11개 중 4개만 보인다)
   const btn = tabsEl.querySelector(`button[data-k="${k}"]`);
@@ -264,7 +266,6 @@ function setSecUpdates(){
     reports:[L,"LIVE"],calendar:[L,"LIVE"],preview:[L,"LIVE"],
     news:[(typeof NEWS!=="undefined"&&NEWS.asOf)||L,"NEWS"],
     trends:["",null],   // 트렌드는 소스마다 주기가 달라 맨 위 하나로 안 뭉치고, 계열별로 trendTopicNow 에 표시
-    boxoffice:[(typeof MOVIE!=="undefined"&&MOVIE.asOf)||"","MOVIE"],
     toptoon:[(typeof TOPTOON!=="undefined"&&TOPTOON.asOf)||"","TOPTOON"],
     altdata:[(typeof TRADE!=="undefined"&&TRADE.asOf)||"","TRADE"],
     amazon:[(typeof AMAZON!=="undefined"&&AMAZON.asOf)||"","AMAZON"]};
@@ -3719,8 +3720,26 @@ function renderMovie(){
   const box=document.getElementById("movieBox"); if(!box) return;
   const note=document.getElementById("movieNote");
   const tbl=document.getElementById("movieTable");
-  renderBooking();          // 박스오피스가 비어도(개봉 전) 예매는 나와야 한다
   const M=(typeof MOVIE!=="undefined")?MOVIE:null;
+  // 2026-09-07 — 전용 탭에서 트렌드 탭 안으로 접었다. geSec 과 같은 방식으로
+  // '그 종목을 고를 때만' 뜬다. 극장판을 가진 종목이 늘면 MOVIE.movies 의 stock 이 알아서 늘어난다.
+  const sec=document.getElementById("movieSec");
+  if(sec){
+    const stocks=new Set(Object.values((M||{}).movies||{}).map(m=>m.stock));
+    Object.keys((M||{}).booking||{}).forEach(k=>{ const mv=(M.movies||{})[k]; if(mv&&mv.stock) stocks.add(mv.stock); });
+    if(!stocks.size) stocks.add("SAMG엔터");     // 수집 대기 중이어도 SAMG 에선 자리를 보여 준다
+    if(!stocks.has(trendStock)){ sec.style.display="none"; return; }
+    sec.style.display="";
+    const t=document.getElementById("movieSecTitle");
+    // 탭 헤더의 '업데이트 …' 를 대신한다 — 이 섹션만 주기가 다르므로(KOBIS 는 2시간마다) 여기 적는다.
+    if(t) t.innerHTML=`극장 흥행 <span class="th-sub">KOBIS 일별 관객 · 갱신 ${fmtUpd((M||{}).asOf)||"—"}`
+      + (staleNote("MOVIE",(M||{}).asOf)?` <span style="color:var(--warn)">${staleNote("MOVIE",(M||{}).asOf)}</span>`:"")+`</span>`;
+    // 개봉 전 지표(예매·스크린)는 개봉 전에만 펼친 채로 둔다. 개봉 후엔 접어서 관객 추이가 본문이 되게.
+    const pre=document.getElementById("moviePre");
+    if(pre && !pre.dataset.set){ pre.dataset.set="1";
+      pre.open=!Object.values((M||{}).movies||{}).some(m=>(m.days||[]).length>3); }
+  }
+  renderBooking();          // 박스오피스가 비어도(개봉 전) 예매는 나와야 한다
   const dnum=s=>new Date(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8));
   const runs=Object.entries((M||{}).movies||{}).map(([nm,mv],i)=>{
     const op=dnum((mv.openDt||"").replace(/-/g,"")||mv.days[0].d);
@@ -3948,18 +3967,18 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
   if(stock) trendStock=stock;
   if(group) trendGroup=group;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
 /* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
@@ -4197,7 +4216,134 @@ function renderTrendHighlights(){
     }).join("");
   return top;   // 최상위 = 그날 가장 주목할 추이(트렌드 탭 진입 시 기본 표시)
 }
-renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst();
+/* ══════════ 지금 화제 (BUZZ) ═══════════════════════════════════════════════
+   트렌드 탭의 나머지는 전부 '종목 → 주제' 다 — 우리가 이미 보기로 정한 것만 보인다.
+   여기만 반대다: 한국 인터넷 전체에서 지금 뜨는 것을 먼저 늘어놓고, 그 중 커버리지가
+   걸리면 배지를 단다. 커버리지 **밖에서** 올라오는 것을 알아채는 자리다.
+
+   ⚠ 둘 다 스냅샷 소스라 과거가 없다. 켠 날부터 쌓인다.
+   ⚠ 나무위키 '등장 회차'는 그날 수집 회차 수(n)로 나눠 봐야 한다 — n 이 다른 날끼리
+     횟수를 직접 비교하면 안 된다. 그래서 화면도 비율(%)로 적는다.
+   ⚠ 디시 순위는 **작을수록 뜨거운 것**이다. 등락 화살표 방향을 뒤집지 말 것
+     (순위 59→43 은 '상승' = 한국 관행상 빨강). */
+/* 뉴스 제목 매칭기(NEWS_ALIAS)를 그대로 쓰되, 뉴스에는 없던 게임·IP 이름을 여기서만 보탠다.
+   NEWS_ALIAS 를 직접 늘리면 뉴스 탭 필터가 같이 바뀌므로 건드리지 않는다. */
+const BUZZ_ALIAS={
+  "컴투스":["제우스 오만","컴투스","서머너즈 워","서머너즈워","컴프야"],
+  "NC":["아이온","리니지","쓰론 앤 리버티","저니 오브 모나크"],
+  "데브시스터즈":["쿠키런"],
+  "탑코미디어":["탑툰"],
+  "펄어비스":["붉은사막","검은사막"],
+  "시프트업":["니케","스텔라 블레이드","스텔라블레이드","승리의 여신"],
+  "하이브":["방탄소년단","세븐틴","뉴진스","르세라핌","아일릿"],
+  "JYP Ent.":["트와이스","스트레이 키즈","엔믹스","NMIXX","데이식스"],
+  "에스엠":["에스파","엔시티","NCT","레드벨벳"],
+  "와이지엔터":["블랙핑크","베이비몬스터"],
+};
+function buzzHit(text){
+  const t=String(text||"").toLowerCase(); if(!t) return null;
+  for(const k in BUZZ_ALIAS){ if(BUZZ_ALIAS[k].some(a=>t.includes(a.toLowerCase()))) return k; }
+  for(const r of R){ if(_newsTitleHit(t, r.name)) return r.name; }
+  return null;
+}
+function buzzSpark(hist, W, H){
+  // 순위 스파크 — 위로 갈수록 좋은 순위(작은 수)가 되게 뒤집는다. null(권외)은 선을 끊는다.
+  const v=(hist||[]).map(h=>h.r);
+  const ok=v.filter(x=>x!=null); if(ok.length<2) return "";
+  const lo=Math.min(...ok), hi=Math.max(...ok), span=Math.max(1,hi-lo);
+  const xs=i=>v.length<2?W/2:(i/(v.length-1))*(W-2)+1;
+  const ys=r=>H-2-((hi-r)/span)*(H-4);
+  let d="",pen=false;
+  v.forEach((r,i)=>{ if(r==null){pen=false;return;} d+=(pen?"L":"M")+xs(i).toFixed(1)+","+ys(r).toFixed(1)+" "; pen=true; });
+  const last=v[v.length-1];
+  return `<svg width="${W}" height="${H}" style="vertical-align:middle"><path d="${d}" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`
+    + (last!=null?`<circle cx="${xs(v.length-1).toFixed(1)}" cy="${ys(last).toFixed(1)}" r="2.2" fill="var(--accent)"/>`:"")+`</svg>`;
+}
+function renderBuzz(){
+  const box=document.getElementById("buzzSec"); if(!box) return;
+  const B=(typeof BUZZ!=="undefined")?BUZZ:null;
+  if(!B){ box.innerHTML=""; return; }
+  const N=B.namu||{}, D=B.dc||{};
+  const cur=(N.snap||[]).slice(-1)[0]||{};
+  const today=(N.days||[]).slice(-1)[0]||{};
+  // 갤러리는 수집기가 이미 종목을 붙여 뒀다(COVER_KW). 이름 매칭보다 그쪽이 정확하다.
+  const byId={}; (D.galls||[]).forEach(g=>{ byId[g.id]=g.stock; });
+  const chip=(href,rank,text,extra,gid)=>{
+    const hit=(gid&&byId[gid])||buzzHit(text);
+    return `<a class="bz${hit?" hit":""}" href="${attr(href)}" target="_blank" rel="noopener">`
+      + (rank?`<span class="n">${rank}</span>`:"")
+      + `<span class="t">${attr(text)}</span>`
+      + (extra||"") + (hit?`<span class="stk">${attr(hit)}</span>`:"") + `</a>`;
+  };
+  // ── 나무위키 실시간 검색어 ──
+  let namuHtml="";
+  if((cur.kw||[]).length){
+    // 오늘 오래 걸려 있던 것 = 등장 회차 / 관측 회차. 회차가 2번 이상 쌓인 날만 의미가 있다.
+    const n=today.n||0, kw=today.kw||{};
+    const sticky=Object.entries(kw).filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    namuHtml=`<div class="buzz-c">
+      <div class="buzz-h">나무위키 실시간 검색어<span class="s">${cur.t?fmtUpd(cur.t):"—"} 기준 · 상위 10</span></div>
+      <div class="buzz-l">${(cur.kw||[]).map((k,i)=>
+        chip("https://namu.wiki/w/"+encodeURIComponent(k), i+1, k)).join("")}</div>`
+      + (n>=2&&sticky.length ? `<div class="buzz-h" style="margin:12px 0 7px">오늘 오래 걸린 검색어<span class="s">${n}회 관측 중 등장 비율</span></div>
+        <div class="buzz-l">${sticky.map(([k,c])=>chip("https://namu.wiki/w/"+encodeURIComponent(k),"",k,
+          `<span class="d" style="color:var(--muted2)">${Math.round(c/n*100)}%</span>`)).join("")}</div>` : "")
+      + `</div>`;
+  }
+  // ── 디시 흥한 마이너갤 상위 ──
+  let dcHtml="";
+  if((D.top||[]).length){
+    // 첫날은 전일이 아예 없다 — 그때 전부에 'new' 를 달면 20개가 다 새로 들어온 것처럼 보인다.
+    const hasPrev=(D.top||[]).some(t=>t.pr!=null);
+    const arrow=t=>{
+      if(!hasPrev) return "";
+      if(t.pr==null) return `<span class="d" style="color:var(--muted2)">new</span>`;
+      const d=t.pr-t.r;                                   // 순위가 작아지면(=올라가면) 양수
+      if(!d) return `<span class="d" style="color:var(--muted2)">–</span>`;
+      return `<span class="d" style="color:var(--${d>0?"up":"down"})">${d>0?"▲":"▼"}${Math.abs(d)}</span>`;
+    };
+    dcHtml=`<div class="buzz-c">
+      <div class="buzz-h">디시 흥한 마이너갤 상위<span class="s">${D.asOf?fmtUpd(D.asOf):"—"} · 전체 ${fmt0(D.n||0)}개 중${hasPrev?" · 등락은 전일비":" · 등락은 내일부터"}</span></div>
+      <div class="buzz-l">${(D.top||[]).map(t=>
+        chip("https://gall.dcinside.com/mgallery/board/lists/?id="+encodeURIComponent(t.id), t.r, t.name, arrow(t), t.id)).join("")}</div>
+    </div>`;
+  }
+  // ── 커버리지 갤러리 순위 ──
+  let covHtml="";
+  const galls=(D.galls||[]).map(g=>{
+    const h=g.hist||[], last=h.length?h[h.length-1].r:null, prev=h.length>1?h[h.length-2].r:null;
+    const ok=h.map(x=>x.r).filter(x=>x!=null);
+    return {...g, last, prev, best:ok.length?Math.min(...ok):null, days:h.length};
+  }).sort((a,b)=>(a.last==null?1e9:a.last)-(b.last==null?1e9:b.last));
+  if(galls.length){
+    const cell=g=>{
+      if(g.last==null) return `<span class="g">권외</span>`;
+      let d="";
+      if(g.prev!=null){ const v=g.prev-g.last;
+        d=v? ` <span class="d" style="color:var(--${v>0?"up":"down"})">${v>0?"▲":"▼"}${Math.abs(v)}</span>` : ` <span class="g">–</span>`; }
+      else if(g.days>1) d=` <span class="d" style="color:var(--muted2)">재진입</span>`;
+      return `<b>${g.last}</b>위${d}`;
+    };
+    covHtml=`<div class="buzz-c" style="grid-column:1/-1">
+      <div class="buzz-h">커버리지 갤러리 순위<span class="s">${fmt0(D.n||300)}위 이내가 '흥한갤' · 20위 이내가 '대흥갤' · 순위는 작을수록 뜨겁다</span></div>
+      <div style="overflow-x:auto"><table class="buzz-t">
+        <thead><tr><th>갤러리</th><th>종목</th><th>순위</th><th>최고</th><th>추이</th></tr></thead>
+        <tbody>${galls.map(g=>`<tr>
+          <td><a href="https://gall.dcinside.com/mgallery/board/lists/?id=${attr(g.id)}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;font-weight:700">${attr(g.name)}</a></td>
+          <td class="g">${attr(g.stock)}</td>
+          <td>${cell(g)}</td>
+          <td class="g">${g.best==null?"—":g.best+"위"}</td>
+          <td style="width:74px">${buzzSpark(g.hist,64,18)||`<span class="g">${g.days}일</span>`}</td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+    </div>`;
+  }
+  box.innerHTML=(namuHtml||dcHtml||covHtml) ? `<div class="buzz">${namuHtml}${dcHtml}${covHtml}</div>
+    <p class="note" style="margin:-8px 0 14px">종목 분류 이전의 '지금 무엇이 뜨나' — 커버리지에 걸리는 항목엔 종목 배지가 붙습니다.
+      두 소스 모두 <b>순간 스냅샷</b>이라 과거를 주지 않습니다(2026-09-07 수집 시작). 디시 순위는 <b>글 수(양)</b>가 아니라
+      <b>전체 마이너갤 대비 상대 온도</b>라, 글이 줄어도 순위가 버티면 판 전체가 식은 것입니다.</p>` : "";
+}
+renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst();
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
@@ -4702,7 +4848,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }
