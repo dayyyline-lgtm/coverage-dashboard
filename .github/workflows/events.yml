@@ -163,6 +163,14 @@ jobs:
         timeout-minutes: 4
         run: python runstep.py "디시 글수" fetch_dc.py
 
+      # 채용 공고(사람인, 키 불필요, 40종목 × 1~2요청) — 생산 확대의 선행 신호.
+      # 공장이 생산직·검사원을 뽑는다는 건 이미 물량이 잡혔다는 뜻. 캐펙스 공시는 분기 뒤다.
+      # 회사명 정확일치로 걸러야 한다(협력사·파견 오염). 대기업은 자사 사이트 전용이라 0 이 정상.
+      - name: 채용 공고 수집
+        continue-on-error: true
+        timeout-minutes: 6
+        run: python runstep.py "채용공고" fetch_jobs.py
+
       # 올리브영 베스트 100 — 화장품 섹터의 **국내 채널** 지표(키 불필요, 요청 1건).
       # 그동안 화장품은 관세청 수출·아마존·러시아/일본 쇼핑뿐이라 전부 해외였다.
       # ⚠ collector_health.ua(doc=True) 를 써야 200 이 온다. 기본 헤더는 403.

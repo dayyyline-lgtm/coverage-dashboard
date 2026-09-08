@@ -176,7 +176,7 @@ function activateTab(k, scroll){
   if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
   if(k==="amazon") renderAmazon();
-  if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); renderOliveYoung(); }
+  if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs(); }
   if(k==="toptoon") renderToptoon();
   // 넘치는 탭 줄에서 지금 탭이 화면 밖이면 끌어온다(폰에서 11개 중 4개만 보인다)
   const btn = tabsEl.querySelector(`button[data-k="${k}"]`);
@@ -1486,7 +1486,7 @@ const TREND_STOCK={
   "시프트업":["시프트업 IP"],
   "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁","제타(경쟁)","네오나(경쟁)"],   // 본업 경쟁 · 신사업 추이 · 상대위치 · 경쟁사 단독
   // 빙그레 — 국내 IP(일별) · 메로나 해외(주별, 계절성이라 6개월) · 브랜드 인지도(주별)
-  "빙그레":["빙그레 IP","메로나 국가별","빙그레 브랜드(해외)"],
+  "빙그레":["빙그레 IP","메로나 국가별","바나나맛우유 국가별","빙그레 브랜드(해외)"],
 };
 /* Steam 동접을 트렌드 비교 탭에 편입 — 게임사는 검색보다 동접·리뷰가 실측 신호라
    같은 탭에서 검색트렌드와 나란히 고르게 한다. 별도 탭을 두면 헷갈리고 과하다.
@@ -2085,6 +2085,24 @@ const topicsOf=n=>{
              : (g.includes("리뷰")||g.includes("시청"))?2 : g.includes("앨범판매")?3 : 4;
   return list.map((g,i)=>[g,i]).sort((a,b)=>pri(a[0])-pri(b[0])||a[1]-b[1]).map(x=>x[0]);
 };
+(function injectJobsTrends(){
+  if(typeof JOBS==="undefined"||!JOBS.cos) return;
+  JOBS.cos.forEach(c=>{
+    const h=c.hist||[]; if(h.length<2) return;
+    const raw=h.map(x=>x.p||0), peak=Math.max(...raw); if(!peak) return;
+    const dates=h.map(x=>{const p=(x.d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:x.d;});
+    const name=c.stock+" 현장직 채용";
+    TREND.groups[name]={
+      products:["현장직 공고"], productsGoogle:["현장직 공고"],
+      months:dates, naver:[raw.map(v=>Math.round(v/peak*100))], google:[raw.map(v=>Math.round(v/peak*100))],
+      only:"naver", freq:"date", peak:peak, unit:"건(현장직 공고)",
+      srcName:"사람인 채용공고 · 회사명 정확일치 · 생산·품질·설비·물류 태그만",
+      reviewNote:(()=>{const l=h[h.length-1]||{}; const r=Object.entries(l.reg||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);
+        return r.length?`최근 ${(l.d||"").slice(5).replace("-","/")} 지역: `+r.map(([k,v])=>`${k} ${v}`).join(" · "):"";})()
+    };
+    (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
+  });
+})();
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
 /* 처음엔 아무 종목도 고르지 않은 상태 — 눌러야 그래프가 나온다 */
@@ -4001,18 +4019,18 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
   if(stock) trendStock=stock;
   if(group) trendGroup=group;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
 /* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
@@ -4469,7 +4487,78 @@ function renderOliveYoung(){
       <b>실리콘투(유통)·한국콜마/코스맥스(ODM)는 자기 브랜드가 없어 직접 매칭이 원리적으로 불가능</b>합니다.
       인디 비중이 그들의 대리지표이며, 인디 브랜드가 모두 이 회사들의 고객인 것은 아닙니다.</p>`;
 }
-renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst(); renderOliveYoung();
+/* ══════════ 채용 공고 (JOBS) — 생산 확대의 선행 신호 ═══════════════════════
+   공장이 생산직·검사원·지게차를 뽑는다는 건 **이미 물량이 잡혔다**는 뜻이다. 캐펙스는 공시가
+   분기 뒤에 나오고 수출은 선적 뒤에 잡힌다. 채용 공고는 그 앞에서 움직인다.
+   2026-09-08 첫 실측: 삼양식품 13건 전부 현장직(원주 7·익산 4·밀양 2) · 빙그레 4건 전부 현장
+   (경산 2·논산·광주) · 에이피알 평택 SMT/이물검사 · 제닉 논산 제조팀 · 티앤엘 안성 오퍼레이터.
+
+   ⚠ 소스는 사람인 하나다. **대기업(아모레·LG생건·CJ·신세계·롯데·농심·하이브·NC·크래프톤)은
+     자사 채용 사이트만 써서 0 이 정상**이다 — 0 을 '채용 안 함'으로 읽으면 틀린다. big=1 로 표시.
+   ⚠ 현장직 판정은 사람인 직무 태그 기준(수집기). 지역이 곧 공장이다.
+   ⚠ 첫날은 '신규' 가 없다(전일 공고 집합이 없으니). 추이도 2일차부터. */
+function jobsSpark(hist, W, H){
+  const v=(hist||[]).map(h=>h.p); if(v.length<2) return "";
+  const hi=Math.max(...v,1);
+  const xs=i=>(i/(v.length-1))*(W-2)+1, ys=x=>H-2-(x/hi)*(H-4);
+  const d=v.map((x,i)=>(i?"L":"M")+xs(i).toFixed(1)+","+ys(x).toFixed(1)).join(" ");
+  return `<svg width="${W}" height="${H}" style="vertical-align:middle"><path d="${d}" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`
+    + `<circle cx="${xs(v.length-1).toFixed(1)}" cy="${ys(v[v.length-1]).toFixed(1)}" r="2.2" fill="var(--accent)"/></svg>`;
+}
+function renderJobs(){
+  const sec=document.getElementById("jobsSec"); if(!sec) return;
+  const J=(typeof JOBS!=="undefined")?JOBS:null;
+  if(!J||!J.cos){ sec.innerHTML=""; return; }
+  const last=h=>(h&&h.length)?h[h.length-1]:null, prevOf=h=>(h&&h.length>1)?h[h.length-2]:null;
+  const rows=J.cos.map(c=>{ const L=last(c.hist)||{}, P=prevOf(c.hist); return {...c, L, P}; })
+    // 현장직 많은 순 → 총 공고 순. 대기업(소스에 없음)은 맨 뒤.
+    .sort((a,b)=>(a.big-b.big)||((b.L.p||0)-(a.L.p||0))||((b.L.n||0)-(a.L.n||0)));
+  const tot=rows.reduce((s,r)=>s+(r.L.n||0),0), pl=rows.reduce((s,r)=>s+(r.L.p||0),0);
+  const withPlant=rows.filter(r=>r.L.p>0).length;
+
+  const regChips=r=>Object.entries(r.L.reg||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+    `<span class="bz" style="padding:2px 7px;font-size:11.5px"><span class="t">${attr(k)}</span><span class="d"><b>${v}</b></span></span>`).join("");
+  const delta=(a,b)=>{ if(a==null||b==null) return ""; const d=a-b; if(!d) return "";
+    return ` <span class="d" style="color:var(--${d>0?"up":"down"})">${d>0?"+":""}${d}</span>`; };
+  // 현장직이 있는 종목만 본문이다. 나머지(사무직만·대기업)는 접는다 — 40줄을 다 펼치면 신호가 묻힌다.
+  const rowHtml=r=>{
+    const sel=r.stock===trendStock;
+    const plantList=(r.open||[]).filter(o=>o.plant);
+    const detail=plantList.length?`<details class="fold" style="margin-top:6px;border:0"><summary style="padding:2px 0;font-size:11px">현장직 공고 ${plantList.length}건 보기</summary>
+      <div class="fold-b" style="padding:4px 0 2px">${plantList.map(o=>`<div style="font-size:12px;line-height:1.6;color:var(--muted)">
+        <span style="color:var(--muted2);font-size:11px">${attr(o.region||"—")}</span> ${attr(o.title)}
+        <a href="https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=${attr(o.rec)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-size:11px;margin-left:4px">↗</a></div>`).join("")}</div></details>`:"";
+    return `<tr${sel?' style="background:color-mix(in srgb, var(--accent) 10%, transparent)"':''}>
+      <td style="white-space:nowrap;vertical-align:top;padding-right:10px"><b>${attr(r.stock)}</b>${r.big?`<div class="g" style="font-size:10px">자사 채용 사이트 전용</div>`:""}</td>
+      <td style="vertical-align:top">${r.big&&!r.L.n?`<span class="g">이 소스에 안 올림</span>`
+        : r.L.p?`<div class="buzz-l">${regChips(r)}</div>${detail}`:`<span class="g">현장직 없음</span>`}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap"><b>${r.L.p||0}</b>${delta(r.L.p,r.P?r.P.p:null)}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap">${r.L.n||0}${delta(r.L.n,r.P?r.P.n:null)}</td>
+      <td style="text-align:right;vertical-align:top;white-space:nowrap">${r.L.new==null?`<span class="g">—</span>`:(r.L.new?`<b style="color:var(--up)">+${r.L.new}</b>`:"0")}</td>
+      <td style="width:74px;text-align:right;vertical-align:top">${jobsSpark(r.hist,64,18)||`<span class="g">${(r.hist||[]).length}일</span>`}</td>
+    </tr>`;
+  };
+  const hot=rows.filter(r=>r.L.p>0), cold=rows.filter(r=>!(r.L.p>0));
+  const body=hot.map(rowHtml).join("");
+  const coldHtml=cold.length?`<details class="fold" style="margin-top:8px"><summary>현장직 없는 종목 <span class="sub">${cold.length}개 · 사무직만 ${cold.filter(r=>!r.big).length} · 자사 채용 사이트 전용(대기업) ${cold.filter(r=>r.big).length}</span></summary>
+    <div class="fold-b"><table class="buzz-t"><tbody>${cold.map(rowHtml).join("")}</tbody></table></div></details>`:"";
+
+  sec.innerHTML=`
+    <div class="sub-h">채용 공고 <span class="th-sub">사람인 · 회사명 정확일치 · 현장직 = 생산·품질·설비·물류 태그 · 갱신 ${fmtUpd(J.asOf)||"—"}</span></div>
+    <div class="buzz-c" style="margin-bottom:10px">
+      <div class="buzz-h">현장직 채용 중인 종목 <b style="color:var(--accent)">${withPlant}</b><span class="s">공고 ${tot}건 중 현장직 ${pl}건 · 지역이 곧 공장이다 · 선택 종목은 강조</span></div>
+      <div style="overflow-x:auto"><table class="buzz-t">
+        <thead><tr><th>종목</th><th style="text-align:left">현장직 · 지역</th><th>현장</th><th>총</th><th>신규</th><th>추이</th></tr></thead>
+        <tbody>${body}</tbody></table></div>
+      ${coldHtml}
+    </div>
+    <p class="note" style="margin:-8px 0 14px">공장이 생산직·검사원을 뽑는다는 건 <b>이미 물량이 잡혔다</b>는 뜻입니다 — 캐펙스 공시는 분기 뒤에 나옵니다.
+      <b>대기업은 자사 채용 사이트만 써서 0이 정상</b>입니다('채용 안 함'이 아니라 '이 소스에 안 올림'). 신규·추이는 2일차부터 생깁니다.</p>`;
+}
+/* 종목별 '현장직 공고 수'를 트렌드 계열로 편입 — 며칠 쌓이면 뜬다. 삼양식품·한국콜마·코스맥스처럼
+   검색 트렌드 그룹이 없던 종목이 이걸로 트렌드 탭 종목 목록에 들어온다. */
+
+renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst(); renderOliveYoung(); renderJobs();
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
@@ -4979,7 +5068,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }
