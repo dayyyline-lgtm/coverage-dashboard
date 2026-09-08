@@ -511,7 +511,10 @@ def fetch_naver(keywords, freq="week", n=52):
     import requests
     if not (NAVER_CLIENT_ID and NAVER_CLIENT_SECRET):
         return None, None
-    end = datetime.date.today()
+    # ⚠ 반드시 **KST** 의 오늘이어야 한다 (2026-09-09). 러너는 UTC 라 date.today() 가 KST 새벽엔
+    #   어제 날짜다. 그러면 아래 '오늘 제외'가 **어제(KST)** 를 잘라 버려, 네이버가 전일치를
+    #   줘도 축에 안 들어왔다(05시 events.yml 회차가 정확히 이 구간이다).
+    end = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).date()
     span = {"date": n + 5, "week": n * 7 + 14, "month": 400}.get(freq, 400)
     start = end - datetime.timedelta(days=span)
     body = {
@@ -681,6 +684,25 @@ def main():
     prev_groups = (prev or {}).get("groups", {})
     # 네이버만 갱신 모드 — 구글·얀덱스·국가별은 기존값 보존(429 없이 매일 돌려 국내 검색을 신선하게).
     NAVER_ONLY = "--naver-only" in sys.argv
+
+    # --if-stale: 네이버 전일치가 아직 안 풀렸으면 **1요청으로 끝낸다** (2026-09-09).
+    #   데이터랩은 전일치를 KST 05시엔 안 주고 오후엔 준다(실측 07:40 → 9/7 까지 · 전날 16:53 → 전일까지).
+    #   그래서 events.yml(05시) 만으로는 화면이 늘 이틀 전에서 끝났다. refresh.yml 이 매 회차
+    #   collector_health.trend_daily_stale() 을 보고 이 플래그로 부르는데, 19그룹을 다 받아 놓고
+    #   SKIP 하면 회차마다 19요청이 헛돈다. 대표 키워드 하나로 어제 날짜가 왔는지 먼저 본다.
+    if "--if-stale" in sys.argv:
+        _kst = datetime.timezone(datetime.timedelta(hours=9))
+        y = datetime.datetime.now(_kst).date() - datetime.timedelta(days=1)
+        ylab = f"{y.month}/{y.day}"
+        try:
+            _, lb = fetch_naver(["리쥬란"], freq="date", n=3)
+        except Exception as e:
+            print("[if-stale] 네이버 탐침 실패:", str(e)[:80]); return
+        last = (lb or ["-"])[-1]
+        if last != ylab:
+            print(f"[if-stale] 네이버 전일치({ylab}) 아직 없음 · 마지막 {last} — 이번 회차 생략")
+            return
+        print(f"[if-stale] 네이버 전일치({ylab}) 확인 — 일간 갱신 진행")
 
     FREQ_KO = {"date": "일별", "week": "주별", "month": "월별"}
     for gname, spec in GROUPS.items():

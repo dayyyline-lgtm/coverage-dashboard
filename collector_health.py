@@ -108,6 +108,41 @@ def due_today(const_name, after_hour=0, html_path="public/index.html"):
     return m.group(1)[:10] != now.date().isoformat()
 
 
+def trend_daily_stale(html_path="public/index.html"):
+    """트렌드 **일별 축의 끝이 어제가 아닌가.** (2026-09-09)
+
+    due_today 로는 못 잡는다 — 05시 events.yml 이 TREND.asOf 를 이미 오늘 날짜로 찍어 두기
+    때문이다. 문제는 '오늘 받았나'가 아니라 **'어제치까지 왔나'** 다.
+
+    네이버 데이터랩은 전일치를 KST 05시엔 아직 안 준다(실측 2026-09-09: 05:56·07:40 둘 다
+    9/7 까지 · 전날 16:53 실행은 9/7=전일까지). 게다가 fetch_naver 가 러너(UTC)의 오늘로
+    '진행 중인 날'을 잘라, KST 새벽엔 어제(KST)가 '오늘(UTC)'로 버려지기까지 했다.
+    그래서 05시 수집만 두면 화면은 **늘 이틀 전**에서 끝났다.
+
+    refresh.yml 이 매 회차 이걸 보고, 축 끝이 어제가 아니면
+    `fetch_trends.py --naver-only --if-stale` 을 돌린다(그쪽이 1요청으로 공개 여부를 먼저 찍는다).
+    """
+    try:
+        html = open(html_path, encoding="utf-8").read()
+    except Exception:
+        return True
+    m = re.search(r'^const TREND\s*=\s*(\{.*?\});?\s*$', html, re.M | re.S)
+    if not m:
+        return True
+    try:
+        groups = json.loads(m.group(1)).get("groups", {})
+    except Exception:
+        return True
+    y = datetime.datetime.now(KST).date() - datetime.timedelta(days=1)
+    ylab = f"{y.month}/{y.day}"
+    for g in groups.values():
+        # 네이버가 갱신하는 일별 축만 본다 — 구글·얀덱스 전용(only=google)은 --naver-only 가 안 건드린다
+        for d in (g, g.get("alt") or {}):
+            if d.get("freq") == "date" and d.get("months") and d.get("only") != "google":
+                return d["months"][-1] != ylab
+    return True
+
+
 def nap(sec):
     """요청 간격 — ±25% 흔들어 준다. 규칙적인 간격이 차단 규칙에 더 잘 걸린다."""
     time.sleep(max(0.0, sec) * (0.75 + 0.5 * random.random()))
