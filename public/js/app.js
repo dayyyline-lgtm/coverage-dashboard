@@ -4260,31 +4260,35 @@ function renderTrendHighlights(){
      횟수를 직접 비교하면 안 된다. 그래서 화면도 비율(%)로 적는다.
    ⚠ 디시 순위는 **작을수록 뜨거운 것**이다. 등락 화살표 방향을 뒤집지 말 것
      (순위 59→43 은 '상승' = 한국 관행상 빨강). */
-/* 뉴스 제목 매칭기(NEWS_ALIAS)를 그대로 쓰되, 뉴스에는 없던 게임·IP 이름을 여기서만 보탠다.
-   NEWS_ALIAS 를 직접 늘리면 뉴스 탭 필터가 같이 바뀌므로 건드리지 않는다. */
-const BUZZ_ALIAS={
-  "컴투스":["제우스 오만","컴투스","서머너즈 워","서머너즈워","컴프야"],
-  "NC":["아이온","리니지","쓰론 앤 리버티","저니 오브 모나크"],
-  "데브시스터즈":["쿠키런"],
-  "탑코미디어":["탑툰"],
-  "펄어비스":["붉은사막","검은사막"],
-  "시프트업":["니케","스텔라 블레이드","스텔라블레이드","승리의 여신"],
-  "하이브":["방탄소년단","세븐틴","뉴진스","르세라핌","아일릿"],
-  "JYP Ent.":["트와이스","스트레이 키즈","엔믹스","NMIXX","데이식스"],
-  "에스엠":["에스파","엔시티","NCT","레드벨벳"],
-  "와이지엔터":["블랙핑크","베이비몬스터"],
-};
-function buzzHit(text){
-  const t=String(text||"").toLowerCase(); if(!t) return null;
-  for(const k in BUZZ_ALIAS){ if(BUZZ_ALIAS[k].some(a=>t.includes(a.toLowerCase()))) return k; }
-  for(const r of R){ if(_newsTitleHit(t, r.name)) return r.name; }
-  return null;
+/* ══════════ 지금 화제 (BUZZ) ═══════════════════════════════════════════════
+   순위 목록 자체는 리서치가 아니다. "치지직 1위 · F1 3위"는 그냥 인터넷 잡담이다.
+   쓸모는 **상장사로 번역했을 때** 생긴다 — 블루 아카이브가 8위라는 사실은
+   '넥슨게임즈(225570)' 로 읽혀야 의미가 된다. 그래서 화면의 본문은 '상장사로 걸린 것'이고,
+   원본 네 목록은 접어 둔다(확인용이지 본문이 아니다).
+
+   커버리지 밖 상장사도 담는다 — 우리가 안 보는 종목이라도 그 IP 가 뜨고 있다는 건
+   섹터 온도이자 경쟁 지형이다. 커버리지는 강조, 나머지는 회색으로 병기한다.
+
+   ⚠ 매칭 사전은 **수집기(fetch_buzz.py)가 BUZZ.listed 로 실어 보낸다.** 화면에 사전을
+     또 두면 배지가 두 곳에서 갈라진다. 여기서 새로 만들지 말 것.
+   ⚠ 네 소스 다 순간 스냅샷이라 과거가 없다. 디시 갤은 순위 이력(hist)이 쌓이지만
+     검색어는 그날 등장 여부뿐이다 — '추이' 칸이 비는 게 정상이다.
+   ⚠ 디시 순위는 작을수록 뜨겁다. 59→43 은 상승(한국 관행상 빨강). 뒤집지 말 것. */
+function buzzHits(text){
+  const t=String(text||""); const B=(typeof BUZZ!=="undefined")?BUZZ:null;
+  if(!t||!B||!B.listed) return [];
+  const out=[], seen={};
+  for(const [kws,cos] of B.listed){
+    if(!kws.some(k=>t.includes(k))) continue;
+    for(const c of cos){ if(!seen[c[0]]){ seen[c[0]]=1; out.push(c); } }
+  }
+  return out.sort((a,b)=>b[3]-a[3]);     // 커버리지 먼저
 }
 function buzzSpark(hist, W, H){
   // 순위 스파크 — 위로 갈수록 좋은 순위(작은 수)가 되게 뒤집는다. null(권외)은 선을 끊는다.
   const v=(hist||[]).map(h=>h.r);
   const ok=v.filter(x=>x!=null); if(ok.length<2) return "";
-  const lo=Math.min(...ok), hi=Math.max(...ok), span=Math.max(1,hi-lo);
+  const hi=Math.max(...ok), lo=Math.min(...ok), span=Math.max(1,hi-lo);
   const xs=i=>v.length<2?W/2:(i/(v.length-1))*(W-2)+1;
   const ys=r=>H-2-((hi-r)/span)*(H-4);
   let d="",pen=false;
@@ -4293,131 +4297,111 @@ function buzzSpark(hist, W, H){
   return `<svg width="${W}" height="${H}" style="vertical-align:middle"><path d="${d}" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`
     + (last!=null?`<circle cx="${xs(v.length-1).toFixed(1)}" cy="${ys(last).toFixed(1)}" r="2.2" fill="var(--accent)"/>`:"")+`</svg>`;
 }
+const BZ_MKT={KOSPI:"코스피",KOSDAQ:"코스닥",TSE:"도쿄",HKEX:"홍콩",NASDAQ:"나스닥",NYSE:"뉴욕"};
+const BZ_SRC={dc:["디시","var(--accent)"], gt:["구글","var(--up)"], nate:["네이트","var(--good)"], namu:["나무","var(--muted)"]};
 function renderBuzz(){
   const box=document.getElementById("buzzSec"); if(!box) return;
   const B=(typeof BUZZ!=="undefined")?BUZZ:null;
   if(!B){ box.innerHTML=""; return; }
   const N=B.namu||{}, D=B.dc||{}, GT=B.gt||{}, NT=B.nate||{};
-  const cur=(N.snap||[]).slice(-1)[0]||{};
-  const today=(N.days||[]).slice(-1)[0]||{};
   const gcur=(GT.snap||[]).slice(-1)[0]||{};
   const ncur=(NT.snap||[]).slice(-1)[0]||{};
-  // 갤러리는 수집기가 이미 종목을 붙여 뒀다(COVER_KW). 이름 매칭보다 그쪽이 정확하다.
-  const byId={}; (D.galls||[]).forEach(g=>{ byId[g.id]=g.stock; });
-  // matchText 를 따로 받는 이유: 네이트는 '이슈 문구'와 '검색어'가 다른데 둘 중 어느 쪽에만
-  // 종목이 들어 있는 경우가 있다. 보이는 글자(text)와 판정할 글자(matchText)를 나눈다.
-  const chip=(href,rank,text,extra,gid,matchText)=>{
-    const hit=(gid&&byId[gid])||buzzHit(matchText||text);
-    return `<a class="bz${hit?" hit":""}" href="${attr(href)}" target="_blank" rel="noopener">`
-      + (rank?`<span class="n">${rank}</span>`:"")
-      + `<span class="t">${attr(text)}</span>`
-      + (extra||"") + (hit?`<span class="stk">${attr(hit)}</span>`:"") + `</a>`;
-  };
-  // ── 구글 트렌드 급상승 ── 넷 중 유일하게 '규모'(approx_traffic)가 붙는다. 그래서 맨 앞.
-  let gtHtml="";
-  if((gcur.kw||[]).length){
-    gtHtml=`<div class="buzz-c">
-      <div class="buzz-h">구글 급상승 검색어<span class="s">${gcur.t?fmtUpd(gcur.t):"—"} 기준 · 한국 · 숫자는 대략 검색량</span></div>
-      <div class="buzz-l">${(gcur.kw||[]).map(x=>
-        chip("https://trends.google.com/trends/explore?geo=KR&q="+encodeURIComponent(x.kw), "", x.kw,
-          x.tr?`<span class="d" style="color:var(--accent)">${attr(x.tr)}</span>`:"")).join("")}</div>
-    </div>`;
-  }
-  // ── 네이트 실시간 이슈 ── 순위 + 등락기호(n 신규 · + 상승 · − 하락)를 준다.
-  let nateHtml="";
-  if((ncur.rows||[]).length){
-    const mark=r=>{
-      if(r.d==="n") return `<span class="d" style="color:var(--accent)">new</span>`;
-      if(r.d==="+") return `<span class="d" style="color:var(--up)">▲${r.v||""}</span>`;
-      if(r.d==="-") return `<span class="d" style="color:var(--down)">▼${r.v||""}</span>`;
-      return `<span class="d" style="color:var(--muted2)">–</span>`;
-    };
-    nateHtml=`<div class="buzz-c">
-      <div class="buzz-h">네이트 실시간 이슈<span class="s">${ncur.t?fmtUpd(ncur.t):"—"} 기준 · 등락은 직전 집계 대비</span></div>
-      <div class="buzz-l">${(ncur.rows||[]).map(r=>
-        // 이슈 문구와 실제 검색어가 따로 온다 — 배지 판정은 둘 다 본다(문구에만 종목이 있는 경우가 있다).
-        chip("https://search.daum.net/nate?q="+encodeURIComponent(r.kw||r.t), r.r, r.t, mark(r),
-             null, (r.t||"")+" "+(r.kw||""))).join("")}</div>
-    </div>`;
-  }
-  // ── 나무위키 실시간 검색어 ──
-  let namuHtml="";
-  if((cur.kw||[]).length){
-    // 오늘 오래 걸려 있던 것 = 등장 회차 / 관측 회차. 회차가 2번 이상 쌓인 날만 의미가 있다.
-    const n=today.n||0, kw=today.kw||{};
-    const sticky=Object.entries(kw).filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    namuHtml=`<div class="buzz-c">
-      <div class="buzz-h">나무위키 실시간 검색어<span class="s">${cur.t?fmtUpd(cur.t):"—"} 기준 · 상위 10</span></div>
-      <div class="buzz-l">${(cur.kw||[]).map((k,i)=>
-        chip("https://namu.wiki/w/"+encodeURIComponent(k), i+1, k)).join("")}</div>`
-      + (n>=2&&sticky.length ? `<div class="buzz-h" style="margin:12px 0 7px">오늘 오래 걸린 검색어<span class="s">${n}회 관측 중 등장 비율</span></div>
-        <div class="buzz-l">${sticky.map(([k,c])=>chip("https://namu.wiki/w/"+encodeURIComponent(k),"",k,
-          `<span class="d" style="color:var(--muted2)">${Math.round(c/n*100)}%</span>`)).join("")}</div>` : "")
-      + `</div>`;
-  }
-  // ── 디시 흥한 마이너갤 상위 ──
-  let dcHtml="";
-  if((D.top||[]).length){
-    // 첫날은 전일이 아예 없다 — 그때 전부에 'new' 를 달면 20개가 다 새로 들어온 것처럼 보인다.
-    const hasPrev=(D.top||[]).some(t=>t.pr!=null);
-    const arrow=t=>{
-      if(!hasPrev) return "";
-      if(t.pr==null) return `<span class="d" style="color:var(--muted2)">new</span>`;
-      const d=t.pr-t.r;                                   // 순위가 작아지면(=올라가면) 양수
-      if(!d) return `<span class="d" style="color:var(--muted2)">–</span>`;
-      return `<span class="d" style="color:var(--${d>0?"up":"down"})">${d>0?"▲":"▼"}${Math.abs(d)}</span>`;
-    };
-    dcHtml=`<div class="buzz-c">
-      <div class="buzz-h">디시 흥한 마이너갤 상위<span class="s">${D.asOf?fmtUpd(D.asOf):"—"} · 전체 ${fmt0(D.n||0)}개 중${hasPrev?" · 등락은 전일비":" · 등락은 내일부터"}</span></div>
-      <div class="buzz-l">${(D.top||[]).map(t=>
-        chip("https://gall.dcinside.com/mgallery/board/lists/?id="+encodeURIComponent(t.id), t.r, t.name, arrow(t), t.id)).join("")}</div>
-    </div>`;
-  }
-  // ── 커버리지 갤러리 순위 ──
-  let covHtml="";
-  const galls=(D.galls||[]).map(g=>{
-    const h=g.hist||[], last=h.length?h[h.length-1].r:null, prev=h.length>1?h[h.length-2].r:null;
-    const ok=h.map(x=>x.r).filter(x=>x!=null);
-    return {...g, last, prev, best:ok.length?Math.min(...ok):null, days:h.length};
-  }).sort((a,b)=>(a.last==null?1e9:a.last)-(b.last==null?1e9:b.last));
-  if(galls.length){
-    const cell=g=>{
-      if(g.last==null) return `<span class="g">권외</span>`;
-      let d="";
-      if(g.prev!=null){ const v=g.prev-g.last;
-        d=v? ` <span class="d" style="color:var(--${v>0?"up":"down"})">${v>0?"▲":"▼"}${Math.abs(v)}</span>` : ` <span class="g">–</span>`; }
-      else if(g.days>1) d=` <span class="d" style="color:var(--muted2)">재진입</span>`;
-      return `<b>${g.last}</b>위${d}`;
-    };
-    covHtml=`<div class="buzz-c" style="grid-column:1/-1">
-      <div class="buzz-h">커버리지 갤러리 순위<span class="s">${fmt0(D.n||300)}위 이내가 '흥한갤' · 20위 이내가 '대흥갤' · 순위는 작을수록 뜨겁다</span></div>
-      <div style="overflow-x:auto"><table class="buzz-t">
-        <thead><tr><th>갤러리</th><th>종목</th><th>순위</th><th>최고</th><th>추이</th></tr></thead>
-        <tbody>${galls.map(g=>`<tr>
-          <td><a href="https://gall.dcinside.com/mgallery/board/lists/?id=${attr(g.id)}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none;font-weight:700">${attr(g.name)}</a></td>
-          <td class="g">${attr(g.stock)}</td>
-          <td>${cell(g)}</td>
-          <td class="g">${g.best==null?"—":g.best+"위"}</td>
-          <td style="width:74px">${buzzSpark(g.hist,64,18)||`<span class="g">${g.days}일</span>`}</td>
-        </tr>`).join("")}</tbody>
-      </table></div>
-    </div>`;
-  }
-  box.innerHTML=(gtHtml||nateHtml||namuHtml||dcHtml||covHtml) ? `<div class="buzz">${gtHtml}${nateHtml}${namuHtml}${dcHtml}${covHtml}</div>
-    <p class="note" style="margin:-8px 0 14px">종목 분류 이전의 '지금 무엇이 뜨나' — 커버리지에 걸리는 항목엔 종목 배지가 붙습니다.
-      네 소스 모두 <b>순간 스냅샷</b>이라 과거를 주지 않습니다(2026-09-07 수집 시작). 검색어 셋 중
-      <b>규모가 붙는 건 구글뿐</b>이고(2000+·500+), 나머지는 순위만이라 1위가 얼마나 큰지는 알 수 없습니다.
-      디시 순위는 <b>글 수(양)</b>가 아니라 <b>전체 마이너갤 대비 상대 온도</b>라, 글이 줄어도 순위가 버티면 판 전체가 식은 것입니다.</p>` : "";
-}
-/* ══════════ 올리브영 베스트 (BEAUTY) ══════════════════════════════════════
-   화장품이 커버리지 최대 섹터(8종목)인데 국내 채널 지표가 하나도 없었다 —
-   관세청 수출·아마존·러시아/일본 쇼핑, 전부 해외였다. 올리브영은 국내 H&B 1위 채널이고
-   베스트 100 이 실판매 기반이라 '지금 국내에서 뭐가 팔리나'에 가장 가깝다.
+  const cur=(N.snap||[]).slice(-1)[0]||{};
 
-   ⚠ 개별 상품 순위는 기획전·증정 때문에 하루 단위로 크게 흔들린다. 그래서 지표는
-     **브랜드가 100 위 안에 몇 개 올려 두고 있나(노출 수)** 와 **그 브랜드 최고 순위** 다.
-   ⚠ 실리콘투(유통)·한국콜마/코스맥스(ODM)는 자기 브랜드가 없어 직접 매칭이 **원리적으로 불가능**하다.
-     '인디 비중'이 그들의 **대리지표**이고, 대리지표라는 말을 화면에서 빼면 안 된다. */
+  /* ── ① 상장사로 걸린 것 모으기 — 소스가 달라도 같은 종목이면 한 줄로 묶는다 ── */
+  const byCo={};
+  const add=(cos,it)=>{ (cos||[]).forEach(c=>{
+    const k=c[0]; (byCo[k]=byCo[k]||{co:c, items:[]}).items.push(it); }); };
+  (D.galls||[]).forEach(g=>{
+    const h=g.hist||[], L=h.length?h[h.length-1]:null, P=h.length>1?h[h.length-2]:null;
+    if(!L) return;
+    add(g.co||[[g.stock,"","",1]], {src:"dc", label:g.name, id:g.id, r:L.r, pr:P?P.r:null, hist:h});
+  });
+  (gcur.kw||[]).forEach((x,i)=>{ const hs=buzzHits(x.kw); if(hs.length) add(hs,{src:"gt", label:x.kw, r:i+1, tr:x.tr}); });
+  (ncur.rows||[]).forEach(r=>{ const hs=buzzHits((r.t||"")+" "+(r.kw||"")); if(hs.length) add(hs,{src:"nate", label:r.t, r:r.r}); });
+  (cur.kw||[]).forEach((k,i)=>{ const hs=buzzHits(k); if(hs.length) add(hs,{src:"namu", label:k, r:i+1}); });
+
+  // 종목 정렬 — 커버리지 먼저, 그 안에서 '가장 뜨거운 항목'(디시 순위가 작을수록) 순
+  const hot=o=>Math.min(...o.items.map(x=>x.r==null?9999:x.r));
+  const rows=Object.values(byCo).sort((a,b)=>(b.co[3]-a.co[3])||(hot(a)-hot(b)));
+  const covN=rows.filter(r=>r.co[3]).length;
+
+  const chip=it=>{
+    const S=BZ_SRC[it.src]||["","var(--muted)"];
+    let val="", arrow="";
+    if(it.src==="dc"){
+      val = it.r==null?`<span class="g">권외</span>`:`<b>${it.r}</b>위`;
+      if(it.r!=null&&it.pr!=null){ const d=it.pr-it.r;
+        arrow = d?`<span class="d" style="color:var(--${d>0?"up":"down"})">${d>0?"▲":"▼"}${Math.abs(d)}</span>`:""; }
+    } else if(it.src==="gt"){ val=it.tr?`<b>${attr(it.tr)}</b>`:`<b>${it.r}</b>위`; }
+    else { val=`<b>${it.r}</b>위`; }
+    const href = it.src==="dc" ? "https://gall.dcinside.com/mgallery/board/lists/?id="+encodeURIComponent(it.id)
+      : it.src==="namu" ? "https://namu.wiki/w/"+encodeURIComponent(it.label)
+      : it.src==="gt" ? "https://trends.google.com/trends/explore?geo=KR&q="+encodeURIComponent(it.label)
+      : "https://search.daum.net/nate?q="+encodeURIComponent(it.label);
+    return `<a class="bz" href="${attr(href)}" target="_blank" rel="noopener" title="${attr(it.label)}">`
+      + `<span class="n" style="color:${S[1]}">${S[0]}</span><span class="t">${attr(it.label)}</span>`
+      + `<span class="d">${val}</span>${arrow}</a>`;
+  };
+  const coTag=c=>`<span class="bz-co${c[3]?" cov":""}">${attr(c[0])}`
+    + (c[1]?`<span class="cd">${attr(c[1])}${(c[2]&&c[2]!=="KOSPI"&&c[2]!=="KOSDAQ")?" · "+attr(BZ_MKT[c[2]]||c[2]):""}</span>`:"")+`</span>`;
+
+  const listedHtml = !rows.length
+    ? `<div class="g" style="font-size:12px">지금 뜨는 것 중 상장사로 걸리는 항목이 없습니다.</div>`
+    : `<table class="buzz-t"><tbody>` + rows.map(o=>{
+        const dcIt=o.items.filter(x=>x.src==="dc").sort((a,b)=>(a.r==null?9999:a.r)-(b.r==null?9999:b.r))[0];
+        const its=o.items.slice().sort((a,b)=>((b.src==="dc")-(a.src==="dc"))||((a.r==null?9999:a.r)-(b.r==null?9999:b.r)));
+        return `<tr${o.co[3]?' class="cov"':''}>
+          <td style="white-space:nowrap;padding-right:10px;vertical-align:top">${coTag(o.co)}</td>
+          <td><div class="buzz-l">${its.slice(0,6).map(chip).join("")}${its.length>6?`<span class="g" style="font-size:11px;align-self:center">+${its.length-6}</span>`:""}</div></td>
+          <td style="width:74px;text-align:right;vertical-align:top">${dcIt&&dcIt.hist?(buzzSpark(dcIt.hist,64,18)||`<span class="g">${dcIt.hist.length}일</span>`):`<span class="g">—</span>`}</td>
+        </tr>`;
+      }).join("") + `</tbody></table>`;
+
+  /* ── ② 원본 목록 — 확인용이라 접어 둔다 ── */
+  const plain=(href,rank,text,extra)=>{
+    const hit=buzzHits(text).length;
+    return `<a class="bz${hit?" hit":""}" href="${attr(href)}" target="_blank" rel="noopener">`
+      + (rank?`<span class="n">${rank}</span>`:"")+`<span class="t">${attr(text)}</span>`+(extra||"")+`</a>`;
+  };
+  const hasPrev=(D.top||[]).some(t=>t.pr!=null);
+  const arrow=t=>{
+    if(!hasPrev) return "";
+    if(t.pr==null) return `<span class="d" style="color:var(--muted2)">new</span>`;
+    const d=t.pr-t.r;
+    if(!d) return `<span class="d" style="color:var(--muted2)">–</span>`;
+    return `<span class="d" style="color:var(--${d>0?"up":"down"})">${d>0?"▲":"▼"}${Math.abs(d)}</span>`;
+  };
+  const mark=r=>{
+    if(r.d==="n") return `<span class="d" style="color:var(--accent)">new</span>`;
+    if(r.d==="+") return `<span class="d" style="color:var(--up)">▲${r.v||""}</span>`;
+    if(r.d==="-") return `<span class="d" style="color:var(--down)">▼${r.v||""}</span>`;
+    return `<span class="d" style="color:var(--muted2)">–</span>`;
+  };
+  const raw = `<div class="buzz" style="margin-top:0">`
+    + ((gcur.kw||[]).length?`<div class="buzz-c"><div class="buzz-h">구글 급상승<span class="s">${gcur.t?fmtUpd(gcur.t):"—"} · 숫자는 대략 검색량</span></div>
+        <div class="buzz-l">${(gcur.kw||[]).map(x=>plain("https://trends.google.com/trends/explore?geo=KR&q="+encodeURIComponent(x.kw),"",x.kw,
+          x.tr?`<span class="d" style="color:var(--accent)">${attr(x.tr)}</span>`:"")).join("")}</div></div>`:"")
+    + ((ncur.rows||[]).length?`<div class="buzz-c"><div class="buzz-h">네이트 실시간 이슈<span class="s">${ncur.t?fmtUpd(ncur.t):"—"}</span></div>
+        <div class="buzz-l">${(ncur.rows||[]).map(r=>plain("https://search.daum.net/nate?q="+encodeURIComponent(r.kw||r.t),r.r,r.t,mark(r))).join("")}</div></div>`:"")
+    + ((cur.kw||[]).length?`<div class="buzz-c"><div class="buzz-h">나무위키 실시간 검색어<span class="s">${cur.t?fmtUpd(cur.t):"—"}</span></div>
+        <div class="buzz-l">${(cur.kw||[]).map((k,i)=>plain("https://namu.wiki/w/"+encodeURIComponent(k),i+1,k)).join("")}</div></div>`:"")
+    + ((D.top||[]).length?`<div class="buzz-c"><div class="buzz-h">디시 흥한 마이너갤 상위<span class="s">${D.asOf?fmtUpd(D.asOf):"—"} · 전체 ${fmt0(D.n||0)}개 중${hasPrev?" · 등락은 전일비":" · 등락은 내일부터"}</span></div>
+        <div class="buzz-l">${(D.top||[]).map(t=>plain("https://gall.dcinside.com/mgallery/board/lists/?id="+encodeURIComponent(t.id),t.r,t.name,arrow(t))).join("")}</div></div>`:"")
+    + `</div>`;
+
+  box.innerHTML = `
+    <div class="sub-h">지금 화제 <span class="th-sub">상장사로 걸린 것만 · 커버리지 ${covN}종목 + 그 밖 ${rows.length-covN}종목 · 갱신 ${fmtUpd(B.asOf)||"—"}</span></div>
+    <div class="buzz-c" style="margin-bottom:10px">${listedHtml}</div>
+    <details class="fold" style="margin-bottom:16px">
+      <summary>원본 목록 <span class="sub">구글 급상승 · 네이트 · 나무위키 · 디시 흥한갤 상위 20</span></summary>
+      <div class="fold-b">${raw}
+        <p class="note">종목 분류 이전의 '지금 무엇이 뜨나'. 네 소스 모두 <b>순간 스냅샷</b>이라 과거를 주지 않습니다(2026-09-07 수집 시작).
+          검색어 셋 중 <b>규모가 붙는 건 구글뿐</b>이고(2000+·500+), 나머지는 순위만이라 1위가 얼마나 큰지는 알 수 없습니다.
+          디시 순위는 <b>글 수(양)</b>가 아니라 <b>전체 마이너갤 대비 상대 온도</b>입니다.</p>
+      </div>
+    </details>`;
+}
 /* ⚠ 종목별로 접으려다 되돌렸다 — 아모레퍼시픽·LG생활건강·실리콘투·한국콜마·코스맥스가
    TREND_STOCKS(검색 트렌드가 있는 종목)에 없어서, 정작 가장 관련 있는 종목에서 섹션이 영영 안 떴다.
    화장품 채널 랭킹은 섹터 지표라 한 번에 다 보여 주고, 지금 고른 종목만 강조한다. */
