@@ -603,6 +603,25 @@ def collect_alt(gname, spec, freq, n, prev_alt, have):
     print(f"{tag} OK"); return g
 
 
+def _realign(old_months, series, new_months):
+    """옛 축(old_months)에 그려져 있던 계열들을 **새 축(new_months)에 날짜로 다시 붙인다.**
+
+    보존하려던 출처(구글 429 등)의 배열을 그대로 이어 붙이면, 살아 있는 출처 기준으로
+    축이 이미 전진해 있어 계열 전체가 하루씩 밀린다. 날짜를 키로 다시 맞춰야 한다.
+    새 축에만 있는 날짜는 None — 화면(trendPath)이 null 에서 선을 끊어 준다.
+    옛 축이 없으면 재정렬이 불가능하므로 길이만 맞춰 돌려준다(그 경우는 예전과 동일).
+    """
+    if not series:
+        return series
+    if not old_months or not new_months:
+        return series
+    out = []
+    for row in series:
+        m = {d: v for d, v in zip(old_months, row)}
+        out.append([m.get(d) for d in new_months])
+    return out
+
+
 def main():
     groups_out = {}
     labels = month_labels(12)
@@ -738,16 +757,26 @@ def main():
             g["months"] = gg_labels               # 네이버 실패 시 구글 라벨 사용
 
         # 실패한 출처는 기존에 있던 값을 그대로 보존 (구글이 429로 막혀도 데이터가 사라지지 않음)
+        #
+        # ⚠ **날짜를 맞춰서 보존해야 한다** (2026-09-08 수정). 예전엔 옛 배열을 그대로 붙였는데,
+        #    축(months)은 살아 있는 출처 기준으로 이미 하루 전진해 있어서 **보존한 계열이 통째로
+        #    하루씩 밀려 그려졌다.** 실측: 9/8 --naver-only 실행에서 months 는 9/6→9/7 로 갔는데
+        #    google[0] 배열은 어제와 완전히 동일했다 = 어제 9/6 값이 9/7 자리에 찍힌 것이다.
+        #    주 1회 전체수집이 바로잡아 주지만 그 사이 최대 6일까지 어긋난다.
+        #    구글이 429 로 막히는 날도 같은 일이 벌어졌다 — '보존'이 아니라 '왜곡'이었다.
+        #    이제 옛 (months, 계열) 을 날짜→값 맵으로 바꿔 **새 축에 다시 정렬**한다.
+        #    새 축에만 있는 날짜는 None 이고, 화면의 trendPath 가 null 에서 선을 끊어
+        #    '그날은 그 출처 값이 없다'로 정직하게 보인다.
         old = prev_groups.get(gname, {})
         if not g["google"] and old.get("google") and old.get("productsGoogle") == kws_gg \
                 and old.get("freq") == freq:
-            g["google"] = old["google"]
+            g["google"] = _realign(old.get("months"), old["google"], g["months"])
             if not g["months"]: g["months"] = old.get("months", [])
-            print("  구글: 기존 값 유지")
+            print("  구글: 기존 값 유지(축 재정렬)")
         if not g["naver"] and old.get("naver") and old.get("products") == kws_nv \
                 and old.get("freq") == freq:
-            g["naver"] = old["naver"]
-            print("  네이버: 기존 값 유지")
+            g["naver"] = _realign(old.get("months"), old["naver"], g["months"])
+            print("  네이버: 기존 값 유지(축 재정렬)")
 
         if not g["google"] and not g["naver"]:
             print("  !! 이 그룹 수집 실패 & 기존 값 없음 -> 건너뜀")
