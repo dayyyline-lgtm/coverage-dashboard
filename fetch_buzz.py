@@ -353,8 +353,16 @@ def main():
         galls = {g["id"]: g for g in dc.get("galls", [])}
         dcg = _const(html_, "DCGALL") or {}
         for g in dcg.get("galls", []):
-            if g.get("kind") == "mgallery":
-                galls.setdefault(g["id"], {"stock": g["stock"], "name": g["name"], "id": g["id"], "hist": []})
+            if g.get("kind") != "mgallery":
+                continue
+            e = galls.setdefault(g["id"], {"stock": g["stock"], "name": g["name"], "id": g["id"], "hist": []})
+            # ⚠ 상장사 정보(co)는 아래 300위 루프에서 붙는데, DCGALL 갤이 **권외면 그 루프에 안 들어온다.**
+            #   그러면 화면에서 코드·시장이 빈 채로 뜬다(탑코미디어가 그랬다). 여기서 미리 채운다.
+            if not e.get("co"):
+                hs = hits_of(g["name"]) or hits_of(g["stock"])
+                if hs:
+                    e["co"] = [[c[0], c[1], c[2], c[3]] for c in hs]
+                    e["cov"] = 1 if any(c[3] for c in hs) else 0
         for r, gid, nm in rows:
             hs = hits_of(nm)
             if not hs:
