@@ -64,15 +64,28 @@ GAMES = [
 
 
 def fetch_xml(code, server, n):
-    req = urllib.request.Request(XML.format(g=code, s=server, n=n),
-                                 headers=ua(referer=BASE + "/game_info/money/"))
+    # ⚠ 헤더를 XML 요청답게 보낸다. 기본값이 `Accept: application/json` 인데, XML 을 달라면서
+    #   JSON 을 받겠다고 하는 조합은 사람 브라우저에선 안 나온다 — WAF 가 그걸로 봇을 가른다
+    #   (올리브영이 같은 이유로 403 이었다). 이 수집기는 Actions 에서 도입일부터 100% 실패했고
+    #   로컬(가정용 IP)에선 100% 성공했다 — IP 문제일 수도 있지만 헤더가 먼저 의심스럽다.
+    req = urllib.request.Request(
+        XML.format(g=code, s=server, n=n),
+        headers=ua(referer=BASE + "/game_info/money/",
+                   extra={"Accept": "application/xml, text/xml, */*; q=0.01",
+                          "X-Requested-With": "XMLHttpRequest",
+                          "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors",
+                          "Sec-Fetch-Site": "same-origin"}))
     r = urllib.request.urlopen(req, timeout=30)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":
         raw = gzip.decompress(raw)
     x = raw.decode("utf-8", "replace")
     if "<quotation" not in x:
-        raise RuntimeError("XML 아님(봇 게이트 의심)")
+        # 사유를 남긴다 — "XML 아님" 만으로는 봇 게이트인지 구조 변경인지 못 가른다.
+        why = ("봇 게이트(가짜 IP 프레임)" if "59.18.34.179" in x
+               else "HTML 응답(차단 페이지 추정)" if "<html" in x[:400].lower()
+               else "빈 응답" if not x.strip() else "예상 밖 형식")
+        raise RuntimeError(f"XML 아님 — {why} · 앞부분: {x[:80]!r}")
     mult = int((re.search(r'multiple="(\d+)"', x) or [None, "1000"])[1])
     rows = []
     for d, p, a in re.findall(r'<data date="([\d/]+)" price="(\d+)" amount="(\d+)"', x):
@@ -86,7 +99,8 @@ RANK_URL = BASE + "/game_info/rank_game/"
 def fetch_rank():
     """거래순위 TOP30 (오늘). 절대 거래 건수는 안 주고 순위만 준다 — 거래량의 대용.
     페이지가 서버 렌더링이라 urllib 로 열린다(_ajax 봇 게이트와 무관). 반환: (날짜, [(순위, 게임명)…])"""
-    req = urllib.request.Request(RANK_URL, headers=ua(referer=BASE + "/"))
+    # 이쪽은 **HTML 페이지**라 문서 헤더로 보낸다(기본값 Accept: application/json 은 봇 신호다).
+    req = urllib.request.Request(RANK_URL, headers=ua(referer=BASE + "/", doc=True))
     r = urllib.request.urlopen(req, timeout=30)
     raw = r.read()
     if r.headers.get("Content-Encoding") == "gzip":

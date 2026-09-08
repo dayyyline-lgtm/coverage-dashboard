@@ -243,15 +243,17 @@ jobs:
       #   그건 UTC 20시 = **어제**다. 그래서 어제 UTC 는 늘 '진행 중'이라 버려졌고,
       #   화면의 마지막 동접 점이 항상 이틀 전이었다(2026-09-08 발견: 9/8 아침 수집인데 9/6 이 끝).
       #   KST 10시(UTC 01시)면 어제 UTC 가 닫혀 있어 그날 점이 들어온다. 그래서 여기로 옮겼다.
+      #   ⚠ **한 시각에 고정하지 말 것** — 워커가 그 슬롯을 거르는 날이 있다(실측 2026-09-08:
+      #     15시·17시 회차가 통째로 빠졌다). 'KST 09시 이후 · 오늘치가 아직 없으면' 조건으로
+      #     두면 슬롯 하나가 빠져도 다음 회차가 이어받고, 이미 받은 날은 조용히 건너뛴다.
       - name: Steam 동접·리뷰 수집
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 5
         run: |
-          h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
-          if { [ "$d" -le 5 ] && [ "$((10#$h))" -eq 10 ]; } || { [ "$d" -ge 6 ] && [ "$((10#$h))" -eq 12 ]; }; then
+          if python -c "import sys;from collector_health import due_today;sys.exit(0 if due_today('STEAM',9) else 1)"; then
             python runstep.py "Steam" fetch_steam.py
           else
-            echo "Steam 수집 슬롯 아님 (평일 10시 · 주말 12시 · 현재 ${h}시)"
+            echo "Steam 오늘치 이미 있음(또는 KST 09시 전) - 생략"
           fi
 
       # 게임머니 시세 — **오후 재시도 슬롯**. 본 수집은 events.yml(05시)이지만 그쪽이
@@ -259,15 +261,16 @@ jobs:
       #   하루 한 점짜리 소스라 아침에 실패하면 그날이 통째로 빈다. 재시도 슬롯이 있으면
       #   간헐적 차단은 스스로 복구되고, 아침·오후가 **둘 다** 실패하면 그건 IP 차단이 확정이다.
       #   (cron 백업을 남겨 두는 것과 같은 논리 — 하나만 두면 그게 죽는 날 데이터가 없다.)
+      #   ⚠ 처음엔 'KST 15시' 한 시각에 걸었는데 **바로 그날 15시 슬롯이 빠져서** 재시도가
+      #     통째로 없었다(2026-09-08). 시각이 아니라 조건이어야 한다.
       - name: 게임머니 시세 재시도
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 4
         run: |
-          h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
-          if { [ "$d" -le 5 ] && [ "$((10#$h))" -eq 15 ]; } || { [ "$d" -ge 6 ] && [ "$((10#$h))" -eq 16 ]; }; then
+          if python -c "import sys;from collector_health import due_today;sys.exit(0 if due_today('GAMEMONEY',13) else 1)"; then
             python runstep.py "게임머니" fetch_gamemoney.py
           else
-            echo "게임머니 재시도 슬롯 아님 (평일 15시 · 주말 16시 · 현재 ${h}시)"
+            echo "게임머니 오늘치 이미 있음(또는 KST 13시 전) - 생략"
           fi
 
       # 지금 화제(구글 트렌드 · 네이트 · 나무위키 · 디시 흥한 마이너갤). 요청 4건 · 4초.

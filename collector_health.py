@@ -16,6 +16,7 @@
 
 health.json 은 워크플로가 커밋하므로 실행 사이에 남는다.
 """
+import re
 import datetime
 import json
 import os
@@ -77,6 +78,34 @@ def ua(referer=None, extra=None, doc=False):
     if extra:
         h.update(extra)
     return h
+
+
+def due_today(const_name, after_hour=0, html_path="public/index.html"):
+    """오늘치를 **아직 못 받았고** 지금이 after_hour 시(KST) 이후인가.
+
+    왜 '슬롯'이 아니라 '조건'인가 (2026-09-08)
+      게임머니 재시도를 `KST 15시` 한 시각에만 걸었더니, 하필 그날 워커가 15시 슬롯을
+      걸러서(GitHub 백업 cron 은 3~12시간 밀린다) 재시도가 통째로 없었다.
+      실측: 그날 refresh 회차가 08·09·10·11·12·13·14·16·18 — 15시와 17시가 빠졌다.
+      CLAUDE.md 가 이미 경고한 '한쪽만 두면 그게 죽는 날 데이터가 없다' 를 그대로 밟은 것이다.
+
+      시각으로 고정하지 말고 **'오늘 아직 없으면 그 뒤 아무 회차나 잡는다'** 로 두면,
+      슬롯 하나가 빠져도 다음 회차가 이어받는다. 이미 받은 날은 조용히 건너뛴다.
+
+      after_hour 는 '이 시각 전에는 소스가 어제치를 안 준다' 는 뜻이다.
+      예: Steam 은 UTC 일자가 닫혀야 해서 KST 09시 이후여야 한다.
+    """
+    try:
+        html = open(html_path, encoding="utf-8").read()
+    except Exception:
+        return True                      # 못 읽으면 일단 시도한다
+    now = datetime.datetime.now(KST)
+    if now.hour < after_hour:
+        return False
+    m = re.search(r'const %s\s*=\s*\{\s*"asOf"\s*:\s*"([^"]+)"' % re.escape(const_name), html)
+    if not m:
+        return True                      # 블록이 아직 없으면 받아야 한다
+    return m.group(1)[:10] != now.date().isoformat()
 
 
 def nap(sec):
