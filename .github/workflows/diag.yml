@@ -1,0 +1,32 @@
+name: 네트워크 진단(일회성)
+# 러너에서 아이템매니아·올리브영·메가박스가 왜 안 되는지 단계별로 찍어 diag/net_probe.json 에 남긴다.
+# diag_probe.py 를 push 하면 돌고, 수동으로도 돌린다. 수집기·배포와 무관 — 커밋은 [CI Skip].
+on:
+  push:
+    paths: ["diag_probe.py"]
+  workflow_dispatch:
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 단계별 탐침
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python diag_probe.py
+      - name: 결과 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diag/net_probe.json
+          git commit -m "네트워크 진단 결과 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]" || exit 0
+          for i in 1 2 3; do git push && exit 0; git fetch origin main; git rebase origin/main || { git rebase --abort; exit 0; }; done
