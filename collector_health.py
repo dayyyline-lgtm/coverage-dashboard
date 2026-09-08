@@ -39,8 +39,17 @@ _UAS = [
 _UA = random.choice(_UAS)
 
 
-def ua(referer=None, extra=None):
-    """브라우저처럼 보이는 헤더 한 벌. referer 를 주면 같이 붙인다."""
+def ua(referer=None, extra=None, doc=False):
+    """브라우저처럼 보이는 헤더 한 벌. referer 를 주면 같이 붙인다.
+
+    doc=True 는 **HTML 페이지를 받을 때** 쓴다. 기본값은 `Accept: application/json` 이라
+    XHR 처럼 보이는데, 사람이 주소창에 치면 절대 나오지 않는 조합이다 —
+    WAF 가 이걸로 봇을 가른다.
+
+    실측(2026-09-08): 올리브영 `getBestList.do` 가 기본 헤더로는 **403**,
+    doc 헤더(Accept: text/html + Sec-Fetch-* + sec-ch-ua + Upgrade-Insecure-Requests)로는
+    **200 · 373KB** 였다. 헤더 한 줄 차이로 열리고 닫힌다.
+    새로 뚫을 사이트가 403 을 주면 이걸 먼저 시도해 볼 것."""
     h = {
         "User-Agent": _UA,
         "Accept": "application/json, text/plain, */*",
@@ -48,8 +57,23 @@ def ua(referer=None, extra=None):
         "Accept-Encoding": "identity",       # 수동 gzip 해제를 피한다
         "Connection": "keep-alive",
     }
+    if doc:
+        h.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+                      "image/webp,*/*;q=0.8",
+            "Upgrade-Insecure-Requests": "1",
+            "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+        })
     if referer:
         h["Referer"] = referer
+        if doc:
+            h["Sec-Fetch-Site"] = "same-origin"   # referer 가 있는데 none 이면 앞뒤가 안 맞는다
     if extra:
         h.update(extra)
     return h

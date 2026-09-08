@@ -230,6 +230,23 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
         run: python runstep.py "트위치" fetch_twitch.py
 
+      # Steam 동접·리뷰 — ⚠ **KST 09시 전에 받으면 어제치가 영영 안 들어온다.**
+      #   SteamCharts 는 UTC 시간별 점을 주고, fetch_steam 은 '진행 중인 UTC 당일'을 버린다
+      #   (하루 peak 이 안 정해져 급락처럼 보이므로). 그런데 events.yml 은 KST 05시에 도는데
+      #   그건 UTC 20시 = **어제**다. 그래서 어제 UTC 는 늘 '진행 중'이라 버려졌고,
+      #   화면의 마지막 동접 점이 항상 이틀 전이었다(2026-09-08 발견: 9/8 아침 수집인데 9/6 이 끝).
+      #   KST 10시(UTC 01시)면 어제 UTC 가 닫혀 있어 그날 점이 들어온다. 그래서 여기로 옮겼다.
+      - name: Steam 동접·리뷰 수집
+        if: steps.gate.outputs.go == '1'
+        timeout-minutes: 5
+        run: |
+          h=${{ steps.t.outputs.h }}; d=${{ steps.t.outputs.d }}
+          if { [ "$d" -le 5 ] && [ "$((10#$h))" -eq 10 ]; } || { [ "$d" -ge 6 ] && [ "$((10#$h))" -eq 12 ]; }; then
+            python runstep.py "Steam" fetch_steam.py
+          else
+            echo "Steam 수집 슬롯 아님 (평일 10시 · 주말 12시 · 현재 ${h}시)"
+          fi
+
       # 지금 화제(나무위키 실시간 검색어 · 디시 흥한 마이너갤 순위). 요청 2건 · 3초.
       # 시청자와 같은 이유로 매 회차 돈다 — 둘 다 순간 스냅샷이라 자주 찍어야 '오늘 오래 걸렸나'가 나온다.
       - name: 지금 화제(나무위키·디시)

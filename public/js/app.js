@@ -176,7 +176,7 @@ function activateTab(k, scroll){
   if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
   if(k==="amazon") renderAmazon();
-  if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); }
+  if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); renderOliveYoung(); }
   if(k==="toptoon") renderToptoon();
   // 넘치는 탭 줄에서 지금 탭이 화면 밖이면 끌어온다(폰에서 11개 중 4개만 보인다)
   const btn = tabsEl.querySelector(`button[data-k="${k}"]`);
@@ -3967,18 +3967,18 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
   if(stock) trendStock=stock;
   if(group) trendGroup=group;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
 /* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
@@ -4263,18 +4263,49 @@ function renderBuzz(){
   const box=document.getElementById("buzzSec"); if(!box) return;
   const B=(typeof BUZZ!=="undefined")?BUZZ:null;
   if(!B){ box.innerHTML=""; return; }
-  const N=B.namu||{}, D=B.dc||{};
+  const N=B.namu||{}, D=B.dc||{}, GT=B.gt||{}, NT=B.nate||{};
   const cur=(N.snap||[]).slice(-1)[0]||{};
   const today=(N.days||[]).slice(-1)[0]||{};
+  const gcur=(GT.snap||[]).slice(-1)[0]||{};
+  const ncur=(NT.snap||[]).slice(-1)[0]||{};
   // 갤러리는 수집기가 이미 종목을 붙여 뒀다(COVER_KW). 이름 매칭보다 그쪽이 정확하다.
   const byId={}; (D.galls||[]).forEach(g=>{ byId[g.id]=g.stock; });
-  const chip=(href,rank,text,extra,gid)=>{
-    const hit=(gid&&byId[gid])||buzzHit(text);
+  // matchText 를 따로 받는 이유: 네이트는 '이슈 문구'와 '검색어'가 다른데 둘 중 어느 쪽에만
+  // 종목이 들어 있는 경우가 있다. 보이는 글자(text)와 판정할 글자(matchText)를 나눈다.
+  const chip=(href,rank,text,extra,gid,matchText)=>{
+    const hit=(gid&&byId[gid])||buzzHit(matchText||text);
     return `<a class="bz${hit?" hit":""}" href="${attr(href)}" target="_blank" rel="noopener">`
       + (rank?`<span class="n">${rank}</span>`:"")
       + `<span class="t">${attr(text)}</span>`
       + (extra||"") + (hit?`<span class="stk">${attr(hit)}</span>`:"") + `</a>`;
   };
+  // ── 구글 트렌드 급상승 ── 넷 중 유일하게 '규모'(approx_traffic)가 붙는다. 그래서 맨 앞.
+  let gtHtml="";
+  if((gcur.kw||[]).length){
+    gtHtml=`<div class="buzz-c">
+      <div class="buzz-h">구글 급상승 검색어<span class="s">${gcur.t?fmtUpd(gcur.t):"—"} 기준 · 한국 · 숫자는 대략 검색량</span></div>
+      <div class="buzz-l">${(gcur.kw||[]).map(x=>
+        chip("https://trends.google.com/trends/explore?geo=KR&q="+encodeURIComponent(x.kw), "", x.kw,
+          x.tr?`<span class="d" style="color:var(--accent)">${attr(x.tr)}</span>`:"")).join("")}</div>
+    </div>`;
+  }
+  // ── 네이트 실시간 이슈 ── 순위 + 등락기호(n 신규 · + 상승 · − 하락)를 준다.
+  let nateHtml="";
+  if((ncur.rows||[]).length){
+    const mark=r=>{
+      if(r.d==="n") return `<span class="d" style="color:var(--accent)">new</span>`;
+      if(r.d==="+") return `<span class="d" style="color:var(--up)">▲${r.v||""}</span>`;
+      if(r.d==="-") return `<span class="d" style="color:var(--down)">▼${r.v||""}</span>`;
+      return `<span class="d" style="color:var(--muted2)">–</span>`;
+    };
+    nateHtml=`<div class="buzz-c">
+      <div class="buzz-h">네이트 실시간 이슈<span class="s">${ncur.t?fmtUpd(ncur.t):"—"} 기준 · 등락은 직전 집계 대비</span></div>
+      <div class="buzz-l">${(ncur.rows||[]).map(r=>
+        // 이슈 문구와 실제 검색어가 따로 온다 — 배지 판정은 둘 다 본다(문구에만 종목이 있는 경우가 있다).
+        chip("https://search.daum.net/nate?q="+encodeURIComponent(r.kw||r.t), r.r, r.t, mark(r),
+             null, (r.t||"")+" "+(r.kw||""))).join("")}</div>
+    </div>`;
+  }
   // ── 나무위키 실시간 검색어 ──
   let namuHtml="";
   if((cur.kw||[]).length){
@@ -4338,12 +4369,83 @@ function renderBuzz(){
       </table></div>
     </div>`;
   }
-  box.innerHTML=(namuHtml||dcHtml||covHtml) ? `<div class="buzz">${namuHtml}${dcHtml}${covHtml}</div>
+  box.innerHTML=(gtHtml||nateHtml||namuHtml||dcHtml||covHtml) ? `<div class="buzz">${gtHtml}${nateHtml}${namuHtml}${dcHtml}${covHtml}</div>
     <p class="note" style="margin:-8px 0 14px">종목 분류 이전의 '지금 무엇이 뜨나' — 커버리지에 걸리는 항목엔 종목 배지가 붙습니다.
-      두 소스 모두 <b>순간 스냅샷</b>이라 과거를 주지 않습니다(2026-09-07 수집 시작). 디시 순위는 <b>글 수(양)</b>가 아니라
-      <b>전체 마이너갤 대비 상대 온도</b>라, 글이 줄어도 순위가 버티면 판 전체가 식은 것입니다.</p>` : "";
+      네 소스 모두 <b>순간 스냅샷</b>이라 과거를 주지 않습니다(2026-09-07 수집 시작). 검색어 셋 중
+      <b>규모가 붙는 건 구글뿐</b>이고(2000+·500+), 나머지는 순위만이라 1위가 얼마나 큰지는 알 수 없습니다.
+      디시 순위는 <b>글 수(양)</b>가 아니라 <b>전체 마이너갤 대비 상대 온도</b>라, 글이 줄어도 순위가 버티면 판 전체가 식은 것입니다.</p>` : "";
 }
-renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst();
+/* ══════════ 올리브영 베스트 (BEAUTY) ══════════════════════════════════════
+   화장품이 커버리지 최대 섹터(8종목)인데 국내 채널 지표가 하나도 없었다 —
+   관세청 수출·아마존·러시아/일본 쇼핑, 전부 해외였다. 올리브영은 국내 H&B 1위 채널이고
+   베스트 100 이 실판매 기반이라 '지금 국내에서 뭐가 팔리나'에 가장 가깝다.
+
+   ⚠ 개별 상품 순위는 기획전·증정 때문에 하루 단위로 크게 흔들린다. 그래서 지표는
+     **브랜드가 100 위 안에 몇 개 올려 두고 있나(노출 수)** 와 **그 브랜드 최고 순위** 다.
+   ⚠ 실리콘투(유통)·한국콜마/코스맥스(ODM)는 자기 브랜드가 없어 직접 매칭이 **원리적으로 불가능**하다.
+     '인디 비중'이 그들의 **대리지표**이고, 대리지표라는 말을 화면에서 빼면 안 된다. */
+/* ⚠ 종목별로 접으려다 되돌렸다 — 아모레퍼시픽·LG생활건강·실리콘투·한국콜마·코스맥스가
+   TREND_STOCKS(검색 트렌드가 있는 종목)에 없어서, 정작 가장 관련 있는 종목에서 섹션이 영영 안 떴다.
+   화장품 채널 랭킹은 섹터 지표라 한 번에 다 보여 주고, 지금 고른 종목만 강조한다. */
+function renderOliveYoung(){
+  const sec=document.getElementById("oySec"); if(!sec) return;
+  const B=(typeof BEAUTY!=="undefined")?BEAUTY:null;
+  if(!B||!B.oy){ sec.innerHTML=""; return; }
+  const O=B.oy;
+  const last=h=>(h&&h.length)?h[h.length-1]:null, prevOf=h=>(h&&h.length>1)?h[h.length-2]:null;
+
+  // 종목별로 묶는다 — 한 종목이 브랜드를 여럿 갖는다(아모레 = 에스트라·에뛰드·헤라…).
+  const byStock={};
+  (O.brands||[]).forEach(g=>{ (byStock[g.stock]=byStock[g.stock]||[]).push(g); });
+  const rows=Object.keys(byStock).map(st=>{
+    const bs=byStock[st].map(g=>({...g, L:last(g.hist)||{}, P:prevOf(g.hist)||{}}));
+    const inList=bs.filter(x=>x.L.c>0);
+    const best=inList.length?Math.min(...inList.map(x=>x.L.b)):null;
+    const cnt=inList.reduce((a,x)=>a+x.L.c,0);
+    const pc=bs.reduce((a,x)=>a+(x.P.c||0),0);
+    return {st, bs:bs.sort((x,y)=>(x.L.b??999)-(y.L.b??999)), best, cnt, dc:(bs.some(x=>x.P.c!=null)?cnt-pc:null)};
+  }).sort((a,b)=>(a.best??999)-(b.best??999));
+
+  const ih=(O.indie||{}).hist||[], IL=last(ih), IP=prevOf(ih);
+  const pct=IL?IL.c/(IL.n||100)*100:null, dp=(IL&&IP)?pct-IP.c/(IP.n||100)*100:null;
+  const stockOfBrand={}; (O.brands||[]).forEach(g=>{ stockOfBrand[g.brand]=g.stock; });
+
+  sec.innerHTML=`
+    <div class="sub-h">올리브영 베스트 <span class="th-sub">국내 H&amp;B 1위 채널 판매순 ${fmt0(O.n||100)}위 · ${attr(O.d||"")} 기준 · 갱신 ${fmtUpd(B.asOf)||"—"}</span></div>
+    <div class="buzz">
+      <div class="buzz-c">
+        <div class="buzz-h">커버리지 브랜드<span class="s">브랜드가 100위 안에 몇 개 올려 뒀나 · 괄호는 최고 순위</span></div>
+        ${rows.length?`<table class="buzz-t"><thead><tr><th>종목</th><th>브랜드</th><th>100위 내</th><th>최고</th><th>전일비</th></tr></thead><tbody>`
+          +rows.map(r=>`<tr${r.st===trendStock?' style="background:color-mix(in srgb, var(--accent) 10%, transparent)"':''}>
+            <td><b>${attr(r.st)}</b></td>
+            <td class="g">${r.bs.map(x=>attr(x.brand)+(x.L.b?`(${x.L.b})`:"")).join(" · ")}</td>
+            <td>${r.cnt}개</td>
+            <td>${r.best==null?`<span class="g">권외</span>`:`<b>${r.best}</b>위`}</td>
+            <td>${r.dc==null?`<span class="g">—</span>`:(r.dc?`<span class="d" style="color:var(--${r.dc>0?"up":"down"})">${r.dc>0?"+":""}${r.dc}</span>`:`<span class="g">–</span>`)}</td>
+          </tr>`).join("")+`</tbody></table>`
+          :`<div class="g" style="font-size:12px">오늘 100위 안에 커버리지 브랜드가 없습니다.</div>`}
+        ${pct==null?"":`<div style="display:flex;align-items:baseline;gap:9px;margin-top:12px;flex-wrap:wrap;border-top:1px solid var(--line-soft);padding-top:10px">
+          <span style="font-size:11.5px;color:var(--muted);font-weight:700">인디 브랜드 비중</span>
+          <b style="font-size:18px">${pct.toFixed(0)}%</b>
+          <span style="font-size:11.5px;color:var(--muted2)">${IL.c}개 · 브랜드 ${IL.u}곳</span>
+          ${dp==null?"":`<span class="d" style="color:var(--${dp>0?"up":dp<0?"down":"muted2"})">${dp>0?"+":""}${dp.toFixed(0)}%p</span>`}
+          <span style="font-size:11px;color:var(--muted2)">실리콘투·한국콜마·코스맥스의 <b>대리지표</b></span></div>`}
+      </div>
+      <div class="buzz-c">
+        <div class="buzz-h">오늘 상위 20<span class="s">브랜드 · 커버리지는 배지</span></div>
+        <div class="buzz-l">${(O.top||[]).map(x=>{
+          const st=stockOfBrand[x.b];
+          return `<span class="bz${st?" hit":""}" title="${attr(x.p)}"><span class="n">${x.r}</span>`
+            +`<span class="t">${attr(x.b)}</span>${st?`<span class="stk">${attr(st)}</span>`:""}</span>`;
+        }).join("")}</div>
+      </div>
+    </div>
+    <p class="note" style="margin:-8px 0 14px">기획전·증정 때문에 <b>개별 상품 순위는 하루 단위로 크게 흔들립니다</b> —
+      그래서 지표는 브랜드의 <b>노출 수</b>와 <b>최고 순위</b>입니다.
+      <b>실리콘투(유통)·한국콜마/코스맥스(ODM)는 자기 브랜드가 없어 직접 매칭이 원리적으로 불가능</b>합니다.
+      인디 비중이 그들의 대리지표이며, 인디 브랜드가 모두 이 회사들의 고객인 것은 아닙니다.</p>`;
+}
+renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst(); renderOliveYoung();
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
@@ -4848,7 +4950,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }

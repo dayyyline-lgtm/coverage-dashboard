@@ -82,11 +82,10 @@ jobs:
         timeout-minutes: 6
         run: python runstep.py "종목 뉴스" fetch_news.py
 
-      # Steam 동접·리뷰(키 불필요). 매일 아침 1점씩 쌓아 게임 커버 종목의 실측 신호를 만든다.
-      - name: Steam 동접·리뷰 수집
-        continue-on-error: true
-        timeout-minutes: 4
-        run: python runstep.py "Steam" fetch_steam.py
+      # Steam 동접·리뷰는 여기 있으면 안 된다 → refresh.yml (평일 KST 10시 · 주말 12시) 로 옮겼다.
+      #   이 워크플로는 KST 05시 = UTC 20시(어제)에 돌기 때문에, SteamCharts 의 어제 UTC 일자가
+      #   아직 '진행 중'이라 fetch_steam 이 그 점을 버린다 → 동접 마지막 점이 늘 이틀 전이었다.
+      #   (2026-09-08 발견. 되돌리지 말 것 — 되돌리면 같은 증상이 조용히 다시 생긴다.)
 
       # 스토어 판매·예약 순위(PS·Steam·MS 스토어, 키 불필요). 붉은사막 DLC 예약 순위가 첫 대상.
       # PS 는 persisted query 해시라 사이트 배포로 깨질 수 있다 — 절반 넘게 빠지면 watchdog 이 알린다.
@@ -164,7 +163,15 @@ jobs:
         timeout-minutes: 4
         run: python runstep.py "디시 글수" fetch_dc.py
 
-      # 지금 화제 — 나무위키 실시간 검색어 + 디시 흥한 마이너갤 순위(둘 다 키 불필요, 요청 2건).
+      # 올리브영 베스트 100 — 화장품 섹터의 **국내 채널** 지표(키 불필요, 요청 1건).
+      # 그동안 화장품은 관세청 수출·아마존·러시아/일본 쇼핑뿐이라 전부 해외였다.
+      # ⚠ collector_health.ua(doc=True) 를 써야 200 이 온다. 기본 헤더는 403.
+      - name: 올리브영 베스트 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "올리브영" fetch_beauty.py
+
+      # 지금 화제 — 구글 트렌드·네이트·나무위키·디시 흥한 마이너갤(전부 키 불필요, 요청 4건).
       # 장중 회차는 refresh.yml 이 찍는다. 여기 것은 '아침 한 점'이자 refresh 가 죽은 날의 백업.
       - name: 지금 화제 수집
         continue-on-error: true

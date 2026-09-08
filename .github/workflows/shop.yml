@@ -32,16 +32,19 @@ jobs:
           # 키가 없으면 일본 계열만 건너뛰고 러시아는 그대로 수집된다.
           RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
           RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
-        run: python fetch_shop.py
+        # ⚠ runstep 을 거친다 — 예전엔 `python fetch_shop.py` 라 실패해도 사유가 아무 데도 안 남았다.
+        #   2026-09-07(월) 회차가 그렇게 조용히 빠졌고, 주 1회라 아무도 며칠간 몰랐다.
+        run: python runstep.py "쇼핑 수요" fetch_shop.py
 
       - name: 변경분 커밋
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- public/index.html; then
+          # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라가 watchdog 이 못 본다.
+          if git diff --quiet -- public/index.html health.json; then
             echo "변경 없음 - 커밋 생략"
           else
-            git add public/index.html
+            git add public/index.html health.json
             git commit -m "쇼핑 수요 갱신 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
             git pull --rebase
             git push

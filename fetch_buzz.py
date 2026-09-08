@@ -1,13 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-종목 무관 '지금 화제' 수집 — 나무위키 실시간 검색어 + 디시인사이드 흥한 마이너 갤러리 순위.
-(2026-09-07 신설. 트렌드 탭 맨 위 '지금 화제' 섹션.)
+종목 무관 '지금 화제' 수집 — 구글 트렌드 · 네이트 · 나무위키 · 디시 흥한 마이너갤.
+(2026-09-07 신설 · 2026-09-08 구글·네이트 추가. 트렌드 탭 맨 위 '지금 화제' 섹션.)
 
 기존 트렌드 데이터는 전부 '종목 -> 주제' 구조다. 그래서 **우리가 이미 보고 있는 것만 보인다.**
 이건 반대 방향이다 — 한국 인터넷 전체에서 지금 뭐가 뜨는지 먼저 보고, 그 중에 우리 종목이
 있으면 배지를 단다. 커버리지 밖에서 올라오는 것을 알아채는 게 목적이다.
 
-소스 — 둘 다 키·로그인 없이 urllib 로 열린다(2026-09-07 실측):
+소스 — 넷 다 키·로그인 없이 urllib 로 열린다(2026-09-08 실측):
+
+  구글      trends.google.com/trending/rss?geo=KR  -> 급상승 검색어 + **approx_traffic**(2000+·1000+·500+)
+            + 관련 기사 3건. **셋 중 유일하게 '규모'가 붙는다** — 나무위키·네이트는 순위뿐이라
+            1위가 얼마나 큰 건지 알 수 없다. 그래서 이걸 제일 위에 놓는다.
+            ⚠ 옛 주소 `/trends/trendingsearches/daily/rss?geo=KR` 는 404 다(2026-09-08 실측).
+
+  네이트    nate.com/js/data/jsonLiveKeywordDataV1.js -> [순위, 이슈문구, 등락기호, 변동폭, 검색어]
+            **euc-kr** 이고 JSON 배열이다. 등락기호: n=신규 · +=상승 · -=하락 · s(또는 그 외)=유지.
+            '이슈 문구'(사람이 읽는 한 줄)와 '실제 검색어'가 따로 온다 — 배지 매칭은 둘 다 본다.
 
   나무위키  search.namu.wiki/api/ranking   -> 문자열 10개(실시간 검색어). 점수·순위변동 없음.
             ⚠ **스냅샷이다.** 과거를 주지 않으므로 매 회차 찍어 쌓는 수밖에 없다.
@@ -25,6 +34,9 @@ DCGALL(글 수) 과 겹치는 게 아니라 보완이다 — 글 수는 **양**,
 글이 줄어도 순위가 버티면 판 전체가 식은 것이고, 글은 그대로인데 순위가 밀리면 우리만 식은 것이다.
 
 저장(BUZZ):
+  gt.snap[]    최근 회차 {t, kw:[{kw,tr,n}]}               — 구글, tr 이 검색량 규모
+  gt.days[]    {d, n:관측회차, kw:{키워드:등장회차}}
+  nate.snap[]  최근 회차 {t, rows:[{r,t,kw,d,v}]}          — 네이트, d 가 등락기호
   namu.snap[]  최근 회차 {t, kw:[...]}                     — 화면 '지금'
   namu.days[]  {d, n:관측회차, kw:{키워드:등장회차}}        — 최근 60일
   dc.top[]     오늘 상위 20 {r, id, name, pr:전일순위}       — 화면 '지금'
@@ -45,6 +57,8 @@ TOP_N = 20          # 화면에 띄우는 상위 갤 수 (= 사이트의 '대흥
 
 NAMU_URL = "https://search.namu.wiki/api/ranking"
 DC_URL = "https://gall.dcinside.com/m"
+GT_URL = "https://trends.google.com/trending/rss?geo=KR"
+NATE_URL = "https://www.nate.com/js/data/jsonLiveKeywordDataV1.js"
 
 # 갤러리 '이름'으로 커버리지 종목을 찾는다. id 로 하면 새 갤이 생겼을 때 못 잡는다.
 # ⚠ 좁게 쓸 것 — '제우스' 두 글자는 최우제 갤을 문다(DCGALL 주석의 같은 함정).
@@ -65,13 +79,13 @@ COVER_KW = [
 UA = ua(referer="https://gall.dcinside.com/")
 
 
-def _get(url, ref=None):
+def _get(url, ref=None, enc="utf-8"):
     h = dict(UA)
     if ref:
         h["Referer"] = ref
     req = urllib.request.Request(url, headers=h)
     with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", "replace")
+        return r.read().decode(enc, "replace")
 
 
 def _const(html_, name):
@@ -105,6 +119,41 @@ def fetch_namu():
     if not kw:
         raise ValueError("검색어 0개")
     return kw
+
+
+def fetch_google():
+    """급상승 검색어 [{kw, tr(대략 검색량 문자열), n(관련기사 수)}, ...]. RSS 라 파서가 필요 없다."""
+    t = _get(GT_URL)
+    out = []
+    for it in re.findall(r"<item>(.*?)</item>", t, re.S):
+        ti = re.search(r"<title>(.*?)</title>", it, re.S)
+        if not ti:
+            continue
+        tr = re.search(r"<ht:approx_traffic>(.*?)</ht:approx_traffic>", it, re.S)
+        out.append({"kw": htmlmod.unescape(ti.group(1)).strip(),
+                    "tr": (tr.group(1).strip() if tr else None),
+                    "n": len(re.findall(r"<ht:news_item_title>", it))})
+    if not out:
+        raise ValueError("item 0개(RSS 구조 변경?)")
+    return out
+
+
+def fetch_nate():
+    """[{r, t(이슈 문구), kw(검색어), d(등락기호), v(변동폭)}, ...]. euc-kr 이다."""
+    t = _get(NATE_URL, ref="https://www.nate.com/", enc="euc-kr")
+    j = json.loads(t[t.find("["):t.rfind("]") + 1])
+    out = []
+    for row in j:
+        if not isinstance(row, list) or len(row) < 5:
+            continue
+        r, issue, sign, delta, kw = (str(x).strip() for x in row[:5])
+        if not r.isdigit():
+            continue
+        out.append({"r": int(r), "t": issue, "kw": kw, "d": sign,
+                    "v": int(delta) if str(delta).lstrip("-").isdigit() else 0})
+    if not out:
+        raise ValueError("행 0개")
+    return sorted(out, key=lambda x: x["r"])
 
 
 def fetch_dc():
@@ -163,6 +212,39 @@ def main():
     except Exception as e:
         fails.append("나무위키: " + str(e)[:70])
 
+    # ── 구글 트렌드 급상승(KR) ─────────────────────────────────────────
+    # 셋 중 유일하게 검색량 규모가 붙는다. 나무위키와 같은 방식으로 '오늘 몇 회차에 걸렸나'를 센다.
+    gt = old.get("gt") or {"src": "구글 트렌드 급상승(한국)", "snap": [], "days": []}
+    try:
+        rows = fetch_google()
+        snap = [s for s in gt.get("snap", []) if s.get("t") != stamp]
+        snap.append({"t": stamp, "kw": rows})
+        gt["snap"] = snap[-SNAPS:]
+        days = {d["d"]: d for d in gt.get("days", [])}
+        day = days.setdefault(today, {"d": today, "n": 0, "kw": {}, "t": []})
+        if stamp not in (day.get("t") or []):
+            day["t"] = (day.get("t") or [])[-40:] + [stamp]
+            day["n"] = day.get("n", 0) + 1
+            for x in rows:
+                day["kw"][x["kw"]] = day["kw"].get(x["kw"], 0) + 1
+        gt["days"] = sorted(days.values(), key=lambda x: x["d"])[-NAMU_DAYS:]
+        gt["asOf"] = stamp
+        print("[구글] %d개 · %s" % (len(rows), " · ".join(f"{x['kw']}({x['tr']})" for x in rows[:4])))
+    except Exception as e:
+        fails.append("구글: " + str(e)[:70])
+
+    # ── 네이트 실시간 이슈 ─────────────────────────────────────────────
+    nate = old.get("nate") or {"src": "네이트 실시간 이슈", "snap": []}
+    try:
+        rows = fetch_nate()
+        snap = [s for s in nate.get("snap", []) if s.get("t") != stamp]
+        snap.append({"t": stamp, "rows": rows})
+        nate["snap"] = snap[-SNAPS:]
+        nate["asOf"] = stamp
+        print("[네이트] %d개 · %s" % (len(rows), " · ".join(x["t"][:14] for x in rows[:4])))
+    except Exception as e:
+        fails.append("네이트: " + str(e)[:70])
+
     # ── 디시 흥한 마이너갤 순위 ────────────────────────────────────────
     dc = old.get("dc") or {"src": "디시인사이드 흥한 마이너 갤러리 순위", "n": 300, "top": [], "galls": []}
     try:
@@ -199,14 +281,15 @@ def main():
     except Exception as e:
         fails.append("디시: " + str(e)[:70])
 
-    # 둘 다 실패했을 때만 기록한다 — 한쪽 실패는 다음 회차에 메워진다
-    note_health("버즈(나무위키·디시)", " | ".join(fails) if len(fails) >= 2 else None)
-    if len(fails) >= 2:
-        print("[버즈] 둘 다 실패 — 기존 보존:", " | ".join(fails)); return
+    # 소스가 넷이다(구글·네이트·나무위키·디시). 하나둘 흔들리는 건 늘 있는 일이라
+    # **절반 넘게 죽을 때만** 기록한다 — 즉시 쏘면 진짜 고장을 무시하게 된다.
+    note_health("버즈(구글·네이트·나무위키·디시)", " | ".join(fails) if len(fails) >= 3 else None)
+    if len(fails) >= 4:
+        print("[버즈] 전부 실패 — 기존 보존:", " | ".join(fails)); return
     if fails:
         print("  [실패]", " | ".join(fails))
 
-    out = {"asOf": stamp + " KST", "namu": namu, "dc": dc}
+    out = {"asOf": stamp + " KST", "gt": gt, "nate": nate, "namu": namu, "dc": dc}
     if "--dry-run" in sys.argv:
         print(json.dumps(out, ensure_ascii=False)[:2000]); return
     # 시각(asOf·snap.t)만 바뀐 회차는 배포를 안 만든다 — 실제 값이 바뀐 것만 커밋한다.
@@ -215,10 +298,10 @@ def main():
     # 이 검사가 실제로 일하는 자리는 나무위키가 죽고 디시 순위도 그대로인 회차다.
     if prev and _same(prev.get("dc", {}).get("galls"), out["dc"].get("galls")) \
             and _same(prev.get("dc", {}).get("top"), out["dc"].get("top")) \
-            and _same(prev.get("namu", {}).get("days"), out["namu"].get("days")):
+            and _same(prev.get("namu", {}).get("days"), out["namu"].get("days"))             and _same(prev.get("gt", {}).get("days"), out["gt"].get("days"))             and _same(prev.get("nate", {}).get("snap"), out["nate"].get("snap")):
         print("[버즈] 변동 없음 — 건너뜀"); return
     open(HTML, "w", encoding="utf-8").write(_put(html_, "BUZZ", out))
-    print("[OK] BUZZ 갱신 · 검색어 %d회차 · 갤 추적 %d개" % (len(namu.get("snap", [])), len(dc.get("galls", []))))
+    print("[OK] BUZZ 갱신 · 소스 %d/4 · 갤 추적 %d개" % (4 - len(fails), len(dc.get("galls", []))))
 
 
 if __name__ == "__main__":
