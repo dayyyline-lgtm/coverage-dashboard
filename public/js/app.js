@@ -1789,6 +1789,37 @@ const TREND_STOCK={
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
   });
 })();
+/* SOOP(아프리카TV) 게임 시청자 — 국내 스트리밍의 마지막 한 조각. 치지직과 양강이라
+   빼 놓으면 '국내 시청'이라면서 절반만 보는 셈이었다.
+   ⚠ 치지직과 절대값을 비교하지 말 것 — 집계 방식이 다르다. 치지직은 인기 라이브 상위 400개를
+     합산해서 **그 아래 게임은 구조적으로 0** 이고(실측: 제우스·리니지클래식·서머너즈워가 치지직
+     목록에 아예 없다), SOOP 은 카테고리 자체가 시청자 수를 들고 있어 전부 잡힌다.
+     그래서 컴투스 신작 같은 중소 규모는 SOOP 에서만 보인다. 추이를 나란히 보는 용도다. */
+(function injectSoopTrends(){
+  if(typeof SOOP==="undefined"||!SOOP.games) return;
+  SOOP.games.forEach(g=>{
+    const raw=(g.hist||[]).map(h=>h.v); const vals=raw.filter(x=>x!=null);
+    if(vals.length<2) return;                      // 1점뿐이면 아직 안 뜬다(며칠 쌓이면)
+    // ⚠ `Math.max(...)||1` 을 먼저 쓰면 안 된다 — 내내 0 인 계열의 peak 이 1 로 바뀌어
+    //   0 판정이 영영 안 걸린다(스텔라블레이드가 SOOP 에 방송이 없는데 계열로 떴다).
+    const rawPeak=Math.max(...vals);
+    if(!rawPeak) return;                           // 내내 0 = 그 플랫폼에 방송이 없다. 계열로 만들지 않는다.
+    const peak=rawPeak;
+    const norm=raw.map(v=>v==null?0:Math.round(v/peak*100));
+    const dates=(g.hist||[]).map(h=>{const p=(h.d||"").slice(5).split("-");
+      return p.length===2?`${+p[0]}/${+p[1]}`:h.d;});
+    const name=g.title+" 시청(SOOP)";
+    TREND.groups[name]={
+      products:[g.title], productsGoogle:[g.title],
+      months:dates, naver:[norm], google:[norm],
+      only:"naver", freq:"date", peak:peak,
+      unit:"명(SOOP 시청자)", srcName:"SOOP 아프리카TV · 국내 스트리밍 · 카테고리 전체 · 값 = 그날 표본 중 최댓값",
+      reviewNote:(()=>{const l=(g.hist||[]).slice(-1)[0]||{}; if(l.h==null) return "";
+        return `최근 ${l.d?l.d.slice(5).replace("-","/"):""} 최댓값은 ${l.h}시 표본(하루 ${l.n||1}회 관측${l.a!=null&&(l.n||1)>1?` · 관측 평균 ${fmt0(l.a)}명`:""})`;})()
+    };
+    (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
+  });
+})();
 /* YouTube 채널의 '일일 조회수 증가'를 트렌드 비교 탭에 편입. 엔터 IP 컴백/관심 신호.
    누적 조회수의 전일 대비 증가분이 진짜 신호라, Δ 를 계열로 쓴다(며칠 쌓여야 뜬다). */
 /* 유튜브 조회수 — 엔터사별 '일일 조회수 증가'를 기간 추이 스택 막대로(가수별 쪼갬 X, 스포티파이와 동일).
@@ -3889,6 +3920,7 @@ const TREND_SRC_ASOF=[
   ["SteamCharts", ()=>(typeof STEAM!=="undefined")&&STEAM.asOf],
   ["Steam", ()=>(typeof STEAM!=="undefined")&&STEAM.asOf],
   ["치지직", ()=>(typeof CHZZK!=="undefined")&&CHZZK.asOf],
+  ["SOOP", ()=>(typeof SOOP!=="undefined")&&SOOP.asOf],
   ["YouTube", ()=>(typeof YT!=="undefined")&&YT.asOf],
   ["트위치", ()=>(typeof TWITCH!=="undefined")&&TWITCH.asOf],
   ["앱스토어", ()=>(typeof APPRANK!=="undefined")&&APPRANK.asOf],
