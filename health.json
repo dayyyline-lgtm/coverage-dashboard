@@ -2,13 +2,5 @@
  "MB": {
   "t": "2026-09-09 00:01",
   "msg": "URLError: <urlopen error timed out>"
- },
- "게임머니": {
-  "t": "2026-09-09 05:46",
-  "msg": "전부 실패: 제우스:오만의신/아테나1 URLError <urlopen error timed out>; 제우스:오만의신/아테나2 URLError <urlopen error timed out>; 제우스:오만의신/아테나3 URLErr (종료코드 1)"
- },
- "올리브영": {
-  "t": "2026-09-09 05:51",
-  "msg": "HTTPError HTTP Error 403: Forbidden (종료코드 1)"
  }
 }

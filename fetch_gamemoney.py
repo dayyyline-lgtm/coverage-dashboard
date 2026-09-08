@@ -29,7 +29,7 @@
   python fetch_gamemoney.py            # 수집·기록
   python fetch_gamemoney.py --dry-run  # 출력만
 """
-import re, json, sys, gzip, copy, datetime, urllib.request
+import re, json, sys, gzip, copy, datetime, socket, urllib.request
 
 from collector_health import ua, nap, note_health, looks_blocked
 
@@ -132,8 +132,29 @@ def _put(html, name, obj):
     return html[:liv.end()] + "\n" + block + html[liv.end():]
 
 
+def reachable(host="www.itemmania.com", port=443, timeout=5):
+    """TCP 연결이 되는가 — 5초면 판가름 난다.
+
+    2026-09-09 러너 진단(diag_probe.py)으로 확정: GitHub 러너(Microsoft AS8075 · 미국)에서는
+    아이템매니아가 **TCP 연결 자체를 안 받는다**(80·443 모두 timed out). DNS 는 되고 다른 한국
+    사이트(메가박스·올리브영·네이버·게임비트)는 열린다 — 아이템매니아만 클라우드 IP 대역을 통째로
+    드롭하는 것이다. 헤더 문제가 아니었다(헤더 없는 curl 도 같은 결과).
+    이걸 모르고 서버 12개 × 30초 타임아웃을 기다리면 회차마다 6분을 버린다. 먼저 5초로 판정한다.
+    풀리면(언젠가 대역을 열어 주면) 그 회차부터 저절로 다시 받는다."""
+    try:
+        socket.create_connection((host, port), timeout=timeout).close()
+        return True
+    except OSError:
+        return False
+
+
 def main():
     now = datetime.datetime.now(KST)
+    if not reachable():
+        note_health("게임머니", "러너 IP 차단 — 아이템매니아가 TCP 연결을 안 받음(클라우드 대역 드롭 · "
+                              "2026-09-09 진단). 한국 IP(kr_collect.py)에서만 수집 가능")
+        print("[게임머니] 아이템매니아 TCP 연결 불가 — 이 IP 에서는 수집할 수 없다(사유 기록 후 종료)")
+        sys.exit(1)
     html = open(HTML, encoding="utf-8").read()
     m = re.search(r"const GAMEMONEY = (\{.*?\});", html, re.S)
     old = {}

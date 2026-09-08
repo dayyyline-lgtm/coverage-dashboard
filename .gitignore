@@ -27,3 +27,5 @@ morning_trigger.log
 
 # check_render.py --shot 이 남기는 탭별 스크린샷 (확인용, 저장소에 둘 것 아님)
 shots/
+
+kr_collect.log

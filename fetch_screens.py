@@ -125,10 +125,14 @@ MB_AREAS = ["10", "30", "35", "45", "55", "65", "70", "80"]
 
 
 def mb_post(body):
+    # tries=3 (2026-09-09). 메가는 영화당 지역 8회 × 대상+비교군이라 요청이 수십 건인데, 그중
+    # **하나만 40초를 넘겨도 체인 전체가 그날 실패**로 떨어졌다(8/14 이후 전수 회차의 약 절반이
+    # MB 타임아웃 — health.json 이력). 러너 진단(diag_probe.py)에선 같은 요청이 1.4초에 200 이라
+    # 차단이 아니라 간헐 지연이다. 두 번으론 모자라 세 번 두드린다(간격 1.5·3초).
     return http_json(MB_URL, data=json.dumps(body).encode(), headers={
         "Content-Type": "application/json; charset=UTF-8",
         "X-Requested-With": "XMLHttpRequest",
-        "Referer": "https://www.megabox.co.kr/booking/timetable"})
+        "Referer": "https://www.megabox.co.kr/booking/timetable"}, tries=3)
 
 
 def megabox(play, crt, peer_names=()):

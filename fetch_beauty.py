@@ -34,7 +34,7 @@
   python fetch_beauty.py --dry-run  # 출력만
 """
 import re, json, sys, html as htmlmod, copy, datetime, urllib.request
-from collector_health import ua, note_health
+from collector_health import ua, note_health, nap
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -62,10 +62,29 @@ BIG_OTHER = ["메디힐", "라로슈포제", "비쉬", "세타필", "아벤느",
              "비디비치", "연작", "설화수", "헤라", "오휘", "숨37", "이자녹스", "정관장", "센카"]
 
 
-def _get(url, ref=None):
-    req = urllib.request.Request(url, headers=ua(referer=ref, doc=True))
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode("utf-8", "replace")
+def _get(url, ref=None, tries=3):
+    """올리브영은 Cloudflare 뒤에 있고 **같은 헤더로도 403 이 간헐적으로** 난다 (2026-09-09).
+    실측: 05:51 러너 회차 403 → 07:55 같은 러너 대역·같은 헤더로 200(428KB). WAF 의 봇 점수가
+    러너 IP 마다 흔들리는 것이라 한 번 막혔다고 끝이 아니다. 간격을 두고 세 번 두드린다.
+    그래도 안 되면 refresh.yml 의 오후 재수집(due_today) 이 다른 러너 IP 로 한 번 더 시도한다."""
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=ua(referer=ref, doc=True))
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (403, 429, 503) or i == tries - 1:
+                raise
+            print(f"  올리브영 {e.code} — {8 * (i + 1)}초 뒤 재시도 ({i + 1}/{tries - 1})")
+            nap(8 * (i + 1))
+        except urllib.error.URLError as e:
+            last = e
+            if i == tries - 1:
+                raise
+            nap(5)
+    raise last
 
 
 def _const(html_, name):
