@@ -4297,8 +4297,9 @@ function buzzSpark(hist, W, H){
   return `<svg width="${W}" height="${H}" style="vertical-align:middle"><path d="${d}" fill="none" stroke="var(--muted)" stroke-width="1.5"/>`
     + (last!=null?`<circle cx="${xs(v.length-1).toFixed(1)}" cy="${ys(last).toFixed(1)}" r="2.2" fill="var(--accent)"/>`:"")+`</svg>`;
 }
-const BZ_MKT={KOSPI:"코스피",KOSDAQ:"코스닥",TSE:"도쿄",HKEX:"홍콩",NASDAQ:"나스닥",NYSE:"뉴욕"};
-const BZ_SRC={dc:["디시","var(--accent)"], gt:["구글","var(--up)"], nate:["네이트","var(--good)"], namu:["나무","var(--muted)"]};
+/* 사전은 국내 상장(코스피·코스닥)만 담는다 — 해외는 2026-09-08 에 걷어냈다.
+   그래서 시장 이름을 굳이 쓰지 않고 코드만 적는다(표가 훨씬 조용해진다). */
+const BZ_SRC={gt:["구글","var(--up)"], nate:["네이트","var(--good)"], namu:["나무","var(--muted)"]};
 function renderBuzz(){
   const box=document.getElementById("buzzSec"); if(!box) return;
   const B=(typeof BUZZ!=="undefined")?BUZZ:null;
@@ -4327,7 +4328,9 @@ function renderBuzz(){
   const covN=rows.filter(r=>r.co[3]).length;
 
   const chip=it=>{
-    const S=BZ_SRC[it.src]||["","var(--muted)"];
+    // 대부분이 디시라 접두어를 붙이면 같은 글자가 줄마다 반복된다 — 디시는 생략하고
+    // 검색어 소스(구글·네이트·나무)만 표시한다.
+    const S=BZ_SRC[it.src];
     let val="", arrow="";
     if(it.src==="dc"){
       val = it.r==null?`<span class="g">권외</span>`:`<b>${it.r}</b>위`;
@@ -4340,18 +4343,21 @@ function renderBuzz(){
       : it.src==="gt" ? "https://trends.google.com/trends/explore?geo=KR&q="+encodeURIComponent(it.label)
       : "https://search.daum.net/nate?q="+encodeURIComponent(it.label);
     return `<a class="bz" href="${attr(href)}" target="_blank" rel="noopener" title="${attr(it.label)}">`
-      + `<span class="n" style="color:${S[1]}">${S[0]}</span><span class="t">${attr(it.label)}</span>`
-      + `<span class="d">${val}</span>${arrow}</a>`;
+      + (S?`<span class="n" style="color:${S[1]}">${S[0]}</span>`:"")
+      + `<span class="t">${attr(it.label)}</span><span class="d">${val}</span>${arrow}</a>`;
   };
   const coTag=c=>`<span class="bz-co${c[3]?" cov":""}">${attr(c[0])}`
-    + (c[1]?`<span class="cd">${attr(c[1])}${(c[2]&&c[2]!=="KOSPI"&&c[2]!=="KOSDAQ")?" · "+attr(BZ_MKT[c[2]]||c[2]):""}</span>`:"")+`</span>`;
+    + (c[1]?`<span class="cd">${attr(c[1])}</span>`:"")+`</span>`;
 
   const listedHtml = !rows.length
     ? `<div class="g" style="font-size:12px">지금 뜨는 것 중 상장사로 걸리는 항목이 없습니다.</div>`
-    : `<table class="buzz-t"><tbody>` + rows.map(o=>{
+    : `<table class="buzz-t"><tbody>` + rows.map((o,i)=>{
+        // 커버리지와 그 밖 사이에 한 줄 — 섞여 있으면 우리 종목이 어디까지인지 안 보인다.
+        const sep=(i===covN&&covN>0&&covN<rows.length)
+          ? `<tr><td colspan="3" style="padding:9px 0 3px;border-top:1px solid var(--line);font-size:11px;color:var(--muted2);font-weight:700">커버리지 밖</td></tr>` : "";
         const dcIt=o.items.filter(x=>x.src==="dc").sort((a,b)=>(a.r==null?9999:a.r)-(b.r==null?9999:b.r))[0];
         const its=o.items.slice().sort((a,b)=>((b.src==="dc")-(a.src==="dc"))||((a.r==null?9999:a.r)-(b.r==null?9999:b.r)));
-        return `<tr${o.co[3]?' class="cov"':''}>
+        return sep+`<tr${o.co[3]?' class="cov"':''}>
           <td style="white-space:nowrap;padding-right:10px;vertical-align:top">${coTag(o.co)}</td>
           <td><div class="buzz-l">${its.slice(0,6).map(chip).join("")}${its.length>6?`<span class="g" style="font-size:11px;align-self:center">+${its.length-6}</span>`:""}</div></td>
           <td style="width:74px;text-align:right;vertical-align:top">${dcIt&&dcIt.hist?(buzzSpark(dcIt.hist,64,18)||`<span class="g">${dcIt.hist.length}일</span>`):`<span class="g">—</span>`}</td>
