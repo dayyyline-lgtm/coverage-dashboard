@@ -2085,6 +2085,47 @@ const topicsOf=n=>{
              : (g.includes("리뷰")||g.includes("시청"))?2 : g.includes("앨범판매")?3 : 4;
   return list.map((g,i)=>[g,i]).sort((a,b)=>pri(a[0])-pri(b[0])||a[1]-b[1]).map(x=>x[0]);
 };
+/* 지역(시군구) 수출 프록시를 종목 트렌드로 편입 — 파마리서치(강릉)·티앤엘(안성)·빙그레(남양주)·제닉(강남).
+   수출 탭에만 있던 것을 트렌드 탭에서도 보게 한다. 같은 HS 의 전국 계열(natl)이 있으면 나란히 그려
+   '지역이 전국을 앞서는가'를 본다. 두 계열은 크기가 달라 각자 정규화하고 실제 금액은 rawSer(만달러)로 툴팁에.
+   종목·전국 짝은 fetch_trade.py 의 REGION_META 한 곳에서 온다(item.stock / item.natl). */
+(function injectTradeRegionTrends(){
+  if(typeof TRADE==="undefined"||!TRADE.items||!TRADE.months) return;
+  const M=TRADE.months, mm=m=>`${m.slice(2,4)}.${+m.slice(4,6)}`;
+  const man=v=>v==null?null:Math.round(v/1e4);            // 달러 → 만달러(정수 · fmt0 가 정수만 찍는다)
+  const usd=v=>v==null?"—":v>=1e8?`$${(v/1e6).toFixed(0)}M`:`$${(v/1e6).toFixed(1)}M`;
+  TRADE.items.forEach(it=>{
+    if(!it.region||!it.stock) return;
+    const reg=(it.byCountry||[])[0]; if(!reg||!(reg.exp||[]).some(v=>v)) return;
+    const nat=it.natl?TRADE.items.find(x=>x.label===it.natl):null;
+    const natExp=nat?((nat.byCountry||[]).find(c=>c.code==="")||{}).exp:null;
+    // 끝쪽 미확정 월(둘 다 null)은 잘라 낸다 — 축만 늘어나고 선이 없다.
+    let last=M.length-1; while(last>0&&reg.exp[last]==null&&(!natExp||natExp[last]==null)) last--;
+    const cut=a=>a?a.slice(0,last+1):null;
+    const rawR=cut(reg.exp), rawN=cut(natExp);
+    const norm=a=>{const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*100));};
+    const products=[reg.name+"(지역)"], ser=[norm(rawR)], raw=[rawR.map(man)];
+    if(rawN&&rawN.some(v=>v)){ products.push("전국"); ser.push(norm(rawN)); raw.push(rawN.map(man)); }
+    // 요약: 최근월 · 전년동월비 · 전국 비중 · 최근 3개월 합(분기 매출과 견주는 용도)
+    const li=rawR.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
+    let note="";
+    if(li!=null){
+      const v=rawR[li], y=li>=12?rawR[li-12]:null, sh=(rawN&&rawN[li])?v/rawN[li]*100:null;
+      const q3=rawR.slice(Math.max(0,li-2),li+1); const qs=q3.every(x=>x!=null)?q3.reduce((a,b)=>a+b,0):null;
+      note=`최근 ${mm(M[li])} ${usd(v)}`+(y?` · 전년동월비 ${(v/y-1)*100>=0?"+":""}${((v/y-1)*100).toFixed(0)}%`:"")
+          +(sh!=null?` · 전국의 ${sh.toFixed(0)}%`:"")+(qs!=null?` · 최근 3개월 ${usd(qs)}`:"");
+    }
+    const name=`${it.label} 수출`;
+    TREND.groups[name]={
+      products, productsGoogle:products, months:M.slice(0,last+1).map(mm),
+      naver:ser, google:ser, rawSer:raw, only:"naver", freq:"month",
+      unit:"만달러(월)", unitShort:"만달러",
+      srcName:`관세청 시군구별 수출(HS ${Array.isArray(it.hs)?it.hs.join("+"):it.hs}) · 100 = 각 계열 기간 최고 · `+(it.note||""),
+      reviewNote:note
+    };
+    (TREND_STOCK[it.stock]=TREND_STOCK[it.stock]||[]).push(name);
+  });
+})();
 (function injectJobsTrends(){
   if(typeof JOBS==="undefined"||!JOBS.cos) return;
   JOBS.cos.forEach(c=>{
@@ -4712,7 +4753,9 @@ window.addEventListener("resize",()=>{
     "한국콜마":   {items:["화장품 전체","기초","색조-립","색조-아이","색조-파우더"], mkt:["US","CN"], note:"ODM — 기초 스킨케어 중심, 미국·중국"},
     "실리콘투":   {items:ALL_COS,                     mkt:["US","EU9"],      note:"K뷰티 역직구 — 미국 최대, 유럽·신흥국 급증"},
     "코스맥스":   {items:["화장품 전체","색조-립","색조-아이","색조-파우더","기초"], mkt:["CN","US"], note:"ODM — 색조 메이크업 강점, 중국 최대·미국(+46%)·동남아 확대"},
-    "제닉":      {items:["마스크팩 전체","마스크팩","화장품 전체"],   mkt:["CN","US"],       note:"마스크팩 ODM — 중국·미국"},
+    // 제닉 — 공장(논산)으로는 안 잡히고 고객사 본사(바이오던스=강남구)로 신고된다. 강남구 330790 이 전국 시군구 1위.
+    "제닉":      {items:["마스크팩 전체(강남)","마스크팩 전체","마스크팩","화장품 전체"],   mkt:["CN","US"],
+                 note:"마스크팩 ODM — 강남은 바이오던스(주 고객) 본사 기준 프록시(타 강남 브랜드 혼재) · 국가별은 업계 합계"},
     "파마리서치": {items:["리쥬란(강릉 기타화장품)"],     mkt:[],                note:"리쥬란·필러 = 강릉공장 기타화장품(330499) 제조지 기준 프록시 (국가 구분 없음)"},
     "티앤엘":    {items:["창상피복재(안성)"],             mkt:[],                note:"미티패치·하이드로콜로이드 창상피복재 = 안성공장 제조지 기준 프록시 (미국 중심 · HERO/처치앤드와이트 ODM)"},
     "삼양식품":   {items:["라면"],                     mkt:["US","CN","EU9"], note:"불닭 — 미국·중국 양대 시장, 유럽 확대"},
