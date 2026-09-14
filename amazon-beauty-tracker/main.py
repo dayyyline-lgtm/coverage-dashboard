@@ -49,8 +49,31 @@ def load_config() -> dict:
     with open(BASE / "config.yaml", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     cfg["data_dir"] = str(BASE / cfg.get("data_dir", "data"))
+    cfg["brands"] = merge_coverage_brands(cfg.get("brands") or [])
     resolve_telegram(cfg)
     return cfg
+
+
+def merge_coverage_brands(brands: list) -> list:
+    """`inject_amazon.BRAND_STOCK` 의 브랜드를 추적 목록에 반드시 넣는다.
+
+    config.yaml 은 .gitignore 대상이라 **이 PC 에만 있다.** 커버리지에 종목이 추가돼도
+    저장소 쪽 파일만 고쳐서는 이 PC 의 목록이 안 바뀌어, 화면에는 종목이 있는데
+    아마존 계열만 영영 비는 상태가 된다(아로마티카 편입 때 실제로 걸린 자리다).
+    BRAND_STOCK 은 커밋되는 파일이니 그걸 단일 출처로 삼아 합친다. 목록에 이름만
+    더하는 것은 비용이 0 이다 — 제목 매칭은 공짜고, 브랜드 검색은 `brands: auto`
+    (한 번이라도 잡힌 브랜드만) 라 미진입 브랜드는 요청을 안 쓴다.
+    """
+    have = {str(b).strip().lower() for b in brands}
+    try:
+        from inject_amazon import BRAND_STOCK
+    except Exception as e:          # 주입 스크립트가 없거나 깨져도 수집은 계속한다
+        print(f"[config] 커버리지 브랜드 병합 생략: {e}", file=sys.stderr)
+        return brands
+    add = [b for b in BRAND_STOCK if b.strip().lower() not in have]
+    if add:
+        print(f"[config] 커버리지 브랜드 추가: {', '.join(add)}")
+    return list(brands) + add
 
 
 # config.yaml 템플릿의 자리표시자 — 값이 안 채워진 것으로 취급한다

@@ -50,11 +50,37 @@ GROUPS = {
     },
     # 달바 구글 키워드는 d'Alba(정식 표기). 'dalba' 로 조회하면 이탈리아 Alba 지역·성씨와
     # 섞인다 — 두 표기의 상관이 0.28 로 사실상 다른 것을 잡고 있었다.
+    # 아로마티카 추가(2026-09-14). 네이버 실측 30일: 메디큐브 100 · 아로마티카 51 ·
+    # 달바 34 · 라운드랩 8 → 같은 자릿수라 한 그래프에 놓아도 추이가 읽힌다.
+    # ⚠ 구글은 'Aromatica' 를 **문자열로 넣으면 안 된다.** 스페인어·이탈리아어 일반명사다
+    #   ('vela aromatica' = 향초). 실측: 전세계 관련검색 1·2위가 vela / vela aromatica,
+    #   지역 1위 콜롬비아(100) · 브라질(30) · 이탈리아(20) — 브랜드 신호가 아니다.
+    #   그래서 구글 **토픽 ID** `/g/11dxd51wxs` 로 잡는다(지역 1위 한국, 나머지가 동남아 = 브랜드).
+    #   같은 이름의 토픽 `/g/11yzw55xwn` 은 체코 중심의 다른 것이다. 쓰지 말 것.
+    #   토픽 ID 는 화면에 그대로 찍히면 못 읽으므로 glabels 로 표시 이름을 준다.
     "K-뷰티 브랜드": {
-        "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스"],
-        "google": ["medicube", "d'Alba", "COSRX", "Celimax"],
+        "naver":  ["메디큐브", "달바", "코스알엑스", "셀리맥스", "아로마티카"],
+        "google": ["medicube", "d'Alba", "COSRX", "Celimax", "/g/11dxd51wxs"],
+        "glabels": ["medicube", "d'Alba", "COSRX", "Celimax", "AROMATICA"],
         "freq":   "date",
         "n":      30,
+    },
+    # ── 아로마티카 (2026-09-14 추가 · 2025-11-27 코스닥 상장) ─────────────
+    # 비건·클린뷰티 자사 브랜드. 로즈마리 두피케어가 북미에서 팔리는 게 핵심이라
+    # '국내 인지도'만 보면 절반을 놓친다. 국가별로 따로 잡는다(메로나·티니핑과 같은 방식).
+    # 실측(today 12-m · 0 아닌 주): 전세계 52/52 · 미국 52/52 · 일본 51/52 ·
+    #   싱가포르 9 · 베트남 9 · 홍콩 4 · 말레이시아 3 · 태국 2 → 앞 셋만 남긴다.
+    #   동남아는 지금 넣으면 0 이 줄줄이 찍힌다(쿨로아600 에서 겪은 것). 신호가 붙으면 그때.
+    # 주별인 이유: 일별로 잡으면 미국·일본이 구글 임계 미만으로 자주 끊긴다.
+    "아로마티카 국가별": {
+        "geos": [
+            {"label": "한국",   "geo": "KR", "kw": "아로마티카", "src": "naver"},
+            {"label": "미국",   "geo": "US", "kw": "/g/11dxd51wxs"},
+            {"label": "일본",   "geo": "JP", "kw": "/g/11dxd51wxs"},
+            {"label": "전세계", "geo": "",   "kw": "/g/11dxd51wxs"},
+        ],
+        "freq": "week",
+        "n": 26,
     },
     # ── 탑코미디어 (2026-08-31) ──────────────────────────────────
     # 본업(웹툰 플랫폼)과 신사업(AI 챗봇)을 나눠 본다. 한 그룹에 섞으면 스케일이 안 맞는다.
@@ -610,7 +636,8 @@ def collect_alt(gname, spec, freq, n, prev_alt, have):
     kws_gg = spec.get("google") or spec.get("naver")
     spec_only = ("naver" if "google" not in spec
                  else "google" if "naver" not in spec else None)
-    g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
+    lab_gg = spec.get("glabels", kws_gg)
+    g = {"products": kws_nv, "productsGoogle": lab_gg, "freq": freq, "months": []}
     geo = spec.get("geo", GOOGLE_GEO); g["geo"] = geo; gg_labels = None
     try:
         if "google" in spec:
@@ -633,7 +660,7 @@ def collect_alt(gname, spec, freq, n, prev_alt, have):
     if not g["months"] and gg_labels:
         g["months"] = gg_labels
     old = prev_alt or {}
-    if not g["google"] and old.get("google") and old.get("productsGoogle") == kws_gg \
+    if not g["google"] and old.get("google") and old.get("productsGoogle") == lab_gg \
             and old.get("freq") == freq:
         g["google"] = old["google"]
         if not g["months"]: g["months"] = old.get("months", [])
@@ -794,7 +821,9 @@ def main():
         spec_only = ("naver" if "google" not in spec
                      else "google" if "naver" not in spec else None)
         print(f"\n[{gname}]  네이버{kws_nv}  구글{kws_gg}  ({FREQ_KO[freq]} {n})")
-        g = {"products": kws_nv, "productsGoogle": kws_gg, "freq": freq, "months": []}
+        # 구글 키워드가 토픽 ID(/g/...)면 그대로 찍을 수 없다 -> glabels 가 표시 이름.
+        lab_gg = spec.get("glabels", kws_gg)
+        g = {"products": kws_nv, "productsGoogle": lab_gg, "freq": freq, "months": []}
         geo = spec.get("geo", GOOGLE_GEO)
         g["geo"] = geo
         gg_labels = None
@@ -841,7 +870,7 @@ def main():
         #    새 축에만 있는 날짜는 None 이고, 화면의 trendPath 가 null 에서 선을 끊어
         #    '그날은 그 출처 값이 없다'로 정직하게 보인다.
         old = prev_groups.get(gname, {})
-        if not g["google"] and old.get("google") and old.get("productsGoogle") == kws_gg \
+        if not g["google"] and old.get("google") and old.get("productsGoogle") == lab_gg \
                 and old.get("freq") == freq:
             g["google"] = _realign(old.get("months"), old["google"], g["months"])
             if not g["months"]: g["months"] = old.get("months", [])

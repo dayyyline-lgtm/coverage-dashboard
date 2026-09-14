@@ -32,6 +32,9 @@ BRAND_STOCK = {
                          "memo": "2024년 아모레퍼시픽 인수"},
     "d'Alba":           {"stock": "달바글로벌",   "owner": "달바글로벌",   "listed": True},
     "Coreana":          {"stock": "코리아나",     "owner": "코리아나",     "listed": True},
+    # 아로마티카 — 2025-11-27 코스닥 상장. 미국은 로즈마리 두피케어(스칼프 스케일링 샴푸)가 주력.
+    "Aromatica":        {"stock": "아로마티카",   "owner": "아로마티카",   "listed": True,
+                         "memo": "비건·클린뷰티 · 2025-11 코스닥 상장"},
     "Anua":             {"stock": None, "owner": "더파운더즈",   "listed": False,
                          "memo": "IPO 준비"},
     "BIODANCE":         {"stock": None, "owner": "바이오던스",   "listed": False},
