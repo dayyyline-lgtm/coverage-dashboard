@@ -654,7 +654,11 @@ def collect_market(market, brands, cfg, cache, pinned, log=print):
     if scfg.get("enabled", True):
         want = scfg.get("brands", "auto")
         if want == "auto":
-            want = sorted({v["brand"] for v in pinned.values()})
+            # auto = 이미 추적 중인 브랜드. 다만 그것만 보면 **베스트셀러 100위에 한 번도
+            # 못 든 브랜드는 영원히 검색되지 않는다** — 추적 시작 자체가 리스트 진입에
+            # 걸려 있기 때문이다. 커버리지 종목 브랜드는 순위권 밖이어도 봐야 하므로
+            # always(main.py 가 BRAND_STOCK 에서 채운다) 를 항상 합친다.
+            want = sorted({v["brand"] for v in pinned.values()} | set(scfg.get("always") or []))
         for b in want:
             try:
                 hits = search_brand(session, market, b, scfg.get("max_pages", 3),

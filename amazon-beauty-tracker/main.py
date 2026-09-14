@@ -50,6 +50,7 @@ def load_config() -> dict:
         cfg = yaml.safe_load(f)
     cfg["data_dir"] = str(BASE / cfg.get("data_dir", "data"))
     cfg["brands"] = merge_coverage_brands(cfg.get("brands") or [])
+    seed_search_always(cfg)
     resolve_telegram(cfg)
     return cfg
 
@@ -74,6 +75,23 @@ def merge_coverage_brands(brands: list) -> list:
     if add:
         print(f"[config] 커버리지 브랜드 추가: {', '.join(add)}")
     return list(brands) + add
+
+
+def seed_search_always(cfg: dict) -> None:
+    """커버리지 종목 브랜드는 베스트셀러 100위 밖이어도 **브랜드 검색으로** 찾아 둔다.
+
+    `search.brands: auto` 는 이미 추적 중인 브랜드만 검색하는데, 추적은 리스트 진입으로만
+    시작된다. 그래서 리스트에 한 번도 못 든 브랜드는 검색도 안 되고 영영 0 으로 남는다.
+    아로마티카가 그 경우다 — 미국 아마존 실측(2026-09-14)으로 로즈마리 루트 인핸서가
+    리뷰 4.5천·월 9천개+, 스칼프 샴푸 리뷰 1.8천·월 1천개+ 인데 Beauty 톱100 은 아니다.
+    """
+    scfg = cfg.setdefault("search", {})
+    try:
+        from inject_amazon import BRAND_STOCK
+    except Exception:
+        return
+    cov = {b for b, v in BRAND_STOCK.items() if v.get("stock")}
+    scfg["always"] = sorted(set(scfg.get("always") or []) | cov)
 
 
 # config.yaml 템플릿의 자리표시자 — 값이 안 채워진 것으로 취급한다
