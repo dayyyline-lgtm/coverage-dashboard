@@ -7,8 +7,14 @@ public/index.html 안의  const NEWS = {...};  블록을 최신 뉴스로 교체
 사용법:
     python fetch_news.py
 
-수집처: 네이버 금융 종목뉴스 (키 불필요 · 시세/리포트와 같은 출처)
-  https://finance.naver.com/item/news_news.naver?code=<종목코드>
+수집처: 네이버 종목뉴스 JSON (키 불필요 · 시세/리포트와 같은 출처)
+  https://api.stock.naver.com/news/stock/<종목코드>?pageSize=&page=1
+
+⚠ 2026-09-18: 옛 주소 finance.naver.com/item/news_news.naver 가 **HTTP 410 Gone** 이 됐다.
+  네이버가 그 페이지를 내렸다. 로컬·러너 양쪽에서 41/41 종목 실패라 뉴스 탭이 통째로 비어 있었고,
+  수집기가 '0건 = 변동 없음' 으로 조용히 넘어가 눈에 띄지 않았다(health.json 에는 남아 있었다).
+  지금은 모바일 앱이 쓰는 JSON API 를 쓴다 — 응답은 [{total, items:[...]}] 묶음 배열이고
+  한 묶음이 같은 사건의 기사 뭉치다(total>1 이면 연관기사). 우리는 묶음마다 대표 1건만 쓴다.
 
 같은 기사가 여러 종목에 걸리는 경우가 많아 URL 기준으로 합치고,
 관련 종목을 모두 달아 둡니다. 데이터 변동이 없으면 파일을 건드리지 않습니다.
@@ -25,8 +31,7 @@ HTML_PATH = "public/index.html"
 # 브라우저 헤더 한 벌 + 흔들린 간격으로 바꾸고, 막히면 health.json 에 남긴다.
 from collector_health import ua, nap, note_health
 
-UA = ua(referer="https://finance.naver.com/",
-        extra={"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"})
+UA = ua(referer="https://m.stock.naver.com/")
 
 PER_STOCK = 10     # 종목당 최대 기사 수 (중복 제거 후)
                    # 커버리지 표의 뉴스 링크는 '제목에 종목명이 든 기사'만 연결하는데,
@@ -84,44 +89,32 @@ def dedupe(arts, limit):
     return kept
 
 
-def to_article(href):
-    """목록의 링크를 기사 본문 주소로 바꾼다.
-
-       네이버 금융 목록이 주는 news_read.naver 주소는 본문이 아니라
-       자바스크립트 한 줄짜리 껍데기다(실측 92바이트):
-           <SCRIPT>top.location.href='https://n.news.naver.com/mnews/article/008/0005391563';</SCRIPT>
-       top.location 을 건드리는 스크립트라 새 탭·인앱 브라우저·스크립트 차단 환경에서
-       그대로 빈 화면이 된다. 목적지가 주소 안에 다 들어 있으니 미리 펴서 저장한다.
-       (office_id = 언론사, article_id = 기사 번호)"""
-    if href.startswith("/"):
-        href = "https://finance.naver.com" + href
-    q = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)
-    oid, aid = (q.get("office_id") or [""])[0], (q.get("article_id") or [""])[0]
-    if oid and aid:
-        return f"https://n.news.naver.com/mnews/article/{oid}/{aid}"
-    return href
+def article_url(it):
+    """기사 본문 주소. API 가 mobileNewsUrl 을 주지만 없을 때는 oid/aid 로 만든다."""
+    u = it.get("mobileNewsUrl") or ""
+    if u.startswith("http"):
+        return u.split("?")[0]
+    oid, aid = it.get("officeId") or "", it.get("articleId") or ""
+    return f"https://n.news.naver.com/mnews/article/{oid}/{aid}" if oid and aid else ""
 
 
 def fetch_stock_news(code):
-    url = ("https://finance.naver.com/item/news_news.naver"
-           f"?code={code}&page=1&sm=title_entity_id.basic")
-    req = urllib.request.Request(url, headers=UA)
-    raw = urllib.request.urlopen(req, timeout=15).read().decode("euc-kr", "replace")
-
-    rows = re.findall(
-        r'<td class="title">\s*<a href="([^"]+)"[^>]*>(.*?)</a>'
-        r'.*?<td class="info">(.*?)</td>'
-        r'.*?<td class="date">(.*?)</td>',
-        raw, re.S)
+    url = f"https://api.stock.naver.com/news/stock/{code}?pageSize={PER_STOCK * 2}&page=1"
+    raw = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=15).read()
+    data = json.loads(raw.decode("utf-8", "replace"))
 
     out = []
-    for href, title, src, dt in rows:
-        t = clean(title)
-        if not t:
-            continue
-        link = to_article(htmlmod.unescape(href))
-        d = clean(dt).replace(".", "-", 2)          # 2026.07.23 03:30 -> 2026-07-23 03:30
-        out.append({"t": t, "u": link, "s": clean(src), "d": d})
+    for blk in (data or []):
+        # 묶음 = 같은 사건의 기사 뭉치(total>1). 첫 건이 대표 기사다 — 연관기사까지 담으면
+        # 종목당 10건이 한 사건으로 다 차 버린다.
+        for it in (blk.get("items") or [])[:1]:
+            t = clean(it.get("title") or "")
+            u = article_url(it)
+            if not t or not u:
+                continue
+            dt = str(it.get("datetime") or "")          # 202609180701 -> 2026-09-18 07:01
+            d = (f"{dt[0:4]}-{dt[4:6]}-{dt[6:8]} {dt[8:10]}:{dt[10:12]}" if len(dt) >= 12 else "")
+            out.append({"t": t, "u": u, "s": clean(it.get("officeName") or ""), "d": d})
     return out
 
 

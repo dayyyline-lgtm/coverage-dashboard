@@ -46,6 +46,10 @@ GALLS = [
     {"stock": "컴투스",   "name": "컴프야",     "kind": "mgallery", "id": "cpyv22"},            # 컴투스프로야구 V26(현역)
     {"stock": "NC",      "name": "아이온2",    "kind": "mgallery", "id": "aion2"},
     {"stock": "NC",      "name": "리니지클래식", "kind": "mgallery", "id": "lineage2classic"},   # 리니지 클래식(정식 리니지갤은 7월 말 이후 글 없음)
+    # 아스트라에 오라티오(미출시 서브컬처 신작) — 이름이 갈려 후보가 넷이다. 2026-09-18 실측으로 고름:
+    #   astraeoratio 9,019글(현역) · dynamisone(개발사 '디나미스 원') 2,468글인데 1페이지가 2024-08 까지 = 사실상 죽음
+    #   astora(89 도쿄) 9글 · astraemini 4글. 살아 있는 건 astraeoratio 하나뿐이다.
+    {"stock": "NC",      "name": "아스트라에 오라티오", "kind": "mgallery", "id": "astraeoratio"},
     {"stock": "탑코미디어", "name": "탑툰",      "kind": "mgallery", "id": "toptoon"},
     {"stock": "탑코미디어", "name": "탑툰챗",    "kind": "mgallery", "id": "toptoonchat"},
 ]

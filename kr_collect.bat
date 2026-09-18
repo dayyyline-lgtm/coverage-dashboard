@@ -1,5 +1,5 @@
 @echo off
-REM í•œêµ­ IP ì „ìš© ìˆ˜ì§‘(ê²Œìž„ë¨¸ë‹ˆÂ·ì˜¬ë¦¬ë¸Œì˜) â€” ìž‘ì—… ìŠ¤ì¼€ì¤„ëŸ¬ ì§„ìž…ì . ë¡œê·¸ëŠ” kr_collect.log ì— ëˆ„ì .
+REM ÇÑ±¹ IP Àü¿ë ¼öÁý(°ÔÀÓ¸Ó´Ï.¿Ã¸®ºê¿µ) - ÀÛ¾÷ ½ºÄÉÁÙ·¯ ÁøÀÔÁ¡. ·Î±×´Â kr_collect.log ¿¡ ´©Àû.
 cd /d "%~dp0"
 set PYTHONIOENCODING=utf-8
 python kr_collect.py >> kr_collect.log 2>&1

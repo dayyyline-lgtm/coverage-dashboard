@@ -1961,30 +1961,48 @@ function injectCompanyStack(items, opt){
   injectCompanyStack(items("ml"), {suffix:"월간청취자 추이(Spotify)", unit:"명", fmt:manTxt, srcName:"Spotify 월간청취자(최근 28일 순청취자, 매일 기록) · 소속 아티스트 스택"});
   injectCompanyStack(items("sd"), {suffix:"일간 스트림(Spotify)", unit:"회", fmt:strTxt, srcName:"Spotify 일간 스트림 · 소속 아티스트 스택(기간 추이)"});
 })();
-/* 앱스토어(Apple) 게임 매출순위 — 게임 종목 소비/수요 신호(Spotify 스트림과 짝).
-   순위는 낮을수록 좋으니 101−순위 점수로 변환(높을수록 상위 = 선이 위로). 실제 순위는 각주.
-   구글 플레이는 무료 API 가 없어 미수집(애플만). 하루 더 쌓이면 선이 그려진다. */
+/* 양대 마켓 게임 매출순위(APPRANK · fetch_appstore.py) — 게임 종목의 매출 프록시.
+   2026-09-18 개편: ① **구글 플레이를 추가**했다(국내 게임 매출은 구글 쪽이 더 크다) ②
+   종목당 대표작 한 줄이 아니라 **Top100 에 잡히는 게임을 전부** 계열로 그린다
+   (예전엔 리니지M·리니지W·아이온2 가 '가장 높은 하나'로 뭉개졌다).
+   그룹 = 종목 × 마켓. 계열 = 게임. 순위는 작을수록 상위라 101−순위로 뒤집어 그리고
+   축·범례·표는 rankN·fmt·rawSer 로 실제 순위를 적는다. Top100 밖은 null(선이 끊긴다).
+   ⚠ 두 마켓의 순위를 한 그룹에 섞지 말 것 — 목록이 달라 같은 5위가 다른 크기다. */
 (function injectAppRankTrends(){
-  if(typeof APPRANK==="undefined"||!APPRANK.games) return;
-  const dlab=x=>{const p=(x.d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:x.d;};
-  APPRANK.games.forEach(g=>{
-    const hp=(g.hist||[]).filter(x=>x&&x.gr!=null);
-    if(hp.length<2) return;
-    const score=hp.map(x=>101-x.gr);          // 순위1→100점, 순위100→1점
-    const last=hp[hp.length-1];
-    const fr=last.fr!=null?` · 무료 ${last.fr}위`:"";
-    const t=last.t?` · ${last.t}`:"";
-    const name=g.stock+" 앱스토어 매출순위(Apple)";
+  if(typeof APPRANK==="undefined"||!APPRANK.apps) return;
+  const MK={ios:["앱스토어","Apple 앱스토어(한국) 게임 매출 Top100"],
+            and:["구글플레이","구글 플레이(한국) 게임 매출 Top100"]};
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const last=a=>[...a].reverse().find(v=>v!=null);
+  const by={};
+  APPRANK.apps.forEach(a=>{ if(!a.stock||!MK[a.mk]) return; (by[a.stock+"|"+a.mk]=by[a.stock+"|"+a.mk]||[]).push(a); });
+  Object.keys(by).forEach(k=>{
+    const [stock,mk]=k.split("|"), list=by[k];
+    const days=[...new Set(list.flatMap(a=>(a.hist||[]).map(h=>h.d)))].sort();
+    if(!days.length) return;
+    const rows=list.map(a=>{ const m={}; (a.hist||[]).forEach(h=>{ if(h.gr!=null) m[h.d]=h.gr; });
+        return {a, raw:days.map(d=>m[d]==null?null:m[d])}; })
+      .filter(r=>r.raw.some(v=>v!=null))
+      // 지금 순위가 높은(작은) 것부터 — 범례·색 순서가 차트 위아래와 맞는다
+      .sort((x,y)=>(last(x.raw)||999)-(last(y.raw)||999)).slice(0,8);
+    if(!rows.length) return;
+    const nm=r=>r.a.nm.replace(/\s*[:：].*$/,"").slice(0,18);     // '제우스: 오만의 신' → '제우스'
+    const labels=rows.map(nm);
+    const name=`${stock} 매출순위(${MK[mk][0]})`;
+    // 무료순위는 계열로 두면 선이 두 배가 된다 — 최신값만 각주로.
+    const free=list.map(a=>{ const h=(a.hist||[]).slice(-1)[0]||{};
+        return h.fr!=null?`${a.nm.replace(/\s*[:：].*$/,"").slice(0,12)} ${h.fr}위`:null; }).filter(Boolean);
     TREND.groups[name]={
-      products:[g.stock], productsGoogle:[g.stock],
-      months:hp.map(dlab), naver:[score], google:[score],
-      // rawSer·fmt 가 없어 범례·툴팁·표에 점수(101−순위)가 그대로 찍혔다 — '최근 87' 은 실제로 14위다.
-      rawSer:[hp.map(x=>x.gr)], unitShort:"위", rankN:100, fmt:v=>(v==null?"—":(101-v)+"위"),
-      only:"naver", freq:"date",
-      srcName:"Apple 앱스토어 게임 매출순위(차트는 101−순위로 뒤집어 그리고 축·표는 실제 순위 · 무료 API 없어 구글 제외)",
-      reviewNote:`매출 ${last.gr}위${fr}${t}`
+      products:labels, productsGoogle:labels,
+      months:days.map(md),
+      naver:rows.map(r=>r.raw.map(v=>v==null?null:101-v)),
+      google:rows.map(r=>r.raw.map(v=>v==null?null:101-v)),
+      rawSer:rows.map(r=>r.raw), only:"naver", freq:"date",
+      unitShort:"위", rankN:100, fmt:v=>(v==null?"—":(101-v)+"위"),
+      srcName:MK[mk][1]+" · 위로 갈수록 상위 · 100위 밖은 끊김",
+      reviewNote:free.length?("무료순위 "+free.slice(0,4).join(" · ")):""
     };
-    (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
 /* 스토어 판매·예약 순위(STORERANK · fetch_storerank.py) — '구매 시점'에 가장 가까운 신호.
@@ -2089,7 +2107,7 @@ function injectCompanyStack(items, opt){
    앨범판매(써클)는 엔터 실물수요라 검색보다 앞. 나머지는 삽입 순서를 유지(안정 정렬). */
 const topicsOf=n=>{
   const list=(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);
-  const pri=g=> g.includes("동접")?0 : (g.includes("예약순위")||g.includes("판매순위"))?1
+  const pri=g=> g.includes("동접")?0 : (g.includes("예약순위")||g.includes("판매순위")||g.includes("매출순위"))?1
              : (g.includes("리뷰")||g.includes("시청"))?2 : g.includes("앨범판매")?3 : 4;
   return list.map((g,i)=>[g,i]).sort((a,b)=>pri(a[0])-pri(b[0])||a[1]-b[1]).map(x=>x[0]);
 };
@@ -2134,6 +2152,45 @@ const topicsOf=n=>{
     (TREND_STOCK[it.stock]=TREND_STOCK[it.stock]||[]).push(name);
   });
 })();
+/* 디시 갤러리 순위(BUZZ.dc) — 글 수(DCGALL)가 '양' 이라면 이쪽은 '전체 마이너갤 대비 상대 온도'다.
+   글이 줄어도 순위가 버티면 판 전체가 식은 것이고, 글은 그대로인데 순위가 밀리면 우리만 식은 것이다.
+   ⚠ 순위는 작을수록 뜨겁다 — 다른 순위 계열과 같이 (301−순위)/300 으로 뒤집어 그리고 축·표는 실제 순위.
+   300위 밖(권외)은 null 이라 선이 끊긴다. 수집이 2026-09-07 시작이라 그 전은 없다. */
+(function injectDcRankTrends(){
+  if(typeof BUZZ==="undefined"||!BUZZ.dc||!BUZZ.dc.galls) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const N=300;                                  // 사이트 정의: 흥한 마이너갤 = 전체 중 300위 이내
+  const by={};
+  BUZZ.dc.galls.forEach(g=>{
+    // 커버리지 종목 것만 — 그 밖 상장사(넥슨게임즈·네이버…)는 '지금 화제' 블록에서 본다.
+    // ⚠ 비커버리지도 g.stock 이 채워져 있다(커버리지 여부는 co[3]). 그래서 co 로 판정한다.
+    const st=((g.co||[]).find(c=>c[3])||[])[0];
+    if(!st||(g.hist||[]).length<2) return;
+    (by[st]=by[st]||[]).push(g);
+  });
+  Object.keys(by).forEach(stock=>{
+    const gs=by[stock];
+    const days=[...new Set(gs.flatMap(g=>g.hist.map(h=>h.d)))].sort();
+    const raw=gs.map(g=>{const m={}; g.hist.forEach(h=>{ if(h.r!=null) m[h.d]=h.r; });
+      return days.map(d=>m[d]==null?null:m[d]);});
+    const rows=gs.map((g,i)=>({g,raw:raw[i]})).filter(o=>o.raw.some(v=>v!=null))
+      .sort((a,b)=>{const la=[...a.raw].reverse().find(v=>v!=null)||999, lb=[...b.raw].reverse().find(v=>v!=null)||999; return la-lb;})
+      .slice(0,8);
+    if(!rows.length) return;
+    const labels=rows.map(o=>o.g.name);
+    const name=`디시 갤 순위(${stock})`;
+    const ser=rows.map(o=>o.raw.map(r=>r==null?null:Math.round((N+1-r)/N*1000)/10));
+    TREND.groups[name]={
+      products:labels, productsGoogle:labels,
+      months:days.map(md), naver:ser, google:ser, rawSer:rows.map(o=>o.raw),
+      only:"naver", freq:"date", unitShort:"위",
+      rankN:N, rankOf:v=>N+1-v*N/100, fmt:v=>(v==null?"—":Math.round(N+1-v*N/100)+"위"),
+      srcName:`디시인사이드 흥한 마이너갤 순위(전체 ${fmt0(BUZZ.dc.n||0)}개 중 300위까지) · 위로 갈수록 뜨겁다 · 300위 밖은 끊김`,
+      reviewNote:"글 수(디시 글수)가 '양'이라면 이건 '전체 대비 상대 온도'다 — 둘이 갈리면 판 전체가 움직인 것"
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
 (function injectJobsTrends(){
   if(typeof JOBS==="undefined"||!JOBS.cos) return;
   JOBS.cos.forEach(c=>{
@@ -2160,6 +2217,28 @@ const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
    검색 트렌드는 주별 52주가 기본이라 최근 한 달 움직임이 안 읽혔다.
    이제 구간을 고르면 빈도는 자동으로 정한다(단기=일별, 장기=가장 긴 빈도). trendFreq 는 파생값. */
 let trendStock="", trendGroup="", trendFreq="week";
+/* 주제 분류 (2026-09-18) — 한 종목의 주제가 20개까지 늘었다(펄어비스: 동접·시청 3사·판매순위 5곳·
+   리뷰·검색·DLC 예약…). 버튼을 한 줄에 다 깔면 정작 차트가 안 보인다. 지표 종류로 한 번 거른다.
+   ⚠ 순서가 중요하다 — '거래순위' 는 이름에 '순위' 가 들어가지만 게임경제 쪽이라 먼저 걸러야 한다. */
+const KIND_ORDER=["플레이","시청","판매·순위","리뷰","게임경제","커뮤니티","검색","기타"];
+function topicKind(n){
+  const G=TREND.groups[n]||{};
+  if(n.includes("동접")) return "플레이";
+  if(n.includes("시청(")) return "시청";
+  if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
+  if(/디시/.test(n)) return "커뮤니티";
+  if(/순위|위시리스트/.test(n)) return "판매·순위";
+  if(n.includes("리뷰")) return "리뷰";
+  if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
+  return "기타";
+}
+let trendKind="";                             // "" = 전체
+const kindsOf=stock=>{ const seen={}, out=[];
+  topicsOf(stock).forEach(g=>{ const k=topicKind(g); if(!seen[k]){seen[k]=0;out.push(k);} seen[k]++; });
+  return out.sort((a,b)=>KIND_ORDER.indexOf(a)-KIND_ORDER.indexOf(b)).map(k=>[k,seen[k]]);
+};
+// 분류 줄을 띄울지 — 주제가 적으면 예전처럼 한 줄에 다 보여 준다(하이브 5개는 거를 게 없다)
+const KIND_MIN=8;
 /* 구간은 '최근 N일' 숫자 하나다(trendDays · null=전체). 단기30·중기90·장기전체는 그 숫자의 프리셋이고,
    슬라이더로 아무 길이나 잡는다(2026-09-04 사용자 요청: 고정 3단이 아니라 직접 조정). */
 let trendDays=(()=>{ try{ const v=localStorage.getItem("trendDays"); if(v===null) return 30; if(v==="all") return null;
@@ -4077,7 +4156,22 @@ function trendFresh(G){
 function renderTrendSegs(){
   document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
     .map(n=>`<button data-stk="${attr(n)}" class="${n===trendStock?'active':''}">${n}</button>`).join("");
-  const subs=topicsOf(trendStock), row=document.getElementById("trendTopicRow");
+  const all=topicsOf(trendStock), kinds=kindsOf(trendStock);
+  const useKind=all.length>=KIND_MIN&&kinds.length>1;
+  const krow=document.getElementById("trendKindRow");
+  if(useKind){
+    if(!trendKind||!kinds.some(k=>k[0]===trendKind)) trendKind=topicKind(trendGroup);
+    krow.style.display="";
+    document.getElementById("trendKindSeg").innerHTML=
+      `<button data-kind="" class="${trendKind?'':'active'}">전체 ${all.length}</button>`
+      +kinds.map(([k,n])=>`<button data-kind="${attr(k)}" class="${k===trendKind?'active':''}">${k} ${n}</button>`).join("");
+  }else{
+    trendKind="";
+    krow.style.display="none";
+    document.getElementById("trendKindSeg").innerHTML="";
+  }
+  const subs=(useKind&&trendKind)?all.filter(g=>topicKind(g)===trendKind):all;
+  const row=document.getElementById("trendTopicRow");
   if(subs.length>1){
     row.style.display="";
     document.getElementById("trendTopicSeg").innerHTML=subs
@@ -4135,6 +4229,15 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
+  trendKind=topicKind(trendGroup);
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
+});
+document.getElementById("trendKindSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  trendKind=b.dataset.kind;
+  // 고른 분류 안의 첫 주제로 옮긴다 — 안 그러면 주제 줄에 없는 그래프가 그려진 채로 남는다
+  const list=topicsOf(trendStock).filter(g=>!trendKind||topicKind(g)===trendKind);
+  if(list.length&&!list.includes(trendGroup)) trendGroup=list[0];
   renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
@@ -4146,6 +4249,10 @@ document.getElementById("trendTopicSeg").addEventListener("click",e=>{
 function selectTrend(stock, group){
   if(stock) trendStock=stock;
   if(group) trendGroup=group;
+  // 종목만 바꿔 부르면(하이라이트 칩) 다른 종목의 주제가 남아 주제 줄이 비어 버린다
+  const own=topicsOf(trendStock);
+  if(own.length&&!own.includes(trendGroup)) trendGroup=own[0];
+  trendKind=topicKind(trendGroup);              // 건너뛴 주제가 분류 필터에 가려지지 않게
   renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
@@ -4349,6 +4456,20 @@ function renderTrendHighlights(){
     }
     const src=(G.only==="google"||!G.naver)?"google":"naver", series=G[src]||G.naver||[], prods=G.products||[];
     let best=null;
+    /* 순위 계열은 %가 뜻이 없다 — '전일비 +481%' 는 (301−순위) 점수가 5배가 됐다는 말이라
+       사람이 읽는 순간 틀린 그림이 된다(2026-09-18: 디시 갤 순위가 그렇게 찍혔다).
+       순위는 **몇 위에서 몇 위로** 움직였는지가 전부다. */
+    if(G.rankN&&G.rawSer){
+      (G.rawSer||[]).forEach((raw,pi)=>{
+        const c=(raw||[]).filter(v=>v!=null); if(c.length<3) return;
+        const last=c[c.length-1], d=c[c.length-2]-last;          // +면 순위 상승(작아짐)
+        if(Math.abs(d)<Math.max(3, G.rankN*0.03)) return;        // 잔움직임은 뉴스가 아니다
+        const score=Math.min(120, Math.abs(d)*(G.rankN<=30?4:1))+(last<=10?25:last<=20?10:0);
+        if(!best||score>best.score) best={prod:prods[pi]||gname, rank:last, drank:d, score, freq};
+      });
+      if(best) cands.push({gname,stock,...best});
+      return;
+    }
     series.forEach((raw,pi)=>{
       const c=(raw||[]).filter(v=>v!=null); if(c.length<3) return;
       const last=c[c.length-1], prev=c[c.length-2];
@@ -4374,6 +4495,8 @@ function renderTrendHighlights(){
     top.map(c=>{
       let icon,chg,up;
       if(c.album){ icon="🚀"; up=true; chg="신보 "+(c.fmt?c.fmt(c.val):c.val.toLocaleString()); }
+      else if(c.rank!=null){ up=c.drank>0; icon=(c.rank<=10&&up)?"🚀":up?"🔥":"🧊";
+        chg=`${c.rank}위 ${up?"▲":"▼"}${Math.abs(c.drank)}`; }
       else{
         const u=U[c.freq]||U.week, useWin=c.win!=null&&Math.abs(c.win)>=Math.abs(c.wow||0);
         const v=useWin?c.win:(c.wow!=null?c.wow:null);
