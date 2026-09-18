@@ -226,6 +226,16 @@
   .fold>summary .sub{font-weight:500;color:var(--muted2)}
   .fold-b{padding:0 12px 12px}
   .fold-b>.tbl-wrap:first-child,.fold-b>.note:first-child{margin-top:0}
+  /* 트렌드 탭 곁가지 블록(지금 화제·올리브영·채용) — 접힌 줄에 요약을 같이 얹는다.
+     셋 다 종목 무관 블록이라 펼쳐 두면 정작 본문인 트렌드 차트가 화면 두 개 밑으로 밀린다
+     (2026-09-18 실측: 1440px 폭에서 차트 위 2,228px = 트렌드 탭 높이의 62%). */
+  .side-fold{margin-top:0;margin-bottom:8px}
+  .side-fold>summary{padding:9px 12px;gap:9px;flex-wrap:wrap;align-items:baseline}
+  .side-fold .sf-t{font-size:13px;font-weight:800;color:var(--text)}
+  .side-fold .sf-s{font-weight:600;color:var(--muted);font-size:11.5px;min-width:0}
+  .side-fold .sf-s b{color:var(--text)}
+  .side-fold .sf-s .cov{color:var(--accent)}
+  .side-fold>.fold-b{padding-top:10px}
 
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .note{font-size:12px;color:var(--muted);margin-top:10px}
@@ -736,7 +746,9 @@
   <!-- 트렌드 비교 -->
   <section class="view" data-view="trends">
     <h2 class="sec">트렌드 비교</h2>
-    <p class="sec-desc">종목·주제별 검색·소비 트렌드. 상대값 0–100. <b>구간</b>은 슬라이더로 최근 N일을 직접 잡거나 단기(30일)·중기(90일)·장기(전체) 프리셋으로 — 짧게 볼수록 y축을 구간 안 최대까지 확대합니다.</p>
+    <p class="sec-desc">종목·주제별 검색·소비 트렌드. <b>y축은 주제마다 다릅니다</b> — 검색은 상대지수(기간 고점=100),
+      동접·시청자·거래대금 등 실측 계열은 <b>실제 단위</b>, 앱·스토어 순위는 <b>실제 순위</b>로 눈금을 적습니다(차트 왼쪽 위에 표시).
+      <b>구간</b>은 슬라이더로 최근 N일을 직접 잡거나 단기(30일)·중기(90일)·장기(전체) 프리셋으로 — 짧게 볼수록 y축을 구간 안 최대까지 확대합니다.</p>
     <!-- 지금 화제 — 종목 분류 '전'. 아래 계열은 전부 우리가 이미 보기로 정한 것만 보여 준다.
          여기만 반대 방향이다: 한국 인터넷 전체에서 뜨는 것을 먼저 보고, 그 중 커버리지가 있으면 배지를 단다. -->
     <div id="buzzSec"></div>

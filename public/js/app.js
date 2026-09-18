@@ -1547,7 +1547,7 @@ const TREND_STOCK={
       products:its.map(it=>`${it.game} · 원/${(it.mult||1000).toLocaleString()}머니`),
       productsGoogle:its.map(it=>it.game),
       months:days.map(md), naver:norm, google:norm, rawSer:ser,
-      only:"naver", freq:"date",
+      only:"naver", freq:"date", selfNorm:true,
       unit:"원", unitShort:"원",
       srcName:"아이템매니아 게임머니 시세 · 대표서버 평균 · 100 = 각 게임 기간 최고가"
     };
@@ -1575,6 +1575,8 @@ const TREND_STOCK={
       naver:rows.map(o=>o.raw.map(v=>v==null?null:31-v)), google:rows.map(o=>o.raw.map(v=>v==null?null:31-v)),
       rawSer:rows.map(o=>o.raw), only:"naver", freq:"date",
       unit:"위", unitShort:"위",
+      // y축은 31−순위 로 그리지만 눈금·범례·표는 실제 순위여야 한다(예전엔 '최근 20' 으로 찍혔다)
+      rankN:30, fmt:v=>(v==null?"—":(31-v)+"위"),
       srcName:"아이템매니아 게임 거래순위 TOP30 · 위로 갈수록 상위 · 30위 밖은 끊김 · 거래량의 대용(절대 건수 비공개)"
     };
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
@@ -1601,7 +1603,7 @@ const TREND_STOCK={
     TREND.groups[name]={
       products:its.map(g=>g.name), productsGoogle:its.map(g=>g.name),
       months:days.map(md), naver:norm, google:norm, rawSer:raw,
-      only:"naver", freq:"date", unit:"만원/일", unitShort:"만원",
+      only:"naver", freq:"date", selfNorm:true, unit:"만원/일", unitShort:"만원",
       srcName:"게임비트 · 전 서버 분봉 거래량 합산(원화) · 거래소 M/B 합산 · 100 = 각 게임 기간 최고"
     };
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
@@ -1612,7 +1614,7 @@ const TREND_STOCK={
     TREND.groups[pname]={
       products:its.map(g=>`${g.name} · ${g.unit||""}`), productsGoogle:its.map(g=>g.name),
       months:days.map(md), naver:pnorm, google:pnorm, rawSer:praw,
-      only:"naver", freq:"date", unit:"원", unitShort:"원",
+      only:"naver", freq:"date", selfNorm:true, unit:"원", unitShort:"원",
       srcName:"게임비트 · 전 서버 종가 평균 · 100 = 각 게임 기간 최고"
     };
     TREND_STOCK[stock].push(pname);
@@ -1655,7 +1657,7 @@ const TREND_STOCK={
     TREND.groups[name]={
       products:its.map(o=>o.g.name+"갤"), productsGoogle:its.map(o=>o.g.name),
       months:days.map(md), naver:norm, google:norm, rawSer:raw,
-      only:"naver", freq:"date", unit:"글/일", unitShort:"글",
+      only:"naver", freq:"date", selfNorm:true, unit:"글/일", unitShort:"글",
       srcName:"디시인사이드 갤러리 글번호 차분 · 과거는 페이지 샘플 보간(구간 평균) · 100 = 각 갤 기간 최고"
     };
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
@@ -1756,7 +1758,7 @@ const TREND_STOCK={
     TREND.groups[name]={
       products:lbl, productsGoogle:lbl,
       months:days.map(mm), naver:ser, google:ser, rawSer:rows.map(r=>r.raw),
-      only:"naver", freq:"date", unitShort:"위", srcName:note,
+      only:"naver", freq:"date", unitShort:"위", srcName:note, rankN:100,
       // 차트는 101-순위 로 뒤집어 그리지만, 범례·표에는 실제 순위를 적는다.
       fmt:v=>(v==null?"—":(101-v)+"위")
     };
@@ -1910,7 +1912,7 @@ const TREND_STOCK={
       TREND.groups[name]={
         products:[a.label], productsGoogle:[a.label],
         months:hp.map(dlab), naver:[hp.map(x=>x.pop)], google:[hp.map(x=>x.pop)],
-        only:"naver", freq:"date",
+        only:"naver", freq:"date", abs100:"인기도 0~100(Spotify 자체 절대 지표)",
         srcName:"Spotify 인기도(0~100, 최근 스트리밍)",
         reviewNote:folTxt(last.fol||0)+rel+tt
       };
@@ -1976,8 +1978,10 @@ function injectCompanyStack(items, opt){
     TREND.groups[name]={
       products:[g.stock], productsGoogle:[g.stock],
       months:hp.map(dlab), naver:[score], google:[score],
+      // rawSer·fmt 가 없어 범례·툴팁·표에 점수(101−순위)가 그대로 찍혔다 — '최근 87' 은 실제로 14위다.
+      rawSer:[hp.map(x=>x.gr)], unitShort:"위", rankN:100, fmt:v=>(v==null?"—":(101-v)+"위"),
       only:"naver", freq:"date",
-      srcName:"Apple 앱스토어 게임 매출순위(101−순위 점수 · 무료 API 없어 구글 제외)",
+      srcName:"Apple 앱스토어 게임 매출순위(차트는 101−순위로 뒤집어 그리고 축·표는 실제 순위 · 무료 API 없어 구글 제외)",
       reviewNote:`매출 ${last.gr}위${fr}${t}`
     };
     (TREND_STOCK[g.stock]=TREND_STOCK[g.stock]||[]).push(name);
@@ -2018,6 +2022,7 @@ function injectCompanyStack(items, opt){
       products:its.map(i=>REG[i.region]||i.region), productsGoogle:its.map(i=>REG[i.region]||i.region),
       months:days.map(md), naver:ser, google:ser, rawSer:raw,
       only:"naver", freq:"date", unitShort:"위", srcName:SRC[src][1]+` · 목록 ${n}개`,
+      rankN:n, rankOf:v=>n+1-v*n/100,
       fmt:v=>(v==null?"—":Math.round(n+1-v*n/100)+"위"),
       reviewNote:`최근 ${last}`
     };
@@ -2121,7 +2126,7 @@ const topicsOf=n=>{
     const name=`${it.label} 수출`;
     TREND.groups[name]={
       products, productsGoogle:products, months:M.slice(0,last+1).map(mm),
-      naver:ser, google:ser, rawSer:raw, only:"naver", freq:"month",
+      naver:ser, google:ser, rawSer:raw, only:"naver", freq:"month", selfNorm:true,
       unit:"만달러(월)", unitShort:"만달러",
       srcName:`관세청 시군구별 수출(HS ${Array.isArray(it.hs)?it.hs.join("+"):it.hs}) · 100 = 각 계열 기간 최고 · `+(it.note||""),
       reviewNote:note
@@ -2283,7 +2288,8 @@ function drawTrend(){
     fillTrendLegendTable(G, PRODUCTS, series, M, U);
     return;
   }
-  const W=box.clientWidth||1000, H=360, pad={l:44,r:70,t:16,b:36};
+  const A=yAxisInfo(G);                       // 이 그룹의 y축 정체(지수·실측·순위)
+  const W=box.clientWidth||1000, H=360, pad={l:A.pad,r:70,t:26,b:36};
   // 점이 하나뿐인 계열(수집 첫날의 앱순위 등)은 M.length-1 == 0 이라 0/0 = NaN 이 된다.
   // 그러면 <polyline points="NaN,.."> 로 SVG 가 통째로 깨진다. 그땐 가운데에 점 하나만 찍는다.
   const sx=i=>M.length<2?pad.l+(W-pad.l-pad.r)/2:pad.l+i/(M.length-1)*(W-pad.l-pad.r);
@@ -2292,9 +2298,11 @@ function drawTrend(){
   const ymax=trendYmax(series);
   const sy=v=>H-pad.b-(v/ymax)*(H-pad.t-pad.b);
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
-  for(let g=0;g<=4;g++){const v=ymax*g/4;const y=sy(v);
+  // 축 캡션 — 주제마다 y축이 다르므로 차트 안에 정체를 적는다(범례까지 내려가 읽지 않아도 되게)
+  s+=`<text x="2" y="12" font-size="10.5" font-weight="700" fill="${mut}">${A.cap}</text>`;
+  A.ticks(ymax).forEach(t=>{ const y=sy(t.v);
     s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
-    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${Number.isInteger(v)?v:v.toFixed(1)}</text>`;}
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${t.label}</text>`;});
   const step=Math.max(1,Math.ceil(M.length/12));   // 라벨이 빽빽하면 솎아낸다(일별 대응)
   M.forEach((m,i)=>{ if(i%step===0 || i===M.length-1) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
   series.forEach((ser,pi)=>{
@@ -2338,6 +2346,67 @@ function trendPath(ser,sx,sy){
 function trendYmax(series){
   const vmax=Math.max(0,...series.flatMap(a=>(a||[]).filter(v=>v!=null)));
   return vmax>=90?100:Math.max(10, Math.ceil(vmax/10)*10);
+}
+/* ══════════ y축이 무엇인가 (2026-09-18) ═══════════════════════════════════
+   이 탭 이름은 '트렌드 비교' 지만 검색 트렌드만 있는 게 아니다. 동접·시청자·순위·
+   거래대금·수출금액이 같은 차트를 쓴다. 그런데 범례는 전부 '상대값 0–100' 이라고 적고 있었고,
+   실제로는 셋 다 틀렸다:
+     ① 순위 계열은 축이 0–30(31−순위)·0–100(101−순위)이라 지수가 아니다. 범례엔 '최근 20'
+        처럼 뒤집힌 점수가 그대로 찍혔다(실제 11위).
+     ② peak 를 아는 계열(동접·시청자·리뷰·채용…)은 축 눈금을 실제 단위로 적을 수 있는데
+        지수로만 보여 줘서, 크기를 알려면 각주를 읽어야 했다.
+     ③ 계열마다 자기 최고=100 으로 따로 정규화한 그룹(게임머니·거래대금·수출 지역/전국)은
+        겹쳐 그려 놓고 '0–100' 이라고만 적어, 선 높이를 비교해도 되는 것처럼 읽혔다.
+   그래서 축의 정체를 그룹마다 여기 한 곳에서 정하고 눈금·차트 캡션·범례가 같이 쓴다.
+   새 계열을 만들 때 축이 지수가 아니면 rankN(순위) · peak(실측) · selfNorm(계열별 지수) 중
+   하나를 반드시 달 것. */
+function shortUnit(G){
+  return G.unitShort || String(G.unit||"").replace(/\s*\([^)]*\)\s*/g,"").trim() || "";
+}
+function nAbbr(v){
+  const a=Math.abs(v);
+  if(a>=1e8) return (v/1e8).toFixed(a>=1e9?0:1)+"억";
+  if(a>=1e4) return (v/1e4).toFixed(a>=1e5?0:1)+"만";
+  if(a>=1000) return Math.round(v).toLocaleString("ko-KR");
+  return (Math.round(v*10)/10).toLocaleString("ko-KR");
+}
+const evenTicks=(ymax,fn)=>[0,1,2,3,4].map(g=>({v:ymax*g/4, label:fn(ymax*g/4)}));
+function yAxisInfo(G){
+  G=G||{};
+  // ① 순위 — 위로 갈수록 상위가 되게 뒤집어 그리지만 눈금은 실제 순위로 적는다.
+  //    눈금을 축에서 등분하면 '23.5위' 가 나오므로 순위 쪽에서 만들어 되돌린다(역함수는 선형).
+  if(G.rankN){
+    const n=G.rankN, of=G.rankOf||(v=>n+1-v), a=of(0), b=of(100);
+    const inv=r=>(b===a)?0:(r-a)/(b-a)*100;
+    return {kind:"rank", cap:`실제 순위 · 위쪽이 상위(목록 ${n}위)`, pad:54,
+      ticks:ymax=>{
+        // 눈금 간격은 '지금 보이는 순위 폭'으로 정한다 — 목록 크기로 고정하면
+        // 60~80위에 머무는 계열(Steam 100위 목록)에 선이 두 개만 그어진다.
+        const rTop=Math.max(1,Math.ceil(of(ymax))), rBot=Math.min(n,Math.floor(of(0)));
+        const span=Math.max(1,rBot-rTop);
+        const step=[1,2,5,10,20,25,50,100,200].find(c=>span/c<=5)||500;
+        const out=[];
+        for(let r=1;r<=n;r+=step){ if(r<rTop-0.01||r>rBot+0.01) continue;
+          const v=inv(r); if(v>=-0.01&&v<=ymax+0.01) out.push({v,label:r+"위"}); }
+        return out.length>=2?out:evenTicks(ymax,v=>Math.round(of(v))+"위"); }};
+  }
+  // ②-0 누적 막대(스택)는 축이 실제 수치다 — 그리는 쪽(drawTrendStack)이 따로 축을 만들지만
+  //     범례·판정이 이걸 물어볼 때 '지수'라고 답하면 안 된다.
+  if(G.stack) return {kind:"abs", cap:`실측 ${G.unit||""}`.trim(), pad:70,
+    ticks:ymax=>evenTicks(ymax,v=>nAbbr(v))};
+  // ② 계열마다 자기 최고=100 — 선 높이끼리 비교하면 안 되는 그룹. 그 사실을 축에 적는다.
+  if(G.selfNorm) return {kind:"self", cap:"계열별 지수 — 각 계열 자기 최고=100(선 높이끼리 비교 불가)", pad:44,
+    ticks:ymax=>evenTicks(ymax,v=>String(Math.round(v)))};
+  // ③ 원래부터 0~100 인 절대 지표(Spotify 인기도)
+  if(G.abs100) return {kind:"abs0", cap:G.abs100, pad:44,
+    ticks:ymax=>evenTicks(ymax,v=>String(Math.round(v)))};
+  // ④ peak 를 아는 실측 계열 — 눈금을 실제 단위(명·건·개/일…)로 되돌린다.
+  if(G.peak){ const u=shortUnit(G);
+    return {kind:"abs", cap:G.unit||u||"실측값", pad:62,
+      ticks:ymax=>evenTicks(ymax,v=>nAbbr(v*G.peak/100)+u)}; }
+  // ⑤ 나머지 = 검색 트렌드 지수
+  return {kind:"idx", cap:"검색지수 · 기간 고점=100", pad:44,
+    ticks:ymax=>evenTicks(ymax,v=>Number.isInteger(v)?String(v):v.toFixed(1))};
 }
 function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
   const W=300, H=110, pad={l:6,r:6,t:10,b:16};
@@ -2430,8 +2499,10 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
         <small>최근 ${F(cur)}${momTxt}</small></div>`;
     }).join("")+(function(){
       // 구간을 잘라 보는 중이면 그 사실을 적는다 — 100 은 '전체 기간 고점'이지 이 구간 고점이 아니다
-      const P=G._win, ym=G.stack?100:trendYmax(series);
-      const wn=(P&&P.n<P.total)?` · <b>${P.name} · ${P.label}</b>(전체 ${P.total}${FREQ_UNIT[P.freq]} 중)${ym<100?` · y축 ${ym}까지 확대(전체 고점=100)`:""}`:"";
+      const P=G._win, ym=G.stack?100:trendYmax(series), A=yAxisInfo(G);
+      // 지수 축일 때만 '전체 고점=100' 이 뜻이 있다. 실측·순위 축은 눈금 자체가 단위라 그 문구가 오히려 헷갈린다.
+      const zoom=ym<100?(A.kind==="idx"||A.kind==="self"?` · y축 ${ym}까지 확대(전체 고점=100)`:" · y축 구간 안 최대까지 확대"):"";
+      const wn=(P&&P.n<P.total)?` · <b>${P.name} · ${P.label}</b>(전체 ${P.total}${FREQ_UNIT[P.freq]} 중)${zoom}`:"";
       if(G.stack){
         const rv=G.reviewNote?` · ${G.reviewNote}`:"";
         return `<div class="li" style="margin-left:auto"><small>출처: ${G.srcName||"써클차트"} · 색 = 소속 아티스트(막대=회사 합계) · 단위 ${G.unit||"장"}${rv}${wn}</small></div>`;
@@ -2449,10 +2520,11 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
         : only1 ? `${only1}(${gGeo})`
         : (trendSrc==='naver'?'네이버 데이터랩(국내)':`구글 트렌드(${gGeo})`);
       const solo=(G.only&&!G.srcName)?` · 이 주제는 ${src} 만 유효해 출처 전환 없음`:"";
-      // 얀덱스·Steam 은 절대값이라 100 이 얼마인지 밝혀야 크기 감각이 산다
-      const pk=G.peak?` · 100 = ${G.unit?"":"주당 "}${fmt0(G.peak)}${G.unit||"건"}`:"";
+      // 얀덱스·Steam 은 절대값이라 100 이 얼마인지 밝혀야 크기 감각이 산다.
+      // 축 눈금을 이미 실제 단위로 적는 그룹(kind==="abs")은 같은 말을 두 번 하지 않는다.
+      const pk=(G.peak&&A.kind!=="abs")?` · 100 = ${G.unit?"":"주당 "}${fmt0(G.peak)}${G.unit||"건"}`:"";
       const rv=G.reviewNote?` · ${G.reviewNote}`:"";
-      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} 상대값 0–100${pk} · 진행 중인 ${U.p} 제외${rv}${solo}${wn}</small></div>`;
+      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} · y축 ${A.cap}${pk} · 진행 중인 ${U.p} 제외${rv}${solo}${wn}</small></div>`;
     })();
   // table — 표시 단위에 맞춰 라벨/기준 전환
   const back=U.n, uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
@@ -4362,6 +4434,24 @@ function buzzSpark(hist, W, H){
 /* 사전은 국내 상장(코스피·코스닥)만 담는다 — 해외는 2026-09-08 에 걷어냈다.
    그래서 시장 이름을 굳이 쓰지 않고 코드만 적는다(표가 훨씬 조용해진다). */
 const BZ_SRC={gt:["구글","var(--up)"], nate:["네이트","var(--good)"], namu:["나무","var(--muted)"]};
+/* ══════════ 트렌드 탭 곁가지 블록 접기 (2026-09-18) ═══════════════════════
+   지금 화제·올리브영 베스트·채용 공고 셋은 전부 **종목 무관** 블록인데 트렌드 탭 맨 위에
+   펼쳐져 있었다. 실측(1440px): 지금화제 632 + 올리브영 353 + 채용 1,169 = 2,228px —
+   정작 이 탭의 본문인 트렌드 차트가 탭 높이의 62% 아래로 밀려 있었다.
+   지우지는 않는다(다 쓰는 신호다). 대신 **한 줄 요약 + 접기**로 바꿔 차트를 첫 화면에 올린다.
+   요약 줄에 핵심 수치를 얹어 접힌 채로도 읽히게 하고, 펼침 여부는 사람마다 다르니 기억한다. */
+function sideFold(key, title, sumHtml, bodyHtml){
+  let open=false; try{ open=localStorage.getItem("fold_"+key)==="1"; }catch(_){}
+  return `<details class="fold side-fold" data-fold="${key}"${open?" open":""}>`
+    + `<summary><span class="sf-t">${title}</span><span class="sf-s">${sumHtml}</span></summary>`
+    + `<div class="fold-b">${bodyHtml}</div></details>`;
+}
+// toggle 은 버블링하지 않는다 — 캡처 단계로 받는다. 블록은 종목을 바꿀 때마다 다시 그려지므로
+// 열림 상태를 localStorage 에 남겨야 펼쳐 둔 것이 도로 접히지 않는다.
+document.addEventListener("toggle", e=>{
+  const d=e.target; if(!d||!d.dataset||!d.dataset.fold) return;
+  try{ localStorage.setItem("fold_"+d.dataset.fold, d.open?"1":"0"); }catch(_){}
+}, true);
 function renderBuzz(){
   const box=document.getElementById("buzzSec"); if(!box) return;
   const B=(typeof BUZZ!=="undefined")?BUZZ:null;
@@ -4458,8 +4548,15 @@ function renderBuzz(){
         <div class="buzz-l">${(D.top||[]).map(t=>plain("https://gall.dcinside.com/mgallery/board/lists/?id="+encodeURIComponent(t.id),t.r,t.name,arrow(t))).join("")}</div></div>`:"")
     + `</div>`;
 
-  box.innerHTML = `
-    <div class="sub-h">지금 화제 <span class="th-sub">상장사로 걸린 것만 · 커버리지 ${covN}종목 + 그 밖 ${rows.length-covN}종목 · 갱신 ${fmtUpd(B.asOf)||"—"}</span></div>
+  // 접힌 줄 요약 — 커버리지 종목 중 가장 뜨거운 것부터 몇 개. 지금 고른 종목은 맨 앞으로 끌어온다.
+  const sumRows=rows.filter(r=>r.co[3]).slice().sort((a,b)=>((b.co[0]===trendStock)-(a.co[0]===trendStock))||(hot(a)-hot(b)));
+  const sumTxt=sumRows.slice(0,4).map(o=>{
+    const it=o.items.slice().sort((a,b)=>((a.r==null?9999:a.r)-(b.r==null?9999:b.r)))[0];
+    return `<b class="${o.co[0]===trendStock?"cov":""}">${attr(o.co[0])}</b> ${attr(it.label)}${it&&it.r!=null?` ${it.r}위`:""}`;
+  }).join(" · ");
+  box.innerHTML = sideFold("buzz","지금 화제",
+    `커버리지 <b>${covN}</b>종목 · 그 밖 ${rows.length-covN}${sumTxt?` — ${sumTxt}`:""}`,
+    `<p class="note" style="margin:0 0 10px">한국 인터넷에서 지금 뜨는 것 중 <b>상장사로 걸린 것만</b> · 갱신 ${fmtUpd(B.asOf)||"—"}</p>
     <div class="buzz-c" style="margin-bottom:10px">${listedHtml}</div>
     <details class="fold" style="margin-bottom:16px">
       <summary>원본 목록 <span class="sub">구글 급상승 · 네이트 · 나무위키 · 디시 흥한갤 상위 20</span></summary>
@@ -4468,7 +4565,7 @@ function renderBuzz(){
           검색어 셋 중 <b>규모가 붙는 건 구글뿐</b>이고(2000+·500+), 나머지는 순위만이라 1위가 얼마나 큰지는 알 수 없습니다.
           디시 순위는 <b>글 수(양)</b>가 아니라 <b>전체 마이너갤 대비 상대 온도</b>입니다.</p>
       </div>
-    </details>`;
+    </details>`);
 }
 /* ⚠ 종목별로 접으려다 되돌렸다 — 아모레퍼시픽·LG생활건강·실리콘투·한국콜마·코스맥스가
    TREND_STOCKS(검색 트렌드가 있는 종목)에 없어서, 정작 가장 관련 있는 종목에서 섹션이 영영 안 떴다.
@@ -4496,8 +4593,14 @@ function renderOliveYoung(){
   const pct=IL?IL.c/(IL.n||100)*100:null, dp=(IL&&IP)?pct-IP.c/(IP.n||100)*100:null;
   const stockOfBrand={}; (O.brands||[]).forEach(g=>{ stockOfBrand[g.brand]=g.stock; });
 
-  sec.innerHTML=`
-    <div class="sub-h">올리브영 베스트 <span class="th-sub">국내 H&amp;B 1위 채널 판매순 ${fmt0(O.n||100)}위 · ${attr(O.d||"")} 기준 · 갱신 ${fmtUpd(B.asOf)||"—"}</span></div>
+  // 접힌 줄 요약 — 최고 순위 브랜드 몇 개 + 인디 비중(실리콘투·콜마·코스맥스 대리지표)
+  const sumTxt=rows.filter(r=>r.best!=null).slice(0,3).map(r=>{
+    const b=r.bs.find(x=>x.L.b===r.best);
+    return `<b class="${r.st===trendStock?"cov":""}">${attr(r.st)}</b> ${attr(b?b.brand:"")} ${r.best}위`;
+  }).join(" · ");
+  sec.innerHTML=sideFold("oy","올리브영 베스트",
+    `커버리지 브랜드 <b>${rows.reduce((a,r)=>a+r.cnt,0)}</b>개 진입${sumTxt?` — ${sumTxt}`:""}${pct==null?"":` · 인디 <b>${pct.toFixed(0)}%</b>`}`,
+    `<p class="note" style="margin:0 0 10px">국내 H&amp;B 1위 채널 판매순 ${fmt0(O.n||100)}위 · ${attr(O.d||"")} 기준 · 갱신 ${fmtUpd(B.asOf)||"—"}</p>
     <div class="buzz">
       <div class="buzz-c">
         <div class="buzz-h">커버리지 브랜드<span class="s">브랜드가 100위 안에 몇 개 올려 뒀나 · 괄호는 최고 순위</span></div>
@@ -4529,7 +4632,7 @@ function renderOliveYoung(){
     <p class="note" style="margin:-8px 0 14px">기획전·증정 때문에 <b>개별 상품 순위는 하루 단위로 크게 흔들립니다</b> —
       그래서 지표는 브랜드의 <b>노출 수</b>와 <b>최고 순위</b>입니다.
       <b>실리콘투(유통)·한국콜마/코스맥스(ODM)는 자기 브랜드가 없어 직접 매칭이 원리적으로 불가능</b>합니다.
-      인디 비중이 그들의 대리지표이며, 인디 브랜드가 모두 이 회사들의 고객인 것은 아닙니다.</p>`;
+      인디 비중이 그들의 대리지표이며, 인디 브랜드가 모두 이 회사들의 고객인 것은 아닙니다.</p>`);
 }
 /* ══════════ 채용 공고 (JOBS) — 생산 확대의 선행 신호 ═══════════════════════
    공장이 생산직·검사원·지게차를 뽑는다는 건 **이미 물량이 잡혔다**는 뜻이다. 캐펙스는 공시가
@@ -4587,8 +4690,13 @@ function renderJobs(){
   const coldHtml=cold.length?`<details class="fold" style="margin-top:8px"><summary>현장직 없는 종목 <span class="sub">${cold.length}개 · 사무직만 ${cold.filter(r=>!r.big).length} · 자사 채용 사이트 전용(대기업) ${cold.filter(r=>r.big).length}</span></summary>
     <div class="fold-b"><table class="buzz-t"><tbody>${cold.map(rowHtml).join("")}</tbody></table></div></details>`:"";
 
-  sec.innerHTML=`
-    <div class="sub-h">채용 공고 <span class="th-sub">사람인 · 회사명 정확일치 · 현장직 = 생산·품질·설비·물류 태그 · 갱신 ${fmtUpd(J.asOf)||"—"}</span></div>
+  // 접힌 줄 요약 — 현장직이 많은 종목부터 몇 개(선택 종목 우선). 표는 펼쳐야 나온다.
+  const sumTxt=hot.slice().sort((a,b)=>((b.stock===trendStock)-(a.stock===trendStock))||((b.L.p||0)-(a.L.p||0)))
+    .slice(0,4).map(r=>`<b class="${r.stock===trendStock?"cov":""}">${attr(r.stock)}</b> ${r.L.p}${(()=>{const d=(r.P&&r.P.p!=null)?r.L.p-r.P.p:0;
+      return d?` <span style="color:var(--${d>0?"up":"down"})">${d>0?"+":""}${d}</span>`:"";})()}`).join(" · ");
+  sec.innerHTML=sideFold("jobs","채용 공고(현장직)",
+    `<b>${withPlant}</b>종목 · 현장직 <b>${pl}</b>건 / 총 ${tot}건${sumTxt?` — ${sumTxt}`:""}`,
+    `<p class="note" style="margin:0 0 10px">사람인 · 회사명 정확일치 · 현장직 = 생산·품질·설비·물류 태그 · 갱신 ${fmtUpd(J.asOf)||"—"}</p>
     <div class="buzz-c" style="margin-bottom:10px">
       <div class="buzz-h">현장직 채용 중인 종목 <b style="color:var(--accent)">${withPlant}</b><span class="s">공고 ${tot}건 중 현장직 ${pl}건 · 지역이 곧 공장이다 · 선택 종목은 강조</span></div>
       <div style="overflow-x:auto"><table class="buzz-t">
@@ -4597,7 +4705,7 @@ function renderJobs(){
       ${coldHtml}
     </div>
     <p class="note" style="margin:-8px 0 14px">공장이 생산직·검사원을 뽑는다는 건 <b>이미 물량이 잡혔다</b>는 뜻입니다 — 캐펙스 공시는 분기 뒤에 나옵니다.
-      <b>대기업은 자사 채용 사이트만 써서 0이 정상</b>입니다('채용 안 함'이 아니라 '이 소스에 안 올림'). 신규·추이는 2일차부터 생깁니다.</p>`;
+      <b>대기업은 자사 채용 사이트만 써서 0이 정상</b>입니다('채용 안 함'이 아니라 '이 소스에 안 올림'). 신규·추이는 2일차부터 생깁니다.</p>`);
 }
 /* 종목별 '현장직 공고 수'를 트렌드 계열로 편입 — 며칠 쌓이면 뜬다. 삼양식품·한국콜마·코스맥스처럼
    검색 트렌드 그룹이 없던 종목이 이걸로 트렌드 탭 종목 목록에 들어온다. */
