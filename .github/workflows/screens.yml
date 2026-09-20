@@ -20,16 +20,20 @@ name: 스크린 배정·예매 추적
 #   cron 도 그대로 둔다. 워커가 죽은 날의 최후 보루다.
 #   둘이 겹쳐 떠도 fetch_screens.py 가 '직전 수집이 45분 안이면 건너뜀'으로 스스로 거른다.
 
+# ⏸ 2026-09-21 자동 실행 중단 — 손으로 부를 때만 돈다.
+#   왜: 하츄핑2(8/5 개봉)가 꼬리 구간이라 남은 배정이 롯데 단독 70여 관뿐인데,
+#       3사 순회는 회당 20~30분이다. 게다가 CGV 가 9/13 이후 러너에서 403 이라
+#       (같은 요청이 한국 가정용 IP 에선 200) 예매석의 55~60% 를 차지하는 체인이
+#       빠진 반쪽 숫자를 계속 쌓고 있었다.
+#   되살리는 법: 아래 schedule·workflow_run 주석을 풀고 watchdog.py 의 LIMITS 두 줄,
+#       refresh.yml·events.yml 의 영화 스텝을 되돌린다. 자세한 건 영화수집_방식.md.
 on:
-  schedule:
-    # 2026-08-07: 저장소 공개(Actions 무제한)로 '주중 4시간마다 3사 전수'로 올렸다.
-    # 08·12·16 은 매시간 도는 시세(refresh.yml) 뒤에 얹혀 돈다(아래 workflow_run + gate).
-    # 시세는 평일 08~18 만 도므로 20시(장 끝난 저녁)는 트리거가 없다 → cron 으로 받는다.
-    - cron: "0 23 * * *"      # KST 08:00 목표. 워커가 죽은 날의 백업(밀릴 것 전제)
-    - cron: "0 11 * * 1-5"    # KST 20:00 목표. 평일 저녁 전수(시세가 안 도는 시각이라 cron)
-  workflow_run:
-    workflows: ["시세 자동 갱신"]
-    types: [completed]
+  # schedule:
+  #   - cron: "0 23 * * *"      # KST 08:00 목표. 워커가 죽은 날의 백업(밀릴 것 전제)
+  #   - cron: "0 11 * * 1-5"    # KST 20:00 목표. 평일 저녁 전수(시세가 안 도는 시각이라 cron)
+  # workflow_run:
+  #   workflows: ["시세 자동 갱신"]
+  #   types: [completed]
   workflow_dispatch:
     inputs:
       full:

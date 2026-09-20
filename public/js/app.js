@@ -235,7 +235,9 @@ function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2
 /* 블록별 허용 지연(시간). **원본은 watchdog.py 의 LIMITS 다** — 여기 값이 그것과
    어긋나면 precheck.py 가 실패시킨다(등록처를 둘로 쪼개면 반드시 갈라지기 때문).
    새 데이터 블록을 넣을 때는 watchdog.LIMITS 와 여기를 같이 고칠 것. */
-const STALE_H = {LIVE:30, NEWS:30, MOVIE:10, TRADE:960, AMAZON:72};
+// MOVIE 는 2026-09-21 수집을 멈춰 뺐다 — 두면 그날부터 영영 "N일째 갱신 없음"(고장 신호)이
+// 붙는다. 멈춘 건 고장이 아니라 결정이라, 섹션 제목에 "수집 중단"으로 따로 적는다.
+const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72};
 
 function ageHours(a){
   const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
@@ -3937,8 +3939,12 @@ ${md(p)}(${wdOf(p)}) · 예매 ${fmt0(v.seatSold)}석 / 좌석 ${fmt0(v.seatTot)
     <p class="note"><b>좌석 판매율</b> = 그 상영일에 팔린 좌석 ÷ 걸린 좌석. 위 예매 패널의 <b>KOBIS 예매율</b>(전체 영화 중 이 영화 몫)과는 다른 지표입니다.
     오늘 날짜는 끝난 회차가 스케줄에서 빠지므로 그날 관측된 <b>최댓값</b>을 씁니다(저녁에 판매율이 부풀지 않도록).
     3사 합계는 KOBIS 전국 예매관객의 <b>89%</b>로 3사 점유율과 맞습니다 — 독립·소형관(~10%)은 예매 API 가 없어 미포함이라 KOBIS 확정 스크린수보다 적게 잡힙니다.</p>
+    <p class="note"><b style="color:var(--warn)">2026-09-21 수집을 멈췄습니다.</b> 마지막 3주치는 3사 합산이 아닙니다 —
+    메가박스는 8/30 이후 이 영화를 내렸고(미편성), CGV 는 9/13 이후 수집 서버에서 403 이라 빠졌습니다.
+    CGV 가 예매석의 55~60% 를 차지하므로 <b>9/13 이후 값은 롯데 단독의 하한</b>이고, 그 앞 구간과 크기를 견주면 안 됩니다.</p>
     </div></details>
-  <p class="note" style="margin-top:8px;text-align:right">갱신 ${SC.asOf}</p>`;
+  <p class="note" style="margin-top:8px;text-align:right">
+    <span style="color:var(--warn)">수집 중단(보관 기록)</span> · 마지막 ${SC.asOf}</p>`;
   el.innerHTML=h;
 }
 
@@ -3978,8 +3984,10 @@ function renderMovie(){
     sec.style.display="";
     const t=document.getElementById("movieSecTitle");
     // 탭 헤더의 '업데이트 …' 를 대신한다 — 이 섹션만 주기가 다르므로(KOBIS 는 2시간마다) 여기 적는다.
-    if(t) t.innerHTML=`극장 흥행 <span class="th-sub">KOBIS 일별 관객 · 갱신 ${fmtUpd((M||{}).asOf)||"—"}`
-      + (staleNote("MOVIE",(M||{}).asOf)?` <span style="color:var(--warn)">${staleNote("MOVIE",(M||{}).asOf)}</span>`:"")+`</span>`;
+    // 2026-09-21 수집 중단. 남은 값은 하츄핑2(8/5 개봉) 흥행의 보관 기록이다.
+    // 되살릴 땐 STALE_H 에 MOVIE:10 을 되돌리고 이 줄도 원래의 staleNote 판정으로.
+    if(t) t.innerHTML=`극장 흥행 <span class="th-sub">KOBIS 일별 관객 · ${fmtUpd((M||{}).asOf)||"—"}까지`
+      + ` <span style="color:var(--warn)">· 수집 중단(보관 기록)</span></span>`;
     // 개봉 전 지표(예매·스크린)는 개봉 전에만 펼친 채로 둔다. 개봉 후엔 접어서 관객 추이가 본문이 되게.
     const pre=document.getElementById("moviePre");
     if(pre && !pre.dataset.set){ pre.dataset.set="1";

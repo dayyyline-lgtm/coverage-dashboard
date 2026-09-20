@@ -891,7 +891,18 @@ def build(html, alerts_only=False):
         out.append("<b>📅 임박 일정</b> <i>(📊 실적 · 🎤 IR)</i>\n" + "\n".join(lines))
 
     # 예매 — 개봉 전 유일한 실시간 지표. 여러 편이면 한 섹션에 묶는다.
-    bk = [(nm, p) for nm, p in (mv.get("booking") or {}).items() if p]
+    #
+    # ⚠ 굳은 값은 싣지 않는다 (2026-09-21).
+    #   영화 수집을 멈추면 booking 의 마지막 점이 그 자리에 그대로 남는다. 그런데 이
+    #   섹션은 날짜를 안 적고 '예매율 12%' 라고만 쓰므로, 멈춘 뒤로도 매일 아침
+    #   같은 숫자가 오늘 값인 척 나간다. 이틀 넘은 점은 통째로 뺀다 —
+    #   수집을 되살리면 다음 날부터 저절로 다시 붙는다.
+    def _fresh(pts):
+        try:
+            return (today - datetime.date.fromisoformat(pts[-1]["d"])).days <= 2
+        except (KeyError, ValueError, IndexError):
+            return False
+    bk = [(nm, p) for nm, p in (mv.get("booking") or {}).items() if p and _fresh(p)]
     if bk:
         lines = []
         for nm, ptsB in bk:
