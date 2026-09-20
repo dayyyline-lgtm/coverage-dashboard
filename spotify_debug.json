@@ -1,5 +1,5 @@
 {
- "asOf": "2026-09-21 05:06 KST",
+ "asOf": "2026-09-21 05:40 KST",
  "token_ok": true,
  "zero_count": 26,
  "total": 26,
@@ -278,8 +278,22 @@
    "aid": "2jOm3cYujQx6o1dxuiuqaX",
    "fol": null,
    "pop": null,
-   "err": "URLError: <urlopen error [Errno 104] Connection reset by peer>",
-   "raw": null
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
   },
   {
    "label": "엔시티드림",
@@ -330,8 +344,22 @@
    "aid": "1z4g3DjTBBZKhvAroFlhOM",
    "fol": null,
    "pop": null,
-   "err": "URLError: <urlopen error [Errno 104] Connection reset by peer>",
-   "raw": null
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
   },
   {
    "label": "엑소",
@@ -426,16 +454,44 @@
    "aid": "28ot3wh4oNmoFOdVajibBl",
    "fol": null,
    "pop": null,
-   "err": "URLError: <urlopen error [Errno 104] Connection reset by peer>",
-   "raw": null
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
   },
   {
    "label": "블랙핑크",
    "aid": "41MozSoPIsD1dJM0CLPjZF",
    "fol": null,
    "pop": null,
-   "err": "URLError: <urlopen error [Errno 104] Connection reset by peer>",
-   "raw": null
+   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
+   "raw": {
+    "has_followers": false,
+    "followers_total": null,
+    "has_popularity": false,
+    "popularity": null,
+    "keys": [
+     "external_urls",
+     "href",
+     "id",
+     "images",
+     "name",
+     "type",
+     "uri"
+    ]
+   }
   },
   {
    "label": "베이비몬스터",
