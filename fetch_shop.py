@@ -43,8 +43,16 @@ TARGETS = [
     # 얀덱스 검색에선 또봇이 1위인데 국내 네이버에선 3위다(시장마다 순위가 뒤집힌다).
     {"stock": "SAMG엔터", "label": "또봇",     "wb": "Тобот",        "comp": "영실업"},
     {"stock": "SAMG엔터", "label": "헬로카봇", "wb": "Хелло Карбот", "comp": "초이락"},
-    {"stock": "에이피알",   "label": "메디큐브",  "rk": "メディキューブ"},
-    {"stock": "달바글로벌", "label": "달바",      "rk": "d'Alba"},
+    # 러시아 K-뷰티 (2026-09-21 추가) — 달바는 러시아가 실질 시장인데 지금까지 일본(라쿠텐)만 봤다.
+    # 와일드베리즈 실측: 달바 리뷰 25,552 > 라운드랩 18,761 > 코스알엑스 3,586 > 라네즈 3,161
+    #   > 메디큐브 454 — K-뷰티 중 리뷰 1위다.
+    # ⚠ 얀덱스 검색과 순위가 정반대다(검색은 메디큐브가 달바의 3배). 리뷰는 누적 판매(스톡),
+    #   검색은 지금 관심(유량)이라 어긋나는 게 정상이다. 둘을 같은 축에서 읽지 말 것.
+    # ⚠ 'sort=popular' 상위 100개의 리뷰합이지 브랜드 전량이 아니다. 같은 잣대로 매주 재는 데 의미가 있다.
+    {"stock": "에이피알",   "label": "메디큐브",  "rk": "メディキューブ", "wb": "medicube"},
+    {"stock": "달바글로벌", "label": "달바",      "rk": "d'Alba",        "wb": "dalba"},
+    {"stock": "달바글로벌", "label": "라운드랩",  "wb": "round lab",  "comp": "비상장"},
+    {"stock": "달바글로벌", "label": "코스알엑스", "wb": "cosrx",      "comp": "비상장"},
     {"stock": "파마리서치", "label": "리쥬란",    "rk": "リジュラン"},
 ]
 
@@ -56,9 +64,20 @@ def getj(url, timeout=25):
 
 def fetch_wb(query):
     """와일드베리즈 — 상품 수 · 리뷰 합계 · 평균 평점.
-       dest 는 배송지 코드(모스크바). 없으면 빈 결과가 오는 경우가 있다."""
+       dest 는 배송지 코드(모스크바). 없으면 빈 결과가 오는 경우가 있다.
+
+       ⚠ 429 가 잦다(2026-09-21). 예전엔 성공한 회차에만 4초를 쉬고 실패하면 곧장 다음
+         키워드로 넘어가 한 번 걸리면 나머지가 줄줄이 429 였다 — 대상이 4개에서 8개로
+         늘자 뒤 5건이 통째로 빠졌다. 여기서 백오프로 되받는다."""
     q = urllib.parse.quote(query)
-    d = getj(f"{WB_URL}?query={q}&resultset=catalog&limit=100&dest=-1257786")
+    for i in range(3):
+        try:
+            d = getj(f"{WB_URL}?query={q}&resultset=catalog&limit=100&dest=-1257786")
+            break
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or i == 2:
+                raise
+            time.sleep(8 * (i + 1))
     items = ((d.get("data") or {}).get("products")
              or (d.get("products") if isinstance(d.get("products"), list) else []) or [])
     if not items:
@@ -129,10 +148,10 @@ def main():
             except Exception as e:
                 fail.append(f"{sid}({type(e).__name__})")
                 print(f"  {sid:<22} 실패: {str(e)[:280]}")
-                continue
+                time.sleep(5); continue          # 실패 뒤에도 쉰다 — 안 쉬면 429 가 연쇄한다
+            time.sleep(1.2 if src == "rk" else 5)  # 둘 다 연속 호출하면 429 가 난다
             if not r:
                 fail.append(f"{sid}(빈결과)"); continue
-            time.sleep(1.2 if src == "rk" else 4)   # 둘 다 연속 호출하면 429 가 난다
             pts = [p for p in (series.get(sid) or []) if p.get("d") != today]  # 같은 날 재실행 시 덮어씀
             pts.append({"d": today, **r})
             series[sid] = pts[-120:]                                          # 최대 120점 보관

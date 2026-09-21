@@ -98,6 +98,39 @@ GROUPS = {
         "freq":   "date",
         "n":      30,
     },
+    # ── 러시아 (2026-09-21 추가) ────────────────────────────────
+    # 달바는 러시아가 실질 시장인데 지금까지 러시아 지표가 하나도 없었다(일본 라쿠텐뿐).
+    # 구글로는 안 된다 — 러시아는 얀덱스 점유가 높고, 얀덱스는 **절대 검색수**를 주므로
+    # '누가 더 큰가'를 진짜로 비교할 수 있다(구글 트렌드는 그룹 안 상대값이라 불가).
+    #
+    # ⚠ 표기: 얀덱스는 아포스트로피를 무시한다 — "d'alba" 와 "d alba" 가 **완전히 같은 값**이다.
+    #   띄어쓴 쪽(19,059)이 붙여쓴 "dalba"(6,485)의 3배라 d'alba 를 쓴다.
+    #   'alba' 단독은 13,777(소프라노·망고·플라밍고 — 일반명사)이지만 'd alba' 는 오염되지 않았다.
+    #   2026-09-21 topRequests 실측 상위: d alba white truffle 3,043 · serum 2,760 · cream 2,075 ·
+    #   отзывы 1,698 · патчи 1,383 · waterfull 1,096 — **전부 달바 제품이다.**
+    #   아로마티카·달바 구글에서 두 번 밟은 일반명사 함정을 여기서는 이 목록으로 가렸다.
+    # ⚠ 검색과 판매(SHOP 와일드베리즈 리뷰)는 순위가 정반대다 — 메디큐브 검색이 달바의 3배인데
+    #   WB 리뷰는 달바 25,552 vs 메디큐브 454. 메디큐브 러시아 검색은 거의 전부
+    #   부스터프로(микротоковый массажер) **디바이스**라 저가 스킨케어인 달바와 채널이 다르다.
+    #   둘을 같은 축에서 '누가 잘 팔리나'로 읽지 말 것.
+    "러시아 K-뷰티(얀덱스)": {
+        "yandex":  ["d'alba", "medicube", "round lab", "cosrx", "laneige", "beauty of joseon"],
+        "labels":  ["달바", "메디큐브", "라운드랩", "코스알엑스", "라네즈", "조선미녀"],
+        "yregion": ["225"],
+        "freq": "week",
+        "n": 52,
+    },
+    # 어느 라인이 끄는가 — 신제품 침투를 본다. 제품명은 라틴, 품목어는 키릴이 실제 검색 습관이다.
+    # ⚠ 구문끼리 포함관계가 있다(white truffle serum 은 truffle·serum 양쪽에 잡힌다).
+    #   계열 합이 브랜드 총량이 아니다. 라인별 '추이'를 보는 그래프다.
+    "달바 러시아 제품군(얀덱스)": {
+        "yandex":  ["d alba white truffle", "d alba waterfull", "d alba патчи",
+                    "d alba spf", "d alba крем"],
+        "labels":  ["화이트트러플", "워터풀", "패치", "선케어", "크림"],
+        "yregion": ["225"],
+        "freq": "week",
+        "n": 52,
+    },
     # ── 아로마티카 (2026-09-14 추가 · 2025-11-27 코스닥 상장) ─────────────
     # 비건·클린뷰티 자사 브랜드. 로즈마리 두피케어가 북미에서 팔리는 게 핵심이라
     # '국내 인지도'만 보면 절반을 놓친다. 국가별로 따로 잡는다(메로나·티니핑과 같은 방식).
@@ -752,6 +785,10 @@ def main():
     prev_groups = (prev or {}).get("groups", {})
     # 네이버만 갱신 모드 — 구글·얀덱스·국가별은 기존값 보존(429 없이 매일 돌려 국내 검색을 신선하게).
     NAVER_ONLY = "--naver-only" in sys.argv
+    # --only=<이름조각> — 그 그룹만 새로 받고 나머지는 기존값을 그대로 옮긴다 (2026-09-21).
+    # 새 그룹을 추가했을 때 19그룹 전체를 다시 받지 않고 그것만 채우려고 만들었다.
+    # 얀덱스 키는 Actions secrets 에만 있어 로컬에서 못 돌린다 → ytrend.yml 이 이걸로 부른다.
+    ONLY = [a.split("=", 1)[1] for a in sys.argv if a.startswith("--only=")]
 
     # --if-stale: 네이버 전일치가 아직 안 풀렸으면 **1요청으로 끝낸다** (2026-09-09).
     #   데이터랩은 전일치를 KST 05시엔 안 주고 오후엔 준다(실측 07:40 → 9/7 까지 · 전날 16:53 → 전일까지).
@@ -774,6 +811,10 @@ def main():
 
     FREQ_KO = {"date": "일별", "week": "주별", "month": "월별"}
     for gname, spec in GROUPS.items():
+        if ONLY and not any(o in gname for o in ONLY):
+            if prev_groups.get(gname):
+                groups_out[gname] = prev_groups[gname]      # 손대지 않고 그대로 옮긴다
+            continue
         freq = spec.get("freq", "week")
         n = spec.get("n", {"date": 30, "week": 52, "month": 12}[freq])
 
@@ -955,6 +996,8 @@ def main():
     #    (일별↔주별. 월별 그룹은 대상 아님) 실패하면 기존 alt 를 보존한다.
     #    NAVER_ONLY(빠른 일간 갱신)에선 alt(구글 포함)를 건드리지 않는다 — 주간 전체수집에 맡김.
     for gname, spec in ([] if NAVER_ONLY else GROUPS.items()):
+        if ONLY and not any(o in gname for o in ONLY):
+            continue
         g = groups_out.get(gname)
         if not g:
             continue
@@ -987,10 +1030,12 @@ def main():
     # 소스별 갱신 시각 — 네이버는 매일(--naver-only 포함 모든 실행) 새로 받고,
     # 구글·얀덱스·국가별은 전체 실행(주 1회)에만 받는다. 화면에서 계열마다 신선도를 따로 보여준다.
     _prev = prev or {}
-    _asOfFull = _prev.get("asOfFull") if NAVER_ONLY else _now
+    _asOfFull = _prev.get("asOfFull") if (NAVER_ONLY or ONLY) else _now
     if not _asOfFull:
         _asOfFull = _prev.get("asOf")           # 예전 블록 하위호환
-    trend = {"asOf": _now, "asOfNaver": _now, "asOfFull": _asOfFull,
+    # ONLY 는 한 그룹만 받으므로 네이버 시각도 이전 것을 유지한다(안 그러면 국내 계열이 신선해 보인다)
+    _asOfNaver = (_prev.get("asOfNaver") or _prev.get("asOf") or _now) if ONLY else _now
+    trend = {"asOf": _now, "asOfNaver": _asOfNaver, "asOfFull": _asOfFull,
              "months": labels, "colors": COLORS,
              "sources": have, "groups": groups_out}
 
