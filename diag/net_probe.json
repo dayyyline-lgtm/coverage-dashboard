@@ -1,43 +1,43 @@
 {
- "t": "2026-09-09 07:55:40 KST",
+ "t": "2026-09-21 09:53:39 KST",
  "runner": {
-  "ip": "135.232.201.66",
+  "ip": "52.150.30.129",
   "org": "AS8075 Microsoft Corporation",
   "country": "US",
-  "region": "Illinois",
-  "city": "Chicago"
+  "region": "Virginia",
+  "city": "Dulles Town Center"
  },
  "probes": [
   {
    "name": "itemmania XML(수집기 헤더)",
    "url": "https://www.itemmania.com/_xml/gamemoney_avg.xml.php",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.58
+   "sec": 20.6
   },
   {
    "name": "itemmania XML(헤더 없음)",
    "url": "https://www.itemmania.com/_xml/gamemoney_avg.xml.php",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.58
+   "sec": 20.6
   },
   {
    "name": "itemmania rank(doc)",
    "url": "https://www.itemmania.com/game_info/rank_game/",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.58
+   "sec": 20.6
   },
   {
    "name": "itemmania 홈(http 80)",
    "url": "http://www.itemmania.com/",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.58
+   "sec": 20.59
   },
   {
    "name": "oliveyoung best(doc)",
    "url": "https://www.oliveyoung.co.kr/store/main/getBestList.do",
    "status": 200,
-   "bytes": 428127,
-   "sec": 1.26,
+   "bytes": 425523,
+   "sec": 1.72,
    "server": "cloudflare",
    "head": "\n\n\n\n\n\n\n\n\n<!DOCTYPE html>\n<html lang=\"ko\">\n\t<head>\n\t<meta charset=\"utf-8\">\n\t<meta http-equi"
   },
@@ -46,7 +46,7 @@
    "url": "https://www.oliveyoung.co.kr/store/main/main.do",
    "status": 200,
    "bytes": 2544,
-   "sec": 0.93,
+   "sec": 1.31,
    "server": "cloudflare",
    "head": "\n\n   \n\n\n\n\n\n\n\n<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n<meta charset=\"utf-8\">\n<meta http-equ"
   },
@@ -54,17 +54,17 @@
    "name": "oliveyoung global(doc)",
    "url": "https://global.oliveyoung.com/",
    "status": 200,
-   "bytes": 394892,
-   "sec": 0.53,
+   "bytes": 389782,
+   "sec": 0.95,
    "server": "cloudflare",
-   "head": "<!DOCTYPE html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta name=\"_csrf\" content=\"99864f7f-05a0-4aa9-"
+   "head": "<!DOCTYPE html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta name=\"_csrf\" content=\"90e26512-aef1-47f0-"
   },
   {
    "name": "megabox schedulePage POST",
    "url": "https://www.megabox.co.kr/on/oh/ohc/Brch/schedulePage.do",
    "status": 200,
-   "bytes": 55257,
-   "sec": 1.39,
+   "bytes": 55657,
+   "sec": 1.51,
    "server": null,
    "head": "{\"statCd\":0,\"msg\":\"\\uC694\\uCCAD\\uC774 \\uC815\\uC0C1\\uC801\\uC73C\\uB85C \\uCC98\\uB9AC\\uB418\\uC"
   },
@@ -72,26 +72,52 @@
    "name": "megabox 홈(doc)",
    "url": "https://www.megabox.co.kr/",
    "status": 200,
-   "bytes": 143952,
-   "sec": 1.86,
+   "bytes": 144918,
+   "sec": 1.97,
    "server": null,
    "head": "\n\n\n\n\n\n\n\n\n\n\n<!doctype html>\n<!--[if lt IE 10]><html class=\"lt-ie9\" lang=\"ko\"><![endif]-->\n<"
   },
   {
    "name": "대조군 CGV",
    "url": "https://www.cgv.co.kr/",
-   "status": 200,
-   "bytes": 89523,
-   "sec": 1.99,
+   "status": 403,
+   "sec": 1.71,
    "server": "cloudflare",
-   "head": "<!DOCTYPE html><html lang=\"ko\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content="
+   "err_head": "\n<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\">\n    <style>/* container */\n.container [id=\"contentArea\"] {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 0 !important;\n  background-color: #ffffff !important;\n}\n\n/* errorPage 기본 */\n.errorPage {\n  max-widt"
+  },
+  {
+   "name": "KZ elitalco(doc)",
+   "url": "https://newelitalco.kz/ru/catalog/cigarettes/",
+   "status": 200,
+   "bytes": 775877,
+   "sec": 2.73,
+   "server": "nginx",
+   "head": "<!DOCTYPE html>\n<!--[if IE 7]>    <html lang=\"rus\" class=\"no-js ie7 oldie\"> <![endif]-->\n<"
+  },
+  {
+   "name": "KZ kaspi search",
+   "url": "https://kaspi.kz/yml/product-view/pl/results",
+   "status": 200,
+   "bytes": 34230,
+   "sec": 1.52,
+   "server": null,
+   "head": "{\"data\":[{\"id\":\"145958921\",\"configSku\":\"145958921\",\"title\":\"IQOS ILUMA i ONE черный\""
+  },
+  {
+   "name": "KZ hh.kz(doc)",
+   "url": "https://hh.kz/search/vacancy",
+   "status": 200,
+   "bytes": 735248,
+   "sec": 2.47,
+   "server": "nginx",
+   "head": "<!DOCTYPE html>\n<html class=\"desktop\" lang=\"ru\">\n<!-- request: 1789952023480c86aa4f2727da2"
   },
   {
    "name": "대조군 네이버",
    "url": "https://www.naver.com/",
    "status": 200,
-   "bytes": 239500,
-   "sec": 0.8,
+   "bytes": 224847,
+   "sec": 0.88,
    "server": "nfront",
    "head": " <!doctype html> <html lang=\"ko\" class=\"fzoom\"> <head> <meta charset=\"utf-8\"> <meta name=\""
   },
@@ -99,8 +125,8 @@
    "name": "대조군 gamebit",
    "url": "https://gamebit.co.kr/jdata2/zeus/total_status.json",
    "status": 200,
-   "bytes": 7225,
-   "sec": 1.67,
+   "bytes": 7216,
+   "sec": 1.14,
    "server": "openresty",
    "head": "{\"2791601\":{\"id\":2791601,\"server_name\":\"아테나01\",\"server_slug\":\"zeus_athena01\",\"group_"
   }
@@ -115,14 +141,14 @@
    "dns": 0.0,
    "ip": "172.66.2.218",
    "tcp": 0.0,
-   "tls": 0.03,
+   "tls": 0.02,
    "tls_ver": "TLSv1.3"
   },
   "www.megabox.co.kr": {
    "dns": 0.0,
    "ip": "203.249.159.20",
-   "tcp": 0.17,
-   "tls": 0.19,
+   "tcp": 0.19,
+   "tls": 0.21,
    "tls_ver": "TLSv1.3"
   },
   "www.cgv.co.kr": {
