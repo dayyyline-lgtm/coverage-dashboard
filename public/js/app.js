@@ -1495,6 +1495,7 @@ const TREND_STOCK={
   "크래프톤":["배틀그라운드(크래프톤)"],
   "펄어비스":["펄어비스 IP"],
   "시프트업":["시프트업 IP"],
+  "컴투스":["컴투스 게임 IP"],                      // 서머너즈워·컴프야·제우스·MLB9 (매출 모델과 같은 축)
   "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁","제타(경쟁)","네오나(경쟁)"],   // 본업 경쟁 · 신사업 추이 · 상대위치 · 경쟁사 단독
   // 빙그레 — 국내 IP(일별) · 메로나 해외(주별, 계절성이라 6개월) · 브랜드 인지도(주별)
   "빙그레":["빙그레 IP","메로나 국가별","바나나맛우유 국가별","빙그레 브랜드(해외)"],
@@ -4326,7 +4327,7 @@ document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   trendStock=b.dataset.stk;
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
   trendKind=topicKind(trendGroup);
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 document.getElementById("trendKindSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
@@ -4334,12 +4335,12 @@ document.getElementById("trendKindSeg").addEventListener("click",e=>{
   // 고른 분류 안의 첫 주제로 옮긴다 — 안 그러면 주제 줄에 없는 그래프가 그려진 채로 남는다
   const list=topicsOf(trendStock).filter(g=>!trendKind||topicKind(g)===trendKind);
   if(list.length&&!list.includes(trendGroup)) trendGroup=list[0];
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
@@ -4349,7 +4350,7 @@ function selectTrend(stock, group){
   const own=topicsOf(trendStock);
   if(own.length&&!own.includes(trendGroup)) trendGroup=own[0];
   trendKind=topicKind(trendGroup);              // 건너뛴 주제가 분류 필터에 가려지지 않게
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
 /* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
@@ -4603,6 +4604,245 @@ function renderTrendHighlights(){
     }).join("");
   return top;   // 최상위 = 그날 가장 주목할 추이(트렌드 탭 진입 시 기본 표시)
 }
+/* ══════════ 컴투스 매출 모델 (C2MODEL · 2026-09-21) ═══════════════════════
+   "트렌드 데이터로 월별 매출을 세우고 분기로 묶는다."
+
+   ⚠ 먼저 **안 되는 것**부터 재고 시작했다. 게임 검색지수로 분기 매출 레벨을 회귀하면
+     전 구간 R²=0.18 이다 — 컴투스 연결 매출엔 미디어 등 비게임이 섞여 있고 2021~22 인수로
+     레벨이 통째로 올라갔기 때문이다. 검색 전년비를 기저에 곱해 보면 백테스트가 **나빠진다**
+     (MAE 10.0% → 13.5%, β=0.43 기준). 그래서 **검색은 레벨 보정에서 뺐다**(β 기본 0).
+
+   그래서 GAMEEST(붉은사막)과 같은 철학으로 간다 — **수준은 공시 앵커, 신작만 트렌드로 가산.**
+
+     월 매출 = 기저_월 + 신작_월
+     기저_월 = [직전 4분기 실적 평균 × 그 분기 계절계수] ÷ 3 × (1 + β·기존게임 검색 전년비)
+     신작_월 = Σ_일 [ A·구글순위^(−α) + A·r_ios·애플순위^(−α) ]
+     분기    = 월 3개 합
+
+   기저 방식은 후보 다섯을 백테스트해서 골랐다(2019~2026Q2, n=23):
+     4Q평균×계절 10.0% · 전분기×계절비 10.2% · 4Q평균 12.2% · 전년동기 15.2% · 전년동기×드리프트 16.1%
+   최근 8분기로 좁히면 MAE 6.0% 다.
+
+   ⚠ **A(1위 일매출)가 이 모델의 전부다.** 시장 규모와 자기일관적이어야 한다 —
+     Top100 합 = A × Σ(1..100)r^(−α) 이고 α=0.9 면 6.43배다. A=12억이면 구글 연 3.3조,
+     애플 포함 4.5조로 한국 모바일게임 시장 추정과 맞는다. 화면에 이 환산을 같이 찍는다.
+   ⚠ 구글 순위는 2026-09-18 부터만 있다(양대 마켓 개편일). 그 전 구간은 **애플 순위를
+     환산**해서 채운다 — 겹치는 날들의 구글/애플 비로 계수를 그때그때 구한다(실측 0.143).
+     즉 출시 직후 3주는 '애플 순위로 미루어 본 구글 순위'라 가장 약한 고리다. 표에 * 로 적는다.
+   ⚠ 공시가 나오면 **A 를 역산해 다시 맞출 것**(화면 하단에 역산값을 늘 찍어 둔다). */
+const C2_DEF = {a: 12, alpha: 0.9, rios: 0.35, beta: 0, w: 0.5};
+function c2Val(id){ const el=document.getElementById("c2_"+id);
+  const v=el?parseFloat(el.value):NaN; return isFinite(v)?v:C2_DEF[id]; }
+
+/* 분기 계절계수 — 4분기가 다 있는 해만 써서 (그 분기 ÷ 그 해 평균)의 평균. 실측 6개년:
+   Q1 0.857 · Q2 1.075 · Q3 0.961 · Q4 1.106. 하드코딩하지 않는다(공시가 쌓이면 따라 움직이게). */
+function c2Seas(Q){
+  const byY={};
+  Object.keys(Q).forEach(k=>{ (byY[k.slice(0,4)]=byY[k.slice(0,4)]||{})[+k.slice(-1)]=Q[k]; });
+  const acc={1:[],2:[],3:[],4:[]};
+  Object.values(byY).forEach(d=>{
+    const ks=Object.keys(d); if(ks.length<4) return;
+    const avg=ks.reduce((s,k)=>s+d[k],0)/4;
+    [1,2,3,4].forEach(n=>acc[n].push(d[n]/avg));
+  });
+  const out={}; let sum=0;
+  [1,2,3,4].forEach(n=>{ out[n]=acc[n].length?acc[n].reduce((a,b)=>a+b,0)/acc[n].length:1; sum+=out[n]; });
+  out.mean=sum/4; return out;
+}
+const c2Prev=(q,n)=>{ let y=+q.slice(0,4), k=+q.slice(-1);
+  for(let i=0;i<n;i++){ k--; if(k===0){k=4;y--;} } return `${y}Q${k}`; };
+const c2QofM=m=>`${m.slice(0,4)}Q${Math.floor((+m.slice(5,7)-1)/3)+1}`;
+
+/* 기저 — 그 분기 이전 실적만 쓴다(미래 정보 금지). 없으면 null. */
+function c2Base(Q, q, seas){
+  const past=Object.keys(Q).filter(k=>k<q).sort().slice(-4);
+  if(past.length<4) return null;
+  const avg=past.reduce((s,k)=>s+Q[k],0)/4;
+  return avg*seas[+q.slice(-1)]/seas.mean;
+}
+/* 기존 게임 검색 전년비(분기) — β>0 일 때만 쓴다 */
+function c2SearchYoY(M, q){
+  const keys=Object.keys(M.games).filter(k=>M.games[k]!=="제우스");
+  const sum=qq=>{ let t=0, n=0;
+    for(let i=1;i<=3;i++){ const mm=String((+qq.slice(-1)-1)*3+i).padStart(2,"0");
+      const key=`${qq.slice(0,4)}-${mm}`;
+      keys.forEach(k=>{ const v=(M.search[k]||{})[key]; if(v!=null){ t+=v; n++; } }); }
+    return n?t:null; };
+  const a=sum(q), b=sum(c2Prev(q,4));
+  if(a==null||b==null||!b) return null;
+  return Math.max(-0.4, Math.min(0.4, a/b-1));
+}
+
+/* 분기 기저를 월로 쪼개는 가중 — 일수 비례를 바탕에 두고 기존게임 검색 분포로 기울인다.
+   ⚠ **3개월 합은 어떤 w 에서도 같다.** 그래서 분기 추정·백테스트는 이 값에 영향받지 않는다
+     (검색이 레벨을 설명하지 못한다는 결론과 충돌하지 않는다 — 여기 검색은 '분기 안에서의
+     배분'에만 쓰이지 분기 크기를 바꾸지 않는다). */
+function c2MonthW(M, q, w){
+  const y=+q.slice(0,4), q1=(+q.slice(-1)-1)*3+1;
+  const ms=[0,1,2].map(i=>`${y}-${String(q1+i).padStart(2,"0")}`);
+  const dim=m=>new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7), 0)).getUTCDate();
+  const days=ms.map(dim), dsum=days.reduce((a,b)=>a+b,0);
+  const keys=Object.keys(M.games).filter(k=>M.games[k]!=="제우스");
+  const sv=ms.map(m=>keys.reduce((t,k)=>t+(((M.search[k]||{})[m])||0),0));
+  const ssum=sv.reduce((a,b)=>a+b,0);
+  return ms.map((m,i)=>{
+    const base=days[i]/dsum;
+    const srch=ssum>0?sv[i]/ssum:base;
+    return {m, w:base*(1-w)+srch*w};
+  });
+}
+/* 제우스 일매출(억) — 앱 매출순위에서. 구글이 없는 날은 애플을 환산해 채운다. */
+function c2Zeus(){
+  if(typeof APPRANK==="undefined"||!APPRANK.apps) return null;
+  const pick=mk=>{ const a=APPRANK.apps.find(x=>x.stock==="컴투스"&&x.mk===mk&&/제우스/.test(x.nm||""));
+    const o={}; if(a)(a.hist||[]).forEach(h=>{ if(h.gr!=null) o[h.d]=h.gr; }); return o; };
+  const g=pick("and"), i=pick("ios");
+  const both=Object.keys(g).filter(d=>i[d]!=null);
+  // 애플→구글 환산계수: 겹치는 날의 구글순위÷애플순위 평균(실측 0.143 · 제우스는 안드로이드 편중)
+  const c=both.length?both.reduce((s,d)=>s+g[d]/i[d],0)/both.length:0.15;
+  const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
+  const day={}, est={};
+  const all=[...new Set([...Object.keys(g),...Object.keys(i)])].sort();
+  all.forEach(d=>{
+    let gr=g[d], ir=i[d], guess=false;
+    if(gr==null&&ir!=null){ gr=Math.max(1, ir*c); guess=true; }
+    if(ir==null&&gr!=null){ ir=gr/c; }
+    if(gr==null) return;
+    day[d]=A*Math.pow(gr,-al)+A*ri*Math.pow(ir,-al);
+    est[d]={g:g[d], i:i[d], gg:gr, guess};
+  });
+  return {day, est, c, days:all};
+}
+/* 출시일부터 오늘까지 하루도 빠짐없이 — 결측은 앞뒤 평균, 수집 전은 첫 관측으로 캐리백 */
+function c2Fill(Z, from, to){
+  if(!Z||!Z.days.length) return {};
+  const out={}, d0=new Date(from+"T00:00:00Z"), d1=new Date(to+"T00:00:00Z");
+  const obs=Z.days;
+  for(let t=+d0;t<=+d1;t+=864e5){
+    const d=new Date(t).toISOString().slice(0,10);
+    if(Z.day[d]!=null){ out[d]={v:Z.day[d], k:"obs"}; continue; }
+    const before=obs.filter(x=>x<d), after=obs.filter(x=>x>d);
+    if(before.length&&after.length) out[d]={v:(Z.day[before[before.length-1]]+Z.day[after[0]])/2, k:"gap"};
+    else if(after.length) out[d]={v:Z.day[after[0]], k:"pre"};       // 출시~수집 시작 전
+    else out[d]={v:Z.day[before[before.length-1]], k:"post"};
+  }
+  return out;
+}
+
+function renderC2Model(){
+  const sec=document.getElementById("c2Sec"), box=document.getElementById("c2Box");
+  if(!sec||!box) return;
+  if(typeof C2MODEL==="undefined"||trendStock!==C2MODEL.stock){ sec.style.display="none"; return; }
+  sec.style.display="";
+  const M=C2MODEL, Q=M.qrev, seas=c2Seas(Q), beta=c2Val("beta");
+  const qs=Object.keys(Q).sort();
+  const cur=(()=>{ const t=new Date(); return `${t.getFullYear()}Q${Math.floor(t.getMonth()/3)+1}`; })();
+
+  // 컨센(네이버) — 진행 중인 분기
+  const S=(typeof LIVE!=="undefined"&&LIVE.stocks)?LIVE.stocks[M.stock]:null;
+  const cons=(((S||{}).cons||{}).quarter||{}).series||[];
+  const consQ={}; cons.forEach(x=>{ if(x.e) consQ[`${x.k.slice(0,4)}Q${Math.floor((+x.k.slice(4,6)-1)/3)+1}`]=x; });
+
+  // 제우스
+  const Z=c2Zeus();
+  const LAUNCH="2026-08-26";
+  const today=(typeof TODAY!=="undefined"&&TODAY)||new Date().toISOString().slice(0,10);
+  const filled=c2Fill(Z, LAUNCH, today);
+  const byMonth={}; Object.entries(filled).forEach(([d,o])=>{ byMonth[d.slice(0,7)]=(byMonth[d.slice(0,7)]||0)+o.v; });
+  const obsDays=Object.values(filled).filter(o=>o.k==="obs").length;
+  const preDays=Object.values(filled).filter(o=>o.k==="pre").length;
+  const last7=Object.keys(filled).sort().slice(-7);
+  const run=last7.length?last7.reduce((s,d)=>s+filled[d].v,0)/last7.length:0;
+
+  // ── 이번 분기 ──────────────────────────────────────────────────────
+  const base=c2Base(Q,cur,seas);
+  const sy=c2SearchYoY(M,cur);
+  const legacy=base==null?null:base*(1+beta*(sy||0));
+  // 분기 남은 날은 최근 7일 평균으로 채운다(신작은 감쇠하므로 보수적으로 '현 수준 유지')
+  const qEnd=new Date(Date.UTC(+cur.slice(0,4), +cur.slice(-1)*3, 0)).toISOString().slice(0,10);
+  const left=Math.max(0, Math.round((+new Date(qEnd+"T00:00:00Z")-+new Date(today+"T00:00:00Z"))/864e5));
+  const zeusQ=(Object.entries(filled).filter(([d])=>c2QofM(d.slice(0,7))===cur)
+                 .reduce((s,[,o])=>s+o.v,0)+run*left)/10;      // 억 → 십억
+  const est=legacy==null?null:legacy+zeusQ;
+  const cs=consQ[cur];
+  const eok=v=>v==null?"—":fmt(v,1);
+
+  const card=(t,v,sub,acc)=>`<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:var(--radius);padding:12px 14px"><div style="font-size:11.5px;color:var(--muted);font-weight:700">${t}</div>
+    <div style="font-size:21px;font-weight:800;margin-top:3px${acc?";color:var(--accent)":""}">${v}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:2px">${sub||""}</div></div>`;
+
+  const gap=(cs&&est!=null)?(est/cs.rev-1)*100:null;
+  const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    ${card(cur+" 추정 매출", est==null?"—":eok(est)+" 십억", `기존 ${eok(legacy)} + 제우스 ${eok(zeusQ)}`, true)}
+    ${card("컨센(네이버)", cs?eok(cs.rev)+" 십억":"—", cs?`영업이익 ${eok(cs.op)}`:"진행 중인 분기 컨센 없음")}
+    ${card("괴리", gap==null?"—":`<span class="${cls(gap)}">${sign(gap,1)}%</span>`, gap==null?"":"추정 ÷ 컨센 − 1")}
+    ${card("제우스 런레이트", run?fmt(run,2)+" 억/일":"—", `최근 7일 · 분기 남은 ${left}일에 적용`)}
+  </div>`;
+
+  // ── 월별 표 ────────────────────────────────────────────────────────
+  const months=[];
+  for(let i=11;i>=0;i--){ const t=new Date(); t.setUTCDate(1); t.setUTCMonth(t.getUTCMonth()-i);
+    months.push(t.toISOString().slice(0,7)); }
+  const W=c2Val("w");
+  const mrows=months.map(m=>{
+    const q=c2QofM(m), b=c2Base(Q,q,seas), s2=c2SearchYoY(M,q);
+    const wt=(c2MonthW(M,q,W).find(x=>x.m===m)||{w:1/3}).w;
+    const bm=b==null?null:b*(1+beta*(s2||0))*wt;
+    // 진행 중인 달은 남은 날을 최근 7일 런레이트로 채운다 — 안 하면 이번 달만 반 토막으로 보인다
+    const dim=new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7), 0)).getUTCDate();
+    const mLeft=(m===today.slice(0,7))?dim-(+today.slice(8,10)):0;
+    const zm=((byMonth[m]||0)+run*mLeft)/10;
+    const act=Q[q]!=null?Q[q]*wt:null;      // 실적은 분기값뿐 — 같은 가중으로 갈라 나란히 놓는다
+    return {m,q,bm,zm,tot:bm==null?null:bm+zm,act,done:Q[q]!=null,live:mLeft>0};
+  });
+  const mmax=Math.max(...mrows.map(r=>Math.max(r.tot||0,r.act||0)),1);
+  const bar=(v,c)=>`<span style="display:inline-block;height:9px;width:${Math.max(1,(v||0)/mmax*100)}%;
+    background:${c};border-radius:2px;vertical-align:middle"></span>`;
+  const mtbl=`<div class="tbl-wrap"><table class="buzz-t"><thead><tr>
+      <th style="text-align:left">월</th><th>기저</th><th>제우스</th><th>추정</th><th>실적(분기 배분)</th><th style="width:34%">비교</th></tr></thead><tbody>`
+    +mrows.map(r=>`<tr>
+      <td style="white-space:nowrap"><b>${r.m.slice(2).replace("-",".")}</b> <span class="g" style="font-size:10px">${r.q.slice(-2)}</span>${r.m===today.slice(0,7)?` <span class="d" style="color:var(--accent);font-size:10px">진행 중</span>`:""}</td>
+      <td style="text-align:right">${eok(r.bm)}</td>
+      <td style="text-align:right">${r.zm?`<b style="color:var(--accent)">${eok(r.zm)}</b>`:`<span class="g">—</span>`}</td>
+      <td style="text-align:right"><b>${eok(r.tot)}</b></td>
+      <td style="text-align:right">${r.act==null?`<span class="g">미발표</span>`:eok(r.act)}</td>
+      <td>${bar(r.tot,"var(--accent)")}<br>${r.act!=null?bar(r.act,"var(--muted2)"):""}</td></tr>`).join("")
+    +`</tbody></table></div>`;
+
+  // ── 백테스트(기저만 · 신작 없는 과거) ───────────────────────────────
+  const bt=qs.filter(q=>c2Base(Q,q,seas)!=null).slice(-10).map(q=>{
+    const b=c2Base(Q,q,seas)*(1+beta*(c2SearchYoY(M,q)||0));
+    return {q, act:Q[q], est:b, e:(b/Q[q]-1)*100};
+  });
+  const mae=bt.length?bt.reduce((s,r)=>s+Math.abs(r.e),0)/bt.length:null;
+  const btbl=`<details class="fold"><summary>백테스트 <span class="sub">기저만 · 최근 ${bt.length}분기 평균오차 ${mae?mae.toFixed(1):"—"}%</span></summary>
+    <div class="fold-b"><div class="tbl-wrap"><table class="buzz-t"><thead><tr><th>분기</th><th>실적</th><th>기저 추정</th><th>오차</th></tr></thead><tbody>`
+    +bt.map(r=>`<tr><td><b>${r.q}</b></td><td style="text-align:right">${eok(r.act)}</td>
+      <td style="text-align:right">${eok(r.est)}</td>
+      <td style="text-align:right"><span class="${cls(r.e)}">${sign(r.e,1)}%</span></td></tr>`).join("")
+    +`</tbody></table></div><p class="note">신작이 없던 분기라 <b>기저만</b>으로 맞춘 것입니다 —
+      이 오차가 곧 '제우스 기여를 빼면 얼마나 맞히나'의 하한입니다.</p></div></details>`;
+
+  box.innerHTML=head+mtbl+btbl;
+
+  // ── 각주: 시장 정합성 · A 역산 ──────────────────────────────────────
+  const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
+  let tail=0; for(let r=1;r<=100;r++) tail+=Math.pow(r,-al);
+  const goog=A*tail/0.85*365/1e4;                       // Top100 이 전체의 85% 가정 · 억 → 조
+  const zeusTot=Object.values(filled).reduce((s,o)=>s+o.v,0);
+  const needA=(cs&&legacy!=null&&zeusTot>0)?A*((cs.rev-legacy)*10)/(zeusTot+run*left):null;
+  document.getElementById("c2Note").innerHTML=
+    `<b>수준은 공시, 신작만 트렌드.</b> 기저 = 직전 4분기 평균 × 계절계수(Q1 ${fmt(seas[1],3)} · Q2 ${fmt(seas[2],3)} ·
+     Q3 ${fmt(seas[3],3)} · Q4 ${fmt(seas[4],3)}, 공시 ${Object.keys(Q).length}분기에서 계산).
+     제우스는 앱 매출순위 → 일매출(관측 ${obsDays}일${preDays?` · 출시 직후 ${preDays}일은 애플 순위를 ${fmt(Z?Z.c:0,3)} 배로 환산해 채움`:""}).
+     <b>검색은 레벨 보정에 넣지 않습니다</b> — 회귀 R²=0.18, 기저에 곱하면 백테스트가 되레 나빠집니다(β 기본 0).
+     <br><b>시장 정합성:</b> 1위 일매출 ${fmt(A,1)}억 · α ${fmt(al,2)} → Top100 합이 1위의 ${fmt(tail,2)}배 →
+     구글플레이 한국 게임 연 <b>${fmt(goog,1)}조</b>(애플 포함 ${fmt(goog*(1+ri),1)}조). 이 숫자가 시장 추정과 어긋나면 A 를 고치세요.
+     ${needA?`<br><b>역산:</b> 컨센 ${eok(cs.rev)}십억이 맞으려면 1위 일매출이 <b>${fmt(needA,1)}억</b>이어야 합니다.`:""}
+     <br>⚠ 가장 약한 고리는 <b>구글 순위가 9/18부터만 있다</b>는 점입니다(그 전은 애플 환산). 공시가 나오면 A 를 역산해 다시 맞추세요.`;
+}
+
 /* ══════════ 지금 화제 (BUZZ) ═══════════════════════════════════════════════
    트렌드 탭의 나머지는 전부 '종목 → 주제' 다 — 우리가 이미 보기로 정한 것만 보인다.
    여기만 반대다: 한국 인터넷 전체에서 지금 뜨는 것을 먼저 늘어놓고, 그 중 커버리지가
@@ -4929,10 +5169,12 @@ function renderJobs(){
 /* 종목별 '현장직 공고 수'를 트렌드 계열로 편입 — 며칠 쌓이면 뜬다. 삼양식품·한국콜마·코스맥스처럼
    검색 트렌드 그룹이 없던 종목이 이걸로 트렌드 탭 종목 목록에 들어온다. */
 
-renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst(); renderOliveYoung(); renderJobs();
+renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst(); renderC2Model(); renderOliveYoung(); renderJobs();
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
+["a","alpha","rios","beta","w"].forEach(id=>{
+  const el=document.getElementById("c2_"+id); if(el) el.addEventListener("input",renderC2Model); });
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
@@ -5441,7 +5683,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }

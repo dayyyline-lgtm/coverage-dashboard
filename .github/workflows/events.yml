@@ -210,6 +210,17 @@ jobs:
           YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
         run: python runstep.py "트렌드" fetch_trends.py
 
+      # 컴투스 매출 모델의 재료(DART 분기실적 + 네이버 월별 검색). 둘 다 느리게 바뀌지만
+      # 분기 실적 공시를 놓치지 않으려면 매일 확인한다 — 값이 그대로면 파일을 안 건드린다.
+      - name: 컴투스 매출 모델 재료
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python runstep.py "컴투스 모델" fetch_c2model.py
+
       # 수출입(관세청) — 10~26일에 매일 확인, fetch_trade 가 새 월/현행화 있을 때만 파일 변경.
       - name: 월간 수출 갱신 (10~26일)
         continue-on-error: true
