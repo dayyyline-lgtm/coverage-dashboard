@@ -121,6 +121,30 @@ def main():
         print(f"   {name:8s} {out['regions'][name]}")
         time.sleep(0.4)
 
+    print("④' topRequests / regions 원본 — 어떤 필드가 오는지부터 본다")
+    out["raw"] = {}
+    for kw in ["dalba", "d'alba", "medicube", "дальба"]:
+        for ep, body in (("topRequests", {"folderId": FOLDER, "phrase": kw, "numPhrases": 20,
+                                          "regions": ["225"]}),
+                         ("regions",     {"folderId": FOLDER, "phrase": kw})):
+            try:
+                r = requests.post(f"https://searchapi.api.cloud.yandex.net/v2/wordstat/{ep}",
+                                  json=body, timeout=30,
+                                  headers={"Authorization": f"Api-Key {KEY}"})
+                out["raw"][f"{kw}|{ep}"] = (r.json() if r.status_code == 200
+                                            else {"err": f"{r.status_code} " + " ".join(r.text.split())[:200]})
+            except Exception as e:
+                out["raw"][f"{kw}|{ep}"] = {"err": str(e)[:150]}
+            print(f"   {kw}|{ep}: {json.dumps(out['raw'][f'{kw}|{ep}'], ensure_ascii=False)[:500]}")
+            time.sleep(0.4)
+
+    print("⑤ 구매의도·제품 구문 — 브랜드 신호인지 가르는 자")
+    for kw in ["купить dalba", "dalba крем", "dalba сыворотка", "dalba отзывы",
+               "medicube отзывы", "dalba wildberries"]:
+        out["spellings"][kw] = dynamics(kw, regions=["225"])
+        print(f"   {kw:28s} {out['spellings'][kw]}")
+        time.sleep(0.4)
+
     print("④ 연관 검색어 (오염 검사)")
     # ⚠ 'alba' 는 이탈리아 지명·와인·다른 브랜드라 러시아에서도 쓰인다.
     #   d'alba 가 dalba 의 2.8배인 게 브랜드 신호인지 'alba' 오염인지를 여기서 가른다.
