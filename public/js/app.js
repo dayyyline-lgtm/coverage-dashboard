@@ -4729,6 +4729,31 @@ function c2Fill(Z, from, to){
   return out;
 }
 
+/* 컴투스 전 게임의 '오늘 일매출' — 앱 매출순위에서 직접 환산한다.
+   검색은 대리지표지만 매출순위는 매출 그 자체에 붙어 있으므로, 잡히는 것은 이걸로 본다.
+   ⚠ 그런데 **국내 차트로 잡히는 건 전사의 일부뿐**이다(2026-09-21 실측: 제우스를 빼면 일 1.7억 =
+     전사 일매출의 약 10%). 서머너즈워는 매출 대부분이 해외고 미디어 등 비게임도 있어서
+     한국 구글·애플 순위에 아예 안 나타난다. **그래서 레벨은 순위로 못 세우고 기저가 필요하다.**
+   ⚠ 신작(제우스)만 기저에 '가산'한다. 나머지는 직전 4분기 실적에 이미 들어 있으므로 또 더하면
+     이중계상이다. 표의 '취급' 칸이 그걸 밝힌다. */
+function c2Apps(){
+  if(typeof APPRANK==="undefined"||!APPRANK.apps) return [];
+  const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
+  const by={};
+  APPRANK.apps.filter(a=>a.stock==="컴투스").forEach(a=>{
+    const L=(a.hist||[]).filter(h=>h.gr!=null).slice(-1)[0]; if(!L) return;
+    const nm=a.nm.replace(/\s*[:：].*$/,"").slice(0,16);
+    const o=by[nm]=by[nm]||{nm, and:null, ios:null, d:L.d, rev:0};
+    o[a.mk]={r:L.gr, d:L.d};
+    if(L.d>o.d) o.d=L.d;
+  });
+  return Object.values(by).map(o=>{
+    o.rev=(o.and?A*Math.pow(o.and.r,-al):0)+(o.ios?A*ri*Math.pow(o.ios.r,-al):0);
+    o.isNew=/제우스/.test(o.nm);
+    return o;
+  }).sort((a,b)=>b.rev-a.rev);
+}
+
 function renderC2Model(){
   const sec=document.getElementById("c2Sec"), box=document.getElementById("c2Box");
   if(!sec||!box) return;
@@ -4824,7 +4849,36 @@ function renderC2Model(){
     +`</tbody></table></div><p class="note">신작이 없던 분기라 <b>기저만</b>으로 맞춘 것입니다 —
       이 오차가 곧 '제우스 기여를 빼면 얼마나 맞히나'의 하한입니다.</p></div></details>`;
 
-  box.innerHTML=head+mtbl+btbl;
+  // ── 게임별 오늘 일매출(앱 매출순위 → 매출) ─────────────────────────
+  const apps=c2Apps();
+  const appSum=apps.reduce((s,a)=>s+a.rev,0);
+  const legacySum=apps.filter(a=>!a.isNew).reduce((s,a)=>s+a.rev,0);
+  const lastAct=Object.keys(Q).sort().slice(-1)[0];
+  const actDaily=Q[lastAct]*10/91;                     // 직전 분기 실적의 하루 평균(억)
+  const atbl=`<div class="sub-h" style="margin:18px 0 8px">게임별 일매출 <span class="th-sub">앱 매출순위 → 매출. 검색과 달리 매출에 직접 붙는 지표다</span></div>
+    <div class="tbl-wrap"><table class="buzz-t"><thead><tr>
+      <th style="text-align:left">게임</th><th>구글</th><th>애플</th><th>일매출 추정</th><th>분기 환산</th><th style="text-align:left">취급</th></tr></thead><tbody>`
+    +apps.map(a=>`<tr>
+      <td style="white-space:nowrap"><b>${attr(a.nm)}</b> <span class="g" style="font-size:10px">${a.d.slice(5)}</span></td>
+      <td style="text-align:right">${a.and?a.and.r+"위":`<span class="g">권외</span>`}</td>
+      <td style="text-align:right">${a.ios?a.ios.r+"위":`<span class="g">권외</span>`}</td>
+      <td style="text-align:right"><b>${fmt(a.rev,2)}</b>억</td>
+      <td style="text-align:right">${fmt(a.rev*92/10,1)} 십억</td>
+      <td style="font-size:11.5px;color:var(--muted)">${a.isNew
+        ? `<span style="color:var(--accent);font-weight:700">신작 — 기저에 가산</span>`
+        : "기존 — 직전 4분기 실적(기저)에 이미 포함"}</td></tr>`).join("")
+    +`<tr style="border-top:1px solid var(--line)"><td><b>합계</b></td><td></td><td></td>
+      <td style="text-align:right"><b>${fmt(appSum,2)}</b>억</td>
+      <td style="text-align:right">${fmt(appSum*92/10,1)} 십억</td>
+      <td style="font-size:11.5px;color:var(--muted)">직전 분기 실적의 하루 평균 ${fmt(actDaily,1)}억(${lastAct})</td></tr>`
+    +`</tbody></table></div>
+    <p class="note" style="margin-top:8px">⚠ <b>국내 앱 차트로 잡히는 건 전사의 일부입니다.</b>
+      신작을 뺀 기존 게임 합이 <b>${fmt(legacySum,2)}억/일</b> — 직전 분기 실적 하루 평균의
+      <b>${fmt(legacySum/actDaily*100,0)}%</b>뿐입니다. 서머너즈워는 매출 대부분이 <b>해외</b>라
+      한국 차트에 안 잡히고, 미디어 등 비게임도 있습니다. 그래서 <b>레벨은 순위로 세울 수 없고</b>
+      공시 기저가 필요합니다 — 순위는 <b>신작 가산</b>과 <b>추이</b>에만 씁니다.</p>`;
+
+  box.innerHTML=head+atbl+mtbl+btbl;
 
   // ── 각주: 시장 정합성 · A 역산 ──────────────────────────────────────
   const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
