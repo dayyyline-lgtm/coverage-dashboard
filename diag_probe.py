@@ -96,6 +96,11 @@ def main():
         ("megabox schedulePage POST", MB, mbh, mb_body),
         ("megabox 홈(doc)", "https://www.megabox.co.kr/", ua(doc=True), None),
         ("대조군 CGV", "https://www.cgv.co.kr/", ua(doc=True), None),
+        # KT&G 유라시아(fetch_ktg.py) 카자흐 소스 — 러너에서 처음 도는 사이트들
+        ("KZ elitalco(doc)", "https://newelitalco.kz/ru/catalog/cigarettes/", ua(doc=True), None),
+        ("KZ kaspi search", "https://kaspi.kz/yml/product-view/pl/results?text=iqos&page=0&c=750000000",
+         dict(ua(referer="https://kaspi.kz/shop/search/?text=iqos"), **{"Accept": "application/json, text/plain, */*", "X-KS-City": "750000000"}), None),
+        ("KZ hh.kz(doc)", "https://hh.kz/search/vacancy?employer_id=9856755", ua(doc=True), None),
         ("대조군 네이버", "https://www.naver.com/", ua(doc=True), None),
         ("대조군 gamebit", "https://gamebit.co.kr/jdata2/zeus/total_status.json", ua(referer="https://gamebit.co.kr/zeus"), None),
     ]

@@ -40,6 +40,39 @@ NAVER_CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", NAVER_CLIENT_SECRET)
 # 국내 브랜드는 한글 검색량이 구글에선 거의 안 잡히기 때문.
 # freq = date(일별) / week(주별) / month(월별) · n = 표시 구간 수 (기본: 주52)
 GROUPS = {
+    # ── KT&G 유라시아 (2026-09-21 추가 · fetch_ktg.py 와 짝) ─────────────────────────
+    # 키움 리포트(9/21)의 '카자흐 ESSE 알마티 1위·유통 확대·인접국 수출' 을 현지 검색으로 잰다.
+    # 문자열 'esse' 를 쓴다 — 구글 토픽 ID(/m/0nbct0r) 는 카자흐에서 임계 미만(5/54주)이고,
+    # 카자흐·러시아의 'esse' 연관검색어는 전부 담배 변종(exchange·change·mango·himalaya·blue·one)이다.
+    # ⚠ 우즈벡 'esse' 는 **에세이** 다(9월 개학에 4→36 급등). 구글로는 못 잡는다 → 얀덱스 'сигареты esse' 지역 171.
+    # ⚠ 몽골은 구글 12개월 4/54주 뿐이라 검색으로는 안 보인다 — 관세청 한국→몽골 수출(KTG.customs)이 몽골 지표다.
+    # 얀덱스 지역 ID(geobase): 카자흐 159 · 러시아 225 · 우즈벡 171 · 키르기스 207 · 타지크 209 · 아르메니아 168.
+    "ESSE 국가별": {
+        "geos": [
+            {"label": "한국",       "geo": "KR", "kw": "에쎄", "src": "naver"},
+            {"label": "카자흐스탄", "geo": "KZ", "kw": "esse"},
+            {"label": "러시아",     "geo": "RU", "kw": "сигареты esse", "src": "yandex", "region": ["225"]},
+            {"label": "우즈베키스탄","geo": "UZ", "kw": "сигареты esse", "src": "yandex", "region": ["171"]},
+            {"label": "키르기스스탄","geo": "KG", "kw": "сигареты esse", "src": "yandex", "region": ["207"]},
+            {"label": "카자흐(얀덱스)","geo": "KZ", "kw": "сигареты esse", "src": "yandex", "region": ["159"]},
+        ],
+        "freq": "week",
+    },
+    # 카자흐 안에서 브랜드끼리 — 얀덱스는 절대 검색수라 '누가 더 큰가' 를 진짜로 비교할 수 있다.
+    # ESSE(KT&G) vs Winston(JTI 1위) vs Parliament(PMI) vs Kent(BAT) vs Chapman(알마티 온라인 2위 브랜드).
+    "카자흐 담배 브랜드(얀덱스)": {
+        "yandex": ["сигареты esse", "сигареты winston", "сигареты parliament", "сигареты kent", "сигареты chapman"],
+        "labels": ["ESSE(KT&G)", "Winston(JTI)", "Parliament(PMI)", "Kent(BAT)", "Chapman"],
+        "yregion": ["159"],
+        "freq": "week",
+    },
+    # 카자흐 HnB — IQOS(PMI · Kaspi 리뷰 760) 와 lil SOLID(KT&G · Kaspi 0 SKU). KT&G 직접사업이 시작되면 lil 이 뜬다.
+    # 구글 KZ 'IQOS' 는 54/54주 유효(벤치마크), 'lil solid' 는 지금 2/54주 = 0 에서 출발하는 계열이다.
+    "카자흐 HnB 검색": {
+        "google": ["IQOS", "lil solid", "TEREA"],
+        "geo":    "KZ",
+        "freq":   "week",
+    },
     # 리투오 = re2o, 셀르디엠 = CellREDM (한스바이오메드 ECM 스킨부스터)
     # 셀리비온 = 국내 브랜드라 영문 검색량이 사실상 0 → 구글도 한글 키워드로 잡는다(네이버가 핵심).
     "스킨부스터": {
@@ -379,11 +412,17 @@ def _period_end(freq, today=None):
     return d - datetime.timedelta(days=1)
 
 
-def fetch_yandex(phrase, freq="week", n=52, raw=False):
+def fetch_yandex(phrase, freq="week", n=52, raw=False, regions=None):
     """얀덱스 Wordstat 시계열 (Yandex Cloud Search API v2).
        러시아는 얀덱스 점유가 구글보다 높아 같은 키워드도 신호가 훨씬 진하다.
        키가 없으면 None -> 호출한 쪽에서 그 국가만 건너뛴다.
-       반환값은 구글 계열과 섞어 그리므로 0~100 으로 맞춰 돌려준다."""
+       반환값은 구글 계열과 섞어 그리므로 0~100 으로 맞춰 돌려준다.
+
+       regions — 얀덱스 지역 ID 목록. 2026-09-21 추가: KT&G 유라시아(카자흐 159 · 러시아 225 ·
+       우즈벡 171 · 키르기스 207 · 타지크 209 · 아르메니아 168)를 나라별로 따로 센다. 구글 트렌드는
+       카자흐 담배 키워드가 임계 미만으로 뚝뚝 끊기지만 얀덱스는 절대 검색수라 작은 나라도 잡힌다.
+       ⚠ 지역 ID 는 얀덱스 geobase 기준이다(구글 geo 코드가 아니다). 처음 켤 때 count 크기가
+         나라 규모와 맞는지 볼 것 — 틀린 ID 는 400 이 아니라 빈 값·전국값으로 조용히 올 수 있다."""
     if not (YANDEX_API_KEY and YANDEX_FOLDER_ID):
         return None, None
     import requests
@@ -407,6 +446,8 @@ def fetch_yandex(phrase, freq="week", n=52, raw=False):
     ts = lambda d: d.strftime("%Y-%m-%dT00:00:00Z")
     body = {"folderId": YANDEX_FOLDER_ID, "phrase": phrase, "period": period,
             "fromDate": ts(start), "toDate": ts(end)}
+    if regions:
+        body["regions"] = [str(r) for r in regions]
     r = requests.post(WORDSTAT_URL, json=body, timeout=30,
                       headers={"Authorization": f"Api-Key {YANDEX_API_KEY}"})
     if r.status_code != 200:
@@ -441,7 +482,7 @@ def fetch_yandex(phrase, freq="week", n=52, raw=False):
     return [round(v / top * 100) for _, v in pairs], labels
 
 
-def fetch_yandex_group(keywords, freq="week", n=52):
+def fetch_yandex_group(keywords, freq="week", n=52, regions=None):
     """얀덱스로 여러 키워드를 한 번에 견준다.
 
        얀덱스는 절대 검색수를 주므로, 구글과 달리 '누가 더 큰가'를 진짜로 비교할 수 있다.
@@ -450,7 +491,7 @@ def fetch_yandex_group(keywords, freq="week", n=52):
     raws, labels = [], None
     for kw in keywords:
         try:
-            v, lb = fetch_yandex(kw, freq, n, raw=True)
+            v, lb = fetch_yandex(kw, freq, n, raw=True, regions=regions)
         except Exception as e:
             print(f"    {kw}: 얀덱스 실패({str(e)[:80]})")
             raws.append(None); continue
@@ -477,7 +518,7 @@ def fetch_google_geos(geos, freq="week", n=52):
     for spec in geos:
         if spec.get("src") == "yandex":
             try:
-                s, lb = fetch_yandex(spec["kw"], freq, n)
+                s, lb = fetch_yandex(spec["kw"], freq, n, regions=spec.get("region"))
                 if s:
                     series.append(s)
                     if labels is None:
@@ -607,7 +648,7 @@ def collect_alt(gname, spec, freq, n, prev_alt, have):
         g = {"products": labs, "productsGoogle": labs, "freq": freq, "geo": "RU",
              "months": [], "only": "google", "srcOf": ["얀덱스"] * len(kws)}
         try:
-            g["google"], g["months"], peak = fetch_yandex_group(kws, freq=freq, n=n)
+            g["google"], g["months"], peak = fetch_yandex_group(kws, freq=freq, n=n, regions=spec.get("yregion"))
             g["naver"] = g["google"]; g["peak"] = peak; have["google"] = True
             print(f"{tag} 얀덱스 OK"); return g
         except Exception as e:
@@ -747,7 +788,7 @@ def main():
                  "geo": "RU", "months": [], "only": "google",
                  "srcOf": ["얀덱스"] * len(kws)}
             try:
-                g["google"], g["months"], peak = fetch_yandex_group(kws, freq=freq, n=n)
+                g["google"], g["months"], peak = fetch_yandex_group(kws, freq=freq, n=n, regions=spec.get("yregion"))
                 g["naver"] = g["google"]      # 렌더 호환용(화면은 only 를 보고 구글칸만 쓴다)
                 g["peak"] = peak              # 100 이 실제 몇 건인지 — 각주로 띄운다
                 have["google"] = True

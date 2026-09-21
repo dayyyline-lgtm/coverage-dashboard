@@ -166,6 +166,16 @@ jobs:
         timeout-minutes: 6
         run: python runstep.py "채용공고" fetch_jobs.py
 
+      # KT&G 유라시아(카자흐 허브) — 관세청 담배 국가별 수출 · 알마티 리테일 구매카운터(Elitalco) ·
+      # Kaspi HnB 기기 리뷰 · hh.kz 채용. 키움 9/21 리포트의 주장을 회사 밖 데이터로 매일 잰다.
+      # ⚠ 카자흐 사이트 3곳은 러너에서 처음 돈다 — 막히면 health.json 에 남고 kr_collect 로 옮긴다.
+      - name: KT&G 유라시아 수집
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python runstep.py "KT&G 유라시아" fetch_ktg.py
+
       # 올리브영 베스트 100 — 화장품 섹터의 **국내 채널** 지표(키 불필요, 요청 1건).
       # 그동안 화장품은 관세청 수출·아마존·러시아/일본 쇼핑뿐이라 전부 해외였다.
       # ⚠ collector_health.ua(doc=True) 를 써야 200 이 온다. 기본 헤더는 403.

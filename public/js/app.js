@@ -1477,6 +1477,8 @@ let trendSrc="naver";
    한 종목이 주제를 여럿 가지면(SAMG엔터) 아래에 주제 버튼 줄이 하나 더 생긴다.
    키워드 자체는 fetch_trends.py 의 GROUPS 에 있고, 여기는 '어느 종목 이야기냐'만 잇는다. */
 const TREND_STOCK={
+  // KT&G(2026-09-21 · 추적 전용) — 카자흐 허브 검색 그룹. 실측 계열(수출·리테일·HnB·채용)은 아래 injectKtgTrends 가 붙인다.
+  "KT&G":["ESSE 국가별","카자흐 담배 브랜드(얀덱스)","카자흐 HnB 검색"],
   "에이피알":["K-뷰티 브랜드"],        // 메디큐브
   // 아로마티카 — 국내는 네이버, 북미·일본은 구글 **토픽 ID**(문자열 Aromatica 는 스페인어
   // 'vela aromatica'(향초)에 오염된다. fetch_trends.py 주석 참고)
@@ -1804,6 +1806,88 @@ const TREND_STOCK={
      합산해서 **그 아래 게임은 구조적으로 0** 이고(실측: 제우스·리니지클래식·서머너즈워가 치지직
      목록에 아예 없다), SOOP 은 카테고리 자체가 시청자 수를 들고 있어 전부 잡힌다.
      그래서 컴투스 신작 같은 중소 규모는 SOOP 에서만 보인다. 추이를 나란히 보는 용도다. */
+/* KT&G 유라시아(KTG · fetch_ktg.py) — 키움 9/21 '카자흐 ESSE' 리포트를 회사 자료 밖에서 재는 네 계열.
+   ① 한국발 담배 수출(관세청, 국가별 월별) — 카자흐·러시아·우즈벡·타지크는 2026 에 0 으로 수렴(현지생산 대체),
+      몽골만 한국발이 산다(KT&G 몽골 점유 50%+ → 이 계열이 곧 몽골 프록시. EAEU-몽골 협정으로 카자흐 발로 옮기면 준다).
+   ② 알마티 온라인 리테일(Elitalco) 브랜드별 **일별 구매 증분** — 누적 구매횟수의 전일 차. ESSE 가 누적 1위(6,133 · 9/21).
+      ⚠ 한 리테일러·한 도시다. 전국이 아니다.
+   ③ Kaspi HnB 기기 — IQOS 기기 리뷰 증분(판매 대리) · lil SOLID SKU 수(지금 0 = KT&G 기기가 최대 채널에 없다).
+   ④ hh.kz 채용 — 판매법인·생산법인 공개 공고 수(코스타나이·우랄스크 사바트 = 커버리지 80% 계획의 실물). */
+(function injectKtgTrends(){
+  if(typeof KTG==="undefined"||!KTG.stock) return;
+  const ST=KTG.stock, md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const push=(name,g)=>{ TREND.groups[name]=g; (TREND_STOCK[ST]=TREND_STOCK[ST]||[]).push(name); };
+  const kUSD=v=>v>=1000?(v/1000).toFixed(1)+"M$":Math.round(v)+"k$";
+  // ① 관세청 — 국가별 월별(천달러). 같은 단위라 공통 peak 로 정규화(선 높이 비교 가능).
+  const C=KTG.customs;
+  if(C&&C.series){
+    const mm=m=>`${m.slice(2,4)}.${+m.slice(4,6)}`;
+    Object.entries(C.series).forEach(([k,S])=>{
+      const cty=Object.keys(S.by||{}).filter(c=>c!=="ALL");
+      const rows=cty.map(c=>({c,raw:S.by[c]})).filter(r=>r.raw.some(v=>v));
+      if(!rows.length) return;
+      const peak=Math.max(...rows.flatMap(r=>r.raw.filter(v=>v!=null)));
+      if(!peak) return;
+      const labels=rows.map(r=>C.cty[r.c]||r.c);
+      // null(그 달 수출 없음)은 0 — 수출 계열에서 '없음'은 진짜 0 이다(트렌드의 결측과 다르다).
+      const ser=rows.map(r=>r.raw.map(v=>v==null?0:Math.round(v/peak*100)));
+      const lastNZ=r=>{for(let i=r.raw.length-1;i>=0;i--) if(r.raw[i]) return `${mm(C.months[i])} ${kUSD(r.raw[i])}`; return "없음";};
+      push(`KT&G 한국발 ${S.label} 수출(국가별)`, {
+        products:labels, productsGoogle:labels, months:C.months.map(mm),
+        naver:ser, google:ser, rawSer:rows.map(r=>r.raw.map(v=>v==null?0:v)), only:"naver", freq:"month",
+        peak:peak, unit:"천달러(월)", unitShort:"천$",
+        srcName:`관세청 수출입무역통계 · 한국→각국 ${S.label} 월별 수출액 · 카자흐 현지생산(25.03~) 뒤 카자흐·러시아·우즈벡·타지크는 0 수렴 = 한국 수출이 현지생산으로 대체 · 몽골만 한국발`,
+        reviewNote:"최근 수출: "+rows.map(r=>`${C.cty[r.c]||r.c} ${lastNZ(r)}`).join(" · ")
+      });
+    });
+  }
+  // ② 리테일 — 브랜드별 누적 구매의 일별 증분. 이틀 이상 쌓여야 뜬다.
+  const R=KTG.retail;
+  if(R&&(R.hist||[]).length>=2){
+    const H=R.hist, days=H.slice(1).map(h=>h.d);
+    const brands=Object.keys(H[H.length-1].b||{}).slice(0,8);
+    const rows=brands.map(b=>({b,raw:H.slice(1).map((h,i)=>{const a=(H[i].b||{})[b],c=(h.b||{})[b]; return (a&&c)?Math.max(0,c[0]-a[0]):null;})}))
+      .filter(r=>r.raw.some(v=>v));
+    if(rows.length){
+      const peak=Math.max(...rows.flatMap(r=>r.raw.filter(v=>v!=null)))||1;
+      const labels=rows.map(r=>r.b.toUpperCase()+(KTG.retail.brands.find(x=>x.brand===r.b)?.ktg?"(KT&G)":""));
+      const ser=rows.map(r=>r.raw.map(v=>v==null?0:Math.round(v/peak*100)));
+      const tot=(R.brands||[]).reduce((s,b)=>s+(b.buys||0),0), e=(R.brands||[]).find(b=>b.ktg)||{};
+      push("KT&G 알마티 리테일 판매(브랜드별 일별 구매)", {
+        products:labels, productsGoogle:labels, months:days.map(md), naver:ser, google:ser,
+        rawSer:rows.map(r=>r.raw.map(v=>v==null?0:v)), only:"naver", freq:"date", peak:peak, unit:"건/일(구매)", unitShort:"건",
+        srcName:`${R.src} · 누적 구매횟수의 전일 차 = 그날 팔린 수 · ⚠ 알마티 리테일러 한 곳(전국·오프라인 아님) · 카자흐는 담배 온라인 판매 금지라 사이트가 닫히면 끊긴다`,
+        reviewNote:`누적 점유(${R.n} SKU): ${e.brand?e.brand.toUpperCase()+" "+Math.round(100*e.buys/Math.max(1,tot))+"%(1위·"+fmt0(e.buys)+"건·중간가 "+fmt0(e.pmed)+"₸)":""} · 법정 최저가 1,060₸(26.08~)`
+      });
+    }
+  }
+  // ③ HnB 기기(Kaspi) — IQOS 리뷰 증분(판매 대리). lil 은 SKU 수를 각주로.
+  const Hb=KTG.hnb;
+  if(Hb&&(Hb.hist||[]).length>=2){
+    const H=Hb.hist, days=H.slice(1).map(h=>h.d);
+    const raw=H.slice(1).map((h,i)=>Math.max(0,(h.iq?.[1]||0)-(H[i].iq?.[1]||0)));
+    const peak=Math.max(...raw);
+    if(peak){
+      const last=H[H.length-1];
+      push("KT&G 카자흐 HnB 기기 수요(Kaspi IQOS 리뷰 증분)", {
+        products:["IQOS 기기 리뷰 증분"], productsGoogle:["IQOS 기기 리뷰 증분"], months:days.map(md),
+        naver:[raw.map(v=>Math.round(v/peak*100))], google:[raw.map(v=>Math.round(v/peak*100))], rawSer:[raw],
+        only:"naver", freq:"date", peak:peak, unit:"건/일(리뷰)", unitShort:"건",
+        srcName:`${Hb.src} · 리뷰는 구매자만 남기므로 증분 = 기기 판매 대리지표 · PMI IQOS 가 벤치마크, KT&G lil SOLID 는 카드 자체가 없다`,
+        reviewNote:`최근 ${md(last.d)} IQOS ${last.iq?.[0]||0} SKU · 누적 리뷰 ${fmt0(last.iq?.[1]||0)} · lil SOLID ${last.lil?.[0]||0} SKU · glo ${last.glo?.[0]||0} SKU — lil 카드가 생기는 날이 KT&G HnB 직접사업의 개시 신호`
+      });
+    }
+  }
+  // ④ 채용 — 판매·생산 법인 공개 공고 수(스택)
+  const J=KTG.jobs;
+  if(J&&(J.hist||[]).length>=2){
+    injectCompanyStack([
+      {stock:ST, label:"판매법인(KT&G Global Kazakhstan)", pts:J.hist.map(h=>({d:h.d, v:h.sales||0}))},
+      {stock:ST, label:"생산법인(KT&G Kazakhstan · Кокозек 공장)", pts:J.hist.map(h=>({d:h.d, v:h.prod||0}))},
+    ], {suffix:"카자흐 채용 공고(hh.kz)", unit:"건", fmt:v=>fmt0(v)+"건",
+        srcName:"hh.kz 공개 공고 수 · 판매법인 사바트 지원직의 도시(코스타나이·우랄스크 …)가 유통 커버리지 확장의 실물 흔적"});
+  }
+})();
 (function injectSoopTrends(){
   if(typeof SOOP==="undefined"||!SOOP.games) return;
   SOOP.games.forEach(g=>{
