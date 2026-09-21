@@ -15,6 +15,12 @@
   다시 딸 때는 브라우저에서 스토어 카테고리 페이지를 열고 **XHR 을 후킹**해 '최고 매출' 탭을
   누르면 f.req 가 통째로 잡힌다(fetch 후킹으로는 안 잡힌다 — 이 페이지는 XHR 을 쓴다).
 
+**한국만 보면 반쪽이다**(2026-09-21 다국가 확대). 니케는 매출 주력이 일본이고(구글 JP 3위),
+컴투스 MLB 는 대만에서 잡힌다(애플 TW 17위). 한국 차트만 보면 시프트업·컴투스의 해외 매출이
+통째로 안 보인다 — 컴투스는 국내 앱차트로 잡히는 몫이 전사의 10% 뿐이었다.
+그래서 **매출순위는 KR·US·JP·TW 네 나라**를 받는다. 무료순위는 신규 유입 지표라 한국만 받는다
+(해외까지 받으면 요청이 두 배가 되는데 쓰임이 적다).
+
 **종목별 대표작 하나가 아니라 잡히는 게임을 전부 담는다**(2026-09-18 개편).
 예전엔 종목당 '가장 높은 순위 하나'만 저장해서 리니지M·리니지W·아이온2 가 한 줄로 뭉갰다.
 지금은 (마켓, 앱) 단위로 따로 쌓고, 화면에서 종목·마켓별 한 그룹에 게임을 계열로 그린다.
@@ -38,6 +44,10 @@ HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 DAYS = 180
 
+# 매출순위를 받을 나라. (코드, 애플 RSS 국가, 구글 gl, 구글 hl)
+COUNTRIES = [("KR", "kr", "KR", "ko"), ("US", "us", "US", "en"),
+             ("JP", "jp", "JP", "ja"), ("TW", "tw", "TW", "zh-TW")]
+
 # ── 종목 매칭 ────────────────────────────────────────────────────────────────
 # (1) 개발사/퍼블리셔 이름(소문자 부분일치). 두 마켓의 표기가 달라 둘 다 적는다.
 #     애플 'NC Corp.' / 구글 'NC Corporation' · 애플 'Com2uS Corp.' / 구글 'Com2uS'
@@ -52,13 +62,17 @@ PUB = {
 # 이름이 겹치는 다른 상장사는 빼야 한다 — 컴투스홀딩스가 'Com2uS Holdings' 다.
 PUB_NOT = {"컴투스": ["holdings"]}
 # (2) 퍼블리셔가 남인 게임은 제목으로. (니케 = Level Infinite 등)
+# ⚠ 나라마다 제목이 현지어다 — 일본 '勝利の女神：NIKKE' · 대만 'MLB：9局職棒26'.
+#   개발사로 안 걸리는 게임(퍼블리셔가 남인 경우)은 **현지 표기까지** 넣어야 잡힌다.
 TITLE = {
-    "시프트업":   ["니케", "nikke", "스텔라 블레이드", "stellar blade"],
-    "크래프톤":   ["배틀그라운드", "pubg", "펍지", "인조이", "inzoi"],
-    "NC":        ["리니지", "아이온", "저니 오브 모나크", "저니오브모나크", "블레이드 앤 소울"],
-    "펄어비스":   ["검은사막"],
-    "데브시스터즈": ["쿠키런"],
-    "컴투스":     ["서머너즈", "컴투스프로야구", "컴프야", "제우스: 오만", "mlb 9이닝스"],
+    "시프트업":   ["니케", "nikke", "스텔라 블레이드", "stellar blade", "勝利の女神"],
+    "크래프톤":   ["배틀그라운드", "pubg", "펍지", "인조이", "inzoi", "絕地求生"],
+    "NC":        ["리니지", "아이온", "저니 오브 모나크", "저니오브모나크", "블레이드 앤 소울",
+                 "lineage", "aion", "throne and liberty", "天堂"],
+    "펄어비스":   ["검은사막", "black desert", "crimson desert", "黑色沙漠"],
+    "데브시스터즈": ["쿠키런", "cookie run", "クッキーラン"],
+    "컴투스":     ["서머너즈", "컴투스프로야구", "컴프야", "제우스: 오만", "mlb 9이닝스",
+                 "summoners war", "サマナーズ", "9局職棒", "mlb 9 innings", "mlb：9局職棒"],
 }
 
 # 구글 플레이 RPC 에 필수인 feature id 목록(2026-09-18 스토어 요청에서 추출).
@@ -68,9 +82,9 @@ G_FEATS = [96, 108, 72, 100, 27, 177, 183, 222, 8, 57, 169, 110, 11, 184, 16, 1,
            104, 55, 56, 145, 32, 34, 10, 122]
 
 
-def apple(kind):
+def apple(kind, cc="kr"):
     """애플 게임 Top100 -> [(순위, 제목, 개발사, 번들ID)]"""
-    u = "https://itunes.apple.com/kr/rss/%s/limit=100/genre=6014/json" % kind
+    u = "https://itunes.apple.com/%s/rss/%s/limit=100/genre=6014/json" % (cc, kind)
     d = json.loads(urllib.request.urlopen(
         urllib.request.Request(u, headers=ua()), timeout=30).read().decode("utf-8"))
     out = []
@@ -81,12 +95,13 @@ def apple(kind):
     return out
 
 
-def google(chart_id, n=100):
+def google(chart_id, n=100, gl="KR", hl="ko"):
     """구글 플레이 게임 Top100 -> [(순위, 제목, 개발사, 패키지)]"""
     inner = [[None, [[8, [20, n]], None, None, G_FEATS], [2, chart_id, "GAME"]]]
     req = [[["vyAe2", json.dumps(inner, separators=(",", ":")), None, "generic"]]]
     body = "f.req=" + urllib.parse.quote(json.dumps(req, separators=(",", ":")))
-    u = "https://play.google.com/_/PlayStoreUi/data/batchexecute?rpcids=vyAe2&hl=ko&gl=KR&rt=c"
+    u = ("https://play.google.com/_/PlayStoreUi/data/batchexecute?rpcids=vyAe2"
+         "&hl=%s&gl=%s&rt=c" % (hl, gl))
     h = ua(doc=True)
     h["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
     h["Accept"] = "*/*"
@@ -147,22 +162,29 @@ def main():
     html = open(HTML, encoding="utf-8").read()
     today = datetime.datetime.now(KST).date().isoformat()
     old = _const(html, "APPRANK") or {}
-    prev = {(a.get("mk"), a.get("id")): a for a in old.get("apps", [])}
+    # cc 가 없는 옛 기록은 전부 한국이다(2026-09-21 다국가 확대 전)
+    prev = {(a.get("cc", "KR"), a.get("mk"), a.get("id")): a for a in old.get("apps", [])}
 
     charts, dead = {}, []
-    for mk, kind_g, kind_f, fn in (("ios", "topgrossingapplications", "topfreeapplications", apple),
-                                   ("and", "topgrossing", "topselling_free", google)):
-        for key, kind in (("gr", kind_g), ("fr", kind_f)):
+    for cc, acc, gl, hl in COUNTRIES:
+        # 매출순위는 네 나라 전부, 무료순위(신규 유입)는 한국만
+        jobs = [("ios", "gr", lambda k=acc: apple("topgrossingapplications", k)),
+                ("and", "gr", lambda g=gl, h=hl: google("topgrossing", 100, g, h))]
+        if cc == "KR":
+            jobs += [("ios", "fr", lambda: apple("topfreeapplications", "kr")),
+                     ("and", "fr", lambda: google("topselling_free", 100, "KR", "ko"))]
+        for mk, key, fn in jobs:
             try:
-                charts[(mk, key)] = fn(kind)
+                charts[(cc, mk, key)] = fn()
                 nap(0.4)
             except Exception as e:
-                charts[(mk, key)] = []
-                dead.append("%s/%s: %s" % (mk, key, str(e)[:60]))
-        if not charts.get((mk, "gr")):
-            dead.append("%s 매출차트가 비어 있음" % mk)
+                charts[(cc, mk, key)] = []
+                dead.append("%s/%s/%s: %s" % (cc, mk, key, str(e)[:50]))
+        for mk in ("ios", "and"):
+            if not charts.get((cc, mk, "gr")):
+                dead.append("%s %s 매출차트가 비어 있음" % (cc, mk))
 
-    if not charts.get(("ios", "gr")) and not charts.get(("and", "gr")):
+    if not charts.get(("KR", "ios", "gr")) and not charts.get(("KR", "and", "gr")):
         note_health("앱스토어", ("양대 마켓 매출차트 전부 실패: " + " · ".join(dead))[:160])
         print("[appstore] 두 마켓 다 실패 — " + " · ".join(dead))
         sys.exit(1)
@@ -175,13 +197,13 @@ def main():
 
     # ── 오늘 잡힌 것 모으기 ──────────────────────────────────────────────
     apps = {}
-    for (mk, key), rows in charts.items():
+    for (cc, mk, key), rows in charts.items():
         for rank, title, artist, ident in rows:
             st = owner(title, artist)
             if not st or not ident:
                 continue
-            a = apps.setdefault((mk, ident),
-                                {"stock": st, "mk": mk, "nm": title, "id": ident, "pt": {}})
+            a = apps.setdefault((cc, mk, ident),
+                                {"stock": st, "cc": cc, "mk": mk, "nm": title, "id": ident, "pt": {}})
             a["nm"] = title
             a["pt"][key] = rank        # 같은 앱이 매출·무료 양쪽에 있으면 한 점에 담는다
 
@@ -189,7 +211,7 @@ def main():
     # 개편 전에는 종목당 iOS 대표작 한 줄(games[])이었다. 그 점이 어느 게임이었는지는 같이 저장해 둔
     # 제목(t · 30자로 잘림)으로 알 수 있으므로, 제목이 맞는 앱으로 옮겨 담아 이력을 잇는다.
     legacy = {}
-    ios_titles = {t: i for _, t, _, i in charts.get(("ios", "gr"), []) + charts.get(("ios", "fr"), [])}
+    ios_titles = {t: i for _, t, _, i in charts.get(("KR", "ios", "gr"), []) + charts.get(("KR", "ios", "fr"), [])}
     for g in old.get("games", []):
         for p in g.get("hist", []):
             t = p.get("t")
@@ -197,7 +219,7 @@ def main():
                 continue
             ident = next((i for nm, i in ios_titles.items() if nm.startswith(t)), None)
             if ident:
-                legacy.setdefault(("ios", ident), {})[p["d"]] = {
+                legacy.setdefault(("KR", "ios", ident), {})[p["d"]] = {
                     k: v for k, v in p.items() if k in ("gr", "fr")}
 
     out_apps = []
@@ -213,24 +235,27 @@ def main():
         if not hist:
             continue
         base = cur or prev.get(k) or {}
-        out_apps.append({"stock": base.get("stock"), "mk": k[0], "nm": base.get("nm"),
-                         "id": k[1], "hist": [hist[d] for d in sorted(hist)][-DAYS:]})
-    out_apps.sort(key=lambda a: (a["stock"] or "", a["mk"], (a["hist"][-1].get("gr") or 999)))
+        out_apps.append({"stock": base.get("stock"), "cc": k[0], "mk": k[1], "nm": base.get("nm"),
+                         "id": k[2], "hist": [hist[d] for d in sorted(hist)][-DAYS:]})
+    out_apps.sort(key=lambda a: (a["stock"] or "", a["cc"], a["mk"], (a["hist"][-1].get("gr") or 999)))
 
     out = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "apps": out_apps}
 
-    for mk, nm in (("ios", "앱스토어"), ("and", "구글플레이")):
-        got = [a for a in out_apps if a["mk"] == mk and a["hist"][-1].get("d") == today]
-        print("  %s: %d개" % (nm, len(got)))
-        for a in sorted(got, key=lambda x: x["hist"][-1].get("gr") or 999):
-            p = a["hist"][-1]
-            print("    %-6s %-28s 매출 %s위 · 무료 %s위"
-                  % (a["stock"], a["nm"][:26], p.get("gr") or "—", p.get("fr") or "—"))
+    for cc, _, _, _ in COUNTRIES:
+        for mk, nm in (("ios", "앱스토어"), ("and", "구글플레이")):
+            got = [a for a in out_apps if a["cc"] == cc and a["mk"] == mk and a["hist"][-1].get("d") == today]
+            if not got:
+                continue
+            print("  [%s] %s: %d개" % (cc, nm, len(got)))
+            for a in sorted(got, key=lambda x: x["hist"][-1].get("gr") or 999):
+                p = a["hist"][-1]
+                print("    %-6s %-28s 매출 %s위 · 무료 %s위"
+                      % (a["stock"], a["nm"][:26], p.get("gr") or "—", p.get("fr") or "—"))
 
     if "--dry-run" in sys.argv:
         return
-    old_h = {(a.get("mk"), a.get("id")): a.get("hist") for a in old.get("apps", [])}
-    new_h = {(a["mk"], a["id"]): a["hist"] for a in out_apps}
+    old_h = {(a.get("cc", "KR"), a.get("mk"), a.get("id")): a.get("hist") for a in old.get("apps", [])}
+    new_h = {(a["cc"], a["mk"], a["id"]): a["hist"] for a in out_apps}
     if old_h == new_h and old_h:
         print("변동 없음 — index.html 그대로 둠")
         return

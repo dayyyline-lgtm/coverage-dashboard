@@ -2061,8 +2061,11 @@ function injectCompanyStack(items, opt){
    ⚠ 두 마켓의 순위를 한 그룹에 섞지 말 것 — 목록이 달라 같은 5위가 다른 크기다. */
 (function injectAppRankTrends(){
   if(typeof APPRANK==="undefined"||!APPRANK.apps) return;
-  const MK={ios:["앱스토어","Apple 앱스토어(한국) 게임 매출 Top100"],
-            and:["구글플레이","구글 플레이(한국) 게임 매출 Top100"]};
+  const MK={ios:["앱스토어","Apple 앱스토어 게임 매출 Top100"],
+            and:["구글플레이","구글 플레이 게임 매출 Top100"]};
+  // 2026-09-21 다국가 확대. 같은 게임도 나라마다 이름이 달라(天堂M=리니지M · 勝利の女神=니케)
+  // 게임 동일성을 판정하지 않고 **계열 라벨에 나라를 붙인다** — 판정하다 틀리느니 그대로 늘어놓는다.
+  const CC={KR:"한국",US:"미국",JP:"일본",TW:"대만"}, CCORD=["KR","US","JP","TW"];
   const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
   const last=a=>[...a].reverse().find(v=>v!=null);
   const by={};
@@ -2074,14 +2077,16 @@ function injectCompanyStack(items, opt){
     const rows=list.map(a=>{ const m={}; (a.hist||[]).forEach(h=>{ if(h.gr!=null) m[h.d]=h.gr; });
         return {a, raw:days.map(d=>m[d]==null?null:m[d])}; })
       .filter(r=>r.raw.some(v=>v!=null))
-      // 지금 순위가 높은(작은) 것부터 — 범례·색 순서가 차트 위아래와 맞는다
-      .sort((x,y)=>(last(x.raw)||999)-(last(y.raw)||999)).slice(0,8);
+      // 한국을 앞에 세우고, 그 안에서 지금 순위가 높은(작은) 것부터
+      .sort((x,y)=>(CCORD.indexOf(x.a.cc||"KR")-CCORD.indexOf(y.a.cc||"KR"))
+                 ||((last(x.raw)||999)-(last(y.raw)||999))).slice(0,8);
     if(!rows.length) return;
-    const nm=r=>r.a.nm.replace(/\s*[:：].*$/,"").slice(0,18);     // '제우스: 오만의 신' → '제우스'
+    const nm=r=>r.a.nm.replace(/\s*[:：].*$/,"").slice(0,14)
+      +((r.a.cc&&r.a.cc!=="KR")?`(${CC[r.a.cc]||r.a.cc})`:"");
     const labels=rows.map(nm);
     const name=`${stock} 매출순위(${MK[mk][0]})`;
     // 무료순위는 계열로 두면 선이 두 배가 된다 — 최신값만 각주로.
-    const free=list.map(a=>{ const h=(a.hist||[]).slice(-1)[0]||{};
+    const free=list.filter(a=>(a.cc||"KR")==="KR").map(a=>{ const h=(a.hist||[]).slice(-1)[0]||{};
         return h.fr!=null?`${a.nm.replace(/\s*[:：].*$/,"").slice(0,12)} ${h.fr}위`:null; }).filter(Boolean);
     TREND.groups[name]={
       products:labels, productsGoogle:labels,
@@ -2090,7 +2095,8 @@ function injectCompanyStack(items, opt){
       google:rows.map(r=>r.raw.map(v=>v==null?null:101-v)),
       rawSer:rows.map(r=>r.raw), only:"naver", freq:"date",
       unitShort:"위", rankN:100, fmt:v=>(v==null?"—":(101-v)+"위"),
-      srcName:MK[mk][1]+" · 위로 갈수록 상위 · 100위 밖은 끊김",
+      srcName:MK[mk][1]+" · 나라별 100위 · 위로 갈수록 상위 · 100위 밖은 끊김 · "
+        +"⚠ 나라끼리 순위를 직접 비교하지 말 것(시장 크기가 다르다)",
       reviewNote:free.length?("무료순위 "+free.slice(0,4).join(" · ")):""
     };
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
@@ -4740,7 +4746,8 @@ function c2Apps(){
   if(typeof APPRANK==="undefined"||!APPRANK.apps) return [];
   const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
   const by={};
-  APPRANK.apps.filter(a=>a.stock==="컴투스").forEach(a=>{
+  // 모델의 '국내 모바일 몫'이라 한국 차트만 쓴다(해외는 아래 각주로 따로 읽는다)
+  APPRANK.apps.filter(a=>a.stock==="컴투스"&&(a.cc||"KR")==="KR").forEach(a=>{
     const L=(a.hist||[]).filter(h=>h.gr!=null).slice(-1)[0]; if(!L) return;
     const nm=a.nm.replace(/\s*[:：].*$/,"").slice(0,16);
     const o=by[nm]=by[nm]||{nm, and:null, ios:null, d:L.d, rev:0};
