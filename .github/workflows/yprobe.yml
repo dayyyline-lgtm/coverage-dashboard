@@ -1,0 +1,36 @@
+name: 얀덱스 키워드 탐침(일회성)
+# 달바글로벌 러시아 검색을 얀덱스 Wordstat 으로 잡을 수 있는지 — 표기·크기·지역·오염을 한 번에 찍는다.
+# 키가 Actions secrets 에만 있어 로컬에서 못 돌린다. probe_yandex.py 를 push 하면 돌고,
+# 결과는 diag/yandex_probe.json 으로 커밋한다. 수집기·배포와 무관 — [CI Skip].
+on:
+  push:
+    paths: ["probe_yandex.py"]
+  workflow_dispatch:
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests
+      - name: 얀덱스 탐침
+        env:
+          PYTHONIOENCODING: utf-8
+          YANDEX_API_KEY: ${{ secrets.YANDEX_API_KEY }}
+          YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
+        run: python probe_yandex.py
+      - name: 결과 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diag/yandex_probe.json
+          git commit -m "얀덱스 키워드 탐침 결과 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]" || exit 0
+          for i in 1 2 3; do git push && exit 0; git fetch origin main; git rebase origin/main || { git rebase --abort; exit 0; }; done
