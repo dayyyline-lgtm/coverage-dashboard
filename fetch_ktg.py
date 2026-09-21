@@ -256,13 +256,23 @@ def fetch_kaspi():
 
 
 # ── ④ hh.kz ──────────────────────────────────────────────
-HH_ENT = [("sales", "9856755", "KT&G GLOBAL KAZAKHSTAN(판매)"), ("prod", "10258777", "KT&G Kazakhstan(생산·Кокозек 공장)")]
+# 러시아 판매법인(KT&G Global Rus · hh.ru)도 같이 센다 (2026-09-21 실측 11건: 모스크바 트레이드마케팅 TSM ·
+# 블라디보스토크·치타·도네츠크 지역대표, 그리고 **예레반(아르메니아) 재무·경영지원 GM** — 아르메니아 거점 신설의 흔적).
+# hh.ru 와 hh.kz 는 같은 HTML 템플릿이라 파서를 공유한다. ⚠ api.hh.ru 는 이 IP 를 403 으로 막지만 HTML 은 열린다.
+HH_ENT = [("sales", "9856755", "KT&G GLOBAL KAZAKHSTAN(판매)", "hh.kz"),
+          ("prod", "10258777", "KT&G Kazakhstan(생산·Кокозек 공장)", "hh.kz"),
+          ("rus", "2746402", "KT&G Global Rus(러시아 판매법인)", "hh.ru")]
 
 
 def fetch_hh():
     out = {}
-    for key, eid, label in HH_ENT:
-        t = _get(f"https://hh.kz/search/vacancy?employer_id={eid}&items_on_page=50")
+    for key, eid, label, host in HH_ENT:
+        try:
+            t = _get(f"https://{host}/search/vacancy?employer_id={eid}&items_on_page=50")
+        except Exception as e:
+            if key == "rus":                       # 러시아는 보조 — 막히면 빼고 간다(러너 IP 는 hh.ru 가 막을 수 있다)
+                print(f"    hh.ru 실패({str(e)[:40]}) — 러시아 법인 생략"); continue
+            raise
         n = re.search(r"Найдено\s+(\d+)", t)
         titles = [htmlmod.unescape(x) for x in re.findall(r'data-qa="serp-item__title[^"]*"[^>]*>(?:<[^>]+>)*([^<]{3,120})<', t)]
         cities = [htmlmod.unescape(x) for x in re.findall(r'data-qa="vacancy-serp__vacancy-address[^"]*"[^>]*>(?:<[^>]+>)*([^<]{2,60})<', t)]
@@ -350,10 +360,10 @@ def main():
         hh = fetch_hh()
         hist = [h for h in (old.get("jobs") or {}).get("hist") or [] if h.get("d") != today]
         hist.append({"d": today, "sales": hh["sales"]["n"], "prod": hh["prod"]["n"],
-                     "reg": hh["sales"]["reg"]})
-        out["jobs"] = {"src": "hh.kz(HeadHunter 카자흐) — KT&G 판매법인·생산법인 공개 채용 수",
+                     "rus": (hh.get("rus") or {}).get("n"), "reg": hh["sales"]["reg"]})
+        out["jobs"] = {"src": "hh.kz·hh.ru(HeadHunter) — KT&G 카자흐 판매·생산법인 + 러시아 판매법인 공개 채용 수",
                        "ent": hh, "hist": hist[-DAYS:]}
-        print(f"  [hh.kz] 판매법인 {hh['sales']['n']}건 {hh['sales']['reg']} · 생산법인 {hh['prod']['n']}건")
+        print(f"  [hh] 카자흐 판매 {hh['sales']['n']}건 {hh['sales']['reg']} · 생산 {hh['prod']['n']}건 · 러시아 판매 {(hh.get('rus') or {}).get('n')}건 {(hh.get('rus') or {}).get('reg')}")
     except Exception as e:
         fails.append(f"hh.kz: {str(e)[:50]}")
         if old.get("jobs"): out["jobs"] = old["jobs"]
