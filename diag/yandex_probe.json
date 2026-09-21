@@ -1,5 +1,5 @@
 {
- "t": "2026-09-21 13:37:16 KST",
+ "t": "2026-09-21 13:38:47 KST",
  "key": true,
  "spellings": {
   "dalba": {
@@ -118,6 +118,51 @@
     37,
     55,
     46
+   ],
+   "first": "2025-09-22",
+   "last": "2026-09-07"
+  },
+  "alba": {
+   "n": 51,
+   "nz": 51,
+   "max": 16228,
+   "min": 10456,
+   "avg": 13777,
+   "last4": [
+    15479,
+    14765,
+    14087,
+    15103
+   ],
+   "first": "2025-09-22",
+   "last": "2026-09-07"
+  },
+  "альба": {
+   "n": 51,
+   "nz": 51,
+   "max": 61949,
+   "min": 37367,
+   "avg": 54874,
+   "last4": [
+    61494,
+    57657,
+    53613,
+    56332
+   ],
+   "first": "2025-09-22",
+   "last": "2026-09-07"
+  },
+  "d alba": {
+   "n": 51,
+   "nz": 51,
+   "max": 5161,
+   "min": 2788,
+   "avg": 4165,
+   "last4": [
+    5123,
+    4560,
+    4088,
+    4422
    ],
    "first": "2025-09-22",
    "last": "2026-09-07"
@@ -279,13 +324,132 @@
  },
  "top": {
   "d'alba": {
-   "err": "400: { \"code\": 3, \"message\": \"rpc error: code = InvalidArgument desc = Validation error:\\nnum_phrases: Value must be in the range of 1 to 2000\", \"details\": [ { \"@type\": \"type.googleapis.com/google.rpc.Requ"
+   "associations": [
+    {
+     "p": "свой в альфе",
+     "c": "31530"
+    },
+    {
+     "p": "между нами",
+     "c": "616461"
+    },
+    {
+     "p": "альфа войти",
+     "c": "163249"
+    },
+    {
+     "p": "альбо",
+     "c": "31895"
+    },
+    {
+     "p": "a little to the left",
+     "c": "7225"
+    },
+    {
+     "p": "die with a smile",
+     "c": "10253"
+    },
+    {
+     "p": "альбина",
+     "c": "397147"
+    }
+   ]
   },
   "dalba": {
-   "err": "400: { \"code\": 3, \"message\": \"rpc error: code = InvalidArgument desc = Validation error:\\nnum_phrases: Value must be in the range of 1 to 2000\", \"details\": [ { \"@type\": \"type.googleapis.com/google.rpc.Requ"
+   "associations": [
+    {
+     "p": "вальб",
+     "c": "3028"
+    },
+    {
+     "p": "альбо",
+     "c": "31895"
+    },
+    {
+     "p": "далбек",
+     "c": "7833"
+    },
+    {
+     "p": "бельдиби",
+     "c": "60556"
+    },
+    {
+     "p": "беквуд",
+     "c": "11481"
+    },
+    {
+     "p": "дебеквуд",
+     "c": "14857"
+    },
+    {
+     "p": "dalbek",
+     "c": "1866"
+    }
+   ]
   },
   "дальба": {
-   "err": "400: { \"code\": 3, \"message\": \"rpc error: code = InvalidArgument desc = Validation error:\\nnum_phrases: Value must be in the range of 1 to 2000\", \"details\": [ { \"@type\": \"type.googleapis.com/google.rpc.Requ"
+   "associations": [
+    {
+     "p": "ко дальнева",
+     "c": "69896"
+    },
+    {
+     "p": "долина чудная долина",
+     "c": "38632"
+    },
+    {
+     "p": "дальнева",
+     "c": "100358"
+    },
+    {
+     "p": "лгу даля",
+     "c": "2265"
+    },
+    {
+     "p": "далбек",
+     "c": "7833"
+    },
+    {
+     "p": "алаверды что это",
+     "c": "6286"
+    },
+    {
+     "p": "далма",
+     "c": "5530"
+    }
+   ]
+  },
+  "alba": {
+   "associations": [
+    {
+     "p": "сопрано",
+     "c": "712490"
+    },
+    {
+     "p": "манго",
+     "c": "802968"
+    },
+    {
+     "p": "мальва",
+     "c": "89130"
+    },
+    {
+     "p": "фламинго",
+     "c": "465270"
+    },
+    {
+     "p": "глория",
+     "c": "822361"
+    },
+    {
+     "p": "эдиты",
+     "c": "826662"
+    },
+    {
+     "p": "альбо",
+     "c": "31895"
+    }
+   ]
   }
  },
  "best": "d'alba"
