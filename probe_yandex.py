@@ -65,7 +65,8 @@ def dynamics(phrase, freq="week", n=52, regions=None):
 def top_requests(phrase, regions=None):
     """연관 검색어 — 일반명사 오염을 이걸로 가른다.
        'alba' 계열이면 이탈리아 지명·다른 브랜드가 상위에 뜬다."""
-    body = {"folderId": FOLDER, "phrase": phrase}
+    # numPhrases 는 필수다 — 없으면 400 "Value must be in the range of 1 to 2000".
+    body = {"folderId": FOLDER, "phrase": phrase, "numPhrases": 15}
     if regions:
         body["regions"] = [str(r) for r in regions]
     r = requests.post(TOP, json=body, timeout=30,
@@ -98,6 +99,12 @@ def main():
         print(f"   {kw:28s} {out['spellings'][kw]}")
         time.sleep(0.4)
 
+    print("②' 오염 후보 — alba 계열 단독 크기")
+    for kw in ["alba", "альба", "d alba"]:
+        out["spellings"][kw] = dynamics(kw, regions=["225"])
+        print(f"   {kw:28s} {out['spellings'][kw]}")
+        time.sleep(0.4)
+
     print("② 경쟁 브랜드 (러시아 225)")
     for kw in RIVALS:
         out["rivals"][kw] = dynamics(kw, regions=["225"])
@@ -105,7 +112,7 @@ def main():
         time.sleep(0.4)
 
     # 표기 중 가장 큰 것으로 지역·연관어를 본다
-    best = max(out["spellings"].items(),
+    best = max(((k, v) for k, v in out["spellings"].items() if k in SPELLINGS),
                key=lambda kv: kv[1].get("avg", 0) if "err" not in kv[1] else -1)[0]
     out["best"] = best
     print(f"③ 지역별 — 기준 표기 {best!r}")
@@ -115,7 +122,9 @@ def main():
         time.sleep(0.4)
 
     print("④ 연관 검색어 (오염 검사)")
-    for kw in [best, "dalba", "дальба"]:
+    # ⚠ 'alba' 는 이탈리아 지명·와인·다른 브랜드라 러시아에서도 쓰인다.
+    #   d'alba 가 dalba 의 2.8배인 게 브랜드 신호인지 'alba' 오염인지를 여기서 가른다.
+    for kw in [best, "dalba", "дальба", "alba"]:
         if kw in out["top"]:
             continue
         out["top"][kw] = top_requests(kw, regions=["225"])
