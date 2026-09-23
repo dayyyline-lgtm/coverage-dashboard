@@ -35,6 +35,11 @@ BRAND_STOCK = {
     # 아로마티카 — 2025-11-27 코스닥 상장. 미국은 로즈마리 두피케어(스칼프 스케일링 샴푸)가 주력.
     "Aromatica":        {"stock": "아로마티카",   "owner": "아로마티카",   "listed": True,
                          "memo": "비건·클린뷰티 · 2025-11 코스닥 상장"},
+    # TS트릴리온 — 스토어 표기 'TS SHAMPOO', 제목은 전부 'TS ...'(TS GD Teen Shampoo 등)로 시작한다.
+    # 'TS Shampoo' 로 두면 GD 제목이 안 걸려 **'TS'** 로 잡는다(단어경계 매칭).
+    # 2026-09-23 US 실측: GD 청소년 샴푸 리뷰 222·월 200개+·샴푸 1,010위 · TS 샴푸 플러스 리뷰 319.
+    "TS":               {"stock": "TS트릴리온",   "owner": "TS트릴리온",   "listed": True,
+                         "memo": "TS샴푸 · 청소년 샴푸 GD — 9/22 미국 미니소 200곳 입점"},
     "Anua":             {"stock": None, "owner": "더파운더즈",   "listed": False,
                          "memo": "IPO 준비"},
     "BIODANCE":         {"stock": None, "owner": "바이오던스",   "listed": False},
