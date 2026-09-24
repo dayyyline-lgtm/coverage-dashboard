@@ -1666,10 +1666,12 @@ const TREND_STOCK={
     const raw=its.map(o=>{const m={}; o.days.forEach((d,i)=>{ m[d]=o.posts[i]; }); return days.map(d=>m[d]==null?null:m[d]);});
     const norm=raw.map(a=>{const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*100));});
     const name=`디시 글수(${stock})`;
+    // 하루 글 수는 요일·이벤트로 요동친다 — 3주 이상 창은 **주간 합계**(완결 주만)로 보고, 단기만 일별(7일 평균).
     TREND.groups[name]={
       products:its.map(o=>o.g.name+"갤"), productsGoogle:its.map(o=>o.g.name),
       months:days.map(md), naver:norm, google:norm, rawSer:raw,
-      only:"naver", freq:"date", selfNorm:true, unit:"글/일", unitShort:"글",
+      only:"naver", freq:"date", selfNorm:true, unit:"글/일", unitShort:"글", preferWeek:true,
+      alt:weeklyAlt(days, raw, "sum", {unit:"글/주(완결 주)", unitShort:"글"}),
       srcName:"디시인사이드 갤러리 글번호 차분 · 과거는 페이지 샘플 보간(구간 평균) · 100 = 각 갤 기간 최고"
     };
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
@@ -2298,10 +2300,12 @@ const topicsOf=n=>{
     const raw=h.map(x=>x.p||0), peak=Math.max(...raw); if(!peak) return;
     const dates=h.map(x=>{const p=(x.d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:x.d;});
     const name=c.stock+" 현장직 채용";
+    // 공고 수는 수준값이라 주별은 **주평균**. 완결 주 6개가 쌓이기 전엔 일별(7일 평균)만.
     TREND.groups[name]={
       products:["현장직 공고"], productsGoogle:["현장직 공고"],
       months:dates, naver:[raw.map(v=>Math.round(v/peak*100))], google:[raw.map(v=>Math.round(v/peak*100))],
-      only:"naver", freq:"date", peak:peak, unit:"건(현장직 공고)",
+      only:"naver", freq:"date", peak:peak, unit:"건(현장직 공고)", preferWeek:true,
+      alt:weeklyAlt(h.map(x=>x.d), [raw], "mean", {unit:"건(주평균)", unitShort:"건", peakNorm:true}),
       srcName:"사람인 채용공고 · 회사명 정확일치 · 생산·품질·설비·물류 태그만",
       reviewNote:(()=>{const l=h[h.length-1]||{}; const r=Object.entries(l.reg||{}).sort((a,b)=>b[1]-a[1]).slice(0,3);
         return r.length?`최근 ${(l.d||"").slice(5).replace("-","/")} 지역: `+r.map(([k,v])=>`${k} ${v}`).join(" · "):"";})()
@@ -2344,6 +2348,48 @@ const KIND_MIN=8;
 let trendDays=(()=>{ try{ const v=localStorage.getItem("trendDays"); if(v===null) return 30; if(v==="all") return null;
   const n=+v; return (n>=7&&n<=3650)?n:30; }catch(_){ return 30; } })();
 const WIN_PRESET=[["단기",30],["중기",90],["장기",null]];
+/* ══ 스무딩 (2026-09-24 · 개편계획.md Phase 2) ═══════════════════════════════
+   일별 계열은 하루 튐이 크다 — '전일비 +147%' 는 뉴스가 아니라 노이즈다(30~40 대 지수가 하루 튄 것).
+   일별(freq==="date") 그룹은 **7일 이동평균을 본선**으로 그리고 원값은 흐리게 깐다.
+   범례·표·'주목할 추이'도 평균 기준(주간 변화 = 최근 7일 평균 vs 직전 7일 평균)으로 판단한다.
+   전일비는 툴팁으로 강등. 주별·월별·스택·스냅샷은 스무딩하지 않는다. 토글(원값)은 localStorage 에 남긴다. */
+let trendSmooth=(()=>{ try{ return localStorage.getItem("trendSmooth")!=="0"; }catch(_){ return true; } })();
+const SMOOTH_K={date:7};
+function smoothSeries(ser, k){
+  if(!Array.isArray(ser)||!(k>1)) return ser;
+  const out=new Array(ser.length).fill(null);
+  for(let i=0;i<ser.length;i++){
+    let s=0,n=0;
+    for(let j=Math.max(0,i-k+1);j<=i;j++){ const v=ser[j]; if(v!=null&&!isNaN(v)){ s+=v; n++; } }
+    // 창의 절반 이상이 있어야 평균을 낸다 — 구멍 구간에서 한두 점으로 평균을 만들지 않게
+    out[i]=(n>0 && n>=Math.min(i+1,Math.ceil(k/2)))?Math.round(s/n*10)/10:null;
+  }
+  return out;
+}
+const smoothK=G=> (trendSmooth && G && !G.stack && !G.snapshot) ? (SMOOTH_K[G.freq||"week"]||1) : 1;
+const lastNN=a=>{ for(let i=(a||[]).length-1;i>=0;i--) if(a[i]!=null) return a[i]; return null; };
+/* 일별 → 주별(월요일 시작, 완결된 주만) 뷰. days = "YYYY-MM-DD"[] · raw = 계열별 원값.
+   mode "sum"(글 수) / "mean"(공고 수 같은 수준값). opt.peakNorm 이면 최고=100(peak 저장), 아니면 계열별 자기 최고=100(selfNorm 상속).
+   완결 주가 6개 미만이면 null — 그땐 일별(이동평균)만 쓴다. */
+function weeklyAlt(days, raw, mode, opt){
+  opt=opt||{};
+  const ws=d=>{ const t=new Date(d+"T00:00:00Z"); const dow=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-dow); return t.toISOString().slice(0,10); };
+  const lastDay=days[days.length-1]; if(!lastDay) return null;
+  const keys=[]; const idx={};
+  days.forEach((d,i)=>{ const w=ws(d); if(!(w in idx)){ idx[w]=[]; keys.push(w); } idx[w].push(i); });
+  // 완결된 주만 — 마지막 주가 일요일까지 안 찼으면 뺀다
+  const full=keys.filter(w=>{ const e=new Date(w+"T00:00:00Z"); e.setUTCDate(e.getUTCDate()+6); return e.toISOString().slice(0,10)<=lastDay && idx[w].length>=4; });
+  if(full.length<6) return null;
+  const agg=raw.map(ser=>full.map(w=>{ const v=idx[w].map(i=>ser[i]).filter(x=>x!=null); if(!v.length) return null;
+    const s=v.reduce((a,b)=>a+b,0); return mode==="mean"?Math.round(s/v.length*10)/10:Math.round(s); }));
+  const lab=full.map(w=>{ const p=w.slice(5).split("-"); return `${+p[0]}/${+p[1]}주`; });
+  const out={freq:"week", months:lab, rawSer:agg, unit:opt.unit, unitShort:opt.unitShort};
+  if(opt.peakNorm){ const pk=Math.max(1,...agg.flatMap(a=>a.filter(v=>v!=null))); out.peak=pk;
+    out.naver=agg.map(a=>a.map(v=>v==null?null:Math.round(v/pk*100))); }
+  else out.naver=agg.map(a=>{ const mx=Math.max(1,...a.filter(v=>v!=null)); return a.map(v=>v==null?null:Math.round(v/mx*100)); });
+  out.google=out.naver;
+  return out;
+}
 const winName=days=>{ const p=WIN_PRESET.find(x=>x[1]===days); return p?p[0]:`최근 ${days}일`; };
 const FREQ_DAYS={date:1,week:7,month:30}, FREQ_UNIT={date:"일",week:"주",month:"개월"};
 const MIN_PTS={date:7,week:6,month:6};        // 주별·월별은 이보다 적으면 선이 안 된다
@@ -2367,12 +2413,16 @@ function winPlan(G, days){
   const S=fs.map(f=>{ const V=freqView(G,f); const n=((V&&V.months)||TREND.months).length; return {f,n,days:n*FREQ_DAYS[f]}; });
   const maxDays=Math.max(...S.map(x=>x.days));
   let pick;
-  if(days==null || days>=maxDays){ days=null; pick=S.slice().sort((a,b)=>b.days-a.days)[0]; }
+  const wk=S.find(x=>x.f==="week");
+  if(days==null || days>=maxDays){ days=null; pick=S.slice().sort((a,b)=>b.days-a.days)[0];
+    if(G.preferWeek && wk && wk.n>=MIN_PTS.week) pick=wk; }
   else{
-    const d=S.find(x=>x.f==="date"), w=S.find(x=>x.f==="week")||S.find(x=>x.f==="month")||S[0];
+    const d=S.find(x=>x.f==="date"), w=wk||S.find(x=>x.f==="month")||S[0];
     // 일별이 요청 일수의 2/3 이상 덮으면 일별. 아니면 주별 — 단, 주별이 일별보다 달력으로 1.5배 넘게 길 때만
     // (쿨로아600 은 주별 6주=42일 뿐이라 일별 30일이 더 낫다). 일별이 5점도 안 되면(수집 첫 주) 주별로.
-    pick=(d && d.n>=5 && (d.days>=days*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
+    // preferWeek(디시 글수·채용처럼 하루 단위가 뜻이 없는 계열)는 3주 이상 창이면 주별을 먼저 잡는다.
+    if(G.preferWeek && wk && wk.n>=MIN_PTS.week && days>=21) pick=wk;
+    else pick=(d && d.n>=5 && (d.days>=days*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
   }
   const n=days==null?pick.n:Math.min(pick.n, Math.max(MIN_PTS[pick.f], Math.ceil(days/FREQ_DAYS[pick.f])));
   return {days, name:winName(days), freq:pick.f, n, total:pick.n, maxDays, label:`${n}${FREQ_UNIT[pick.f]}`};
@@ -2383,11 +2433,16 @@ function viewGroup(G){ if(!G) return G;
   const P=winPlan(G); if(!P) return G;
   trendFreq=P.freq;
   const V=freqView(G,P.freq)||G;
-  if(G.snapshot || !(P.n<P.total)) return Object.assign({}, V, {_win:P});
-  const cut=a=>Array.isArray(a)?a.slice(-P.n):a;
+  // 스무딩은 자르기 **전** 전체 계열로 계산한다 — 창 첫 점들도 앞 데이터를 본 평균이어야 한다
+  const k=smoothK(V), sm={};
+  if(k>1) ["naver","google"].forEach(key=>{ if(Array.isArray(V[key])) sm[key]=V[key].map(s=>smoothSeries(s,k)); });
+  const full=!(P.n<P.total);
+  const cut=a=>(Array.isArray(a)&&!full)?a.slice(-P.n):a;
   const o=Object.assign({}, V, {_win:P});
+  if(k>1) o.smooth={k, naver:(sm.naver||[]).map(cut), google:(sm.google||[]).map(cut)};
+  if(G.snapshot || full) return o;
   o.months=cut(V.months||TREND.months);
-  ["naver","google"].forEach(k=>{ if(Array.isArray(V[k])) o[k]=V[k].map(cut); });
+  ["naver","google"].forEach(key=>{ if(Array.isArray(V[key])) o[key]=V[key].map(cut); });
   if(Array.isArray(V.rawSer)) o.rawSer=V.rawSer.map(cut);
   return o; }
 /* 그 주제가 실제로 가진 출처만 남긴다.
@@ -2484,8 +2539,18 @@ function drawTrend(){
     s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${t.label}</text>`;});
   const step=Math.max(1,Math.ceil(M.length/12));   // 라벨이 빽빽하면 솎아낸다(일별 대응)
   M.forEach((m,i)=>{ if(i%step===0 || i===M.length-1) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
+  const SM=(G.smooth&&G.smooth[trendSrc])||null;          // 7일 이동평균(일별 계열·스무딩 켜짐일 때만)
   series.forEach((ser,pi)=>{
     const c=TREND.colors[pi];
+    if(SM&&SM[pi]){
+      // 원값은 얇고 흐리게(무슨 일이 있었는지는 보이되 눈을 끌지 않게), 평균이 본선
+      s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="1.1" stroke-opacity=".30" stroke-linejoin="round"/>`;
+      ser.forEach((v,i)=>{ if(v==null) return; s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="1.7" fill="${c}" fill-opacity=".38"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
+      s+=`<path d="${trendPath(SM[pi],sx,sy)}" fill="none" stroke="${c}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+      const li=SM[pi].map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
+      if(li!=null) s+=`<text x="${W-pad.r+8}" y="${sy(SM[pi][li])+4}" font-size="12" font-weight="700" fill="${c}">${PRODUCTS[pi]}</text>`;
+      return;
+    }
     s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     ser.forEach((v,i)=>{ if(v==null) return; s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
     const li=ser.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
@@ -2500,14 +2565,16 @@ function drawTrend(){
         /* rawSer: 0-100 정규화 전의 실제 값. 순위처럼 peak 로 역산이 안 되는 계열이 쓴다. */
         r0:(G.rawSer&&G.rawSer[pi])?G.rawSer[pi][i]:null,
         /* 순위 계열(rawSer)은 전기간비 %가 뜻이 없다 — 10위→12위가 '-2.2%' 로 읽힌다. */
-        d:(!G.rawSer&&i>0&&ser[i-1]>0&&ser[i]!=null)?(ser[i]/ser[i-1]-1)*100:null}))
+        d:(!G.rawSer&&i>0&&ser[i-1]>0&&ser[i]!=null)?(ser[i]/ser[i-1]-1)*100:null,
+        a:(SM&&SM[pi])?SM[pi][i]:null}))
       .filter(r=>r.v!=null)
       .sort((a,b)=>b.v-a.v);                 // 큰 것부터 — 차트에서 위에 있는 선 순서와 같다
     if(!rows.length) return null;
     return `<div class="tt-h">${M[i]}</div>`+rows.map(r=>
       `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
       +`<span class="v">${r.r0!=null?"":r.v}${(r.r0!=null||G.peak)?`<span style="color:var(--muted);font-weight:600;font-size:10.5px">${r.r0!=null?"":" · "}${fmt0(r.r0!=null?r.r0:r.v*G.peak/100)}${G.unitShort||"건"}</span>`:""}`
-      +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}</span></div>`).join("");
+      +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}`
+      +`${r.a!=null?` <span style="color:var(--muted);font-weight:600;font-size:10.5px">· 7일평균 ${G.rawSer?(G.fmt?G.fmt(r.a):r.a):r.a}</span>`:""}</span></div>`).join("");
   }});
   fillTrendLegendTable(G, PRODUCTS, series, M, U);
 }
@@ -2598,9 +2665,12 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
   box.innerHTML=`<div class="sm-grid">`+PRODUCTS.map((p,i)=>{
     const ser=series[i]||[], c=TREND.colors[i], last=ser[ser.length-1];
     const src=srcs[i];
+    const sm=(G.smooth&&G.smooth[trendSrc]&&G.smooth[trendSrc][i])||null;
     let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" preserveAspectRatio="none">`;
     [0,ymax/2,ymax].forEach(v=>{ s+=`<line x1="${pad.l}" y1="${sy(v)}" x2="${W-pad.r}" y2="${sy(v)}" stroke="${gc}"/>`; });
-    s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
+    if(sm){ s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="1" stroke-opacity=".30" stroke-linejoin="round"/>`;
+            s+=`<path d="${trendPath(sm,sx,sy)}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>`; }
+    else s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
     // x축은 양끝만 — 칸이 좁아 다 넣으면 뭉갠다
     s+=`<text x="${pad.l}" y="${H-3}" font-size="9" fill="${mut}">${M[0]||""}</text>`;
     s+=`<text x="${W-pad.r}" y="${H-3}" text-anchor="end" font-size="9" fill="${mut}">${M[M.length-1]||""}</text>`;
@@ -2608,7 +2678,7 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut){
     return `<div class="sm-cell">
       <div class="sm-h"><span class="dot" style="background:${c}"></span>${p}
         ${src?`<span class="src">${src}</span>`:""}
-        <span class="v" style="color:${c}">${last==null?"—":last}</span></div>${s}</div>`;
+        <span class="v" style="color:${c}">${sm?(lastNN(sm)==null?"—":lastNN(sm)):(last==null?"—":last)}</span>${sm?`<span class="src" title="원값(최근일)">원값 ${last==null?"—":last}</span>`:""}</div>${s}</div>`;
   }).join("")+`</div>`;
   // 칸마다 호버 툴팁 — 격자는 칸이 작아 x축 라벨이 양끝뿐이라, 중간 시점 값은 이걸로만 읽힌다
   [...box.querySelectorAll(".sm-cell")].forEach((cell,ci)=>{
@@ -2667,10 +2737,14 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
     PRODUCTS.map((p,i)=>{
       const ser=series[i];
       const cur=G.snapshot?Math.max(...ser):ser[ser.length-1];   // 스냅샷(회사별 막대)은 자기 회사 칸 값
-      const base=G.snapshot?0:ser[ser.length-2];
-      const mom=(!G.rawSer&&base>0)?((ser[ser.length-1]/base-1)*100):null;
+      const SMs=(G.smooth&&G.smooth[trendSrc]&&G.smooth[trendSrc][i])||null;
+      // 스무딩 그룹: 주간 변화 = 최근 7일 평균 vs 그 7일 전 평균. 아니면 전기비.
+      const base=G.snapshot?0:(SMs?SMs[SMs.length-1-7]:ser[ser.length-2]);
+      const now=SMs?lastNN(SMs):ser[ser.length-1];
+      const mom=(!G.rawSer&&base>0&&now!=null)?((now/base-1)*100):null;
       // 순위 계열(rawSer)은 %가 뜻이 없다 — 10위→12위를 '-2.2%' 로 적으면 오독한다.
-      const momTxt=(G.snapshot||G.rawSer)?"":` · ${U.u}비 ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}`;
+      const momTxt=(G.snapshot||G.rawSer)?(SMs?` · 7일평균 ${F(now)}`:"")
+        :` · ${SMs?`7일평균 ${F(now)} · 주간`:`${U.u}비`} ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom)}%</span>`}`;
       // 계열마다 출처가 섞인 그룹에서만 출처를 붙인다(러시아=얀덱스 같은 경우)
       const mixed=G.srcOf && new Set(G.srcOf).size>1;
       const tag=mixed?` <small class="th-sub">${G.srcOf[i]}</small>`:"";
@@ -2689,7 +2763,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       if(G.multi){
         // 계열마다 출처가 다를 수 있다(러시아는 얀덱스). 있는 그대로 적는다.
         const s=[...new Set(G.srcOf||["구글"])].join("·");
-        return `<div class="li" style="margin-left:auto"><small>출처: ${s} · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b>${wn}</small></div>`;
+        return `<div class="li" style="margin-left:auto"><small>출처: ${s} · 나라별 현지 검색어·현지 지역 · <b>각국 자체 0–100 스케일(추이 비교용, 절대 크기 비교 불가)</b>${wn}${G.smooth?" · 본선 = 7일 이동평균(원값은 흐리게)":""}</small></div>`;
       }
       const gGeo=G.geo==="KR"?'국내':(G.geo?G.geo:'전세계');
       // srcOf 가 있으면 그게 실제 출처다. only:"google" 은 '출처 전환 없음' 표시일 뿐이라
@@ -2703,14 +2777,45 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       // 축 눈금을 이미 실제 단위로 적는 그룹(kind==="abs")은 같은 말을 두 번 하지 않는다.
       const pk=(G.peak&&A.kind!=="abs")?` · 100 = ${G.unit?"":"주당 "}${fmt0(G.peak)}${G.unit||"건"}`:"";
       const rv=G.reviewNote?` · ${G.reviewNote}`:"";
-      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} · y축 ${A.cap}${pk} · 진행 중인 ${U.p} 제외${rv}${solo}${wn}</small></div>`;
+      const smn=G.smooth?` · <b>본선 = 7일 이동평균</b>(원값은 흐리게 · 표·주간 변화도 평균 기준)`:"";
+      return `<div class="li" style="margin-left:auto"><small>출처: ${src} · ${U.g} · y축 ${A.cap}${pk} · 진행 중인 ${U.p} 제외${rv}${solo}${wn}${smn}</small></div>`;
     })();
   // table — 표시 단위에 맞춰 라벨/기준 전환
-  const back=U.n, uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
-  // 구간 열 — 지금 보는 창의 시작점 대비·창 안 고점 대비. 단기/장기를 바꾸면 이 두 열이 따라 바뀐다.
-  const P=G._win, hasWin=!!(P&&M.length>back+1&&!G.snapshot);
-  const lWin=P?`${P.label} 변화`:"구간 변화";
+  const back=U.n, P=G._win, hasWin=!!(P&&M.length>back+1&&!G.snapshot);
+  const SMt=(G.smooth&&G.smooth[trendSrc])||null;
   const tt=document.getElementById("trendTblTitle");
+  if(SMt){
+    /* 일별·스무딩: 전일비를 표에서 뺀다(툴팁에만). 열 = 최근값 · 7일 평균 · 주간 변화(평균 vs 7일 전 평균) ·
+       4주 변화(평균 vs 28일 전 평균) · 구간 변화(평균) · 구간 고점比(평균). 하루 튐이 표를 흔들지 않게. */
+    if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 7일 평균 기준 · 주간 변화`+(P?` · ${P.name} ${P.label}`:"");
+    makeTable(document.getElementById("trendTable"),[
+      {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
+      {key:"cur",label:'최근값<span class="th-sub">원값</span>',render:r=>F(r.cur)},
+      {key:"ma",label:"7일 평균",render:r=>r.ma==null?"—":F(r.ma)},
+      {key:"mom",label:'주간 변화<span class="th-sub">7일 평균 vs 7일 전</span>',render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom,0)}%</span>`},
+      {key:"q",label:'4주 변화<span class="th-sub">7일 평균 vs 28일 전</span>',render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,0)}%</span>`},
+      ...(hasWin?[
+        {key:"w",label:P?`${P.label} 변화`:"구간 변화",render:r=>r.w==null?"—":`<span class="${cls(r.w)}">${sign(r.w,0)}%</span>`},
+        {key:"hi",label:'구간 고점比<span class="th-sub">7일 평균 기준</span>',render:r=>r.hi==null?"—":`<span class="${cls(r.hi)}">${sign(r.hi,0)}%</span>`},
+      ]:[]),
+    ], PRODUCTS.map((p,i)=>{
+      const ser=series[i], sm=SMt[i]||[]; const cur=ser[ser.length-1];
+      const ma=lastNN(sm), li=sm.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop();
+      const at=k=>(li!=null&&li-k>=0)?sm[li-k]:null;
+      const ma7=at(7), ma28=at(28);
+      const pct=!G.rawSer;   // 순위 계열은 증감률 칸을 비운다
+      const firstMA=sm.find(v=>v!=null&&v>0), hiMA=Math.max(0,...sm.filter(v=>v!=null));
+      return {p,color:COL[i],cur,ma,
+              mom:(pct&&ma7>0&&ma!=null)?(ma/ma7-1)*100:null,
+              q:(pct&&ma28>0&&ma!=null)?(ma/ma28-1)*100:null,
+              w:(pct&&hasWin&&firstMA>0&&ma!=null)?(ma/firstMA-1)*100:null,
+              hi:(pct&&hasWin&&hiMA>0&&ma!=null)?(ma/hiMA-1)*100:null};
+    }), {key:"ma",dir:-1});
+    return;
+  }
+  const uMom=U.u+"비", lBack=U.back+"전", lChg=U.back+" 변화";
+  // 구간 열 — 지금 보는 창의 시작점 대비·창 안 고점 대비. 단기/장기를 바꾸면 이 두 열이 따라 바뀐다.
+  const lWin=P?`${P.label} 변화`:"구간 변화";
   if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 최근값 · ${uMom}`+(P?` · ${P.name} ${P.label}`:"");
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
@@ -4319,6 +4424,19 @@ function renderTrendSegs(){
     const rg=document.getElementById("trendDays"), lab=document.getElementById("trendDaysLab");
     if(rg&&cur){ rg.max=cur.maxDays; rg.min=Math.min(7,cur.maxDays); rg.value=cur.days==null?cur.maxDays:Math.min(cur.days,cur.maxDays);
       lab.textContent=(cur.days==null?`전체 ${cur.maxDays}일`:`최근 ${cur.days}일`)+` → ${cur.label}${cur.freq==="date"?"":cur.freq==="week"?"·주별":"·월별"}`; }
+    // 스무딩 토글 — 일별 계열일 때만 보인다. 요소는 한 번만 만들고 활성 상태만 갱신한다.
+    let sseg=document.getElementById("trendSmoothSeg");
+    if(!sseg){
+      sseg=document.createElement("div"); sseg.className="seg"; sseg.id="trendSmoothSeg"; sseg.style.marginLeft="6px";
+      sseg.innerHTML=`<button data-s="1" title="7일 이동평균을 본선으로 그리고 원값은 흐리게 — 표·주간 변화도 평균 기준">7일 평균</button><button data-s="0" title="수집한 값 그대로">원값</button>`;
+      sseg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+        trendSmooth=b.dataset.s==="1";
+        try{ localStorage.setItem("trendSmooth",trendSmooth?"1":"0"); }catch(_){}
+        renderTrendSegs(); drawTrend(); renderTrendHighlights(); });
+      frow.appendChild(sseg);
+    }
+    sseg.style.display=(cur&&cur.freq==="date")?"":"none";
+    sseg.querySelectorAll("button").forEach(b=>b.classList.toggle("active",(b.dataset.s==="1")===trendSmooth));
   }else{
     frow.style.display="none";
   }
@@ -4568,7 +4686,11 @@ function renderTrendHighlights(){
     if(G.rankN&&G.rawSer){
       (G.rawSer||[]).forEach((raw,pi)=>{
         const c=(raw||[]).filter(v=>v!=null); if(c.length<3) return;
-        const last=c[c.length-1], d=c[c.length-2]-last;          // +면 순위 상승(작아짐)
+        // 하루 순위 튐을 뉴스로 읽지 않게 — 최근 3일 평균 vs 그 앞 7일 평균(점이 적으면 전일과)
+        const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+        const last=c.length>=5?Math.round(mean(c.slice(-3))):c[c.length-1];
+        const prev=c.length>=6?Math.round(mean(c.slice(-10,-3))):c[c.length-2];
+        const d=prev-last;                                       // +면 순위 상승(작아짐)
         if(Math.abs(d)<Math.max(3, G.rankN*0.03)) return;        // 잔움직임은 뉴스가 아니다
         const score=Math.min(120, Math.abs(d)*(G.rankN<=30?4:1))+(last<=10?25:last<=20?10:0);
         if(!best||score>best.score) best={prod:prods[pi]||gname, rank:last, drank:d, score, freq};
@@ -4576,19 +4698,25 @@ function renderTrendHighlights(){
       if(best) cands.push({gname,stock,...best});
       return;
     }
-    series.forEach((raw,pi)=>{
-      const c=(raw||[]).filter(v=>v!=null); if(c.length<3) return;
-      const last=c[c.length-1], prev=c[c.length-2];
-      const back=Math.min(c.length-1,(U[freq]||U.week).n), b=c[c.length-1-back];
+    // 일별 계열은 7일 평균으로 본다(스무딩 켜짐일 때) — 주간 변화·4주 변화·신고점(평균 기준).
+    // 기준선이 고점의 25% 밑이면 %를 내지 않는다(저점발 +482% 같은 것이 매일 1순위로 뜨던 원인).
+    const K=(freq==="date"&&trendSmooth)?7:1;
+    series.forEach((raw0,pi)=>{
+      const raw=K>1?smoothSeries(raw0,K):raw0;
+      const c=(raw||[]).filter(v=>v!=null); if(c.length<(K>1?10:3)) return;
+      const last=c[c.length-1];
+      const b1=K>1?c[c.length-1-Math.min(7,c.length-1)]:c[c.length-2];
+      const back=Math.min(c.length-1,K>1?28:(U[freq]||U.week).n), b=c[c.length-1-back];
       const hi=Math.max(...c), lo=Math.min(...c); if(hi<=lo) return;
-      if(last<hi*0.3 && !(prev>=hi*0.15 && last/prev-1<-0.4)) return;   // 저점 노이즈 제외(급락 예외)
-      const wow=(prev>=hi*0.15)?(last/prev-1)*100:null;                 // 기준선이 너무 작으면 % 무의미
-      const win=(b>=hi*0.15)?(last/b-1)*100:null;
-      const isHigh=last>=hi;
+      const floor=hi*0.25;                                        // 기준선이 고점의 1/4 밑이면 %를 내지 않는다(주별도 같은 규칙)
+      if(last<hi*0.3 && !(b1>=floor && last/b1-1<-0.4)) return;   // 저점 노이즈 제외(급락 예외)
+      const wow=(b1>=floor)?(last/b1-1)*100:null;
+      const win=(b>=floor)?(last/b-1)*100:null;
+      const isHigh=last>=hi*0.995;
       const mag=Math.max(Math.abs(wow||0),Math.abs(win||0));
-      if(mag<20 && !isHigh) return;
+      if(mag<(K>1?30:25) && !isHigh) return;
       const score=mag+(isHigh?25:0);
-      if(!best||score>best.score) best={prod:prods[pi]||gname,wow,win,isHigh,score,freq};
+      if(!best||score>best.score) best={prod:prods[pi]||gname,wow,win,isHigh,score,freq,sm:K>1};
     });
     if(best) cands.push({gname,stock,...best});
   });
@@ -4607,7 +4735,8 @@ function renderTrendHighlights(){
         const u=U[c.freq]||U.week, useWin=c.win!=null&&Math.abs(c.win)>=Math.abs(c.wow||0);
         const v=useWin?c.win:(c.wow!=null?c.wow:null);
         up=(v==null||v>=0); icon=(c.isHigh&&up)?"🚀":up?"🔥":"🧊";
-        chg=v==null?"신고점":(useWin?`${u.n}${u.unit} `:`${u.u}비 `)+`${v>=0?"+":""}${v.toFixed(0)}%`;
+        const lw=c.sm?"4주 ":`${u.n}${u.unit} `, lm=c.sm?"주간 ":`${u.u}비 `;
+        chg=v==null?(c.sm?"신고점(7일평균)":"신고점"):(useWin?lw:lm)+`${v>=0?"+":""}${v.toFixed(0)}%`;
       }
       return `<button onclick='selectTrend(${JSON.stringify(c.stock)},${JSON.stringify(c.gname)})' style="display:flex;gap:7px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;color:var(--text)"><span>${icon}</span><b>${c.prod}</b><span style="color:${up?'var(--up)':'var(--down)'};font-weight:700">${chg}</span><span style="color:var(--muted);font-size:11px">${c.stock} · ${shortG(c.gname)}</span></button>`;
     }).join("");

@@ -80,7 +80,7 @@ MK_NAMES = {"US": "미국", "UK": "영국", "DE": "독일", "FR": "프랑스", "
 def mk_name(code):
     return MK_NAMES.get(code, code)
 # EUR·GBP → USD 교차환율 (inject_amazon.py 와 같은 값)
-FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27}
+FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27, "JPY": 0.0067}   # JPY 2026-09 ≈ 149엔/$
 
 
 def load_config() -> dict:

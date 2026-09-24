@@ -92,6 +92,16 @@ markets:
     categories:
       - {label: Beauty, node: beauty, top_n: 50}
 
+  - code: JP
+    # 2026-09-24 추가 — K뷰티 최대 수출시장. 표기가 다르다: 순위 'N位' · 판매량 '2万点以上' · 별점 '5つ星のうち4.5'
+    # (scraper 가 전부 처리). 카타카나 브랜드명은 scraper.BRAND_ALIASES 로 잡는다.
+    domain: www.amazon.co.jp
+    currency: JPY
+    lang: "ja-JP,ja;q=0.9,en;q=0.5"
+    enabled: true
+    categories:
+      - {label: Beauty, node: beauty, top_n: 50}
+
 # --- 실질 추적의 핵심 ---
 # 한 번이라도 관심 브랜드로 잡힌 ASIN은 data/tracked_asins.json 에 고정된다.
 # 그 뒤로는 베스트셀러 100위 밖으로 밀려나도 매일 BSR(판매순위)을 재므로 추이가

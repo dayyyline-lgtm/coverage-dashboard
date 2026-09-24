@@ -68,6 +68,8 @@ def parse_rating(txt):
     """'4.6 out of 5' / '4,6 von 5 Sternen' → 4.6."""
     if not txt:
         return None
+    if "のうち" in txt:                              # JP: '5つ星のうち4.5' → 4.5
+        txt = txt.split("のうち")[-1]
     m = re.search(r"(\d+[.,]\d+|\d+)", txt)
     return float(m.group(1).replace(",", ".")) if m else None
 
@@ -85,14 +87,58 @@ def _brand_pattern(brand):
     return re.compile(r"(?<![a-z0-9])" + re.escape(_norm(brand)) + r"(?![a-z0-9])")
 
 
+# 현지 표기 별칭 (2026-09-24 · JP 추가 때 신설). 키는 소문자 정식 브랜드명. 걸리면 정식명을 돌려준다.
+# 짧고 흔한 토큰(vt·me 등)은 넣지 않는다 — 단어경계 매칭이라도 오탐이 난다.
+BRAND_ALIASES = {
+    "medicube": ["メディキューブ"],
+    "biodance": ["バイオダンス"],
+    "d'alba": ["ダルバ"],
+    "beauty of joseon": ["ビューティーオブジョソン", "beautyofjoseon"],
+    "anua": ["アヌア"],
+    "melaxin": ["メラキシン"],
+    "purito": ["ピュリト", "プリト"],
+    "coreana": ["コリアナ"],
+    "cosrx": ["コスアールエックス"],
+    "laneige": ["ラネージュ"],
+    "innisfree": ["イニスフリー"],
+    "tirtir": ["ティルティル"],
+    "laka": ["ラカ"],
+    "round lab": ["ラウンドラボ", "roundlab"],
+    "torriden": ["トリデン"],
+    "numbuzin": ["ナンバーズイン"],
+    "abib": ["アビブ"],
+    "cellimax": ["セリマックス", "celimax"],
+    "manyo": ["魔女工場", "マニョ"],
+    "clio": ["クリオ"],
+    "goodal": ["グーダル"],
+    "missha": ["ミシャ"],
+    "vt cosmetics": ["vtcosmetics", "ブイティコスメティックス", "ブイティコスメテックス", "ブイティー"],
+    "reedle": ["リードル"],
+    "mediheal": ["メディヒール"],
+    "mixsoon": ["ミクスーン"],
+    "tocobo": ["トコボ"],
+    "isntree": ["イズントゥリー"],
+    "some by mi": ["サムバイミー", "somebymi"],
+    "rom&nd": ["ロムアンド", "romand"],
+    "axis-y": ["アクシスワイ"],
+    "real barrier": ["リアルバリア"],
+    "belif": ["ビリーフ"],
+    "dr.jart": ["ドクタージャルト"],
+    "aromatica": ["アロマティカ"],
+}
+
+
 def match_brand(title, brands):
-    """제목에서 브랜드를 찾아 그 이름을 반환. 대소문자·아포스트로피 표기차 무시."""
+    """제목에서 브랜드를 찾아 그 이름을 반환. 대소문자·아포스트로피 표기차 무시. 현지 별칭도 본다."""
     if not title:
         return None
     t = _norm(title)
     for b in brands:
         if _brand_pattern(b).search(t):
             return b
+        for al in BRAND_ALIASES.get(_norm(b), ()):
+            if _brand_pattern(al).search(t):
+                return b
     return None
 
 
@@ -237,6 +283,13 @@ def bought_from_text(txt):
     if not txt:
         return None, None
     low = txt.lower()
+    if "点以上" in txt or "購入されました" in txt:
+        period = "week" if "週" in txt else ("month" if "月" in txt else None)
+        mj = re.search(r"(\d[\d,]*)\s*(万|千)?\s*点", txt)
+        if not period or not mj:
+            return None, None
+        units = int(mj.group(1).replace(",", "")) * {"万": 10_000, "千": 1_000}.get(mj.group(2) or "", 1)
+        return int(round(units * (WEEKS_PER_MONTH if period == "week" else 1))), period
     # 주 단위를 먼저 본다 ('mes'가 'mese'의 일부라 월을 먼저 보면 오판한다)
     pos, period = None, None
     for w in _WEEK_WORDS:
@@ -336,17 +389,31 @@ def _bsr_entries(soup, with_paren):
             if with_paren:
                 # '#31 in Beauty & Personal Care ( See Top 100 in ... )' → 괄호 앞만 본다
                 head = txt.split("(")[0].strip()
-                m = re.match(r"[^\d]*([\d.,]+)\s+\S+\s+(.+)$", head)
-                if not m:
-                    continue
-                rank, cat = parse_int(m.group(1)), m.group(2).strip()
+                if "位" in head:
+                    # JP: 'Amazon 売れ筋ランキング: ビューティー - 1位 ( … )' — 카테고리가 앞, 순위는 'N位'.
+                    mj = (re.search(r"[:：]\s*(.+?)\s*-\s*([\d,]+)\s*位", head)
+                          or re.search(r"(.+?)\s*-\s*([\d,]+)\s*位", head))
+                    if not mj:
+                        continue
+                    rank, cat = parse_int(mj.group(2)), mj.group(1).strip()
+                else:
+                    m = re.match(r"[^\d]*([\d.,]+)\s+\S+\s+(.+)$", head)
+                    if not m:
+                        continue
+                    rank, cat = parse_int(m.group(1)), m.group(2).strip()
             else:
                 if not cat or cat not in txt:
                     continue
-                nums = re.findall(r"\d[\d.,]*", txt[:txt.rfind(cat)])
-                if not nums:
-                    continue
-                rank = parse_int(nums[-1])
+                if "位" in txt:
+                    mj = re.search(re.escape(cat) + r"\s*-\s*([\d,]+)\s*位", txt)
+                    if not mj:
+                        continue
+                    rank = parse_int(mj.group(1))
+                else:
+                    nums = re.findall(r"\d[\d.,]*", txt[:txt.rfind(cat)])
+                    if not nums:
+                        continue
+                    rank = parse_int(nums[-1])
             if rank and (rank, cat) not in out:
                 out.append((rank, cat))
         if out:

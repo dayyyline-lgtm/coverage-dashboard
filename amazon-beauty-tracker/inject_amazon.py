@@ -51,7 +51,7 @@ BRAND_STOCK = {
     "Purito":           {"stock": None, "owner": "퓨리토",       "listed": False},
 }
 # EUR·GBP → USD 교차환율. 원/달러만큼 안 움직여서 상수로 둔다.
-FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27}
+FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27, "JPY": 0.0067}   # JPY 2026-09 ≈ 149엔/$
 
 
 def _n(v):
@@ -123,9 +123,9 @@ def build():
     return {
         "asOf": datetime.datetime.now().strftime("%Y-%m-%d %H:%M KST"),
         "latest": latest,
-        "markets": ["US", "UK", "DE", "FR", "IT", "ES"],
+        "markets": ["US", "UK", "DE", "FR", "IT", "ES", "JP"],   # 2026-09-24 JP 추가 (개편계획.md Phase 3)
         "fxToUsd": FX_TO_USD,
-        "note": ("아마존 6개국(US·UK·DE·FR·IT·ES) Beauty 기준. 판매량은 아마존이 상품페이지에 "
+        "note": ("아마존 7개국(US·UK·DE·FR·IT·ES·JP) Beauty 기준. 판매량은 아마존이 상품페이지에 "
                  "공개하는 구간값의 하한이라 실제는 이보다 큽니다. 매출은 USD 기준."),
         "brands": brands,
     }

@@ -39,7 +39,7 @@ except Exception:
 
 ROOT = "public"
 TABS = ["overview", "coverage", "valuation", "preview", "calendar", "news",
-        "reports", "trends", "boxoffice", "altdata", "amazon"]
+        "reports", "trends", "toptoon", "altdata", "amazon"]   # 2026-09-07 boxoffice → toptoon (트렌드 탭으로 접힘)
 
 # 로고·폰트 같은 외부 리소스가 못 뜨는 것은 화면 고장이 아니다.
 # 토스 CDN 은 커버리지 밖 종목에서 404 를 내는 게 정상이고(이니셜 배지로 폴백),
