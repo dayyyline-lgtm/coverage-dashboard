@@ -24,6 +24,44 @@ import requests
 
 from scraper import scrape_all, BlockedError
 
+import ctypes
+import socket
+import time
+
+# ── 절전 복귀 직후 실행되는 작업 스케줄러 환경 대응 (2026-09-24 · 개편계획.md Phase 0) ──
+# ① Windows 는 타이머 기상 뒤 약 2분간 입력이 없으면 다시 잔다. 수집은 40~50분이라 그 사이
+#    프로세스가 얼어붙고 어떤 날은 통째로 죽었다(8~9월 결측 12일의 주원인 — 실패일마다 전원
+#    로그에 05:15 기상 + 05:34 재기상이 같이 찍혀 있었다). ES_CONTINUOUS|ES_SYSTEM_REQUIRED 를
+#    걸어 두면 이 프로세스가 사는 동안 시스템이 잠들지 않는다(화면은 꺼져도 된다).
+# ② 기상 직후엔 Wi-Fi 가 아직 안 붙어 첫 요청이 DNS 실패로 죽었다(9/21 DE). 최대 5분 기다린다.
+_ES_CONTINUOUS, _ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+
+
+def keep_awake(on: bool) -> None:
+    if os.name != "nt":
+        return
+    try:
+        flags = (_ES_CONTINUOUS | _ES_SYSTEM_REQUIRED) if on else _ES_CONTINUOUS
+        ctypes.windll.kernel32.SetThreadExecutionState(flags)
+    except Exception as e:                       # 실패해도 수집은 계속한다
+        print(f"[절전] SetThreadExecutionState 실패: {e}", file=sys.stderr)
+
+
+def wait_for_network(host: str = "www.amazon.com", max_wait: int = 300, step: int = 10) -> bool:
+    t0 = time.time()
+    while True:
+        try:
+            socket.getaddrinfo(host, 443)
+            waited = int(time.time() - t0)
+            if waited:
+                print(f"[네트워크] {waited}초 만에 연결됨")
+            return True
+        except OSError:
+            if time.time() - t0 >= max_wait:
+                print(f"[네트워크] {max_wait}초 동안 {host} 를 못 찾음 — 그래도 시도합니다", file=sys.stderr)
+                return False
+            time.sleep(step)
+
 BASE = Path(__file__).parent
 HISTORY_COLS = ["date", "market", "brand", "asin", "title",
                 "list_cat", "list_rank",
@@ -823,6 +861,8 @@ def main() -> int:
     ap.add_argument("--report-only", action="store_true",
                     help="수집 없이 history.csv 로 리포트만 만들어 발송 (테스트용)")
     ap.add_argument("--budget", type=int, help="마켓당 상세조회 상한 (기본 config)")
+    ap.add_argument("--skip-if-done", action="store_true",
+                    help="오늘치가 이미 있는 마켓은 건너뛴다 (06:45 2차 실행용)")
     args = ap.parse_args()
 
     cfg = load_config()
@@ -835,6 +875,18 @@ def main() -> int:
         want = {c.strip().upper() for c in args.markets.split(",")}
         for m in cfg["markets"]:
             m["enabled"] = m["code"].upper() in want
+    # 2차 실행(작업 스케줄러 06:45) — 05:15 회차가 죽었거나 일부 마켓이 빠진 날만 일한다.
+    # 오늘치가 있는 마켓은 끄고 빠진 마켓만 받으므로, 정상인 날엔 요청이 한 건도 안 나간다.
+    if args.skip_if_done and not args.report_only:
+        done = {r["market"] for r in load_history(history_path) if r["date"] == today}
+        missing = [m["code"] for m in cfg["markets"] if m.get("enabled", True) and m["code"] not in done]
+        if not missing:
+            print(f"[2차] 오늘({today}) 수집이 이미 있습니다({', '.join(sorted(done))}) — 할 일 없음")
+            return 0
+        for m in cfg["markets"]:
+            if m["code"] in done:
+                m["enabled"] = False
+        print(f"[2차] 오늘 빠진 마켓 {', '.join(missing)} 만 다시 수집합니다")
     # 주간 집계일에는 /dp/ 를 깊게 판다. 주간배지는 상세 페이지에만 있어서,
     # 이 날 확보한 만큼이 그 주 판매량 커버리지가 된다.
     weekly_today = (args.weekly or is_weekly_day(cfg)) and not args.report_only
@@ -957,8 +1009,15 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # 첫 줄을 즉시 찍는다 — 실패일 로그가 통째로 비어 있던 원인이 블록 버퍼였다(run.bat 도 -u).
+    print(f"[시작] {datetime.datetime.now():%Y-%m-%d %H:%M:%S} · "
+          f"{' '.join(sys.argv[1:]) or '기본 실행'}", flush=True)
+    keep_awake(True)
     try:
+        wait_for_network()
         sys.exit(main())
     except BlockedError as e:
         print(f"[차단] {e}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        keep_awake(False)

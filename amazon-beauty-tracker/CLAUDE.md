@@ -328,3 +328,22 @@ pathspec(`git commit -- data/history.csv data/asin_cache.json`)으로 **자기 �
   작업 스케줄러 `AmazonBeautyTracker` 등록(run.bat, 절전 해제·놓치면 보완 옵션 켬).
   텔레그램은 대시보드 봇 토큰을 공유하도록 `resolve_telegram()` 추가 —
   **사용자가 `secrets_local.py` 에 토큰을 넣기 전까지 발송은 생략된다.**
+
+## 결측의 진짜 원인은 절전이었다 (2026-09-24 · 8~9월 53일 중 12일 결측)
+
+`history.csv` 결측일: 8/14 · 8/16~19 · 8/22~24 · 9/9 · 9/11 · 9/14~16 · 9/19 · 9/24.
+실패일의 `run.log` 는 헤더 한 줄뿐이었고 작업 스케줄러 Last Result 는 1 이었다 — 그래서 두 달간 원인을 못 봤다.
+
+| 원인 | 근거 | 조치 |
+|---|---|---|
+| **타이머 기상 뒤 재수면** — Windows 는 기상 후 ~2분 입력이 없으면 다시 잔다. 수집은 40~50분 | 실패일 전원 로그에 05:15 기상 + 05:34(다음 작업의 기상)가 **둘 다** 찍힌다(9/19·9/21·9/24). 성공일은 05:15 한 번 | `main.py` 진입점이 실행 중 `SetThreadExecutionState(ES_CONTINUOUS\|ES_SYSTEM_REQUIRED)` 로 시스템을 깨워 둔다(`keep_awake`). 화면은 꺼져도 된다 |
+| **기상 직후 네트워크 미준비** | 9/21 05:19 `DNSError: Could not resolve host: www.amazon.de` | `wait_for_network()` — amazon.com DNS 가 풀릴 때까지 최대 5분 대기 후 시작 |
+| **로그 소실** — stdout 이 파일이면 블록 버퍼라 죽을 때 통째로 사라진다 | 실패일 로그 0줄 | `run.bat` 이 `python -u` + `PYTHONUNBUFFERED=1`, 진입점이 `[시작]` 한 줄을 즉시 flush. 종료코드도 `===== exit N` 으로 남긴다 |
+| **페이지 변형** — 200 인데 `data-client-recs-list` 없는 껍데기(294KB) | 9/21 IT · 9/24 ES | 기존 '전 마켓 뒤 1회 재시도'로 대개 복구. 반복되면 지문(`impersonate`) 교체 재시도를 넣을 것 |
+
+**2차 실행 작업 `AmazonBeautyTrackerRetry`(매일 06:45, wake-to-run, 2시간 상한)** — `run.bat --skip-if-done`.
+`--skip-if-done` 은 오늘치가 이미 있는 마켓을 끄고 **빠진 마켓만** 받는다. 정상인 날엔 요청 0건·수 초에 끝난다.
+⚠ 작업 두 개(05:15 `AmazonBeautyTracker` · 06:45 `AmazonBeautyTrackerRetry`)를 지우거나 이름을 바꾸면 여기와 `개편계획.md` 를 같이 고칠 것.
+⚠ 두 작업 다 `Logon Mode: Interactive only` 다 — 로그아웃 상태에선 안 돈다(잠금은 괜찮다).
+
+이 PC 를 안 믿게 되면 대안은 둘: ① 가정용 프록시(월 $5~10)를 끼워 GitHub Actions 에서 돌린다 ② Keepa(€49/월). 개편계획.md 3절 참고.

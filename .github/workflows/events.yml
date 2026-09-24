@@ -1,28 +1,41 @@
 name: 아침 데이터 수집
 
 # 2026-08-07: '05시 수집 → 06시 레터' 로 분리했다.
-#   이 워크플로는 '수집만' 한다(레터는 letter.yml). 매일 새로 받아야 하는 걸 전부 여기서
-#   받고 커밋해 두면, 한 시간 뒤 letter.yml 이 그 신선한 데이터로 레터를 보낸다.
-#   트렌드도 여기서 '전체(네이버·구글·얀덱스)' 를 받는다 — 예전엔 레터를 안 늦추려 네이버만
-#   받고 구글·얀덱스는 주 1회였는데, 이제 수집이 레터보다 1시간 앞서 도니 전체를 받아도 된다.
+#   이 워크플로는 '수집만' 한다(레터는 letter.yml 이 workflow_run 으로 뒤따른다). 매일 새로
+#   받아야 하는 걸 전부 여기서 받고 커밋해 두면 letter.yml 이 그 신선한 데이터로 레터를 보낸다.
 #
-# 트리거: Cloudflare 워커(KST 05:00, 정시성) + GitHub cron(백업, 밀릴 수 있음).
+# 2026-09-24 정비 (개편계획.md Phase 0):
+#   · 수집기가 20개로 늘어 회당 32~35분인데 timeout 이 30분이라 9/15 부터 매일 마지막 스텝
+#     (컴투스 모델·월간 수출)이 잘렸다 → 55분.
+#   · 게이트가 schedule 회차만 걸러서 워커(05:00)와 PC(05:35)가 **매일 같은 수집을 두 번** 했다
+#     → 트리거와 무관하게 '오늘 수집이 이미 돌았으면 종료'. 수동 강제는 force 입력.
+#   · 순서: 레터에 꼭 필요한 것(DART·뉴스·트렌드·앱순위·엔터·게임 일간)을 앞에, 느리고 선택적인
+#     것(스토어 순위·게임비트·채용·KT&G)을 뒤에. 잘리더라도 앞이 남는다.
+#
+# 트리거: Cloudflare 워커(KST 05:00, 정시성) + PC 작업 스케줄러(05:35, 백업) + GitHub cron(백업, 밀림).
+# 어느 쪽이 먼저 오든 첫 회차만 실제로 돌고 나머지는 게이트에서 10초 안에 끝난다.
 on:
   schedule:
     - cron: "0 20 * * 0-4"     # KST 평일 05:00 (백업). 정시성은 워커가 담당.
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "오늘 이미 돌았어도 다시 돌릴까요? (아무 값이나 넣으면 강제)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
 concurrency:
   # public/index.html 을 쓰는 워크플로는 한 그룹으로 묶어 동시 실행을 막는다.
+  # 05:00 회차가 도는 중에 05:35 회차가 오면 여기서 기다렸다가, 게이트에서 앞 회차의 커밋을 보고 끝난다.
   group: repo-write
   cancel-in-progress: false
 
 jobs:
-  # 워커(05:00)와 GitHub cron(05:00 백업)이 둘 다 부를 수 있다. 백업 cron 회차는
-  # '오늘 수집이 이미 돌았으면' 여기서 끝낸다 — 같은 데이터를 두 번 받지 않게(특히 구글 429).
+  # 오늘 수집이 이미 돌았으면(커밋이 있거나, 5분 넘게 돈 성공 회차가 3시간 안에 있으면) 여기서 끝낸다.
+  # 구글 트렌드 429 를 두 배로 부르지 않기 위해서다. 수동 force 만 예외.
   gate:
     runs-on: ubuntu-latest
     outputs:
@@ -30,16 +43,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 25
+          fetch-depth: 40
       - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ github.event.inputs.force }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           go=1
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            t=$(TZ=Asia/Seoul date +'%Y-%m-%d')
-            if git log -25 --pretty=%s | grep -q "이벤트/수출 갱신 $t"; then
-              go=0; echo "오늘($t) 수집이 이미 돌았습니다 - 백업 cron 회차는 여기서 끝냅니다."
+          t=$(TZ=Asia/Seoul date +'%Y-%m-%d')
+          if [ -n "$FORCE" ]; then
+            echo "수동 강제 실행 - 게이트 통과"
+          else
+            if git log -40 --pretty=%s | grep -q "이벤트/수출 갱신 $t"; then
+              go=0; echo "오늘($t) 수집 커밋이 이미 있습니다 - 이 회차는 여기서 끝냅니다."
             else
-              echo "오늘 수집 기록이 없습니다 - 진행합니다."
+              # 커밋 없이 끝난 성공 회차(변경 없음)나 지금 도는 회차도 '이미 돌았다'로 본다.
+              since=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)
+              n=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$REPO/actions/workflows/events.yml/runs?per_page=15" \
+                | jq --arg me "$RUN_ID" --arg since "$since" \
+                  '[.workflow_runs[] | select((.id|tostring)!=$me) | select(.created_at>$since)
+                    | select(.status=="in_progress" or .status=="queued"
+                        or (.status=="completed" and .conclusion=="success"
+                            and ((.updated_at|fromdateiso8601)-(.created_at|fromdateiso8601))>300))] | length' 2>/dev/null || echo 0)
+              if [ "${n:-0}" -gt 0 ]; then
+                go=0; echo "3시간 안에 실제 수집 회차가 ${n}건(진행 중 포함) - 이 회차는 여기서 끝냅니다."
+              else
+                echo "오늘 수집 기록이 없습니다 - 진행합니다."
+              fi
             fi
           fi
           echo "go=$go" >> $GITHUB_OUTPUT
@@ -48,8 +81,8 @@ jobs:
     needs: gate
     if: needs.gate.outputs.go == '1'
     runs-on: ubuntu-latest
-    # 06시 레터 전에 끝나야 한다. 스텝마다 상한 + 전체 30분 컷.
-    timeout-minutes: 30
+    # 실측 32~35분(2026-09-23). 스텝마다 상한 + 전체 55분 컷. 06:00 안에 끝난다.
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,6 +91,8 @@ jobs:
       # 트렌드 전체 수집에 필요(구글=trendspy, 얀덱스/네이버=requests). 다른 수집기는 stdlib.
       - name: 트렌드 의존성
         run: pip install --quiet requests trendspy
+
+      # ── 1부: 레터·아침 화면에 꼭 필요한 것 ──────────────────────────────────
 
       - name: DART 공시 수집
         continue-on-error: true
@@ -68,138 +103,14 @@ jobs:
           if [ -z "$DART_API_KEY" ]; then echo "DART_API_KEY 시크릿 없음"; exit 1; fi
           python fetch_events.py
 
-      # 종목 뉴스 — **레터 직전에 한 번 더 받는다** (2026-08-09 추가).
-      #
-      # 여기 없던 게 '아침 레터에 뉴스가 안 온다' 의 원인이었다. 뉴스는 refresh.yml 이
-      # 짝수 시(08~18)에만 받으므로, 06시 레터가 싣는 뉴스는 **늘 전날 18시 것**이었다.
-      # 밤사이·새벽 기사가 통째로 빠진 채 나갔다는 뜻이다.
-      #
-      # 이 워크플로는 05시에 돌고 레터(letter.yml)가 그 완료를 듣고 뜨므로,
-      # 여기서 받으면 레터가 그날 아침 기사를 싣는다.
-      # 네이버 요청량은 하루 1회분만 는다(refresh 쪽 짝수 시 수집은 그대로).
+      # 종목 뉴스 — 레터 직전에 한 번 더 받는다 (2026-08-09). 여기 없으면 06시 레터가 전날 18시 뉴스를 싣는다.
       - name: 종목 뉴스 수집
         continue-on-error: true
         timeout-minutes: 6
         run: python runstep.py "종목 뉴스" fetch_news.py
 
-      # Steam 동접·리뷰는 여기 있으면 안 된다 → refresh.yml (평일 KST 10시 · 주말 12시) 로 옮겼다.
-      #   이 워크플로는 KST 05시 = UTC 20시(어제)에 돌기 때문에, SteamCharts 의 어제 UTC 일자가
-      #   아직 '진행 중'이라 fetch_steam 이 그 점을 버린다 → 동접 마지막 점이 늘 이틀 전이었다.
-      #   (2026-09-08 발견. 되돌리지 말 것 — 되돌리면 같은 증상이 조용히 다시 생긴다.)
-
-      # 스토어 판매·예약 순위(PS·Steam·MS 스토어, 키 불필요). 붉은사막 DLC 예약 순위가 첫 대상.
-      # PS 는 persisted query 해시라 사이트 배포로 깨질 수 있다 — 절반 넘게 빠지면 watchdog 이 알린다.
-      - name: 스토어 판매·예약 순위 수집
-        continue-on-error: true
-        timeout-minutes: 6
-        run: python runstep.py "스토어 순위" fetch_storerank.py
-
-      # YouTube 채널 통계(엔터 IP). YOUTUBE_API_KEY 시크릿 있어야 동작, 없으면 조용히 스킵.
-      - name: YouTube 채널 통계 수집
-        continue-on-error: true
-        timeout-minutes: 4
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-        run: python runstep.py "YouTube" fetch_youtube.py
-
-      # Spotify 아티스트 인기도·팔로워(엔터). 크레덴셜 있어야 동작, 없으면 스킵.
-      - name: Spotify 아티스트 수집
-        continue-on-error: true
-        timeout-minutes: 5
-        env:
-          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-        run: python runstep.py "Spotify" fetch_spotify.py
-
-      # 애플 앱스토어 게임 매출/무료 순위(게임 IP). 마케팅 RSS, 키 불필요.
-      - name: 앱스토어 게임순위 수집
-        continue-on-error: true
-        timeout-minutes: 3
-        run: python runstep.py "앱스토어" fetch_appstore.py
-
-      # 방한 외래관광객 월별(호텔/면세/카지노). 한국관광 데이터랩 내부 JSON, 키 불필요.
-      - name: 방한 외래관광객 수집
-        continue-on-error: true
-        timeout-minutes: 3
-        run: python runstep.py "방한관광" fetch_tourism.py
-
-      # 영화 예매·박스오피스(KOBIS) — 2026-09-21 수집 중단. 되살리는 법은 영화수집_방식.md.
-      #   급히 한 번 받아야 하면 movie.yml 을 손으로 dispatch 하면 된다(키·스텝 그대로 살아 있다).
-
-      # 써클차트 앨범 판매량(월간·주간) — 엔터 종목의 실물 수요/매출 신호. 키 불필요.
-      - name: 써클차트 앨범판매 수집
-        continue-on-error: true
-        timeout-minutes: 4
-        run: python runstep.py "써클차트" fetch_circle.py
-
-      # 탑툰챗(탑코미디어 AI 챗봇) — 캐릭터별 누적 대화수를 하루 1점씩 찍어 일별 증분을 만든다.
-      # 매일 같은 시각에 받아야 증분이 깔끔하므로 아침 수집에만 둔다. 키 불필요.
-      - name: 탑툰챗 대화수 수집
-        continue-on-error: true
-        timeout-minutes: 4
-        run: python runstep.py "탑툰챗" fetch_toptoonchat.py
-
-      # 게임머니 시세(아이템매니아, 키 불필요) — MMORPG 경제 온도계. 제우스(컴투스)·NC 라인업.
-      # 하루 9요청. _xml 경로는 urllib 로 열린다(_ajax 는 봇 게이트라 안 쓴다).
-      - name: 게임머니 시세 수집
-        continue-on-error: true
-        timeout-minutes: 4
-        run: python runstep.py "게임머니" fetch_gamemoney.py
-
-      # 게임비트 쌀먹 거래대금(키 불필요) — 거래소 합산 분봉 volume 을 일별로 합산. 하루 ~130요청.
-      - name: 게임비트 거래대금 수집
-        continue-on-error: true
-        timeout-minutes: 6
-        run: python runstep.py "게임비트" fetch_gamebit.py
-
-      # 디시 갤러리 글 양(키 불필요) — 글번호 차분 = 일 글수. 하루 갤당 1요청, 첫 회만 페이지 샘플 백필.
-      - name: 디시 글수 수집
-        continue-on-error: true
-        timeout-minutes: 4
-        run: python runstep.py "디시 글수" fetch_dc.py
-
-      # 채용 공고(사람인, 키 불필요, 40종목 × 1~2요청) — 생산 확대의 선행 신호.
-      # 공장이 생산직·검사원을 뽑는다는 건 이미 물량이 잡혔다는 뜻. 캐펙스 공시는 분기 뒤다.
-      # 회사명 정확일치로 걸러야 한다(협력사·파견 오염). 대기업은 자사 사이트 전용이라 0 이 정상.
-      - name: 채용 공고 수집
-        continue-on-error: true
-        timeout-minutes: 6
-        run: python runstep.py "채용공고" fetch_jobs.py
-
-      # KT&G 유라시아(카자흐 허브) — 관세청 담배 국가별 수출 · 알마티 리테일 구매카운터(Elitalco) ·
-      # Kaspi HnB 기기 리뷰 · hh.kz 채용. 키움 9/21 리포트의 주장을 회사 밖 데이터로 매일 잰다.
-      # ⚠ 카자흐 사이트 3곳은 러너에서 처음 돈다 — 막히면 health.json 에 남고 kr_collect 로 옮긴다.
-      - name: KT&G 유라시아 수집
-        continue-on-error: true
-        timeout-minutes: 6
-        env:
-          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
-        run: python runstep.py "KT&G 유라시아" fetch_ktg.py
-
-      # 올리브영 베스트 100 — 화장품 섹터의 **국내 채널** 지표(키 불필요, 요청 1건).
-      # 그동안 화장품은 관세청 수출·아마존·러시아/일본 쇼핑뿐이라 전부 해외였다.
-      # ⚠ collector_health.ua(doc=True) 를 써야 200 이 온다. 기본 헤더는 403.
-      - name: 올리브영 베스트 수집
-        continue-on-error: true
-        timeout-minutes: 3
-        run: python runstep.py "올리브영" fetch_beauty.py
-
-      # 지금 화제 — 구글 트렌드·네이트·나무위키·디시 흥한 마이너갤(전부 키 불필요, 요청 4건).
-      # 장중 회차는 refresh.yml 이 찍는다. 여기 것은 '아침 한 점'이자 refresh 가 죽은 날의 백업.
-      - name: 지금 화제 수집
-        continue-on-error: true
-        timeout-minutes: 3
-        run: python runstep.py "버즈" fetch_buzz.py
-
-      # AI 캐릭터 챗봇 앱 순위(애플 RSS, 키 불필요) — 탑툰챗 경쟁 지형 + 탑툰 본체 앱.
-      # '크랙'은 검색어가 소프트웨어 크랙과 겹쳐 오염되므로 추이는 여기(매출순위)로 본다.
-      - name: AI챗 앱순위 수집
-        continue-on-error: true
-        timeout-minutes: 3
-        run: python runstep.py "AI챗 앱순위" fetch_aichat.py
-
-      # 트렌드 전체(네이버·구글·얀덱스). 06시 레터 前에 다 받는다.
-      # 구글은 429 로 자주 막히지만 fetch_trends 가 막힌 출처는 기존값을 보존한다(데이터 손실 없음).
+      # 트렌드 전체(네이버·구글·얀덱스). 회당 8~10분. 구글 429 는 fetch_trends 가 기존값을 보존한다.
+      # ⚠ 네이버 데이터랩 전일치는 KST 10시경에 열린다 — 여기선 그제까지, 어제치는 refresh.yml 10시 회차가 붙인다.
       - name: 트렌드 전체 갱신 (네이버·구글·얀덱스)
         continue-on-error: true
         timeout-minutes: 15
@@ -210,8 +121,78 @@ jobs:
           YANDEX_FOLDER_ID: ${{ secrets.YANDEX_FOLDER_ID }}
         run: python runstep.py "트렌드" fetch_trends.py
 
-      # 컴투스 매출 모델의 재료(DART 분기실적 + 네이버 월별 검색). 둘 다 느리게 바뀌지만
-      # 분기 실적 공시를 놓치지 않으려면 매일 확인한다 — 값이 그대로면 파일을 안 건드린다.
+      # 앱 매출순위(애플·구글 × KR·US·JP·TW). 게임 종목 일간 신호.
+      - name: 앱스토어 게임순위 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "앱스토어" fetch_appstore.py
+
+      # Spotify 아티스트(엔터). 크레덴셜 있어야 동작, 없으면 스킵.
+      - name: Spotify 아티스트 수집
+        continue-on-error: true
+        timeout-minutes: 5
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: python runstep.py "Spotify" fetch_spotify.py
+
+      # YouTube 채널 통계(엔터 IP). YOUTUBE_API_KEY 시크릿 있어야 동작, 없으면 조용히 스킵.
+      - name: YouTube 채널 통계 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python runstep.py "YouTube" fetch_youtube.py
+
+      # 방한 외래관광객 월별(호텔/면세/카지노). 한국관광 데이터랩 내부 JSON, 키 불필요.
+      - name: 방한 외래관광객 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "방한관광" fetch_tourism.py
+
+      # 써클차트 앨범 판매량(월간·주간) — 엔터 실물 수요. 키 불필요.
+      - name: 써클차트 앨범판매 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "써클차트" fetch_circle.py
+
+      # 탑툰챗 — 매일 같은 시각에 받아야 증분이 깔끔하므로 아침 수집에만 둔다. 키 불필요.
+      - name: 탑툰챗 대화수 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "탑툰챗" fetch_toptoonchat.py
+
+      # 게임머니 시세(아이템매니아). 하루 9요청. 오후 재시도는 refresh.yml.
+      - name: 게임머니 시세 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "게임머니" fetch_gamemoney.py
+
+      # 디시 갤러리 글 양 — 글번호 차분. 하루 갤당 1요청.
+      - name: 디시 글수 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "디시 글수" fetch_dc.py
+
+      # 올리브영 베스트 100 — 화장품 국내 채널. ⚠ collector_health.ua(doc=True) 라야 200. 재시도는 refresh.yml.
+      - name: 올리브영 베스트 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "올리브영" fetch_beauty.py
+
+      # 지금 화제 — 구글 트렌드·네이트·나무위키·디시 흥한 마이너갤. 요청 4건.
+      - name: 지금 화제 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "버즈" fetch_buzz.py
+
+      # AI 캐릭터 챗봇 앱 순위(애플 RSS) — 탑툰챗 경쟁 지형.
+      - name: AI챗 앱순위 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "AI챗 앱순위" fetch_aichat.py
+
+      # 컴투스 매출 모델 재료(DART 분기실적 + 네이버 월별 검색). 값이 그대로면 파일을 안 건드린다.
       - name: 컴투스 매출 모델 재료
         continue-on-error: true
         timeout-minutes: 5
@@ -222,6 +203,7 @@ jobs:
         run: python runstep.py "컴투스 모델" fetch_c2model.py
 
       # 수출입(관세청) — 10~26일에 매일 확인, fetch_trade 가 새 월/현행화 있을 때만 파일 변경.
+      # 9/15~9/23 은 30분 컷에 잘려 한 번도 못 돌았다 — 그래서 앞으로 당겼다.
       - name: 월간 수출 갱신 (10~26일)
         continue-on-error: true
         timeout-minutes: 6
@@ -235,6 +217,37 @@ jobs:
             echo "수출 확인 구간 아님 - 생략"
           fi
 
+      # ── 2부: 느리거나 선택적인 것 — 잘려도 1부는 남는다 ──────────────────────
+
+      # 스토어 판매·예약 순위(PS·Steam·MS 스토어). 회당 ~2분. PS 는 persisted query 해시라 깨질 수 있다.
+      - name: 스토어 판매·예약 순위 수집
+        continue-on-error: true
+        timeout-minutes: 6
+        run: python runstep.py "스토어 순위" fetch_storerank.py
+
+      # 게임비트 쌀먹 거래대금 — 하루 ~130요청, 회당 ~5분.
+      - name: 게임비트 거래대금 수집
+        continue-on-error: true
+        timeout-minutes: 7
+        run: python runstep.py "게임비트" fetch_gamebit.py
+
+      # 채용 공고(사람인) — 40종목 × 1~2요청, 회당 ~5분. 회사명 정확일치.
+      - name: 채용 공고 수집
+        continue-on-error: true
+        timeout-minutes: 7
+        run: python runstep.py "채용공고" fetch_jobs.py
+
+      # KT&G 유라시아 — 관세청·Elitalco·Kaspi·hh.kz. 회당 1~2분.
+      - name: KT&G 유라시아 수집
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: python runstep.py "KT&G 유라시아" fetch_ktg.py
+
+      # Steam 은 여기 있으면 안 된다 → refresh.yml(KST 09시 이후). 05시 = UTC 20시라 어제 UTC 가 아직 '진행 중'이다.
+      # 영화(KOBIS)는 2026-09-21 수집 중단 — 되살리는 법은 영화수집_방식.md.
+
       - name: 변경분 커밋
         if: always()
         timeout-minutes: 5
@@ -242,8 +255,6 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
-          # 그래서 탑툰챗이 8/31~9/1 내내 죽어 있었는데 watchdog 도 나도 이유를 못 봤다.
-          # (refresh.yml·screens.yml 은 이미 커밋하고 있었다 — 여기만 빠져 있었다.)
           git add public/index.html spotify_debug.json archive health.json watchdog_state.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
