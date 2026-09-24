@@ -4376,9 +4376,38 @@ function trendFresh(G){
   const full=(typeof TREND!=="undefined"&&TREND.asOfFull)||"";
   return "네이버 "+(nav?fmtUpd(nav):"—")+" · 구글/얀덱스 "+(full?fmtUpd(full):"주1회(월)");
 }
-function renderTrendSegs(){
-  document.getElementById("trendGroupSeg").innerHTML=TREND_STOCKS
+/* 종목 고르기 — 35개 버튼 한 줄이 아니라 **섹터 → 종목** 2단 (2026-09-24 · 개편계획 Phase 2).
+   섹터 라벨은 소비재는 소섹터(화장품·유통·미용·음식료), 나머지는 대섹터(엔터/미디어·게임·호텔).
+   섹터를 누르면 그 섹터 첫 종목이 바로 선택된다(빈 차트를 두지 않는다). 하이라이트 칩으로
+   다른 섹터 종목이 선택되면 섹터가 따라 바뀐다. */
+let trendSector="";
+const _SEC_OF={};
+(R||[]).forEach(r=>{ _SEC_OF[r.name]=(r.sector==="소비재")?(r.sub||r.sector):(r.sector||"기타"); });
+const secOfStock=n=>_SEC_OF[n]||"기타";
+const trendSectors=()=>{ const seen=[]; TREND_STOCKS.forEach(n=>{ const s=secOfStock(n); if(!seen.includes(s)) seen.push(s); }); return seen; };
+function renderTrendStockPicker(){
+  const secs=trendSectors(); if(!secs.length) return;
+  if(trendStock && secOfStock(trendStock)!==trendSector) trendSector=secOfStock(trendStock);
+  if(!secs.includes(trendSector)) trendSector=secs[0];
+  const wrap=document.getElementById("trendGroupSeg");
+  wrap.innerHTML=secs.map(s=>{ const n=TREND_STOCKS.filter(x=>secOfStock(x)===s).length;
+    return `<button data-sec="${attr(s)}" class="${s===trendSector?'active':''}" title="${attr(s)} ${n}종목">${s}<span style="font-weight:600;font-size:11px;opacity:.75;margin-left:4px">${n}</span></button>`; }).join("");
+  let st=document.getElementById("trendStockSeg");
+  if(!st){ st=document.createElement("div"); st.className="seg"; st.id="trendStockSeg";
+    wrap.insertAdjacentElement("afterend", st);
+    st.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b||!b.dataset.stk) return;
+      trendStock=b.dataset.stk; afterTrendStockChange(); });
+  }
+  st.innerHTML=TREND_STOCKS.filter(n=>secOfStock(n)===trendSector)
     .map(n=>`<button data-stk="${attr(n)}" class="${n===trendStock?'active':''}">${n}</button>`).join("");
+}
+function afterTrendStockChange(){
+  trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
+  trendKind=topicKind(trendGroup);
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+}
+function renderTrendSegs(){
+  renderTrendStockPicker();
   const all=topicsOf(trendStock), kinds=kindsOf(trendStock);
   const useKind=all.length>=KIND_MIN&&kinds.length>1;
   const krow=document.getElementById("trendKindRow");
@@ -4463,10 +4492,14 @@ function renderTrendSegs(){
 }
 document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
-  trendStock=b.dataset.stk;
-  trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
-  trendKind=topicKind(trendGroup);
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+  if(b.dataset.sec!=null){                          // 섹터 → 그 섹터의 첫 종목을 바로 고른다
+    trendSector=b.dataset.sec;
+    const first=TREND_STOCKS.find(n=>secOfStock(n)===trendSector);
+    if(!first) return;
+    trendStock=first;
+  } else if(b.dataset.stk){ trendStock=b.dataset.stk; }
+  else return;
+  afterTrendStockChange();
 });
 document.getElementById("trendKindSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;

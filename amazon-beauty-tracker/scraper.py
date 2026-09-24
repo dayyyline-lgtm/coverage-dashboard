@@ -906,6 +906,12 @@ def scrape_all(cfg, brands, log=print):
             # 한 마켓이 막히면 다음 마켓도 곧 막힌다(같은 IP다). 더 길게 쉰다.
             _sleep([g * 3 for g in gap])
             return False
+        except Exception as e:                        # 파싱 버그·예상 못 한 응답 — 한 마켓 때문에 그날 전체를 잃지 않는다
+            import traceback
+            log(f"[{market['code']}] 오류: {type(e).__name__}: {e}")
+            log(traceback.format_exc().rstrip()[-1200:])
+            failed.append((market["code"], f"{type(e).__name__}: {e}"))
+            return False
         finally:
             save_cache(cache_path, cache)
             save_pinned(pin_path, pinned)
