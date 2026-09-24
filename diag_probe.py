@@ -103,6 +103,9 @@ def main():
         ("KZ hh.kz(doc)", "https://hh.kz/search/vacancy?employer_id=9856755", ua(doc=True), None),
         ("대조군 네이버", "https://www.naver.com/", ua(doc=True), None),
         ("대조군 gamebit", "https://gamebit.co.kr/jdata2/zeus/total_status.json", ua(referer="https://gamebit.co.kr/zeus"), None),
+        # Qoo10 JP (2026-09-24) — 일본 K뷰티 채널. 이 PC(가정용)에선 둘 다 200·430~930KB. 러너에서 열리면 events.yml 에 붙인다.
+        ("JP qoo10 best beauty(doc)", "https://www.qoo10.jp/gmkt.inc/Bestsellers/?g=2", ua(referer="https://www.qoo10.jp/", doc=True), None),
+        ("JP qoo10 search(doc)", "https://www.qoo10.jp/s/medicube?keyword=medicube", ua(referer="https://www.qoo10.jp/", doc=True), None),
     ]
     with cf.ThreadPoolExecutor(8) as ex:
         futs = [ex.submit(http, *j) for j in jobs]
