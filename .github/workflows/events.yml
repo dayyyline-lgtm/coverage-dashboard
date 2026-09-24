@@ -180,6 +180,12 @@ jobs:
         timeout-minutes: 3
         run: python runstep.py "올리브영" fetch_beauty.py
 
+      # Qoo10 JP 뷰티 베스트셀러 톱200 — 일본 K뷰티 주 채널(사용자 지시 2026-09-24). 요청 1건 · 러너에서 200(diag 확인).
+      - name: Qoo10 JP 뷰티 톱200 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "Qoo10" fetch_qoo10.py
+
       # 지금 화제 — 구글 트렌드·네이트·나무위키·디시 흥한 마이너갤. 요청 4건.
       - name: 지금 화제 수집
         continue-on-error: true

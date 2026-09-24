@@ -248,6 +248,7 @@ const FRESH_LIMITS = [
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
+  ["QOO10","Qoo10 JP 뷰티",40],
 ];
 
 function ageHours(a){
@@ -2219,7 +2220,8 @@ function injectCompanyStack(items, opt){
 })();
 /* 데이터 있는 주제만. 게임사는 동접·리뷰(실측 플레이)가 검색보다 중요하므로 앞으로 당긴다.
    앨범판매(써클)는 엔터 실물수요라 검색보다 앞. 나머지는 삽입 순서를 유지(안정 정렬). */
-const topicsOf=n=>{
+const topicsOf=n=>tierSort(topicsOf0(n));
+const topicsOf0=n=>{
   const list=(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);
   const pri=g=> g.includes("동접")?0 : (g.includes("예약순위")||g.includes("판매순위")||g.includes("매출순위"))?1
              : (g.includes("리뷰")||g.includes("시청"))?2 : g.includes("앨범판매")?3 : 4;
@@ -2305,6 +2307,46 @@ const topicsOf=n=>{
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
+/* Qoo10 JP 뷰티 톱200 (2026-09-24) — 일본 K뷰티의 주 채널. 브랜드별 최고 순위(rankN 200)와
+   한국발 비중(섹터). 순위는 판매 기반이라 아마존 BSR 과 같은 성격이다. */
+(function injectQoo10Trends(){
+  if(typeof QOO10==="undefined"||!QOO10.brands) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const NN=QOO10.n||200;
+  const by={};
+  QOO10.brands.forEach(b=>{ if(!b.stock||(b.hist||[]).length<2) return; (by[b.stock]=by[b.stock]||[]).push(b); });
+  Object.keys(by).forEach(stock=>{
+    const bs=by[stock];
+    const days=[...new Set(bs.flatMap(b=>b.hist.map(h=>h.d)))].sort();
+    const raw=bs.map(b=>{const m={}; b.hist.forEach(h=>{ if(h.best!=null) m[h.d]=h.best; }); return days.map(d=>m[d]==null?null:m[d]);});
+    const ser=raw.map(a=>a.map(r=>r==null?null:Math.round((NN+1-r)/NN*1000)/10));
+    const name=`Qoo10 뷰티 순위(${stock})`;
+    TREND.groups[name]={
+      products:bs.map(b=>b.brand), productsGoogle:bs.map(b=>b.brand),
+      months:days.map(md), naver:ser, google:ser, rawSer:raw,
+      only:"naver", freq:"date", unitShort:"위",
+      rankN:NN, rankOf:v=>NN+1-v*NN/100, fmt:v=>(v==null?"—":Math.round(NN+1-v*NN/100)+"위"),
+      srcName:`Qoo10 JP 뷰티 베스트셀러 톱${NN} · 브랜드별 최고 순위 · 위로 갈수록 상위 · 톱${NN} 밖은 끊김`,
+      reviewNote:"판매 기반 순위(사이트 안내). 일본 K뷰티 주 채널 — 아마존 JP 와 채널이 다르다"
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+  // 섹터 지표 — 톱200 중 한국발 비중. 자기 브랜드가 없는 ODM·유통(실리콘투·콜마·코스맥스)의 일본 창.
+  const kr=(QOO10.kr||[]).filter(x=>x&&x.n);
+  if(kr.length>=2){
+    const days=kr.map(x=>x.d), pct=kr.map(x=>Math.round(x.kr/x.n*1000)/10), peak=Math.max(...pct)||1;
+    const name="Qoo10 뷰티 톱200 한국발 비중";
+    TREND.groups[name]={
+      products:["한국발 비중(%)"], productsGoogle:["한국발 비중(%)"],
+      months:days.map(md), naver:[pct.map(v=>Math.round(v/peak*1000)/10)], google:[pct.map(v=>Math.round(v/peak*1000)/10)],
+      rawSer:[pct], only:"naver", freq:"date", peak:peak, unit:"%(톱200 중 한국발)", unitShort:"%",
+      srcName:"Qoo10 JP 뷰티 톱200 중 원산·발송 KR 상품 비중 · 100 = 기간 최고",
+      reviewNote:"브랜드가 없는 ODM·유통 종목엔 이 비중이 일본 K뷰티 온도계다"
+    };
+    ["실리콘투","한국콜마","코스맥스","에이피알","아모레퍼시픽","달바글로벌","아로마티카","LG생활건강"].forEach(s=>{
+      if(R.some(r=>r.name===s)) (TREND_STOCK[s]=TREND_STOCK[s]||[]).push(name); });
+  }
+})();
 (function injectJobsTrends(){
   if(typeof JOBS==="undefined"||!JOBS.cos) return;
   JOBS.cos.forEach(c=>{
@@ -2337,6 +2379,25 @@ let trendStock="", trendGroup="", trendFreq="week";
    리뷰·검색·DLC 예약…). 버튼을 한 줄에 다 깔면 정작 차트가 안 보인다. 지표 종류로 한 번 거른다.
    ⚠ 순서가 중요하다 — '거래순위' 는 이름에 '순위' 가 들어가지만 게임경제 쪽이라 먼저 걸러야 한다. */
 const KIND_ORDER=["플레이","시청","판매·순위","리뷰","게임경제","커뮤니티","검색","기타"];
+/* 중요도 등급 (2026-09-24 · 사용자 요청 "중요한 것부터, 나머지는 뒤로").
+   1 = 매출에 직결(판매·순위·앨범·수출·동접·채널 순위·브랜드 검색) · 2 = 수요 선행(시청·스트리밍·리뷰·게임경제·커뮤니티 글 양)
+   · 3 = 참고(채용·갤 순위·거래순위·경쟁 챗봇·캐릭터별). 계열이 전부 0/빈 값이면 3으로 내린다.
+   카드·주제 버튼이 이 순서로 서고, 3등급은 접힌다. 종목을 고르면 1등급 첫 주제가 기본이다. */
+function topicTier(n){
+  const G=TREND.groups[n]||{};
+  let t;
+  if(/매출순위|판매순위|앨범판매|수출|동접|아마존|올리브영|Qoo10|위시리스트|월간청취자/.test(n)) t=1;
+  else if(/시청|스트림|리뷰|디시 글수|게임머니|거래대금|평균시세|쇼핑/.test(n)) t=2;
+  else if(/채용|갤 순위|거래순위|AI 챗|AI챗|캐릭터별|경쟁/.test(n)) t=3;
+  else if(!G.srcName) t=1;                       // 검색 트렌드(브랜드·IP)
+  else t=2;
+  // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
+  const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
+  const vals=ser.flatMap(s=>(s||[]).filter(v=>v!=null));
+  if(vals.length<2 || !vals.some(v=>v>0)) t=3;
+  return t;
+}
+function tierSort(list){ return list.slice().sort((a,b)=>topicTier(a)-topicTier(b)||list.indexOf(a)-list.indexOf(b)); }   // function 선언(호이스팅) — TREND_STOCKS 가 topicsOf 를 먼저 부른다
 function topicKind(n){
   const G=TREND.groups[n]||{};
   if(n.includes("동접")) return "플레이";
@@ -4460,7 +4521,8 @@ function renderTrendCards(){
   const list=topicsOf(trendStock);
   if(list.length<2){ box.innerHTML=""; return; }         // 주제가 하나면 카드가 차트와 같은 말이다
   const W=140,H=34;
-  box.innerHTML=list.map(g=>{
+  const main=list.filter(g=>topicTier(g)<3), rest=list.filter(g=>topicTier(g)>=3);
+  const card=g=>{
     const S=trendCardStats(g); if(!S) return "";
     const n=Math.max(2,...S.rows.map(r=>r.ser.length));
     const vals=S.rows.flatMap(r=>r.ser.filter(v=>v!=null)); if(!vals.length) return "";
@@ -4477,7 +4539,15 @@ function renderTrendCards(){
       <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">${paths}</svg>
       <div style="font-size:10px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${attr(S.lead.label)}${S.rows.length>1?` 외 ${S.rows.length-1}`:""}${S.k>1?" · 7일평균":""}</div>
     </div>`;
-  }).join("");
+  };
+  const open=box.dataset.open==="1";
+  box.innerHTML=main.map(card).join("")
+    +(rest.length?`<div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <button id="trendCardsMore" style="background:transparent;border:1px solid var(--line-soft);border-radius:8px;color:var(--muted);font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer">${open?"참고 지표 접기":`참고 지표 ${rest.length}개 보기`}</button>
+        ${open?"":`<span style="font-size:11px;color:var(--muted2)">${rest.map(g=>attr(g)).join(" · ")}</span>`}</div>`
+      +(open?`<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:8px;opacity:.85">${rest.map(card).join("")}</div>`:""):"");
+  const mb=document.getElementById("trendCardsMore");
+  if(mb) mb.onclick=e=>{ e.stopPropagation(); box.dataset.open=open?"0":"1"; renderTrendCards(); };
 }
 function renderTrendSegs(){
   renderTrendStockPicker();
@@ -5481,6 +5551,9 @@ function renderJobs(){
 /* 종목별 '현장직 공고 수'를 트렌드 계열로 편입 — 며칠 쌓이면 뜬다. 삼양식품·한국콜마·코스맥스처럼
    검색 트렌드 그룹이 없던 종목이 이걸로 트렌드 탭 종목 목록에 들어온다. */
 
+// 종목 무관 블록 셋은 탭 맨 아래로 — 위에 두면 본문(카드·차트)이 밀린다(2026-09-24 사용자 요청: 중요한 것부터).
+(function(){ const sec=document.querySelector('section[data-view="trends"]'); if(!sec) return;
+  ["buzzSec","oySec","jobsSec"].forEach(id=>{ const el=document.getElementById(id); if(el) sec.appendChild(el); }); })();
 renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGameEst(); renderC2Model(); renderOliveYoung(); renderJobs();
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{

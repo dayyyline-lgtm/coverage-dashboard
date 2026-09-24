@@ -407,6 +407,15 @@ GROUPS = {
 }
 GOOGLE_GEO = ""   # "" = 전세계, "KR" = 한국, "US" = 미국
 
+# ── 일별 구간을 30일 → 90일로 (2026-09-24 · 개편계획 Phase 2 '트렌드를 더 촘촘히') ──
+# 요청 수는 그대로다: 네이버는 기간이 얼마든 1요청, 구글도 'today 3-m'(93일) 1요청이라
+# 30일만 잘라 쓰던 것을 90일로 늘려도 429 위험이 늘지 않는다. 화면의 '중기 90일'이 주별 대신
+# 일별(7일 평균)로 그려진다. 개별 그룹에 90 넘는 n 이 있으면 그대로 둔다.
+DAILY_N = 90
+for _spec in GROUPS.values():
+    if _spec.get("freq") == "date" and _spec.get("n", 30) < DAILY_N:
+        _spec["n"] = DAILY_N
+
 # 시리즈 색 (최대 8개 — 국가별 그룹이 6개까지 늘어남). Rose Pine 계열의 구분 잘 되는 색
 COLORS = ["#c4a7e7", "#f6c177", "#9ccfd8", "#eb6f92", "#a6da95", "#3e8fb0", "#ea9a97", "#c9a227"]
 
@@ -1044,7 +1053,7 @@ def main():
         if pf not in ("date", "week"):
             continue
         af = "week" if pf == "date" else "date"
-        an = spec.get("n_" + af, {"date": 30, "week": 52}[af])
+        an = spec.get("n_" + af, {"date": DAILY_N, "week": 52}[af])   # 일별 alt 도 90일
         prev_alt = (prev_groups.get(gname) or {}).get("alt")
         try:
             alt = collect_alt(gname, spec, af, an, prev_alt, have)
