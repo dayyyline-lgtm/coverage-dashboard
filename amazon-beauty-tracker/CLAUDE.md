@@ -347,3 +347,24 @@ pathspec(`git commit -- data/history.csv data/asin_cache.json`)으로 **자기 �
 ⚠ 두 작업 다 `Logon Mode: Interactive only` 다 — 로그아웃 상태에선 안 돈다(잠금은 괜찮다).
 
 이 PC 를 안 믿게 되면 대안은 둘: ① 가정용 프록시(월 $5~10)를 끼워 GitHub Actions 에서 돌린다 ② Keepa(€49/월). 개편계획.md 3절 참고.
+
+## 일본(JP) 마켓 — 표기가 셋 다 다르다 (2026-09-24 추가 · 개편계획.md Phase 3)
+
+K뷰티 최대 수출시장인데 빠져 있었다. 이 PC 에서 `amazon.co.jp/gp/bestsellers/beauty` 는 200 · 450KB · `data-client-recs-list` 50개(탐침 1회).
+`config.yaml`·`config.example.yaml` 에 `JP`(JPY · `ja-JP`) 를 넣었고 `inject_amazon.markets` 와 화면 문구도 7개국이다.
+**첫 실수집은 2026-09-25 05:15.** 리스트 1요청 + 회전 BSR(추적 ASIN 이 쌓이는 만큼) + 일요일 브랜드 검색이라 회당 몇 분 는다.
+
+실제 JP 상품 페이지(VT CICA 데일리 수딩 마스크 · 뷰티 9위)로 파서를 검증했다(`scratchpad/test_jp.py` · 서양 마켓 회귀 포함 25건 통과):
+
+| 무엇 | JP 표기 | 처리 |
+|---|---|---|
+| 최상위 BSR | `Amazon 売れ筋ランキング: ビューティー - 1位 ( ビューティーの売れ筋ランキングを見る )` — **카테고리가 앞, 순위는 `N位`** | `_bsr_entries` 에 `位` 분기(`카테고리 - N位`). 서양식 `#N in X`·`Nr. N in X` 는 그대로 |
+| 하위 BSR | `ヘア美容液 - 1位` | 링크 텍스트(카테고리) 뒤의 `- N位` |
+| 판매량 배지 | `過去1か月で 2万点以上購入されました` · `過去1週間で4000点以上購入されました` — **숫자가 기간 단어 뒤**, `万`=1만·`千`=1천 | `bought_from_text` JP 분기. 서양식(기간 앞 마지막 숫자)로 읽으면 `1か月` 의 1 을 판매량으로 읽는다 |
+| 별점 | `5つ星のうち4.5` — 첫 숫자가 만점 | `parse_rating` 이 `のうち` 뒤를 본다 |
+| 가격 | `￥2,420` | `parse_price` 그대로(2420.0) · `FX_TO_USD["JPY"]=0.0067`(main·inject 둘 다) |
+| 브랜드 | 카타카나·붙여쓰기(`VTCOSMETICS(ブイティコスメテックス)`) | `scraper.BRAND_ALIASES`(정식명 소문자 → 현지 별칭). 걸리면 정식명을 돌려준다. 짧은 토큰(vt) 은 넣지 않는다 |
+
+- ⚠ `config.yaml` 은 이 PC 에만 있다 — 마켓을 더 넣을 땐 `config.example.yaml` 과 **둘 다** 고칠 것.
+- 다음 후보(같은 방식으로 열림 확인, 2026-09-24 탐침): SG · CA · IN · MX · NL · PL · SE · AE. AU 는 캡차. 통화·BSR 접두사·판매량 문구를 나라마다 실측한 뒤 넣을 것.
+- 일본은 라쿠텐(`SHOP`, 주 1회 리뷰 스냅샷)과 겹친다 — 둘은 채널이 다르다(아마존 vs 라쿠텐). 합치지 말고 나란히 본다.

@@ -238,10 +238,22 @@ function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2
 // MOVIE 는 2026-09-21 수집을 멈춰 뺐다 — 두면 그날부터 영영 "N일째 갱신 없음"(고장 신호)이
 // 붙는다. 멈춘 건 고장이 아니라 결정이라, 섹션 제목에 "수집 중단"으로 따로 적는다.
 const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72};
+/* 신선도 보드 (2026-09-24 · 개편계획.md Phase 1) — 블록마다 마지막 갱신 시각과 한도.
+   값은 watchdog.py 의 LIMITS 와 같아야 한다(시간). 새 블록을 넣으면 두 곳을 같이 고칠 것.
+   화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
+const FRESH_LIMITS = [
+  ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
+  ["C2MODEL","컴투스 모델",960],["AMAZON","아마존 뷰티",72],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
+  ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
+  ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
+  ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
+];
 
 function ageHours(a){
-  const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-  if(!m) return null;
+  // 날짜만 적힌 asOf(주 1회 SHOP 등)는 그날 09:00 KST 로 본다 — 없음으로 두면 신선도 보드에서 영영 '없음'이다
+  const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/) || (String(a||"").match(/^(\d{4})-(\d{2})-(\d{2})$/)||[]).concat(["09","00"]);
+  if(!m||m.length<6) return null;
   // asOf 는 KST 로 적힌다. 보는 사람이 어느 시간대에 있든 같은 판정이 나오게 KST 로 맞춘다.
   const t=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]) - 9*3600e3;
   return (Date.now()-t)/3600e3;
@@ -6221,6 +6233,42 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
 /* 모든 데이터 const 초기화 후에 섹션 헤더 타임스탬프를 채운다(TREND 등 TDZ 회피) */
 setSecUpdates();
+/* 신선도 스트립 — '무엇이 언제 것인지'를 한 줄로. 지연된 블록만 칩으로 띄우고 나머지는 숫자로 뭉친다.
+   07:30 에 열었을 때 '오늘 아침 것이 다 들어왔나'를 3초에 확인하는 자리(개편계획 Phase 1). */
+function renderFreshness(){
+  const anchor=document.getElementById("mktStrip"); if(!anchor) return;
+  let el=document.getElementById("freshStrip");
+  if(!el){ el=document.createElement("div"); el.id="freshStrip";
+    el.style.cssText="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0 0;font-size:11.5px;color:var(--muted);line-height:1.6";
+    anchor.insertAdjacentElement("afterend", el); }
+  const d=new Date(), wknd=(d.getDay()===0||d.getDay()===6);
+  const rows=FRESH_LIMITS.map(([key,label,lim])=>{
+    // 데이터 상수는 최상위 const 라 window 속성이 아니다 — 전역 렉시컬 스코프에서 이름으로 찾는다
+    let B=null; try{ B=Function("return (typeof "+key+"!=='undefined')?"+key+":null")(); }catch(_){ B=null; }
+    const asOf=B&&(B.asOf||B.asOfNaver||"");
+    const age=ageHours(asOf);
+    const eff=(key==="LIVE"&&wknd)?Math.max(lim,72):lim;
+    const st=age==null?"none":(age<=eff?"ok":"stale");
+    return {key,label,lim:eff,asOf,age,st};
+  });
+  const ok=rows.filter(r=>r.st==="ok"), stale=rows.filter(r=>r.st==="stale"), none=rows.filter(r=>r.st==="none");
+  const ageTxt=a=>a==null?"—":a>=48?`${Math.round(a/24)}일`:a>=1?`${Math.round(a)}시간`:`${Math.round(a*60)}분`;
+  const chip=(r)=>`<span class="pill" title="${attr(r.label)} · 마지막 갱신 ${attr(fmtUpd(r.asOf)||"—")} · 한도 ${r.lim}시간" style="background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);font-size:11px;padding:2px 8px">${r.label} ${ageTxt(r.age)}째</span>`;
+  const latest=rows.filter(r=>r.age!=null).sort((a,b)=>a.age-b.age)[0];
+  const open=el.dataset.open==="1";
+  el.innerHTML=`<span style="font-size:10.5px;font-weight:800;letter-spacing:.06em;color:var(--muted2)">데이터 신선도</span>`
+    +`<span title="한도 안에서 갱신된 블록 수">정상 <b style="color:var(--text)">${ok.length}</b>/${rows.length}</span>`
+    +(latest?`<span title="가장 최근에 갱신된 블록">최근 ${attr(latest.label)} ${fmtUpd(latest.asOf)}</span>`:"")
+    +stale.map(chip).join("")
+    +`<button id="freshMore" style="background:transparent;border:1px solid var(--line-soft);border-radius:7px;color:var(--muted);font-size:11px;font-weight:700;padding:2px 8px;cursor:pointer">${open?"접기":"전체 보기"}</button>`
+    +(open?`<div style="flex-basis:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:3px 14px;padding:6px 0 2px;font-size:11.5px">`
+      +rows.slice().sort((a,b)=>(a.st==="stale"?0:a.st==="none"?1:2)-(b.st==="stale"?0:b.st==="none"?1:2)||((b.age||0)-(a.age||0)))
+        .map(r=>`<span style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line-soft);padding:2px 0;${r.st==="stale"?"color:var(--warn);font-weight:700":r.st==="none"?"color:var(--muted2)":""}"><span>${attr(r.label)}</span><span style="font-variant-numeric:tabular-nums">${fmtUpd(r.asOf)||"없음"}${r.age!=null?` · ${ageTxt(r.age)}`:""}<span style="color:var(--muted2);font-weight:400"> / ${r.lim}h</span></span></span>`).join("")
+      +`</div>`:"");
+  const btn=document.getElementById("freshMore");
+  if(btn) btn.onclick=()=>{ el.dataset.open=open?"0":"1"; renderFreshness(); };
+}
+renderFreshness();
 
 /* ==== 아마존 (amazon-beauty-tracker → const AMAZON) ====
    판매량은 아마존이 상품페이지에 공개하는 구간값의 하한이다. 매출은 USD 로 담겨 있고
