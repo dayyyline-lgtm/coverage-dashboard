@@ -4406,6 +4406,79 @@ function afterTrendStockChange(){
   trendKind=topicKind(trendGroup);
   renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
 }
+/* 시그널 카드 (2026-09-24 · 개편계획 Phase 2) — 고른 종목의 주제 전부를 한 판에.
+   차트 하나만 보면 나머지 주제가 어디로 가는지 모른다. 카드 = 주제명 · 최근값 · 주간 변화 ·
+   스파크라인(일별은 7일 평균, 최근 60점 / 주별 26점). 클릭하면 그 주제가 큰 차트로 온다. */
+function trendCardStats(gname){
+  const G0=TREND.groups[gname]; if(!G0) return null;
+  const V=freqView(G0,"date")||G0;                      // 일별이 있으면 일별
+  const freq=nativeFreq(V);
+  const src=(V.only==="google"||!V.naver)?"google":"naver";
+  const ser0=V[src]||[]; if(!ser0.length) return null;
+  const N=Math.min(freq==="date"?60:26, (V.months||TREND.months).length);
+  const k=(freq==="date"&&trendSmooth&&!V.stack)?7:1;
+  if(V.stack){                                          // 앨범 등 누적 막대: 합계 하나로
+    const tot=(V.months||[]).map((_,j)=>ser0.reduce((a,s)=>a+((s||[])[j]||0),0)).slice(-N);
+    const last=lastNN(tot), prev=tot.length>1?tot[tot.length-2]:null;
+    return {freq, k:1, rows:[{label:"합계", ser:tot}], lead:{label:"합계"}, valTxt:V.fmt?V.fmt(last):nAbbr(last),
+            chg:(prev>0&&last!=null)?(last/prev-1)*100:null, dRank:null};
+  }
+  const rows=ser0.map((s,i)=>{ const full=k>1?smoothSeries(s,k):s; const cut=(full||[]).slice(-N);
+    const raw=(V.rawSer&&V.rawSer[i])?V.rawSer[i].slice(-N):null;
+    return {i, label:(V.products||[])[i]||"", ser:cut, last:lastNN(cut), raw}; }).filter(r=>r.last!=null);
+  if(!rows.length) return null;
+  rows.sort((a,b)=>b.last-a.last);
+  const lead=rows[0], back=freq==="date"?7:1;            // 일별은 주간 변화, 주별·월별은 전기비
+  const li=lead.ser.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop();
+  const prev=(li!=null&&li-back>=0)?lead.ser[li-back]:null;
+  let chg=null, dRank=null, valTxt, smoothed=k>1;
+  if(V.rankN&&lead.raw){                                 // 순위: 실제 최신 순위와 몇 칸 움직였나(평균 안 씀)
+    const rl=lastNN(lead.raw), rli=lead.raw.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop();
+    const rp=(rli!=null&&rli-back>=0)?lead.raw[rli-back]:null;
+    valTxt=rl!=null?`${rl}위`:"—"; if(rp!=null&&rl!=null) dRank=rp-rl; smoothed=false;
+  }else{
+    // 자기 최고=100 계열(게임머니·디시 글수·거래대금…)은 원값(rawSer)을 단위와 함께. 지수 100 은 값이 아니다.
+    const rawS=lead.raw?(k>1?smoothSeries(lead.raw,k):lead.raw):null;
+    if(rawS&&lastNN(rawS)!=null){ const u=shortUnit(V), v=lastNN(rawS);
+      valTxt=(/^(만|억)/.test(u)?fmt0(v):nAbbr(v))+u; }             // 단위가 이미 '만원'이면 '9.9만만원'이 되지 않게
+    else{ const A=yAxisInfo(V);
+      valTxt=(V.peak&&A.kind==="abs")?nAbbr(lead.last*V.peak/100)+shortUnit(V):String(Math.round(lead.last*10)/10); }
+    if(prev>0&&lead.last!=null) chg=(lead.last/prev-1)*100;   // 변화율은 지수로 — 비율이라 원값과 같다
+  }
+  return {freq, k:smoothed?k:1, rows:rows.slice(0,4), lead, chg, dRank, valTxt};
+}
+function renderTrendCards(){
+  const chart=document.getElementById("trendChart"); if(!chart||!chart.parentElement) return;
+  let box=document.getElementById("trendCards");
+  if(!box){ box=document.createElement("div"); box.id="trendCards";
+    box.style.cssText="display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:8px;margin:0 0 12px";
+    chart.parentElement.insertAdjacentElement("beforebegin", box);
+    box.addEventListener("click",e=>{ const c=e.target.closest("[data-grp]"); if(c) selectTrend(trendStock, c.dataset.grp); });
+  }
+  if(!trendStock){ box.innerHTML=""; return; }
+  // 분류 필터와 무관하게 그 종목의 주제 전부 — 카드의 쓸모는 '한눈에 전체'다. 분류는 주제 버튼 줄만 거른다.
+  const list=topicsOf(trendStock);
+  if(list.length<2){ box.innerHTML=""; return; }         // 주제가 하나면 카드가 차트와 같은 말이다
+  const W=140,H=34;
+  box.innerHTML=list.map(g=>{
+    const S=trendCardStats(g); if(!S) return "";
+    const n=Math.max(2,...S.rows.map(r=>r.ser.length));
+    const vals=S.rows.flatMap(r=>r.ser.filter(v=>v!=null)); if(!vals.length) return "";
+    const mx=Math.max(...vals), mn=Math.min(0,...vals);
+    const sx=i=>i/(n-1)*W, sy=v=>H-2-((v-mn)/((mx-mn)||1))*(H-4);
+    const paths=S.rows.map((r,i)=>`<path d="${trendPath(r.ser,sx,sy)}" fill="none" stroke="${TREND.colors[i%TREND.colors.length]}" stroke-width="${i?1.1:2}" stroke-opacity="${i?.5:1}" stroke-linejoin="round"/>`).join("");
+    const act=g===trendGroup;
+    const chg=S.dRank!=null?`<span class="${S.dRank>0?'up':S.dRank<0?'down':''}" style="font-size:11px;font-weight:700">${S.dRank>0?'▲':S.dRank<0?'▼':'—'}${Math.abs(S.dRank)||''}</span>`
+      : S.chg==null?`<span style="font-size:11px;color:var(--muted2)">—</span>`:`<span class="${cls(S.chg)}" style="font-size:11px;font-weight:700">${sign(S.chg,0)}%</span>`;
+    const chgLab=S.freq==="date"?"주간":S.freq==="week"?"전주":"전월";
+    return `<div data-grp="${attr(g)}" title="${attr(g)} — 클릭하면 이 주제를 크게 봅니다" style="cursor:pointer;background:var(--panel);border:1px solid ${act?'var(--accent)':'var(--line-soft)'};border-radius:12px;padding:8px 10px 6px;box-shadow:${act?'var(--shadow)':'none'}">
+      <div style="font-size:11px;font-weight:700;color:${act?'var(--text)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${attr(g)}</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin:2px 0"><span style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">${S.valTxt}</span><span style="display:flex;gap:4px;align-items:baseline"><span style="font-size:10px;color:var(--muted2)">${chgLab}</span>${chg}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">${paths}</svg>
+      <div style="font-size:10px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${attr(S.lead.label)}${S.rows.length>1?` 외 ${S.rows.length-1}`:""}${S.k>1?" · 7일평균":""}</div>
+    </div>`;
+  }).join("");
+}
 function renderTrendSegs(){
   renderTrendStockPicker();
   const all=topicsOf(trendStock), kinds=kindsOf(trendStock);
@@ -4489,6 +4562,7 @@ function renderTrendSegs(){
     : `${trendStock} — ${trendGroup}` + (kw.length? ` (${kw.join(" · ")})` : "")
       + (P? ` <span style="color:var(--accent);font-weight:700;font-size:12px">· ${P.name} ${P.label}</span>`:"")
       + (fresh? ` <span style="color:var(--muted);font-weight:600;font-size:12px">· ${fresh}</span>` : "");
+  renderTrendCards();
 }
 document.getElementById("trendGroupSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
