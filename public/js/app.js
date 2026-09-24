@@ -6413,6 +6413,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
 /* 모든 데이터 const 초기화 후에 섹션 헤더 타임스탬프를 채운다(TREND 등 TDZ 회피) */
 setSecUpdates();
+renderQoo10();
 /* 신선도 스트립 — '무엇이 언제 것인지'를 한 줄로. 지연된 블록만 칩으로 띄우고 나머지는 숫자로 뭉친다.
    07:30 에 열었을 때 '오늘 아침 것이 다 들어왔나'를 3초에 확인하는 자리(개편계획 Phase 1). */
 function renderFreshness(){
@@ -6608,6 +6609,44 @@ function renderAmazon(){
     </tbody></table></div>`;
 }
 
+/* Qoo10 JP 뷰티 톱200 — 오늘 스냅샷 표 (2026-09-24). 추이(브랜드별 순위·한국발 비중)는 트렌드 탭에,
+   여기는 '오늘 누가 어디에 있나'. 아마존 탭 맨 아래(Phase 3 의 '채널' 탭이 생기면 그리로 옮긴다). */
+function renderQoo10(){
+  if(typeof QOO10==="undefined"||!QOO10.top||!QOO10.top.length) return;
+  const anchor=document.getElementById("amzTop"); if(!anchor) return;
+  let box=document.getElementById("q10Box");
+  if(!box){ box=document.createElement("div"); box.id="q10Box"; anchor.insertAdjacentElement("afterend", box); }
+  const krA=QOO10.kr||[], kr=krA[krA.length-1]||{}, krPrev=krA.length>=2?krA[krA.length-2]:null;   // 점이 하나면 전일 없음
+  const B=(QOO10.brands||[]).slice().sort((a,b)=>((a.stock?0:1)-(b.stock?0:1))||(((b.hist||[]).slice(-1)[0]||{}).c-(((a.hist||[]).slice(-1)[0]||{}).c)));
+  const yen=v=>v==null?"—":"¥"+Number(v).toLocaleString("ko-KR");
+  const bRows=B.map(b=>{ const H=b.hist||[], h=H[H.length-1]||{}, p=H.length>=2?H[H.length-2]:null;
+    const d=(p&&p.best!=null&&h.best!=null)?p.best-h.best:null;   // +면 순위 상승
+    const tie=b.stock?`<span class="clickable" data-stock="${attr(b.stock)}" style="font-weight:700">${attr(b.owner||b.stock)}</span>`:`<span style="color:var(--muted)">${attr(b.owner||"—")}</span>`;
+    return `<tr${b.stock?"":' style="opacity:.8"'}>
+      <td style="text-align:left;font-weight:700">${attr(b.brand)} <span style="color:var(--muted2);font-weight:500;font-size:11px">${attr(b.jp||"")}</span></td>
+      <td style="text-align:left">${tie}</td>
+      <td style="text-align:right">${h.c||0}</td>
+      <td style="text-align:right">${h.best!=null?h.best+"위":"—"}${d?` <span class="${d>0?"up":"down"}" style="font-size:11px">${d>0?"▲":"▼"}${Math.abs(d)}</span>`:""}</td>
+      <td style="text-align:right">${amzNum(h.rev||0)}</td>
+      <td style="text-align:left;color:var(--muted);font-size:11.5px">${(h.ranks||[]).join(" · ")}</td></tr>`; }).join("");
+  const items=QOO10.top.filter(x=>x.brand).slice(0,60);
+  const iRows=items.map(x=>`<tr><td style="text-align:right;font-weight:700">${x.r}</td>
+      <td style="text-align:left">${attr(x.brand)}${x.off?` <span class="pill" style="font-size:10px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)">공식</span>`:""}</td>
+      <td style="text-align:left;white-space:normal;max-width:420px;font-size:12px">${attr(x.t)}</td>
+      <td style="text-align:right">${yen(x.p)}${x.p0&&x.p0>x.p?` <span style="color:var(--muted2);font-size:10.5px;text-decoration:line-through">${yen(x.p0)}</span>`:""}</td>
+      <td style="text-align:right">${x.rv!=null?amzNum(x.rv):"—"}</td></tr>`).join("");
+  box.innerHTML=`<div class="sub-h" style="margin-top:22px">Qoo10 JP 뷰티 베스트셀러 톱${QOO10.n||200}
+      <span style="font-size:12px;font-weight:600;color:var(--muted);margin-left:8px">${fmtUpd(QOO10.asOf)||""} 기준 · 한국발 <b>${kr.kr||0}</b>/${kr.n||0}(${kr.n?Math.round(kr.kr/kr.n*100):0}%)${krPrev?` · 전일 ${Math.round(krPrev.kr/krPrev.n*100)}%`:""}</span></div>
+    <p class="note" style="margin:-4px 0 10px">일본 K뷰티의 주 채널. 판매 기반 순위(사이트 안내)라 아마존 BSR 과 같은 성격이며, <b>같은 방법으로 매일 재는 추이</b>로 보세요.
+      브랜드 매칭은 일본 표기 사전 기준 — 사전 밖 한국 브랜드는 '한국발'에만 셉니다. 브랜드별 순위 추이는 트렌드 탭 'Qoo10 뷰티 순위'.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th style="text-align:left">브랜드</th><th style="text-align:left">운영사</th><th style="text-align:right">진입</th><th style="text-align:right">최고 순위</th><th style="text-align:right">리뷰 합</th><th style="text-align:left">순위(상위 8)</th></tr></thead>
+      <tbody>${bRows||`<tr><td colspan="6" style="color:var(--muted)">매칭된 브랜드 없음</td></tr>`}</tbody></table></div>
+    <details class="fold" style="margin-top:10px"><summary>진입 상품 ${items.length}개 보기 <span class="sub">순위 · 브랜드 · 상품명 · 가격(할인가) · 리뷰</span></summary>
+      <div class="fold-b"><div class="tbl-wrap"><table>
+        <thead><tr><th style="text-align:right">순위</th><th style="text-align:left">브랜드</th><th style="text-align:left">상품</th><th style="text-align:right">가격</th><th style="text-align:right">리뷰</th></tr></thead>
+        <tbody>${iRows}</tbody></table></div></div></details>`;
+}
 (function amzInit(){
   const seg=document.getElementById("amzMetricSeg");
   if(!seg) return;
