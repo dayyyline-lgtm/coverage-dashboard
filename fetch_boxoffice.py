@@ -158,6 +158,7 @@ def booking():
 #     탐침이 이틀 연속 전부 실패한 체인은 그 회차에서 바로 포기한다(막힌 체인에 20분씩 헛돌지 않게).
 #   ⚠ 탐침은 대형 지점만 본다. 그 지점에 안 걸리고 소형관에만 먼저 걸린 날짜는 놓칠 수 있다(와이드 개봉작은 드묾).
 SEAT_DAYS = 14
+SEAT_BUDGET = 38 * 60     # 전수 시간 예산(초). 넘기면 먼 날짜부터 생략 — 워크플로 시간 제한(75분) 안에서 끝나게
 PROBE = {"CGV": ["0001", "0013", "0059", "0074"],          # 강변·용산·영등포·왕십리 (fetch_screens.PROBE_SITES)
          "LC": ["월드타워", "건대입구", "김포공항", "수원"],   # 이름으로 ID 를 찾는다
          "MB": ["1372", "1351"]}                             # 강남·코엑스
@@ -256,7 +257,24 @@ def seats(plan, cins, crt):
         a["sites"].add(site); a["screens"].add((site, screen)); a["shows"] += 1
         a["seatTot"] += t; a["seatSold"] += max(0, t - r)
 
-    plays_of = lambda ch: [p for p in sorted(plan) if ch in plan[p]]
+    plays_of = lambda ch: [p for p in sorted(plan) if ch in plan[p]]     # 가까운 날짜부터 — 시간이 모자라면 먼 날이 잘린다
+    deadline = time.time() + SEAT_BUDGET
+    cut = {}                                                               # 체인 -> 시간 예산에 걸려 못 본 상영일
+    # 동시 요청 수는 체인마다 다르다 — 롯데는 4개 병렬도 멀쩡했지만(510 vs 순차 527스크린, 차이는 지난 회차)
+    #   **CGV 는 병렬로 부르면 절반 넘게 거절한다**(2026-09-26 실측: 암살자 CGV 583→185스크린, 이튿날은 0).
+    #   CGV 는 Cloudflare 뒤라 순간 요청이 몰리면 막힌다. 순차 + 0.12초 간격을 지킨다.
+    POOL = {"CGV": 1, "LC": 4}
+
+    def sweep(ch, plays, items, fetch):
+        """상영일마다 items(지점)를 POOL 개씩 병렬로 부르고 결과 행을 모은다. 예산을 넘기면 남은 날짜는 cut."""
+        rows = []
+        for i, play in enumerate(plays):
+            if time.time() > deadline:
+                cut[ch] = set(plays[i:]); print(f"  {ch} 시간 예산 초과 — {len(plays) - i}일 생략(먼 날짜부터)"); break
+            with cf.ThreadPoolExecutor(POOL.get(ch, 1)) as ex:
+                for got in ex.map(lambda it: fetch(play, it), items):
+                    rows.extend(got or [])
+        return rows
 
     def run_cgv():
         res, plays = {}, plays_of("CGV")
@@ -270,17 +288,17 @@ def seats(plan, cins, crt):
             sites |= {s["siteNo"] for g in (reg.get("data") or []) for s in (g.get("siteList") or []) if s.get("siteNo")}
             nap(0.2)
         print(f"  CGV 대상 {len(nos)}편 · 지점 {len(sites)}곳 × 상영일 {len(plays)}")
-        for play in plays:
-            for sn in sorted(sites):
-                try:
-                    d = fs.http_json(f"{fs.CGV}/api/v1/booking/searchMovScnInfo?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08")
-                except Exception:
-                    continue
-                for o in _cgv_rows(d):
-                    t = film_of(o["prodNm"])
-                    if t:
-                        add(res, t, play, sn, o.get("scnsNo"), int(o.get("stcnt") or 0), int(o.get("frSeatCnt") or 0))
-                nap(0.12)
+
+        def one(play, sn):
+            try:
+                d = fs.http_json(f"{fs.CGV}/api/v1/booking/searchMovScnInfo?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08")
+            except Exception:
+                return []
+            nap(0.12)
+            return [(t, play, sn, o.get("scnsNo"), int(o.get("stcnt") or 0), int(o.get("frSeatCnt") or 0))
+                    for o in _cgv_rows(d) for t in [film_of(o["prodNm"])] if t]
+        for r in sweep("CGV", plays, sorted(sites), one):
+            add(res, *r)
         return res
 
     def run_lc():
@@ -289,45 +307,59 @@ def seats(plan, cins, crt):
             return res
         base = {"channelType": "HO", "osType": "W", "osVersion": fs.UA, "memberOnNo": ""}
         print(f"  롯데 영화관 {len(cins)}곳 × 상영일 {len(plays)}")
-        for play in plays:
-            iso = f"{play[:4]}-{play[4:6]}-{play[6:]}"
-            for c in cins:
-                cid = f"{c['DivisionCode']}|{c['DetailDivisionCode']}|{c['CinemaID']}"
-                try:
-                    s = fs.lc_call({"MethodName": "GetPlaySequence", **base, "playDate": iso,
-                                    "cinemaID": cid, "representationMovieCode": ""})
-                except Exception:
-                    nap(0.12); continue
-                for x in ((s.get("PlaySeqs") or {}).get("Items")) or []:
-                    t = film_of(x.get("MovieNameKR"))
-                    if t:   # BookingSeatCount 는 이름과 달리 '잔여'다(fetch_screens 검증 2)
-                        add(res, t, play, cid, x.get("ScreenNameKR"),
-                            int(x.get("TotalSeatCount") or 0), int(x.get("BookingSeatCount") or 0))
-                nap(0.1)
+
+        def one(play, c):
+            cid = f"{c['DivisionCode']}|{c['DetailDivisionCode']}|{c['CinemaID']}"
+            try:
+                s2 = fs.lc_call({"MethodName": "GetPlaySequence", **base, "playDate": f"{play[:4]}-{play[4:6]}-{play[6:]}",
+                                 "cinemaID": cid, "representationMovieCode": ""})
+            except Exception:
+                return []
+            nap(0.1)
+            # BookingSeatCount 는 이름과 달리 '잔여'다(fetch_screens 검증 2)
+            return [(t, play, cid, x.get("ScreenNameKR"), int(x.get("TotalSeatCount") or 0), int(x.get("BookingSeatCount") or 0))
+                    for x in ((s2.get("PlaySeqs") or {}).get("Items")) or [] for t in [film_of(x.get("MovieNameKR"))] if t]
+        for r in sweep("LC", plays, cins, one):
+            add(res, *r)
         return res
 
     def run_mb():
         res, plays = {}, plays_of("MB")
         if not plays:
             return res
+        # 메가는 러너에서 간헐 시간초과다. fetch_screens.mb_post(3회×40초)로 부르면 한 번 막힐 때 2분씩 묶여
+        # 전체가 한 시간을 넘긴다(2026-09-26 서버 첫 실행). 여기선 2회×20초 + 연속 6번 실패면 체인을 접는다.
+        mb_h = {"Content-Type": "application/json; charset=UTF-8", "X-Requested-With": "XMLHttpRequest",
+                "Referer": "https://www.megabox.co.kr/booking/timetable"}
+        fails = [0]
+
+        def mb(body):
+            try:
+                r = fs.http_json(fs.MB_URL, data=json.dumps(body).encode(), headers=mb_h, timeout=20, tries=2)
+                fails[0] = 0
+                return r
+            except Exception:
+                fails[0] += 1
+                if fails[0] >= 6:
+                    raise RuntimeError("메가박스 연속 6회 실패 — 이번 회차 제외")
+                return {}
         nos = {}
         for play in plays:                       # 날짜마다 걸린 영화가 달라 합집합
             for bn in PROBE["MB"]:
-                rows = (fs.mb_post({"masterType": "brch", "brchNo": bn, "firstAt": "N", "brchNo1": bn,
-                                    "crtDe": crt, "playDe": play}).get("megaMap", {}).get("movieFormList")) or []
+                rows = (mb({"masterType": "brch", "brchNo": bn, "firstAt": "N", "brchNo1": bn,
+                            "crtDe": crt, "playDe": play}).get("megaMap", {}).get("movieFormList")) or []
                 for x in rows:
                     t = film_of(x.get("rpstMovieNm"))
                     if t and x.get("rpstMovieNo"):
                         nos[x["rpstMovieNo"]] = t
         print(f"  메가 대상 {len(set(nos.values()))}편 × 지역 8 × 상영일 {len(plays)}")
-        for play in plays:
+        for i, play in enumerate(plays):
+            if time.time() > deadline:
+                cut["MB"] = set(plays[i:]); print(f"  MB 시간 예산 초과 — {len(plays) - i}일 생략"); break
             for no, t in nos.items():
                 for cd in fs.MB_AREAS:
-                    try:
-                        dd = fs.mb_post({"masterType": "movie", "movieNo": no, "firstAt": "N", "movieNo1": no,
-                                         "areaCd": int(cd), "crtDe": crt, "playDe": play})
-                    except Exception:
-                        continue
+                    dd = mb({"masterType": "movie", "movieNo": no, "firstAt": "N", "movieNo1": no,
+                             "areaCd": int(cd), "crtDe": crt, "playDe": play})
                     for x in (dd.get("megaMap", {}).get("movieFormList")) or []:
                         add(res, t, play, x.get("brchNo"), x.get("theabNo"),
                             int(x.get("totSeatCnt") or 0), int(x.get("restSeatCnt") or 0))
@@ -347,7 +379,7 @@ def seats(plan, cins, crt):
             except Exception as e:
                 failed.add(ch)
                 print(f"  {ch} 실패: {type(e).__name__} {str(e)[:80]}")
-    return out, failed
+    return out, failed, cut
 
 
 def collect_seats(crt):
@@ -359,8 +391,13 @@ def collect_seats(crt):
     plan, cins, dead = seat_plan(fs, dates, crt)
     desc = ", ".join(p[4:6] + "/" + p[6:] + ":" + "".join(sorted(c)) for p, c in sorted(plan.items()))
     print(f"  편성 탐침 · {desc}")
-    res, failed = seats(plan, cins, crt)
+    res, failed, cut = seats(plan, cins, crt)
     failed |= dead
+    for ch, ps in cut.items():                           # 시간 예산으로 못 본 (날짜, 체인)은 '연 체인'에서도 뺀다
+        for p in ps:
+            if p in plan:
+                plan[p].discard(ch)
+    plan = {p: c for p, c in plan.items() if c}
     print(f"  3사 전수 {time.time() - t0:.0f}초 · (영화×상영일) {len(res)}건" + (f" · 실패 {sorted(failed)}" if failed else ""))
     return {"t": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
             "plan": {p: sorted(c) for p, c in plan.items()}, "failed": sorted(failed),

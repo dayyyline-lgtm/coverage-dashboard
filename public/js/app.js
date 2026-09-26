@@ -4543,27 +4543,28 @@ function renderBoxTab(){
       const rows=live, W=1000, Hc=330, pl=58, pr=14, pt=40, pb=58;
       const cellW=(W-pl-pr)/days.length, gx=i=>pl+(i+0.5)*cellW, ig=2;
       const bw=Math.max(4,Math.min(22,(cellW*0.7-(rows.length-1)*ig)/rows.length)), grpW=rows.length*bw+(rows.length-1)*ig;
-      /* 세로 눈금을 눌러 놓는다 — 좌석이 수백 석(치이카와 시사)에서 86만 석(암살자 주말)까지 벌어져
-         곧은 자로는 작은 날이 1px 이 된다(하츄핑 때와 같은 처리). 눈금은 '같은 높이'마다 긋고 그 값을 적는다. */
-      const SQZ=0.5;
+      /* 세로축은 곧은 자(선형)다. 처음엔 하츄핑 때처럼 제곱근으로 눌렀는데(수백 석 시사가 안 보여서)
+         사용자가 "2~3% 예매도 너무 크게 보인다"고 했다 — 눌린 축에선 판매율 2% 막대가 걸린 좌석의
+         √0.02 ≈ 14% 높이로 서서, 진한 막대의 비율이 판매율과 전혀 안 맞았다(2026-09-26).
+         선형이면 진한 막대/연한 막대 = 판매율 그대로다. 아주 작은 날은 막대가 얇아지지만 판매율 숫자와 표가 남는다. */
       const vmax=Math.max(1,...days.flatMap(p=>rows.map(x=>(at(x,p)||{}).seatTot||0)))*1.06;
-      const yy=v=>Hc-pb-Math.pow(Math.max(0,v)/vmax,SQZ)*(Hc-pt-pb);
+      const yy=v=>Hc-pb-(Math.max(0,v)/vmax)*(Hc-pt-pb);
+      const tstep=(()=>{ const m=Math.pow(10,Math.floor(Math.log10(vmax))); return [.1,.2,.25,.5,1,2,2.5,5].map(k=>k*m).find(k=>vmax/k<=5)||m; })();
       const gc="var(--line)", mut="var(--muted)";
       let s=`<div class="sub-h" style="margin-top:14px">날짜별 · 좌석 vs 예매
-          <span class="tag-inline">연한 막대 = 걸린 좌석 · 진한 막대 = 팔린 예매 · 위 숫자 = 판매율</span>
-          <span class="tag-inline" style="color:var(--warn)">세로 눈금 눌림 — 클수록 덜 반영</span></div>
+          <span class="tag-inline">연한 막대 = 걸린 좌석 · 진한 막대 = 팔린 예매(높이 비율 = 판매율) · 위 숫자 = 판매율</span></div>
         <div class="scr-lg">${rows.map(x=>`<span class="li"><span class="dot" style="background:${x.color}"></span><span style="color:${x.color}">${x.short}</span></span>`).join("")}</div>
         <div class="chart-box scr-bars" style="margin-top:8px"><svg viewBox="0 0 ${W} ${Hc}" width="100%" font-family="inherit">`;
-      [0,.2,.4,.6,.8,1].forEach(f=>{ const v=vmax*Math.pow(f,1/SQZ), y=yy(v);
+      for(let v=0; v<=vmax; v+=tstep){ const y=yy(v);
         s+=`<line x1="${pl}" y1="${y.toFixed(1)}" x2="${W-pr}" y2="${y.toFixed(1)}" stroke="${gc}"/>`
-          +`<text x="${pl-6}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="9.5" fill="${mut}">${man(Math.round(v))}</text>`; });
+          +`<text x="${pl-6}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="9.5" fill="${mut}">${man(Math.round(v))}</text>`; }
       days.forEach((p,i)=>{ if(i) s+=`<line x1="${(gx(i)-cellW/2).toFixed(1)}" y1="${pt-8}" x2="${(gx(i)-cellW/2).toFixed(1)}" y2="${Hc-pb+42}" stroke="${gc}"/>`; });
       const labs=[];
       days.forEach((p,i)=>{
         const x0=gx(i)-grpW/2;
         rows.forEach((x,ri)=>{ const v=at(x,p), bx=x0+ri*(bw+ig), c=x.color;
           if(!v){ s+=`<line x1="${bx.toFixed(1)}" y1="${Hc-pb}" x2="${(bx+bw).toFixed(1)}" y2="${Hc-pb}" stroke="${c}" stroke-width="1.5" opacity=".3"><title>${x.short} · ${md(p)} 좌석 없음(미편성·미오픈)</title></line>`; return; }
-          const r=v.seatSold/v.seatTot*100, yT=yy(v.seatTot), yS=yy(v.seatSold);
+          const r=v.seatSold/v.seatTot*100, yT=Math.min(yy(v.seatTot),Hc-pb-1.5), yS=yy(v.seatSold);
           const tip=`${x.short} · ${md(p)}(${dw(p)})\n걸린 좌석 ${fmt0(v.seatTot)}석 · 스크린 ${fmt0(v.screens)}\n팔린 예매 ${fmt0(v.seatSold)}석 · 판매율 ${r.toFixed(1)}%\n${chLab(chs(v))} 합산`;
           s+=`<rect x="${bx.toFixed(1)}" y="${yT.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hc-pb-yT).toFixed(1)}" rx="2.5" fill="${c}" opacity=".22"><title>${tip}</title></rect>`
             +`<rect x="${bx.toFixed(1)}" y="${yS.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hc-pb-yS).toFixed(1)}" rx="2.5" fill="${c}" opacity=".95"><title>${tip}</title></rect>`;
