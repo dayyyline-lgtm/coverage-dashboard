@@ -4506,24 +4506,96 @@ function renderBoxTab(){
   const common=qs=>ORD.filter(c=>qs.every(q=>q&&(q.by||{})[c]));
   const sumBy=(q,cs)=>cs.reduce((a,c)=>{ const y=q.by[c]; return {sold:a.sold+y.seatSold, tot:a.tot+y.seatTot, scr:a.scr+y.screens}; },{sold:0,tot:0,scr:0});
   const chLab=cs=>cs.length===3?"3사":cs.map(c=>CH[c]).join("·");
+  const dayKeyOf=t=>(t||"").slice(0,10).replace(/-/g,"");
   if(plays.length){
-    const cell=(x,p)=>{ const pts=S[`${x.key}|${p}`]; if(!pts||!pts.length) return `<td><span style="color:var(--muted2)">—</span></td>`;
-      const v=pts[pts.length-1], pv=pts.length>1?pts[pts.length-2]:null, rate=v.seatTot?v.seatSold/v.seatTot*100:null;
-      const cb=pv?common([v,pv]):[], dv=cb.length?sumBy(v,cb).sold-sumBy(pv,cb).sold:null;
-      const vc=chs(v);
-      return `<td title="${Object.entries(v.by||{}).map(([c,y])=>`${CH[c]||c} ${fmt0(y.seatSold)}석/${fmt0(y.screens)}스크린`).join(" · ")}">
-        <b>${fmt0(v.seatSold)}</b><span class="th-sub">${rate==null?"":fmt(rate,0)+"% · "}${fmt0(v.screens)}스크린${vc.length&&vc.length<3?" · "+chLab(vc):""}</span>
-        ${dv!=null?`<span class="th-sub ${cls(dv)}">${sign(dv,0)} (${pv.t.slice(5,10).replace("-","/")} 대비${cb.length<3?" · "+chLab(cb)+" 기준":""})</span>`:""}</td>`; };
-    h=`<div class="sub-h">3사 좌석 판매 — 상영일별 <span class="th-sub">CGV·롯데·메가박스 예매 API · 열린 날짜 전부 · ${fmtUpd(BO.seatsAt)||""} 수집</span></div>
-      <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">상영일</th>
-      ${live.map(x=>`<th${star(x)?' class="box-star"':""}><span class="box-dot" style="background:${x.color}"></span>${x.short}</th>`).join("")}</tr></thead><tbody>`
-      +plays.map(p=>{ const tags=live.filter(x=>x.open.replace(/-/g,"")===p).map(x=>`${x.short} 개봉`);
-        return `<tr${p<todayC?' style="opacity:.6"':""}><td class="l">${md(p)}(${dw(p)})${p===todayC?" · 오늘":""}
-          <span class="th-sub">${[...tags,chainTxt(p)].filter(Boolean).join(" · ")}</span></td>${live.map(x=>cell(x,p)).join("")}</tr>`; }).join("")
+    /* ⓐ 하츄핑 때와 같은 그림(2026-09-26 사용자: "일자별로 좌우로 나란히, 좌석수랑 예매량 얼마나 찼는지")
+       ① 주인공(치이카와) 개봉일 요약 ② 날짜별 · 좌석 vs 예매 묶음 막대 ③ 영화 × 날짜 값 표 */
+    const at=(x,p)=>{ const pts=S[`${x.key}|${p}`]; const v=pts&&pts[pts.length-1]; return (v&&v.seatTot>0)?v:null; };
+    const prevAt=(x,p)=>{ const pts=S[`${x.key}|${p}`]; return (pts&&pts.length>1)?pts[pts.length-2]:null; };
+    const man=v=>v>=1e4?(v/1e4).toFixed(v>=1e5?0:1)+"만":fmt0(v);
+    const dlt=(x,p)=>{ const v=at(x,p), pv=prevAt(x,p); if(!v||!pv) return null;
+      const cb=common([v,pv]); return cb.length?{d:sumBy(v,cb).sold-sumBy(pv,cb).sold, cb, t:pv.t}:null; };
+    const addD=(p,n)=>{ const d=new Date(+p.slice(0,4),+p.slice(4,6)-1,+p.slice(6,8)+n);
+      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; };
+    const days=[]; for(let p=plays[0]; p<=plays[plays.length-1]; p=addD(p,1)) days.push(p);   // 구멍 없이 하루씩 — 건너뛴 날도 칸을 남긴다
+    const openOf=x=>x.open.replace(/-/g,"");
+    const tagOf=p=>{ const o=live.filter(x=>openOf(x)===p).map(x=>`${x.short} 개봉`); if(o.length) return o.join("·");
+      if(p===todayC) return "오늘"; const c=PLAN[p]; return c?(c.length===3?"3사":c.map(x=>CH[x]).join("·")):(p<todayC?"":"미오픈"); };
+
+    // ① 주인공 개봉일(개봉 뒤면 오늘) 요약
+    const me=live.find(star);
+    if(me){
+      const mp=openOf(me)>=todayC?openOf(me):todayC, v=at(me,mp), dd=dlt(me,mp);
+      if(v){ const rate=v.seatSold/v.seatTot*100, lbl=mp===openOf(me)?"개봉일":md(mp);
+        h+=`<div class="sub-h">좌석 확보 — ${me.short} ${lbl}(${md(mp)} ${dw(mp)}) <span class="tag-inline">${chLab(chs(v))} 합산 · ${fmtUpd(BO.seatsAt)} 수집</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="k">${lbl} 스크린</div><div class="v">${fmt0(v.screens)}<small>개</small></div>
+              <div class="d">${Object.entries(v.by||{}).map(([c,y])=>`${CH[c]} ${fmt0(y.screens)}`).join(" · ")}</div></div>
+            <div class="kpi"><div class="k">${lbl} 좌석 <span class="th-sub">공급</span></div><div class="v">${(v.seatTot/1e4).toFixed(1)}<small>만석</small></div>
+              <div class="d">회차 ${fmt0(v.shows||0)}</div></div>
+            <div class="kpi"><div class="k">${lbl} 예매 <span class="th-sub">확보</span></div><div class="v">${fmt0(v.seatSold)}<small>석</small></div>
+              <div class="d">좌석 판매율 <b>${fmt(rate,1)}%</b>${dd?` · <span class="${cls(dd.d)}">${sign(dd.d,0)}석</span> ${md(dayKeyOf(dd.t))} 대비`:" · 첫 수집"}</div></div>
+          </div>`; }
+    }
+
+    // ② 날짜별 · 좌석 vs 예매 — 날짜 칸마다 영화 넷. 연한 막대 = 걸린 좌석, 진한 막대 = 팔린 예매, 위 숫자 = 판매율
+    {
+      const rows=live, W=1000, Hc=330, pl=58, pr=14, pt=40, pb=58;
+      const cellW=(W-pl-pr)/days.length, gx=i=>pl+(i+0.5)*cellW, ig=2;
+      const bw=Math.max(4,Math.min(22,(cellW*0.7-(rows.length-1)*ig)/rows.length)), grpW=rows.length*bw+(rows.length-1)*ig;
+      /* 세로 눈금을 눌러 놓는다 — 좌석이 수백 석(치이카와 시사)에서 86만 석(암살자 주말)까지 벌어져
+         곧은 자로는 작은 날이 1px 이 된다(하츄핑 때와 같은 처리). 눈금은 '같은 높이'마다 긋고 그 값을 적는다. */
+      const SQZ=0.5;
+      const vmax=Math.max(1,...days.flatMap(p=>rows.map(x=>(at(x,p)||{}).seatTot||0)))*1.06;
+      const yy=v=>Hc-pb-Math.pow(Math.max(0,v)/vmax,SQZ)*(Hc-pt-pb);
+      const gc="var(--line)", mut="var(--muted)";
+      let s=`<div class="sub-h" style="margin-top:14px">날짜별 · 좌석 vs 예매
+          <span class="tag-inline">연한 막대 = 걸린 좌석 · 진한 막대 = 팔린 예매 · 위 숫자 = 판매율</span>
+          <span class="tag-inline" style="color:var(--warn)">세로 눈금 눌림 — 클수록 덜 반영</span></div>
+        <div class="scr-lg">${rows.map(x=>`<span class="li"><span class="dot" style="background:${x.color}"></span><span style="color:${x.color}">${x.short}</span></span>`).join("")}</div>
+        <div class="chart-box scr-bars" style="margin-top:8px"><svg viewBox="0 0 ${W} ${Hc}" width="100%" font-family="inherit">`;
+      [0,.2,.4,.6,.8,1].forEach(f=>{ const v=vmax*Math.pow(f,1/SQZ), y=yy(v);
+        s+=`<line x1="${pl}" y1="${y.toFixed(1)}" x2="${W-pr}" y2="${y.toFixed(1)}" stroke="${gc}"/>`
+          +`<text x="${pl-6}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="9.5" fill="${mut}">${man(Math.round(v))}</text>`; });
+      days.forEach((p,i)=>{ if(i) s+=`<line x1="${(gx(i)-cellW/2).toFixed(1)}" y1="${pt-8}" x2="${(gx(i)-cellW/2).toFixed(1)}" y2="${Hc-pb+42}" stroke="${gc}"/>`; });
+      const labs=[];
+      days.forEach((p,i)=>{
+        const x0=gx(i)-grpW/2;
+        rows.forEach((x,ri)=>{ const v=at(x,p), bx=x0+ri*(bw+ig), c=x.color;
+          if(!v){ s+=`<line x1="${bx.toFixed(1)}" y1="${Hc-pb}" x2="${(bx+bw).toFixed(1)}" y2="${Hc-pb}" stroke="${c}" stroke-width="1.5" opacity=".3"><title>${x.short} · ${md(p)} 좌석 없음(미편성·미오픈)</title></line>`; return; }
+          const r=v.seatSold/v.seatTot*100, yT=yy(v.seatTot), yS=yy(v.seatSold);
+          const tip=`${x.short} · ${md(p)}(${dw(p)})\n걸린 좌석 ${fmt0(v.seatTot)}석 · 스크린 ${fmt0(v.screens)}\n팔린 예매 ${fmt0(v.seatSold)}석 · 판매율 ${r.toFixed(1)}%\n${chLab(chs(v))} 합산`;
+          s+=`<rect x="${bx.toFixed(1)}" y="${yT.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hc-pb-yT).toFixed(1)}" rx="2.5" fill="${c}" opacity=".22"><title>${tip}</title></rect>`
+            +`<rect x="${bx.toFixed(1)}" y="${yS.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,Hc-pb-yS).toFixed(1)}" rx="2.5" fill="${c}" opacity=".95"><title>${tip}</title></rect>`;
+          labs.push({x:bx+bw/2, y:yT-5, t:`${r.toFixed(0)}%`, c}); });
+        const isOp=live.some(x=>openOf(x)===p), isToday=p===todayC;
+        const colr=isOp?"var(--accent)":mut;
+        s+=`<text x="${gx(i).toFixed(1)}" y="${Hc-pb+17}" text-anchor="middle" font-size="10.5" font-weight="${isOp||isToday?800:600}" fill="${colr}">${md(p)}</text>`
+          +`<text x="${gx(i).toFixed(1)}" y="${Hc-pb+29}" text-anchor="middle" font-size="9" fill="${colr}" opacity="${isOp?1:.7}">${dw(p)}</text>`
+          +`<text x="${gx(i).toFixed(1)}" y="${Hc-pb+41}" text-anchor="middle" font-size="8.5" fill="${isOp?"var(--accent)":(PLAN[p]&&PLAN[p].length<3?"var(--warn)":mut)}" opacity=".9">${tagOf(p)}</text>`;
+      });
+      // 판매율 라벨 — 부딪히면 한 줄씩 위로(버리지 않는다)
+      const FS=8.5, LH=10, put=[];
+      labs.sort((a,b)=>a.x-b.x).forEach(L=>{ const w=L.t.length*FS*0.72+2; let y=L.y;
+        for(let k=0;k<4;k++){ if(!put.some(q=>Math.abs(q.y-y)<LH&&Math.abs(q.x-L.x)<(q.w+w)/2)) break; y-=LH; }
+        y=Math.max(11,y); put.push({x:L.x,y,w});
+        s+=`<text x="${L.x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle" font-size="${FS}" font-weight="700" letter-spacing="-.4" fill="${L.c}">${L.t}</text>`; });
+      h+=s+`</svg></div>`;
+    }
+
+    // ③ 값 표 — 영화가 줄, 날짜가 칸(왼→오). 칸 = 판매율 · 예매/좌석 · 직전 수집 대비 증가
+    h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl box-tbl"><thead><tr><th class="l">영화</th>`
+      +days.map(p=>`<th${live.some(x=>openOf(x)===p)?' style="color:var(--accent)"':""}>${md(p)}<span class="th-sub">${dw(p)}${tagOf(p)?" · "+tagOf(p):""}</span></th>`).join("")
+      +`</tr></thead><tbody>`
+      +live.map(x=>`<tr${star(x)?' class="box-star"':""}><td class="l"><span class="box-dot" style="background:${x.color}"></span>${x.short}</td>`
+        +days.map(p=>{ const v=at(x,p); if(!v) return `<td style="color:var(--muted2)">—</td>`;
+          const d=dlt(x,p);
+          return `<td title="${Object.entries(v.by||{}).map(([c,y])=>`${CH[c]||c} ${fmt0(y.seatSold)}/${fmt0(y.seatTot)}석 · ${fmt0(y.screens)}스크린`).join("\n")}"><b>${(v.seatSold/v.seatTot*100).toFixed(0)}%</b>
+            <span class="th-sub">${man(v.seatSold)} / ${man(v.seatTot)}</span>${d?`<span class="th-sub ${cls(d.d)}">${sign(d.d,0)}</span>`:""}</td>`; }).join("")
+        +`</tr>`).join("")
       +`</tbody></table></div>
-      <p class="note" style="margin-top:6px">칸 = 판매 좌석(굵게) · 판매율 · 스크린 · 직전 수집일 대비 증감. 칸에 마우스를 올리면 체인별 내역.
-        '롯데만 오픈'처럼 일부 체인만 예매를 연 날짜는 합계가 작게 잡힙니다(편성이 준 게 아니라 아직 안 연 것). 흐린 줄은 이미 지난 상영일의 마지막 수집값입니다.
-        증감은 두 수집에 모두 잡힌 체인끼리만 계산합니다(서버에선 CGV가 막혀 있어 대개 롯데·메가 기준).
+      <p class="note" style="margin-top:6px">칸 = <b>판매율</b> · 팔린 예매 / 걸린 좌석 · 직전 수집일 대비 증가(두 수집에 다 있는 체인끼리). 칸에 마우스를 올리면 체인별 내역.
+        날짜 밑 '3사'·'CGV만'·'롯데·메가'는 그날 예매를 연 체인이고, 일부만 연 날은 합계가 작게 잡힙니다(편성이 준 게 아니라 아직 안 연 것).
         ${(BO.seatFailed||[]).length?`이번 수집에서 빠진 체인: ${BO.seatFailed.map(c=>CH[c]).join("·")}.`:""}</p>`;
 
     // ⓑ 채움 추이 — 영화 하나 × (상영일 행 · 수집일 열)
@@ -4548,8 +4620,9 @@ function renderBoxTab(){
             <td>${a&&b&&cb.length?`<b class="${cls(use(a).sold-use(b).sold)}">${sign(use(a).sold-use(b).sold,0)}</b>`:"—"}</td></tr>`; }).join("")
         +`</tbody></table></div>`;
     }
-    h+=`<p class="note" style="margin-top:6px">수집은 하루 1점(같은 날 여러 번 받으면 마지막 값) — 이 PC(한국 IP)에서 돕니다. 러너에선 CGV·메가박스가 막혀 있어서입니다.
-      개봉일·첫 주말 줄이 날마다 얼마나 차오르는지가 개봉 전 가장 직접적인 수요 신호입니다.</p>`;
+    h+=`<p class="note" style="margin-top:6px">수집은 하루 1점(같은 날 여러 번이면 마지막 값) — 서버가 평일 12·18시 · 주말 12·20시에 받습니다.
+      서버에선 CGV 가 막혀 대개 롯데·메가 기준이라, 증가는 두 수집에 다 있는 체인끼리 계산합니다.
+      개봉일·첫 주말 칸이 날마다 얼마나 차오르는지가 개봉 전 가장 직접적인 수요 신호입니다.</p>`;
   }
   // ④ 하츄핑2 기준선 — 같은 '개봉 N일 전'끼리. 같은 애니메이션 극장판이라 유일한 실측 잣대다.
   //    예매관객은 하루 중에도 줄어드므로 날마다 15시에 가장 가까운 스냅샷끼리 잇는다(치이카와 첫 수집이 15시).
