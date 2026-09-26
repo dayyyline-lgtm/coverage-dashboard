@@ -167,9 +167,8 @@ tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'ac
 /* 탭 전환의 실체. 클릭·주소창·뒤로가기가 전부 여기로 모인다.
    scroll=false 는 '첫 로드에 주소의 탭을 여는' 경우 — 그때는 이미 맨 위다. */
 function activateTab(k, scroll){
-  // 옛 링크 구제 — 극장 흥행은 탭에서 트렌드 탭 SAMG 섹션으로 옮겼다(2026-09-07).
-  // 던져 둔 #boxoffice 링크가 개요로 튕기지 않게 그 자리로 돌려보낸다.
-  if(k==="boxoffice"){ trendStock="SAMG엔터"; trendGroup=topicsOf("SAMG엔터")[0]||trendGroup; k="trends"; }
+  // #boxoffice — 2026-09-07 에 트렌드 탭(SAMG)으로 접었다가 2026-09-26 '영화 흥행' 탭으로 되살렸다
+  // (치이카와 + 흥행작 비교). 하츄핑 보관 기록은 트렌드 탭 SAMG 섹션에 그대로 있다.
   if(!TABS.some(([t])=>t===k)) return false;         // 주소에 엉뚱한 값이 와도 무시
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
@@ -178,6 +177,7 @@ function activateTab(k, scroll){
   if(k==="amazon") renderAmazon();
   if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs(); }
   if(k==="toptoon") renderToptoon();
+  if(k==="boxoffice") renderBoxTab();
   // 넘치는 탭 줄에서 지금 탭이 화면 밖이면 끌어온다(폰에서 11개 중 4개만 보인다)
   const btn = tabsEl.querySelector(`button[data-k="${k}"]`);
   if(btn && btn.scrollIntoView) btn.scrollIntoView({block:"nearest",inline:"nearest"});
@@ -248,7 +248,7 @@ const FRESH_LIMITS = [
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
-  ["QOO10","Qoo10 JP 뷰티",40],
+  ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],
 ];
 
 function ageHours(a){
@@ -282,6 +282,7 @@ function setSecUpdates(){
     news:[(typeof NEWS!=="undefined"&&NEWS.asOf)||L,"NEWS"],
     trends:["",null],   // 트렌드는 소스마다 주기가 달라 맨 위 하나로 안 뭉치고, 계열별로 trendTopicNow 에 표시
     toptoon:[(typeof TOPTOON!=="undefined"&&TOPTOON.asOf)||"","TOPTOON"],
+    boxoffice:[(typeof BOXOFFICE!=="undefined"&&BOXOFFICE.asOf)||"","BOXOFFICE"],
     altdata:[(typeof TRADE!=="undefined"&&TRADE.asOf)||"","TRADE"],
     amazon:[(typeof AMAZON!=="undefined"&&AMAZON.asOf)||"","AMAZON"]};
   document.querySelectorAll("section.view").forEach(s=>{
@@ -785,6 +786,7 @@ const NEWS_ALIAS={
   "하이브":["하이브","HYBE","BTS","방탄"], "JYP Ent.":["JYP","제이와이피"],
   "에스엠":["에스엠","SM엔터"], "와이지엔터":["와이지엔터","와이지","YG엔터"],
   "SAMG엔터":["SAMG엔터","SAMG","삼지","캐치티니핑","티니핑","미니특공대"],
+  "대원미디어":["대원미디어","대원씨아이","대원게임","치이카와"],
   "크래프톤":["크래프톤","배틀그라운드","배그","PUBG","펍지"],
   "NC":["엔씨소프트","엔씨","리니지"], "펄어비스":["펄어비스","검은사막","붉은사막"],
   "시프트업":["시프트업","니케","스텔라블레이드"],
@@ -2367,6 +2369,59 @@ const topicsOf0=n=>{
     (TREND_STOCK[c.stock]=TREND_STOCK[c.stock]||[]).push(name);
   });
 })();
+/* 극장가 흥행(BOXOFFICE · fetch_boxoffice.py) — 대원미디어 '극장판 치이카와' + 같은 시기 흥행작.
+   한 그룹에 영화 넷을 **공통 peak** 로 겹친다(단위가 같은 실측 관객수라 선 높이를 견줘도 된다).
+   개봉 전·집계 없는 날은 null — 0 이 아니라 선이 끊긴다. 소수 1자리(수백 명 시사가 0 으로 뭉개지지 않게). */
+(function injectBoxofficeTrends(){
+  if(typeof BOXOFFICE==="undefined"||!BOXOFFICE.films) return;
+  const F=BOXOFFICE.films, stocks=[...new Set(F.map(f=>f.stock).filter(s=>s&&R.some(r=>r.name===s)))];
+  if(!stocks.length) return;
+  const md=s=>`${+s.slice(4,6)}/${+s.slice(6,8)}`;
+  const push=name=>stocks.forEach(s=>(TREND_STOCK[s]=TREND_STOCK[s]||[]).push(name));
+  // ① 일별 관객 — KOBIS 전일 확정치
+  const D=BOXOFFICE.daily||{};
+  const days=[...new Set(F.flatMap(f=>(D[f.title]||[]).map(p=>p.d)))].sort();
+  if(days.length>=2){
+    const raw=F.map(f=>{const m=Object.fromEntries((D[f.title]||[]).map(p=>[p.d,p.audi])); return days.map(d=>m[d]??null);});
+    const peak=Math.max(...raw.flat().filter(v=>v!=null))||1;
+    const norm=raw.map(s=>s.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const last=days[days.length-1], mk=(BOXOFFICE.market||{})[last];
+    const top=F.map((f,i)=>[f.short,raw[i][days.length-1]]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1])[0];
+    const name="극장 일별 관객 — 치이카와·흥행작";
+    TREND.groups[name]={
+      products:F.map(f=>f.short), productsGoogle:F.map(f=>f.short),
+      months:days.map(md), naver:norm, google:norm, rawSer:raw,
+      only:"naver", freq:"date", peak:peak, unit:"명(일별 관객)", unitShort:"명",
+      srcName:"KOBIS 일별 박스오피스 · 전일 확정치 · 개봉 전 날짜는 유료 시사",
+      reviewNote:(mk&&top)?`${md(last)} 전체 극장 ${fmt0(mk)}명 중 ${top[0]} ${fmt0(top[1])}명(${(top[1]/mk*100).toFixed(0)}%)`:""
+    };
+    push(name);
+  }
+  // ② 실시간 예매관객 — '남은 상영분' 기준이라 하루 중에도 준다. 날마다 10시에 가장 가까운 스냅샷끼리만 잇는다.
+  const B=BOXOFFICE.book||{};
+  const pick={};
+  F.forEach(f=>(B[f.title]||[]).forEach(p=>{
+    const [d,t]=(p.t||"").split(" "); if(!d||!t) return;
+    const gap=Math.abs(+t.slice(0,2)*60+ +t.slice(3,5)-600);
+    const k=d.replace(/-/g,""), cur=((pick[f.title]=pick[f.title]||{})[k]);
+    if(!cur||gap<cur.gap) pick[f.title][k]={gap, v:p.book};
+  }));
+  const bdays=[...new Set(Object.values(pick).flatMap(o=>Object.keys(o)))].sort();
+  if(bdays.length>=2){
+    const raw=F.map(f=>bdays.map(d=>((pick[f.title]||{})[d]||{}).v??null));
+    const peak=Math.max(...raw.flat().filter(v=>v!=null))||1;
+    const norm=raw.map(s=>s.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const name="극장 예매관객(10시 기준) — 치이카와·흥행작";
+    TREND.groups[name]={
+      products:F.map(f=>f.short), productsGoogle:F.map(f=>f.short),
+      months:bdays.map(md), naver:norm, google:norm, rawSer:raw,
+      only:"naver", freq:"date", peak:peak, unit:"명(예매관객)", unitShort:"명",
+      srcName:"KOBIS 실시간 예매 · 남은 상영분 기준이라 날마다 10시에 가장 가까운 스냅샷",
+      reviewNote:"개봉 전엔 유일한 수요 지표 · 개봉 후엔 다음 날 관객의 선행지표"
+    };
+    push(name);
+  }
+})();
 const TREND_STOCKS=R.slice().sort((a,b)=>(a.rank||999)-(b.rank||999))
   .map(r=>r.name).filter(n=>topicsOf(n).length);   // 커버리지(rank) 순서
 /* 처음엔 아무 종목도 고르지 않은 상태 — 눌러야 그래프가 나온다 */
@@ -2386,7 +2441,7 @@ const KIND_ORDER=["플레이","시청","판매·순위","리뷰","게임경제",
 function topicTier(n){
   const G=TREND.groups[n]||{};
   let t;
-  if(/매출순위|판매순위|앨범판매|수출|동접|아마존|올리브영|Qoo10|위시리스트|월간청취자/.test(n)) t=1;
+  if(/매출순위|판매순위|앨범판매|수출|동접|아마존|올리브영|Qoo10|위시리스트|월간청취자|극장/.test(n)) t=1;
   else if(/시청|스트림|리뷰|디시 글수|게임머니|거래대금|평균시세|쇼핑/.test(n)) t=2;
   else if(/채용|갤 순위|거래순위|AI 챗|AI챗|캐릭터별|경쟁/.test(n)) t=3;
   else if(!G.srcName) t=1;                       // 검색 트렌드(브랜드·IP)
@@ -2404,7 +2459,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";
@@ -4244,6 +4299,212 @@ document.getElementById("movieRangeSeg").addEventListener("click",e=>{
   document.querySelectorAll("#movieRangeSeg button").forEach(x=>x.classList.toggle("active",x===b));
   renderMovie();
 });
+/* ==== 영화 흥행 탭 — 대원미디어 '극장판 치이카와' vs 같은 시기 흥행작 (BOXOFFICE · fetch_boxoffice.py) ====
+   2026-09-26 되살림. 하츄핑1·2(SAMG · MOVIE 보관 기록)는 같은 애니메이션 극장판 비교선으로 켤 수 있다.
+   ⚠ 하츄핑 일별은 KOBIS OpenAPI Top10 에 든 날만 있다(구멍 = Top10 밖). BOXOFFICE 는 웹 통계라 전 영화가 매일 있다.
+   ⚠ 예매관객은 '남은 상영분' 스냅샷이라 하루 중에도 준다 — 시각이 다른 점끼리의 높낮이는 수요 변화가 아니다. */
+let boxMetric="cum", boxRange="early", boxOff=null;
+function boxFilms(){
+  const BO=(typeof BOXOFFICE!=="undefined")?BOXOFFICE:{};
+  const pal=(typeof TREND!=="undefined"&&TREND.colors)||MOVIE_COLORS;
+  const out=(BO.films||[]).map(f=>({key:f.title, short:f.short, open:f.open, f,
+    days:(BO.daily||{})[f.title]||[], book:(BO.book||{})[f.title]||[]}));
+  const MV=(typeof MOVIE!=="undefined"&&MOVIE.movies)||{};
+  const RF=BO.ref||{};
+  Object.entries(MV).sort((a,b)=>(a[1].openDt||"").localeCompare(b[1].openDt||"")).forEach(([nm,mv])=>{
+    out.push({key:nm, short:/고래보석/.test(nm)?"하츄핑2":"하츄핑1", open:mv.openDt, ref:true,
+      days:mv.days||[], book:RF.title===nm?(RF.book||[]):[]});   // 하츄핑2 예매 = archive/booking.jsonl(수집기가 실어 줌)
+  });
+  out.forEach((x,i)=>{ x.color=pal[i%pal.length]; });
+  if(boxOff===null) boxOff=new Set(out.filter(x=>x.ref).map(x=>x.key));   // 하츄핑은 기본 꺼 둔다
+  return out;
+}
+const boxD=(s,o)=>Math.round((new Date(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8))-new Date(o+"T00:00:00"))/864e5);
+function boxLine(el, series, o){
+  const W=el.clientWidth||900, H=300, P={l:58,r:104,t:14,b:30};
+  const pts=series.flatMap(s=>s.pts);
+  if(!pts.length){ el.innerHTML=`<p class="note" style="padding:40px 0;text-align:center">${o.empty||"아직 값이 없습니다"}</p>`; return; }
+  const x0=o.x0!=null?o.x0:Math.min(...pts.map(p=>p.x)), x1=o.x1!=null?o.x1:Math.max(...pts.map(p=>p.x));
+  const vis=pts.filter(p=>p.x>=x0&&p.x<=x1), ymax=(Math.max(...vis.map(p=>p.y),0)||1)*1.08;
+  const sx=x=>P.l+(x-x0)/Math.max(1e-9,x1-x0)*(W-P.l-P.r), sy=y=>H-P.b-y/ymax*(H-P.t-P.b);
+  const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k);
+  const gc=css("--line"), mut=css("--muted");
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  const mag=Math.pow(10,Math.floor(Math.log10(ymax)));
+  const step=[0.1,0.2,0.25,0.5,1,2,2.5,5].map(v=>v*mag).find(v=>ymax/v<=5)||mag;
+  for(let v=0; v<=ymax; v+=step){ const y=sy(v);
+    s+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="${gc}"/>`
+      +`<text x="${P.l-6}" y="${y+3}" text-anchor="end" font-size="10" fill="${mut}">${o.yFmt(v)}</text>`; }
+  const span=x1-x0, xs=[1,2,3,7,14,28,56].find(v=>span/v<=12)||Math.ceil(span/12);
+  for(let x=Math.ceil(x0/xs)*xs; x<=x1; x+=xs){
+    s+=`<text x="${sx(x)}" y="${H-P.b+16}" text-anchor="middle" font-size="10" fill="${mut}">${o.xFmt(x)}</text>`; }
+  if(o.zero && x0<=0 && x1>=0) s+=`<line x1="${sx(0)}" y1="${P.t}" x2="${sx(0)}" y2="${H-P.b}" stroke="${mut}" stroke-dasharray="3 3"/>`
+    +`<text x="${sx(0)+4}" y="${P.t+10}" font-size="10" fill="${mut}">개봉</text>`;
+  const ends=[];
+  series.forEach(se=>{
+    const q=se.pts.filter(p=>p.x>=x0&&p.x<=x1).sort((a,b)=>a.x-b.x); if(!q.length) return;
+    const w=se.star?2.8:1.8;
+    if(q.length>1) s+=`<polyline points="${q.map(p=>`${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.color}" stroke-width="${w}" stroke-linejoin="round"${se.ref?' stroke-dasharray="5 3"':""}/>`;
+    q.forEach(p=>{ s+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${q.length>1?2.2:3.5}" fill="${se.color}"><title>${se.name} · ${p.lab} · ${o.tip(p.y)}</title></circle>`; });
+    const l=q[q.length-1]; ends.push({y:sy(l.y), t:`${se.name} ${o.tip(l.y)}`, c:se.color});
+  });
+  ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;   // 끝 라벨 겹침 풀기
+  ends.forEach(e=>{ s+=`<text x="${W-P.r+6}" y="${e.y+3}" font-size="10.5" font-weight="700" fill="${e.c}">${e.t}</text>`; });
+  el.innerHTML=s+"</svg>";
+}
+function drawBoxChart(){
+  const el=document.getElementById("boxChart"); if(!el) return;
+  const BO=(typeof BOXOFFICE!=="undefined")?BOXOFFICE:{};
+  const F=boxFilms().filter(x=>!boxOff.has(x.key));
+  const early=boxRange==="early", mk=BO.market||{};
+  const dfmt=x=>x===0?"개봉":(x>0?"D+"+x:"D"+x), cnt=v=>fmt0(Math.round(v))+"명";
+  const ser=fn=>F.map(x=>({name:x.short, color:x.color, ref:x.ref, star:!!(x.f&&x.f.stock==="대원미디어"), pts:fn(x)}));
+  const note=document.getElementById("boxChartNote");
+  if(boxMetric==="cum"||boxMetric==="daily"){
+    const k=boxMetric==="cum"?"acc":"audi";
+    boxLine(el, ser(x=>x.days.map(p=>({x:boxD(p.d,x.open), y:p[k], lab:`${dfmt(boxD(p.d,x.open))}(${+p.d.slice(4,6)}/${+p.d.slice(6,8)})`}))),
+      {x0:-7, x1:early?14:null, zero:true, xFmt:dfmt, yFmt:v=>nAbbr(v), tip:cnt});
+    note.innerHTML=`가로축 = 개봉 N일차(개봉 전 날짜는 유료 시사·전야 상영). `
+      +(boxMetric==="cum"?"누적 관객 — KOBIS 누적은 시사 관객을 포함합니다.":"일별 관객 — 주말·연휴(9/24~26 추석)에 튑니다.")
+      +` 점선 = 하츄핑 보관 기록(Top10 에 든 날만). 칩을 눌러 영화를 켜고 끕니다 — 오디세이를 끄면 나머지 규모가 잘 보입니다.`;
+  } else if(boxMetric==="share"){
+    const base="2026-08-01", days=Object.keys(mk).sort(), last=days[days.length-1]||"20260801";
+    const xi=d=>boxD(d,base);
+    boxLine(el, ser(x=>x.days.filter(p=>mk[p.d]).map(p=>({x:xi(p.d), y:p.audi/mk[p.d]*100, lab:`${+p.d.slice(4,6)}/${+p.d.slice(6,8)}`}))),
+      {x0:early?xi(last)-34:null, x1:xi(last), xFmt:x=>{const d=new Date(2026,7,1+x); return `${d.getMonth()+1}/${d.getDate()}`;},
+       yFmt:v=>Math.round(v)+"%", tip:v=>v.toFixed(1)+"%"});
+    note.innerHTML=`그날 전 영화 관객 합(KOBIS 웹 통계 · 순위 밖 영화 포함) 대비 비중. 시장 총량이 명절·주말에 크게 달라 '관객 수'보다 경쟁 구도가 잘 보입니다. 하츄핑1(2024)은 시장 총량 자료가 없어 빠집니다.`;
+  } else {
+    boxLine(el, ser(x=>x.book.map(p=>{const t=new Date(p.t.replace(" ","T")+":00"); const dx=(t-new Date(x.open+"T00:00:00"))/864e5;
+        return {x:Math.round(dx*100)/100, y:p.book, lab:`${p.t.slice(5)} (${p.rank||"—"}위 · ${fmt(p.rate,1)}%)`};})),
+      {x0:early?-10:null, x1:early?3:null, zero:true, xFmt:dfmt, yFmt:v=>nAbbr(v), tip:cnt,
+       empty:"예매 스냅샷이 아직 한 번뿐입니다 — 매시간 쌓입니다"});
+    note.innerHTML=`KOBIS 실시간 예매관객(남은 상영분 기준 · 하루 중에도 줄어듦). 매시간 찍히며, 개봉 전엔 유일한 수요 지표입니다. 같은 시각끼리 비교하세요.`;
+  }
+}
+function renderBoxTab(){
+  const BO=(typeof BOXOFFICE!=="undefined")?BOXOFFICE:null;
+  const kpi=document.getElementById("boxKpi"); if(!kpi) return;
+  if(!BO){ kpi.innerHTML=`<p class="note">수집 대기 중</p>`; return; }
+  const iso=s=>`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`, md=s=>`${+s.slice(4,6)}/${+s.slice(6,8)}`;
+  const today=new Date(TODAY+"T00:00:00"), WK="일월화수목금토";
+  const FL=boxFilms(), star=x=>!!(x.f&&x.f.stock==="대원미디어");
+
+  // ① 지금 — 실시간 예매 + 전일 확정 관객
+  kpi.innerHTML=`<div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">영화</th><th>개봉</th>
+    <th>예매 순위<span class="th-sub">예매율</span></th><th>예매관객<span class="th-sub">실시간 ${fmtUpd(BO.asOf)}</span></th>
+    <th>관객<span class="th-sub">전일 확정</span></th><th>누적 관객</th><th>스크린<span class="th-sub">전일</span></th>
+    <th class="l">배급 · 상장사</th></tr></thead><tbody>`
+    +FL.filter(x=>!x.ref).map(x=>{ const f=x.f;
+      const bk=x.book.slice(-1)[0]||null, dl=x.days[x.days.length-1]||null;
+      const dd=Math.round((new Date(f.open+"T00:00:00")-today)/864e5);
+      const lst=(f.listed||[]).map(y=>`${y[0]} ${y[1]}`).join(" · ");
+      return `<tr${star(x)?' class="box-star"':""}>
+        <td class="l"><span class="box-dot" style="background:${x.color}"></span><b>${f.short}</b><span class="th-sub">${f.title!==f.short?f.title:""}</span></td>
+        <td>${f.open.slice(5).replace("-","/")}<span class="th-sub">${dd>0?"D-"+dd:dd===0?"개봉일":"D+"+(-dd)}</span></td>
+        <td>${bk&&bk.rank?bk.rank+"위":"—"}<span class="th-sub">${bk?fmt(bk.rate,1)+"%":""}</span></td>
+        <td>${bk?fmt0(bk.book):"—"}</td>
+        <td>${dl?fmt0(dl.audi):"—"}<span class="th-sub">${dl?md(dl.d)+(dl.rank?` · ${dl.rank}위`:""):""}</span></td>
+        <td><b>${dl?fmt0(dl.acc):(bk?fmt0(bk.acc):"—")}</b></td>
+        <td>${dl?fmt0(dl.scrn):"—"}</td>
+        <td class="l">${f.imp?`수입 ${f.imp} · `:""}${f.dist}${f.prod?` · 제작 ${f.prod}`:""}<span class="th-sub">${lst||f.note||""}</span></td></tr>`;
+    }).join("")+`</tbody></table></div>`;
+
+  // 차트 컨트롤 — 칩은 매번 새로 그리되 켜고 끈 상태(boxOff)는 유지
+  const fs=document.getElementById("boxFilmSeg");
+  fs.innerHTML=FL.map(x=>`<button data-k="${x.key}" class="${boxOff.has(x.key)?"":"active"}"><span class="box-dot" style="background:${x.color}"></span>${x.short}</button>`).join("");
+  if(!fs.dataset.bound){ fs.dataset.bound="1";
+    fs.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+      boxOff.has(b.dataset.k)?boxOff.delete(b.dataset.k):boxOff.add(b.dataset.k); b.classList.toggle("active"); drawBoxChart(); });
+    [["boxMetricSeg","m",v=>boxMetric=v],["boxRangeSeg","r",v=>boxRange=v]].forEach(([id,a,set])=>{
+      const sg=document.getElementById(id);
+      sg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
+        sg.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b)); set(b.dataset[a]); drawBoxChart(); });
+    });
+  }
+  drawBoxChart();
+
+  // ② 개봉 N일차 누적 — '시사' = 개봉 전날까지 누적(유료 시사·전야)
+  const NS=[0,1,2,3,6,13,27];
+  const accAt=(x,n)=>{ const p=x.days.find(q=>boxD(q.d,x.open)===n); return p?p.acc:null; };
+  const pre=x=>{ const ps=x.days.filter(q=>iso(q.d)<x.open); return ps.length?ps[ps.length-1].acc:null; };
+  document.getElementById("boxDayTbl").innerHTML=`<div class="sub-h">개봉 N일차 누적 관객</div>
+    <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">영화</th><th class="l">개봉</th><th>개봉 전 시사</th>
+    ${NS.map(n=>`<th>D+${n}</th>`).join("")}</tr></thead><tbody>`
+    +FL.map(x=>`<tr${star(x)?' class="box-star"':""}><td class="l"><span class="box-dot" style="background:${x.color}"></span>${x.short}${x.ref?'<span class="th-sub">SAMG · 보관 기록</span>':""}</td>
+      <td class="l">${x.open||"—"}</td><td>${pre(x)!=null?fmt0(pre(x)):"—"}</td>
+      ${NS.map(n=>{const v=accAt(x,n); return `<td>${v!=null?fmt0(v):`<span style="color:var(--muted2)">—</span>`}</td>`;}).join("")}</tr>`).join("")
+    +`</tbody></table></div><p class="note" style="margin-top:6px">하츄핑은 KOBIS Top10 에 든 날만 기록돼 있어 일부 일차가 비어 있습니다(수집 누락이 아니라 순위 밖).</p>`;
+
+  // ③ 3사 좌석 — 상영일별 최신 스냅샷. 판매 = 총좌석 − 잔여(온라인 예매분)
+  const S=BO.seats||{}, CH={CGV:"CGV",LC:"롯데",MB:"메가"};
+  const plays=[...new Set(Object.keys(S).map(k=>k.split("|")[1]))].sort();
+  let h="";
+  if(plays.length){
+    h=`<div class="sub-h">3사 좌석 판매 <span class="th-sub">CGV·롯데·메가박스 예매 API · 상영일별 · ${fmtUpd(BO.seatsAt)||""} 기준</span></div>
+      <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">상영일</th><th class="l">영화</th>
+      <th>스크린</th><th>회차</th><th>판매 좌석</th><th>총좌석</th><th>판매율</th><th>직전 대비</th><th class="l">체인별 스크린</th></tr></thead><tbody>`;
+    plays.forEach(p=>{
+      const dw=WK[new Date(+p.slice(0,4),+p.slice(4,6)-1,+p.slice(6,8)).getDay()];
+      const tags=FL.filter(x=>!x.ref&&x.open.replace(/-/g,"")===p).map(x=>`${x.short} 개봉일`);
+      const list=FL.filter(x=>!x.ref).map(x=>[x,S[`${x.key}|${p}`]]).filter(y=>y[1]&&y[1].length)
+        .sort((a,b)=>b[1][b[1].length-1].seatSold-a[1][a[1].length-1].seatSold);
+      list.forEach(([x,pts],i)=>{
+        const v=pts[pts.length-1], pv=pts.length>1?pts[pts.length-2]:null;
+        const rate=v.seatTot?v.seatSold/v.seatTot*100:null;
+        const by=Object.entries(v.by||{}).map(([c,y])=>`${CH[c]||c} ${fmt0(y.screens)}`).join(" · ");
+        h+=`<tr${star(x)?' class="box-star"':""}>${i===0?`<td class="l" rowspan="${list.length}">${md(p)}(${dw})<span class="th-sub">${tags.join(" · ")}</span></td>`:""}
+          <td class="l"><span class="box-dot" style="background:${x.color}"></span>${x.short}</td><td>${fmt0(v.screens)}</td><td>${fmt0(v.shows)}</td>
+          <td><b>${fmt0(v.seatSold)}</b></td><td>${fmt0(v.seatTot)}</td><td>${rate==null?"—":fmt(rate,1)+"%"}</td>
+          <td>${pv?`<span class="${cls(v.seatSold-pv.seatSold)}">${sign(v.seatSold-pv.seatSold,0)}석</span><span class="th-sub">${fmtUpd(pv.t)} 대비</span>`:`<span style="color:var(--muted2)">첫 수집</span>`}</td>
+          <td class="l">${by}</td></tr>`;
+      });
+    });
+    h+=`</tbody></table></div>`;
+  }
+  // ④ 하츄핑2 기준선 — 같은 '개봉 N일 전'끼리. 같은 애니메이션 극장판이라 유일한 실측 잣대다.
+  //    예매관객은 하루 중에도 줄어드므로 날마다 15시에 가장 가까운 스냅샷끼리 잇는다(치이카와 첫 수집이 15시).
+  const RF=BO.ref, me=FL.find(star);
+  if(RF && me){
+    const dnOf=(t,open)=>Math.round((new Date(t.slice(0,10)+"T00:00:00")-new Date(open+"T00:00:00"))/864e5);
+    const near=(list,open)=>{ const o={}; list.forEach(p=>{ if(!p||!p.t||p.t.length<16) return; const k=dnOf(p.t,open);
+        const g=Math.abs(+p.t.slice(11,13)*60+ +p.t.slice(14,16)-900); if(!o[k]||g<o[k].g) o[k]={g,p}; });
+      return Object.fromEntries(Object.entries(o).map(([k,v])=>[k,v.p])); };
+    const lastDay=(list,open)=>{ const o={}; list.forEach(p=>{ o[dnOf(p.t,open)]=p; }); return o; };
+    const bM=near(me.book,me.open), bR=near(RF.book||[],RF.open);
+    const sM=lastDay(S[`${me.key}|${me.open.replace(/-/g,"")}`]||[],me.open), sR=lastDay(RF.seats||[],RF.open);
+    const dns=[...new Set([bM,bR,sM,sR].flatMap(o=>Object.keys(o).map(Number)))].filter(n=>n<0&&n>=-7).sort((a,b)=>a-b);
+    const mult=(a,b)=>(a!=null&&b)?`<b class="${a>=b?"up":"down"}">${(a/b).toFixed(2)}배</b>`:"—";
+    const c=(p,k)=>p?fmt0(p[k]):`<span style="color:var(--muted2)">—</span>`;
+    h+=`<div class="sub-h">하츄핑2 대비 — 같은 '개봉 N일 전' <span class="th-sub">하츄핑2(8/5 개봉 · SAMG)는 이 대시보드가 쌓은 아카이브 · 예매는 15시 전후 스냅샷</span></div>
+      <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">개봉까지</th>
+      <th>${me.short} 예매관객<span class="th-sub">KOBIS 실시간</span></th><th>하츄핑2 예매관객</th><th>배수</th>
+      <th>${me.short} 개봉일 좌석<span class="th-sub">3사 판매석</span></th><th>하츄핑2 개봉일 좌석</th><th>배수</th></tr></thead><tbody>`
+      +dns.map(n=>`<tr><td class="l">D${n}</td>
+        <td>${c(bM[n],"book")}${bM[n]?`<span class="th-sub">${bM[n].t.slice(11)} · ${bM[n].rank||"—"}위</span>`:""}</td>
+        <td>${c(bR[n],"book")}${bR[n]?`<span class="th-sub">${bR[n].t.slice(11)} · ${bR[n].rank||"—"}위</span>`:""}</td>
+        <td>${mult(bM[n]&&bM[n].book,bR[n]&&bR[n].book)}</td>
+        <td>${c(sM[n],"seatSold")}${sM[n]?`<span class="th-sub">${fmt0(sM[n].screens)}스크린</span>`:""}</td>
+        <td>${c(sR[n],"seatSold")}${sR[n]?`<span class="th-sub">${fmt0(sR[n].screens)}스크린</span>`:""}</td>
+        <td>${mult(sM[n]&&sM[n].seatSold,sR[n]&&sR[n].seatSold)}</td></tr>`).join("")
+      +`</tbody></table></div>`;
+    // 한 줄 요약 — 치이카와 최신 값을 하츄핑2 개봉 전 '최종'(D-1)과 견준다. 같은 일차가 아직 없어도 읽히게.
+    const kM=Object.keys(bM).map(Number).filter(n=>n<0).sort((a,b)=>b-a)[0], kS=Object.keys(sM).map(Number).filter(n=>n<0).sort((a,b)=>b-a)[0];
+    const r1=bR[-1], r2=sR[-1], bits=[];
+    if(kM!=null&&r1) bits.push(`예매관객 D${kM} ${fmt0(bM[kM].book)}명 = 하츄핑2 개봉 전날(D-1) ${fmt0(r1.book)}명의 <b>${(bM[kM].book/r1.book).toFixed(2)}배</b>`);
+    if(kS!=null&&r2) bits.push(`개봉일 좌석 D${kS} ${fmt0(sM[kS].seatSold)}석 = 하츄핑2 D-1 ${fmt0(r2.seatSold)}석의 <b>${(sM[kS].seatSold/r2.seatSold).toFixed(2)}배</b>`);
+    const d0=((typeof MOVIE!=="undefined"&&MOVIE.movies)||{})[RF.title], a0=d0&&(d0.days||[]).find(p=>p.d===RF.open.replace(/-/g,""));
+    if(bits.length) h+=`<p class="note">${me.short}: ${bits.join(" · ")}.${a0?` 참고로 하츄핑2의 개봉일 실제 관객은 ${fmt0(a0.audi)}명이었습니다.`:""}
+      두 영화는 관객층이 다르므로(하츄핑은 유아 동반 가족 중심) 배수를 그대로 관객 예측으로 옮기지는 마세요.</p>`;
+  }
+  document.getElementById("boxSeats").innerHTML=h;
+  document.getElementById("boxNote").innerHTML=`예매관객·예매율은 KOBIS <b>실시간(남은 상영분)</b>이라 하루 중에도 줄어듭니다 — 시각이 다른 값끼리 견주지 마세요.
+    관객·스크린은 전일 확정치이고, 개봉 전 날짜의 관객은 유료 시사입니다. 3사 좌석은 온라인 예매분만(현장 판매 제외)이며,
+    하츄핑 때 3사 합이 KOBIS 전국 예매의 약 89%였습니다. 9/24~26은 추석 연휴입니다.
+    <b>암살자(들)의 하이브미디어코프는 하이브(HYBE)와 무관한 영화사</b>입니다.
+    KOBIS는 매시간 자동 수집(${BO.until||""}까지), 3사 좌석은 러너에서 CGV가 막혀 한국 IP(이 PC)에서 수동으로 받습니다.`;
+}
+
 function renderMovie(){
   const box=document.getElementById("movieBox"); if(!box) return;
   const note=document.getElementById("movieNote");
@@ -6103,7 +6364,10 @@ function openStock(name){
     <div class="dnm">${stockLogo(name)}${name} ${ratingBadge(r.score)} ${pickPill(r)}
       ${r.chgPct!=null?`<span class="c ${cls(r.chgPct)}" style="font-size:14px">${sign(r.chgPct,2)}%</span>`:''}</div>
     ${(r.pick2&&th)?`<div class="pick-why"><b>${r.pick2} 근거</b> ${th}</div>`:(th?`<div class="dthesis">${th}</div>`:'')}
-    ${trendTopics.length?`<div class="d-actions"><button class="tbtn" id="goTrend" type="button">📈 관련 트렌드 보기<span class="cnt">${trendTopics.length}</span></button></div>`:''}
+    ${(()=>{ const films=((typeof BOXOFFICE!=="undefined"&&BOXOFFICE.films)||[]).filter(f=>f.stock===name);
+      const tb=trendTopics.length?`<button class="tbtn" id="goTrend" type="button">📈 관련 트렌드 보기<span class="cnt">${trendTopics.length}</span></button>`:'';
+      const mb=films.length?`<button class="tbtn" id="goBox" type="button">🎬 ${films[0].short} 흥행 보기</button>`:'';
+      return (tb||mb)?`<div class="d-actions">${tb}${mb}</div>`:''; })()}
     <div class="val-grid">
       <div class="vg"><div class="l">현재가</div><div class="v">${won(r.price)}</div></div>
       <div class="vg"><div class="l">목표가(컨센)</div><div class="v">${won(r.target)}</div></div>
@@ -6150,6 +6414,7 @@ function openStock(name){
   document.getElementById("drawerInner").innerHTML=html;
   drawQuarter(Q);
   const gt=document.getElementById("goTrend"); if(gt) gt.onclick=()=>gotoTrend(name);
+  const gb=document.getElementById("goBox"); if(gb) gb.onclick=()=>{ closeDrawer(); location.hash="boxoffice"; };
   document.getElementById("drawerClose").onclick=closeDrawer;
   document.getElementById("drawer").classList.add("open");
   document.getElementById("drawerOverlay").classList.add("open");
@@ -6518,7 +6783,9 @@ function renderFreshness(){
     el.style.cssText="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0 0;font-size:11.5px;color:var(--muted);line-height:1.6";
     anchor.insertAdjacentElement("afterend", el); }
   const d=new Date(), wknd=(d.getDay()===0||d.getDay()===6);
-  const rows=FRESH_LIMITS.map(([key,label,lim])=>{
+  // 기한(until)이 지난 추적 블록은 판정에서 뺀다 — 끝난 영화가 매일 '지연'으로 뜨지 않게(watchdog 과 같은 규칙).
+  const rows=FRESH_LIMITS.filter(([key])=>{ let B=null; try{ B=Function("return (typeof "+key+"!=='undefined')?"+key+":null")(); }catch(_){}
+      return !(B&&B.until&&B.until<TODAY); }).map(([key,label,lim])=>{
     // 데이터 상수는 최상위 const 라 window 속성이 아니다 — 전역 렉시컬 스코프에서 이름으로 찾는다
     let B=null; try{ B=Function("return (typeof "+key+"!=='undefined')?"+key+":null")(); }catch(_){ B=null; }
     const asOf=B&&(B.asOf||B.asOfNaver||"");

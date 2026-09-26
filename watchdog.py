@@ -72,6 +72,8 @@ LIMITS = {
     "JOBS":          ("채용 공고", 40),        # 아침 수집에서 하루 1회 (사람인)
     "KTG":           ("KT&G 유라시아", 40),    # 아침 수집에서 하루 1회 (관세청·Elitalco·Kaspi·hh.kz)
     "QOO10":         ("Qoo10 JP 뷰티", 40),    # 아침 수집에서 하루 1회 (2026-09-24)
+    # 극장가(치이카와+흥행작 · 2026-09-26) — 예매가 매시간 바뀐다. 블록의 until(추적 기한)이 지나면 아래에서 건너뛴다.
+    "BOXOFFICE":     ("극장가 흥행(KOBIS)", 30),
 }
 
 
@@ -97,6 +99,11 @@ def freshness(html, now):
             continue
         ts = parse_ts(m.group(1))
         if not ts:
+            continue
+        # 추적 기한이 있는 블록(asOf 바로 뒤 "until")은 기한이 지나면 판정하지 않는다 —
+        # 끝난 영화를 매일 '고장'으로 알리지 않게(하츄핑 MOVIE 는 이걸 몰라 LIMITS 에서 손으로 뺐다).
+        u = re.search(r'const %s\s*=\s*\{\s*"asOf"\s*:\s*"[^"]*"\s*,\s*"until"\s*:\s*"([^"]+)"' % key, html)
+        if u and now.strftime("%Y-%m-%d") > u.group(1):
             continue
         age = (now - ts).total_seconds() / 3600
         lim = limit_h

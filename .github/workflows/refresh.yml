@@ -310,6 +310,14 @@ jobs:
         timeout-minutes: 3
         run: python runstep.py "리비전 트래커" fetch_revision.py
 
+      # 극장가 흥행(영화 흥행 탭) — 대원미디어 '극장판 치이카와'(9/30) + 흥행작 3편. KOBIS 웹 통계라 키 불필요.
+      #   매 회차: 실시간 예매 1건 + 어제·그제 일별 2건. 추적 기한(fetch_boxoffice.UNTIL)이 지나면 스스로 아무것도 안 한다.
+      #   ⚠ 3사 좌석(--seats)은 여기서 돌리지 않는다 — CGV 가 러너 IP 를 403 으로 막는다(2026-09-13~). 이 PC 에서 수동.
+      - name: 극장가 흥행(KOBIS)
+        if: steps.gate.outputs.go == '1'
+        timeout-minutes: 6
+        run: python runstep.py "극장가(KOBIS)" fetch_boxoffice.py
+
       # 스크린 배정·예매는 screens.yml 이 전담한다(여기 붙였더니 회당 20분이 됐다).
 
       - name: 실적 발표 알림
