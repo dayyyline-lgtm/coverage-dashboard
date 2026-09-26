@@ -419,27 +419,44 @@ def merge_seats(out, cache, today):
     ser = out.setdefault("seats", {})
     lines = []
     slim = lambda by: {c: {k: v[k] for k in ("seatSold", "seatTot", "screens")} for c, v in (by or {}).items()}
+    newest = max([p["t"] for v in ser.values() for p in v] or [""])
     for r in cache["res"]:
         key = f"{r['title']}|{r['play']}"
-        by = dict(r["by"])
-        tot = {k: sum(v[k] for v in by.values()) for k in ("sites", "screens", "shows", "seatTot", "seatSold")}
+        by, t = dict(r["by"]), stamp
+        # 같은 날 두 번째 수집이면 **체인별로 합친다** — 한국 IP 에서 받은 3사(CGV 포함) 뒤에 서버가 롯데·메가만
+        # 받아 오면, 통째로 바꿔 끼울 때 그날 CGV 가 사라졌다(2026-09-26 치이카와 개봉일 10.1만→7.1만석).
+        # 겹치는 체인은 더 최근 값, 한쪽에만 있는 체인은 그 값. 날짜가 다르면 섞지 않는다(굳은 숫자 방지).
+        same = next((p for p in ser.get(key, []) if p.get("t", "")[:10] == stamp[:10]), None)
+        if same:
+            old = same.get("by") or {}
+            by = {**old, **by} if stamp >= same.get("t", "") else {**by, **old}
+            t = max(stamp, same.get("t", ""))
+        tot = {k: sum(v.get(k, 0) for v in by.values()) for k in ("sites", "screens", "shows", "seatTot", "seatSold")}
         pts = [{**{k: v for k, v in p.items() if k != "by"}, "by": slim(p.get("by"))}
                for p in ser.get(key, []) if p.get("t", "")[:10] != stamp[:10]]
-        pts.append({"t": stamp, **tot, "by": by})
+        pts.append({"t": t, **tot, "by": by})
         ser[key] = pts[-SEAT_SNAPS:]
-        lines.append({"t": stamp, "title": r["title"], "play": r["play"], **tot, "by": by})
+        lines.append({"t": stamp, "title": r["title"], "play": r["play"], **tot, "by": dict(r["by"])})
     cut = (today - datetime.timedelta(days=SEAT_PAST)).strftime("%Y%m%d")
     for k in [k for k in ser if k.split("|")[1] < cut]:
         del ser[k]
-    out["seatsAt"] = stamp
-    out["seatPlan"] = cache.get("plan") or {}
-    out["seatFailed"] = sorted(failed)
+    older = stamp < newest                  # 지난 캐시를 다시 끼우는 경우(예: 같은 날 한국 IP 수집분 복원)
+    if not older:
+        out["seatsAt"] = stamp
+        out["seatPlan"] = cache.get("plan") or {}
+        out["seatFailed"] = sorted(failed)
+    else:                                   # 계획·실패 목록은 최신 수집 것을 두고, 연 체인만 합집합
+        pl = out.setdefault("seatPlan", {})
+        for p, c in (cache.get("plan") or {}).items():
+            pl[p] = sorted(set(pl.get(p, [])) | set(c))
+        got = {c for cs in (cache.get("plan") or {}).values() for c in cs}
+        out["seatFailed"] = sorted(set(out.get("seatFailed") or []) - got)
     out.pop("plays", None)
     # 영구 아카이브 — 화면 블록은 잘리지만 여기는 append 만 한다(다음 극장판의 기준선).
     import os
     os.makedirs("archive", exist_ok=True)
     with open("archive/boxoffice_seats.jsonl", "a", encoding="utf-8") as f:
-        for ln in lines:
+        for ln in ([] if older else lines):     # 지난 캐시 재주입은 이미 archive 에 있다 — 두 번 쓰지 않는다
             f.write(json.dumps(ln, ensure_ascii=False) + "\n")
     for ln in sorted(lines, key=lambda x: (x["play"], -x["seatSold"])):
         rate = ln["seatSold"] / ln["seatTot"] * 100 if ln["seatTot"] else 0
