@@ -302,6 +302,14 @@ jobs:
         if: steps.gate.outputs.go == '1'
         run: python runstep.py "버즈" fetch_buzz.py
 
+      # 어닝 리비전 트래커 — 두 대시보드에 겹치는 종목의 증권사 컨센·리비전·부문 서프라이즈.
+      #   공개 data.js 한 건(2.7MB · 1초 안쪽). 저쪽에서 리포트가 승인·배포되면 다음 회차가 받는다.
+      #   대부분의 회차는 값이 그대로라 파일을 안 건드린다.
+      - name: 리비전 트래커(겹치는 종목)
+        if: steps.gate.outputs.go == '1'
+        timeout-minutes: 3
+        run: python runstep.py "리비전 트래커" fetch_revision.py
+
       # 스크린 배정·예매는 screens.yml 이 전담한다(여기 붙였더니 회당 20분이 됐다).
 
       - name: 실적 발표 알림

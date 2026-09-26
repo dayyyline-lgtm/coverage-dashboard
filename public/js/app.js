@@ -5986,6 +5986,100 @@ window.addEventListener("resize",()=>{
 /* ==== Stock detail drawer ==== */
 const byName=Object.fromEntries(R.map(r=>[r.name,r]));
 const thesisByName=Object.fromEntries(DATA.records.map(r=>[r.name,r.thesis]));
+/* ==== 증권사 리비전 — 어닝 리비전 트래커에서 가져온 것(겹치는 종목만 · fetch_revision.py → REVISION) ====
+   네이버 컨센(LIVE)은 평균 하나뿐이다. 리비전 트래커는 증권사 리포트를 한 건씩 읽어
+   '발표 직전 ↔ 직후' 컨센 이동·증권사별 리비전·부문별 서프라이즈를 계산해 둔다.
+   계산은 전부 저쪽(compute.py) 몫이고 여기선 그리기만 한다 — 여기서 다시 계산하면 두 곳이 어긋난다.
+   비율은 소수(0.16 = +16%)로 오고, 분모가 0 이하이면 '흑전'·'적전'·'N/M' 문자열이 온다. */
+function revisionHtml(name){
+  const RV=(typeof REVISION!=="undefined")?REVISION:null;
+  const S=RV&&(RV.stocks||{})[name]; if(!S) return "";
+  const pct=(v,d=1)=> v==null?"—"
+    : typeof v==="string"? `<span class="${v==="흑전"?"up":v==="적전"?"down":""}">${v}</span>`
+    : `<span class="${cls(v)}">${sign(v*100,d)}%</span>`;
+  const md=d=> d?`${+d.slice(5,7)}/${+d.slice(8,10)}`:"";
+  const nn=n=> n!=null?`<span class="rv-n">${n}</span>`:"";
+  const segCell=x=>`<td class="l" style="padding-left:${9+x.lv*14}px">${x.s}</td>`;
+  const days=S.last? Math.round((new Date(TODAY)-new Date(S.last))/864e5) : null;
+  const D=S.done, N=S.next;
+
+  let h=`<div class="d-h rv-h">증권사 리비전
+      <span class="rv-src">리비전 트래커 · 리포트 ${S.nRep}건 · ${S.nBrk}개사 · 최신 ${md(S.last)}</span>
+      <a class="rv-link" href="${RV.site}/#/s/${S.code}/" target="_blank" rel="noopener">전체 보기 ↗</a></div>`;
+  if(days!=null && days>45)
+    h+=`<p class="note rv-warn">최신 리포트가 ${days}일 전입니다 — 리비전 트래커에 새 리포트를 올려야 이 칸이 움직입니다.</p>`;
+
+  if(D){
+    const op=D.opm||{};
+    h+=`<div class="rv-scroll"><table class="mini-tbl"><thead><tr>
+        <th class="l">${D.q} 실적 <span class="th-sub">${md(D.d)} 발표</span></th>
+        <th>증권사 컨센</th><th>실제</th><th>서프라이즈</th></tr></thead><tbody>
+      ${D.sur.map(x=>`<tr><td class="l">${x.m}</td><td>${eok(x.c)}${nn(x.n)}</td>
+        <td><b>${eok(x.a)}</b></td><td>${pct(x.s)}</td></tr>`).join("")}
+      ${op.c!=null?`<tr class="sub-row"><td class="l">영업이익률</td><td>${fmt(op.c*100)}%</td>
+        <td>${op.a!=null?fmt(op.a*100)+"%":"—"}</td>
+        <td>${op.d==null?"—":`<span class="${cls(op.d)}">${sign(op.d*100,1)}%p</span>`}</td></tr>`:""}
+      </tbody></table></div>`;
+
+    const RC=(D.rev||[]).filter(x=>x.pre!=null||x.post!=null);
+    if(RC.length) h+=`<div class="rv-scroll" style="margin-top:12px"><table class="mini-tbl"><thead><tr>
+        <th class="l">영업익 컨센 이동 <span class="th-sub">발표 전→후</span></th>
+        ${RC.map(x=>`<th class="ye">${x.p}</th>`).join("")}</tr></thead><tbody>
+      <tr><td class="l">발표 전</td>${RC.map(x=>`<td>${eok(x.pre)}</td>`).join("")}</tr>
+      <tr><td class="l">발표 후</td>${RC.map(x=>`<td>${eok(x.post)}</td>`).join("")}</tr>
+      <tr><td class="l"><b>리비전</b></td>${RC.map(x=>`<td><b>${pct(x.r)}</b></td>`).join("")}</tr>
+      <tr class="sub-row"><td class="l">증권사 수</td>${RC.map(x=>`<td>${x.np??"—"}→${x.nq??"—"}</td>`).join("")}</tr>
+      </tbody></table></div>`;
+
+    const B=D.brk||[], BM=D.brkMean||{}, yP=[(RC[2]||{}).p||"당해", (RC[3]||{}).p||"차년"];
+    if(B.length) h+=`<details class="fold"><summary>증권사별 목표가·리비전
+        <span class="sub">${B.length}개사 · 목표가 평균 ${won(BM.tp)}원 ${BM.tc!=null?`(${pct(BM.tc)})`:""}</span></summary>
+      <div class="fold-b rv-scroll"><table class="mini-tbl"><thead><tr><th class="l">증권사</th><th>목표가</th><th>TP 변화</th>
+        <th>${yP[0]} 영업익</th><th>${yP[1]} 영업익</th></tr></thead><tbody>
+      ${B.map(x=>`<tr><td class="l">${x.b}</td><td>${typeof x.tp==="number"?won(x.tp):(x.tp||"—")}</td><td>${pct(x.tc)}</td>
+        <td>${pct(x.o[0])}</td><td>${pct(x.o[1])}</td></tr>`).join("")}
+      <tr><td class="l"><b>평균</b></td><td><b>${won(BM.tp)}</b></td><td><b>${pct(BM.tc)}</b></td>
+        <td><b>${pct((BM.o||[])[0])}</b></td><td><b>${pct((BM.o||[])[1])}</b></td></tr>
+      </tbody></table></div></details>`;
+
+    const SG=D.seg||[];
+    if(SG.length) h+=`<details class="fold"><summary>${D.q} 부문별 실적 vs 컨센
+        <span class="sub">${S.axis}</span></summary>
+      <div class="fold-b rv-scroll"><table class="mini-tbl"><thead><tr><th class="l">부문</th>
+        <th>매출</th><th>서프</th><th>영업익</th><th>서프</th></tr></thead><tbody>
+      ${SG.map(x=>`<tr>${segCell(x)}<td>${eok(x.sa)}${x.e?"†":""}</td><td>${pct(x.ss)}</td>
+        <td>${eok(x.oa)}${x.e?"†":""}</td><td>${pct(x.os)}</td></tr>`).join("")}
+      </tbody></table>
+      ${SG.some(x=>x.e)?`<p class="note">† 회사가 부문을 공시하지 않아 발표 후 리뷰 평균으로 둔 임시값(확정치 아님).</p>`:""}
+      </div></details>`;
+  }
+
+  if(N){
+    // 다가오는 분기 — 증권사 평균을 네이버 컨센과 나란히. 두 출처가 갈리면 그 자체가 정보다
+    // (네이버는 FnGuide 집계, 이쪽은 120일 창 안의 증권사별 최신 리포트 평균).
+    const qk=`20${N.q.slice(2,4)}${String(+N.q[0]*3).padStart(2,"0")}`;      // 3Q26 → 202609
+    const nv=((((LIVE.stocks[name]||{}).cons||{}).quarter||{}).series||[]).find(s=>s.k===qk)||{};
+    const cal=CAL.filter(e=>e.ty==="earn"&&e.co===name&&e.d>=TODAY).map(e=>e.d).sort()[0];
+    const rows=[["매출","rev"],["영업이익","op"]].map(([m,k])=>{
+      const c=(N.cons.find(x=>x.m===m)||{}), n=nv[k];
+      return `<tr><td class="l">${m}</td><td>${eok(c.c)}${nn(c.n)}</td><td>${eok(n)}</td>
+        <td>${(c.c!=null&&n)?pct(c.c/n-1):"—"}</td></tr>`;
+    }).join("");
+    h+=`<div class="rv-scroll" style="margin-top:14px"><table class="mini-tbl"><thead><tr>
+        <th class="l">${N.q} 컨센 <span class="th-sub">${cal?md(cal)+" 발표":md(N.d)+"경 발표(추정)"}</span></th>
+        <th>증권사 평균</th><th>네이버</th><th>차이</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    const SN=N.seg||[];
+    if(SN.length) h+=`<details class="fold"><summary>${N.q} 부문별 컨센 <span class="sub">${S.axis}</span></summary>
+      <div class="fold-b rv-scroll"><table class="mini-tbl"><thead><tr><th class="l">부문</th>
+        <th>매출</th><th>YoY</th><th>영업익</th></tr></thead><tbody>
+      ${SN.map(x=>`<tr>${segCell(x)}<td>${eok(x.sc)}${nn(x.n)}</td><td>${pct(x.y)}</td><td>${eok(x.oc)}</td></tr>`).join("")}
+      </tbody></table></div></details>`;
+  }
+  h+=`<p class="note">단위 억 원 · 작은 숫자 = 응답 증권사 수 · 증권사 컨센 = 발표 직전 증권사별 마지막 리포트 평균(120일 창) ·
+    리비전 = 같은 증권사의 발표 직전↔직후 리포트 비교 · 차이 = 증권사 평균 ÷ 네이버 − 1 · 리비전 트래커 수집(${fmtUpd(RV.asOf)})</p>`;
+  return h;
+}
+
 function openStock(name){
   const r=byName[name]; if(!r) return;
   const trendTopics=topicsOf(name);   // 관련 트렌드 주제(데이터 있는 것만)
@@ -6043,6 +6137,7 @@ function openStock(name){
       <tr class="sub-row"><td class="l">EPS 증가율</td>${A.map((a,i)=>{const v=yoy(A,'eps',i);return `<td>${v==null?'—':`<span class="${cls(v)}">${sign(v,0)}%</span>`}</td>`;}).join('')}</tr>
     </tbody></table>
     <div class="d-h">분기 실적 추이 — 매출(막대)·OPM(선)</div><div id="qChart"></div>
+    ${revisionHtml(name)}
     ${(()=>{const rs=(LIVE.researches||[]).filter(x=>x.co===name).slice(0,6);
       return rs.length?`<div class="d-h">최근 증권사 리포트</div>
       <table class="mini-tbl"><tbody>${rs.map(x=>`<tr>
