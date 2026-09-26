@@ -96,6 +96,12 @@ def main():
         ("megabox schedulePage POST", MB, mbh, mb_body),
         ("megabox 홈(doc)", "https://www.megabox.co.kr/", ua(doc=True), None),
         ("대조군 CGV", "https://www.cgv.co.kr/", ua(doc=True), None),
+        # CGV 예매 API(2026-09-26) — fetch_screens·fetch_boxoffice 가 쓰는 것. 9/13~ 러너 403 이었다. 풀렸으면 좌석을 러너에서 돌린다.
+        ("CGV 예매 상영작 목록", "https://cgv.co.kr/api/v1/booking/searchAtktTopPostrList?coCd=A420&movNm=&div=&attrCd=",
+         dict(ua(referer="https://cgv.co.kr/ticket/"), **{"Accept": "application/json, text/plain, */*"}), None),
+        ("CGV 예매 회차(강변)", "https://cgv.co.kr/api/v1/booking/searchMovScnInfo?coCd=A420&siteNo=0001&scnYmd=" + today + "&rtctlScopCd=08",
+         dict(ua(referer="https://cgv.co.kr/ticket/"), **{"Accept": "application/json, text/plain, */*"}), None),
+        ("롯데 예매 목록", "https://www.lottecinema.co.kr/NLCHS/Ticketing", ua(doc=True), None),
         # KT&G 유라시아(fetch_ktg.py) 카자흐 소스 — 러너에서 처음 도는 사이트들
         ("KZ elitalco(doc)", "https://newelitalco.kz/ru/catalog/cigarettes/", ua(doc=True), None),
         ("KZ kaspi search", "https://kaspi.kz/yml/product-view/pl/results?text=iqos&page=0&c=750000000",
