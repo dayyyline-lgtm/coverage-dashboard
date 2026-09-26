@@ -25,8 +25,10 @@
 
 추적 기한(UNTIL) 이 지나면 아무것도 안 하고 끝난다 — 하츄핑 때처럼 끝난 영화를 계속 긁지 않게.
 
-  python fetch_boxoffice.py              # ①② (러너)
-  python fetch_boxoffice.py --seats      # ①②③ (이 PC · 15분 안팎)
+  python fetch_boxoffice.py                                  # ①② (러너 · 매 회차)
+  python fetch_boxoffice.py --seats                          # ①②③ 한 번에 (이 PC · 20~30분)
+  python fetch_boxoffice.py --seats --cache=.cache/seats.json  # ③ 받기만 (kr_boxoffice.py 1단계)
+  python fetch_boxoffice.py --merge=.cache/seats.json          # ①② + 캐시의 ③ 병합 (2단계)
   python fetch_boxoffice.py --dry-run
 """
 import datetime, html as htmlmod, http.cookiejar, json, re, sys, time, urllib.parse, urllib.request
@@ -43,7 +45,6 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 UNTIL = "2026-11-15"          # 치이카와 개봉 +6주 — 지나면 수집 중단(블록은 보관)
 SCAN_FROM = "20260805"        # 가장 이른 개봉(오디세이) — 일별 백필의 시작
 BOOK_KEEP = 400
-SEAT_KEEP = 60
 
 FILMS = [
     {"title": "극장판 치이카와: 인어 섬의 비밀", "short": "치이카와", "kobis": "20261807",
@@ -147,22 +148,120 @@ def booking():
 
 
 # ── 3사 좌석 (요청 함수는 fetch_screens 것을 그대로 쓴다) ─────
-def seats(plays, crt):
+#   2026-09-26 개편 — "예전처럼 열려 있는 날짜 전부, 일별로". 하츄핑 때와 같은 뼈대다:
+#     ① 탐침: 오늘~SEAT_DAYS 일 뒤까지, 날짜마다 체인별로 대형 지점 몇 곳만 찔러 '대상 영화가 걸렸나'를 본다.
+#        걸린 (날짜, 체인)만 ② 전수 조사한다 — 안 열린 먼 날짜에 수천 요청을 버리지 않게.
+#     ② 전수: 체인 셋을 **동시에**(스레드 3개) 돈다. 호스트가 달라 서로 기다릴 이유가 없다. 체인 안에서는 순차 + 간격.
+#     ③ 한 체인이 통째로 실패하면(서버에선 CGV 가 403) 그 체인 없이 저장한다. 이어받지 않는다 —
+#        대신 점마다 체인별 수치를 남기고, 화면이 '두 수집에 다 있는 체인'끼리만 비교해 가짜 급증·급감을 막는다.
+#   ⚠ 서버(boxseats.yml)는 2026-09-26 기준 CGV 403 · 메가 간헐 시간초과 → 대개 롯데(+메가) 기준이다.
+#     탐침이 이틀 연속 전부 실패한 체인은 그 회차에서 바로 포기한다(막힌 체인에 20분씩 헛돌지 않게).
+#   ⚠ 탐침은 대형 지점만 본다. 그 지점에 안 걸리고 소형관에만 먼저 걸린 날짜는 놓칠 수 있다(와이드 개봉작은 드묾).
+SEAT_DAYS = 14
+PROBE = {"CGV": ["0001", "0013", "0059", "0074"],          # 강변·용산·영등포·왕십리 (fetch_screens.PROBE_SITES)
+         "LC": ["월드타워", "건대입구", "김포공항", "수원"],   # 이름으로 ID 를 찾는다
+         "MB": ["1372", "1351"]}                             # 강남·코엑스
+
+
+def _cgv_rows(d):
+    rows, stack = [], [d.get("data")]
+    while stack:
+        o = stack.pop()
+        if isinstance(o, list):
+            stack.extend(o)
+        elif isinstance(o, dict):
+            if o.get("prodNm") and o.get("scnsNo"):
+                rows.append(o)
+            stack.extend(v for v in o.values() if isinstance(v, (list, dict)))
+    return rows
+
+
+def seat_plan(fs, dates, crt):
+    """{play: set(체인)} — 그 날짜에 대상 영화가 걸린 체인. 탐침이 통째로 실패한 체인은 가까운 7일만 편성으로 본다."""
+    base = {"channelType": "HO", "osType": "W", "osVersion": fs.UA, "memberOnNo": ""}
+    tp = fs.lc_call({"MethodName": "GetTicketingPage", **base})
+    cins = ((tp.get("Cinemas") or {}).get("Cinemas") or {}).get("Items") or []
+    lc_ids = []
+    for nm in PROBE["LC"]:
+        c = next((c for c in cins if nm in (c.get("CinemaNameKR") or "")), None)
+        if c:
+            lc_ids.append(f"{c['DivisionCode']}|{c['DetailDivisionCode']}|{c['CinemaID']}")
+    plan, today = {}, datetime.datetime.strptime(crt, "%Y%m%d").date()
+    cnt = {"CGV": len(PROBE["CGV"]), "LC": len(lc_ids), "MB": len(PROBE["MB"])}
+    dead, streak = set(), {"CGV": 0, "LC": 0, "MB": 0}   # 탐침이 이틀 연속 전부 실패하면 그 체인은 이번 회차 포기
+    mb_h = {"Content-Type": "application/json; charset=UTF-8", "X-Requested-With": "XMLHttpRequest",
+            "Referer": "https://www.megabox.co.kr/booking/timetable"}
+    for d in dates:
+        play, iso = d.strftime("%Y%m%d"), d.isoformat()
+        got, err = set(), {"CGV": 0, "LC": 0, "MB": 0}
+        for sn in ([] if "CGV" in dead else PROBE["CGV"]):
+            try:
+                r = fs.http_json(f"{fs.CGV}/api/v1/booking/searchMovScnInfo?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08", tries=1)
+                if any(film_of(x.get("prodNm")) for x in _cgv_rows(r)):
+                    got.add("CGV"); break
+            except Exception:
+                err["CGV"] += 1
+            nap(0.1)
+        for cid in ([] if "LC" in dead else lc_ids):
+            try:
+                s = fs.lc_call({"MethodName": "GetPlaySequence", **base, "playDate": iso, "cinemaID": cid, "representationMovieCode": ""})
+                if any(film_of(x.get("MovieNameKR")) for x in ((s.get("PlaySeqs") or {}).get("Items")) or []):
+                    got.add("LC"); break
+            except Exception:
+                err["LC"] += 1
+            nap(0.1)
+        for bn in ([] if "MB" in dead else PROBE["MB"]):
+            try:   # 탐침은 1회·20초 — mb_post(3회·40초)로 찌르면 막힌 날 탐침만 수십 분이 된다
+                body = json.dumps({"masterType": "brch", "brchNo": bn, "firstAt": "N", "brchNo1": bn,
+                                   "crtDe": crt, "playDe": play}).encode()
+                rows = (fs.http_json(fs.MB_URL, data=body, headers=mb_h, timeout=20, tries=1)
+                        .get("megaMap", {}).get("movieFormList")) or []
+                if any(film_of(x.get("rpstMovieNm")) for x in rows):
+                    got.add("MB"); break
+            except Exception:
+                err["MB"] += 1
+            nap(0.1)
+        near = (d - today).days <= 7
+        for ch, n in err.items():
+            if ch in dead or not cnt[ch]:
+                continue
+            if n >= cnt[ch]:                            # 전부 실패 = 편성 여부를 모름
+                streak[ch] += 1
+                if streak[ch] >= 2:
+                    dead.add(ch); print(f"  {ch} 탐침 이틀 연속 전부 실패 — 이번 회차 제외(차단 추정)")
+                elif near and ch not in got:
+                    got.add(ch)                         # 가까운 날짜는 편성된 것으로 보고 전수에서 한 번 더 확인
+            else:
+                streak[ch] = 0
+        for ch in dead:
+            got.discard(ch)
+        if got:
+            plan[play] = got
+    for p in plan:                                       # 뒤늦게 죽은 체인은 앞 날짜 계획에서도 뺀다
+        plan[p] -= dead
+    plan = {p: c for p, c in plan.items() if c}
+    return plan, cins, dead
+
+
+def seats(plan, cins, crt):
+    """plan = {play: set(체인)} → ({(title, play): {체인: 집계}}, 실패한 체인 집합)"""
+    import concurrent.futures as cf
     import fetch_screens as fs
 
     def acc():
         return {"sites": set(), "screens": set(), "shows": 0, "seatTot": 0, "seatSold": 0}
 
-    def add(a, site, screen, t, r):
+    def add(res, title, play, site, screen, t, r):
+        a = res.setdefault((title, play), acc())
         a["sites"].add(site); a["screens"].add((site, screen)); a["shows"] += 1
         a["seatTot"] += t; a["seatSold"] += max(0, t - r)
 
-    res = {}                                    # (title, play) -> chain -> acc
-    def bucket(title, play, chain):
-        return res.setdefault((title, play), {}).setdefault(chain, acc())
+    plays_of = lambda ch: [p for p in sorted(plan) if ch in plan[p]]
 
-    # CGV — 지점 하나가 그날 전 영화를 준다. 대상 영화를 거는 지점의 합집합만 훑는다.
-    try:
+    def run_cgv():
+        res, plays = {}, plays_of("CGV")
+        if not plays:
+            return res
         lst = fs.http_json(f"{fs.CGV}/api/v1/booking/searchAtktTopPostrList?coCd=A420&movNm=&div=&attrCd=")
         nos = [x["movNo"] for x in (lst.get("data") or []) if film_of(x.get("movNm"))]
         sites = set()
@@ -170,36 +269,26 @@ def seats(plays, crt):
             reg = fs.http_json(f"{fs.CGV}/api/v1/booking/searchRegnList?movNo={no}&coCd=A420")
             sites |= {s["siteNo"] for g in (reg.get("data") or []) for s in (g.get("siteList") or []) if s.get("siteNo")}
             nap(0.2)
-        print(f"  CGV 대상 {len(nos)}편 · 지점 {len(sites)}곳")
+        print(f"  CGV 대상 {len(nos)}편 · 지점 {len(sites)}곳 × 상영일 {len(plays)}")
         for play in plays:
             for sn in sorted(sites):
                 try:
                     d = fs.http_json(f"{fs.CGV}/api/v1/booking/searchMovScnInfo?coCd=A420&siteNo={sn}&scnYmd={play}&rtctlScopCd=08")
                 except Exception:
                     continue
-                stack = [d.get("data")]
-                while stack:
-                    o = stack.pop()
-                    if isinstance(o, list):
-                        stack.extend(o)
-                    elif isinstance(o, dict):
-                        if o.get("prodNm") and o.get("scnsNo"):
-                            t = film_of(o["prodNm"])
-                            if t:
-                                add(bucket(t, play, "CGV"), sn, o.get("scnsNo"),
-                                    int(o.get("stcnt") or 0), int(o.get("frSeatCnt") or 0))
-                        stack.extend(v for v in o.values() if isinstance(v, (list, dict)))
-                nap(0.15)
-        note_health("CGV", None)
-    except Exception as e:
-        print(f"  CGV 실패: {type(e).__name__} {str(e)[:80]}")
+                for o in _cgv_rows(d):
+                    t = film_of(o["prodNm"])
+                    if t:
+                        add(res, t, play, sn, o.get("scnsNo"), int(o.get("stcnt") or 0), int(o.get("frSeatCnt") or 0))
+                nap(0.12)
+        return res
 
-    # 롯데 — representationMovieCode 를 비우면 그 영화관의 전 영화가 온다.
-    try:
+    def run_lc():
+        res, plays = {}, plays_of("LC")
+        if not plays:
+            return res
         base = {"channelType": "HO", "osType": "W", "osVersion": fs.UA, "memberOnNo": ""}
-        d = fs.lc_call({"MethodName": "GetTicketingPage", **base})
-        cins = ((d.get("Cinemas") or {}).get("Cinemas") or {}).get("Items") or []
-        print(f"  롯데 영화관 {len(cins)}곳")
+        print(f"  롯데 영화관 {len(cins)}곳 × 상영일 {len(plays)}")
         for play in plays:
             iso = f"{play[:4]}-{play[4:6]}-{play[6:]}"
             for c in cins:
@@ -212,38 +301,112 @@ def seats(plays, crt):
                 for x in ((s.get("PlaySeqs") or {}).get("Items")) or []:
                     t = film_of(x.get("MovieNameKR"))
                     if t:   # BookingSeatCount 는 이름과 달리 '잔여'다(fetch_screens 검증 2)
-                        add(bucket(t, play, "LC"), cid, x.get("ScreenNameKR"),
+                        add(res, t, play, cid, x.get("ScreenNameKR"),
                             int(x.get("TotalSeatCount") or 0), int(x.get("BookingSeatCount") or 0))
-                nap(0.12)
-    except Exception as e:
-        print(f"  롯데 실패: {type(e).__name__} {str(e)[:80]}")
+                nap(0.1)
+        return res
 
-    # 메가 — 강남점 목록으로 영화번호를 얻고(날짜마다 걸린 영화가 달라 합집합) 영화 × 지역 8곳.
-    try:
+    def run_mb():
+        res, plays = {}, plays_of("MB")
+        if not plays:
+            return res
         nos = {}
-        for play in plays:
-            rows = (fs.mb_post({"masterType": "brch", "brchNo": "1372", "firstAt": "N", "brchNo1": "1372",
-                                "crtDe": crt, "playDe": play}).get("megaMap", {}).get("movieFormList")) or []
-            for x in rows:
-                t = film_of(x.get("rpstMovieNm"))
-                if t and x.get("rpstMovieNo"):
-                    nos[x["rpstMovieNo"]] = t
-        print(f"  메가 대상 {len(set(nos.values()))}편")
+        for play in plays:                       # 날짜마다 걸린 영화가 달라 합집합
+            for bn in PROBE["MB"]:
+                rows = (fs.mb_post({"masterType": "brch", "brchNo": bn, "firstAt": "N", "brchNo1": bn,
+                                    "crtDe": crt, "playDe": play}).get("megaMap", {}).get("movieFormList")) or []
+                for x in rows:
+                    t = film_of(x.get("rpstMovieNm"))
+                    if t and x.get("rpstMovieNo"):
+                        nos[x["rpstMovieNo"]] = t
+        print(f"  메가 대상 {len(set(nos.values()))}편 × 지역 8 × 상영일 {len(plays)}")
         for play in plays:
             for no, t in nos.items():
                 for cd in fs.MB_AREAS:
-                    dd = fs.mb_post({"masterType": "movie", "movieNo": no, "firstAt": "N", "movieNo1": no,
-                                     "areaCd": int(cd), "crtDe": crt, "playDe": play})
+                    try:
+                        dd = fs.mb_post({"masterType": "movie", "movieNo": no, "firstAt": "N", "movieNo1": no,
+                                         "areaCd": int(cd), "crtDe": crt, "playDe": play})
+                    except Exception:
+                        continue
                     for x in (dd.get("megaMap", {}).get("movieFormList")) or []:
-                        add(bucket(t, play, "MB"), x.get("brchNo"), x.get("theabNo"),
+                        add(res, t, play, x.get("brchNo"), x.get("theabNo"),
                             int(x.get("totSeatCnt") or 0), int(x.get("restSeatCnt") or 0))
-                    nap(0.25)
-    except Exception as e:
-        print(f"  메가 실패: {type(e).__name__} {str(e)[:80]}")
+                    nap(0.2)
+        return res
 
-    fin = lambda a: {"sites": len(a["sites"]), "screens": len(a["screens"]), "shows": a["shows"],
-                     "seatTot": a["seatTot"], "seatSold": a["seatSold"]}
-    return {k: {ch: fin(a) for ch, a in v.items()} for k, v in res.items()}
+    out, failed = {}, set()
+    with cf.ThreadPoolExecutor(3) as ex:
+        futs = {ex.submit(fn): ch for ch, fn in (("CGV", run_cgv), ("LC", run_lc), ("MB", run_mb))}
+        for f in cf.as_completed(futs):
+            ch = futs[f]
+            try:
+                for k, a in f.result().items():
+                    out.setdefault(k, {})[ch] = {"sites": len(a["sites"]), "screens": len(a["screens"]),
+                                                 "shows": a["shows"], "seatTot": a["seatTot"], "seatSold": a["seatSold"]}
+                note_health(ch, None)
+            except Exception as e:
+                failed.add(ch)
+                print(f"  {ch} 실패: {type(e).__name__} {str(e)[:80]}")
+    return out, failed
+
+
+def collect_seats(crt):
+    """탐침 → 전수. 결과는 JSON 으로 옮길 수 있는 꼴(캐시 파일·병합 공용)."""
+    import fetch_screens as fs
+    t0 = time.time()
+    today = datetime.datetime.strptime(crt, "%Y%m%d").date()
+    dates = [today + datetime.timedelta(days=i) for i in range(SEAT_DAYS + 1)]
+    plan, cins, dead = seat_plan(fs, dates, crt)
+    desc = ", ".join(p[4:6] + "/" + p[6:] + ":" + "".join(sorted(c)) for p, c in sorted(plan.items()))
+    print(f"  편성 탐침 · {desc}")
+    res, failed = seats(plan, cins, crt)
+    failed |= dead
+    print(f"  3사 전수 {time.time() - t0:.0f}초 · (영화×상영일) {len(res)}건" + (f" · 실패 {sorted(failed)}" if failed else ""))
+    return {"t": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
+            "plan": {p: sorted(c) for p, c in plan.items()}, "failed": sorted(failed),
+            "res": [{"title": t, "play": p, "by": by} for (t, p), by in sorted(res.items())]}
+
+
+SEAT_SNAPS = 30          # (영화, 상영일)마다 수집일 스냅샷 보관 수(하루 1점 기준 한 달)
+SEAT_PAST = 10           # 지난 상영일은 이만큼(일)까지 화면 블록에 둔다 — 그 뒤는 archive 에만
+
+
+def merge_seats(out, cache, today):
+    """캐시(collect_seats 결과)를 BOXOFFICE.seats 에 합친다.
+       · 수집일마다 1점 — 같은 날 여러 번 받으면 마지막 것으로 바꿔 낀다(일별 추적).
+       · 체인별 내역(by)은 지난 점에도 판매·총좌석·스크린만 남긴다 — 서버는 CGV 가 막혀(403) 날마다
+         잡히는 체인이 다를 수 있어, 화면이 '두 수집에 다 있는 체인'끼리만 비교하게 하려는 것이다.
+         (예전 fetch_screens 처럼 빠진 체인을 직전 값으로 이어받으면, 한국 IP 에서 받은 CGV 값이
+          서버 회차마다 끝없이 복사돼 굳은 숫자가 된다.)"""
+    stamp, failed = cache["t"], set(cache.get("failed") or [])
+    ser = out.setdefault("seats", {})
+    lines = []
+    slim = lambda by: {c: {k: v[k] for k in ("seatSold", "seatTot", "screens")} for c, v in (by or {}).items()}
+    for r in cache["res"]:
+        key = f"{r['title']}|{r['play']}"
+        by = dict(r["by"])
+        tot = {k: sum(v[k] for v in by.values()) for k in ("sites", "screens", "shows", "seatTot", "seatSold")}
+        pts = [{**{k: v for k, v in p.items() if k != "by"}, "by": slim(p.get("by"))}
+               for p in ser.get(key, []) if p.get("t", "")[:10] != stamp[:10]]
+        pts.append({"t": stamp, **tot, "by": by})
+        ser[key] = pts[-SEAT_SNAPS:]
+        lines.append({"t": stamp, "title": r["title"], "play": r["play"], **tot, "by": by})
+    cut = (today - datetime.timedelta(days=SEAT_PAST)).strftime("%Y%m%d")
+    for k in [k for k in ser if k.split("|")[1] < cut]:
+        del ser[k]
+    out["seatsAt"] = stamp
+    out["seatPlan"] = cache.get("plan") or {}
+    out["seatFailed"] = sorted(failed)
+    out.pop("plays", None)
+    # 영구 아카이브 — 화면 블록은 잘리지만 여기는 append 만 한다(다음 극장판의 기준선).
+    import os
+    os.makedirs("archive", exist_ok=True)
+    with open("archive/boxoffice_seats.jsonl", "a", encoding="utf-8") as f:
+        for ln in lines:
+            f.write(json.dumps(ln, ensure_ascii=False) + "\n")
+    for ln in sorted(lines, key=lambda x: (x["play"], -x["seatSold"])):
+        rate = ln["seatSold"] / ln["seatTot"] * 100 if ln["seatTot"] else 0
+        print(f"  [{ln['play']}] {ln['title'][:14]} · 스크린 {ln['screens']} · 판매 {ln['seatSold']:,}/{ln['seatTot']:,} ({rate:.1f}%)")
 
 
 # ── 기준선: 하츄핑2(SAMG) 개봉 전 예매·좌석 — archive/*.jsonl ────────
@@ -298,6 +461,21 @@ def main():
     if today.isoformat() > UNTIL:
         print(f"[극장가] 추적 기한({UNTIL}) 경과 — 수집 안 함"); return
     stamp = now.strftime("%Y-%m-%d %H:%M")
+    # 3사 전수는 20~30분 걸린다. 그 사이 원격이 움직이므로 PC 자동 실행(kr_boxoffice.py)은
+    #   ① --seats --cache=파일 로 받기만 하고  ② 원격 최신으로 맞춘 뒤 --merge=파일 로 끼워 넣는다(재주입 규칙).
+    seat_cache = None
+    cache_out = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--cache=")), None)
+    merge_in = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--merge=")), None)
+    if "--seats" in sys.argv:
+        seat_cache = collect_seats(today.strftime("%Y%m%d"))
+        if cache_out:
+            import os
+            os.makedirs(os.path.dirname(cache_out) or ".", exist_ok=True)
+            json.dump(seat_cache, open(cache_out, "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"[캐시] {cache_out} · (영화×상영일) {len(seat_cache['res'])}건"); return
+    elif merge_in:
+        seat_cache = json.load(open(merge_in, encoding="utf-8"))
+        print(f"[병합] {merge_in} · {seat_cache['t']} 수집분 {len(seat_cache['res'])}건")
     h = open(HTML, encoding="utf-8").read()
     old, _ = _block(h)
     out = json.loads(json.dumps(old)) if old else {}      # 깊은 복사 — 변동 비교를 위해 old 는 그대로 둔다
@@ -344,30 +522,9 @@ def main():
     print(f"  일별 {len(todo)}일 훑음({todo[0] if todo else '-'}~{todo[-1] if todo else '-'})")
     out["scanned"] = sorted(scanned)
 
-    # ③ 3사 좌석
-    if "--seats" in sys.argv:
-        plays = {today, today + datetime.timedelta(days=1)}
-        for f in FILMS:                                   # 개봉일과 그 주말 첫 토요일
-            od = datetime.date.fromisoformat(f["open"])
-            if od >= today:
-                plays.add(od)
-                plays.add(od + datetime.timedelta(days=(5 - od.weekday()) % 7))
-        plays = sorted(p.strftime("%Y%m%d") for p in plays)
-        print(f"  3사 좌석 · 상영일 {', '.join(plays)}")
-        res = seats(plays, today.strftime("%Y%m%d"))
-        ser = out.setdefault("seats", {})
-        for (t, play), by in res.items():
-            tot = {k: sum(v[k] for v in by.values()) for k in ("sites", "screens", "shows", "seatTot", "seatSold")}
-            key = f"{t}|{play}"
-            pts = [p for p in ser.get(key, []) if p.get("t") != stamp]
-            pts.append({"t": stamp, **tot, "by": by})
-            ser[key] = pts[-SEAT_KEEP:]
-            rate = tot["seatSold"] / tot["seatTot"] * 100 if tot["seatTot"] else 0
-            print(f"  [{play}] {t} · 스크린 {tot['screens']} · 회차 {tot['shows']} · "
-                  f"판매 {tot['seatSold']:,}/{tot['seatTot']:,} ({rate:.1f}%) · "
-                  + " ".join(f"{c} {v['screens']}관" for c, v in by.items()))
-        out["seatsAt"] = stamp
-        out["plays"] = plays
+    # ③ 3사 좌석 — 방금 받았거나(--seats) 캐시에서 읽은(--merge) 결과를 합친다
+    if seat_cache:
+        merge_seats(out, seat_cache, today)
 
     out["films"] = FILMS
     out["until"] = UNTIL

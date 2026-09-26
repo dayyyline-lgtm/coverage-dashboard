@@ -1,0 +1,135 @@
+name: 극장가 좌석 추적 (3사)
+
+# 영화 흥행 탭(BOXOFFICE)의 좌석 — 예매가 열린 상영일 전부를 하루 두 번 전수한다(2026-09-26).
+# 하츄핑 때 screens.yml 이 하던 일을 치이카와·흥행작 3편으로 옮긴 것이다(스크립트는 fetch_boxoffice.py).
+#
+# ⚠ 러너에서는 CGV 예매 API 가 403(Cloudflare · 2026-09-13~)이고 메가박스는 간헐 시간초과다
+#   (diag/net_probe.json 2026-09-26). 그래서 대개 **롯데(+메가) 기준**으로 쌓이고, CGV 가 풀리는 날엔
+#   저절로 3사가 된다. 화면은 '두 수집에 다 있는 체인'끼리만 비교하므로 체인이 들락날락해도 가짜 급증이 없다.
+#
+# 두 잡으로 나눈 이유 — 수집이 20~30분 걸린다(롯데 239관 × 열린 날짜 10여 일).
+#   그걸 repo-write 그룹 안에서 돌리면 그동안 시세 회차가 줄을 서고, 대기열이 밀리면 GitHub 이
+#   대기 중인 회차를 취소한다. 그래서 ① 수집은 그룹 밖에서 파일로만 받고
+#   ② 커밋 잡만 그룹 안에서 원격 최신 위에 끼워 넣는다(몇 초 · CLAUDE.md '합치지 말고 다시 주입').
+#
+# 언제 — 시세 워크플로(워커가 정시에 부른다)에 얹혀 평일 12·18시, 주말 12·20시.
+#   cron 은 워커가 죽은 날의 백업(KST 20:40 · 밀릴 것 전제). 둘이 겹쳐도 '3시간 안에 받았으면 건너뜀'.
+#   추적 기한(fetch_boxoffice.UNTIL · 11/15)이 지나면 수집기가 스스로 아무것도 안 한다.
+on:
+  workflow_run:
+    workflows: ["시세 자동 갱신"]
+    types: [completed]
+  schedule:
+    - cron: "40 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    outputs:
+      go: ${{ steps.pass.outputs.ok }}
+    steps:
+      - name: 지금 돌 시각인가
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" != "workflow_run" ]; then
+            echo "go=1" >> $GITHUB_OUTPUT; echo "cron/수동 - 진행"; exit 0
+          fi
+          h=$(TZ=Asia/Seoul date +%H); d=$(TZ=Asia/Seoul date +%u); go=0
+          if [ "$d" -le 5 ]; then case "$h" in 12|18) go=1 ;; esac
+          else case "$h" in 12|20) go=1 ;; esac; fi
+          echo "go=$go" >> $GITHUB_OUTPUT
+          [ "$go" = "1" ] && echo "KST ${h}시 - 좌석 슬롯" || echo "KST ${h}시 - 슬롯 아님"
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.go == '1'
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.go == '1'
+        with:
+          python-version: "3.11"
+
+      # 워커·cron 이 겹쳐 뜨는 날 같은 수집을 두 번 하지 않게 — 마지막 좌석 수집이 3시간 안이면 끝낸다.
+      - name: 중복 방지
+        id: dedup
+        if: steps.gate.outputs.go == '1'
+        run: |
+          python - <<'PY' >> $GITHUB_OUTPUT
+          import re, json, datetime
+          h = open("public/index.html", encoding="utf-8").read()
+          m = re.search(r"const BOXOFFICE = (\{.*?\});\n", h, re.S)
+          at = (json.loads(m.group(1)).get("seatsAt") if m else "") or ""
+          kst = datetime.timezone(datetime.timedelta(hours=9))
+          now = datetime.datetime.now(kst)
+          try:
+              t = datetime.datetime.strptime(at, "%Y-%m-%d %H:%M").replace(tzinfo=kst)
+              fresh = (now - t).total_seconds() < 3 * 3600
+          except ValueError:
+              fresh = False
+          print("go=" + ("0" if fresh and "${{ github.event_name }}" != "workflow_dispatch" else "1"))
+          PY
+          cat $GITHUB_OUTPUT | tail -1
+
+      - name: 3사 좌석 전수 (롯데·메가 · CGV 는 시도)
+        if: steps.gate.outputs.go == '1' && steps.dedup.outputs.go == '1'
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -u fetch_boxoffice.py --seats --cache=.cache/boxoffice_seats.json
+
+      - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.go == '1' && steps.dedup.outputs.go == '1'
+        with:
+          name: boxseats
+          path: .cache/boxoffice_seats.json
+          retention-days: 3
+          include-hidden-files: true
+
+      - name: 다음 잡에 넘길지
+        id: pass
+        if: always()
+        run: echo "ok=${{ steps.gate.outputs.go == '1' && steps.dedup.outputs.go == '1' }}" >> $GITHUB_OUTPUT
+
+  commit:
+    needs: collect
+    # 수집을 안 한 회차(슬롯 아님·중복)는 여기서 끝 — 아티팩트가 없다.
+    if: needs.collect.result == 'success' && needs.collect.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: repo-write
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        id: dl
+        continue-on-error: true
+        with:
+          name: boxseats
+          path: .cache
+      - name: 원격 최신 위에 끼워 넣고 push
+        if: steps.dl.outcome == 'success'
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for i in 1 2 3 4 5; do
+            git fetch origin main && git reset --hard origin/main
+            python runstep.py "극장가 좌석(3사)" fetch_boxoffice.py --merge=.cache/boxoffice_seats.json
+            git add public/index.html archive/boxoffice_seats.jsonl health.json 2>/dev/null || true
+            if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+            git commit -m "극장가 좌석(3사) $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            if git push; then exit 0; fi
+            echo "push 밀림 - 원격 최신 위에서 다시 끼움 $i"
+          done
+          exit 1

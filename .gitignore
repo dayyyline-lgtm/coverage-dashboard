@@ -29,3 +29,7 @@ morning_trigger.log
 shots/
 
 kr_collect.log
+
+# 극장가 3사 좌석 수집 캐시(kr_boxoffice.py) · 로그
+.cache/
+kr_boxoffice.log

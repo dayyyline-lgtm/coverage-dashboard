@@ -4303,7 +4303,7 @@ document.getElementById("movieRangeSeg").addEventListener("click",e=>{
    2026-09-26 되살림. 하츄핑1·2(SAMG · MOVIE 보관 기록)는 같은 애니메이션 극장판 비교선으로 켤 수 있다.
    ⚠ 하츄핑 일별은 KOBIS OpenAPI Top10 에 든 날만 있다(구멍 = Top10 밖). BOXOFFICE 는 웹 통계라 전 영화가 매일 있다.
    ⚠ 예매관객은 '남은 상영분' 스냅샷이라 하루 중에도 준다 — 시각이 다른 점끼리의 높낮이는 수요 변화가 아니다. */
-let boxMetric="cum", boxRange="early", boxOff=null;
+let boxMetric="cum", boxRange="early", boxOff=null, boxFill=null;
 function boxFilms(){
   const BO=(typeof BOXOFFICE!=="undefined")?BOXOFFICE:{};
   const pal=(typeof TREND!=="undefined"&&TREND.colors)||MOVIE_COLORS;
@@ -4436,31 +4436,66 @@ function renderBoxTab(){
       ${NS.map(n=>{const v=accAt(x,n); return `<td>${v!=null?fmt0(v):`<span style="color:var(--muted2)">—</span>`}</td>`;}).join("")}</tr>`).join("")
     +`</tbody></table></div><p class="note" style="margin-top:6px">하츄핑은 KOBIS Top10 에 든 날만 기록돼 있어 일부 일차가 비어 있습니다(수집 누락이 아니라 순위 밖).</p>`;
 
-  // ③ 3사 좌석 — 상영일별 최신 스냅샷. 판매 = 총좌석 − 잔여(온라인 예매분)
-  const S=BO.seats||{}, CH={CGV:"CGV",LC:"롯데",MB:"메가"};
+  // ③ 3사 좌석 — (영화, 상영일)마다 수집일별 1점(fetch_boxoffice.merge_seats). 판매 = 총좌석 − 잔여(온라인 예매분)
+  //    ⓐ 상영일 × 영화 최신 판매석  ⓑ 영화 하나를 골라 상영일 × 수집일 채움 추이(예전 하츄핑 추적과 같은 그림)
+  const S=BO.seats||{}, CH={CGV:"CGV",LC:"롯데",MB:"메가"}, PLAN=BO.seatPlan||{};
+  const live=FL.filter(x=>!x.ref);
   const plays=[...new Set(Object.keys(S).map(k=>k.split("|")[1]))].sort();
+  const todayC=TODAY.replace(/-/g,"");
+  const dw=p=>WK[new Date(+p.slice(0,4),+p.slice(4,6)-1,+p.slice(6,8)).getDay()];
+  const chainTxt=p=>{ const c=PLAN[p]; if(!c) return p<todayC?"상영 끝":"";
+    return c.length===3?"3사":c.map(x=>CH[x]).join("·")+"만 오픈"; };
   let h="";
+  // 비교는 '두 수집에 다 있는 체인'끼리만 — 서버는 CGV 가 막혀(403) 날마다 잡히는 체인이 다를 수 있다.
+  //   3사로 받은 날과 롯데·메가만 받은 날을 그냥 빼면 CGV 몫만큼 가짜 급감이 된다.
+  const ORD=["CGV","LC","MB"], chs=q=>ORD.filter(c=>(q&&q.by||{})[c]);
+  const common=qs=>ORD.filter(c=>qs.every(q=>q&&(q.by||{})[c]));
+  const sumBy=(q,cs)=>cs.reduce((a,c)=>{ const y=q.by[c]; return {sold:a.sold+y.seatSold, tot:a.tot+y.seatTot, scr:a.scr+y.screens}; },{sold:0,tot:0,scr:0});
+  const chLab=cs=>cs.length===3?"3사":cs.map(c=>CH[c]).join("·");
   if(plays.length){
-    h=`<div class="sub-h">3사 좌석 판매 <span class="th-sub">CGV·롯데·메가박스 예매 API · 상영일별 · ${fmtUpd(BO.seatsAt)||""} 기준</span></div>
-      <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">상영일</th><th class="l">영화</th>
-      <th>스크린</th><th>회차</th><th>판매 좌석</th><th>총좌석</th><th>판매율</th><th>직전 대비</th><th class="l">체인별 스크린</th></tr></thead><tbody>`;
-    plays.forEach(p=>{
-      const dw=WK[new Date(+p.slice(0,4),+p.slice(4,6)-1,+p.slice(6,8)).getDay()];
-      const tags=FL.filter(x=>!x.ref&&x.open.replace(/-/g,"")===p).map(x=>`${x.short} 개봉일`);
-      const list=FL.filter(x=>!x.ref).map(x=>[x,S[`${x.key}|${p}`]]).filter(y=>y[1]&&y[1].length)
-        .sort((a,b)=>b[1][b[1].length-1].seatSold-a[1][a[1].length-1].seatSold);
-      list.forEach(([x,pts],i)=>{
-        const v=pts[pts.length-1], pv=pts.length>1?pts[pts.length-2]:null;
-        const rate=v.seatTot?v.seatSold/v.seatTot*100:null;
-        const by=Object.entries(v.by||{}).map(([c,y])=>`${CH[c]||c} ${fmt0(y.screens)}`).join(" · ");
-        h+=`<tr${star(x)?' class="box-star"':""}>${i===0?`<td class="l" rowspan="${list.length}">${md(p)}(${dw})<span class="th-sub">${tags.join(" · ")}</span></td>`:""}
-          <td class="l"><span class="box-dot" style="background:${x.color}"></span>${x.short}</td><td>${fmt0(v.screens)}</td><td>${fmt0(v.shows)}</td>
-          <td><b>${fmt0(v.seatSold)}</b></td><td>${fmt0(v.seatTot)}</td><td>${rate==null?"—":fmt(rate,1)+"%"}</td>
-          <td>${pv?`<span class="${cls(v.seatSold-pv.seatSold)}">${sign(v.seatSold-pv.seatSold,0)}석</span><span class="th-sub">${fmtUpd(pv.t)} 대비</span>`:`<span style="color:var(--muted2)">첫 수집</span>`}</td>
-          <td class="l">${by}</td></tr>`;
-      });
-    });
-    h+=`</tbody></table></div>`;
+    const cell=(x,p)=>{ const pts=S[`${x.key}|${p}`]; if(!pts||!pts.length) return `<td><span style="color:var(--muted2)">—</span></td>`;
+      const v=pts[pts.length-1], pv=pts.length>1?pts[pts.length-2]:null, rate=v.seatTot?v.seatSold/v.seatTot*100:null;
+      const cb=pv?common([v,pv]):[], dv=cb.length?sumBy(v,cb).sold-sumBy(pv,cb).sold:null;
+      const vc=chs(v);
+      return `<td title="${Object.entries(v.by||{}).map(([c,y])=>`${CH[c]||c} ${fmt0(y.seatSold)}석/${fmt0(y.screens)}스크린`).join(" · ")}">
+        <b>${fmt0(v.seatSold)}</b><span class="th-sub">${rate==null?"":fmt(rate,0)+"% · "}${fmt0(v.screens)}스크린${vc.length&&vc.length<3?" · "+chLab(vc):""}</span>
+        ${dv!=null?`<span class="th-sub ${cls(dv)}">${sign(dv,0)} (${pv.t.slice(5,10).replace("-","/")} 대비${cb.length<3?" · "+chLab(cb)+" 기준":""})</span>`:""}</td>`; };
+    h=`<div class="sub-h">3사 좌석 판매 — 상영일별 <span class="th-sub">CGV·롯데·메가박스 예매 API · 열린 날짜 전부 · ${fmtUpd(BO.seatsAt)||""} 수집</span></div>
+      <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">상영일</th>
+      ${live.map(x=>`<th${star(x)?' class="box-star"':""}><span class="box-dot" style="background:${x.color}"></span>${x.short}</th>`).join("")}</tr></thead><tbody>`
+      +plays.map(p=>{ const tags=live.filter(x=>x.open.replace(/-/g,"")===p).map(x=>`${x.short} 개봉`);
+        return `<tr${p<todayC?' style="opacity:.6"':""}><td class="l">${md(p)}(${dw(p)})${p===todayC?" · 오늘":""}
+          <span class="th-sub">${[...tags,chainTxt(p)].filter(Boolean).join(" · ")}</span></td>${live.map(x=>cell(x,p)).join("")}</tr>`; }).join("")
+      +`</tbody></table></div>
+      <p class="note" style="margin-top:6px">칸 = 판매 좌석(굵게) · 판매율 · 스크린 · 직전 수집일 대비 증감. 칸에 마우스를 올리면 체인별 내역.
+        '롯데만 오픈'처럼 일부 체인만 예매를 연 날짜는 합계가 작게 잡힙니다(편성이 준 게 아니라 아직 안 연 것). 흐린 줄은 이미 지난 상영일의 마지막 수집값입니다.
+        증감은 두 수집에 모두 잡힌 체인끼리만 계산합니다(서버에선 CGV가 막혀 있어 대개 롯데·메가 기준).
+        ${(BO.seatFailed||[]).length?`이번 수집에서 빠진 체인: ${BO.seatFailed.map(c=>CH[c]).join("·")}.`:""}</p>`;
+
+    // ⓑ 채움 추이 — 영화 하나 × (상영일 행 · 수집일 열)
+    if(!live.some(x=>x.key===boxFill)) boxFill=(live.find(star)||live[0]).key;
+    const fx=live.find(x=>x.key===boxFill);
+    const keys=plays.filter(p=>p>=todayC && S[`${fx.key}|${p}`]);
+    const cdays=[...new Set(keys.flatMap(p=>S[`${fx.key}|${p}`].map(q=>q.t.slice(0,10))))].sort().slice(-7);
+    h+=`<div class="sub-h">예매 채움 추이 — 수집일별 <span class="th-sub">같은 상영일의 판매 좌석이 날마다 얼마나 찼나</span></div>
+      <div class="seg" id="boxFillSeg">${live.map(x=>`<button data-k="${x.key}" class="${x.key===boxFill?"active":""}"><span class="box-dot" style="background:${x.color}"></span>${x.short}</button>`).join("")}</div>`;
+    if(!keys.length) h+=`<p class="note">${fx.short}: 앞으로의 상영일에 잡힌 좌석이 없습니다.</p>`;
+    else {
+      h+=`<div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">상영일</th>
+        ${cdays.map(c=>`<th>${+c.slice(5,7)}/${+c.slice(8,10)} 수집</th>`).join("")}<th>하루 증가<span class="th-sub">최근 두 수집</span></th></tr></thead><tbody>`
+        +keys.map(p=>{ const pts=S[`${fx.key}|${p}`], by={}; pts.forEach(q=>{ by[q.t.slice(0,10)]=q; });
+          const vals=cdays.map(c=>by[c]||null), got=vals.filter(Boolean);
+          // 한 줄 안에서는 같은 체인 묶음으로 — 그 줄의 모든 수집에 있는 체인. 없으면(겹침 0) 각자 합계를 그대로.
+          const cb=common(got), use=q=>cb.length?sumBy(q,cb):{sold:q.seatSold,tot:q.seatTot,scr:q.screens};
+          const a=got[got.length-1], b=got[got.length-2];
+          return `<tr><td class="l">${md(p)}(${dw(p)})<span class="th-sub">${got.length>1?(cb.length?chLab(cb)+" 기준":"체인 겹침 없음"):chLab(chs(got[0]))}</span></td>
+            ${vals.map(q=>{ if(!q) return `<td><span style="color:var(--muted2)">—</span></td>`; const u=use(q);
+              return `<td>${fmt0(u.sold)}<span class="th-sub">${u.tot?fmt(u.sold/u.tot*100,0)+"%":""} · ${fmt0(u.scr)}스크린</span></td>`; }).join("")}
+            <td>${a&&b&&cb.length?`<b class="${cls(use(a).sold-use(b).sold)}">${sign(use(a).sold-use(b).sold,0)}</b>`:"—"}</td></tr>`; }).join("")
+        +`</tbody></table></div>`;
+    }
+    h+=`<p class="note" style="margin-top:6px">수집은 하루 1점(같은 날 여러 번 받으면 마지막 값) — 이 PC(한국 IP)에서 돕니다. 러너에선 CGV·메가박스가 막혀 있어서입니다.
+      개봉일·첫 주말 줄이 날마다 얼마나 차오르는지가 개봉 전 가장 직접적인 수요 신호입니다.</p>`;
   }
   // ④ 하츄핑2 기준선 — 같은 '개봉 N일 전'끼리. 같은 애니메이션 극장판이라 유일한 실측 잣대다.
   //    예매관객은 하루 중에도 줄어드므로 날마다 15시에 가장 가까운 스냅샷끼리 잇는다(치이카와 첫 수집이 15시).
@@ -4497,7 +4532,10 @@ function renderBoxTab(){
     if(bits.length) h+=`<p class="note">${me.short}: ${bits.join(" · ")}.${a0?` 참고로 하츄핑2의 개봉일 실제 관객은 ${fmt0(a0.audi)}명이었습니다.`:""}
       두 영화는 관객층이 다르므로(하츄핑은 유아 동반 가족 중심) 배수를 그대로 관객 예측으로 옮기지는 마세요.</p>`;
   }
-  document.getElementById("boxSeats").innerHTML=h;
+  const seatsEl=document.getElementById("boxSeats");
+  seatsEl.innerHTML=h;
+  if(!seatsEl.dataset.bound){ seatsEl.dataset.bound="1";
+    seatsEl.addEventListener("click",e=>{ const b=e.target.closest("#boxFillSeg button"); if(!b) return; boxFill=b.dataset.k; renderBoxTab(); }); }
   document.getElementById("boxNote").innerHTML=`예매관객·예매율은 KOBIS <b>실시간(남은 상영분)</b>이라 하루 중에도 줄어듭니다 — 시각이 다른 값끼리 견주지 마세요.
     관객·스크린은 전일 확정치이고, 개봉 전 날짜의 관객은 유료 시사입니다. 3사 좌석은 온라인 예매분만(현장 판매 제외)이며,
     하츄핑 때 3사 합이 KOBIS 전국 예매의 약 89%였습니다. 9/24~26은 추석 연휴입니다.
