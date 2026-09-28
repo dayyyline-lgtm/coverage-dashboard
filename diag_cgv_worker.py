@@ -148,3 +148,55 @@ def probe() -> dict:
 
 if __name__ == "__main__":
     print(json.dumps(probe(), ensure_ascii=False, indent=1))
+
+
+# ── 중계 워커(cloudflare-worker/cgv-relay.js) 배포 전 시험 — 러너에서 OIDC 토큰으로 끝까지 (2026-09-28) ──
+def _raw(origin, token, path, extra=None, timeout=60, tries=4):
+    """preview 에 raw-http 로 한 번 — (상태, 본문 앞부분, 데이터 수)."""
+    last = None
+    for i in range(tries):
+        h = {"X-CF-Token": token, "cf-raw-http": "true", "X-CF-HTTP-Method": "GET", "User-Agent": BROWSER_UA,
+             "Origin": "https://workers.cloudflare.com", **(extra or {})}
+        req = urllib.request.Request(origin + path, data=b"", method="POST", headers=h)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                raw, hdr = r.read(), dict(r.headers)
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code} {e.read()[:120]!r}"; time.sleep(2 * (i + 1)); continue
+        except (urllib.error.URLError, TimeoutError) as e:
+            last = f"{type(e).__name__}: {e}"; time.sleep(2 * (i + 1)); continue
+        st = int(hdr.get("cf-ew-status") or hdr.get("cf-ew-raw-status") or 0)   # 실제 상태는 cf-ew-status 에 온다
+        n = None
+        try:
+            d = json.loads(raw.decode("utf-8")).get("data"); n = len(d) if isinstance(d, list) else None
+        except Exception:
+            pass
+        return {"status": st, "dataLen": n, "head": raw[:80].decode("utf-8", "replace"),
+                "colo": hdr.get("cf-ew-raw-x-relay-colo")}
+    return {"err": last}
+
+
+def _oidc(aud):
+    import os
+    u, t = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL"), os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+    if not (u and t):
+        return None
+    req = urllib.request.Request(u + "&audience=" + aud, headers={"Authorization": "bearer " + t})
+    return json.loads(urllib.request.urlopen(req, timeout=20).read())["value"]
+
+
+def relay_test() -> dict:
+    import os
+    code = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloudflare-worker", "cgv-relay.js"),
+                encoding="utf-8").read()
+    origin, token, _ = create_preview(worker_js=code)
+    lst = "/api/v1/booking/searchAtktTopPostrList?coCd=A420&movNm=&div=&attrCd="
+    good, bad = _oidc("cgv-relay"), _oidc("someone-else")
+    out = {"oidc": bool(good),
+           "no_token": _raw(origin, token, lst),
+           "bad_path": _raw(origin, token, "/api/v1/member/info", {"X-Relay-Token": good or "x"})}
+    if good:
+        out["good_bearer"] = _raw(origin, token, lst, {"Authorization": "Bearer " + good})
+        out["good_xhdr"] = _raw(origin, token, lst, {"X-Relay-Token": good})
+        out["wrong_aud"] = _raw(origin, token, lst, {"X-Relay-Token": bad})
+    return out

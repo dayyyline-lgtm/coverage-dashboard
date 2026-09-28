@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 permissions:
   contents: write
+  id-token: write      # CGV 중계 워커 시험 — 러너 OIDC 토큰(aud=cgv-relay)으로 인증을 끝까지 확인한다
 jobs:
   probe:
     runs-on: ubuntu-latest
