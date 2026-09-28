@@ -172,6 +172,8 @@ def booking():
 #   한국에 개봉한 일본 애니 극장판 + 하츄핑. 과거 기록이라 한 번 받으면 안 바뀐다 → `--comps` 로 손으로만 돈다.
 #   ⚠ 통계 페이지에는 '박스오피스'와 '점유율' 두 표에 똑같이 '개봉N일' 행이 있다 — 첫 표만 읽을 것(점유율 표를 섞으면 관객수 칸이 %다).
 #   ⚠ 제목 검색은 재개봉판 코드가 먼저 나온다(스즈메 20236557 = 재개봉) — 그래서 코드를 박아 둔다.
+#   preSales(개봉이전 매출액)는 객단가 보정용(2026-09-28) — 개봉 전 유료 시사는 주말·팬 수요라 비싸서, 화면이
+#     비교작의 '개봉 후 객단가 ÷ 개봉 전 객단가'(첫 실측 중앙값 0.83)를 치이카와 시사 객단가에 곱해 개봉 후를 추정한다.
 COMPS = [  # (짧은 이름, KOBIS 코드, 성격, 개봉 연도)  성격 = 시리즈(원작·전편 팬덤) / 첫 극장판(원작 첫 영화화·오리지널)
     ("스즈메의 문단속", "20226270", "첫 극장판", "2023"), ("더 퍼스트 슬램덩크", "20228555", "첫 극장판", "2023"),
     ("너의 이름은.", "20161872", "첫 극장판", "2017"), ("그대들은 어떻게 살 것인가", "20234664", "첫 극장판", "2023"),
@@ -193,15 +195,16 @@ def kobis_movie_stats(code, op):
     a = s.find('<caption class="blind">박스오피스</caption>')
     tbl = s[a:s.find("</table>", a)] if a >= 0 else ""
     num = lambda x: int(re.sub(r"[^\d]", "", x) or 0)
-    pre, days, opened = 0, [], None
+    pre, pre_sales, days, opened = 0, 0, [], None
+    # 칸: 스크린·상영횟수·매출액·관객수·누적매출액·누적관객수·순위
     for lab, n, md, rest in re.findall(r"<td>\s*(개봉이전|개봉(\d+)일\((\d\d/\d\d)\))\s*</td>((?:\s*<td[^>]*>[^<]*</td>){7})", tbl):
         c = [x.strip() for x in re.findall(r"<td[^>]*>([^<]*)</td>", rest)]
         if lab == "개봉이전":
-            pre = num(c[3]); continue
+            pre, pre_sales = num(c[3]), num(c[2]); continue
         days.append({"n": int(n), "audi": num(c[3]), "acc": num(c[5])})
         opened = opened or md
     t = re.search(r"전국\s*</td>\s*<td[^>]*>[\d,]+</td>\s*<td[^>]*>([\d,]+) \(100%\)</td>\s*<td[^>]*>([\d,]+) \(100%\)", s)
-    return {"pre": pre, "days": days, "final": num(t.group(2)) if t else (days[-1]["acc"] if days else 0),
+    return {"pre": pre, "preSales": pre_sales, "days": days, "final": num(t.group(2)) if t else (days[-1]["acc"] if days else 0),
             "finalSales": num(t.group(1)) if t else None, "md": opened}
 
 

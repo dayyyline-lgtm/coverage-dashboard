@@ -4380,14 +4380,15 @@ function boxLine(el, series, o){
   const pts=series.flatMap(s=>s.pts);
   if(!pts.length){ el.innerHTML=`<p class="note" style="padding:40px 0;text-align:center">${o.empty||"아직 값이 없습니다"}</p>`; return; }
   const x0=o.x0!=null?o.x0:Math.min(...pts.map(p=>p.x)), x1=o.x1!=null?o.x1:Math.max(...pts.map(p=>p.x));
-  const vis=pts.filter(p=>p.x>=x0&&p.x<=x1), ymax=(Math.max(...vis.map(p=>p.y),0)||1)*1.08;
-  const sx=x=>P.l+(x-x0)/Math.max(1e-9,x1-x0)*(W-P.l-P.r), sy=y=>H-P.b-y/ymax*(H-P.t-P.b);
+  const vis=pts.filter(p=>p.x>=x0&&p.x<=x1), vy=vis.map(p=>p.y), ymax=(Math.max(...vy,0)||1)*(o.fit?1.03:1.08);
+  const y0=(o.fit&&vy.length)?Math.max(0,Math.min(...vy)-(ymax-Math.min(...vy))*0.15):0;   // fit = 세로축을 0 이 아니라 값 범위에 맞춘다(객단가)
+  const sx=x=>P.l+(x-x0)/Math.max(1e-9,x1-x0)*(W-P.l-P.r), sy=y=>H-P.b-(y-y0)/Math.max(1e-9,ymax-y0)*(H-P.t-P.b);
   const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k);
   const gc=css("--line"), mut=css("--muted");
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
-  const mag=Math.pow(10,Math.floor(Math.log10(ymax)));
-  const step=[0.1,0.2,0.25,0.5,1,2,2.5,5].map(v=>v*mag).find(v=>ymax/v<=5)||mag;
-  for(let v=0; v<=ymax; v+=step){ const y=sy(v);
+  const rng=ymax-y0, mag=Math.pow(10,Math.floor(Math.log10(rng)));
+  const step=[0.1,0.2,0.25,0.5,1,2,2.5,5].map(v=>v*mag).find(v=>rng/v<=5)||mag;
+  for(let v=Math.ceil(y0/step)*step; v<=ymax; v+=step){ const y=sy(v);
     s+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="${gc}"/>`
       +`<text x="${P.l-6}" y="${y+3}" text-anchor="end" font-size="10" fill="${mut}">${o.yFmt(v)}</text>`; }
   const span=x1-x0, xs=[1,2,3,7,14,28,56].find(v=>span/v<=12)||Math.ceil(span/12);
@@ -4429,6 +4430,14 @@ function drawBoxChart(){
       {x0:early?xi(last)-34:null, x1:xi(last), xFmt:x=>{const d=new Date(2026,7,1+x); return `${d.getMonth()+1}/${d.getDate()}`;},
        yFmt:v=>Math.round(v)+"%", tip:v=>v.toFixed(1)+"%"});
     note.innerHTML=`그날 전 영화 관객 합(KOBIS 웹 통계 · 순위 밖 영화 포함) 대비 비중. 시장 총량이 명절·주말에 크게 달라 '관객 수'보다 경쟁 구도가 잘 보입니다. 하츄핑1(2024)은 시장 총량 자료가 없어 빠집니다.`;
+  } else if(boxMetric==="atp"){
+    // 일별 객단가 = 매출액 ÷ 관객수. 관객 1천 명 미만인 날(소규모 시사·행사)은 단가가 튀어 뺀다
+    boxLine(el, ser(x=>x.days.filter(p=>p.sales&&p.audi>=1000).map(p=>({x:boxD(p.d,x.open), y:p.sales/p.audi,
+        lab:`${dfmt(boxD(p.d,x.open))}(${+p.d.slice(4,6)}/${+p.d.slice(6,8)}) · ${fmt0(p.audi)}명`}))),
+      {x0:-14, x1:early?14:null, zero:true, fit:true, xFmt:dfmt, yFmt:v=>fmt0(v), tip:v=>fmt0(v)+"원"});
+    note.innerHTML=`일별 객단가 = KOBIS 매출액 ÷ 관객수. 개봉선 왼쪽 점은 유료 시사 — 주말·팬 수요라 할인이 적어 일반 상영보다 비쌉니다.
+      관객 1천 명 미만인 날(소규모 시사·행사)은 단가가 튀어 뺐습니다. 특별관(아이맥스 등) 비중이 큰 영화는 높고,
+      그달 마지막 수요일(문화가 있는 날)엔 내려갑니다. 흥행 모델의 객단가 표와 같은 자료입니다.`;
   } else {
     boxLine(el, ser(x=>x.book.map(p=>{const t=new Date(p.t.replace(" ","T")+":00"); const dx=(t-new Date(x.open+"T00:00:00"))/864e5;
         return {x:Math.round(dx*100)/100, y:p.book, lab:`${p.t.slice(5)} (${p.rank||"—"}위 · ${fmt(p.rate,1)}%)`};})),
@@ -4468,8 +4477,15 @@ function drawBoxChart(){
       · P&A 는 개봉 전 9월에 pa3(기본 70%)를 쓴다 → 시나리오 표의 3Q26·4Q26 칸에 분기 영업이익을 따로 적는다
         (3Q OP = 3Q 매출 − 판권료 − P&A×pa3, 4Q OP = 나머지 − P&A×(1−pa3)). 3Q 가 약해 보여도 광고비 선반영 효과다.
       · '초기 데이터 판정표' — 개봉 1·3·6·7·10일차 누적이 보수·기준·낙관(+판정 목표) 경로에 필요한 값과 실제 값을 나란히.
-        배수 = 비교작 '최종 ÷ N일 누적' 중앙값(①의 use 규칙 그대로). 판정 시점 = 개천절(10/3~5)·한글날(10/9~11) 연휴 누적. */
-const BOX_ASM0={atp:0, split:52, fee:10, roy:40, pa:15, pa3:70, tgt:0};  // atp 0 = KOBIS 실측 객단가 자동 · pa3 = P&A 중 개봉 전(9월) 집행 % · tgt = 판정 목표(만 명, 0 = 안 씀)
+        배수 = 비교작 '최종 ÷ N일 누적' 중앙값(①의 use 규칙 그대로). 판정 시점 = 개천절(10/3~5)·한글날(10/9~11) 연휴 누적.
+   ⑤ 객단가 = KOBIS 발권 매출액 ÷ 관객수(2026-09-28 · 사용자 "KOBIS 통계로 객단가 알 수 있다 — 모델링에 활용").
+      일별 매출은 이미 BOXOFFICE.daily 에 있다(치이카와 개봉 전 6일 합 405,199,960원 ÷ 30,725명 = 13,188원 · KOBIS 통계 페이지와 일치).
+      ⚠ 개봉 전 유료 시사는 주말·팬 수요라 할인이 적어 비싸다 — 그대로 쓰면 과대(같은 시기 암살자·타짜 개봉 후 약 1만 원).
+        그래서 개봉 전엔 시사 객단가 × 비교작의 '개봉 후 ÷ 개봉 전' 객단가 중앙값(개봉 전 3천 명 이상 16편 · 첫 실측 0.83배,
+        comps.preSales)으로 개봉 후를 추정하고, 개봉 후엔 치이카와 자신의 개봉 후 누적 실측으로 바꾼다.
+      극장 매출 = 지금까지 KOBIS 실제 매출 + 남은 관객 × 객단가(boxOf). 이미 팔린 표에 가정 단가를 곱하지 않는다.
+      ⚠ 개봉일 9/30 은 9월 마지막 수요일(문화가 있는 날)이라 첫날 실측이 낮게 나올 수 있다(8/26 오디세이 −6%). */
+const BOX_ASM0={atp:0, split:52, fee:10, roy:40, pa:15, pa3:70, tgt:0};  // atp 0 = KOBIS 객단가 자동(⑤) · pa3 = P&A 중 개봉 전(9월) 집행 % · tgt = 판정 목표(만 명, 0 = 안 씀)
 let boxAsm=null, boxCmpAll=false;
 function boxAsmGet(){ if(boxAsm) return boxAsm; let s={};
   try{ s=JSON.parse(localStorage.getItem("boxAsm")||"{}")||{}; }catch(e){}
@@ -4529,14 +4545,30 @@ function renderBoxModel(BO, FL, star){
   const accNow=N?post[N-1].acc:preAcc;
   ["lo","mid","hi"].forEach(k=>{ if(sc[k]!=null) sc[k]=Math.max(sc[k],accNow); });
 
+  // ── 객단가(⑤) — KOBIS 발권 매출액 ÷ 관객수 ──
+  const sum=(a,k)=>a.reduce((s,p)=>s+(p[k]||0),0);
+  const preDays=me.days.filter(p=>p.d<ok), preAud=sum(preDays,"audi"), preSales=sum(preDays,"sales");
+  const atpPre=(preAud>=1000&&preSales)?preSales/preAud:null;
+  //   비교작 '개봉 후 ÷ 개봉 전' — 개봉 전 3천 명 이상만(수백 명짜리 시사는 단가가 튄다)
+  const atpR=C.filter(c=>c.preSales&&c.pre>=3000&&c.finalSales&&c.final>c.pre)
+    .map(c=>{ const a0=c.preSales/c.pre, a1=(c.finalSales-c.preSales)/(c.final-c.pre); return {c, a0, a1, r:a1/a0}; });
+  const rs=atpR.map(x=>x.r), rMid=qtl(rs,.5), rLo=qtl(rs,.25), rHi=qtl(rs,.75);
+  const atpEst=(atpPre&&atpR.length>=5)?Math.round(atpPre*rMid/10)*10:null;
+  const atpAct=N?sum(post,"sales")/Math.max(1,sum(post,"audi")):null;
+  const atp=A.atp>0?A.atp:(atpAct||atpEst||10500);
+  const atpSrc=A.atp>0?"입력":atpAct?"실측":atpEst?"시사 보정":"가정";
+  const won=v=>v==null?"—":fmt0(v)+"원", eok=v=>fmt(v/1e8,v>=1e10?0:v>=1e9?1:2)+"억";
+  //   극장 매출(원) = 지금까지 KOBIS 실제 매출 + 남은 관객 × 객단가. 지금 누적보다 작은 격자 칸은 실제 평균 단가로.
+  const kAud=sum(me.days,"audi"), kSales=sum(me.days,"sales"), kAtp=kAud?kSales/kAud:atp;
+  const boxOf=aud=>aud<=kAud?aud*kAtp:kSales+(aud-kAud)*atp;
+
   // ── 대원미디어 브리지 ──
-  const atpAct=N?post.reduce((s,p)=>s+(p.sales||0),0)/Math.max(1,post.reduce((s,p)=>s+p.audi,0)):null;
-  const atp=A.atp>0?A.atp:(atpAct||10500);
   const L=((LIVE.stocks||{})["대원미디어"])||{}, ys=(((L.cons||{}).year||{}).series)||[];
   const yRef=ys.filter(p=>p.op!=null).slice(-1)[0];
   const opRef=yRef?yRef.op*10:null;                                  // 십억원 → 억원
-  const pl=(aud,royPct=A.roy)=>{ const box=aud*atp/1e8, rev=box/1.1*A.split/100*(1-A.fee/100), roy=rev*royPct/100, op=rev-roy-A.pa;
+  const plB=(won,royPct=A.roy)=>{ const box=won/1e8, rev=box/1.1*A.split/100*(1-A.fee/100), roy=rev*royPct/100, op=rev-roy-A.pa;
     return {box, rev, roy, op}; };
+  const pl=(aud,royPct=A.roy)=>plB(boxOf(aud),royPct);
   const q3=(N?post.filter(p=>p.d<="20260930").slice(-1).map(p=>p.acc)[0]:null) ?? (preAcc+(d1||0));
 
   // ── 예매 → 관객 ──
@@ -4558,7 +4590,7 @@ function renderBoxModel(BO, FL, star){
       ${kp(N?"개봉일 관객 <span class='th-sub'>확정</span>":"개봉일 관객 <span class='th-sub'>추정</span>",
           d1Use!=null?man(d1Use)+"<small>명</small>":"—", N?`${md(post[0].d)} KOBIS`:(d1Lo!=null?`범위 ${man(d1Lo)}~${man(d1Hi)}`:""))}
       ${kp("대원 영화 매출 <span class='th-sub'>기준 · 수입사 정산</span>", sc.mid!=null?fmt0(P.rev)+"<small>억</small>":"—",
-          `극장 매출 ${fmt0(P.box)}억 · 객단가 ${fmt0(atp)}원${A.atp>0?"(입력)":atpAct?"(실측)":"(가정)"}`)}
+          `극장 매출 ${fmt0(P.box)}억 · 객단가 ${fmt0(atp)}원(${atpSrc})`)}
       ${kp("기여 영업이익 <span class='th-sub'>기준 · 가정</span>", sc.mid!=null?fmt0(P.op)+"<small>억</small>":"—",
           `판권료 ${A.roy}% · P&A ${A.pa}억${pctOp(P.op)}`, cls(P.op))}
     </div>`;
@@ -4585,15 +4617,20 @@ function renderBoxModel(BO, FL, star){
       ? `<br><span style="color:var(--muted)">상방 참고 — <b>입소문형</b>(${boomRows.slice().sort((a,b)=>a.m-b.m).map(sn).join("·")}, ${Math.min(...boomRows.map(r=>r.m)).toFixed(0)}~${Math.max(...boomRows.map(r=>r.m)).toFixed(0)}배)을 타면
          ${man(boomSc.lo)}~${man(boomSc.hi)}. 캐릭터 영화라 기본에선 뺐고, 개천절 연휴(6일차) 누적이 판정표의 낙관 경로를 넘으면 그때 의심할 것.</span>`
       : (!decay&&!simUsed?`<br><span style="color:var(--muted)">지금은 입소문형까지 섞은 전체 계산이라 낙관이 크게 나옵니다 — 기본은 초반 집중형.</span>`:"");
+    const atpTxt= A.atp>0 ? `객단가 <b>${won(atp)}</b>(입력) — 남은 관객에만 곱합니다${kAud?` · 이미 팔린 ${man(kAud)} 명은 KOBIS 실제 매출 ${eok(kSales)}`:""}`
+      : atpAct ? `객단가 <b>${won(atpAct)}</b> = 개봉 후 ${N}일 KOBIS 실측(매출 ÷ 관객)${preAud?` · 개봉 전 시사 ${man(preAud)} 명(${won(atpPre)} · ${eok(preSales)})은 실제 매출로 따로 넣습니다`:""}`
+      : atpEst ? `객단가 <b>${won(atpEst)}</b> = 개봉 전 유료 시사 ${won(atpPre)}(${man(preAud)} 명 · ${eok(preSales)} · KOBIS 매출 ÷ 관객)
+          × 비교작 ${atpR.length}편의 '개봉 후 ÷ 개봉 전' 객단가 중앙값 <b>${rMid.toFixed(2)}배</b>. 시사는 주말·팬 수요라 비싸서 그대로 쓰지 않고, 시사 매출은 실제 값으로 넣습니다`
+      : `객단가 ${won(atp)} 가정(KOBIS 시사 자료 대기)`;
     h+=`<div style="margin:10px 0 2px;padding:10px 14px;border:1px solid var(--line-soft);border-radius:12px;
         background:color-mix(in srgb, var(--accent) 6%, transparent);font-size:12.5px;line-height:1.65">
       <b style="color:var(--accent)">이 전망은 어떻게 나왔나</b><br>
-      ① ${start}<br>② ${mult}<br>③ ${scTxt}${warn}</div>`;
+      ① ${start}<br>② ${mult}<br>③ ${scTxt}${warn}<br>④ ${atpTxt}</div>`;
   }
 
   // 시나리오 × 대원 실적 + 분기
   // 분기 영업이익 — P&A 는 개봉 전 9월에 pa3% 를 쓰므로 3Q 에 먼저 잡힌다(판권료는 매출 비례)
-  const scRow=(lab,v)=>{ if(v==null) return ""; const p=pl(v), a3=Math.min(v,q3), s3=pl(a3), s4=pl(v-a3);
+  const scRow=(lab,v)=>{ if(v==null) return ""; const p=pl(v), a3=Math.min(v,q3), s3=plB(boxOf(a3)), s4=plB(boxOf(v)-boxOf(a3));
     const op3=s3.rev-s3.roy-A.pa*A.pa3/100, op4=s4.rev-s4.roy-A.pa*(1-A.pa3/100);
     return `<tr><td class="l"><b>${lab}</b></td><td><b>${man(v)}</b></td><td>${fmt0(p.box)}억</td><td>${fmt0(p.rev)}억</td>
       <td>${fmt0(s3.rev)}억<span class="th-sub">OP <span class="${cls(op3)}">${fmt0(op3)}억</span></span></td>
@@ -4607,11 +4644,36 @@ function renderBoxModel(BO, FL, star){
     <p class="note" style="margin-top:6px">3Q26·4Q26 칸 아래 OP = 분기 영업이익 — P&A 의 ${A.pa3}% 를 개봉 전 9월(3Q)에 집행한 것으로 봅니다.
       <b>3Q 가 약해 보여도 광고비 선반영 효과를 빼고 볼 것</b>(3Q 매출은 개봉 전 시사 + 9/30 하루뿐).</p>`;
 
+  // 객단가 표(⑤) — 치이카와 개봉 전 시사 · 개봉 후(실측, 개봉 전엔 추정) · 같은 시기 개봉작 실측
+  const span=a=>a.length?`${md(a[0].d)}~${md(a[a.length-1].d)} · ${a.length}일`:"—";
+  const peers=FL.filter(x=>!x.ref&&!star(x)).map(x=>{ const o=x.open.replace(/-/g,""), ps=x.days.filter(p=>p.d>=o), au=sum(ps,"audi");
+    return au?{x, ps, au, sa:sum(ps,"sales")}:null; }).filter(Boolean);
+  const cPost=C.filter(c=>c.preSales!=null&&c.finalSales&&c.final>c.pre&&c.open>="2025")
+    .map(c=>({c, v:(c.finalSales-c.preSales)/(c.final-c.pre)})).sort((a,b)=>b.v-a.v);
+  const opD=new Date(me.open+"T00:00:00"), lastWed=opD.getDay()===3&&new Date(opD.getFullYear(),opD.getMonth(),opD.getDate()+7).getMonth()!==opD.getMonth();
+  const use0=A.atp>0?"":"모델 적용 · ";
+  h+=`<div class="sub-h" style="margin-top:14px">객단가 <span class="tag-inline">KOBIS 발권 매출액 ÷ 관객수 · 극장 매출 = 지금까지 실제 매출 + 남은 관객 × 객단가</span></div>
+    <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">구분</th><th class="l">기간</th><th>관객</th><th>매출</th><th>객단가</th><th class="l">메모</th></tr></thead><tbody>`
+    +(preAud?`<tr><td class="l"><b>${me.short}</b> 개봉 전 유료 시사</td><td class="l">${span(preDays)}</td><td>${fmt0(preAud)}</td><td>${eok(preSales)}</td>
+      <td><b>${won(atpPre)}</b></td><td class="l">주말·팬 수요라 할인이 적다 — 개봉 후 단가로 그대로 쓰면 과대</td></tr>`:"")
+    +(N?`<tr class="box-star"><td class="l"><b>${me.short}</b> 개봉 후 실측</td><td class="l">${span(post)}</td><td>${fmt0(sum(post,"audi"))}</td><td>${eok(sum(post,"sales"))}</td>
+      <td><b>${won(atpAct)}</b></td><td class="l">${use0}개봉 전 추정은 ${won(atpEst)}</td></tr>`
+      :atpEst?`<tr class="box-star"><td class="l"><b>${me.short}</b> 개봉 후 추정</td><td class="l">—</td><td>—</td><td>—</td>
+      <td><b>${won(atpEst)}</b></td><td class="l">${use0}시사 × 비교작 ${atpR.length}편 '개봉 후 ÷ 개봉 전' 중앙값 ${rMid.toFixed(2)}배
+        <span class="th-sub">하위·상위 25% ${rLo.toFixed(2)}~${rHi.toFixed(2)}배 → ${won(Math.round(atpPre*rLo/10)*10)}~${won(Math.round(atpPre*rHi/10)*10)}</span></td></tr>`:"")
+    +peers.map(o=>`<tr><td class="l">${o.x.short} 개봉 후</td><td class="l">${span(o.ps)}</td><td>${fmt0(o.au)}</td><td>${eok(o.sa)}</td>
+      <td>${won(o.sa/o.au)}</td><td class="l">같은 시기 실측${o.sa/o.au>=12000?" · 특별관(아이맥스 등) 비중이 크면 높다":""}</td></tr>`).join("")
+    +`</tbody></table></div>
+    <p class="note" style="margin-top:6px">${cPost.length?`비교작 개봉 후 객단가(2025~26 개봉): ${cPost.map(z=>`${sn(z.c)} ${fmt0(z.v)}`).join(" · ")}원
+      — 성인 팬 애니가 위, 어린이 요금이 섞이는 아동 애니가 아래. 개봉 전 → 후 전체는 아래 비교작 표. `:""}
+      ${lastWed&&N<7?`<b>개봉일 ${md(ok)} 은 그달 마지막 수요일(문화가 있는 날 · 저녁 할인)이라 첫날 실측이 낮게 나올 수 있습니다</b>(8/26 오디세이 −6%) —
+      연휴가 지나면 누적 단가가 자리를 잡습니다. `:""}객단가 입력칸에 값을 넣으면 남은 관객에만 그 값을 곱합니다.</p>`;
+
   // 가정 입력
   const inp=(k,lab,unit,step,tip)=>`<label style="display:inline-flex;gap:5px;align-items:center;font-size:12.5px;color:var(--muted);font-weight:700" title="${tip}">${lab}
     <input data-asm="${k}" type="number" value="${A[k]}" step="${step}" class="theme-btn" style="width:78px;padding:5px 8px;font-weight:700;font-size:13px">${unit}</label>`;
   h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:10px 0 4px" id="boxAsmRow">
-      ${inp("atp","객단가","원",100,"0 = KOBIS 실측(개봉 후 누적 매출 ÷ 관객) · 개봉 전엔 10,500원 가정")}
+      ${inp("atp","객단가","원",100,"0 = KOBIS 자동 — 개봉 전: 유료 시사 객단가 × 비교작 '개봉 후 ÷ 개봉 전' 중앙값 · 개봉 후: 개봉 후 누적 매출 ÷ 관객. 값을 넣으면 남은 관객에만 곱한다(이미 팔린 표는 KOBIS 실제 매출)")}
       ${inp("split","부율","%",1,"배급사 몫. 외화 서울 6:4 · 지방 5:5 → 서울 비중 약 20% 로 가중해 52%")}
       ${inp("fee","배급수수료","%",1,"배급사(CJ ENM) 수수료 — 통상 10% 안팎")}
       ${inp("roy","판권료","%",5,"원작사(일본 제작위원회) 몫 · 대원 매출 대비. 비공개라 가정")}
@@ -4619,9 +4681,9 @@ function renderBoxModel(BO, FL, star){
       ${inp("pa3","P&A 3Q","%",5,"P&A 중 개봉 전 9월(3Q)에 집행한 비중 — 분기 영업이익 배분용. 합계 영업이익은 안 바뀐다")}
       ${inp("tgt","판정 목표","만명",10,"초기 데이터 판정표·민감도에 따로 넣어 볼 최종 관객(만 명). 0 = 안 씀 — 기본은 모델의 보수·기준·낙관(실시간)")}
       <button class="theme-btn" id="boxAsmReset" style="padding:5px 10px;font-size:12px">기본값</button></div>
-    <p class="note" style="margin-top:2px">단가 가정(객단가·부율·수수료·판권료·P&A)은 합리적 기본값이고 바꾸면 모든 표가 다시 계산됩니다. <b>관객 수는 고정하지 않고</b>
+    <p class="note" style="margin-top:2px">객단가는 0 이면 KOBIS 로 자동(위 객단가 표), 부율·수수료·판권료·P&A 는 합리적 기본값이고 바꾸면 모든 표가 다시 계산됩니다. <b>관객 수는 고정하지 않고</b>
       모델의 보수·기준·낙관(KOBIS·좌석이 들어올 때마다 갱신)을 따라갑니다 — 특정 숫자는 '판정 목표'에 넣어 보세요.
-      대원 매출 = 극장 매출 ÷ 1.1(부가세) × 부율 × (1 − 배급수수료). 입장권 부과금 3% 는 2025-01-01 폐지.
+      극장 매출 = 지금까지 KOBIS 실제 매출 + 남은 관객 × 객단가, 대원 매출 = 극장 매출 ÷ 1.1(부가세) × 부율 × (1 − 배급수수료). 입장권 부과금 3% 는 2025-01-01 폐지.
       판권료·P&A 는 계약이 공개되지 않아 가정이며 브라우저에 기억됩니다. MD·라이선스 파급은 넣지 않았습니다.</p>`;
 
   // 민감도
@@ -4688,15 +4750,19 @@ function renderBoxModel(BO, FL, star){
   h+=`<details class="fold"><summary>비교작 ${C.length}편 — '이 영화 경로를 따르면' <span class="sub">${simUsed?"초반 집중형만 반영(✓)":"전체 반영"} · 기준 N=${n}일차</span></summary>
     <div style="margin:6px 0"><button class="theme-btn" id="boxCmpAll" style="padding:4px 10px;font-size:12px">${boxCmpAll?"초반 집중형만 쓰기(기본)":"입소문형까지 전체로 계산"}</button></div>
     <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">비교작</th><th class="l">개봉</th><th>1일 관객</th><th>7일 누적</th><th>최종</th>
+    <th>객단가<span class="th-sub">개봉 전 → 후</span></th>
     <th>최종 ÷ ${n}일 누적</th><th>유형<span class="th-sub">최종÷첫날</span></th><th>이 경로면 ${me.short}</th><th>반영</th></tr></thead><tbody>`
-    +rows.slice().sort((a,b)=>(b.imp||0)-(a.imp||0)).map(r=>{ const od=new Date(r.open+"T00:00:00");
+    +rows.slice().sort((a,b)=>(b.imp||0)-(a.imp||0)).map(r=>{ const od=new Date(r.open+"T00:00:00"), z=atpR.find(q=>q.c.code===r.code);
+      const ac=z?`${fmt0(z.a0)} → <b>${fmt0(z.a1)}</b><span class="th-sub">×${z.r.toFixed(2)}</span>`
+        :(r.preSales!=null&&r.finalSales&&r.final>r.pre)?`— → ${fmt0((r.finalSales-r.preSales)/(r.final-r.pre))}<span class="th-sub">시사 ${r.pre?fmt0(r.pre)+"명":"없음"} · 비율 제외</span>`:"—";
       return `<tr${use.includes(r)?"":' style="opacity:.55"'}><td class="l">${r.short}<span class="th-sub">${r.kind}</span></td>
       <td class="l">${r.open}<span class="th-sub">${wk[od.getDay()]}</span></td><td>${fmt0(r.days[0].audi)}</td><td>${fmt0((r.days[6]||{}).acc)}</td>
-      <td><b>${man(r.final)}</b></td><td>${r.m?r.m.toFixed(1)+"배":"—"}</td>
+      <td><b>${man(r.final)}</b></td><td>${ac}</td><td>${r.m?r.m.toFixed(1)+"배":"—"}</td>
       <td class="l">${r.front?"초반 집중":"<b>입소문</b>"}<span class="th-sub">${r.m1?r.m1.toFixed(1)+"배":""}</span></td>
       <td>${r.imp?man(r.imp):"—"}</td><td>${use.includes(r)?"✓":""}</td></tr>`; }).join("")
     +`</tbody></table></div>
-    <p class="note" style="margin-top:6px">KOBIS 통계(개봉 10일 · 최종 누적, 누적은 개봉 전 시사 포함). 개봉 규모가 클수록 배수가 작습니다 —
+    <p class="note" style="margin-top:6px">KOBIS 통계(개봉 10일 · 최종 누적, 누적은 개봉 전 시사 포함). 객단가 = 매출 ÷ 관객(개봉 전 시사 → 개봉 후 최종) —
+      개봉 전 3천 명 이상인 ${atpR.length}편의 '후 ÷ 전' 중앙값(${rMid!=null?rMid.toFixed(2)+"배":"—"})이 위 객단가 추정에 쓰입니다. 개봉 규모가 클수록 배수가 작습니다 —
       큰 팬덤 개봉(하이큐·코난·그대들은)은 1일의 4~8배에서 끝났고, 작게 시작해 입소문으로 큰 영화(슬램덩크·스즈메·레제)는 30배를 넘었습니다.
       배수는 두 무리로 갈립니다 — <b>초반 집중형</b>(최종이 첫날 누적의 15배 미만)과 <b>입소문형</b>(15배 이상). ${me.short}는 캐릭터·팬덤 영화라
       기본은 초반 집중형만 씁니다(4편 미만이면 전체). 입소문형은 설명 칸의 '상방 참고'로만 봅니다.
