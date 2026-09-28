@@ -41,10 +41,10 @@ SECTORS.forEach(sec=>{ const subs=[..._subsBySec[sec]];
   if(subs.length>1) subs.forEach(s=>CATS.push(s)); else CATS.push(sec); });
 /* 대섹터에 소섹터가 하나뿐이면 카테고리 = 대섹터명("엔터"), 여럿이면 소섹터명("기획"·"IP").
    지금 엔터는 기획 하나라 "엔터"가 쓰이지만, 소섹터를 늘리면 즉시 갈리므로 양쪽 다 넣어둔다. */
-const CAT_COLORS={"화장품":"#9370c6","유통":"#3f93a8","미용":"#c56f83","음식료":"#bd872c",
+const CAT_COLORS={"화장품":"#c9a227","유통":"#3f93a8","미용":"#c56f83","음식료":"#d9825b",
   "엔터/미디어":"#c85b86","엔터":"#c85b86","기획":"#c85b86","IP":"#b0507e","게임":"#3e8fb0","호텔":"#5f9e4a",
   "레져":"#5f9e4a"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
-const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#908caa";
+const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#9da1a9";
 const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
 const won = v=> (v===null||v===undefined||v===""||v===0)?"—":Math.round(v).toLocaleString("ko-KR");
@@ -864,7 +864,7 @@ const PICK_ORDER={Top:3,"2nd":2,Beta:1,"":0};
       block.className="sector-block";
       block.innerHTML=
         `<div class="sector-band" style="border-left-color:${c}">
-          <span class="s-name" style="color:${c}">${sec} · ${sub}</span>
+          <span class="s-name" style="color:color-mix(in srgb, ${c} 62%, var(--text))">${sec} · ${sub}</span>
           <span class="s-tag">${rows.length}종목</span>
           <span class="s-stat" style="margin-left:auto">평균 점수 <b>${fmt(aScore,1)}</b></span>
           <span class="s-stat">평균 12MF PER <b>${fmt(aPer)}x</b></span>
@@ -930,7 +930,7 @@ function renderValTable(){
       const c=SECTOR_COLORS[sec];
       const block=document.createElement("div"); block.className="sector-block";
       block.innerHTML=`<div class="sector-band" style="border-left-color:${c}">
-          <span class="s-name" style="color:${c}">${sec} · ${sub}</span>
+          <span class="s-name" style="color:color-mix(in srgb, ${c} 62%, var(--text))">${sec} · ${sub}</span>
           <span class="s-tag">${rows.length}종목</span>
           <span class="s-stat" style="margin-left:auto">평균 12MF PER <b>${fmt(aPer)}x</b></span>
         </div><div class="tbl-wrap" style="border-radius:0 0 12px 12px;border-top:none"><table></table></div>`;
@@ -1359,7 +1359,7 @@ const REP=(LIVE.researches||[]);
       const block=document.createElement("div"); block.className="sector-block";
       block.innerHTML=
         `<div class="sector-band" style="border-left-color:${c}">
-           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${stockLogo(r.name)}${r.name}</span>
+           <span class="s-name clickable" data-stock="${r.name}" style="color:color-mix(in srgb, ${c} 62%, var(--text));cursor:pointer">${stockLogo(r.name)}${r.name}</span>
            <span class="s-tag">${r.sector} · ${r.sub}</span>
            <span class="s-tag" style="margin-left:auto">${rows.length}건</span>
          </div>
@@ -1448,7 +1448,7 @@ const REP=(LIVE.researches||[]);
       block.className="sector-block";
       block.innerHTML=
         `<div class="sector-band" style="border-left-color:${c}">
-           <span class="s-name clickable" data-stock="${r.name}" style="color:${c};cursor:pointer">${stockLogo(r.name)}${r.name}</span>
+           <span class="s-name clickable" data-stock="${r.name}" style="color:color-mix(in srgb, ${c} 62%, var(--text));cursor:pointer">${stockLogo(r.name)}${r.name}</span>
            <span class="s-tag">${r.sector} · ${r.sub}</span>
            <span class="s-tag" style="margin-left:auto">${rows.length}건</span>
          </div>
@@ -2038,7 +2038,7 @@ const TREND_STOCK={
    items: [{stock, label, pts:[{d, v}]}]. 회사마다 x=날짜, 막대=소속 아티스트 스택, 높이=회사 합계.
    써클 월간 앨범판매와 같은 형태. 이상치는 막대 호버로 아티스트별 확인. 회사 병렬 비교(스냅샷)는 안 쓴다. */
 function injectCompanyStack(items, opt){
-  const PAL=["#c4a7e7","#f6c177","#9ccfd8","#eb6f92","#a6da95","#3e8fb0","#ea9a97","#c9a227","#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
+  const PAL=["#45c49a","#f6c177","#9ccfd8","#eb6f92","#c4a7e7","#3e8fb0","#ea9a97","#c9a227","#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
   const dlab=d=>{const p=(d||"").slice(5).split("-");return p.length===2?`${+p[0]}/${+p[1]}`:d;};
   const byCo={};
   items.forEach(it=>{ if(it.pts&&it.pts.length) (byCo[it.stock]=byCo[it.stock]||[]).push(it); });
@@ -2191,7 +2191,7 @@ function injectCompanyStack(items, opt){
   const aStock=CIRCLE.artistStock||{};
   const GREY=(getComputedStyle(document.documentElement).getPropertyValue('--muted')||"#8a8a99").trim();
   // 자체 팔레트(fetch_trends 가 TREND.colors 를 덮어쓰므로 여기 둔다). 세그먼트가 많아 14색.
-  const CPAL=["#c4a7e7","#f6c177","#9ccfd8","#eb6f92","#a6da95","#3e8fb0","#ea9a97","#c9a227",
+  const CPAL=["#45c49a","#f6c177","#9ccfd8","#eb6f92","#c4a7e7","#3e8fb0","#ea9a97","#c9a227",
               "#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
   const MAXSEG=11;                    // 색 구간 상한. 초과 소속은 '기타'로 접힌다.
   ["month","week"].forEach(term=>{
@@ -3087,7 +3087,7 @@ function renderShop(){
    ⚠ tot 는 '상위 n명의 score 합'이지 서비스 전체가 아니다. 초기 주차는 n 이 27~46 이라
      50 이 찬 주차와 직접 비교하면 안 된다 → n<50 은 점을 비워 그리고 표에 '부분'이라 적는다. */
 const TT_PAL = (typeof TREND!=="undefined" && TREND.colors && TREND.colors.length>=4)
-  ? TREND.colors : ["#c4a7e7","#f6c177","#9ccfd8","#eb6f92"];
+  ? TREND.colors : ["#45c49a","#f6c177","#9ccfd8","#eb6f92"];
 const TT_REG = [
   {code:"KR",     nm:"한국"},
   {code:"JP",     nm:"일본"},
@@ -4079,9 +4079,9 @@ function renderScreens(){
            s+=`<text x="${sx(tdd)}" y="${t1-4}" text-anchor="middle" font-size="9.5" fill="var(--accent)" opacity=".9">오늘</text>`;}}
         s+=xAxis(H1,b1);
         if(refPts.length>1){
-          s+=`<path d="${refPts.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="#c4a7e7" stroke-width="2" opacity=".36"/>`;
+          s+=`<path d="${refPts.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="${MOVIE_COLORS[0]}" stroke-width="2" opacity=".45"/>`;
           const rl=refPts[refPts.length-1];
-          s+=`<text x="${sx(rl.dd)+6}" y="${sy(rl.acc)+4}" font-size="10.5" fill="#c4a7e7" opacity=".75">1편 실측</text>`;}
+          s+=`<text x="${sx(rl.dd)+6}" y="${sy(rl.acc)+4}" font-size="10.5" fill="${MOVIE_COLORS[0]}" opacity=".85">1편 실측</text>`;}
         if(A.length){
           s+=`<path d="${A.map((p,i)=>(i?"L":"M")+sx(p.dd).toFixed(1)+","+sy(p.acc).toFixed(1)).join(" ")}" fill="none" stroke="#eb6f92" stroke-width="2.6" stroke-linejoin="round"/>`;
           A.forEach(p=>{s+=`<circle cx="${sx(p.dd)}" cy="${sy(p.acc)}" r="3" fill="#eb6f92"><title>${calOf(p.dd)} D${p.dd>=0?"+":""}${p.dd} · 실측 누적 ${fmt0(p.acc)}명</title></circle>`;});}
@@ -5582,155 +5582,263 @@ function renderTrendHighlights(){
     }).join("");
   return top;   // 최상위 = 그날 가장 주목할 추이(트렌드 탭 진입 시 기본 표시)
 }
-/* ══════════ 컴투스 매출 모델 (C2MODEL · 2026-09-21) ═══════════════════════
-   "트렌드 데이터로 월별 매출을 세우고 분기로 묶는다."
+/* ══════════ 컴투스 게임별 분기 손익 모델 (C2 · 2026-09-28 개편) ═══════════════════
+   사용자 요청(2026-09-28): KB(9/17)가 '제우스 일매출 약 20억'이라는데 옛 모델은 12억대였다 →
+   ① 순위→일매출 곡선을 다시 맞추고 ② 게임별로 나눈 분기 손익계산서(KB 표2 같은 형식)로 보여 줄 것.
+   **KB 숫자를 베끼는 게 아니라 '몇 위면 얼마'를 독립적으로 세우는 것**이 목적이다.
 
-   ⚠ 먼저 **안 되는 것**부터 재고 시작했다. 게임 검색지수로 분기 매출 레벨을 회귀하면
-     전 구간 R²=0.18 이다 — 컴투스 연결 매출엔 미디어 등 비게임이 섞여 있고 2021~22 인수로
-     레벨이 통째로 올라갔기 때문이다. 검색 전년비를 기저에 곱해 보면 백테스트가 **나빠진다**
-     (MAE 10.0% → 13.5%, β=0.43 기준). 그래서 **검색은 레벨 보정에서 뺐다**(β 기본 0).
+   구조 — 연결 = 컴투스 별도(= 게임) + 자회사(연결 − 별도)
+     실적 칸  연결·별도 합계는 DART(C2MODEL.fin — fetch_c2model.py 가 매일), 장르·비용 항목은 IR(C2_IR — 수기)
+     추정 칸  제우스   = Σ_일 [곡선(구글순위, 애플순위) × 출시 프리미엄 L(t)] ÷ VAT
+              RPG·야구 = 전년 동기 × (1 + 전년비)  ← 서머너즈워는 89%가 해외라 국내 순위로 레벨을 못 세운다
+              비용     = 항목별 비율·런레이트(최근 IR 에서 자동) + 제우스 몫(마켓 수수료·개발사 RS·마케팅)
 
-   그래서 GAMEEST(붉은사막)과 같은 철학으로 간다 — **수준은 공시 앵커, 신작만 트렌드로 가산.**
+   순위 → 일매출(억, 스토어 결제액) = A·f(구글순위) + A·r·f(애플순위),  f(n) = ((1+s)/(n+s))^α   (Zipf–Mandelbrot)
+     A=12.3 · α=0.84 · s=1 · r=0.25 → 구글 1위 12.3 · 2위 8.8 · 3위 6.9 · 10위 2.9 · 30위 1.2 · 100위 0.46억.
+     모바일인덱스 월매출 12점(2026-07·08 + 메이플 키우기 1월, 구글+애플+원스토어)을 gamerscroll **일별** 순위와 짝지어
+     맞추되, 두 가지 제약을 같이 걸었다: ① 상위200 합 ≈ 연 8조(센서타워 2025 한국 구글+애플 56억$)
+     ② 꼬리 — 컴투스 국내 순위 게임(20~100위대) 합이 DART 국내 모바일 매출을 넘지 않을 것.
+     단순 멱함수(s=0, A 13·α 0.7)는 2~4위를 15% 낮게 잡고(WOS·킹샷·오딘) 앵커 평균 절대오차 10.5% —
+     s=1 로 상위를 평평하게 하니 약 7%, 시장·꼬리는 그대로(7.96조 · 3.45억/일). 옛 값(A 12·α 0.9·r 0.35)은 4.5조로 시장의 56%.
+     ⚠ 이 7% 는 **표본 내 적합도**다(그 12점으로 계수를 맞췄다). 10위 밖은 시장 규모·꼬리 점검으로만 확인된다.
+     ⚠ 제우스가 구글 2위로 잠깐 밀린 9/16~19 는 곡선상 −27% 다. 순위는 서수라 실제 낙폭은 더 작았을 수 있다(1위를 뺏은 신작의 출시 효과).
+   출시 프리미엄 L(t) = 1 + 1.05·e^(−t/15). 순위는 서수라 '2위와의 격차'가 안 보인다 — 갓 나온 1위는 정상상태
+     1위보다 더 번다(메이플 키우기 출시 45일 21.8억/일 vs 정상기 14.2 · SOL 첫 36시간 100억 · 뱀피르 출시 36일
+     회사매출 17.4 vs 이후 12.2 · 현대차 '제우스 초기 일매출 30억 상회'). 1.05 는 **회사 매출 기준(결제액 ÷ 1.1)**
+     첫 20일 평균이 20억 — KB '약 20억'과 **같은 기준**으로 맞춘 값이다(KB 의 일매출은 표 매출 ÷ 일수 = 순매출 기준.
+     3Q 61.2 ÷ 34일 = 18.0). 처음엔 결제액으로 20억에 맞췄는데(0.8) 그건 KB 보다 9% 낮은 것이었다(2026-09-28 검증에서 발견).
+     ⚠ L(t) 는 KB 에 맞춘 것이라 그 일치는 **구성상 결과**다(독립 검증 아님). 독립 검증은 곡선 쪽(위)이다.
+   ⚠ 제우스 PC 판은 Google Play Games 로만 설치·결제한다 → PC 결제도 구글 매출순위에 잡힌다고 보고 가산하지 않는다.
+     원스토어 미입점·웹상점 없음. 곡선은 원스토어 포함 3사 합산으로 맞춘 것이라 제우스엔 A 가 약간 높을 수 있다.
+   ⚠ 결제액(VAT 포함) ÷ 1.1 = 회사 매출. 아이템 이연 인식(계약부채 17~24십억)은 무시 — 분기 경계에서 조금 밀린다.
+   ⚠ 개발사 에이버튼(지분 8.95% 관계기업) RS 는 비공개다. 기본 25%(마켓 수수료 뗀 뒤 35% 수준).
+     **회사 확인(8/22): 개발사 RS 는 지급수수료 계정** → 표에서도 지급수수료 줄에 넣는다(KB 도 같다 — 3Q 지급수수료만 +35).
+     3Q 실적이 나오면 [지급수수료 − 기존 비율 × 기존 게임 매출 − 마켓 32% × 제우스] ÷ 제우스로 역산해 맞출 것.
+   ⚠ C2_IR 은 분기 IR 자료가 나올 때마다 **손으로 한 줄** 추가한다(장르·비용 분해는 DART 에 없다).
+     제우스가 RPG 안에 섞여 오므로, IR 이 제우스 매출을 따로 밝히면 z 에 적는다(없으면 모델값을 RPG 에서 뗀다). */
 
-     월 매출 = 기저_월 + 신작_월
-     기저_월 = [직전 4분기 실적 평균 × 그 분기 계절계수] ÷ 3 × (1 + β·기존게임 검색 전년비)
-     신작_월 = Σ_일 [ A·구글순위^(−α) + A·r_ios·애플순위^(−α) ]
-     분기    = 월 3개 합
+// 별도(컴투스 본사) IR 분해 — g = [RPG, 스포츠(야구), 캐주얼, 기타(비게임)], x = [마케팅비, 인건비, 지급수수료,
+// 로열티, 외주용역비, 기타] (십억원). 출처: 분기 IR 자료 '장르별 매출'·'비용 Breakdown'(com2us.com IR · 1Q26
+// Fact sheet). 합계는 DART 별도와 ±0.1. 실적 칸의 연결·별도 합계·영업이익은 DART(C2MODEL.fin)가 원본이다.
+const C2_IR={
+  "2024Q1":{g:[81.73,42.50,1.26,1.21], x:[14.7,31.7,50.7,8.4,0.2,14.8]},
+  "2024Q2":{g:[97.38,53.52,1.51,2.11], x:[30.6,29.2,60.2,9.4,0.3,15.5]},
+  "2024Q3":{g:[79.48,50.85,2.02,1.90], x:[14.0,29.6,53.7,15.6,0.4,14.1]},
+  "2024Q4":{g:[80.05,58.34,1.61,1.79], x:[17.7,30.0,55.3,21.5,0.8,13.2]},
+  "2025Q1":{g:[75.93,51.57,0.95,2.10], x:[17.8,30.5,50.8,11.0,0.8,14.4]},
+  "2025Q2":{g:[73.32,61.92,0.77,3.55], x:[22.0,31.0,61.0,9.1,0.7,10.7]},
+  "2025Q3":{g:[63.80,53.72,1.64,1.79], x:[26.4,34.6,46.2,13.1,1.1,14.1]},
+  "2025Q4":{g:[72.76,69.11,0.15,1.94], x:[11.3,33.3,53.9,11.2,1.0,12.8]},
+  "2026Q1":{g:[56.60,63.88,0.48,1.89], x:[6.9,33.0,47.4,12.6,0.5,14.8]},
+  "2026Q2":{g:[62.40,68.90,0.40,2.30], x:[15.4,30.3,50.4,11.3,0.4,13.8]},
+};
+// 제우스 출시 직후 순위 — 대시보드 APPRANK 는 구글을 9/18, 애플을 9/2 부터 모았다. 그 앞은 gamerscroll 일별
+// 스냅샷(하루 1회)으로 채운다(8/26 부터 하루씩). 8/26 은 정오 출시라 반나절이고 구글 차트엔 아직 없어 1위로 둔다(KB 그림1).
+const C2_LAUNCH="2026-08-26";
+const C2_ZEUS_PRE={g:"1.2.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.2.2", a:"3.1.1.1.1.2.3.2.3.3.4.5.6.7.2.1.6.10.8.11.10.3.4"};
+// 곡선 검증 — [게임, 월, 모바일인덱스 월매출(억, 구글+애플+원스토어), 그 달 구글 일별 순위, 애플 일별 순위(gamerscroll)]
+const C2_ANCH=[
+ ["SOL: enchant","2026-07",387,"1.1.1.1.1.1.1.1.1.2.2.2.2.2.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1","9.15.20.26.25.20.24.16.29.27.28.36.26.31.14.20.28.28.32.18.20.3.8.25.31.37.16.21.20.26.33"],
+ ["SOL: enchant","2026-08",370,"1.1.2.1.1.1.1.1.1.1.2.2.2.1.1.1.1.1.1.2.1.1.1.1.1.1.1.2.2.2.2","31.37.27.28.24.24.33.37.41.24.28.20.22.34.45.58.31.38.23.27.50.62.73.34.44.9.6.26.33.57.46"],
+ ["WOS","2026-07",303,"4.4.5.5.5.5.5.5.6.5.3.4.4.1.2.2.2.2.2.2.2.2.2.3.2.2.2.2.2.2.3","3.3.5.6.6.4.4.4.10.3.2.3.2.1.2.1.2.2.5.3.2.1.2.2.3.2.6.1.2.2.5"],
+ ["WOS","2026-08",321,"3.6.6.5.5.4.3.3.2.2.1.1.1.2.2.2.3.4.4.3.3.3.2.2.2.2.3.3.3.3.3","11.14.7.2.1.2.1.1.1.2.1.2.4.5.5.7.4.3.3.4.3.3.3.2.1.2.3.5.4.5.5"],
+ ["오딘","2026-07",246,"2.2.2.2.3.3.2.3.2.1.1.1.1.4.4.4.4.4.4.4.4.4.3.4.6.6.6.7.8.12.11","6.9.19.22.24.23.21.2.9.16.26.27.29.23.18.28.32.32.30.28.23.13.24.33.42.55.55.57.25.28.38"],
+ ["킹샷","2026-07",223,"5.5.6.6.6.6.6.6.5.6.4.5.5.5.3.3.3.3.3.3.3.3.4.2.3.3.4.4.4.4.4","10.6.11.15.7.5.5.9.5.5.6.6.4.2.3.4.3.5.6.5.3.5.6.4.6.6.8.4.7.6.10"],
+ ["킹샷","2026-08",216,"4.8.7.7.7.5.4.4.3.3.3.3.3.3.3.3.4.3.3.4.4.4.4.4.4.4.4.4.4.4.4","19.24.13.6.4.4.4.4.5.4.3.4.6.7.8.10.8.6.8.15.10.12.11.9.7.6.8.10.10.10.10"],
+ ["메이플 키우기","2026-08",221,"7.7.9.9.9.10.8.9.8.10.11.12.11.5.4.4.2.2.2.1.2.2.3.3.3.3.6.6.6.6.10","8.5.4.4.5.5.5.6.8.6.5.5.2.1.1.1.1.1.1.1.2.1.2.3.2.1.4.4.6.9.7"],
+ ["리니지M","2026-07",172,"3.3.3.3.2.2.4.4.3.3.7.9.8.11.11.6.7.6.6.5.5.5.5.7.7.8.7.8.12.11.13","1.1.1.1.1.3.2.3.8.10.11.8.10.8.6.13.11.9.9.12.11.9.10.11.10.11.13.13.15.19.19"],
+ ["리니지M","2026-08",175,"6.3.3.3.3.2.2.2.4.4.4.4.5.4.7.10.11.10.11.13.13.12.11.11.11.10.10.9.9.9.9","1.1.1.1.2.1.3.3.3.5.6.6.7.10.11.9.7.7.6.7.11.10.12.11.9.10.10.12.11.11.14"],
+ ["가십하버","2026-08",124,"12.12.15.15.16.15.14.12.9.7.6.7.6.8.8.7.7.6.6.6.6.5.5.6.6.6.5.5.5.5.6","13.6.6.9.6.6.7.5.4.3.4.3.5.9.7.2.3.4.4.5.5.5.4.1.3.5.5.6.5.4.6"],
+ ["메이플 키우기","2026-01",439,"1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1","1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1"]
+];
+const C2_ASM0={a:12.3, alpha:0.84, s:1, rios:0.25, lp:1.05, tau:15, vat:1.1,
+  zg:[1.6,3.1,4.3,5.1,6.1], za:[15,20,25,30,35],               // 제우스 4Q26~4Q27 평균 순위(구글·애플)
+  feeZ:32, rsZ:25, mkZ:10, mkLaunch:12, mkNew:3,           // 제우스 비용 · 2027 신작 출시 마케팅(분기)
+  gRpg26:null, gRpg27:-10, gBb26:null, gBb27:8, cas:null, newg:5,   // null = 최근 실적에서 자동
+  feeL:null, royL:null, mkL:9, lab:null, gLab:3, oth:null,    // 마케팅 9% = 4Q25 콜 '라이브게임 매출 대비 10% 안팎'
+  subRev:29, subOp:-5, nonop:-4.5, oneoff:-7.5, tax:22, minor:-2.5, show25:0};
+// 제우스 순위 시나리오 — 기존 MMORPG 감쇠(리니지W 첫 8개월 월 −15%, 레이븐2 −9%, 로드나인 등)를 월별 경로로 세운 뒤
+// 이 곡선으로 순위를 역산한 것. 기준: 10월 −25%(프리미엄·PC 할인 종료·경쟁작) → 월 −15~−10% → 2027 하반기 월 −4%.
+const C2_SCN={"보수":{zg:[2.7,6.6,9.6,12.1,14.8],za:[20,30,40,50,60]},
+              "기준":{zg:[1.6,3.1,4.3,5.1,6.1],za:[15,20,25,30,35]},
+              "낙관":{zg:[1.2,2.1,2.7,2.8,3.3],za:[8,10,12,15,18]}};
+// 가정 순위는 그 분기에서 **아직 관측 안 된 날**에만 쓴다(관측된 날은 실제 순위). 분기 안에서는 일정해서
+// 차트 점선이 분기 경계에서 계단처럼 꺾인다 — 분기 합계용 가정이지 일별 경로가 아니다.
+const C2_FWD=["2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"];
+// KB증권(2026-09-17) 표2 — **비교 전용**(모델 입력 아님). rpg = RPG 장르 − 제우스, etc = 기타 게임 및 신작,
+// oth = 게임사업 영업비용 − 지급수수료 − 인건비 − 마케팅비(= 로열티·외주·기타). KB 지급수수료는 IR 정의(개발사 RS 포함).
+const C2_KB={
+  "2026Q3":{z:61.2,rpg:53.6,bb:73.1,etc:2.4,sub:23.3,rev:213.7,fee:85.4,lab:30.7,mkt:27.7,oth:26.0,subx:26.4,op:17.5,npp:6.7},
+  "2026Q4":{z:99.4,rpg:56.2,bb:80.5,etc:2.5,sub:23.6,rev:262.0,fee:112.0,lab:33.9,mkt:22.2,oth:29.1,subx:26.7,op:38.1,npp:22.1},
+  "2027Q1":{z:58.3,rev:226.3,op:30.3}, "2027Q2":{z:35.4,rev:208.7,op:24.3}, "2027Q3":{z:53.7,rev:218.6,op:23.0}, "2027Q4":{z:37.6,rev:210.5,op:21.4},
+  "2026":{z:160.6,rpg:228.8,bb:286.4,etc:9.7,sub:91.9,rev:777.5,fee:295.2,lab:127.9,mkt:72.2,oth:108.4,subx:105.8,op:67.9,npp:20.3},
+  "2027":{z:184.9,rpg:195.6,bb:336.0,etc:50.8,sub:96.6,rev:864.0,fee:307.1,lab:143.6,mkt:90.9,oth:113.9,subx:109.5,op:99.0,npp:61.4}};
+// 브라우저에는 **바꾼 칸만** 저장한다 — 통째로 저장하면 나중에 기본값을 고쳐도 한 번 입력한 사람에겐 옛 값이 남는다.
+// 곡선 형태를 바꾸는 개편 때는 C2_V 를 올려 옛 저장을 버린다.
+const C2_V=2;
+let c2Asm=null;
+function c2AsmGet(){ if(c2Asm) return c2Asm; let s={};
+  try{ s=JSON.parse(localStorage.getItem("c2Asm")||"{}")||{}; }catch(e){}
+  if(s._v!==C2_V) s={}; delete s._v;
+  c2Asm={...C2_ASM0, zg:[...C2_ASM0.zg], za:[...C2_ASM0.za], ...s}; return c2Asm; }
+function c2AsmSave(){ const d={_v:C2_V};
+  Object.keys(c2Asm).forEach(k=>{ if(JSON.stringify(c2Asm[k])!==JSON.stringify(C2_ASM0[k])) d[k]=c2Asm[k]; });
+  try{ localStorage.setItem("c2Asm",JSON.stringify(d)); }catch(e){} }
 
-   기저 방식은 후보 다섯을 백테스트해서 골랐다(2019~2026Q2, n=23):
-     4Q평균×계절 10.0% · 전분기×계절비 10.2% · 4Q평균 12.2% · 전년동기 15.2% · 전년동기×드리프트 16.1%
-   최근 8분기로 좁히면 MAE 6.0% 다.
+const c2QAdd=(q,n)=>{ let k=+q.slice(0,4)*4+(+q.slice(-1)-1)+n; return `${Math.floor(k/4)}Q${k%4+1}`; };
+const c2QLab=q=>`${q.slice(-1)}Q${q.slice(2,4)}`;                      // 2026Q3 → 3Q26
+const c2QOf=d=>`${d.slice(0,4)}Q${Math.floor((+d.slice(5,7)-1)/3)+1}`;
+const c2QStart=q=>`${q.slice(0,4)}-${String((+q.slice(-1)-1)*3+1).padStart(2,"0")}-01`;
+const c2DAdd=(d,n)=>new Date(Date.parse(d+"T00:00:00Z")+n*864e5).toISOString().slice(0,10);
+const c2DDiff=(a,b)=>Math.round((Date.parse(b+"T00:00:00Z")-Date.parse(a+"T00:00:00Z"))/864e5);
+const c2Seq=(from,s)=>{ const o={}; s.split(".").forEach((v,i)=>{ if(v!=="") o[c2DAdd(from,i)]=+v; }); return o; };
+// 순위 → 일매출(억, 스토어 결제액·VAT 포함). 차트 밖(null)은 0 — 없는 순위를 바닥값으로 더하면 과대가 된다.
+const c2F=(P,n)=>n?Math.pow((1+P.s)/(n+P.s),P.alpha):0;
+const c2Rev=(P,g,i)=>P.a*(c2F(P,g)+P.rios*c2F(P,i));
+const c2L=(P,t)=>1+P.lp*Math.exp(-Math.max(0,t)/P.tau);
 
-   ⚠ **A(1위 일매출)가 이 모델의 전부다.** 시장 규모와 자기일관적이어야 한다 —
-     Top100 합 = A × Σ(1..100)r^(−α) 이고 α=0.9 면 6.43배다. A=12억이면 구글 연 3.3조,
-     애플 포함 4.5조로 한국 모바일게임 시장 추정과 맞는다. 화면에 이 환산을 같이 찍는다.
-   ⚠ 구글 순위는 2026-09-18 부터만 있다(양대 마켓 개편일). 그 전 구간은 **애플 순위를
-     환산**해서 채운다 — 겹치는 날들의 구글/애플 비로 계수를 그때그때 구한다(실측 0.143).
-     즉 출시 직후 3주는 '애플 순위로 미루어 본 구글 순위'라 가장 약한 고리다. 표에 * 로 적는다.
-   ⚠ 공시가 나오면 **A 를 역산해 다시 맞출 것**(화면 하단에 역산값을 늘 찍어 둔다). */
-const C2_DEF = {a: 12, alpha: 0.9, rios: 0.35, beta: 0, w: 0.5};
-function c2Val(id){ const el=document.getElementById("c2_"+id);
-  const v=el?parseFloat(el.value):NaN; return isFinite(v)?v:C2_DEF[id]; }
-
-/* 분기 계절계수 — 4분기가 다 있는 해만 써서 (그 분기 ÷ 그 해 평균)의 평균. 실측 6개년:
-   Q1 0.857 · Q2 1.075 · Q3 0.961 · Q4 1.106. 하드코딩하지 않는다(공시가 쌓이면 따라 움직이게). */
-function c2Seas(Q){
-  const byY={};
-  Object.keys(Q).forEach(k=>{ (byY[k.slice(0,4)]=byY[k.slice(0,4)]||{})[+k.slice(-1)]=Q[k]; });
-  const acc={1:[],2:[],3:[],4:[]};
-  Object.values(byY).forEach(d=>{
-    const ks=Object.keys(d); if(ks.length<4) return;
-    const avg=ks.reduce((s,k)=>s+d[k],0)/4;
-    [1,2,3,4].forEach(n=>acc[n].push(d[n]/avg));
-  });
-  const out={}; let sum=0;
-  [1,2,3,4].forEach(n=>{ out[n]=acc[n].length?acc[n].reduce((a,b)=>a+b,0)/acc[n].length:1; sum+=out[n]; });
-  out.mean=sum/4; return out;
+/* 자동 기본값 — 최근 실적(IR + DART 둘 다 있는 분기)에서. 사람이 입력칸을 바꾸면 그 값이 이긴다(브라우저에 기억).
+   ⚠ 출시(3Q26) 뒤 분기의 IR 'RPG'·'지급수수료'에는 제우스(매출·마켓 수수료·개발사 RS)가 섞여 온다 — **떼고** 기존
+     게임 비율을 낸다. 안 떼면 제우스가 기존 RPG 성장률에 한 번, 제우스 줄에 또 한 번 들어간다(2026-09-28 검증).
+   ⚠ 창은 c2Build 의 '실적' 판정과 같게(IR 과 DART 둘 다) — IR 만 먼저 넣은 분기가 자동값만 바꾸고 표엔 안 보이는 일이 없게. */
+function c2Auto(A){
+  const F=(typeof C2MODEL!=="undefined"&&C2MODEL.fin)||{}, LQ=c2QOf(C2_LAUNCH);
+  const qs=Object.keys(C2_IR).filter(q=>F[q]).sort(), L4=qs.slice(-4), L2=qs.slice(-2);
+  const zq={};
+  if(qs.some(q=>q>=LQ)){ const Z=c2ZeusDays(A); [...Z.obs,...Z.fwd].forEach(x=>{ const q=c2QOf(x.d); zq[q]=(zq[q]||0)+x.v*x.w/A.vat/10; }); }
+  const leg=q=>{ const x=C2_IR[q], z=q<LQ?0:(x.z!=null?x.z:(zq[q]||0)), tot=x.g.reduce((a,b)=>a+b,0);
+    return {rpg:x.g[0]-z, bb:x.g[1], cas:x.g[2]+x.g[3], sepL:tot-z, fee:x.x[2]-(A.feeZ+A.rsZ)/100*z, roy:x.x[3], lab:x.x[1], oth:x.x[4]+x.x[5]}; };
+  const S=(arr,f)=>arr.reduce((t,q)=>t+f(leg(q)),0), sum=a=>a.reduce((x,y)=>x+y,0);
+  const yoy=k=>{ const v=L2.map(q=>{ const pq=c2QAdd(q,-4); return C2_IR[pq]?leg(q)[k]/leg(pq)[k]-1:null; }).filter(x=>x!=null);
+    return v.length?sum(v)/v.length*100:0; };
+  return {gRpg26:yoy("rpg"), gBb26:yoy("bb"), cas:S(L2,x=>x.cas)/L2.length,
+    feeL:S(L4,x=>x.fee)/S(L4,x=>x.sepL)*100, royL:S(L4,x=>x.roy)/S(L4,x=>x.rpg+x.bb)*100,
+    lab:S(L2,x=>x.lab)/L2.length, oth:S(L4,x=>x.oth)/L4.length, _from:L2, _from4:L4};
 }
-const c2Prev=(q,n)=>{ let y=+q.slice(0,4), k=+q.slice(-1);
-  for(let i=0;i<n;i++){ k--; if(k===0){k=4;y--;} } return `${y}Q${k}`; };
-const c2QofM=m=>`${m.slice(0,4)}Q${Math.floor((+m.slice(5,7)-1)/3)+1}`;
-
-/* 기저 — 그 분기 이전 실적만 쓴다(미래 정보 금지). 없으면 null. */
-function c2Base(Q, q, seas){
-  const past=Object.keys(Q).filter(k=>k<q).sort().slice(-4);
-  if(past.length<4) return null;
-  const avg=past.reduce((s,k)=>s+Q[k],0)/4;
-  return avg*seas[+q.slice(-1)]/seas.mean;
-}
-/* 기존 게임 검색 전년비(분기) — β>0 일 때만 쓴다 */
-function c2SearchYoY(M, q){
-  const keys=Object.keys(M.games).filter(k=>M.games[k]!=="제우스");
-  const sum=qq=>{ let t=0, n=0;
-    for(let i=1;i<=3;i++){ const mm=String((+qq.slice(-1)-1)*3+i).padStart(2,"0");
-      const key=`${qq.slice(0,4)}-${mm}`;
-      keys.forEach(k=>{ const v=(M.search[k]||{})[key]; if(v!=null){ t+=v; n++; } }); }
-    return n?t:null; };
-  const a=sum(q), b=sum(c2Prev(q,4));
-  if(a==null||b==null||!b) return null;
-  return Math.max(-0.4, Math.min(0.4, a/b-1));
+function c2Params(){
+  const A=c2AsmGet(), au=c2Auto(A), P={...A};
+  Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); });
+  P._auto=au; return P;
 }
 
-/* 분기 기저를 월로 쪼개는 가중 — 일수 비례를 바탕에 두고 기존게임 검색 분포로 기울인다.
-   ⚠ **3개월 합은 어떤 w 에서도 같다.** 그래서 분기 추정·백테스트는 이 값에 영향받지 않는다
-     (검색이 레벨을 설명하지 못한다는 결론과 충돌하지 않는다 — 여기 검색은 '분기 안에서의
-     배분'에만 쓰이지 분기 크기를 바꾸지 않는다). */
-function c2MonthW(M, q, w){
-  const y=+q.slice(0,4), q1=(+q.slice(-1)-1)*3+1;
-  const ms=[0,1,2].map(i=>`${y}-${String(q1+i).padStart(2,"0")}`);
-  const dim=m=>new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7), 0)).getUTCDate();
-  const days=ms.map(dim), dsum=days.reduce((a,b)=>a+b,0);
-  const keys=Object.keys(M.games).filter(k=>M.games[k]!=="제우스");
-  const sv=ms.map(m=>keys.reduce((t,k)=>t+(((M.search[k]||{})[m])||0),0));
-  const ssum=sv.reduce((a,b)=>a+b,0);
-  return ms.map((m,i)=>{
-    const base=days[i]/dsum;
-    const srch=ssum>0?sv[i]/ssum:base;
-    return {m, w:base*(1-w)+srch*w};
-  });
-}
-/* 제우스 일매출(억) — 앱 매출순위에서. 구글이 없는 날은 애플을 환산해 채운다. */
-function c2Zeus(){
-  if(typeof APPRANK==="undefined"||!APPRANK.apps) return null;
-  const pick=mk=>{ const a=APPRANK.apps.find(x=>x.stock==="컴투스"&&x.mk===mk&&/제우스/.test(x.nm||""));
-    const o={}; if(a)(a.hist||[]).forEach(h=>{ if(h.gr!=null) o[h.d]=h.gr; }); return o; };
-  const g=pick("and"), i=pick("ios");
-  const both=Object.keys(g).filter(d=>i[d]!=null);
-  // 애플→구글 환산계수: 겹치는 날의 구글순위÷애플순위 평균(실측 0.143 · 제우스는 안드로이드 편중)
-  const c=both.length?both.reduce((s,d)=>s+g[d]/i[d],0)/both.length:0.15;
-  const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
-  const day={}, est={};
-  const all=[...new Set([...Object.keys(g),...Object.keys(i)])].sort();
-  all.forEach(d=>{
-    let gr=g[d], ir=i[d], guess=false;
-    if(gr==null&&ir!=null){ gr=Math.max(1, ir*c); guess=true; }
-    if(ir==null&&gr!=null){ ir=gr/c; }
-    if(gr==null) return;
-    day[d]=A*Math.pow(gr,-al)+A*ri*Math.pow(ir,-al);
-    est[d]={g:g[d], i:i[d], gg:gr, guess};
-  });
-  return {day, est, c, days:all};
-}
-/* 출시일부터 오늘까지 하루도 빠짐없이 — 결측은 앞뒤 평균, 수집 전은 첫 관측으로 캐리백 */
-function c2Fill(Z, from, to){
-  if(!Z||!Z.days.length) return {};
-  const out={}, d0=new Date(from+"T00:00:00Z"), d1=new Date(to+"T00:00:00Z");
-  const obs=Z.days;
-  for(let t=+d0;t<=+d1;t+=864e5){
-    const d=new Date(t).toISOString().slice(0,10);
-    if(Z.day[d]!=null){ out[d]={v:Z.day[d], k:"obs"}; continue; }
-    const before=obs.filter(x=>x<d), after=obs.filter(x=>x>d);
-    if(before.length&&after.length) out[d]={v:(Z.day[before[before.length-1]]+Z.day[after[0]])/2, k:"gap"};
-    else if(after.length) out[d]={v:Z.day[after[0]], k:"pre"};       // 출시~수집 시작 전
-    else out[d]={v:Z.day[before[before.length-1]], k:"post"};
+/* 제우스 일별 — 관측(APPRANK 우선, 없으면 gamerscroll) + 앞으로(분기별 가정 순위) */
+function c2ZeusDays(P){
+  const ap={and:{},ios:{}};
+  if(typeof APPRANK!=="undefined"&&APPRANK.apps) APPRANK.apps.forEach(a=>{
+    if(a.stock!=="컴투스"||(a.cc||"KR")!=="KR"||!/제우스/.test(a.nm||"")||!ap[a.mk]) return;
+    (a.hist||[]).forEach(h=>{ ap[a.mk][h.d]=h.gr; }); });     // gr null = 그날 차트 밖(0) — 이어 붙이지 않는다
+  const pg=c2Seq(C2_LAUNCH,C2_ZEUS_PRE.g), pa=c2Seq(C2_LAUNCH,C2_ZEUS_PRE.a);
+  const end=[...Object.keys(ap.and),...Object.keys(ap.ios),...Object.keys(pg)].sort().pop();
+  const obs=[], has=(o,d)=>Object.prototype.hasOwnProperty.call(o,d); let lg=1, li=null;
+  for(let d=C2_LAUNCH; d<=end; d=c2DAdd(d,1)){
+    const gA=has(ap.and,d), iA=has(ap.ios,d);
+    let g=gA?ap.and[d]:pg[d], i=iA?ap.ios[d]:pa[d];
+    const gS=!gA&&pg[d]!==undefined, iS=!iA&&pa[d]!==undefined;
+    // APPRANK 는 05시 스냅샷이고 gamerscroll 은 하루 1회 — 한 날에 두 출처가 섞이면 표시해 둔다
+    const src=(gA||iA)?((gS||iS)?"mix":"obs"):(gS||iS)?"gs":"fill";
+    if(g===undefined) g=lg; if(i===undefined) i=li; lg=g; li=i;   // 기록이 아예 없는 날만 전날 순위로
+    const t=c2DDiff(C2_LAUNCH,d);
+    obs.push({d,g,i,t,w:d===C2_LAUNCH?0.5:1,v:c2Rev(P,g,i)*c2L(P,t),src});
   }
-  return out;
+  // 이번 분기(가정 칸이 없는 3Q26)의 남은 날 = 최근 7일 평균 순위. 가정 칸이 있는 분기는 관측 안 된 날에 그 분기 가정 순위.
+  const l7=obs.slice(-7), avg=f=>{ const v=l7.map(f).filter(x=>x!=null); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
+  const mg=avg(x=>x.g), mi=avg(x=>x.i), fwd=[];
+  for(let d=c2DAdd(end,1); d<="2027-12-31"; d=c2DAdd(d,1)){
+    const k=C2_FWD.indexOf(c2QOf(d)), g=k<0?mg:P.zg[k], i=k<0?mi:P.za[k], t=c2DDiff(C2_LAUNCH,d);
+    fwd.push({d,g,i,t,w:1,v:c2Rev(P,g,i)*c2L(P,t),src:"fwd"});
+  }
+  return {obs, fwd, end};
 }
 
-/* 컴투스 전 게임의 '오늘 일매출' — 앱 매출순위에서 직접 환산한다.
-   검색은 대리지표지만 매출순위는 매출 그 자체에 붙어 있으므로, 잡히는 것은 이걸로 본다.
-   ⚠ 그런데 **국내 차트로 잡히는 건 전사의 일부뿐**이다(2026-09-21 실측: 제우스를 빼면 일 1.7억 =
-     전사 일매출의 약 10%). 서머너즈워는 매출 대부분이 해외고 미디어 등 비게임도 있어서
-     한국 구글·애플 순위에 아예 안 나타난다. **그래서 레벨은 순위로 못 세우고 기저가 필요하다.**
-   ⚠ 신작(제우스)만 기저에 '가산'한다. 나머지는 직전 4분기 실적에 이미 들어 있으므로 또 더하면
-     이중계상이다. 표의 '취급' 칸이 그걸 밝힌다. */
-function c2Apps(){
-  if(typeof APPRANK==="undefined"||!APPRANK.apps) return [];
-  const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
-  const by={};
-  // 모델의 '국내 모바일 몫'이라 한국 차트만 쓴다(해외는 아래 각주로 따로 읽는다)
-  APPRANK.apps.filter(a=>a.stock==="컴투스"&&(a.cc||"KR")==="KR").forEach(a=>{
-    const L=(a.hist||[]).filter(h=>h.gr!=null).slice(-1)[0]; if(!L) return;
-    const nm=a.nm.replace(/\s*[:：].*$/,"").slice(0,16);
-    const o=by[nm]=by[nm]||{nm, and:null, ios:null, d:L.d, rev:0};
-    o[a.mk]={r:L.gr, d:L.d};
-    if(L.d>o.d) o.d=L.d;
+/* 분기 손익 — 2024Q1~2027Q4. 실적 = DART 합계 + IR 분해, 추정 = 위 머리말의 식. */
+function c2Build(P){
+  const F=(typeof C2MODEL!=="undefined"&&C2MODEL.fin)||{};
+  const Z=c2ZeusDays(P), zq={};
+  [...Z.obs,...Z.fwd].forEach(x=>{ const q=c2QOf(x.d), o=zq[q]=zq[q]||{s:0,w:0,g:0,gw:0,i:0,iw:0,obs:0};
+    o.s+=x.v*x.w; o.w+=x.w; if(x.src!=="fwd") o.obs+=x.w;
+    if(x.g!=null){ o.g+=x.g*x.w; o.gw+=x.w; } if(x.i!=null){ o.i+=x.i*x.w; o.iw+=x.w; } });
+  const qs=[]; for(let q="2024Q1"; q<="2027Q4"; q=c2QAdd(q,1)) qs.push(q);
+  const lastAct=Object.keys(C2_IR).filter(q=>F[q]).sort().pop();
+  const Q={};
+  qs.forEach(q=>{
+    const f=F[q], ir=C2_IR[q], z=zq[q];
+    const o={q, act:!!(f&&ir), zRaw:z?z.s/P.vat/10:0,
+      zd:z?z.s/z.w:null, zg:z&&z.gw?z.g/z.gw:null, zi:z&&z.iw?z.i/z.iw:null, zobs:z?z.obs:0, zdays:z?z.w:0};
+    if(o.act){
+      const zz=q>=c2QOf(C2_LAUNCH)?(ir.z!=null?ir.z:o.zRaw):0;       // IR 이 제우스를 밝히면 그 값
+      o.zeus=zz; o.zEst=q>=c2QOf(C2_LAUNCH)&&ir.z==null;
+      o.rpg=ir.g[0]-zz; o.bb=ir.g[1]; o.cas=ir.g[2]+ir.g[3]; o.newg=0;
+      o.sep=ir.g.reduce((a,b)=>a+b,0); o.rev=f.c.rev; o.sub=o.rev-o.sep;
+      o.mkt=ir.x[0]; o.lab=ir.x[1]; o.fee=ir.x[2]; o.roy=ir.x[3]; o.oth=ir.x[4]+ir.x[5];
+      o.opex=f.c.opex; o.subx=o.opex-(o.mkt+o.lab+o.fee+o.roy+o.oth);
+      o.op=f.c.op; o.pbt=f.c.pbt; o.nonop=o.pbt-o.op; o.np=f.c.np; o.npp=f.c.npp; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
+    } else {
+      const p4=Q[c2QAdd(q,-4)]||{rpg:0,bb:0}, y=+q.slice(0,4), n=lastAct?(+q.slice(0,4)*4+ +q.slice(-1))-(+lastAct.slice(0,4)*4+ +lastAct.slice(-1)):1;
+      const gR=(y<=2026?P.gRpg26:P.gRpg27)/100, gB=(y<=2026?P.gBb26:P.gBb27)/100;
+      o.zeus=o.zRaw; o.rpg=p4.rpg*(1+gR); o.bb=p4.bb*(1+gB); o.cas=P.cas; o.newg=y>=2027?P.newg:0;
+      o.why={rpg:`전년 동기 ${fmt(p4.rpg,1)} × (1${gR>=0?"+":"−"}${fmt(Math.abs(gR*100),1)}%)`,
+             bb:`전년 동기 ${fmt(p4.bb,1)} × (1${gB>=0?"+":"−"}${fmt(Math.abs(gB*100),1)}%)`};
+      const leg=o.rpg+o.bb+o.cas+o.newg;
+      o.sep=o.zeus+leg; o.sub=P.subRev; o.rev=o.sep+o.sub;
+      o.fee=P.feeL/100*leg+(P.feeZ+P.rsZ)/100*o.zeus;              // 개발사 RS 는 지급수수료 계정(회사 확인)
+      o.roy=P.royL/100*(o.rpg+o.bb);                                  // 로열티 = 야구 MLB·KBO·콜라보 IP 라이선스
+      o.lab=P.lab*Math.pow(1+P.gLab/100, n/4);
+      o.mkt=P.mkL/100*leg+P.mkZ/100*o.zeus+(q==="2026Q3"?P.mkLaunch:0)+(y>=2027?P.mkNew:0);
+      o.oth=P.oth; o.subx=o.sub-P.subOp;
+      o.opex=o.fee+o.roy+o.lab+o.mkt+o.oth+o.subx; o.op=o.rev-o.opex;
+      o.nonop=P.nonop+(q==="2026Q3"?P.oneoff:0); o.pbt=o.op+o.nonop;
+      // 과세 = 별도(게임) 영업이익 + 경상 영업외. 자회사 적자·일회성 지분 평가손은 본사 과세소득을 줄이지 못한다
+      // (연결 세전으로 걸면 3Q26 처럼 세전 적자인데 본사는 흑자인 분기에 세금이 0 이 된다 — 2026-09-28 검증)
+      o.tax=Math.max(0,(o.sep-(o.fee+o.roy+o.lab+o.mkt+o.oth))+P.nonop)*P.tax/100;
+      o.np=o.pbt-o.tax; o.minor=P.minor; o.npp=o.np-o.minor;
+    }
+    o.sepX=o.fee+o.roy+o.lab+o.mkt+o.oth; o.sepOp=o.sep-o.sepX; o.subOp=o.sub-o.subx;
+    o.opm=o.rev?o.op/o.rev:null; o.days=c2DDiff(c2QStart(q),c2QStart(c2QAdd(q,1)));
+    Q[q]=o;
   });
-  return Object.values(by).map(o=>{
-    o.rev=(o.and?A*Math.pow(o.and.r,-al):0)+(o.ios?A*ri*Math.pow(o.ios.r,-al):0);
-    o.isNew=/제우스/.test(o.nm);
-    return o;
-  }).sort((a,b)=>b.rev-a.rev);
+  // 연간 — 흐름은 합, 비율은 다시 계산
+  const Y={}, K=["zeus","rpg","bb","cas","newg","sep","sub","rev","fee","roy","lab","mkt","oth","subx","opex","op","nonop","pbt","tax","np","npp","minor","sepX","sepOp","subOp"];
+  ["2024","2025","2026","2027"].forEach(y=>{
+    const qq=[1,2,3,4].map(k=>Q[`${y}Q${k}`]); const o={q:y, yr:1, act:qq.every(x=>x.act)};
+    K.forEach(k=>o[k]=qq.reduce((s,x)=>s+(x[k]||0),0));
+    const zs=qq.reduce((s,x)=>s+(x.zd!=null?x.zd*x.zdays:0),0), zw=qq.reduce((s,x)=>s+x.zdays,0);
+    o.zd=zw?zs/zw:null; o.zdays=zw; o.opm=o.rev?o.op/o.rev:null; o.days=qq.reduce((s,x)=>s+x.days,0); Y[y]=o;
+  });
+  return {Q, Y, Z, lastAct};
+}
+
+/* 곡선 적합도 — 앵커 게임의 그 달 일별 순위로 모델 일매출을 내 실제(모바일인덱스)와 견준다(표본 내: 이 점들로 계수를 맞췄다) */
+function c2Anchors(P){
+  return C2_ANCH.map(([nm,m,rev,gs,as])=>{
+    const g=gs.split(".").map(v=>v===""?null:+v), a=as.split(".").map(v=>v===""?null:+v), n=g.length;
+    const pred=g.reduce((s,gg,k)=>s+c2Rev(P,gg,a[k]),0)/n, act=rev/n;
+    const avg=v=>{ const x=v.filter(y=>y!=null); return x.length?x.reduce((p,q)=>p+q,0)/x.length:null; };
+    return {nm, m, act, pred, e:pred/act-1, g:avg(g), a:avg(a)};
+  });
+}
+
+function c2Chart(P, Z){
+  const W=760, H=232, ml=30, mr=12, mt=16, mb=24, x0=C2_LAUNCH, x1="2026-12-31", N=c2DDiff(x0,x1)+1;
+  // 회사 매출 기준(결제액 ÷ VAT)으로 그린다 — KB 의 '일매출 20억'과 같은 기준
+  const nv=p=>p.v/P.vat, fw=Z.fwd.filter(x=>x.d<=x1), all=[...Z.obs,...fw];
+  const ymax=Math.max(25,Math.ceil(Math.max(...all.map(nv))/5)*5);
+  const sx=d=>ml+(c2DDiff(x0,d)+0.5)/N*(W-ml-mr), sy=v=>mt+(1-v/ymax)*(H-mt-mb), bw=Math.max(1.2,(W-ml-mr)/N*0.78);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="제우스 일매출 추정 추이">`;
+  for(let v=0; v<=ymax; v+=5) s+=`<line x1="${ml}" x2="${W-mr}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--line)" stroke-opacity=".45"/>`
+    +`<text x="${ml-5}" y="${(sy(v)+3.5).toFixed(1)}" font-size="10" fill="var(--muted2)" text-anchor="end">${v}</text>`;
+  ["2026-09-01","2026-10-01","2026-11-01","2026-12-01"].forEach(d=>{ s+=`<text x="${sx(d).toFixed(1)}" y="${H-7}" font-size="10" fill="var(--muted2)" text-anchor="middle">${+d.slice(5,7)}월</text>`; });
+  const qb=sx("2026-10-01")-(W-ml-mr)/N/2; s+=`<line x1="${qb.toFixed(1)}" x2="${qb.toFixed(1)}" y1="${mt}" y2="${H-mb}" stroke="var(--line)" stroke-dasharray="2 3"/>`
+    +`<text x="${(qb-4).toFixed(1)}" y="${mt+9}" font-size="10" fill="var(--muted2)" text-anchor="end">3Q</text><text x="${(qb+4).toFixed(1)}" y="${mt+9}" font-size="10" fill="var(--muted2)">4Q</text>`;
+  Z.obs.forEach(p=>{ const y=sy(nv(p));
+    s+=`<rect x="${(sx(p.d)-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(sy(0)-y).toFixed(1)}" rx="1" fill="var(--accent)" opacity="${p.src==="obs"?0.9:0.55}">`
+      +`<title>${+p.d.slice(5,7)}/${+p.d.slice(8)} · 구글 ${p.g==null?"권외":p.g+"위"} · 애플 ${p.i==null?"권외":p.i+"위"} → 매출 ${fmt(nv(p),1)}억 (결제액 ${fmt(p.v,1)}억)${p.w<1?" · 정오 출시·반나절":""}${p.src==="gs"?" · 순위 gamerscroll":p.src==="mix"?" · 한쪽 순위 gamerscroll":""}</title></rect>`; });
+  if(fw.length) s+=`<path d="${fw.map((p,k)=>(k?"L":"M")+sx(p.d).toFixed(1)+","+sy(nv(p)).toFixed(1)).join(" ")}" fill="none" stroke="var(--muted)" stroke-width="1.7" stroke-dasharray="5 3"/>`
+    +`<text x="${(W-mr).toFixed(1)}" y="${(sy(nv(fw[fw.length-1]))-6).toFixed(1)}" font-size="10" fill="var(--muted)" text-anchor="end">가정 순위(분기별 일정)</text>`;
+  const k9=sx("2026-09-17");
+  s+=`<line x1="${sx(x0).toFixed(1)}" x2="${k9.toFixed(1)}" y1="${sy(20).toFixed(1)}" y2="${sy(20).toFixed(1)}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 3"/>`
+    +`<text x="${(k9+5).toFixed(1)}" y="${(sy(20)+3.5).toFixed(1)}" font-size="10.5" fill="var(--warn)" font-weight="700">KB 9/17 ≈20억</text>`;
+  s+=`<text x="${ml}" y="10" font-size="10" fill="var(--muted2)">억원/일 · 회사 매출 기준(스토어 결제액 ÷ ${P.vat})</text></svg>`;
+  return s;
 }
 
 function renderC2Model(){
@@ -5738,142 +5846,298 @@ function renderC2Model(){
   if(!sec||!box) return;
   if(typeof C2MODEL==="undefined"||trendStock!==C2MODEL.stock){ sec.style.display="none"; return; }
   sec.style.display="";
-  const M=C2MODEL, Q=M.qrev, seas=c2Seas(Q), beta=c2Val("beta");
-  const qs=Object.keys(Q).sort();
-  const cur=(()=>{ const t=new Date(); return `${t.getFullYear()}Q${Math.floor(t.getMonth()/3)+1}`; })();
+  const A=c2AsmGet(), P=c2Params(), B=c2Build(P), Q=B.Q, Y=B.Y, Z=B.Z;
+  const f1=v=>(v==null||!isFinite(v))?"—":fmt(v,1);
+  const pct=(v,d=1)=>(v==null||!isFinite(v))?"—":v>3?`<span class="up">×${fmt(v+1,1)}</span>`
+    :Math.abs(v*100)<0.5*Math.pow(10,-d)?`<span class="flat">${fmt(0,d)}%</span>`:`<span class="${cls(v)}">${sign(v*100,d)}%</span>`;
+  const chg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return pct(c/b-1);
+    return c>0?`<span class="up">흑전</span>`:(b<0?`<span class="g">적지</span>`:"—"); };
+  const opChg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return c>0?pct(c/b-1):`<span class="down">적전</span>`;
+    return c>0?`<span class="up">흑전</span>`:`<span class="g">적지</span>`; };
 
-  // 컨센(네이버) — 진행 중인 분기
-  const S=(typeof LIVE!=="undefined"&&LIVE.stocks)?LIVE.stocks[M.stock]:null;
-  const cons=(((S||{}).cons||{}).quarter||{}).series||[];
-  const consQ={}; cons.forEach(x=>{ if(x.e) consQ[`${x.k.slice(0,4)}Q${Math.floor((+x.k.slice(4,6)-1)/3)+1}`]=x; });
+  // 컨센(네이버) · 잠정(DART 공정공시)
+  const S=(typeof LIVE!=="undefined"&&LIVE.stocks)?LIVE.stocks[C2MODEL.stock]:null, cn=(S||{}).cons||{};
+  const cons={};
+  ((cn.quarter||{}).series||[]).forEach(x=>{ if(x.e) cons[c2QOf(`${x.k.slice(0,4)}-${x.k.slice(4,6)}-01`)]=x; });
+  ((cn.year||{}).series||[]).forEach(x=>{ if(x.e) cons[x.k.slice(0,4)]=x; });
+  const pre={}; const PR=(typeof PRELIM!=="undefined"&&PRELIM[C2MODEL.stock])||{};
+  Object.keys(PR).forEach(k=>{ const q=c2QOf(`${k.slice(0,4)}-${k.slice(4,6)}-01`); if(!Q[q]||!Q[q].act) pre[q]=PR[k]; });
+  const F=C2MODEL.fin||{};
+  Object.keys(F).forEach(q=>{ if(Q[q]&&!Q[q].act) pre[q]={rev:F[q].c.rev, op:F[q].c.op, dart:1}; });
 
-  // 제우스
-  const Z=c2Zeus();
-  const LAUNCH="2026-08-26";
-  const today=(typeof TODAY!=="undefined"&&TODAY)||new Date().toISOString().slice(0,10);
-  const filled=c2Fill(Z, LAUNCH, today);
-  const byMonth={}; Object.entries(filled).forEach(([d,o])=>{ byMonth[d.slice(0,7)]=(byMonth[d.slice(0,7)]||0)+o.v; });
-  const obsDays=Object.values(filled).filter(o=>o.k==="obs").length;
-  const preDays=Object.values(filled).filter(o=>o.k==="pre").length;
-  const last7=Object.keys(filled).sort().slice(-7);
-  const run=last7.length?last7.reduce((s,d)=>s+filled[d].v,0)/last7.length:0;
-
-  // ── 이번 분기 ──────────────────────────────────────────────────────
-  const base=c2Base(Q,cur,seas);
-  const sy=c2SearchYoY(M,cur);
-  const legacy=base==null?null:base*(1+beta*(sy||0));
-  // 분기 남은 날은 최근 7일 평균으로 채운다(신작은 감쇠하므로 보수적으로 '현 수준 유지')
-  const qEnd=new Date(Date.UTC(+cur.slice(0,4), +cur.slice(-1)*3, 0)).toISOString().slice(0,10);
-  const left=Math.max(0, Math.round((+new Date(qEnd+"T00:00:00Z")-+new Date(today+"T00:00:00Z"))/864e5));
-  const zeusQ=(Object.entries(filled).filter(([d])=>c2QofM(d.slice(0,7))===cur)
-                 .reduce((s,[,o])=>s+o.v,0)+run*left)/10;      // 억 → 십억
-  const est=legacy==null?null:legacy+zeusQ;
-  const cs=consQ[cur];
-  const eok=v=>v==null?"—":fmt(v,1);
-
-  const card=(t,v,sub,acc)=>`<div style="flex:1;min-width:150px;background:var(--panel);border:1px solid var(--line-soft);
+  // ── 머리 카드 ─────────────────────────────────────────────────────
+  const l7=Z.obs.slice(-7), run=l7.reduce((s,x)=>s+x.v,0)/l7.length;
+  const f20=Z.obs.filter(x=>x.d<="2026-09-15"), avg20=f20.reduce((s,x)=>s+x.v*x.w,0)/f20.reduce((s,x)=>s+x.w,0);
+  const lastO=Z.obs[Z.obs.length-1];
+  const card=(t,v,sub,acc)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line-soft);
     border-radius:var(--radius);padding:12px 14px"><div style="font-size:11.5px;color:var(--muted);font-weight:700">${t}</div>
-    <div style="font-size:21px;font-weight:800;margin-top:3px${acc?";color:var(--accent)":""}">${v}</div>
-    <div style="font-size:11px;color:var(--muted2);margin-top:2px">${sub||""}</div></div>`;
-
-  const gap=(cs&&est!=null)?(est/cs.rev-1)*100:null;
+    <div style="font-size:20px;font-weight:800;margin-top:3px${acc?";color:var(--accent)":""}">${v}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.45">${sub||""}</div></div>`;
+  const vsC=(o,k)=>{ const c=cons[k]; if(!c) return "컨센 없음";
+    return `컨센 ${f1(c.rev)} / ${f1(c.op)} → 괴리 ${pct(o.rev/c.rev-1)} / ${c.op>0?pct(o.op/c.op-1):"—"}`; };
+  const q3=Q["2026Q3"], q4=Q["2026Q4"], y6=Y["2026"];
   const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-    ${card(cur+" 추정 매출", est==null?"—":eok(est)+" 십억", `기존 ${eok(legacy)} + 제우스 ${eok(zeusQ)}`, true)}
-    ${card("컨센(네이버)", cs?eok(cs.rev)+" 십억":"—", cs?`영업이익 ${eok(cs.op)}`:"진행 중인 분기 컨센 없음")}
-    ${card("괴리", gap==null?"—":`<span class="${cls(gap)}">${sign(gap,1)}%</span>`, gap==null?"":"추정 ÷ 컨센 − 1")}
-    ${card("제우스 런레이트", run?fmt(run,2)+" 억/일":"—", `최근 7일 · 분기 남은 ${left}일에 적용`)}
+    ${card("제우스 지금 일매출(모델)", fmt(run/P.vat,1)+"억/일",
+      `회사 매출 기준 · 최근 7일 평균(스토어 결제액 ${fmt(run,1)}억)<br>${+lastO.d.slice(5,7)}/${+lastO.d.slice(8)} 구글 ${lastO.g==null?"권외":lastO.g+"위"}·애플 ${lastO.i==null?"권외":lastO.i+"위"} · 첫 20일 평균 <b>${fmt(avg20/P.vat,1)}억</b>(KB 9/17 '약 20억'에 맞춤)`, true)}
+    ${card(`3Q26${q3.act?"":"E"} 매출 / 영업이익`, `${f1(q3.rev)} / ${f1(q3.op)}`, `십억원 · 제우스 ${f1(q3.zeus)}<br>${vsC(q3,"2026Q3")}`)}
+    ${card(`4Q26${q4.act?"":"E"} 매출 / 영업이익`, `${f1(q4.rev)} / ${f1(q4.op)}`, `십억원 · 제우스 ${f1(q4.zeus)}<br>${vsC(q4,"2026Q4")}`)}
+    ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, `십억원 · OPM ${fmt(y6.opm*100,1)}%<br>${vsC(y6,"2026")}`)}
   </div>`;
 
-  // ── 월별 표 ────────────────────────────────────────────────────────
-  const months=[];
-  for(let i=11;i>=0;i--){ const t=new Date(); t.setUTCDate(1); t.setUTCMonth(t.getUTCMonth()-i);
-    months.push(t.toISOString().slice(0,7)); }
-  const W=c2Val("w");
-  const mrows=months.map(m=>{
-    const q=c2QofM(m), b=c2Base(Q,q,seas), s2=c2SearchYoY(M,q);
-    const wt=(c2MonthW(M,q,W).find(x=>x.m===m)||{w:1/3}).w;
-    const bm=b==null?null:b*(1+beta*(s2||0))*wt;
-    // 진행 중인 달은 남은 날을 최근 7일 런레이트로 채운다 — 안 하면 이번 달만 반 토막으로 보인다
-    const dim=new Date(Date.UTC(+m.slice(0,4), +m.slice(5,7), 0)).getUTCDate();
-    const mLeft=(m===today.slice(0,7))?dim-(+today.slice(8,10)):0;
-    const zm=((byMonth[m]||0)+run*mLeft)/10;
-    const act=Q[q]!=null?Q[q]*wt:null;      // 실적은 분기값뿐 — 같은 가중으로 갈라 나란히 놓는다
-    return {m,q,bm,zm,tot:bm==null?null:bm+zm,act,done:Q[q]!=null,live:mLeft>0};
-  });
-  const mmax=Math.max(...mrows.map(r=>Math.max(r.tot||0,r.act||0)),1);
-  const bar=(v,c)=>`<span style="display:inline-block;height:9px;width:${Math.max(1,(v||0)/mmax*100)}%;
-    background:${c};border-radius:2px;vertical-align:middle"></span>`;
-  const mtbl=`<div class="tbl-wrap"><table class="buzz-t"><thead><tr>
-      <th style="text-align:left">월</th><th>기저</th><th>제우스</th><th>추정</th><th>실적(분기 배분)</th><th style="width:34%">비교</th></tr></thead><tbody>`
-    +mrows.map(r=>`<tr>
-      <td style="white-space:nowrap"><b>${r.m.slice(2).replace("-",".")}</b> <span class="g" style="font-size:10px">${r.q.slice(-2)}</span>${r.m===today.slice(0,7)?` <span class="d" style="color:var(--accent);font-size:10px">진행 중</span>`:""}</td>
-      <td style="text-align:right">${eok(r.bm)}</td>
-      <td style="text-align:right">${r.zm?`<b style="color:var(--accent)">${eok(r.zm)}</b>`:`<span class="g">—</span>`}</td>
-      <td style="text-align:right"><b>${eok(r.tot)}</b></td>
-      <td style="text-align:right">${r.act==null?`<span class="g">미발표</span>`:eok(r.act)}</td>
-      <td>${bar(r.tot,"var(--accent)")}<br>${r.act!=null?bar(r.act,"var(--muted2)"):""}</td></tr>`).join("")
-    +`</tbody></table></div>`;
+  // ── 분기 손익표 ───────────────────────────────────────────────────
+  const qCols=(A.show25?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
+  const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
+  const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
+  const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
+  const zTip=o=>(o.zdays&&!o.yr)?`${lab(o)} 제우스: 구글 평균 ${fmt(o.zg,1)}위 · 애플 ${fmt(o.zi,0)}위 → 결제액 ${fmt(o.zd,1)}억/일 × ${fmt(o.zdays,1)}일 ÷ ${P.vat} = ${fmt(o.zeus,1)}십억`
+    +(o.zobs&&o.zobs<o.zdays?` (관측 ${fmt(o.zobs,1)}일 + 가정 ${fmt(o.zdays-o.zobs,0)}일)`:o.zobs?" (전부 관측 순위)":" (가정 순위)"):"";
+  const eTip=(o,k)=>{ if(o.act||o.yr) return "";
+    const leg=o.rpg+o.bb+o.cas+o.newg;
+    return ({zeus:zTip(o), rpg:o.why&&o.why.rpg, bb:o.why&&o.why.bb, cas:"최근 2분기 평균(가정)", newg:"2027년 신작 자리값(가정)",
+      sub:`자회사 분기 매출 가정 ${P.subRev}${o.q==="2026Q3"?" · 컴투스엔(엔피+위지윅, 7/14 합병) 계속 연결 가정 — 엔피 사업이 이 분기부터 더해진다":""}`,
+      fee:`기존 게임 ${fmt(leg,1)} × ${P.feeL}% + 제우스 ${fmt(o.zeus,1)} × (마켓·PG ${P.feeZ}% + 개발사 RS ${P.rsZ}%)`,
+      roy:`RPG·야구 ${fmt(o.rpg+o.bb,1)} × ${P.royL}% (MLB·KBO 라이선스·콜라보 IP)`,
+      lab:`최근 2분기 평균 ${P.lab} × 연 ${P.gLab}% 증가`,
+      mkt:`기존 게임 × ${P.mkL}% + 제우스 × ${P.mkZ}%${o.q==="2026Q3"?` + 출시 마케팅 ${P.mkLaunch}`:""}${+o.q.slice(0,4)>=2027?` + 신작 출시 ${P.mkNew}`:""}`,
+      oth:`최근 4분기 평균 ${P.oth}`, subx:`자회사 매출 ${P.subRev} − 영업이익 (${P.subOp})`,
+      nonop:`경상 ${P.nonop}${o.q==="2026Q3"?` + 일회성 ${P.oneoff}(옛 엔피 지분 20.7% 재측정손 추정, −6~−9)`:""}`,
+      tax:`(게임 영업이익 ${fmt(o.sepOp,1)} + 경상 영업외 ${P.nonop}) × ${P.tax}% — 자회사 적자·일회성 평가손은 본사 과세소득을 줄이지 못한다`,
+      minor:`비지배 몫 가정 ${P.minor}(컴투스엔 외부 주주 약 69% 몫의 적자)`})[k]||""; };
+  const ROWS=[
+    {k:"rev", t:"매출액", c:"tot"},
+    {k:"rev", t:"YoY", r:"yoy"},
+    {k:"rev", t:"QoQ", r:"qoq"},
+    {k:"sep", t:"게임 (컴투스 별도)", c:"sub"},
+    {k:"zeus", t:"제우스: 오만의 신", i:1, z:1},
+    {k:"zd", t:"스토어 결제액/일(억 · VAT 포함)", i:2, m:"zd"},
+    {k:"zg", t:"평균 순위 구글 / 애플", i:2, m:"zr"},
+    {k:"rpg", t:"RPG — 서머너즈워 외", i:1},
+    {k:"bb", t:"야구 — 컴프야·MLB 9이닝스 외", i:1},
+    {k:"cas", t:"캐주얼·기타", i:1},
+    {k:"newg", t:"신작 (2027~, 자리값)", i:1},
+    {k:"sub", t:"자회사 (연결 − 별도)", c:"sub"},
+    {t:"일평균 매출 (억원 · 분기 매출 ÷ 일수)", m:"hdr"},
+    {k:"zeus", t:"제우스 (출시 후 일수 기준)", i:1, m:"dz"},
+    {k:"rpg", t:"RPG — 서머너즈워 외", i:1, m:"dq"},
+    {k:"bb", t:"야구", i:1, m:"dq"},
+    {k:"sep", t:"게임 합계 (별도)", i:1, m:"dq"},
+    {k:"opex", t:"영업비용", c:"tot"},
+    {k:"sepX", t:"게임 (별도) 영업비용", c:"sub"},
+    {k:"fee", t:"지급수수료 (마켓·PG·개발사 RS)", i:1},
+    {k:"roy", t:"로열티 (IP 라이선스)", i:1},
+    {k:"lab", t:"인건비", i:1},
+    {k:"mkt", t:"마케팅비", i:1},
+    {k:"oth", t:"외주·기타 (상각 포함)", i:1},
+    {k:"subx", t:"자회사 영업비용", c:"sub"},
+    {k:"op", t:"영업이익", c:"tot hl"},
+    {k:"opm", t:"영업이익률", r:"opm"},
+    {k:"op", t:"YoY", r:"opyoy"},
+    {k:"sepOp", t:"게임 (별도) 영업이익", i:1},
+    {k:"subOp", t:"자회사 영업이익", i:1},
+    {k:"nonop", t:"영업외손익", c:"line"},
+    {k:"pbt", t:"세전이익", c:"line"},
+    {k:"tax", t:"법인세", c:"line"},
+    {k:"np", t:"당기순이익", c:"line"},
+    {k:"minor", t:"비지배 몫", c:"line"},
+    {k:"npp", t:"지배주주 순이익", c:"sub"},
+  ];
+  const firstE=cols.findIndex(o=>!o.act), firstY=qCols.length;
+  const thS=(o,k)=>{ let st="text-align:right;white-space:nowrap;padding:7px 9px;";
+    if(!o.act) st+="background:color-mix(in srgb, var(--accent) 7%, transparent);";
+    if(k===firstE||k===firstY) st+="border-left:2px solid var(--line);"; return st; };
+  const cell=(row,o,k)=>{
+    let v="", tip="";
+    if(row.r==="yoy"){ const p=prevOf(o); v=p?chg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="qoq"){ v=o.yr?"":chg(o[row.k],(Q[c2QAdd(o.q,-1)]||{})[row.k]); }
+    else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o.op,p.op):"—"; }
+    else if(row.r==="opm"){ v=o.opm==null?"—":fmt(o.opm*100,1)+"%"; }
+    else if(row.m==="zd"){ v=o.zd==null?"":fmt(o.zd,1); }
+    else if(row.m==="zr"){ v=o.zdays&&!o.yr?`${fmt(o.zg,1)} / ${fmt(o.zi,0)}`:""; }
+    else if(row.m==="hdr"){ v=""; }
+    else if(row.m==="dz"){ v=o.zdays&&o.zeus?fmt(o.zeus*10/o.zdays,1):"—";
+      if(o.zdays&&o.zeus) tip=`${lab(o)} 제우스 ${fmt(o.zeus,1)}십억 × 10 ÷ 서비스 ${fmt(o.zdays,1)}일 (결제액 ${fmt(o.zd,1)}억 ÷ ${P.vat})`; }
+    else if(row.m==="dq"){ v=o[row.k]!=null&&o.days?fmt(o[row.k]*10/o.days,1):"—";
+      tip=`${lab(o)} ${fmt(o[row.k],1)}십억 × 10 ÷ ${o.days}일`; }
+    else { const x=o[row.k]; v=((row.k==="newg"||row.k==="zeus")&&!x)?"—":f1(x); tip=eTip(o,row.k)||(row.z?zTip(o):"");
+      if(!o.act&&!o.yr&&o.q==="2026Q3"&&(row.k==="nonop"||row.k==="sub")) v+=`<sup style="color:var(--warn)">*</sup>`; }
+    if(row.z&&o.act&&o.zEst&&o.zeus) tip=(tip?tip+" · ":"")+"IR 이 제우스를 따로 밝히지 않아 모델값을 RPG 에서 뗐다";
+    const st=thS(o,k)+(row.c&&row.c.includes("tot")?"font-weight:800;":row.c==="sub"?"font-weight:700;":"")
+      +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"||row.m==="dz"?"color:var(--muted);":"")
+      +(row.z?"color:var(--accent);font-weight:700;":"")+(row.m==="dz"?"color:var(--accent);":"")
+      +(row.c&&row.c.includes("hl")?`background:color-mix(in srgb, var(--accent) ${o.act?14:24}%, transparent);`:"");
+    return `<td style="${st}"${tip?` title="${attr(tip)}"`:""}>${v}</td>`;
+  };
+  const rowHtml=row=>{
+    const lst="text-align:left;white-space:nowrap;padding:7px 10px;position:sticky;left:0;z-index:1;"
+      +`background:${row.c&&row.c.includes("hl")?"color-mix(in srgb, var(--accent) 14%, var(--panel))":"var(--panel)"};`
+      +(row.i?`padding-left:${10+row.i*13}px;`:"")+(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")
+      +(row.m==="hdr"?"font-weight:700;color:var(--muted);font-size:11.5px;":"")+(row.m==="dz"?"color:var(--accent);":"")
+      +(row.c&&row.c.includes("tot")?"font-weight:800;":row.c==="sub"?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"");
+    const top=((row.c&&row.c.includes("tot")&&row.k!=="rev")||row.m==="hdr"||(row.k==="nonop"))?"border-top:1px solid var(--line);":"";
+    return `<tr style="${top}"><td style="${lst}">${row.i===1?`<span style="color:var(--muted2)">·</span> `:""}${row.t}</td>${cols.map((o,k)=>cell(row,o,k)).join("")}</tr>`; };
+  // 비교 줄 — 컨센·잠정. 괴리 = 모델 ÷ 컨센 − 1
+  const cmp=(t,f,rs)=>`<tr style="${rs||""}"><td style="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;background:var(--panel);font-size:11px;color:var(--muted)">${t}</td>`
+    +cols.map((o,k)=>`<td style="${thS(o,k)}font-size:11px;color:var(--muted)">${f(o)}</td>`).join("")+`</tr>`;
+  const ck=o=>o.q;
+  const hasPre=cols.some(o=>pre[o.q]);
+  const tbl=`<div class="sub-h" style="margin:16px 0 8px">게임별 분기 손익 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · 연결 · 칸에 마우스를 올리면 계산식</span>
+      <button class="theme-btn" id="c2Show25" style="margin-left:auto;padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></div>
+    <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
+    <thead><tr><th style="text-align:left;padding:8px 10px;position:sticky;left:0;background:var(--panel2);z-index:2">(십억원)</th>${cols.map((o,k)=>`<th style="${thS(o,k)}background:${o.act?"var(--panel2)":"color-mix(in srgb, var(--accent) 16%, var(--panel2))"};font-size:12px">${lab(o)}</th>`).join("")}</tr></thead>
+    <tbody>${ROWS.map(rowHtml).join("")}
+    ${cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[ck(o)]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")}
+    ${cmp("모델 ÷ 컨센 − 1 (매출 / 영업이익)",o=>{ const c=cons[ck(o)]; return c?`${pct(o.rev/c.rev-1,0)} / ${c.op>0?pct(o.op/c.op-1,0):"—"}`:""; })}
+    ${hasPre?cmp("실적(DART) 매출 / 영업이익",o=>{ const p=pre[o.q]; return p?`<b>${f1(p.rev)} / ${f1(p.op)}</b>${p.dart?"":" 잠정"}`:""; }):""}
+    ${cmp("참고 KB(9/17) 매출 / 영업이익",o=>{ const x=C2_KB[o.q]; return x?`${f1(x.rev)} / ${f1(x.op)}`:""; })}
+    ${cmp("참고 KB(9/17) 제우스",o=>{ const x=C2_KB[o.q]; return x?f1(x.z):""; })}
+    </tbody></table></div>
+    <p class="note" style="margin-top:6px">색칠한 칸이 추정(E)입니다. 실적 칸은 <b>연결·별도 합계 = DART</b>(${attr(C2MODEL.asOf||"")} 수집),
+      장르·비용 항목 = 회사 IR 자료. 게임 = 컴투스 별도, 자회사 = 연결 − 별도(미디어·컴투스엔·OOTP 등).
+      <b>지급수수료·로열티는 IR 분류</b>입니다(DART 주석의 지급수수료 = IR 지급수수료 + 로열티 + 일부 기타). 개발사 RS 는 회사 설명대로 지급수수료에 넣었습니다.
+      <span style="color:var(--warn)">*</span> 3Q26 가정: 자회사에 컴투스엔(엔피+위지윅, 7/14 합병) 계속 연결 · 영업외에 옛 엔피 지분 재측정손 −7.5(추정).
+      세금은 게임(별도) 이익에만 매깁니다 — 자회사 적자는 본사 세금을 줄이지 못합니다.</p>`;
 
-  // ── 백테스트(기저만 · 신작 없는 과거) ───────────────────────────────
-  const bt=qs.filter(q=>c2Base(Q,q,seas)!=null).slice(-10).map(q=>{
-    const b=c2Base(Q,q,seas)*(1+beta*(c2SearchYoY(M,q)||0));
-    return {q, act:Q[q], est:b, e:(b/Q[q]-1)*100};
-  });
-  const mae=bt.length?bt.reduce((s,r)=>s+Math.abs(r.e),0)/bt.length:null;
-  const btbl=`<details class="fold"><summary>백테스트 <span class="sub">기저만 · 최근 ${bt.length}분기 평균오차 ${mae?mae.toFixed(1):"—"}%</span></summary>
-    <div class="fold-b"><div class="tbl-wrap"><table class="buzz-t"><thead><tr><th>분기</th><th>실적</th><th>기저 추정</th><th>오차</th></tr></thead><tbody>`
-    +bt.map(r=>`<tr><td><b>${r.q}</b></td><td style="text-align:right">${eok(r.act)}</td>
-      <td style="text-align:right">${eok(r.est)}</td>
-      <td style="text-align:right"><span class="${cls(r.e)}">${sign(r.e,1)}%</span></td></tr>`).join("")
-    +`</tbody></table></div><p class="note">신작이 없던 분기라 <b>기저만</b>으로 맞춘 것입니다 —
-      이 오차가 곧 '제우스 기여를 빼면 얼마나 맞히나'의 하한입니다.</p></div></details>`;
+  // ── KB(9/17)와 어디가 다른가 — 줄별 우리 vs KB, 영업이익 차이를 만든 상위 항목 ──
+  const BR=[["z","제우스",1],["rpg","RPG (제우스 제외)",1],["bb","야구",1],["etc","기타·신작",1],["sub","자회사",1],["rev","매출 합계",0,1],
+    ["fee","지급수수료 (마켓·RS)",-1],["lab","인건비",-1],["mkt","마케팅비",-1],["oth","로열티·외주·기타",-1],["subx","자회사 영업비용",-1],["op","영업이익",0,1],["npp","지배주주 순이익",0,1]];
+  const ours=o=>({z:o.zeus,rpg:o.rpg,bb:o.bb,etc:o.cas+o.newg,sub:o.sub,rev:o.rev,fee:o.fee,lab:o.lab,mkt:o.mkt,oth:o.roy+o.oth,subx:o.subx,op:o.op,npp:o.npp});
+  const BP=[["2026Q3",Q["2026Q3"]],["2026Q4",Q["2026Q4"]],["2027",Y["2027"]]].filter(([k,o])=>!o.act);
+  const why=(k,o)=>{ const u=ours(o), kb=C2_KB[k];
+    return BR.filter(r=>r[2]).map(r=>({t:r[1], c:r[2]*(u[r[0]]-kb[r[0]])})).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c)).slice(0,3)
+      .map(x=>`${x.t} ${x.c>=0?"+":"−"}${fmt(Math.abs(x.c),1)}`).join(" · "); };
+  const kbtbl=BP.length?`<details class="fold" data-fold="c2kb"${(()=>{ try{ return localStorage.getItem("fold_c2kb")==="1"?" open":""; }catch(e){ return ""; } })()}>
+    <summary>KB(9/17) 추정과 어디가 다른가 <span class="sub">영업이익 차이 ${BP.map(([k,o])=>`${k.length>4?c2QLab(k):k}E ${sign(o.op-C2_KB[k].op,1)}`).join(" · ")}</span></summary>
+    <div class="fold-b"><div class="tbl-wrap"><table class="buzz-t"><thead><tr><th style="text-align:left">(십억원)</th>`
+    +BP.map(([k])=>`<th>${k.length>4?c2QLab(k):k}E 우리</th><th>KB</th><th>차이</th>`).join("")+`</tr></thead><tbody>`
+    +BR.map(r=>`<tr${r[3]?` style="font-weight:800"`:""}><td style="text-align:left">${r[1]}</td>`+BP.map(([k,o])=>{ const u=ours(o)[r[0]], kb=C2_KB[k][r[0]], d=u-kb;
+      return `<td>${f1(u)}</td><td style="color:var(--muted)">${f1(kb)}</td><td><span class="${Math.abs(d)<0.05?"flat":cls(d)}">${sign(d,1)}</span></td>`; }).join("")+`</tr>`).join("")
+    +`</tbody></table></div><p class="note">영업이익 차이를 만든 상위 항목(+ = 우리 이익을 올림): `
+    +BP.map(([k,o])=>`<b>${k.length>4?c2QLab(k):k}E</b> ${why(k,o)}`).join(" / ")
+    +`.<br>KB 줄은 표2 그대로(RPG 는 제우스를 뺀 값, 로열티·외주·기타 = 게임사업 비용 − 지급수수료 − 인건비 − 마케팅비). <b>모델 입력으로 쓰지 않습니다</b> — 비교용입니다.</p></div></details>`:"";
 
-  // ── 게임별 오늘 일매출(앱 매출순위 → 매출) ─────────────────────────
-  const apps=c2Apps();
-  const appSum=apps.reduce((s,a)=>s+a.rev,0);
-  const legacySum=apps.filter(a=>!a.isNew).reduce((s,a)=>s+a.rev,0);
-  const lastAct=Object.keys(Q).sort().slice(-1)[0];
-  const actDaily=Q[lastAct]*10/91;                     // 직전 분기 실적의 하루 평균(억)
-  const atbl=`<div class="sub-h" style="margin:18px 0 8px">게임별 일매출 <span class="th-sub">앱 매출순위 → 매출. 검색과 달리 매출에 직접 붙는 지표다</span></div>
-    <div class="tbl-wrap"><table class="buzz-t"><thead><tr>
-      <th style="text-align:left">게임</th><th>구글</th><th>애플</th><th>일매출 추정</th><th>분기 환산</th><th style="text-align:left">취급</th></tr></thead><tbody>`
-    +apps.map(a=>`<tr>
-      <td style="white-space:nowrap"><b>${attr(a.nm)}</b> <span class="g" style="font-size:10px">${a.d.slice(5)}</span></td>
-      <td style="text-align:right">${a.and?a.and.r+"위":`<span class="g">권외</span>`}</td>
-      <td style="text-align:right">${a.ios?a.ios.r+"위":`<span class="g">권외</span>`}</td>
-      <td style="text-align:right"><b>${fmt(a.rev,2)}</b>억</td>
-      <td style="text-align:right">${fmt(a.rev*92/10,1)} 십억</td>
-      <td style="font-size:11.5px;color:var(--muted)">${a.isNew
-        ? `<span style="color:var(--accent);font-weight:700">신작 — 기저에 가산</span>`
-        : "기존 — 직전 4분기 실적(기저)에 이미 포함"}</td></tr>`).join("")
-    +`<tr style="border-top:1px solid var(--line)"><td><b>합계</b></td><td></td><td></td>
-      <td style="text-align:right"><b>${fmt(appSum,2)}</b>억</td>
-      <td style="text-align:right">${fmt(appSum*92/10,1)} 십억</td>
-      <td style="font-size:11.5px;color:var(--muted)">직전 분기 실적의 하루 평균 ${fmt(actDaily,1)}억(${lastAct})</td></tr>`
+  // ── 제우스: 순위 → 일매출 ─────────────────────────────────────────
+  const RK=[1,2,3,5,10,20,30,50,100], tNow=c2DDiff(C2_LAUNCH,lastO.d);
+  const rtbl=`<table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">순위</th><th>구글 일매출</th><th>분기 매출 환산</th><th>애플 일매출</th></tr></thead><tbody>`
+    +RK.map(r=>{ const g=c2Rev(P,r,null), i=c2Rev(P,null,r);
+      return `<tr><td style="text-align:left"><b>${r}위</b></td><td>${fmt(g,g<1?2:1)}억</td><td>${fmt(g*91/P.vat/10,1)}십억</td><td>${fmt(i,i<1?2:1)}억</td></tr>`; }).join("")
+    +`</tbody></table><p class="note" style="margin-top:6px">정상상태 곡선(출시 프리미엄 제외). 분기 환산 = 일매출 × 91일 ÷ ${P.vat}(VAT).
+      갓 나온 1위는 더 번다 — 제우스는 오늘(출시 ${tNow}일째) × <b>${fmt(c2L(P,tNow),2)}</b>, 출시일 × ${fmt(c2L(P,0),2)}.</p>`;
+  const AN=c2Anchors(P), mae=AN.reduce((s,x)=>s+Math.abs(x.e),0)/AN.length;
+  const atbl=`<details class="fold" data-fold="c2anch"${(()=>{ try{ return localStorage.getItem("fold_c2anch")==="1"?" open":""; }catch(e){ return ""; } })()}>
+    <summary>곡선 적합도 — 실제 게임 매출에 얼마나 맞나 <span class="sub">${AN.length}개 게임-월 · 평균 절대오차 ${fmt(mae*100,0)}% (표본 내)</span></summary>
+    <div class="fold-b"><div class="tbl-wrap"><table class="buzz-t"><thead><tr><th style="text-align:left">게임</th><th>월</th><th>평균 순위 구글 / 애플</th><th>실제 일매출</th><th>모델</th><th>오차</th></tr></thead><tbody>`
+    +AN.map(x=>`<tr><td style="text-align:left"><b>${attr(x.nm)}</b></td><td>${x.m.slice(2).replace("-",".")}</td><td>${fmt(x.g,1)} / ${fmt(x.a,1)}</td>
+      <td>${fmt(x.act,1)}억</td><td>${fmt(x.pred,1)}억</td><td><span class="${cls(x.e)}">${sign(x.e*100,0)}%</span></td></tr>`).join("")
+    +`</tbody></table></div><p class="note">실제 = 모바일인덱스 월매출(구글+애플+원스토어) ÷ 일수, 모델 = 그 달 <b>일별</b> 순위(gamerscroll)로 계산한 평균.
+      상위권은 단순 멱함수보다 평평해서(1위와 3위의 차이가 생각보다 작다) 평탄화 s 를 넣었습니다 — s=0 으로 바꾸면 2~4위 게임이 15%쯤 낮게 잡힙니다.
+      메이플 키우기 1월은 양대 마켓 매일 1위(곡선의 천장 점검). 곡선 계수를 바꾸면 이 표도 따라 움직입니다.
+      ⚠ <b>표본 내 적합도</b>입니다 — 이 12점으로 계수를 맞췄으니 독립 검증이 아닙니다. 제우스가 쓰는 구간(구글 1~6위·애플 35위 이내)은
+      표본 범위 안이고, 10위 밖은 시장 규모(상위 200 합)·꼬리(컴투스 국내 매출) 점검으로만 확인했습니다.</p></div></details>`;
+  const zeusBox=`<div class="sub-h" style="margin:22px 0 8px">제우스 일매출 — 순위로 환산 <span class="th-sub" style="display:inline;margin-left:6px">회사 매출 기준 · 막대 = 관측 순위, 점선 = 분기별 가정 순위</span></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div class="chart-box" style="flex:3;min-width:300px;padding:12px 14px">${c2Chart(P,Z)}</div>
+      <div style="flex:2;min-width:250px">${rtbl}</div></div>${atbl}`;
+
+  // ── 게임별 오늘 순위 → 국내 일매출 ─────────────────────────────────
+  const by={}, over=[];
+  if(typeof APPRANK!=="undefined"&&APPRANK.apps) APPRANK.apps.filter(a=>a.stock==="컴투스").forEach(a=>{
+    const hs=(a.hist||[]).filter(h=>h.gr!=null); if(!hs.length) return;
+    const L=hs[hs.length-1];
+    if((a.cc||"KR")!=="KR"){ over.push(`${attr(a.nm)} ${({TW:"대만",JP:"일본",US:"미국"})[a.cc]||a.cc} ${a.mk==="and"?"구글":"애플"} ${L.gr}위`); return; }
+    const nm=a.nm.replace(/\s*[:：].*$/,"").slice(0,16), o=by[nm]=by[nm]||{nm, and:null, ios:null, d:L.d};
+    const r7=hs.filter(h=>h.d>c2DAdd(L.d,-7)).map(h=>h.gr);
+    o[a.mk]={r:L.gr, a7:r7.reduce((s,x)=>s+x,0)/r7.length}; if(L.d>o.d) o.d=L.d; });
+  const lineOf=nm=>/제우스/.test(nm)?"제우스":/야구|MLB|9이닝스/.test(nm)?"야구":/서머너즈|아이모|크로니클/.test(nm)?"RPG":"캐주얼·기타";
+  const srch=C2MODEL.search||{}, lastFull=c2DAdd(TODAY.slice(0,7)+"-01",-1).slice(0,7), yAgo=`${+lastFull.slice(0,4)-1}${lastFull.slice(4)}`;
+  const sYoY=k=>{ const s=srch[k]||{}; return (s[lastFull]!=null&&s[yAgo])?s[lastFull]/s[yAgo]-1:null; };
+  const games=Object.values(by).map(o=>{ const ln=lineOf(o.nm), t=c2DDiff(C2_LAUNCH,o.d);
+    o.rev=c2Rev(P,o.and&&o.and.a7,o.ios&&o.ios.a7)*(ln==="제우스"?c2L(P,t):1); o.ln=ln;
+    o.sk=/제우스/.test(o.nm)?"제우스 오만의 신":/서머너즈/.test(o.nm)?"서머너즈워":/MLB|9이닝스/.test(o.nm)?"MLB 9이닝스":/프로야구/.test(o.nm)?"컴투스프로야구":null; return o; }).sort((a,b)=>b.rev-a.rev);
+  const legKR=games.filter(g=>g.ln!=="제우스").reduce((s,g)=>s+g.rev,0);
+  const cq=Q[c2QOf(lastO.d)], cqDays=cq?c2DDiff(c2QStart(cq.q),c2QStart(c2QAdd(cq.q,1))):0;
+  const legQ=cq?(cq.rpg+cq.bb+cq.cas)*10*P.vat/cqDays:null;       // 이번 분기 기존 게임 추정(억/일, 결제액 환산)
+  const gtbl=`<div class="sub-h" style="margin:22px 0 8px">게임별 국내 순위 → 일매출 <span class="th-sub" style="display:inline;margin-left:6px">최근 7일 평균 순위 · 한국 구글·애플 차트</span></div>
+    <div class="tbl-wrap"><table class="buzz-t"><thead><tr><th style="text-align:left">게임</th><th>구글</th><th>애플</th><th>국내 일매출(결제액)</th><th>분기 환산</th><th>검색 전년비(${+lastFull.slice(5)}월)</th><th style="text-align:left">손익표 줄</th></tr></thead><tbody>`
+    +games.map(g=>`<tr><td style="text-align:left"><b>${attr(g.nm)}</b></td>
+      <td>${g.and?`${g.and.r}위 <span class="g" style="font-size:10.5px">(${fmt(g.and.a7,1)})</span>`:`<span class="g">권외</span>`}</td>
+      <td>${g.ios?`${g.ios.r}위 <span class="g" style="font-size:10.5px">(${fmt(g.ios.a7,1)})</span>`:`<span class="g">권외</span>`}</td>
+      <td><b>${fmt(g.rev,g.rev<1?2:1)}</b>억</td><td>${fmt(g.rev*91/P.vat/10,1)}십억</td>
+      <td>${g.sk&&sYoY(g.sk)!=null?pct(sYoY(g.sk),0):`<span class="g">—</span>`}</td>
+      <td style="text-align:left;font-size:11.5px;color:${g.ln==="제우스"?"var(--accent)":"var(--muted)"}">${g.ln==="제우스"?"제우스 줄(순위로 직접)":g.ln+" 줄(전년비로 추정)"}</td></tr>`).join("")
     +`</tbody></table></div>
-    <p class="note" style="margin-top:8px">⚠ <b>국내 앱 차트로 잡히는 건 전사의 일부입니다.</b>
-      신작을 뺀 기존 게임 합이 <b>${fmt(legacySum,2)}억/일</b> — 직전 분기 실적 하루 평균의
-      <b>${fmt(legacySum/actDaily*100,0)}%</b>뿐입니다. 서머너즈워는 매출 대부분이 <b>해외</b>라
-      한국 차트에 안 잡히고, 미디어 등 비게임도 있습니다. 그래서 <b>레벨은 순위로 세울 수 없고</b>
-      공시 기저가 필요합니다 — 순위는 <b>신작 가산</b>과 <b>추이</b>에만 씁니다.</p>`;
+    <p class="note" style="margin-top:6px">국내 차트로 보이는 기존 게임 합은 <b>${fmt(legKR,1)}억/일</b>${legQ?` — 이번 분기 기존 게임 추정 매출(하루 ${fmt(legQ,1)}억, 결제액 환산)의 <b>${fmt(legKR/legQ*100,0)}%</b>뿐`:""}입니다.
+      서머너즈워는 매출의 89%가 해외(북미 33%·아시아 30%·유럽 23%)라 한국 차트에 거의 안 잡힙니다 — 그래서 기존 게임은 <b>순위가 아니라 전년비</b>로 세우고,
+      순위는 제우스(국내 단독 출시)에만 씁니다.${over.length?` 해외 차트: ${over.join(" · ")}.`:""}</p>`;
 
-  box.innerHTML=head+atbl+mtbl+btbl;
+  // ── 가정 패널 ────────────────────────────────────────────────────
+  const au=P._auto, isAuto=k=>A[k]==null&&au[k]!=null;
+  const inp=(k,label,unit,step,w)=>{ const v=k.includes(".")?A[k.split(".")[0]][+k.split(".")[1]]:P[k];
+    return `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">${label}
+      <input data-c2="${k}" type="number" value="${v}" step="${step||0.1}" class="theme-btn" style="width:${w||66}px;padding:4px 7px;font-weight:700;font-size:12.5px">${unit||""}${isAuto(k)?`<span style="font-size:10px;color:var(--accent);font-weight:800">자동</span>`:""}</label>`; };
+  const grp=(t,body)=>`<div style="flex:1;min-width:260px;border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px">
+    <div style="font-size:12px;font-weight:800;margin-bottom:7px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px">${body}</div></div>`;
+  const zRow=C2_FWD.map((q,k)=>{ const o=Q[q]; return `<td style="padding:3px 6px;text-align:center">
+      <input data-c2="zg.${k}" type="number" value="${A.zg[k]}" step="0.1" min="1" class="theme-btn" style="width:54px;padding:3px 5px;font-weight:700;font-size:12px"></td>`; }).join("");
+  const aRow=C2_FWD.map((q,k)=>`<td style="padding:3px 6px;text-align:center"><input data-c2="za.${k}" type="number" value="${A.za[k]}" step="1" min="1" class="theme-btn" style="width:54px;padding:3px 5px;font-weight:700;font-size:12px"></td>`).join("");
+  const dRow=C2_FWD.map(q=>`<td style="padding:3px 6px;text-align:center;font-size:11.5px;color:var(--accent);font-weight:700">${fmt(Q[q].zd,1)}억 · ${f1(Q[q].zeus)}</td>`).join("");
+  const scn=Object.keys(C2_SCN).find(k=>C2_SCN[k].zg.every((v,i)=>v===A.zg[i])&&C2_SCN[k].za.every((v,i)=>v===A.za[i]));
+  const asm=`<details class="fold" data-fold="c2asm"${(()=>{ try{ return localStorage.getItem("fold_c2asm")==="1"?" open":""; }catch(e){ return ""; } })()}>
+    <summary>가정 바꾸기 <span class="sub">순위 곡선 · 제우스 순위 경로 · 비용률 · 자회사 — 바꾸면 표가 바로 다시 계산됩니다(브라우저에 기억)</span></summary>
+    <div class="fold-b">
+    <div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <b style="font-size:12.5px">제우스 앞으로의 순위 <span style="font-weight:600;color:var(--muted)">(분기 평균 · 아직 관측 안 된 날에 적용)</span></b>
+      ${Object.keys(C2_SCN).map(k=>`<button class="theme-btn${scn===k?" active":""}" data-c2scn="${k}" style="padding:3px 10px;font-size:12px${scn===k?";background:var(--accent);color:var(--onacc);border-color:var(--accent)":""}">${k}</button>`).join("")}
+      <span style="font-size:11px;color:var(--muted2)">기준 = 월별 감쇠 경로(10월 −25% → 월 −15~−10% → 2027 하반기 월 −4%, 리니지W·레이븐2 등)의 분기 평균을 이 곡선으로 순위로 바꾼 것. 관측된 날은 실제 순위를 씁니다.</span></div>
+      <div class="tbl-wrap" style="display:inline-block;max-width:100%"><table style="border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:5px 8px;text-align:left;background:var(--panel2)"></th>${C2_FWD.map(q=>`<th style="padding:5px 8px;background:var(--panel2)">${c2QLab(q)}</th>`).join("")}</tr></thead>
+      <tbody><tr><td style="padding:3px 8px;font-weight:700">구글</td>${zRow}</tr><tr><td style="padding:3px 8px;font-weight:700">애플</td>${aRow}</tr>
+      <tr><td style="padding:3px 8px;font-size:11px;color:var(--muted)">→ 결제액/일 · 분기 매출</td>${dRow}</tr></tbody></table></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${grp("순위 → 매출 곡선", inp("a","구글 1위 일매출","억",0.1)+inp("alpha","순위 감쇠 α","",0.02)+inp("s","상위 평탄화 s","",0.25)+inp("rios","애플/구글","",0.05)
+        +inp("lp","출시 프리미엄","배",0.1)+inp("tau","프리미엄 반감","일",1)+inp("vat","VAT 나누기","",0.01))}
+      ${grp("제우스 비용", inp("feeZ","마켓·PG 수수료","%",1)+inp("rsZ","개발사 RS(지급수수료)","%",1)+inp("mkZ","마케팅(매출 대비)","%",1)+inp("mkLaunch","3Q26 출시 마케팅","십억",1))}
+      ${grp("기존 게임 매출", inp("gRpg26","RPG 전년비 26하반기","%",1)+inp("gRpg27","RPG 전년비 2027","%",1)
+        +inp("gBb26","야구 전년비 26하반기","%",1)+inp("gBb27","야구 전년비 2027","%",1)+inp("cas","캐주얼·기타 분기","십억",0.1)+inp("newg","2027 신작 분기","십억",1))}
+      ${grp("기존 게임 비용", inp("feeL","지급수수료율","%",0.5)+inp("royL","로열티율(RPG·야구)","%",0.5)+inp("mkL","마케팅비율(가이던스 10% 안팎)","%",0.5)
+        +inp("lab","인건비 분기","십억",0.5)+inp("gLab","인건비 증가","%/년",1)+inp("oth","외주·기타 분기","십억",0.5)+inp("mkNew","2027 신작 출시 마케팅 분기","십억",0.5))}
+      ${grp("자회사 · 영업외 · 순이익", inp("subRev","자회사 분기 매출","십억",0.5)+inp("subOp","자회사 영업이익","십억",0.5)
+        +inp("nonop","경상 영업외 분기","십억",0.5)+inp("oneoff","3Q26 일회성","십억",0.5)+inp("tax","세율(게임 이익에)","%",1)+inp("minor","비지배 몫 분기","십억",0.5))}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="c2Reset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
+      <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(IR·DART 둘 다 있는 분기)에서 계산(전년비 ${au._from.map(c2QLab).join("·")} 평균 · 비용률 ${au._from4.map(c2QLab).join("·")} 합계 기준, 출시 뒤 분기는 제우스를 떼고). 입력하면 그 값으로 고정.
+      경상 영업외 −4.5 = 이자 −1.0~−1.8 · 지분법 −1.5~−3.0 · 기타 −1 (1H26 실적은 −13.6·−7.4). 3Q26 일회성 −7.5 = 컴투스엔 합병 때 옛 엔피 지분(20.7%) 재측정손 추정(−6~−9).</span></div>
+    </div></details>`;
 
-  // ── 각주: 시장 정합성 · A 역산 ──────────────────────────────────────
-  const A=c2Val("a"), al=c2Val("alpha"), ri=c2Val("rios");
-  let tail=0; for(let r=1;r<=100;r++) tail+=Math.pow(r,-al);
-  const goog=A*tail/0.85*365/1e4;                       // Top100 이 전체의 85% 가정 · 억 → 조
-  const zeusTot=Object.values(filled).reduce((s,o)=>s+o.v,0);
-  const needA=(cs&&legacy!=null&&zeusTot>0)?A*((cs.rev-legacy)*10)/(zeusTot+run*left):null;
+  box.innerHTML=head+tbl+kbtbl+asm+zeusBox+gtbl;
+
+  // ── 각주 ─────────────────────────────────────────────────────────
+  let tail=0; for(let r=1;r<=200;r++) tail+=c2F(P,r);
+  const mkt=P.a*tail*365/1e4;
   document.getElementById("c2Note").innerHTML=
-    `<b>수준은 공시, 신작만 트렌드.</b> 기저 = 직전 4분기 평균 × 계절계수(Q1 ${fmt(seas[1],3)} · Q2 ${fmt(seas[2],3)} ·
-     Q3 ${fmt(seas[3],3)} · Q4 ${fmt(seas[4],3)}, 공시 ${Object.keys(Q).length}분기에서 계산).
-     제우스는 앱 매출순위 → 일매출(관측 ${obsDays}일${preDays?` · 출시 직후 ${preDays}일은 애플 순위를 ${fmt(Z?Z.c:0,3)} 배로 환산해 채움`:""}).
-     <b>검색은 레벨 보정에 넣지 않습니다</b> — 회귀 R²=0.18, 기저에 곱하면 백테스트가 되레 나빠집니다(β 기본 0).
-     <br><b>시장 정합성:</b> 1위 일매출 ${fmt(A,1)}억 · α ${fmt(al,2)} → Top100 합이 1위의 ${fmt(tail,2)}배 →
-     구글플레이 한국 게임 연 <b>${fmt(goog,1)}조</b>(애플 포함 ${fmt(goog*(1+ri),1)}조). 이 숫자가 시장 추정과 어긋나면 A 를 고치세요.
-     ${needA?`<br><b>역산:</b> 컨센 ${eok(cs.rev)}십억이 맞으려면 1위 일매출이 <b>${fmt(needA,1)}억</b>이어야 합니다.`:""}
-     <br>⚠ 가장 약한 고리는 <b>구글 순위가 9/18부터만 있다</b>는 점입니다(그 전은 애플 환산). 공시가 나오면 A 를 역산해 다시 맞추세요.`;
+    `<b>순위 → 매출 곡선</b>: 일매출(억, 결제액) = ${fmt(P.a,1)}·f(구글순위) + ${fmt(P.a*P.rios,2)}·f(애플순위), f(n) = ((1+${fmt(P.s,2)})/(n+${fmt(P.s,2)}))<sup>${fmt(P.alpha,2)}</sup>,
+     출시 t일째는 × (1 + ${fmt(P.lp,1)}·e<sup>−t/${P.tau}</sup>). 상위 200위 합 = 구글 연 ${fmt(mkt,1)}조 + 애플 ${fmt(mkt*P.rios,1)}조
+     = <b>${fmt(mkt*(1+P.rios),1)}조</b> — 센서타워 2025 한국 게임(구글+애플) 56억$ ≈ 8조와 비교해 A 를 점검하세요.
+     <br><b>KB(9/17)와의 관계</b>: KB 는 제우스 일매출을 '출시 20일째까지 약 20억'(표 매출 ÷ 일수 = 회사 매출 기준)으로 봤고,
+     이 모델은 같은 기준으로 첫 20일 평균 <b>${fmt(avg20/P.vat,1)}억</b>입니다 — 출시 프리미엄을 KB 에 맞춘 것이라 이 일치는 구성상 결과입니다.
+     그 뒤 경로(순위 감쇠)와 나머지 게임·비용은 KB 숫자를 쓰지 않고 따로 세웠습니다. 줄별 차이는 위 'KB 추정과 어디가 다른가'에 있습니다.
+     <br><b>출처</b>: DART 분기·반기·사업보고서(연결·별도 손익, 2023 은 재작성 비교치) · 컴투스 IR 자료(장르별 매출·별도 비용, 1Q24~2Q26) ·
+     모바일인덱스 월매출 · gamerscroll 일별 순위(9/17 이전 제우스, 곡선 검증) · 센서타워 시장규모 · 대시보드 앱 매출순위(APPRANK).
+     <br>⚠ 개발사 RS·PC 결제 비중·이연 인식은 비공개/미반영입니다. <b>3Q26 실적이 나오면</b> ① C2_IR 에 한 줄 추가 ② 제우스 매출이 공개되면 A·출시 프리미엄을 다시 맞추고
+     ③ [지급수수료 − 기존 비율 × 기존 게임 매출 − 마켓 ${P.feeZ}% × 제우스] ÷ 제우스로 개발사 RS 를 역산하세요.`;
+}
+function c2Bind(){
+  const sec=document.getElementById("c2Sec"); if(!sec||sec.dataset.bound) return; sec.dataset.bound="1";
+  sec.addEventListener("change",e=>{ const i=e.target.closest("[data-c2]"); if(!i) return;
+    const v=parseFloat(i.value); if(!isFinite(v)) return;
+    const A=c2AsmGet(), k=i.dataset.c2;
+    if(k.includes(".")){ const [a,b]=k.split("."); A[a]=[...A[a]]; A[a][+b]=Math.max(1,v); } else A[k]=v;
+    c2AsmSave(); renderC2Model(); });
+  sec.addEventListener("click",e=>{
+    const s=e.target.closest("[data-c2scn]");
+    if(s){ const A=c2AsmGet(), S=C2_SCN[s.dataset.c2scn]; A.zg=[...S.zg]; A.za=[...S.za]; c2AsmSave(); renderC2Model(); return; }
+    if(e.target.closest("#c2Reset")){ c2Asm={...C2_ASM0, zg:[...C2_ASM0.zg], za:[...C2_ASM0.za], show25:c2AsmGet().show25};
+      c2AsmSave(); renderC2Model(); return; }
+    if(e.target.closest("#c2Show25")){ const A=c2AsmGet(); A.show25=A.show25?0:1; c2AsmSave(); renderC2Model(); }
+  });
 }
 
 /* ══════════ 지금 화제 (BUZZ) ═══════════════════════════════════════════════
@@ -6209,8 +6473,7 @@ renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGa
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
-["a","alpha","rios","beta","w"].forEach(id=>{
-  const el=document.getElementById("c2_"+id); if(el) el.addEventListener("input",renderC2Model); });
+c2Bind();          // 컴투스 손익 모델 — 가정 입력·시나리오·2025 펼치기(위임, change 이벤트)
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendSrc=b.dataset.src;
