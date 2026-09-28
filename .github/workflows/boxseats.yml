@@ -47,6 +47,9 @@ on:
 
 permissions:
   contents: write
+  # CGV 중계 워커(cloudflare-worker/cgv-relay.js) 인증용 — 러너가 OIDC 토큰(aud=cgv-relay)을 받아 워커에 보여 준다.
+  #   러너 IP 는 CGV 가 403 이지만 워커(미국 colo)를 거치면 200 이다(diag 2026-09-28: ORD·SJC 모두 200, 토큰 없으면 401).
+  id-token: write
 
 # 회차끼리 줄 세운다 — 앞 회차가 **커밋까지** 끝낸 뒤에야 다음 회차가 '마지막 수집 시각'을 읽는다.
 #   (수집 잡만 묶으면 앞 회차 push 전에 뒤 회차가 옛 시각을 보고 한 번 더 긁는다.)
@@ -115,10 +118,11 @@ jobs:
           PY
           tail -2 $GITHUB_OUTPUT
 
-      - name: 3사 좌석 (전수 or 근접 · 롯데·메가 · CGV 는 시도)
+      - name: 3사 좌석 (전수 or 근접 · 롯데·메가 직접 · CGV 는 중계 워커 경유)
         if: steps.gate.outputs.go == '1' && steps.dedup.outputs.go == '1'
         env:
           PYTHONIOENCODING: utf-8
+          CGV_RELAY: https://cgv-relay.dayyyline.workers.dev    # fetch_screens.http_json 이 cgv.co.kr 요청을 여기로 돌린다
         run: python -u fetch_boxoffice.py --seats ${{ steps.dedup.outputs.mode == 'near' && '--near' || '' }} --cache=.cache/boxoffice_seats.json
 
       - uses: actions/upload-artifact@v4

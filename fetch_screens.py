@@ -85,6 +85,32 @@ _REFERER = {
 }
 
 
+# CGV 중계(2026-09-28) — GitHub 러너(미국 Azure IP)는 CGV 가 403 이라, 환경변수 CGV_RELAY 가 있고 러너 OIDC 를
+# 받을 수 있으면 cgv.co.kr 요청을 Cloudflare 워커(cloudflare-worker/cgv-relay.js)로 돌린다. 워커는 우리 저장소의
+# OIDC 토큰(aud=cgv-relay)만 받는다. 이 PC(한국 IP)에는 CGV_RELAY 가 없으니 예전처럼 직접 부른다.
+# 토큰은 수 분이면 만료되므로 4분마다 새로 받는다(전수 수집이 20~30분 걸린다).
+_OIDC = {"tok": None, "t": 0.0}
+
+
+def _relay_token():
+    if _OIDC["tok"] and time.time() - _OIDC["t"] < 240:
+        return _OIDC["tok"]
+    u, t = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"], os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
+    req = urllib.request.Request(u + "&audience=cgv-relay", headers={"Authorization": "bearer " + t})
+    _OIDC["tok"] = json.loads(urllib.request.urlopen(req, timeout=20).read().decode())["value"]
+    _OIDC["t"] = time.time()
+    return _OIDC["tok"]
+
+
+def _via_relay(url):
+    relay = os.environ.get("CGV_RELAY")
+    if not relay or "cgv.co.kr" not in urllib.parse.urlsplit(url).netloc \
+            or not os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL"):
+        return None
+    sp = urllib.parse.urlsplit(url)
+    return relay.rstrip("/") + sp.path + ("?" + sp.query if sp.query else "")
+
+
 def http_json(url, data=None, headers=None, timeout=40, tries=2):
     # ⚠ User-Agent 만 뽑아 쓰면 안 된다.
     #   예전엔 `{"User-Agent": UA, "Accept": "application/json"}` 두 줄만 보냈는데,
@@ -98,10 +124,13 @@ def http_json(url, data=None, headers=None, timeout=40, tries=2):
     h = _ua(referer=ref)
     h["Accept"] = "application/json, text/plain, */*"
     h.update(headers or {})
-    req = urllib.request.Request(url, data=data, headers=h)
+    relayed = _via_relay(url)
+    req = urllib.request.Request(relayed or url, data=data, headers=h)
     last = None
     for i in range(tries):
         try:
+            if relayed:
+                req.add_header("Authorization", "Bearer " + _relay_token())
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode("utf-8"))
         except Exception as e:

@@ -196,6 +196,17 @@ def relay_test() -> dict:
            "no_token": _raw(origin, token, lst),
            "bad_path": _raw(origin, token, "/api/v1/member/info", {"X-Relay-Token": good or "x"})}
     if good:
+        # 배포된 실제 워커(https://cgv-relay.dayyyline.workers.dev) — 아직 안 만들었으면 오류/404 가 정상
+        try:
+            req = urllib.request.Request("https://cgv-relay.dayyyline.workers.dev" + lst,
+                                         headers={"Authorization": "Bearer " + good, "User-Agent": BROWSER_UA})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                d = json.loads(r.read().decode("utf-8"))
+                out["deployed"] = {"status": r.status, "dataLen": len(d.get("data") or []), "colo": r.headers.get("x-relay-colo")}
+        except urllib.error.HTTPError as e:
+            out["deployed"] = {"status": e.code, "head": e.read()[:80].decode("utf-8", "replace")}
+        except Exception as e:
+            out["deployed"] = {"err": f"{type(e).__name__}: {str(e)[:120]}"}
         out["good_bearer"] = _raw(origin, token, lst, {"Authorization": "Bearer " + good})
         out["good_xhdr"] = _raw(origin, token, lst, {"X-Relay-Token": good})
         out["wrong_aud"] = _raw(origin, token, lst, {"X-Relay-Token": bad})

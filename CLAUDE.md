@@ -1063,6 +1063,14 @@ saramin.co.kr/zf_user/search/recruit?searchword=회사명&recruitSort=reg_dt&rec
 - **두 잡.** 수집(20~30분)은 repo-write 그룹 **밖**에서 아티팩트로만, 커밋 잡만 그룹 안에서 원격 최신 위에 `--merge` 로 끼운다.
   긴 수집을 그룹 안에 두면 시세 회차가 줄을 서고 GitHub 이 대기 회차를 취소한다.
 - ⚠ **러너에선 CGV 403 · 메가 간헐 시간초과**(diag 2026-09-26). 대개 롯데(+메가) 기준으로 쌓인다.
+- **CGV 는 Cloudflare 워커 `cgv-relay` 경유로 받는다(2026-09-28).** 차단은 러너 IP(Azure) 기준이라, 워커가 미국 colo(ORD·SJC)에서
+  돌아도 CGV 가 200 이다(`diag/net_probe.json` 의 `cgv_via_worker`·`cgv_relay_test`). `boxseats.yml` 의 `CGV_RELAY` 가 있고 러너
+  OIDC 를 받을 수 있을 때만 `fetch_screens.http_json` 이 cgv.co.kr 요청을 워커로 돌린다(이 PC 는 직접).
+  워커(`cloudflare-worker/cgv-relay.js`)는 **우리 저장소의 GitHub OIDC 토큰(aud=cgv-relay)만** 받고 `/api/v1/booking/<이름>` GET 만 연다 —
+  비밀값이 필요 없다. 토큰은 수 분이면 만료라 수집기가 4분마다 새로 받는다. 워커는 사람이 대시보드에서 만든다(`설정방법.md` 아래쪽).
+  ⚠ 워커가 요청 속도를 올려 주는 도구가 아니다 — CGV 는 순차·0.12초 그대로, 주기도 그대로(하츄핑 때 과수집으로 막힌 전례).
+  ⚠ 워커 경유가 막히는 날(CGV 가 워커 트래픽까지 막으면) 대안은 **이 PC 작업 스케줄러로 하루 2번**(사용자가 정한 2순위).
+  이 PC 에서 손으로 3사를 받는 법: `python fetch_boxoffice.py --seats --cache=<파일>` → 원격 최신 위에서 `--merge=<파일> --no-kobis`.
   빠진 체인을 직전 값으로 이어받지 **않는다** — 점마다 체인별 판매·총좌석·스크린을 남기고,
   화면이 **두 수집에 다 있는 체인끼리만** 증감을 계산한다(`common`/`sumBy` in `renderBoxTab`).
   이어받기를 하면 한국 IP 에서 받은 CGV 값이 서버 회차마다 복사돼 굳은 숫자가 된다.
