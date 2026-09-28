@@ -5747,7 +5747,14 @@ const C2_ASM0={a:12.3, alpha:0.84, s:1, rios:0.25, lp:1.05, tau:15, vat:1.1,
   feeZ:32, rsZ:25, mkZ:10, mkLaunch:12, mkNew:3,           // 제우스 비용 · 2027 신작 출시 마케팅(분기)
   gRpg26:null, gRpg27:-10, gBb26:null, gBb27:8, cas:null, newg:5,   // null = 최근 실적에서 자동
   feeL:null, royL:null, mkL:9, lab:null, gLab:3, oth:null,    // 마케팅 9% = 4Q25 콜 '라이브게임 매출 대비 10% 안팎'
-  subRev:29, subOp:-5, nonop:-4.5, oneoff:-7.5, tax:22, minor:-2.5, show25:0};
+  subRev:8.1, subOp:-0.3, nonop:-5.5, oneoff:0, tax:22, minor:-0.2, show25:0};
+// 자회사 = 컴투스엔 **연결 제외** 가정(사용자 2026-09-28 "곧 그렇게 된대"). 7/14 엔피가 위지윅을 흡수합병해 컴투스엔(컴투스 31.3%)이
+//   됐고, 연결에서 빠지면 위지윅 미디어(분기 매출 약 15 · 적자 −3)가 연결 영업이익에서 나간다 → 남는 건 게임 자회사
+//   (OOTP·타이젬·티키타카·해외법인, 분기 매출 약 8 · 손익 ≈ 0)와 마이뮤직테이스트뿐. 컴투스엔 손익은 지분법(31% × 순손실 3~4/분기 ≈ −1.0)으로
+//   영업외에 들어간다(그래서 경상 영업외 −4.5 → −5.5). 3Q26 은 합병일 전 7/1~7/13 위지윅 13일분만 더한다(C2_SUB_STUB).
+//   연결 제외 처분손익(남는 지분의 공정가치 재측정)은 공시 전이라 0 — 3Q 보고서에서 확인. 비지배 몫도 위지윅 외부 주주가 빠져 거의 0.
+//   ⚠ 계속 연결로 보려면 가정 패널에서 자회사 매출 29 · 영업이익 −5 · 3Q26 일회성 −7.5 · 비지배 −2.5 (엔피 사업이 더해지는 경우).
+const C2_SUB_STUB={q:"2026Q3", rev:1.6, op:-0.4};         // 위지윅 7/1~7/13 = 분기 매출 15 · 손실 −3 × 13/92 (+ 마이뮤직 소폭)
 // 제우스 순위 시나리오 — 기존 MMORPG 감쇠(리니지W 첫 8개월 월 −15%, 레이븐2 −9%, 로드나인 등)를 월별 경로로 세운 뒤
 // 이 곡선으로 순위를 역산한 것. 기준: 10월 −25%(프리미엄·PC 할인 종료·경쟁작) → 월 −15~−10% → 2027 하반기 월 −4%.
 const C2_SCN={"보수":{zg:[2.7,6.6,9.6,12.1,14.8],za:[20,30,40,50,60]},
@@ -5866,12 +5873,13 @@ function c2Build(P){
       o.why={rpg:`직전 분기 ${fmt(p1.rpg,1)} × (1${pc(qR)}) — 추세 연 ${pc(gR)} 의 분기 환산`,
              bb:`직전 분기 ${fmt(p1.bb,1)} × (1${pc(qB)}) — 추세 연 ${pc(gB)} 의 분기 환산`};
       const leg=o.rpg+o.bb+o.cas+o.newg;
-      o.sep=o.zeus+leg; o.sub=P.subRev; o.rev=o.sep+o.sub;
+      const stub=q===C2_SUB_STUB.q?C2_SUB_STUB:{rev:0,op:0};
+      o.sep=o.zeus+leg; o.sub=P.subRev+stub.rev; o.rev=o.sep+o.sub;
       o.fee=P.feeL/100*leg+(P.feeZ+P.rsZ)/100*o.zeus;              // 개발사 RS 는 지급수수료 계정(회사 확인)
       o.roy=P.royL/100*(o.rpg+o.bb);                                  // 로열티 = 야구 MLB·KBO·콜라보 IP 라이선스
       o.lab=P.lab*Math.pow(1+P.gLab/100, n/4);
       o.mkt=P.mkL/100*leg+P.mkZ/100*o.zeus+(q==="2026Q3"?P.mkLaunch:0)+(y>=2027?P.mkNew:0);
-      o.oth=P.oth; o.subx=o.sub-P.subOp;
+      o.oth=P.oth; o.subx=o.sub-(P.subOp+stub.op);
       o.opex=o.fee+o.roy+o.lab+o.mkt+o.oth+o.subx; o.op=o.rev-o.opex;
       o.nonop=P.nonop+(q==="2026Q3"?P.oneoff:0); o.pbt=o.op+o.nonop;
       // 과세 = 별도(게임) 영업이익 + 경상 영업외. 자회사 적자·일회성 지분 평가손은 본사 과세소득을 줄이지 못한다
@@ -5981,15 +5989,15 @@ function renderC2Model(){
   const eTip=(o,k)=>{ if(o.act||o.yr) return "";
     const leg=o.rpg+o.bb+o.cas+o.newg;
     return ({zeus:zTip(o), rpg:o.why&&o.why.rpg, bb:o.why&&o.why.bb, cas:"최근 2분기 평균(가정)", newg:"2027년 신작 자리값(가정)",
-      sub:`자회사 분기 매출 가정 ${P.subRev}${o.q==="2026Q3"?" · 컴투스엔(엔피가 위지윅 흡수합병, 7/14) 계속 연결 가정 — 엔피 사업이 이 분기부터 더해진다. 연결에서 빠지면 분기 매출 8~10·손익 −0.5 수준":""}`,
+      sub:`게임 자회사(OOTP·타이젬·티키타카·해외법인) 분기 매출 ${P.subRev} — 컴투스엔(7/14 엔피가 위지윅 흡수합병) 연결 제외 가정${o.q===C2_SUB_STUB.q?` · 3Q26 은 합병일 전 위지윅 7/1~13분 +${C2_SUB_STUB.rev} 포함`:""}`,
       fee:`기존 게임 ${fmt(leg,1)} × ${P.feeL}% + 제우스 ${fmt(o.zeus,1)} × (마켓·PG ${P.feeZ}% + 개발사 RS ${P.rsZ}%)`,
       roy:`RPG·야구 ${fmt(o.rpg+o.bb,1)} × ${P.royL}% (MLB·KBO 라이선스·콜라보 IP)`,
       lab:`최근 2분기 평균 ${P.lab} × 연 ${P.gLab}% 증가`,
       mkt:`기존 게임 × ${P.mkL}% + 제우스 × ${P.mkZ}%${o.q==="2026Q3"?` + 출시 마케팅 ${P.mkLaunch}`:""}${+o.q.slice(0,4)>=2027?` + 신작 출시 ${P.mkNew}`:""}`,
-      oth:`최근 4분기 평균 ${P.oth}`, subx:`자회사 매출 ${P.subRev} − 영업이익 (${P.subOp})`,
-      nonop:`경상 ${P.nonop}${o.q==="2026Q3"?` + 일회성 ${P.oneoff}(옛 엔피 지분 20.7% 재측정손 추정, −6~−9)`:""}`,
+      oth:`최근 4분기 평균 ${P.oth}`, subx:`자회사 매출 − 영업이익(${P.subOp}${o.q===C2_SUB_STUB.q?` · 위지윅 13일분 ${C2_SUB_STUB.op}`:""})`,
+      nonop:`경상 ${P.nonop}(이자·지분법 — 컴투스엔 31% 지분법 약 −1.0 포함)${o.q==="2026Q3"&&P.oneoff?` + 일회성 ${P.oneoff}`:""}`,
       tax:`(게임 영업이익 ${fmt(o.sepOp,1)} + 경상 영업외 ${P.nonop}) × ${P.tax}% — 자회사 적자·일회성 평가손은 본사 과세소득을 줄이지 못한다`,
-      minor:`비지배 몫 가정 ${P.minor}(컴투스엔 외부 주주 약 69% 몫의 적자)`})[k]||""; };
+      minor:`비지배 몫 가정 ${P.minor} — 컴투스엔 연결 제외로 적자를 나눠 지던 외부 주주가 빠져 거의 0`})[k]||""; };
   const ROWS=[
     {k:"rev", t:"매출액", c:"tot"},
     {k:"rev", t:"YoY", r:"yoy"},
@@ -6046,7 +6054,7 @@ function renderC2Model(){
     else if(row.m==="dq"){ v=o[row.k]!=null&&o.days?fmt(o[row.k]*10/o.days,1):"—";
       tip=`${lab(o)} ${fmt(o[row.k],1)}십억 × 10 ÷ ${o.days}일`; }
     else { const x=o[row.k]; v=((row.k==="newg"||row.k==="zeus")&&!x)?"—":f1(x); tip=eTip(o,row.k)||(row.z?zTip(o):"");
-      if(!o.act&&!o.yr&&o.q==="2026Q3"&&(row.k==="nonop"||row.k==="sub")) v+=`<sup style="color:var(--warn)">*</sup>`; }
+      if(!o.act&&!o.yr&&o.q==="2026Q3"&&((row.k==="nonop"&&P.oneoff)||row.k==="sub")) v+=`<sup style="color:var(--warn)">*</sup>`; }
     if(row.z&&o.act&&o.zEst&&o.zeus) tip=(tip?tip+" · ":"")+"IR 이 제우스를 따로 밝히지 않아 모델값을 RPG 에서 뗐다";
     const st=thS(o,k)+(row.c&&row.c.includes("tot")?"font-weight:800;":row.c==="sub"?"font-weight:700;":"")
       +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"||row.m==="dz"?"color:var(--muted);":"")
@@ -6079,7 +6087,8 @@ function renderC2Model(){
     <p class="note" style="margin-top:6px">색칠한 칸이 추정(E)입니다. 실적 칸은 <b>연결·별도 합계 = DART</b>(${attr(C2MODEL.asOf||"")} 수집),
       장르·비용 항목 = 회사 IR 자료. 게임 = 컴투스 별도, 자회사 = 연결 − 별도(미디어·컴투스엔·OOTP 등).
       <b>지급수수료·로열티는 IR 분류</b>입니다(DART 주석의 지급수수료 = IR 지급수수료 + 로열티 + 일부 기타). 개발사 RS 는 회사 설명대로 지급수수료에 넣었습니다.
-      <span style="color:var(--warn)">*</span> 3Q26 가정: 자회사에 컴투스엔(엔피+위지윅, 7/14 합병) 계속 연결 · 영업외에 옛 엔피 지분 재측정손 −7.5(추정).
+      <b>자회사는 컴투스엔 연결 제외 가정</b>(7/14 엔피가 위지윅 흡수합병 → 컴투스 31.3%): 적자 미디어가 빠지고 게임 자회사만 남습니다(분기 매출 약 8 · 손익 ≈ 0).
+      컴투스엔 손익은 지분법으로 영업외에 들어가고, <span style="color:var(--warn)">*</span> 3Q26 자회사엔 합병일 전 위지윅 13일분만 들어 있습니다. 연결 제외 처분손익은 공시 전이라 넣지 않았습니다.
       세금은 게임(별도) 이익에만 매깁니다 — 자회사 적자는 본사 세금을 줄이지 못합니다.</p>`;
 
   // ── 제우스: 순위 → 일매출 ─────────────────────────────────────────
@@ -6166,12 +6175,13 @@ function renderC2Model(){
         +inp("gBb26","야구 추세 26하반기","%/년",1)+inp("gBb27","야구 추세 2027","%/년",1)+inp("cas","캐주얼·기타 분기","십억",0.1)+inp("newg","2027 신작 분기","십억",1))}
       ${grp("기존 게임 비용", inp("feeL","지급수수료율","%",0.5)+inp("royL","로열티율(RPG·야구)","%",0.5)+inp("mkL","마케팅비율(가이던스 10% 안팎)","%",0.5)
         +inp("lab","인건비 분기","십억",0.5)+inp("gLab","인건비 증가","%/년",1)+inp("oth","외주·기타 분기","십억",0.5)+inp("mkNew","2027 신작 출시 마케팅 분기","십억",0.5))}
-      ${grp("자회사 · 영업외 · 순이익", inp("subRev","자회사 분기 매출","십억",0.5)+inp("subOp","자회사 영업이익","십억",0.5)
+      ${grp("자회사(컴투스엔 연결 제외) · 영업외 · 순이익", inp("subRev","자회사 분기 매출","십억",0.5)+inp("subOp","자회사 영업이익","십억",0.5)
         +inp("nonop","경상 영업외 분기","십억",0.5)+inp("oneoff","3Q26 일회성","십억",0.5)+inp("tax","세율(게임 이익에)","%",1)+inp("minor","비지배 몫 분기","십억",0.5))}
     </div>
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="c2Reset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
       <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(IR·DART 둘 다 있는 분기)에서 계산(추세 = ${au._from.map(c2QLab).join("·")} 전년비 평균 · 비용률 ${au._from4.map(c2QLab).join("·")} 합계 기준, 출시 뒤 분기는 제우스를 떼고). 입력하면 그 값으로 고정.
-      경상 영업외 −4.5 = 이자 −1.0~−1.8 · 지분법 −1.5~−3.0 · 기타 −1 (1H26 실적은 −13.6·−7.4). 3Q26 일회성 −7.5 = 컴투스엔 합병 때 옛 엔피 지분(20.7%) 재측정손 추정(−6~−9).</span></div>
+      경상 영업외 −5.5 = 이자 −1.0~−1.8 · 지분법 −1.5~−3.0 · 기타 −1 · 컴투스엔 지분법(31%) 약 −1.0 (1H26 실적은 −13.6·−7.4). 3Q26 일회성 = 연결 제외 처분손익(공시 전 · 기본 0).
+      계속 연결로 보려면: 자회사 매출 29 · 영업이익 −5 · 3Q26 일회성 −7.5 · 비지배 −2.5.</span></div>
     </div></details>`;
 
   box.innerHTML=head+tbl+asm+zeusBox+gtbl;
