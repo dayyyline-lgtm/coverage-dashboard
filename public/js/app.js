@@ -4442,8 +4442,12 @@ function drawBoxChart(){
    ① 최종 관객 = 치이카와의 N일차 누적 × 비교작의 '최종 ÷ N일차 누적'(BOXOFFICE.comps · 한국 개봉 일본 애니 극장판 +
       하츄핑 18편, KOBIS 통계 페이지의 개봉 10일 + 최종 누적). 영화마다 '이 경로면 최종 몇 명'이 나오고
       보수/기준/낙관 = 그 값들의 P25/중앙/P75.
-      ⚠ 배수는 개봉이 클수록 작다(큰 팬덤 개봉은 1일의 4~8배로 끝나고, 입소문으로 큰 작은 개봉은 20~80배).
-        그래서 기본은 '개봉 규모가 비슷한'(1일 관객이 치이카와의 ½~2배) 비교작만 쓴다. 전체는 표에서 본다.
+      ⚠ 배수는 두 무리로 갈린다(2026-09-28 · 사용자 "초반 집중형이 합리적인 가정"):
+        초반 집중형(최종 ÷ 첫날 누적 < 15배 · 하이큐·코난·원피스·그대들은·하츄핑·귀멸 무한성 등 12편, 4~12배) vs
+        입소문형(15배 이상 · 스즈메·체인소맨·슬램덩크·너의 이름은 등 6편, 19~72배). 12.3배와 18.7배 사이가 비어 있어 15에서 자연스럽게 갈린다.
+        치이카와는 캐릭터·팬덤 영화라 **기본은 초반 집중형 12편**. 예전 기본(개봉 규모 ½~2배)은 두 무리를 섞어서
+        낙관이 스즈메 경로(571만)가 됐다. 초반 집중형 안에서는 개봉 규모와 배수의 관계가 뚜렷하지 않아 규모 필터는 뺐다.
+        입소문형은 '상방 참고' 한 줄로만 적고, 비교작 표의 버튼으로 전체 18편 계산을 볼 수 있다.
       N = 개봉 후 KOBIS 확정 일수(10일까지 — 통계 페이지가 개봉 10일만 준다). 14일차부터는 치이카와 자신의
       주간 유지율(최근 7일 ÷ 그 전 7일)로 남은 관객을 기하급수로 더한 값이 기준이 된다(자기 자료가 비교작보다 낫다).
       개봉 전(N=0)엔 개봉일 관객을 추정해 N=1 로 계산한다:
@@ -4485,7 +4489,7 @@ function renderBoxModel(BO, FL, star){
   const N=post.length, man=v=>v==null?"—":(v>=1e6?(v/1e4).toFixed(0):(v/1e4).toFixed(1))+"만";
 
   // ── 개봉 전: 개봉일 관객 추정 ──
-  let d1=null, d1Lo=null, d1Hi=null, soldTxt="";
+  let d1=null, d1Lo=null, d1Hi=null, soldTxt="", sold3v=null;
   if(!N){
     const sp=(BO.seats||{})[`${me.key}|${ok}`]||[], last=sp[sp.length-1];
     const full=sp.filter(p=>p.by&&p.by.CGV&&p.by.LC&&p.by.MB).slice(-1)[0];
@@ -4493,7 +4497,7 @@ function renderBoxModel(BO, FL, star){
       const pr=Object.keys(last.by||{});
       const sh=c=>full?full.by[c].seatSold/full.seatSold:null;
       const sold3=(full&&pr.length<3)? pr.reduce((a,c)=>a+last.by[c].seatSold,0)/pr.reduce((a,c)=>a+sh(c),0) : last.seatSold;
-      const floor=sold3/0.89;
+      const floor=sold3/0.89; sold3v=sold3;
       d1Lo=floor*1.2; d1=floor*1.5; d1Hi=floor*1.75;
       soldTxt=`개봉일 판매석 ${fmt0(last.seatSold)}석(${pr.map(c=>({CGV:"CGV",LC:"롯데",MB:"메가"})[c]).join("·")} · ${last.t.slice(5)})`
         +(pr.length<3&&full?` → 3사 환산 ${fmt0(sold3)}석(${full.t.slice(5)} 3사 수집의 체인 비중)`:"")
@@ -4505,11 +4509,14 @@ function renderBoxModel(BO, FL, star){
   const accN= N ? (N>10 ? post[9].acc : post[n-1].acc) : (d1!=null?preAcc+d1:null);
 
   // ── 비교작 경로 ──
+  // 유형 = 그 비교작의 '최종 ÷ 첫날 누적'(고정 성질) — 15배 미만이면 초반 집중형
   const rows=C.map(c=>{ const cd=c.days.find(x=>x.n===n); const m=cd&&cd.acc?c.final/cd.acc:null;
-    const sim=d1Use?(c.days[0].audi>=d1Use/2&&c.days[0].audi<=d1Use*2):false;
-    return {...c, m, sim, imp:(m&&accN)?accN*m:null}; });
-  let use=rows.filter(r=>r.sim&&r.m), simUsed=true;
+    const m1=c.days[0]&&c.days[0].acc?c.final/c.days[0].acc:null, front=m1!=null&&m1<15;
+    return {...c, m, m1, front, imp:(m&&accN)?accN*m:null}; });
+  let use=rows.filter(r=>r.front&&r.m), simUsed=true;               // simUsed = 초반 집중형만 쓰는 중
   if(boxCmpAll||use.length<4){ use=rows.filter(r=>r.m); simUsed=false; }
+  const boomRows=rows.filter(r=>!r.front&&r.m);
+  const boomSc=(boomRows.length&&accN)?{lo:qtl(boomRows.map(r=>r.imp),.25), hi:qtl(boomRows.map(r=>r.imp),.75)}:null;
   const sc={lo:qtl(use.map(r=>r.imp),.25), mid:qtl(use.map(r=>r.imp),.5), hi:qtl(use.map(r=>r.imp),.75)};
   // 14일차부터 자기 감쇠
   let decay=null;
@@ -4556,8 +4563,34 @@ function renderBoxModel(BO, FL, star){
       ${kp("기여 영업이익 <span class='th-sub'>기준 · 가정</span>", sc.mid!=null?fmt0(P.op)+"<small>억</small>":"—",
           `판권료 ${A.roy}% · P&A ${A.pa}억${pctOp(P.op)}`, cls(P.op))}
     </div>`;
-  if(!N&&soldTxt) h+=`<p class="note" style="margin-top:6px">개봉일 관객 추정: ${soldTxt} × 전환배수 1.2 / <b>1.5</b> / 1.75
-    (1.75 = 하츄핑2 실측 · 팬덤 영화는 미리 사 두는 비중이 커서 낮게 본다). 개봉일 아침 KOBIS 확정치가 들어오면 실측으로 바뀝니다.</p>`;
+  // ── 이 전망은 어떻게 나왔나 — 3줄 요약 ─────────────────────────────────────────
+  //   ① 출발점(개봉 전 = 개봉일 관객 추정 / 개봉 후 = N일차 누적 실측 / 14일차~ = 자체 감쇠)
+  //   ② 배수 = 개봉 규모 비슷한 비교작의 '최종 ÷ N일차 누적' — 보수·기준·낙관 = 하위 25%·중간·상위 25%
+  //   ③ 어떤 영화 경로인지 — 배수가 '초반 몰림형(4~12배)'과 '입소문형(15배~)'으로 갈리므로 낙관이 입소문형이면 그렇다고 적는다
+  const SHORT={"사랑의 하츄핑":"하츄핑1","하츄핑2 고래보석의 전설":"하츄핑2","더 퍼스트 슬램덩크":"슬램덩크","그대들은 어떻게 살 것인가":"그대들은",
+    "너의 이름은.":"너의 이름은","스즈메의 문단속":"스즈메","체인소 맨 레제편":"체인소맨","귀멸 무한성편":"귀멸 무한성","귀멸 무한열차편":"귀멸 무한열차",
+    "주술회전 0":"주술회전","짱구 우리들의 공룡일기":"짱구 공룡일기","짱구 떡잎마을 댄서즈":"짱구 댄서즈","코난 흑철의 어영":"코난 흑철",
+    "코난 100만 달러의 펜타그램":"코난 펜타그램","코난 척안의 잔상":"코난 척안","하이큐 쓰레기장의 결전":"하이큐","원피스 필름 레드":"원피스",
+    "스파이 패밀리 코드 화이트":"스파이 패밀리"};
+  const sn=x=>SHORT[x.short]||x.short;
+  if(sc.mid!=null){
+    const byM=use.slice().sort((a,b)=>a.m-b.m);
+    const scTxt=[["보수",sc.lo],["기준",sc.mid],["낙관",sc.hi]].map(([k,v])=>`${k} <b>${man(v)}</b>${decay?"":` (${(v/accN).toFixed(1)}배)`}`).join(" · ");
+    const start= decay ? `개봉 ${N}일차 누적 <b>${man(post[N-1].acc)}</b>(KOBIS) + 남은 관객(최근 7일 ${fmt0(decay.a)} × 주간 유지율 ${(decay.r*100).toFixed(0)}% 로 계속 줄어든다고 보고)`
+      : N ? `개봉 ${n}일차 누적 <b>${man(accN)}</b>(KOBIS 확정)`
+      : `개봉일 관객 <b>${man(d1)}</b> 추정(3사 판매석 ${sold3v!=null?man(sold3v):"—"}석 ÷ 0.89 × 1.5)`+(preAcc?` + 시사 ${man(preAcc)}`:"")+` = 출발 누적 <b>${man(accN)}</b>`;
+    const mult= decay ? `보수·낙관 = 유지율 ±10%p`
+      : `× ${simUsed?"<b>초반 집중형</b>":"전체"} 비교작 ${use.length}편의 '최종 ÷ ${n}일차 누적' ${byM[0].m.toFixed(1)}~${byM[byM.length-1].m.toFixed(1)}배`
+        +` (${[...new Set([0,1,2,3,4].map(i=>Math.round(i*(byM.length-1)/4)))].map(i=>`${sn(byM[i])} ${byM[i].m.toFixed(1)}`).join(" · ")}${byM.length>5?" 등 — 전체는 아래 비교작 표":""}) → 하위 25% · 중간 · 상위 25%`;
+    const warn=(!decay&&simUsed&&boomSc&&boomSc.lo)
+      ? `<br><span style="color:var(--muted)">상방 참고 — <b>입소문형</b>(${boomRows.slice().sort((a,b)=>a.m-b.m).map(sn).join("·")}, ${Math.min(...boomRows.map(r=>r.m)).toFixed(0)}~${Math.max(...boomRows.map(r=>r.m)).toFixed(0)}배)을 타면
+         ${man(boomSc.lo)}~${man(boomSc.hi)}. 캐릭터 영화라 기본에선 뺐고, 개천절 연휴(6일차) 누적이 판정표의 낙관 경로를 넘으면 그때 의심할 것.</span>`
+      : (!decay&&!simUsed?`<br><span style="color:var(--muted)">지금은 입소문형까지 섞은 전체 계산이라 낙관이 크게 나옵니다 — 기본은 초반 집중형.</span>`:"");
+    h+=`<div style="margin:10px 0 2px;padding:10px 14px;border:1px solid var(--line-soft);border-radius:12px;
+        background:color-mix(in srgb, var(--accent) 6%, transparent);font-size:12.5px;line-height:1.65">
+      <b style="color:var(--accent)">이 전망은 어떻게 나왔나</b><br>
+      ① ${start}<br>② ${mult}<br>③ ${scTxt}${warn}</div>`;
+  }
 
   // 시나리오 × 대원 실적 + 분기
   // 분기 영업이익 — P&A 는 개봉 전 9월에 pa3% 를 쓰므로 3Q 에 먼저 잡힌다(판권료는 매출 비례)
@@ -4620,7 +4653,7 @@ function renderBoxModel(BO, FL, star){
     const mult=qtl(ms,.5), d=dayOf(k), act=post[k-1]?post[k-1].acc:null, fin=(act!=null&&mult)?act*mult:null;
     const near=fin!=null?JT.reduce((b,t)=>Math.abs(t.v-fin)<Math.abs(b.v-fin)?t:b,JT[0]):null;
     return {k, d, mult, n:ms.length, act, fin, near}; });
-  h+=`<div class="sub-h" style="margin-top:14px">초기 데이터 판정표 <span class="tag-inline">개봉 N일차 누적이 어느 최종 경로 위에 있나 · 경로 = 모델의 보수·기준·낙관(실시간) · 배수 = 비교작 '최종 ÷ N일 누적' 중앙값(${simUsed?"개봉 규모 비슷한 비교작":"전체 비교작"})</span></div>
+  h+=`<div class="sub-h" style="margin-top:14px">초기 데이터 판정표 <span class="tag-inline">개봉 N일차 누적이 어느 최종 경로 위에 있나 · 경로 = 모델의 보수·기준·낙관(실시간) · 배수 = 비교작 '최종 ÷ N일 누적' 중앙값(${simUsed?"초반 집중형 비교작":"전체 비교작"})</span></div>
     <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">개봉 N일차</th><th>배수</th>`
     +JT.map(t=>`<th${t.k==="기준"?' style="color:var(--accent)"':""}>${t.k?t.k+" ":""}${man(t.v)} 경로<span class="th-sub">필요 누적</span></th>`).join("")
     +`<th>실제 누적<span class="th-sub">KOBIS</span></th><th>이 경로면 최종</th></tr></thead><tbody>`
@@ -4653,18 +4686,21 @@ function renderBoxModel(BO, FL, star){
 
   // 비교작 표(접기)
   const wk="일월화수목금토";
-  h+=`<details class="fold"><summary>비교작 ${C.length}편 — '이 영화 경로를 따르면' <span class="sub">${simUsed?"개봉 규모 비슷한 것만 반영(✓)":"전체 반영"} · 기준 N=${n}일차</span></summary>
-    <div style="margin:6px 0"><button class="theme-btn" id="boxCmpAll" style="padding:4px 10px;font-size:12px">${boxCmpAll?"개봉 규모 비슷한 것만 쓰기":"전체 비교작으로 계산"}</button></div>
+  h+=`<details class="fold"><summary>비교작 ${C.length}편 — '이 영화 경로를 따르면' <span class="sub">${simUsed?"초반 집중형만 반영(✓)":"전체 반영"} · 기준 N=${n}일차</span></summary>
+    <div style="margin:6px 0"><button class="theme-btn" id="boxCmpAll" style="padding:4px 10px;font-size:12px">${boxCmpAll?"초반 집중형만 쓰기(기본)":"입소문형까지 전체로 계산"}</button></div>
     <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">비교작</th><th class="l">개봉</th><th>1일 관객</th><th>7일 누적</th><th>최종</th>
-    <th>최종 ÷ ${n}일 누적</th><th>이 경로면 ${me.short}</th><th>반영</th></tr></thead><tbody>`
+    <th>최종 ÷ ${n}일 누적</th><th>유형<span class="th-sub">최종÷첫날</span></th><th>이 경로면 ${me.short}</th><th>반영</th></tr></thead><tbody>`
     +rows.slice().sort((a,b)=>(b.imp||0)-(a.imp||0)).map(r=>{ const od=new Date(r.open+"T00:00:00");
       return `<tr${use.includes(r)?"":' style="opacity:.55"'}><td class="l">${r.short}<span class="th-sub">${r.kind}</span></td>
       <td class="l">${r.open}<span class="th-sub">${wk[od.getDay()]}</span></td><td>${fmt0(r.days[0].audi)}</td><td>${fmt0((r.days[6]||{}).acc)}</td>
-      <td><b>${man(r.final)}</b></td><td>${r.m?r.m.toFixed(1)+"배":"—"}</td><td>${r.imp?man(r.imp):"—"}</td><td>${use.includes(r)?"✓":""}</td></tr>`; }).join("")
+      <td><b>${man(r.final)}</b></td><td>${r.m?r.m.toFixed(1)+"배":"—"}</td>
+      <td class="l">${r.front?"초반 집중":"<b>입소문</b>"}<span class="th-sub">${r.m1?r.m1.toFixed(1)+"배":""}</span></td>
+      <td>${r.imp?man(r.imp):"—"}</td><td>${use.includes(r)?"✓":""}</td></tr>`; }).join("")
     +`</tbody></table></div>
     <p class="note" style="margin-top:6px">KOBIS 통계(개봉 10일 · 최종 누적, 누적은 개봉 전 시사 포함). 개봉 규모가 클수록 배수가 작습니다 —
       큰 팬덤 개봉(하이큐·코난·그대들은)은 1일의 4~8배에서 끝났고, 작게 시작해 입소문으로 큰 영화(슬램덩크·스즈메·레제)는 30배를 넘었습니다.
-      그래서 기본은 1일 관객이 ${me.short}의 ½~2배인 비교작만 씁니다(4편 미만이면 전체).
+      배수는 두 무리로 갈립니다 — <b>초반 집중형</b>(최종이 첫날 누적의 15배 미만)과 <b>입소문형</b>(15배 이상). ${me.short}는 캐릭터·팬덤 영화라
+      기본은 초반 집중형만 씁니다(4편 미만이면 전체). 입소문형은 설명 칸의 '상방 참고'로만 봅니다.
       ${N>=14?`14일차부터는 ${me.short} 자신의 주간 유지율(최근 7일 ${fmt0(decay.a)} ÷ 그 전 7일 ${fmt0(decay.b)} = ${(decay.r*100).toFixed(0)}%)로 남은 관객을 더한 값이 기준입니다(±10%p = 보수·낙관).`:""}
       일본에선 1,133만 명·165억 엔(9/23 · 2026년 1위)을 넘겼지만 일본 흥행이 한국 규모를 정하지는 못합니다 —
       일본 158억 엔의 코난 펜타그램은 한국 75만, 149억 엔의 스즈메는 한국 559만이었습니다.</p></details>`;
