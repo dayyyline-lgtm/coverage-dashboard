@@ -124,7 +124,7 @@ def main():
         OUT["cgv_via_worker"] = diag_cgv_worker.probe()
     except Exception as e:
         OUT["cgv_via_worker"] = {"err": f"{type(e).__name__}: {str(e)[:200]}"}
-    # 중계 워커(cgv-relay.js) 배포 전 시험 — 러너의 OIDC 토큰으로 인증·경로 제한·CGV 응답까지 (2026-09-28)
+    # 중계 워커(cgv-relay.js) 시험 — 러너의 OIDC 토큰으로 인증·경로 제한·CGV 응답까지 (2026-09-28 · 배포 후 deployed 항목 확인)
     try:
         import diag_cgv_worker
         OUT["cgv_relay_test"] = diag_cgv_worker.relay_test()
