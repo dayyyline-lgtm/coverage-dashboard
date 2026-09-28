@@ -1068,6 +1068,8 @@ saramin.co.kr/zf_user/search/recruit?searchword=회사명&recruitSort=reg_dt&rec
   OIDC 를 받을 수 있을 때만 `fetch_screens.http_json` 이 cgv.co.kr 요청을 워커로 돌린다(이 PC 는 직접).
   워커(`cloudflare-worker/cgv-relay.js`)는 **우리 저장소의 GitHub OIDC 토큰(aud=cgv-relay)만** 받고 `/api/v1/booking/<이름>` GET 만 연다 —
   비밀값이 필요 없다. 토큰은 수 분이면 만료라 수집기가 4분마다 새로 받는다. 워커는 사람이 대시보드에서 만든다(`설정방법.md` 아래쪽).
+  **2026-09-28 배포 완료**(버전 435fa954) · 러너(버지니아) → 배포 워커(IAD) → CGV 200·상영작 59편, 토큰 없음·다른 aud 401, 다른 경로 404 확인.
+  워커 코드를 고치면 `cgv-relay.js` 를 대시보드에 다시 붙여넣어 Deploy 해야 한다(저장소 push 만으로는 안 바뀐다).
   ⚠ 워커가 요청 속도를 올려 주는 도구가 아니다 — CGV 는 순차·0.12초 그대로, 주기도 그대로(하츄핑 때 과수집으로 막힌 전례).
   ⚠ 워커 경유가 막히는 날(CGV 가 워커 트래픽까지 막으면) 대안은 **이 PC 작업 스케줄러로 하루 2번**(사용자가 정한 2순위).
   이 PC 에서 손으로 3사를 받는 법: `python fetch_boxoffice.py --seats --cache=<파일>` → 원격 최신 위에서 `--merge=<파일> --no-kobis`.
