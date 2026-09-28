@@ -489,8 +489,10 @@ function drawSectorTrend(){
     const allKeys=["탑픽","소비재","코스피","코스닥"].filter(k=>ST.idx[k]);
     const reb={}; allKeys.forEach(k=>{ const b=ST.idx[k][from];
       reb[k]=b?ST.idx[k].map(x=>x==null?null:(x/b-1)*100):ST.idx[k].map(()=>null); });
-    const raw=intr.points||[];
-    const todayMD = raw.length ? (raw[raw.length-1].t||"").slice(0,5) : "";   // 오늘 날짜(MM-DD)
+    // ⚠ intr.points 는 여러 날치가 쌓여 있다(레터가 전일 종가 점을 쓴다). 여기선 마지막 날(=오늘)치만 —
+    //   예전엔 전부 붙여서 일별 선 뒤에 8/10~ 장중 점 266개가 시간 라벨로 다시 이어졌다(2026-09-28 수정).
+    const todayMD = (intr.points||[]).length ? (intr.points[intr.points.length-1].t||"").slice(0,5) : "";   // 오늘 날짜(MM-DD)
+    const raw=(intr.points||[]).filter(p=>(p.t||"").slice(0,5)===todayMD);
     const pts=[];
     // 매수일(=0%) ~ 어제: daily 종가, 날짜(MM/DD) 라벨. 오늘 날짜는 intraday 로 대체하므로 제외.
     for(let i=from;i<ST.dates.length;i++){

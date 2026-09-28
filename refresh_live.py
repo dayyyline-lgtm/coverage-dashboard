@@ -306,10 +306,22 @@ def collect_sector_trend(sectors):
             "shortDays": TREND_SHORT, "idx": idx, "meta": meta}
 
 
+def _pick_segments(p, buy):
+    """픽 한 자리의 보유 구간 [(since, code, base)] — 오래된 순.
+       PORTFOLIO.picks[].segs 에 교체 전 종목을, since 에 '이 종목 종가를 쓰기 시작하는 날'을 적는다.
+       교체 때 새 base = 편입가 × 옛 base ÷ 청산가 라서(평가금액 무점프) 구간마다 w·종가/base 를 이으면 끊김이 없다."""
+    segs = [(s.get("since") or buy, s.get("code"), s.get("base")) for s in (p.get("segs") or [])]
+    segs.append((p.get("since") or buy, p.get("code"), p.get("base")))
+    return sorted(segs, key=lambda x: x[0])
+
+
 def add_topfick_index(sector_trend, html):
-    """PORTFOLIO(고정 비중·매수일)로 '탑픽' 지수를 sector_trend.idx 에 더한다.
-       매수일 전은 null, 매수일=100, 이후 = 100·Σ(w·종가/매수일종가). 종목 일봉으로 매 실행 재계산하므로
-       누적 저장이 필요 없다(과거 종가는 안 바뀐다). 일부 종목의 그날 종가가 없으면 남은 비중으로 정규화."""
+    """PORTFOLIO(고정 비중·매수일·교체 구간)로 '탑픽' 지수를 sector_trend.idx 에 더한다.
+       매수일 전은 null, 이후 = 100·Σ(w·종가/base) — 날마다 그날 보유 중이던 구간의 종목·base 로.
+       도넛·보유표·시간별 누적(append_intraday)과 같은 식이다.
+       ⚠ 2026-09-28 전엔 '지금 픽 종목을 매수일부터 들고 있었다'고 보고 계산해서(w·종가/매수일종가)
+         교체 이력이 차트에 안 나타났고, 도넛(+3.2%)과 차트(+2.0%)가 어긋났다.
+       종목 일봉으로 매 실행 재계산하므로 누적 저장이 필요 없다. 그날 종가가 없는 자리는 남은 비중으로 정규화."""
     if not sector_trend:
         return
     m = re.search(r"const PORTFOLIO = (\{.*?\});\n", html, re.S)
@@ -320,26 +332,25 @@ def add_topfick_index(sector_trend, html):
     except json.JSONDecodeError:
         return
     dates, buy, picks = sector_trend["dates"], port.get("date"), (port.get("picks") or [])
+    segs = {i: _pick_segments(p, buy) for i, p in enumerate(picks)}
     px = {}
-    for p in picks:
-        code = p.get("code")
-        if not code:
-            continue
+    for code in {c for ss in segs.values() for _, c, _ in ss if c}:
         try:
             px[code] = fetch_daily(f"https://api.stock.naver.com/chart/domestic/item/{code}")
         except Exception:
             px[code] = {}
         nap(0.2)
-    if not any((px.get(p.get("code")) or {}).get(buy) for p in picks):
+    if not any((px.get(ss[0][1]) or {}).get(buy) for ss in segs.values()):
         print("  탑픽 지수: 매수일 종가 없음 — 스킵"); return
     series = []
     for d in dates:
         if d < buy:
             series.append(None); continue
         tot, wsum = 0.0, 0.0
-        for p in picks:
-            b = (px.get(p.get("code")) or {}).get(buy)
-            v = (px.get(p.get("code")) or {}).get(d)
+        for i, p in enumerate(picks):
+            since, code, b = [s for s in segs[i] if s[0] <= d][-1] if segs[i][0][0] <= d else segs[i][0]
+            b = b or (px.get(code) or {}).get(buy)          # base 가 없으면 매수일 종가(옛 동작)
+            v = (px.get(code) or {}).get(d)
             if b and v:
                 tot += p["w"] * v / b
                 wsum += p["w"]
