@@ -5680,7 +5680,8 @@ function renderTrendHighlights(){
    구조 — 연결 = 컴투스 별도(= 게임) + 자회사(연결 − 별도)
      실적 칸  연결·별도 합계는 DART(C2MODEL.fin — fetch_c2model.py 가 매일), 장르·비용 항목은 IR(C2_IR — 수기)
      추정 칸  제우스   = Σ_일 [곡선(구글순위, 애플순위) × 출시 프리미엄 L(t)] ÷ VAT
-              RPG·야구 = 전년 동기 × (1 + 전년비)  ← 서머너즈워는 89%가 해외라 국내 순위로 레벨을 못 세운다
+              RPG·야구 = 직전 분기 × (1 + 추세 성장률의 분기 환산)  ← 롱테일 매출이라 성장률 추세를 이어 간다(계절성 없음).
+                        서머너즈워는 89%가 해외라 국내 순위로 레벨을 못 세운다
               비용     = 항목별 비율·런레이트(최근 IR 에서 자동) + 제우스 몫(마켓 수수료·개발사 RS·마케팅)
 
    순위 → 일매출(억, 스토어 결제액) = A·f(구글순위) + A·r·f(애플순위),  f(n) = ((1+s)/(n+s))^α   (Zipf–Mandelbrot)
@@ -5755,14 +5756,6 @@ const C2_SCN={"보수":{zg:[2.7,6.6,9.6,12.1,14.8],za:[20,30,40,50,60]},
 // 가정 순위는 그 분기에서 **아직 관측 안 된 날**에만 쓴다(관측된 날은 실제 순위). 분기 안에서는 일정해서
 // 차트 점선이 분기 경계에서 계단처럼 꺾인다 — 분기 합계용 가정이지 일별 경로가 아니다.
 const C2_FWD=["2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"];
-// KB증권(2026-09-17) 표2 — **비교 전용**(모델 입력 아님). rpg = RPG 장르 − 제우스, etc = 기타 게임 및 신작,
-// oth = 게임사업 영업비용 − 지급수수료 − 인건비 − 마케팅비(= 로열티·외주·기타). KB 지급수수료는 IR 정의(개발사 RS 포함).
-const C2_KB={
-  "2026Q3":{z:61.2,rpg:53.6,bb:73.1,etc:2.4,sub:23.3,rev:213.7,fee:85.4,lab:30.7,mkt:27.7,oth:26.0,subx:26.4,op:17.5,npp:6.7},
-  "2026Q4":{z:99.4,rpg:56.2,bb:80.5,etc:2.5,sub:23.6,rev:262.0,fee:112.0,lab:33.9,mkt:22.2,oth:29.1,subx:26.7,op:38.1,npp:22.1},
-  "2027Q1":{z:58.3,rev:226.3,op:30.3}, "2027Q2":{z:35.4,rev:208.7,op:24.3}, "2027Q3":{z:53.7,rev:218.6,op:23.0}, "2027Q4":{z:37.6,rev:210.5,op:21.4},
-  "2026":{z:160.6,rpg:228.8,bb:286.4,etc:9.7,sub:91.9,rev:777.5,fee:295.2,lab:127.9,mkt:72.2,oth:108.4,subx:105.8,op:67.9,npp:20.3},
-  "2027":{z:184.9,rpg:195.6,bb:336.0,etc:50.8,sub:96.6,rev:864.0,fee:307.1,lab:143.6,mkt:90.9,oth:113.9,subx:109.5,op:99.0,npp:61.4}};
 // 브라우저에는 **바꾼 칸만** 저장한다 — 통째로 저장하면 나중에 기본값을 고쳐도 한 번 입력한 사람에겐 옛 값이 남는다.
 // 곡선 형태를 바꾸는 개편 때는 C2_V 를 올려 옛 저장을 버린다.
 const C2_V=2;
@@ -5863,11 +5856,15 @@ function c2Build(P){
       o.opex=f.c.opex; o.subx=o.opex-(o.mkt+o.lab+o.fee+o.roy+o.oth);
       o.op=f.c.op; o.pbt=f.c.pbt; o.nonop=o.pbt-o.op; o.np=f.c.np; o.npp=f.c.npp; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
     } else {
-      const p4=Q[c2QAdd(q,-4)]||{rpg:0,bb:0}, y=+q.slice(0,4), n=lastAct?(+q.slice(0,4)*4+ +q.slice(-1))-(+lastAct.slice(0,4)*4+ +lastAct.slice(-1)):1;
+      // 기존 게임은 롱테일 — 직전 분기에서 성장률 추세를 이어 간다(연율 → 분기 환산 (1+g)^¼−1). 계절성은 넣지 않는다.
+      //   (예전엔 '전년 동기 × (1+전년비)'였는데, 작년 분기의 일회성·계절 요인이 그대로 옮겨 와 3Q 가 꺾여 보였다 — 사용자 2026-09-28)
+      const p1=Q[c2QAdd(q,-1)]||{rpg:0,bb:0}, y=+q.slice(0,4), n=lastAct?(+q.slice(0,4)*4+ +q.slice(-1))-(+lastAct.slice(0,4)*4+ +lastAct.slice(-1)):1;
       const gR=(y<=2026?P.gRpg26:P.gRpg27)/100, gB=(y<=2026?P.gBb26:P.gBb27)/100;
-      o.zeus=o.zRaw; o.rpg=p4.rpg*(1+gR); o.bb=p4.bb*(1+gB); o.cas=P.cas; o.newg=y>=2027?P.newg:0;
-      o.why={rpg:`전년 동기 ${fmt(p4.rpg,1)} × (1${gR>=0?"+":"−"}${fmt(Math.abs(gR*100),1)}%)`,
-             bb:`전년 동기 ${fmt(p4.bb,1)} × (1${gB>=0?"+":"−"}${fmt(Math.abs(gB*100),1)}%)`};
+      const qR=Math.pow(1+gR,0.25)-1, qB=Math.pow(1+gB,0.25)-1;
+      o.zeus=o.zRaw; o.rpg=p1.rpg*(1+qR); o.bb=p1.bb*(1+qB); o.cas=P.cas; o.newg=y>=2027?P.newg:0;
+      const pc=v=>`${v>=0?"+":"−"}${fmt(Math.abs(v*100),1)}%`;
+      o.why={rpg:`직전 분기 ${fmt(p1.rpg,1)} × (1${pc(qR)}) — 추세 연 ${pc(gR)} 의 분기 환산`,
+             bb:`직전 분기 ${fmt(p1.bb,1)} × (1${pc(qB)}) — 추세 연 ${pc(gB)} 의 분기 환산`};
       const leg=o.rpg+o.bb+o.cas+o.newg;
       o.sep=o.zeus+leg; o.sub=P.subRev; o.rev=o.sep+o.sub;
       o.fee=P.feeL/100*leg+(P.feeZ+P.rsZ)/100*o.zeus;              // 개발사 RS 는 지급수수료 계정(회사 확인)
@@ -5968,7 +5965,7 @@ function renderC2Model(){
   const q3=Q["2026Q3"], q4=Q["2026Q4"], y6=Y["2026"];
   const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
     ${card("제우스 지금 일매출(모델)", fmt(run/P.vat,1)+"억/일",
-      `회사 매출 기준 · 최근 7일 평균(스토어 결제액 ${fmt(run,1)}억)<br>${+lastO.d.slice(5,7)}/${+lastO.d.slice(8)} 구글 ${lastO.g==null?"권외":lastO.g+"위"}·애플 ${lastO.i==null?"권외":lastO.i+"위"} · 첫 20일 평균 <b>${fmt(avg20/P.vat,1)}억</b>(KB 9/17 '약 20억'에 맞춤)`, true)}
+      `회사 매출 기준 · 최근 7일 평균(스토어 결제액 ${fmt(run,1)}억)<br>${+lastO.d.slice(5,7)}/${+lastO.d.slice(8)} 구글 ${lastO.g==null?"권외":lastO.g+"위"}·애플 ${lastO.i==null?"권외":lastO.i+"위"} · 첫 20일 평균 <b>${fmt(avg20/P.vat,1)}억</b>`, true)}
     ${card(`3Q26${q3.act?"":"E"} 매출 / 영업이익`, `${f1(q3.rev)} / ${f1(q3.op)}`, `십억원 · 제우스 ${f1(q3.zeus)}<br>${vsC(q3,"2026Q3")}`)}
     ${card(`4Q26${q4.act?"":"E"} 매출 / 영업이익`, `${f1(q4.rev)} / ${f1(q4.op)}`, `십억원 · 제우스 ${f1(q4.zeus)}<br>${vsC(q4,"2026Q4")}`)}
     ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, `십억원 · OPM ${fmt(y6.opm*100,1)}%<br>${vsC(y6,"2026")}`)}
@@ -5984,7 +5981,7 @@ function renderC2Model(){
   const eTip=(o,k)=>{ if(o.act||o.yr) return "";
     const leg=o.rpg+o.bb+o.cas+o.newg;
     return ({zeus:zTip(o), rpg:o.why&&o.why.rpg, bb:o.why&&o.why.bb, cas:"최근 2분기 평균(가정)", newg:"2027년 신작 자리값(가정)",
-      sub:`자회사 분기 매출 가정 ${P.subRev}${o.q==="2026Q3"?" · 컴투스엔(엔피+위지윅, 7/14 합병) 계속 연결 가정 — 엔피 사업이 이 분기부터 더해진다":""}`,
+      sub:`자회사 분기 매출 가정 ${P.subRev}${o.q==="2026Q3"?" · 컴투스엔(엔피가 위지윅 흡수합병, 7/14) 계속 연결 가정 — 엔피 사업이 이 분기부터 더해진다. 연결에서 빠지면 분기 매출 8~10·손익 −0.5 수준":""}`,
       fee:`기존 게임 ${fmt(leg,1)} × ${P.feeL}% + 제우스 ${fmt(o.zeus,1)} × (마켓·PG ${P.feeZ}% + 개발사 RS ${P.rsZ}%)`,
       roy:`RPG·야구 ${fmt(o.rpg+o.bb,1)} × ${P.royL}% (MLB·KBO 라이선스·콜라보 IP)`,
       lab:`최근 2분기 평균 ${P.lab} × 연 ${P.gLab}% 증가`,
@@ -6078,32 +6075,12 @@ function renderC2Model(){
     ${cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[ck(o)]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")}
     ${cmp("모델 ÷ 컨센 − 1 (매출 / 영업이익)",o=>{ const c=cons[ck(o)]; return c?`${pct(o.rev/c.rev-1,0)} / ${c.op>0?pct(o.op/c.op-1,0):"—"}`:""; })}
     ${hasPre?cmp("실적(DART) 매출 / 영업이익",o=>{ const p=pre[o.q]; return p?`<b>${f1(p.rev)} / ${f1(p.op)}</b>${p.dart?"":" 잠정"}`:""; }):""}
-    ${cmp("참고 KB(9/17) 매출 / 영업이익",o=>{ const x=C2_KB[o.q]; return x?`${f1(x.rev)} / ${f1(x.op)}`:""; })}
-    ${cmp("참고 KB(9/17) 제우스",o=>{ const x=C2_KB[o.q]; return x?f1(x.z):""; })}
     </tbody></table></div>
     <p class="note" style="margin-top:6px">색칠한 칸이 추정(E)입니다. 실적 칸은 <b>연결·별도 합계 = DART</b>(${attr(C2MODEL.asOf||"")} 수집),
       장르·비용 항목 = 회사 IR 자료. 게임 = 컴투스 별도, 자회사 = 연결 − 별도(미디어·컴투스엔·OOTP 등).
       <b>지급수수료·로열티는 IR 분류</b>입니다(DART 주석의 지급수수료 = IR 지급수수료 + 로열티 + 일부 기타). 개발사 RS 는 회사 설명대로 지급수수료에 넣었습니다.
       <span style="color:var(--warn)">*</span> 3Q26 가정: 자회사에 컴투스엔(엔피+위지윅, 7/14 합병) 계속 연결 · 영업외에 옛 엔피 지분 재측정손 −7.5(추정).
       세금은 게임(별도) 이익에만 매깁니다 — 자회사 적자는 본사 세금을 줄이지 못합니다.</p>`;
-
-  // ── KB(9/17)와 어디가 다른가 — 줄별 우리 vs KB, 영업이익 차이를 만든 상위 항목 ──
-  const BR=[["z","제우스",1],["rpg","RPG (제우스 제외)",1],["bb","야구",1],["etc","기타·신작",1],["sub","자회사",1],["rev","매출 합계",0,1],
-    ["fee","지급수수료 (마켓·RS)",-1],["lab","인건비",-1],["mkt","마케팅비",-1],["oth","로열티·외주·기타",-1],["subx","자회사 영업비용",-1],["op","영업이익",0,1],["npp","지배주주 순이익",0,1]];
-  const ours=o=>({z:o.zeus,rpg:o.rpg,bb:o.bb,etc:o.cas+o.newg,sub:o.sub,rev:o.rev,fee:o.fee,lab:o.lab,mkt:o.mkt,oth:o.roy+o.oth,subx:o.subx,op:o.op,npp:o.npp});
-  const BP=[["2026Q3",Q["2026Q3"]],["2026Q4",Q["2026Q4"]],["2027",Y["2027"]]].filter(([k,o])=>!o.act);
-  const why=(k,o)=>{ const u=ours(o), kb=C2_KB[k];
-    return BR.filter(r=>r[2]).map(r=>({t:r[1], c:r[2]*(u[r[0]]-kb[r[0]])})).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c)).slice(0,3)
-      .map(x=>`${x.t} ${x.c>=0?"+":"−"}${fmt(Math.abs(x.c),1)}`).join(" · "); };
-  const kbtbl=BP.length?`<details class="fold" data-fold="c2kb"${(()=>{ try{ return localStorage.getItem("fold_c2kb")==="1"?" open":""; }catch(e){ return ""; } })()}>
-    <summary>KB(9/17) 추정과 어디가 다른가 <span class="sub">영업이익 차이 ${BP.map(([k,o])=>`${k.length>4?c2QLab(k):k}E ${sign(o.op-C2_KB[k].op,1)}`).join(" · ")}</span></summary>
-    <div class="fold-b"><div class="tbl-wrap"><table class="buzz-t"><thead><tr><th style="text-align:left">(십억원)</th>`
-    +BP.map(([k])=>`<th>${k.length>4?c2QLab(k):k}E 우리</th><th>KB</th><th>차이</th>`).join("")+`</tr></thead><tbody>`
-    +BR.map(r=>`<tr${r[3]?` style="font-weight:800"`:""}><td style="text-align:left">${r[1]}</td>`+BP.map(([k,o])=>{ const u=ours(o)[r[0]], kb=C2_KB[k][r[0]], d=u-kb;
-      return `<td>${f1(u)}</td><td style="color:var(--muted)">${f1(kb)}</td><td><span class="${Math.abs(d)<0.05?"flat":cls(d)}">${sign(d,1)}</span></td>`; }).join("")+`</tr>`).join("")
-    +`</tbody></table></div><p class="note">영업이익 차이를 만든 상위 항목(+ = 우리 이익을 올림): `
-    +BP.map(([k,o])=>`<b>${k.length>4?c2QLab(k):k}E</b> ${why(k,o)}`).join(" / ")
-    +`.<br>KB 줄은 표2 그대로(RPG 는 제우스를 뺀 값, 로열티·외주·기타 = 게임사업 비용 − 지급수수료 − 인건비 − 마케팅비). <b>모델 입력으로 쓰지 않습니다</b> — 비교용입니다.</p></div></details>`:"";
 
   // ── 제우스: 순위 → 일매출 ─────────────────────────────────────────
   const RK=[1,2,3,5,10,20,30,50,100], tNow=c2DDiff(C2_LAUNCH,lastO.d);
@@ -6156,7 +6133,7 @@ function renderC2Model(){
       <td style="text-align:left;font-size:11.5px;color:${g.ln==="제우스"?"var(--accent)":"var(--muted)"}">${g.ln==="제우스"?"제우스 줄(순위로 직접)":g.ln+" 줄(전년비로 추정)"}</td></tr>`).join("")
     +`</tbody></table></div>
     <p class="note" style="margin-top:6px">국내 차트로 보이는 기존 게임 합은 <b>${fmt(legKR,1)}억/일</b>${legQ?` — 이번 분기 기존 게임 추정 매출(하루 ${fmt(legQ,1)}억, 결제액 환산)의 <b>${fmt(legKR/legQ*100,0)}%</b>뿐`:""}입니다.
-      서머너즈워는 매출의 89%가 해외(북미 33%·아시아 30%·유럽 23%)라 한국 차트에 거의 안 잡힙니다 — 그래서 기존 게임은 <b>순위가 아니라 전년비</b>로 세우고,
+      서머너즈워는 매출의 89%가 해외(북미 33%·아시아 30%·유럽 23%)라 한국 차트에 거의 안 잡힙니다 — 그래서 기존 게임은 <b>순위가 아니라 성장률 추세</b>로 세우고,
       순위는 제우스(국내 단독 출시)에만 씁니다.${over.length?` 해외 차트: ${over.join(" · ")}.`:""}</p>`;
 
   // ── 가정 패널 ────────────────────────────────────────────────────
@@ -6185,19 +6162,19 @@ function renderC2Model(){
       ${grp("순위 → 매출 곡선", inp("a","구글 1위 일매출","억",0.1)+inp("alpha","순위 감쇠 α","",0.02)+inp("s","상위 평탄화 s","",0.25)+inp("rios","애플/구글","",0.05)
         +inp("lp","출시 프리미엄","배",0.1)+inp("tau","프리미엄 반감","일",1)+inp("vat","VAT 나누기","",0.01))}
       ${grp("제우스 비용", inp("feeZ","마켓·PG 수수료","%",1)+inp("rsZ","개발사 RS(지급수수료)","%",1)+inp("mkZ","마케팅(매출 대비)","%",1)+inp("mkLaunch","3Q26 출시 마케팅","십억",1))}
-      ${grp("기존 게임 매출", inp("gRpg26","RPG 전년비 26하반기","%",1)+inp("gRpg27","RPG 전년비 2027","%",1)
-        +inp("gBb26","야구 전년비 26하반기","%",1)+inp("gBb27","야구 전년비 2027","%",1)+inp("cas","캐주얼·기타 분기","십억",0.1)+inp("newg","2027 신작 분기","십억",1))}
+      ${grp("기존 게임 매출 — 직전 분기에서 추세를 이어 감(연율)", inp("gRpg26","RPG 추세 26하반기","%/년",1)+inp("gRpg27","RPG 추세 2027","%/년",1)
+        +inp("gBb26","야구 추세 26하반기","%/년",1)+inp("gBb27","야구 추세 2027","%/년",1)+inp("cas","캐주얼·기타 분기","십억",0.1)+inp("newg","2027 신작 분기","십억",1))}
       ${grp("기존 게임 비용", inp("feeL","지급수수료율","%",0.5)+inp("royL","로열티율(RPG·야구)","%",0.5)+inp("mkL","마케팅비율(가이던스 10% 안팎)","%",0.5)
         +inp("lab","인건비 분기","십억",0.5)+inp("gLab","인건비 증가","%/년",1)+inp("oth","외주·기타 분기","십억",0.5)+inp("mkNew","2027 신작 출시 마케팅 분기","십억",0.5))}
       ${grp("자회사 · 영업외 · 순이익", inp("subRev","자회사 분기 매출","십억",0.5)+inp("subOp","자회사 영업이익","십억",0.5)
         +inp("nonop","경상 영업외 분기","십억",0.5)+inp("oneoff","3Q26 일회성","십억",0.5)+inp("tax","세율(게임 이익에)","%",1)+inp("minor","비지배 몫 분기","십억",0.5))}
     </div>
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="c2Reset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
-      <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(IR·DART 둘 다 있는 분기)에서 계산(전년비 ${au._from.map(c2QLab).join("·")} 평균 · 비용률 ${au._from4.map(c2QLab).join("·")} 합계 기준, 출시 뒤 분기는 제우스를 떼고). 입력하면 그 값으로 고정.
+      <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(IR·DART 둘 다 있는 분기)에서 계산(추세 = ${au._from.map(c2QLab).join("·")} 전년비 평균 · 비용률 ${au._from4.map(c2QLab).join("·")} 합계 기준, 출시 뒤 분기는 제우스를 떼고). 입력하면 그 값으로 고정.
       경상 영업외 −4.5 = 이자 −1.0~−1.8 · 지분법 −1.5~−3.0 · 기타 −1 (1H26 실적은 −13.6·−7.4). 3Q26 일회성 −7.5 = 컴투스엔 합병 때 옛 엔피 지분(20.7%) 재측정손 추정(−6~−9).</span></div>
     </div></details>`;
 
-  box.innerHTML=head+tbl+kbtbl+asm+zeusBox+gtbl;
+  box.innerHTML=head+tbl+asm+zeusBox+gtbl;
 
   // ── 각주 ─────────────────────────────────────────────────────────
   let tail=0; for(let r=1;r<=200;r++) tail+=c2F(P,r);
@@ -6206,9 +6183,8 @@ function renderC2Model(){
     `<b>순위 → 매출 곡선</b>: 일매출(억, 결제액) = ${fmt(P.a,1)}·f(구글순위) + ${fmt(P.a*P.rios,2)}·f(애플순위), f(n) = ((1+${fmt(P.s,2)})/(n+${fmt(P.s,2)}))<sup>${fmt(P.alpha,2)}</sup>,
      출시 t일째는 × (1 + ${fmt(P.lp,1)}·e<sup>−t/${P.tau}</sup>). 상위 200위 합 = 구글 연 ${fmt(mkt,1)}조 + 애플 ${fmt(mkt*P.rios,1)}조
      = <b>${fmt(mkt*(1+P.rios),1)}조</b> — 센서타워 2025 한국 게임(구글+애플) 56억$ ≈ 8조와 비교해 A 를 점검하세요.
-     <br><b>KB(9/17)와의 관계</b>: KB 는 제우스 일매출을 '출시 20일째까지 약 20억'(표 매출 ÷ 일수 = 회사 매출 기준)으로 봤고,
-     이 모델은 같은 기준으로 첫 20일 평균 <b>${fmt(avg20/P.vat,1)}억</b>입니다 — 출시 프리미엄을 KB 에 맞춘 것이라 이 일치는 구성상 결과입니다.
-     그 뒤 경로(순위 감쇠)와 나머지 게임·비용은 KB 숫자를 쓰지 않고 따로 세웠습니다. 줄별 차이는 위 'KB 추정과 어디가 다른가'에 있습니다.
+     <br>출시 프리미엄 크기는 제우스 첫 20일 평균 일매출(회사 매출 기준)이 약 20억이 되게 맞춘 값입니다. 기존 게임(RPG·야구)은 롱테일이라
+     직전 분기에서 최근 성장률 추세를 이어 갑니다(계절성 없음).
      <br><b>출처</b>: DART 분기·반기·사업보고서(연결·별도 손익, 2023 은 재작성 비교치) · 컴투스 IR 자료(장르별 매출·별도 비용, 1Q24~2Q26) ·
      모바일인덱스 월매출 · gamerscroll 일별 순위(9/17 이전 제우스, 곡선 검증) · 센서타워 시장규모 · 대시보드 앱 매출순위(APPRANK).
      <br>⚠ 개발사 RS·PC 결제 비중·이연 인식은 비공개/미반영입니다. <b>3Q26 실적이 나오면</b> ① C2_IR 에 한 줄 추가 ② 제우스 매출이 공개되면 A·출시 프리미엄을 다시 맞추고
