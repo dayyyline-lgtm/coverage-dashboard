@@ -118,6 +118,12 @@ def main():
         st = {h: ex.submit(stages, h) for h in ("www.itemmania.com", "www.oliveyoung.co.kr", "www.megabox.co.kr", "www.cgv.co.kr")}
         OUT["probes"] = [f.result() for f in futs]
         OUT["stages"] = {h: f.result() for h, f in st.items()}
+    # CGV 를 Cloudflare 워커(러너가 부르면 미국 colo) 경유로 — 2026-09-28. 한국 colo 는 200 확인됨.
+    try:
+        import diag_cgv_worker
+        OUT["cgv_via_worker"] = diag_cgv_worker.probe()
+    except Exception as e:
+        OUT["cgv_via_worker"] = {"err": f"{type(e).__name__}: {str(e)[:200]}"}
     import os
     os.makedirs("diag", exist_ok=True)
     json.dump(OUT, open("diag/net_probe.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
