@@ -248,7 +248,7 @@ const FRESH_LIMITS = [
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
-  ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],
+  ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
 ];
 
 function ageHours(a){
@@ -2349,6 +2349,125 @@ const topicsOf0=n=>{
     ["실리콘투","한국콜마","코스맥스","에이피알","아모레퍼시픽","달바글로벌","아로마티카","LG생활건강"].forEach(s=>{
       if(R.some(r=>r.name===s)) (TREND_STOCK[s]=TREND_STOCK[s]||[]).push(name); });
   }
+})();
+/* ══ 아마존 추이 재료 — 한투 김명주 채널(KMJAMZ) + 우리 트래커(AMAZON) 합산 (2026-09-29) ══════════════
+   트래커는 8/2 시작이고 유럽은 탑50 까지만 읽는다. 김명주 채널(fetch_kmj.py)은 5/28 부터 5개국 탑100 을 준다.
+   겹친 30일 314쌍 중 91% 가 제품별 순위까지 같았다(같은 시각·같은 리스트) → 한 줄로 이어 붙인다.
+   · 날짜가 채널에 있으면 채널 값(5개 브랜드 · 5개국 탑100 + 순위), 없으면 트래커 값(주말 · 채널 밖 브랜드).
+   · 기준이 둘이다 — t100 = 탑100(채널 기준 · 유럽 51~100위 포함) / t50 = 진입 SKU(US 탑100 · 유럽 탑50 = 아마존 탭 카드 기준).
+     트래커는 유럽 51~100위를 모르므로 트래커만 있는 날의 유럽 t100 은 undefined(0 이 아니라 모름)다.
+   · 값 셋: 숫자 · null(관측했는데 100위 밖 — best 전용, 선이 끊긴다) · undefined(관측 없음 — 선이 건너 잇는다).
+   · 채널이 그 브랜드를 다루기 전(since)은 모름. 글에 브랜드가 없는 날은 0(트래커로 검산 19번 중 18번).
+   · 트래커 쪽은 그날 **수집된 나라만** 0 으로 채운다 — 한 나라를 통째로 못 받은 날(9/28 영국 등)을 0 으로 읽지 않게.
+   아마존 탭(renderAmzTrend)과 트렌드 탭 주입(바로 아래)이 같이 쓴다. 트렌드 주입이 로드 때 돌아서 여기 둔다. */
+const AMZT_MK=["US","UK","DE","FR","ES"];
+const AMZT_MKNM={US:"미국",UK:"영국",DE:"독일",FR:"프랑스",ES:"스페인"};
+const AMZT_ORDER=["medicube","d'Alba","COSRX","Anua","Beauty of Joseon","BIODANCE","Purito","Melaxin","LANEIGE","Coreana","VT Cosmetics","innisfree","Aromatica","Cellimax"];
+const AMZT_KO={"medicube":"메디큐브","d'Alba":"달바","COSRX":"코스알엑스","Anua":"아누아","Beauty of Joseon":"조선미녀",
+  "BIODANCE":"바이오던스","Purito":"퓨리토","Melaxin":"닥터멜락신","LANEIGE":"라네즈","Coreana":"코리아나",
+  "VT Cosmetics":"VT","innisfree":"이니스프리","Aromatica":"아로마티카","Cellimax":"셀리맥스"};
+// 계열색은 브랜드(나라)에 고정한다 — 필터로 선이 줄어도 남은 선의 색이 바뀌지 않게. 팔레트는 트렌드 탭과 같은 벌.
+const AMZT_PAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6","#5fb3b3","#9aa5b1","#a8b561","#c7a27c","#e5989b","#7d9bc1","#b5838d","#90a955","#d69f7e"];
+const AMZT_MKCOL={US:"#d8b46a",UK:"#6fa8dc",DE:"#e07a5f",FR:"#81b29a",ES:"#c98aa6"};
+let AMZT_CACHE=null;
+function amztBuild(){
+  if(AMZT_CACHE) return AMZT_CACHE;
+  const K=(typeof KMJAMZ!=="undefined"&&KMJAMZ.days)?KMJAMZ:null;
+  const A=(typeof AMAZON!=="undefined"&&AMAZON.brands)?AMAZON:null;
+  const B={};
+  const get=key=>B[key]||(B[key]={key, label:AMZT_KO[key]||key, owner:null, stock:null, kmj:null, amz:null, d:{}});
+  const kDays=new Set(), firstSeen={};
+  if(K){
+    const map={};
+    Object.entries(K.brands||{}).forEach(([kn,info])=>{
+      const key=info.en||(kn==="라네즈"?"LANEIGE":kn);
+      const o=get(key); o.kmj={name:kn, since:info.since}; o.stock=o.stock||info.stock||null; map[kn]=key;
+    });
+    K.days.forEach(day=>{
+      kDays.add(day.d);
+      Object.entries(K.brands||{}).forEach(([kn,info])=>{
+        if(day.d<info.since) return;
+        const e={}; AMZT_MK.forEach(m=>e[m]={t100:0,t50:0,best:null,src:"k"});
+        B[map[kn]].d[day.d]=e;
+      });
+      day.r.forEach(r=>{
+        const p=K.prod[r[0]]; if(!p) return;
+        if(!(r[0] in firstSeen)) firstSeen[r[0]]=day.d;
+        const o=B[map[p[0]]], e=o&&o.d[day.d]; if(!e) return;
+        AMZT_MK.forEach((m,j)=>{ const v=r[1+j]; if(!v) return; const c=e[m];
+          c.t100++; if(v<=(m==="US"?100:50)) c.t50++; c.best=c.best==null?v:Math.min(c.best,v); });
+      });
+    });
+  }
+  let trackStart=null;
+  if(A){
+    const col={};
+    A.brands.forEach(b=>(b.hist||[]).forEach(h=>{ const s=col[h.d]||(col[h.d]=new Set()); Object.keys(h.mk||{}).forEach(m=>s.add(m)); }));
+    const tds=Object.keys(col).sort(); trackStart=tds[0]||null;
+    A.brands.forEach(b=>{
+      const o=get(b.brand), H={}; (b.hist||[]).forEach(h=>{H[h.d]=h;});
+      const first=((b.hist||[])[0]||{}).d||"9999";
+      o.amz={first}; o.owner=b.owner||o.owner; if(b.listed&&b.stock) o.stock=b.stock;
+      tds.forEach(d=>{
+        if(d<first) return;
+        if(o.kmj&&kDays.has(d)&&o.d[d]) return;           // 채널이 이 날짜·브랜드를 봤으면 채널 우선
+        const h=H[d], e={};
+        AMZT_MK.forEach(m=>{ if(!col[d].has(m)) return;
+          const a=h&&h.mk&&h.mk[m], il=a?(a[4]||0):0;
+          e[m]={t100:m==="US"?il:undefined, t50:il, best:undefined, src:"a"}; });
+        if(Object.keys(e).length) o.d[d]=e;
+      });
+    });
+  }
+  const brands=Object.values(B).filter(o=>Object.keys(o.d).length)
+    .sort((a,b)=>{const i=AMZT_ORDER.indexOf(a.key), j=AMZT_ORDER.indexOf(b.key); return (i<0?99:i)-(j<0?99:j)||a.key.localeCompare(b.key);});
+  brands.forEach((o,i)=>{ const k=AMZT_ORDER.indexOf(o.key); o.color=AMZT_PAL[(k<0?AMZT_ORDER.length+i:k)%AMZT_PAL.length]; });
+  const dates=[...new Set(brands.flatMap(o=>Object.keys(o.d)))].sort();
+  return AMZT_CACHE={brands, dates, trackStart, kDays, firstSeen, K, A};
+}
+/* 한 브랜드·한 날짜의 값. m 이 "sum" 이면 5개국 합 — 한 나라라도 모르면 합도 모른다(undefined). */
+function amztVal(o, d, m, metric){
+  const e=o.d[d]; if(!e) return undefined;
+  if(m==="sum"){ let s=0; for(const k of AMZT_MK){ const c=e[k], v=c&&c[metric]; if(v==null) return undefined; s+=v; } return s; }
+  const c=e[m]; return c?c[metric]:undefined;
+}
+/* 트렌드 탭 — 종목의 브랜드마다 두 그룹: 'Top100 제품 수'(5개국 합계 + 나라별 · 실측 개수) · '최고 순위'(나라별).
+   **채널 날짜만** 쓴다 — 트래커만 있는 주말은 유럽 51~100위를 몰라 나라별 선이 들쭉날쭉해진다. */
+(function injectAmzTrends(){
+  if(typeof TREND==="undefined"||!TREND.groups) return;
+  const T=amztBuild(); if(!T.K) return;
+  const md=d=>{const p=d.slice(5).split("-"); return `${+p[0]}/${+p[1]}`;};
+  const NM=AMZT_MK.map(m=>AMZT_MKNM[m]);
+  const SRC="한투증권 김명주 텔레그램(각국 아마존 Best Sellers in Beauty Top100 · 평일 아침) · 8/2 이후 우리 트래커와 순위까지 91% 일치";
+  T.brands.forEach(o=>{
+    if(!o.kmj||!o.stock||!R.some(r=>r.name===o.stock)) return;
+    const days=T.dates.filter(d=>T.kDays.has(d)&&o.d[d]&&o.d[d].US&&o.d[d].US.src==="k");
+    if(days.length<5) return;
+    const cnt=[days.map(d=>amztVal(o,d,"sum","t100"))].concat(AMZT_MK.map(m=>days.map(d=>amztVal(o,d,m,"t100"))));
+    if(cnt[0].slice(-40).every(v=>!v)) return;           // 최근 40회 내내 0(라네즈) — 빈 그래프는 안 만든다
+    const peak=Math.max(1,...cnt.flat().filter(v=>v!=null));
+    const n1=`아마존 Top100 제품 수(${o.label})`;
+    TREND.groups[n1]={
+      products:["5개국 합계",...NM], productsGoogle:["5개국 합계",...NM],
+      months:days.map(md), naver:cnt.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10)),
+      google:cnt.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10)), rawSer:cnt,
+      only:"naver", freq:"date", peak, unit:"개(Top100 안 제품)", unitShort:"개",
+      srcName:SRC,
+      reviewNote:"합계가 늘 때 어느 나라가 끌었는지 볼 것 — 프라임데이(6/23~26)·10월 빅딜데이는 며칠 튀었다 돌아온다"
+    };
+    const best=AMZT_MK.map(m=>days.map(d=>{const v=amztVal(o,d,m,"best"); return v==null?null:v;}));
+    const n2=`아마존 최고 순위(${o.label})`;
+    TREND.groups[n2]={
+      products:NM, productsGoogle:NM,
+      months:days.map(md), naver:best.map(a=>a.map(r=>r==null?null:Math.round((101-r)/100*1000)/10)),
+      google:best.map(a=>a.map(r=>r==null?null:Math.round((101-r)/100*1000)/10)), rawSer:best,
+      only:"naver", freq:"date", unitShort:"위",
+      rankN:100, rankOf:v=>101-v, fmt:v=>(v==null?"—":Math.round(101-v)+"위"),
+      srcName:SRC+" · 나라별 그 브랜드 제품 중 가장 높은 순위 · 100위 밖은 끊김",
+      reviewNote:"히어로 제품 한두 개가 순위를 정한다 — 제품별 순위는 아마존 탭 '브랜드별 추이'의 국가별 보기 아래"
+    };
+    (TREND_STOCK[o.stock]=TREND_STOCK[o.stock]||[]).push(n1,n2);
+  });
 })();
 (function injectJobsTrends(){
   if(typeof JOBS==="undefined"||!JOBS.cos) return;
@@ -7739,6 +7858,7 @@ function amzMetricFmt(v, m){
 }
 
 function renderAmazon(){
+  renderAmzTrend();   // 추이는 한투 채널만 있어도 그린다(트래커 블록이 비어도)
   if(typeof AMAZON==="undefined" || !AMAZON.brands || !AMAZON.brands.length) return;
   const asOf=document.getElementById("amzAsOf");
   if(asOf) asOf.textContent = `${AMAZON.latest} 기준 · 환율 ${amzNum(Math.round(amzFx()))}원`;
@@ -7882,4 +8002,160 @@ function renderQoo10(){
     renderAmazon();
   });
 })();
+
+/* ══ 아마존 탭 — 브랜드별 추이 (2026-09-29 · 사용자 "합산으로도 하고 백필 발전시켜 봐") ══════════════
+   재료는 amztBuild()(트렌드 주입 옆 — 채널·트래커를 어떻게 잇는지 거기 적었다). 보기 둘:
+     합산 = 브랜드마다 5개국(미·영·독·프·스) 합계 한 줄 — 브랜드끼리 견준다.
+     국가별 = 한 브랜드를 나라별로 — 어느 나라가 끌었나. 아래에 제품별 순위(채널 브랜드만).
+   기준 셋: 탑100(채널 · 유럽 51~100위 포함) / 진입 SKU(US 탑100·유럽 탑50 = 위 카드 기준 · 트래커 브랜드까지) /
+     최고 순위(채널 · 국가별에서만).
+   ⚠ 합계에 이탈리아·일본은 넣지 않는다 — 채널이 안 보는 나라라 8/2 앞뒤로 합계의 정의가 바뀐다. */
+let amztView="sum", amztMetric="t100", amztBrand="medicube";
+try{ const s=JSON.parse(localStorage.getItem("amzTrend")||"{}"); if(s.v) amztView=s.v; if(s.m) amztMetric=s.m; if(s.b) amztBrand=s.b; }catch(e){}
+// 음영 = 할인 행사. 채널·트래커 날짜는 KST 아침 스냅샷이라 미국 날짜보다 하루 뒤다(프라임데이 미국 6/23~26 → 6/24~27).
+const AMZT_EVENTS=[{d0:"2026-06-24",d1:"2026-06-27",t:"프라임데이"},{d0:"2026-10-07",d1:"2026-10-08",t:"빅딜데이"}];
+const amztDn=d=>Math.round(Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))/864e5);
+const amztMd=x=>{const t=new Date(x*864e5); return `${t.getUTCMonth()+1}/${t.getUTCDate()}`;};
+const amztEsc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+
+/* 꺾은선 — boxLine 과 같은 모양에 셋을 더했다: 순위 축(1위가 위) · null 에서 끊기(100위 밖) · 행사 음영과 세로 표시.
+   점이 없는 날(관측 없음)은 건너 잇는다. 끝 라벨 글씨는 본문색, 식별은 옆의 색 점이 맡는다. */
+function amztLine(el, series, o){
+  const W=el.clientWidth||900, H=300, P={l:44,r:124,t:18,b:30};
+  const pts=series.flatMap(s=>s.pts.filter(p=>p.y!=null));
+  if(!pts.length){ el.innerHTML=`<p class="note" style="padding:40px 0;text-align:center">${o.empty||"아직 값이 없습니다"}</p>`; return; }
+  const x0=o.x0, x1=o.x1;
+  const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const gc=css("--line"), mut=css("--muted"), txt=css("--text");
+  const ymax=o.rank?100:Math.max(4,...pts.map(p=>p.y));
+  const sx=x=>P.l+(x-x0)/Math.max(1,x1-x0)*(W-P.l-P.r);
+  const sy=o.rank?(y=>P.t+(y-1)/99*(H-P.t-P.b)):(y=>H-P.b-y/ymax*(H-P.t-P.b));
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" role="img" aria-label="${amztEsc(o.aria||"")}">`;
+  (o.bands||[]).forEach(b=>{ const a=Math.max(x0,b.x0-0.5), z=Math.min(x1,b.x1+0.5); if(z<=a) return;
+    s+=`<rect x="${sx(a).toFixed(1)}" y="${P.t}" width="${(sx(z)-sx(a)).toFixed(1)}" height="${H-P.t-P.b}" fill="${mut}" fill-opacity="0.13"/>`
+      +`<text x="${((sx(a)+sx(z))/2).toFixed(1)}" y="${P.t-5}" text-anchor="middle" font-size="10" fill="${mut}">${b.t}</text>`; });
+  const ticks=o.rank?[1,20,40,60,80,100]:(()=>{ const st=[1,2,5,10,20,50].find(v=>ymax/v<=6)||100, a=[]; for(let v=0;v<=ymax+1e-9;v+=st) a.push(v); return a; })();
+  ticks.forEach(v=>{ const y=sy(v).toFixed(1);
+    s+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="${gc}"/>`
+      +`<text x="${P.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${mut}">${o.yFmt(v)}</text>`; });
+  (o.marks||[]).forEach(m=>{ if(m.x<x0||m.x>x1) return; const x=sx(m.x).toFixed(1);
+    s+=`<line x1="${x}" y1="${P.t}" x2="${x}" y2="${H-P.b}" stroke="${mut}" stroke-dasharray="3 3"/>`
+      +`<text x="${(+x+4).toFixed(1)}" y="${o.rank?H-P.b-6:P.t+10}" font-size="10" fill="${mut}">${m.t}</text>`; });
+  const span=x1-x0, xs=[7,14,28,56].find(v=>span/v<=10)||Math.ceil(span/10);
+  for(let x=x0; x<=x1; x+=xs) s+=`<text x="${sx(x).toFixed(1)}" y="${H-P.b+16}" text-anchor="middle" font-size="10" fill="${mut}">${amztMd(x)}</text>`;
+  const ends=[];
+  series.forEach(se=>{
+    const q=se.pts.filter(p=>p.x>=x0&&p.x<=x1).sort((a,b)=>a.x-b.x); if(!q.length) return;
+    const segs=[]; let g=[];
+    q.forEach(p=>{ if(p.y==null){ if(g.length) segs.push(g); g=[]; } else g.push(p); }); if(g.length) segs.push(g);
+    segs.forEach(g=>{ if(g.length>1) s+=`<polyline points="${g.map(p=>`${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.color}" stroke-width="${se.w||1.8}" stroke-linejoin="round" stroke-linecap="round"/>`; });
+    q.forEach(p=>{ if(p.y==null) return; const cx=sx(p.x).toFixed(1), cy=sy(p.y).toFixed(1);
+      s+=`<circle cx="${cx}" cy="${cy}" r="2.1" fill="${se.color}"/><circle cx="${cx}" cy="${cy}" r="7" fill="transparent"><title>${amztEsc(p.tip)}</title></circle>`; });
+    const l=[...q].reverse().find(p=>p.y!=null);
+    if(l) ends.push({y:sy(l.y), t:`${se.name} ${o.endFmt(l.y)}`, c:se.color});
+  });
+  ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<13) ends[i].y=ends[i-1].y+13;
+  // 바닥 근처에 몰리면(0개 브랜드 여럿) 밀려 내려간 라벨이 그림 밖으로 나간다 — 아래에서부터 다시 위로 쌓는다
+  const lim=H-8; if(ends.length&&ends[ends.length-1].y>lim){ ends[ends.length-1].y=lim;
+    for(let i=ends.length-2;i>=0;i--) if(ends[i+1].y-ends[i].y<13) ends[i].y=ends[i+1].y-13; }
+  ends.forEach(e=>{ s+=`<circle cx="${W-P.r+9}" cy="${(e.y-0.5).toFixed(1)}" r="4" fill="${e.c}"/>`
+    +`<text x="${W-P.r+17}" y="${(e.y+3).toFixed(1)}" font-size="10.5" font-weight="700" fill="${txt}">${amztEsc(e.t)}</text>`; });
+  el.innerHTML=s+"</svg>";
+}
+
+function renderAmzTrend(){
+  const box=document.getElementById("amzTrend"); if(!box) return;
+  const T=amztBuild();
+  if(!T.dates.length){ box.innerHTML=`<p class="note">아직 추이 자료가 없습니다</p>`; return; }
+  const stamp=document.getElementById("amzTrendAsOf");
+  if(stamp) stamp.textContent=`한투 채널 ${T.K?amztMd(amztDn(T.K.asOf)):"—"} · 트래커 ${T.A&&T.A.latest?amztMd(amztDn(T.A.latest)):"—"}까지`;
+  if(!T.brands.some(o=>o.key===amztBrand)) amztBrand=T.brands[0].key;
+  const cur=T.brands.find(o=>o.key===amztBrand);
+  if(amztView!=="mk"&&amztMetric==="best") amztMetric="t100";
+  if(amztView==="mk"&&!cur.kmj) amztMetric="t50";          // 트래커만 있는 브랜드는 유럽 51~100위·순위 이력을 모른다
+  const X0=amztDn(T.dates[0]), X1=amztDn(T.dates[T.dates.length-1]);
+  const srcNm=s=>s==="k"?"한투 채널":"우리 트래커";
+  const btn=(k,v,t,on,tt)=>`<button data-${k}="${amztEsc(v)}" class="${on?"active":""}"${tt?` title="${amztEsc(tt)}"`:""}>${t}</button>`;
+  const mBtns=(amztView==="mk"&&!cur.kmj)
+    ? btn("m","t50","진입 SKU",true,"US 탑100 · 유럽 탑50 — 이 브랜드는 우리 트래커만 봐서 이 기준만 있다")
+    : btn("m","t100","탑100",amztMetric==="t100","각국 Beauty 베스트셀러 100위 안 제품 수 — 한투 채널 기준(유럽 51~100위 포함)")
+      +btn("m","t50","진입 SKU",amztMetric==="t50","US 탑100 · 유럽 탑50 — 위 카드와 같은 기준. 우리 트래커 브랜드까지 나온다")
+      +(amztView==="mk"?btn("m","best","최고 순위",amztMetric==="best","나라별로 그 브랜드 제품 중 가장 높은 순위"):"");
+  let h=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <div class="seg" style="margin-bottom:0">${btn("v","sum","브랜드 합산(5개국)",amztView!=="mk")}${btn("v","mk","국가별",amztView==="mk")}</div>
+      <div class="seg" style="margin-bottom:0">${mBtns}</div></div>`;
+  if(amztView==="mk") h+=`<div class="seg">${T.brands.map(o=>btn("b",o.key,o.label,o.key===cur.key)).join("")}</div>`;
+  h+=`<div class="chart-box"><div id="amztChart"></div></div><p class="note" id="amztNote"></p><div id="amztProd"></div>`;
+  box.innerHTML=h;
+  box.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+    if(b.dataset.v) amztView=b.dataset.v; if(b.dataset.m) amztMetric=b.dataset.m; if(b.dataset.b) amztBrand=b.dataset.b;
+    try{ localStorage.setItem("amzTrend",JSON.stringify({v:amztView,m:amztMetric,b:amztBrand})); }catch(e){}
+    renderAmzTrend();
+  });
+
+  const M=amztMetric, rank=M==="best";
+  const unit=v=>rank?`${v}위`:`${v}개`;
+  let series=[];
+  if(amztView!=="mk"){
+    series=T.brands.map(o=>{
+      const pts=[];
+      T.dates.forEach(d=>{ const v=amztVal(o,d,"sum",M); if(v===undefined) return;
+        const e=o.d[d], br=AMZT_MK.map(m=>`${AMZT_MKNM[m].slice(0,1)} ${e[m][M]}`).join(" · ");
+        pts.push({x:amztDn(d), y:v, tip:`${o.label} · ${amztMd(amztDn(d))} · 5개국 ${v}개 (${br}) · ${srcNm(e.US.src)}`}); });
+      return {name:o.label, color:o.color, pts, key:o.key};
+    }).filter(se=>se.pts.length>=3 && se.pts.filter(p=>!p.y).length<se.pts.length*0.9);
+    // 선이 8개를 넘으면 최근 값 큰 순으로 8개만 — 색은 브랜드에 고정이라 빠져도 남은 선 색은 그대로다
+    series.sort((a,b)=>b.pts[b.pts.length-1].y-a.pts[a.pts.length-1].y); series=series.slice(0,8);
+  } else {
+    series=AMZT_MK.map(m=>{
+      const pts=[];
+      T.dates.forEach(d=>{ const v=amztVal(cur,d,m,M); if(v===undefined) return;
+        pts.push({x:amztDn(d), y:v, tip:`${cur.label} ${AMZT_MKNM[m]} · ${amztMd(amztDn(d))} · ${v==null?"100위 밖":unit(v)} · ${srcNm(cur.d[d][m].src)}`}); });
+      return {name:AMZT_MKNM[m], color:AMZT_MKCOL[m], pts};
+    }).filter(se=>se.pts.some(p=>p.y!=null&&(rank||p.y>0)));
+  }
+  const el=document.getElementById("amztChart");
+  amztLine(el, series, {x0:X0, x1:X1, rank, yFmt:v=>rank?`${v}위`:`${v}`, endFmt:unit,
+    bands:AMZT_EVENTS.map(e=>({x0:amztDn(e.d0), x1:amztDn(e.d1), t:e.t})),
+    marks:T.trackStart?[{x:amztDn(T.trackStart), t:"트래커 시작"}]:[],
+    aria:amztView!=="mk"?"브랜드별 아마존 5개국 베스트셀러 진입 제품 수 추이":`${cur.label} 아마존 나라별 추이`,
+    empty:rank?"이 브랜드는 한투 채널이 다루지 않아 순위 이력이 없습니다":"이 기준으로는 값이 없습니다"});
+
+  const src=`출처 — 한투증권 김명주 텔레그램(5/28~ · 평일 아침 · 5개 브랜드 · 미·영·독·프·스 탑100) + 우리 트래커(8/2~ · 주말 포함 · US 탑100·유럽 탑50).
+    같은 날짜는 채널 값을 씁니다 — 겹친 30일 중 91% 가 제품별 순위까지 같았습니다. 점에 마우스를 올리면 나라별 내역·출처가 나옵니다.`;
+  const why=M==="t100"?`<b>탑100</b>은 유럽 51~100위까지 셉니다. 트래커만 있는 날(주로 주말)은 유럽 51~100위를 몰라 ${amztView!=="mk"?"합계에서 빠지고":"유럽 선에서 빠지고"}, 선은 그 날을 건너 잇습니다.`
+    : M==="t50"?`<b>진입 SKU</b>는 위 카드와 같은 기준(US 탑100 · 유럽 탑50)이라 트래커 브랜드도 나옵니다. 8/2 앞은 채널이 다루는 5개 브랜드뿐입니다.`
+    : `<b>최고 순위</b> = 나라별로 그 브랜드 제품 중 가장 높은 순위. 100위 밖인 날은 선이 끊깁니다.`;
+  document.getElementById("amztNote").innerHTML=`${why} 음영 = 할인 행사(프라임데이 미국 6/23~26). 합계에 이탈리아·일본은 넣지 않습니다(채널이 안 보는 나라).<br>${src}`;
+
+  // 제품별 순위 — 국가별 보기 + 채널 브랜드만. 무엇이 합계를 움직였나(신규 진입·이탈)를 본다.
+  const pb=document.getElementById("amztProd");
+  if(amztView!=="mk"||!cur.kmj||!T.K){ pb.innerHTML=""; return; }
+  const K=T.K, days=K.days, last=days[days.length-1], lx=amztDn(last.d);
+  const cmp=[...days].reverse().find(x=>amztDn(x.d)<=lx-28)||days[0];
+  const nowR={}, preR={};
+  last.r.forEach(r=>{nowR[r[0]]=r.slice(1);}); cmp.r.forEach(r=>{preR[r[0]]=r.slice(1);});
+  const mine=p=>K.prod[p]&&K.prod[p][0]===cur.kmj.name;
+  const bestOf=a=>Math.min(...a.filter(v=>v));
+  const rows=Object.keys(nowR).map(Number).filter(mine).sort((a,b)=>bestOf(nowR[a])-bestOf(nowR[b]));
+  const gone=Object.keys(preR).map(Number).filter(p=>mine(p)&&!(p in nowR));
+  const cell=(v,p)=>{
+    if(!v) return `<td style="text-align:right;color:var(--muted2)">·</td>`;
+    let tag="";
+    if(!p) tag=` <span style="font-size:10.5px;color:var(--accent)">신규</span>`;
+    else if(p!==v) tag=` <span style="font-size:10.5px;color:${v<p?"var(--up)":"var(--down)"}">${v<p?"▲":"▼"}${Math.abs(p-v)}</span>`;
+    return `<td style="text-align:right;white-space:nowrap">${v}위${tag}</td>`;
+  };
+  pb.innerHTML=`<details class="fold" style="margin-top:10px"><summary>${cur.label} 제품별 순위 ${rows.length}개
+      <span class="sub">${amztMd(lx)} 기준 · 화살표는 4주 전(${amztMd(amztDn(cmp.d))}) 대비 · 신규 = 그땐 100위 밖</span></summary>
+    <div class="fold-b"><div class="tbl-wrap"><table>
+      <thead><tr><th style="text-align:left">제품</th>${AMZT_MK.map(m=>`<th style="text-align:right">${AMZT_MKNM[m]}</th>`).join("")}
+        <th style="text-align:right">처음 잡힌 날</th></tr></thead>
+      <tbody>${rows.map(p=>`<tr><td style="text-align:left;white-space:normal">${amztEsc(K.prod[p][1])}</td>
+        ${nowR[p].map((v,j)=>cell(v,(preR[p]||[])[j])).join("")}
+        <td style="text-align:right;color:var(--muted)">${T.firstSeen[p]?amztMd(amztDn(T.firstSeen[p])):"—"}</td></tr>`).join("")}</tbody>
+    </table></div>
+    ${gone.length?`<p class="note">4주 전엔 있었는데 지금 5개국 모두 100위 밖: ${gone.map(p=>amztEsc(K.prod[p][1])).join(" · ")}</p>`:""}
+    <p class="note">제품명은 한투 채널 표기(한국어). 채널은 5/28 부터라 '처음 잡힌 날'이 5/28 이면 그 전부터 있던 제품입니다.</p></div></details>`;
+}
 

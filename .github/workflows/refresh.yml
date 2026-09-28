@@ -300,6 +300,20 @@ jobs:
             echo "올리브영 오늘치 이미 있음(또는 KST 09시 전) - 생략"
           fi
 
+      # 한투 김명주 텔레그램 '주요 국가 아마존 뷰티 Top 100' (2026-09-29 · fetch_kmj.py → KMJAMZ).
+      #   평일 KST 07:30 전후에 글이 올라온다(주말·연휴는 가끔). KMJAMZ.asOf 가 **마지막 글 날짜**라
+      #   오늘 글이 아직 없으면 다음 회차가 다시 본다 — 평소 요청 1건(t.me/s 공개 미리보기 · 키 불필요).
+      - name: 한투 아마존 Top100(텔레그램)
+        if: steps.gate.outputs.go == '1'
+        timeout-minutes: 3
+        continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
+        run: |
+          if python -c "import sys;from collector_health import due_today;sys.exit(0 if due_today('KMJAMZ',8) else 1)"; then
+            python runstep.py "김명주 아마존" fetch_kmj.py
+          else
+            echo "한투 아마존 오늘 글 이미 있음(또는 KST 08시 전) - 생략"
+          fi
+
       # 지금 화제(구글 트렌드 · 네이트 · 나무위키 · 디시 흥한 마이너갤). 요청 4건 · 4초.
       # 시청자와 같은 이유로 매 회차 돈다 — 둘 다 순간 스냅샷이라 자주 찍어야 '오늘 오래 걸렸나'가 나온다.
       - name: 지금 화제(나무위키·디시)

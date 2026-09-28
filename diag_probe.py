@@ -112,6 +112,8 @@ def main():
         # Qoo10 JP (2026-09-24) — 일본 K뷰티 채널. 이 PC(가정용)에선 둘 다 200·430~930KB. 러너에서 열리면 events.yml 에 붙인다.
         ("JP qoo10 best beauty(doc)", "https://www.qoo10.jp/gmkt.inc/Bestsellers/?g=2", ua(referer="https://www.qoo10.jp/", doc=True), None),
         ("JP qoo10 search(doc)", "https://www.qoo10.jp/s/medicube?keyword=medicube", ua(referer="https://www.qoo10.jp/", doc=True), None),
+        # 한투 김명주 텔레그램(fetch_kmj.py · 2026-09-29) — 이 PC 에선 200·119KB. refresh.yml 이 매시간 부르니 러너에서도 열려야 한다.
+        ("TG kmj_retailcosmetics(doc)", "https://t.me/s/kmj_retailcosmetics", ua(referer="https://t.me/s/kmj_retailcosmetics", doc=True), None),
     ]
     with cf.ThreadPoolExecutor(8) as ex:
         futs = [ex.submit(http, *j) for j in jobs]
