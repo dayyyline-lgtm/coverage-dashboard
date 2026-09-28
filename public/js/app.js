@@ -5770,6 +5770,10 @@ function c2AsmGet(){ if(c2Asm) return c2Asm; let s={};
   try{ s=JSON.parse(localStorage.getItem("c2Asm")||"{}")||{}; }catch(e){}
   if(s._v!==C2_V) s={}; delete s._v;
   c2Asm={...C2_ASM0, zg:[...C2_ASM0.zg], za:[...C2_ASM0.za], ...s}; return c2Asm; }
+// 손익표 토글(▸) 펼침 상태 — 기본은 전부 접힘(IS 뼈대만). 사람마다 다르니 브라우저에 기억한다.
+let c2Open=null;
+function c2OpenGet(){ if(c2Open) return c2Open; try{ c2Open=JSON.parse(localStorage.getItem("c2Open")||"{}")||{}; }catch(e){ c2Open={}; } return c2Open; }
+function c2OpenSave(){ try{ localStorage.setItem("c2Open",JSON.stringify(c2Open)); }catch(e){} }
 function c2AsmSave(){ const d={_v:C2_V};
   Object.keys(c2Asm).forEach(k=>{ if(JSON.stringify(c2Asm[k])!==JSON.stringify(C2_ASM0[k])) d[k]=c2Asm[k]; });
   try{ localStorage.setItem("c2Asm",JSON.stringify(d)); }catch(e){} }
@@ -5997,57 +6001,83 @@ function renderC2Model(){
       nonop:`경상 ${P.nonop}(이자·지분법 — 컴투스엔 31% 지분법 약 −1.0 포함)${o.q==="2026Q3"&&P.oneoff?` + 일회성 ${P.oneoff}`:""}`,
       tax:`(게임 영업이익 ${fmt(o.sepOp,1)} + 경상 영업외 ${P.nonop}) × ${P.tax}% — 자회사 적자·일회성 평가손은 본사 과세소득을 줄이지 못한다`,
       minor:`비지배 몫 가정 ${P.minor} — 컴투스엔 연결 제외로 적자를 나눠 지던 외부 주주가 빠져 거의 0`})[k]||""; };
+  // 줄 구성 — 표준 IS 순서. tg = 누르면 세부가 펼쳐지는 줄, g = 그 세부. 기본은 뼈대만(접힘).
+  //   em = 리포트식 강조 줄(위아래 가로선 · 굵게) — 매출액·영업이익·지배주주 순이익
   const ROWS=[
-    {k:"rev", t:"매출액", c:"tot"},
+    {k:"rev", t:"매출액", em:1, tg:"rev"},
     {k:"rev", t:"YoY", r:"yoy"},
     {k:"rev", t:"QoQ", r:"qoq"},
-    {k:"sep", t:"게임 (컴투스 별도)", c:"sub"},
-    {k:"zeus", t:"제우스: 오만의 신", i:1, z:1},
-    {k:"zd", t:"스토어 결제액/일(억 · VAT 포함)", i:2, m:"zd"},
-    {k:"zg", t:"평균 순위 구글 / 애플", i:2, m:"zr"},
-    {k:"rpg", t:"RPG — 서머너즈워 외", i:1},
-    {k:"bb", t:"야구 — 컴프야·MLB 9이닝스 외", i:1},
-    {k:"cas", t:"캐주얼·기타", i:1},
-    {k:"newg", t:"신작 (2027~, 자리값)", i:1},
-    {k:"sub", t:"자회사 (연결 − 별도)", c:"sub"},
-    {t:"일평균 매출 (억원 · 분기 매출 ÷ 일수)", m:"hdr"},
-    {k:"zeus", t:"제우스 (출시 후 일수 기준)", i:1, m:"dz"},
-    {k:"rpg", t:"RPG — 서머너즈워 외", i:1, m:"dq"},
-    {k:"bb", t:"야구", i:1, m:"dq"},
-    {k:"sep", t:"게임 합계 (별도)", i:1, m:"dq"},
-    {k:"opex", t:"영업비용", c:"tot"},
-    {k:"sepX", t:"게임 (별도) 영업비용", c:"sub"},
-    {k:"fee", t:"지급수수료 (마켓·PG·개발사 RS)", i:1},
-    {k:"roy", t:"로열티 (IP 라이선스)", i:1},
-    {k:"lab", t:"인건비", i:1},
-    {k:"mkt", t:"마케팅비", i:1},
-    {k:"oth", t:"외주·기타 (상각 포함)", i:1},
-    {k:"subx", t:"자회사 영업비용", c:"sub"},
-    {k:"op", t:"영업이익", c:"tot hl"},
+    {k:"sep", t:"게임 (컴투스 별도)", i:1, b:1, g:"rev"},
+    {k:"zeus", t:"제우스: 오만의 신", i:2, z:1, g:"rev"},
+    {k:"rpg", t:"RPG — 서머너즈워 외", i:2, g:"rev"},
+    {k:"bb", t:"야구 — 컴프야·MLB 9이닝스 외", i:2, g:"rev"},
+    {k:"cas", t:"캐주얼·기타", i:2, g:"rev"},
+    {k:"newg", t:"신작 (2027~, 자리값)", i:2, g:"rev"},
+    {k:"sub", t:"자회사 (연결 − 별도)", i:1, b:1, g:"rev"},
+    {k:"opex", t:"영업비용", b:1, tg:"cost", top:1},
+    {k:"sepX", t:"게임 (별도) 영업비용", i:1, b:1, g:"cost"},
+    {k:"fee", t:"지급수수료 (마켓·PG·개발사 RS)", i:2, g:"cost"},
+    {k:"roy", t:"로열티 (IP 라이선스)", i:2, g:"cost"},
+    {k:"lab", t:"인건비", i:2, g:"cost"},
+    {k:"mkt", t:"마케팅비", i:2, g:"cost"},
+    {k:"oth", t:"외주·기타 (상각 포함)", i:2, g:"cost"},
+    {k:"subx", t:"자회사 영업비용", i:1, b:1, g:"cost"},
+    {k:"op", t:"영업이익", em:1, hl:1, tg:"op"},
     {k:"opm", t:"영업이익률", r:"opm"},
     {k:"op", t:"YoY", r:"opyoy"},
-    {k:"sepOp", t:"게임 (별도) 영업이익", i:1},
-    {k:"subOp", t:"자회사 영업이익", i:1},
-    {k:"nonop", t:"영업외손익", c:"line"},
-    {k:"pbt", t:"세전이익", c:"line"},
-    {k:"tax", t:"법인세", c:"line"},
-    {k:"np", t:"당기순이익", c:"line"},
-    {k:"minor", t:"비지배 몫", c:"line"},
-    {k:"npp", t:"지배주주 순이익", c:"sub"},
+    {k:"sepOp", t:"게임 (별도) 영업이익", i:1, g:"op"},
+    {k:"subOp", t:"자회사 영업이익", i:1, g:"op"},
+    {k:"nonop", t:"영업외손익", tg:"ni", top:1},
+    {k:"pbt", t:"세전이익", i:1, g:"ni"},
+    {k:"tax", t:"법인세", i:1, g:"ni"},
+    {k:"np", t:"당기순이익", i:1, g:"ni"},
+    {k:"minor", t:"비지배 몫", i:1, g:"ni"},
+    {k:"npp", t:"지배주주 순이익", em:1},
+    {k:"npp", t:"YoY", r:"opyoy"},
+    {k:"npp", t:"EPS (원)", m:"eps"},
+    {k:"npp", t:"PER (배)", m:"per"},
+    {t:"제우스 · 일평균 매출", m:"hdr", tg:"daily", top:2},
+    {k:"zd", t:"제우스 스토어 결제액/일 (억 · VAT 포함)", i:1, m:"zd", g:"daily"},
+    {k:"zg", t:"제우스 평균 순위 구글 / 애플", i:1, m:"zr", g:"daily"},
+    {k:"zeus", t:"제우스 매출/일 (억 · 출시 후 일수)", i:1, m:"dz", g:"daily"},
+    {k:"rpg", t:"RPG 매출/일 (억)", i:1, m:"dq", g:"daily"},
+    {k:"bb", t:"야구 매출/일 (억)", i:1, m:"dq", g:"daily"},
+    {k:"sep", t:"게임 합계 매출/일 (억)", i:1, m:"dq", g:"daily"},
   ];
-  const firstE=cols.findIndex(o=>!o.act), firstY=qCols.length;
-  const thS=(o,k)=>{ let st="text-align:right;white-space:nowrap;padding:7px 9px;";
-    if(!o.act) st+="background:color-mix(in srgb, var(--accent) 7%, transparent);";
-    if(k===firstE||k===firstY) st+="border-left:2px solid var(--line);"; return st; };
+  const TGS=[...new Set(ROWS.filter(r=>r.tg).map(r=>r.tg))];
+  const OPEN=c2OpenGet();
+  // 밸류에이션 — 현재 시가총액(시세 블록) ÷ 그 해 지배주주 순이익. 분기 칸은 비운다(연간 지표).
+  const LS=(typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[C2MODEL.stock])||{};
+  const mcap=LS.mktcapEok?LS.mktcapEok/10:null;                                   // 십억원
+  const shares=(LS.mktcapEok&&LS.price)?LS.mktcapEok*1e8/LS.price:null;            // 주
+  // 12개월 선행 = 오늘부터 1년 — 걸치는 분기를 겹치는 날수만큼 가중(9/28 이면 3Q26 은 이틀치, 3Q27 은 거의 전부)
+  const T1=new Date(Date.parse(TODAY+"T00:00:00Z")+365*864e5).toISOString().slice(0,10);
+  let npp12=0, cov=0; for(let k=0;k<5;k++){ const q=c2QAdd(c2QOf(TODAY),k), o=Q[q]; if(!o) continue;
+    const s0=c2QStart(q), s1=c2QStart(c2QAdd(q,1)), ov=Math.max(0,c2DDiff(s0>TODAY?s0:TODAY, s1<T1?s1:T1));
+    npp12+=o.npp*ov/c2DDiff(s0,s1); cov+=ov; }
+  if(cov<360) npp12=null;
+  // 격자 — 같은 해 분기끼리 묶고(해가 바뀌는 곳에 굵은 세로선), 다음 발표 분기 한 칸만 음영
+  const nextQ=cols.findIndex(o=>!o.yr&&!o.act), firstY=qCols.length;
+  const yrEdge=k=>k===firstY||(k>0&&k<firstY&&cols[k].q.slice(0,4)!==cols[k-1].q.slice(0,4));
+  const SHADE="color-mix(in srgb, var(--accent) 13%, transparent)";
+  const thS=(o,k)=>{ let st="text-align:right;white-space:nowrap;padding:6px 9px;";
+    if(k===nextQ) st+=`background:${SHADE};`;
+    if(yrEdge(k)) st+="border-left:2px solid var(--muted2);"; return st; };
+  // 강조 줄 가로선 — 매출액·영업이익·지배주주 순이익은 위아래로 선을 긋는다(리포트 양식). top 은 구역 경계선.
+  const EM="1.5px solid var(--muted2)";
   const cell=(row,o,k)=>{
     let v="", tip="";
     if(row.r==="yoy"){ const p=prevOf(o); v=p?chg(o[row.k],p[row.k]):"—"; }
     else if(row.r==="qoq"){ v=o.yr?"":chg(o[row.k],(Q[c2QAdd(o.q,-1)]||{})[row.k]); }
-    else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o.op,p.op):"—"; }
+    else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o[row.k],p[row.k]):"—"; }
     else if(row.r==="opm"){ v=o.opm==null?"—":fmt(o.opm*100,1)+"%"; }
     else if(row.m==="zd"){ v=o.zd==null?"":fmt(o.zd,1); }
     else if(row.m==="zr"){ v=o.zdays&&!o.yr?`${fmt(o.zg,1)} / ${fmt(o.zi,0)}`:""; }
     else if(row.m==="hdr"){ v=""; }
+    else if(row.m==="eps"){ v=(o.yr&&shares)?(o.npp>0?fmt0(o.npp*1e9/shares):`<span class="down">적자</span>`):"";
+      if(o.yr&&shares) tip=`${lab(o)} 지배주주 순이익 ${fmt(o.npp*10,0)}억 ÷ 주식수 ${fmt0(shares)}주 (시총 ÷ 주가)`; }
+    else if(row.m==="per"){ v=(o.yr&&mcap)?(o.npp>0?`<b>${fmt(mcap/o.npp,1)}</b>`:`<span class="down">적자</span>`):"";
+      if(o.yr&&mcap&&o.npp>0) tip=`${lab(o)} 현재 시총 ${fmt0(mcap*10)}억 ÷ 지배주주 순이익 ${fmt(o.npp*10,0)}억`; }
     else if(row.m==="dz"){ v=o.zdays&&o.zeus?fmt(o.zeus*10/o.zdays,1):"—";
       if(o.zdays&&o.zeus) tip=`${lab(o)} 제우스 ${fmt(o.zeus,1)}십억 × 10 ÷ 서비스 ${fmt(o.zdays,1)}일 (결제액 ${fmt(o.zd,1)}억 ÷ ${P.vat})`; }
     else if(row.m==="dq"){ v=o[row.k]!=null&&o.days?fmt(o[row.k]*10/o.days,1):"—";
@@ -6055,35 +6085,51 @@ function renderC2Model(){
     else { const x=o[row.k]; v=((row.k==="newg"||row.k==="zeus")&&!x)?"—":f1(x); tip=eTip(o,row.k)||(row.z?zTip(o):"");
       if(!o.act&&!o.yr&&o.q==="2026Q3"&&((row.k==="nonop"&&P.oneoff)||row.k==="sub")) v+=`<sup style="color:var(--warn)">*</sup>`; }
     if(row.z&&o.act&&o.zEst&&o.zeus) tip=(tip?tip+" · ":"")+"IR 이 제우스를 따로 밝히지 않아 모델값을 RPG 에서 뗐다";
-    const st=thS(o,k)+(row.c&&row.c.includes("tot")?"font-weight:800;":row.c==="sub"?"font-weight:700;":"")
-      +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"||row.m==="dz"?"color:var(--muted);":"")
-      +(row.z?"color:var(--accent);font-weight:700;":"")+(row.m==="dz"?"color:var(--accent);":"")
-      +(row.c&&row.c.includes("hl")?`background:color-mix(in srgb, var(--accent) ${o.act?14:24}%, transparent);`:"");
+    let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
+      +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"?"color:var(--muted);":"")
+      +(row.z||row.m==="dz"?"color:var(--accent);":"")+(row.z?"font-weight:700;":"")+(row.m==="per"?"font-weight:700;":"");
+    if(row.hl) st+=`background:${k===nextQ?"color-mix(in srgb, var(--accent) 24%, transparent)":"color-mix(in srgb, var(--accent) 7%, transparent)"};`;
     return `<td style="${st}"${tip?` title="${attr(tip)}"`:""}>${v}</td>`;
   };
   const rowHtml=row=>{
-    const lst="text-align:left;white-space:nowrap;padding:7px 10px;position:sticky;left:0;z-index:1;"
-      +`background:${row.c&&row.c.includes("hl")?"color-mix(in srgb, var(--accent) 14%, var(--panel))":"var(--panel)"};`
-      +(row.i?`padding-left:${10+row.i*13}px;`:"")+(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")
+    if(row.g&&!OPEN[row.g]) return "";                     // 접힌 세부는 그리지 않는다
+    const small=row.r||row.m==="zd"||row.m==="zr";
+    const lst="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;z-index:1;"
+      +`background:${row.hl?"color-mix(in srgb, var(--accent) 7%, var(--panel))":"var(--panel)"};`
+      +`padding-left:${22+(row.i||0)*14+(row.r?14:0)}px;`+(small?"font-size:11px;color:var(--muted);":"")
       +(row.m==="hdr"?"font-weight:700;color:var(--muted);font-size:11.5px;":"")+(row.m==="dz"?"color:var(--accent);":"")
-      +(row.c&&row.c.includes("tot")?"font-weight:800;":row.c==="sub"?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"");
-    const top=((row.c&&row.c.includes("tot")&&row.k!=="rev")||row.m==="hdr"||(row.k==="nonop"))?"border-top:1px solid var(--line);":"";
-    return `<tr style="${top}"><td style="${lst}">${row.i===1?`<span style="color:var(--muted2)">·</span> `:""}${row.t}</td>${cols.map((o,k)=>cell(row,o,k)).join("")}</tr>`; };
+      +(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"")+(row.tg?"cursor:pointer;":"");
+    const tr=(row.em?`border-top:${EM};border-bottom:${EM};`:"")+(row.top===2?"border-top:2px solid var(--line);":row.top?"border-top:1px solid var(--line);":"");
+    const caret=row.tg?`<span style="display:inline-block;width:15px;margin-left:-15px;color:var(--accent);font-size:12px;line-height:1">${OPEN[row.tg]?"▾":"▸"}</span>`:"";
+    const lbl=row.m==="per"?`PER (배) <span style="font-size:10.5px;font-weight:600;color:var(--muted2);margin-left:4px">현재 시총 ${mcap?fmt0(mcap*10)+"억":"—"}${mcap&&npp12>0?` · 12개월 선행 <b style="color:var(--accent)">${fmt(mcap/npp12,1)}배</b>`:""}</span>`:row.t;
+    return `<tr style="${tr}"${row.tg?` data-c2tg="${row.tg}" title="눌러서 ${OPEN[row.tg]?"접기":"세부 펼치기"}"`:""}><td style="${lst}">${caret}${lbl}</td>${cols.map((o,k)=>cell(row,o,k)).join("")}</tr>`; };
   // 비교 줄 — 컨센·잠정. 괴리 = 모델 ÷ 컨센 − 1
-  const cmp=(t,f,rs)=>`<tr style="${rs||""}"><td style="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;background:var(--panel);font-size:11px;color:var(--muted)">${t}</td>`
+  const cmp=(t,f,rs)=>`<tr style="${rs||""}"><td style="text-align:left;white-space:nowrap;padding:6px 10px 6px 22px;position:sticky;left:0;background:var(--panel);font-size:11px;color:var(--muted)">${t}</td>`
     +cols.map((o,k)=>`<td style="${thS(o,k)}font-size:11px;color:var(--muted)">${f(o)}</td>`).join("")+`</tr>`;
   const ck=o=>o.q;
   const hasPre=cols.some(o=>pre[o.q]);
-  const tbl=`<div class="sub-h" style="margin:16px 0 8px">게임별 분기 손익 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · 연결 · 칸에 마우스를 올리면 계산식</span>
-      <button class="theme-btn" id="c2Show25" style="margin-left:auto;padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></div>
+  const allOpen=TGS.every(k=>OPEN[k]);
+  // 머리글 두 줄 — 위는 연도 묶음, 아래는 분기
+  const yrs=[]; qCols.forEach(q=>{ const y=q.slice(0,4); if(!yrs.length||yrs[yrs.length-1].y!==y) yrs.push({y,n:0}); yrs[yrs.length-1].n++; });
+  const hd="position:sticky;left:0;background:var(--panel2);z-index:3;text-align:left;padding:6px 10px 6px 22px;cursor:default";
+  const h1="text-align:center;padding:6px 9px 2px;font-size:11.5px;color:var(--text);cursor:default;border-bottom:1px solid var(--line-soft);";
+  const head1=`<tr><th style="${hd};border-bottom:none"></th>${yrs.map((g,j)=>`<th colspan="${g.n}" style="${h1}${j?"border-left:2px solid var(--muted2);":""}">${g.y}</th>`).join("")}<th colspan="3" style="${h1}border-left:2px solid var(--muted2)">연간</th></tr>`;
+  const head2=`<tr><th style="${hd}">(십억원)</th>${cols.map((o,k)=>`<th style="${thS(o,k)}cursor:default;font-size:12px;padding-top:4px;${k===nextQ?"background:color-mix(in srgb, var(--accent) 24%, var(--panel2));color:var(--text);":""}">${o.yr?lab(o):`${c2QLab(o.q)}${o.act?"":"E"}`}</th>`).join("")}</tr>`;
+  const tbl=`<div class="sub-h" style="margin:16px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">게임별 분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결 · 칸에 마우스를 올리면 계산식</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+      <button class="theme-btn" id="c2OpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
+      <button class="theme-btn" id="c2Show25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
     <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
-    <thead><tr><th style="text-align:left;padding:8px 10px;position:sticky;left:0;background:var(--panel2);z-index:2">(십억원)</th>${cols.map((o,k)=>`<th style="${thS(o,k)}background:${o.act?"var(--panel2)":"color-mix(in srgb, var(--accent) 16%, var(--panel2))"};font-size:12px">${lab(o)}</th>`).join("")}</tr></thead>
+    <thead>${head1}${head2}</thead>
     <tbody>${ROWS.map(rowHtml).join("")}
     ${cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[ck(o)]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")}
     ${cmp("모델 ÷ 컨센 − 1 (매출 / 영업이익)",o=>{ const c=cons[ck(o)]; return c?`${pct(o.rev/c.rev-1,0)} / ${c.op>0?pct(o.op/c.op-1,0):"—"}`:""; })}
     ${hasPre?cmp("실적(DART) 매출 / 영업이익",o=>{ const p=pre[o.q]; return p?`<b>${f1(p.rev)} / ${f1(p.op)}</b>${p.dart?"":" 잠정"}`:""; }):""}
     </tbody></table></div>
-    <p class="note" style="margin-top:6px">색칠한 칸이 추정(E)입니다. 실적 칸은 <b>연결·별도 합계 = DART</b>(${attr(C2MODEL.asOf||"")} 수집),
+    <p class="note" style="margin-top:6px"><b style="color:var(--accent)">▸</b> 표시 줄을 누르면 세부가 펼쳐집니다(매출 → 게임별 · 영업비용 → 항목별 · 영업이익 → 게임/자회사 · 영업외 → 세전·세금·비지배 · 제우스 순위·일매출).
+      <span style="background:${SHADE};padding:0 5px;border-radius:3px">음영 칸</span>이 다음 발표 분기(${nextQ>=0?c2QLab(cols[nextQ].q):"—"}), 굵은 세로선이 연도 경계, E 는 추정입니다.
+      PER = 현재 시가총액(${LS.price?fmt0(LS.price)+"원 · ":""}${mcap?fmt0(mcap*10)+"억":"—"}) ÷ 그 해 지배주주 순이익${npp12>0&&mcap?` · 12개월 선행(오늘부터 1년 · 분기 날수 가중 · 순이익 ${fmt(npp12*10,0)}억) <b>${fmt(mcap/npp12,1)}배</b>`:""}.
+      실적 칸은 <b>연결·별도 합계 = DART</b>(${attr(C2MODEL.asOf||"")} 수집),
       장르·비용 항목 = 회사 IR 자료. 게임 = 컴투스 별도, 자회사 = 연결 − 별도(미디어·컴투스엔·OOTP 등).
       <b>지급수수료·로열티는 IR 분류</b>입니다(DART 주석의 지급수수료 = IR 지급수수료 + 로열티 + 일부 기타). 개발사 RS 는 회사 설명대로 지급수수료에 넣었습니다.
       <b>자회사는 컴투스엔 연결 제외 가정</b>(7/14 엔피가 위지윅 흡수합병 → 컴투스 31.3%): 적자 미디어가 빠지고 게임 자회사만 남습니다(분기 매출 약 8 · 손익 ≈ 0).
@@ -6211,7 +6257,11 @@ function c2Bind(){
     if(s){ const A=c2AsmGet(), S=C2_SCN[s.dataset.c2scn]; A.zg=[...S.zg]; A.za=[...S.za]; c2AsmSave(); renderC2Model(); return; }
     if(e.target.closest("#c2Reset")){ c2Asm={...C2_ASM0, zg:[...C2_ASM0.zg], za:[...C2_ASM0.za], show25:c2AsmGet().show25};
       c2AsmSave(); renderC2Model(); return; }
-    if(e.target.closest("#c2Show25")){ const A=c2AsmGet(); A.show25=A.show25?0:1; c2AsmSave(); renderC2Model(); }
+    if(e.target.closest("#c2Show25")){ const A=c2AsmGet(); A.show25=A.show25?0:1; c2AsmSave(); renderC2Model(); return; }
+    const tg=e.target.closest("[data-c2tg]");
+    if(tg){ const O=c2OpenGet(), k=tg.dataset.c2tg; O[k]=O[k]?0:1; c2OpenSave(); renderC2Model(); return; }
+    if(e.target.closest("#c2OpenAll")){ const O=c2OpenGet(), ks=[...new Set([...document.querySelectorAll("#c2Box [data-c2tg]")].map(x=>x.dataset.c2tg))],
+      all=ks.every(k=>O[k]); ks.forEach(k=>O[k]=all?0:1); c2OpenSave(); renderC2Model(); }
   });
 }
 
