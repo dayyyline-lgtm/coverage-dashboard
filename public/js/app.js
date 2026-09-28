@@ -41,10 +41,10 @@ SECTORS.forEach(sec=>{ const subs=[..._subsBySec[sec]];
   if(subs.length>1) subs.forEach(s=>CATS.push(s)); else CATS.push(sec); });
 /* 대섹터에 소섹터가 하나뿐이면 카테고리 = 대섹터명("엔터"), 여럿이면 소섹터명("기획"·"IP").
    지금 엔터는 기획 하나라 "엔터"가 쓰이지만, 소섹터를 늘리면 즉시 갈리므로 양쪽 다 넣어둔다. */
-const CAT_COLORS={"화장품":"#c9a227","유통":"#3f93a8","미용":"#c56f83","음식료":"#d9825b",
-  "엔터/미디어":"#c85b86","엔터":"#c85b86","기획":"#c85b86","IP":"#b0507e","게임":"#3e8fb0","호텔":"#5f9e4a",
-  "레져":"#5f9e4a"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
-const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#9da1a9";
+const CAT_COLORS={"화장품":"#81b29a","유통":"#5fb3b3","미용":"#e5989b","음식료":"#d69f7e",
+  "엔터/미디어":"#c98aa6","엔터":"#c98aa6","기획":"#c98aa6","IP":"#b5838d","게임":"#6fa8dc","호텔":"#c7a27c",
+  "레져":"#c7a27c"};   // 레져 = 네이버 업종명(호텔,레스토랑,레저) — 섹터 지수 차트용
+const catColor=c=>CAT_COLORS[c]||SECTOR_COLORS[c]||"#9aa5b1";
 const fmt = (v,d=1)=> (v===null||v===undefined||v==="")?"—":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmt0 = v=> (v===null||v===undefined||v==="")?"—":Math.round(v).toLocaleString("ko-KR");
 const won = v=> (v===null||v===undefined||v===""||v===0)?"—":Math.round(v).toLocaleString("ko-KR");
@@ -2038,7 +2038,7 @@ const TREND_STOCK={
    items: [{stock, label, pts:[{d, v}]}]. 회사마다 x=날짜, 막대=소속 아티스트 스택, 높이=회사 합계.
    써클 월간 앨범판매와 같은 형태. 이상치는 막대 호버로 아티스트별 확인. 회사 병렬 비교(스냅샷)는 안 쓴다. */
 function injectCompanyStack(items, opt){
-  const PAL=["#45c49a","#f6c177","#9ccfd8","#eb6f92","#c4a7e7","#3e8fb0","#ea9a97","#c9a227","#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
+  const PAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6","#5fb3b3","#9aa5b1","#a8b561","#c7a27c","#e5989b","#7d9bc1","#b5838d","#90a955","#d69f7e"];
   const dlab=d=>{const p=(d||"").slice(5).split("-");return p.length===2?`${+p[0]}/${+p[1]}`:d;};
   const byCo={};
   items.forEach(it=>{ if(it.pts&&it.pts.length) (byCo[it.stock]=byCo[it.stock]||[]).push(it); });
@@ -2191,8 +2191,7 @@ function injectCompanyStack(items, opt){
   const aStock=CIRCLE.artistStock||{};
   const GREY=(getComputedStyle(document.documentElement).getPropertyValue('--muted')||"#8a8a99").trim();
   // 자체 팔레트(fetch_trends 가 TREND.colors 를 덮어쓰므로 여기 둔다). 세그먼트가 많아 14색.
-  const CPAL=["#45c49a","#f6c177","#9ccfd8","#eb6f92","#c4a7e7","#3e8fb0","#ea9a97","#c9a227",
-              "#b08bd0","#7ea1c4","#8caf6e","#cf9f6a","#6ab0a3","#c98aa6"];
+  const CPAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6","#5fb3b3","#9aa5b1","#a8b561","#c7a27c","#e5989b","#7d9bc1","#b5838d","#90a955","#d69f7e"];
   const MAXSEG=11;                    // 색 구간 상한. 초과 소속은 '기타'로 접힌다.
   ["month","week"].forEach(term=>{
     const b=CIRCLE[term]; if(!b||!(b.periods||[]).length) return;
@@ -3087,7 +3086,7 @@ function renderShop(){
    ⚠ tot 는 '상위 n명의 score 합'이지 서비스 전체가 아니다. 초기 주차는 n 이 27~46 이라
      50 이 찬 주차와 직접 비교하면 안 된다 → n<50 은 점을 비워 그리고 표에 '부분'이라 적는다. */
 const TT_PAL = (typeof TREND!=="undefined" && TREND.colors && TREND.colors.length>=4)
-  ? TREND.colors : ["#45c49a","#f6c177","#9ccfd8","#eb6f92"];
+  ? TREND.colors : ["#d8b46a","#6fa8dc","#e07a5f","#81b29a"];
 const TT_REG = [
   {code:"KR",     nm:"한국"},
   {code:"JP",     nm:"일본"},
@@ -4141,7 +4140,7 @@ function renderScreens(){
                      .sort()
                      .filter(p=>ddOf(p)!=null&&ddOf(p)>=dLo&&ddOf(p)<=dHi)
                      .filter(p=>rows.some(r=>((r.get(p)||{}).seatTot||0)>0));
-          const PAL=["#eb6f92","#9ccfd8","#f6c177","#a6da95"];
+          const PAL=["#e07a5f","#6fa8dc","#d8b46a","#81b29a"];
           const COL={}; rows.forEach((r,i)=>COL[r.n]=PAL[i%PAL.length]);
           const WD=["일","월","화","수","목","금","토"];
           const wdOf=p=>WD[new Date(`${p.slice(0,4)}-${p.slice(4,6)}-${p.slice(6,8)}`).getDay()];

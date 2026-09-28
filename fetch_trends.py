@@ -417,7 +417,7 @@ for _spec in GROUPS.values():
         _spec["n"] = DAILY_N
 
 # 시리즈 색 (최대 8개 — 국가별 그룹이 6개까지 늘어남). Rose Pine 계열의 구분 잘 되는 색
-COLORS = ["#45c49a", "#f6c177", "#9ccfd8", "#eb6f92", "#c4a7e7", "#3e8fb0", "#ea9a97", "#c9a227"]   # 1번 = 강조색(에메랄드) · 2026-09-28 테마 교체
+COLORS = ["#d8b46a", "#6fa8dc", "#e07a5f", "#81b29a", "#c98aa6", "#5fb3b3", "#9aa5b1", "#a8b561"]   # 1번 = 강조색(샴페인 골드) · 2026-09-28 테마 2차
 
 
 def month_labels(n=12):
