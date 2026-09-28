@@ -1,6 +1,6 @@
 name: 극장가 좌석 추적 (3사)
 
-# 영화 흥행 탭(BOXOFFICE)의 좌석 — 예매가 열린 상영일 전부를 하루 두 번 전수한다(2026-09-26).
+# 영화 흥행 탭(BOXOFFICE)의 좌석 — 예매가 열린 상영일을 약 3시간마다 잰다(2026-09-26 신설 · 09-28 주기 확대).
 # 하츄핑 때 screens.yml 이 하던 일을 치이카와·흥행작 3편으로 옮긴 것이다(스크립트는 fetch_boxoffice.py).
 #
 # ⚠ 러너에서는 CGV 예매 API 가 403(Cloudflare · 2026-09-13~)이고 메가박스는 간헐 시간초과다
@@ -12,19 +12,47 @@ name: 극장가 좌석 추적 (3사)
 #   대기 중인 회차를 취소한다. 그래서 ① 수집은 그룹 밖에서 파일로만 받고
 #   ② 커밋 잡만 그룹 안에서 원격 최신 위에 끼워 넣는다(몇 초 · CLAUDE.md '합치지 말고 다시 주입').
 #
-# 언제 — 시세 워크플로(워커가 정시에 부른다)에 얹혀 평일 12·18시, 주말 12·20시.
-#   cron 은 워커가 죽은 날의 백업(KST 20:40 · 밀릴 것 전제). 둘이 겹쳐도 '3시간 안에 받았으면 건너뜀'.
-#   추적 기한(fetch_boxoffice.UNTIL · 11/15)이 지나면 수집기가 스스로 아무것도 안 한다.
+# 언제 — **'3시간마다'를 시각이 아니라 조건으로** 건다(2026-09-28 · 사용자 "업데이트 주기 늘려, 차단 안 당할 정도로").
+#   예전엔 평일 12·18 · 주말 12·20 두 슬롯이었는데, 슬롯을 태우는 시세 회차가 빠지는 날(일요일은 워커 트리거가
+#   아예 안 뜬다 — 9/13·9/20·9/27 전부) 하루 한 번도 못 받았다. 지금은 무엇이 부르든(시세·viewers 완료, cron 백업)
+#   KST 08~23시 안이고 **마지막 좌석 수집이 2시간 30분 넘게 지났으면** 돈다 → 매시간 부르는 시세 회차 기준 약 3시간 간격.
+#
+# 얼마나 — 두 층으로 나눠 요청량을 묶는다.
+#   · 전수(full)  열린 상영일 전부(오늘~14일 뒤). 그날 첫 회차 + 직전 전수 뒤 7시간 → 하루 두 번(예전과 같은 양).
+#   · 근접(near)  오늘~3일 뒤 + 개봉 예정일만. 사이 회차. 롯데 239관 × 4~5일이라 전수의 절반 이하(실측 전수 10분).
+#   예매가 실제로 빨리 움직이는 건 가까운 날짜라 거기만 자주 본다. 먼 날짜는 몇 시간 사이 거의 안 바뀐다.
+#
+# 차단 — 회당 요청 속도(롯데 4병렬·메가 순차 0.2초 · CGV 순차)는 그대로다. 늘어난 건 회차 수뿐이고 회차마다
+#   러너 IP 가 바뀐다. 하루 총량은 약 1.6배(전수 2 + 근접 2~3). CGV 는 하츄핑 때 2시간마다 전수하다 6주 뒤
+#   러너가 403 을 먹은 전례가 있어(2026-09-13) 2시간이 아니라 3시간으로 잡았다. 롯데까지 막히면 좌석이 통째로 끊긴다.
+#   ⚠ 간격을 줄이려면 근접 범위(fetch_boxoffice.NEAR_DAYS)부터 줄일 것.
+#
+# 당일 상영분은 그날 첫 수집으로 고정된다(fetch_boxoffice.merge_seats) — 지난 회차가 예매 API 에서 빠지므로
+#   여러 번 받으면 오늘 칸이 저녁으로 갈수록 쪼그라든다.
+#
+# 추적 기한(fetch_boxoffice.UNTIL · 11/15)이 지나면 수집기가 스스로 아무것도 안 한다.
 on:
   workflow_run:
-    workflows: ["시세 자동 갱신"]
+    workflows: ["시세 자동 갱신", "viewers"]
     types: [completed]
   schedule:
-    - cron: "40 11 * * *"
+    # 백업 — GitHub cron 은 밀리거나 빠진다(전제). 조건 게이트라 몇 개가 겹쳐 떠도 한 번만 돈다.
+    - cron: "40 23,2,5,8,11,13 * * *"     # KST 08:40·11:40·14:40·17:40·20:40·22:40
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "full = 열린 날짜 전부 · near = 가까운 날짜만 · 비우면 자동"
+        required: false
+        default: ""
 
 permissions:
   contents: write
+
+# 회차끼리 줄 세운다 — 앞 회차가 **커밋까지** 끝낸 뒤에야 다음 회차가 '마지막 수집 시각'을 읽는다.
+#   (수집 잡만 묶으면 앞 회차 push 전에 뒤 회차가 옛 시각을 보고 한 번 더 긁는다.)
+concurrency:
+  group: boxseats
+  cancel-in-progress: false
 
 jobs:
   collect:
@@ -36,14 +64,11 @@ jobs:
       - name: 지금 돌 시각인가
         id: gate
         run: |
-          if [ "${{ github.event_name }}" != "workflow_run" ]; then
-            echo "go=1" >> $GITHUB_OUTPUT; echo "cron/수동 - 진행"; exit 0
-          fi
-          h=$(TZ=Asia/Seoul date +%H); d=$(TZ=Asia/Seoul date +%u); go=0
-          if [ "$d" -le 5 ]; then case "$h" in 12|18) go=1 ;; esac
-          else case "$h" in 12|20) go=1 ;; esac; fi
+          h=$(TZ=Asia/Seoul date +%H); go=0
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then go=1
+          elif [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 23 ]; then go=1; fi
           echo "go=$go" >> $GITHUB_OUTPUT
-          [ "$go" = "1" ] && echo "KST ${h}시 - 좌석 슬롯" || echo "KST ${h}시 - 슬롯 아님"
+          [ "$go" = "1" ] && echo "KST ${h}시 - 수집 시간대" || echo "KST ${h}시 - 밤, 건너뜀"
 
       - uses: actions/checkout@v4
         if: steps.gate.outputs.go == '1'
@@ -54,32 +79,47 @@ jobs:
         with:
           python-version: "3.11"
 
-      # 워커·cron 이 겹쳐 뜨는 날 같은 수집을 두 번 하지 않게 — 마지막 좌석 수집이 3시간 안이면 끝낸다.
-      - name: 중복 방지
+      # 조건 판정 — 마지막 좌석 수집이 2시간 30분 안이면 끝낸다. 돌 거면 전수/근접을 고른다.
+      #   전수: 오늘 전수가 아직 없거나 직전 전수가 7시간 넘었을 때(평일 약 08·17시, 토 12·20시). 나머지는 근접.
+      - name: 마지막 수집 뒤 얼마나 지났나
         id: dedup
         if: steps.gate.outputs.go == '1'
+        env:
+          EVT: ${{ github.event_name }}
+          MODE: ${{ github.event.inputs.mode }}
         run: |
           python - <<'PY' >> $GITHUB_OUTPUT
-          import re, json, datetime
+          import re, json, os, sys, datetime
           h = open("public/index.html", encoding="utf-8").read()
           m = re.search(r"const BOXOFFICE = (\{.*?\});\n", h, re.S)
-          at = (json.loads(m.group(1)).get("seatsAt") if m else "") or ""
+          b = json.loads(m.group(1)) if m else {}
           kst = datetime.timezone(datetime.timedelta(hours=9))
           now = datetime.datetime.now(kst)
-          try:
-              t = datetime.datetime.strptime(at, "%Y-%m-%d %H:%M").replace(tzinfo=kst)
-              fresh = (now - t).total_seconds() < 3 * 3600
-          except ValueError:
-              fresh = False
-          print("go=" + ("0" if fresh and "${{ github.event_name }}" != "workflow_dispatch" else "1"))
+          def age(k):   # 분. 없으면 아주 오래전
+              try:
+                  t = datetime.datetime.strptime(b.get(k) or "", "%Y-%m-%d %H:%M").replace(tzinfo=kst)
+                  return (now - t).total_seconds() / 60, t
+              except ValueError:
+                  return 1e9, None
+          last, _ = age("seatsAt")
+          fage, ft = age("seatsFullAt")
+          manual = os.environ["EVT"] == "workflow_dispatch"
+          go = manual or last >= 150
+          mode = os.environ.get("MODE")
+          if mode not in ("full", "near"):
+              mode = "full" if ft is None or ft.date() != now.date() or fage >= 7 * 60 else "near"
+          print(f"go={'1' if go else '0'}")
+          print(f"mode={mode}")
+          fl = f"{fage:.0f}분 전" if ft else "없음"
+          print(f"마지막 수집 {last:.0f}분 전 · 마지막 전수 {fl} → {'수집 ' + mode if go else '건너뜀'}", file=sys.stderr)
           PY
-          cat $GITHUB_OUTPUT | tail -1
+          tail -2 $GITHUB_OUTPUT
 
-      - name: 3사 좌석 전수 (롯데·메가 · CGV 는 시도)
+      - name: 3사 좌석 (전수 or 근접 · 롯데·메가 · CGV 는 시도)
         if: steps.gate.outputs.go == '1' && steps.dedup.outputs.go == '1'
         env:
           PYTHONIOENCODING: utf-8
-        run: python -u fetch_boxoffice.py --seats --cache=.cache/boxoffice_seats.json
+        run: python -u fetch_boxoffice.py --seats ${{ steps.dedup.outputs.mode == 'near' && '--near' || '' }} --cache=.cache/boxoffice_seats.json
 
       - uses: actions/upload-artifact@v4
         if: steps.gate.outputs.go == '1' && steps.dedup.outputs.go == '1'
@@ -121,14 +161,18 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: |
+          # Cloudflare 빌드(월 500 · 9월 1~28일 이미 450건)를 늘리지 않는다 — 평일 08~17시는 한 시간 안에
+          #   시세 회차가 배포하면서 이 커밋까지 싣고 간다. 그 밖(저녁·주말)은 따라올 배포가 없어 그대로 배포.
+          h=$(TZ=Asia/Seoul date +%H); d=$(TZ=Asia/Seoul date +%u); SKIP=""
+          if [ "$d" -le 5 ] && [ "$((10#$h))" -ge 8 ] && [ "$((10#$h))" -le 17 ]; then SKIP=" [CI Skip]"; fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for i in 1 2 3 4 5; do
             git fetch origin main && git reset --hard origin/main
-            python runstep.py "극장가 좌석(3사)" fetch_boxoffice.py --merge=.cache/boxoffice_seats.json
+            python runstep.py "극장가 좌석(3사)" fetch_boxoffice.py --merge=.cache/boxoffice_seats.json --no-kobis
             git add public/index.html archive/boxoffice_seats.jsonl health.json 2>/dev/null || true
             if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
-            git commit -m "극장가 좌석(3사) $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+            git commit -m "극장가 좌석(3사) $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')${SKIP}"
             if git push; then exit 0; fi
             echo "push 밀림 - 원격 최신 위에서 다시 끼움 $i"
           done

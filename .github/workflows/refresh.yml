@@ -236,6 +236,7 @@ jobs:
       - name: 트렌드 일간 갱신(네이버)
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 5
+        continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
@@ -259,6 +260,7 @@ jobs:
       - name: Steam 동접·리뷰 수집
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 5
+        continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
         run: |
           if python -c "import sys;from collector_health import due_today;sys.exit(0 if due_today('STEAM',9) else 1)"; then
             python runstep.py "Steam" fetch_steam.py
@@ -276,6 +278,7 @@ jobs:
       - name: 게임머니 시세 재시도
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 4
+        continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
         run: |
           if python -c "import sys;from collector_health import due_today;sys.exit(0 if due_today('GAMEMONEY',13) else 1)"; then
             python runstep.py "게임머니" fetch_gamemoney.py
@@ -289,6 +292,7 @@ jobs:
       - name: 올리브영 재시도
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 3
+        continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
         run: |
           if python -c "import sys;from collector_health import due_today;sys.exit(0 if due_today('BEAUTY',9) else 1)"; then
             python runstep.py "올리브영" fetch_beauty.py
@@ -308,14 +312,19 @@ jobs:
       - name: 리비전 트래커(겹치는 종목)
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 3
+        continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
         run: python runstep.py "리비전 트래커" fetch_revision.py
 
       # 극장가 흥행(영화 흥행 탭) — 대원미디어 '극장판 치이카와'(9/30) + 흥행작 3편. KOBIS 웹 통계라 키 불필요.
       #   매 회차: 실시간 예매 1건 + 어제·그제 일별 2건. 추적 기한(fetch_boxoffice.UNTIL)이 지나면 스스로 아무것도 안 한다.
-      #   ⚠ 3사 좌석(--seats)은 여기서 돌리지 않는다 — CGV 가 러너 IP 를 403 으로 막는다(2026-09-13~). 이 PC 에서 수동.
+      #   3사 좌석(--seats)은 boxseats.yml 이 이 워크플로 완료에 얹혀 약 3시간마다 따로 돈다(수집 20분급이라 여기 못 붙인다).
+      #   ⚠ continue-on-error — 러너에서 KOBIS 가 가끔 6분을 넘겨(2026-09-27 17시·09-28 09시) 이 스텝이 타임아웃되면
+      #     **워크플로 전체가 실패해 그 시간 시세 커밋까지 통째로 빠졌다.** 지금은 수집기가 4분 예산에서 스스로 접고,
+      #     그래도 넘기면 이 스텝만 실패로 두고 커밋은 계속한다.
       - name: 극장가 흥행(KOBIS)
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 6
+        continue-on-error: true
         run: python runstep.py "극장가(KOBIS)" fetch_boxoffice.py
 
       # 스크린 배정·예매는 screens.yml 이 전담한다(여기 붙였더니 회당 20분이 됐다).

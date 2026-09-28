@@ -29,6 +29,8 @@
   python fetch_boxoffice.py --seats                          # ①②③ 한 번에 (이 PC · 20~30분)
   python fetch_boxoffice.py --seats --cache=.cache/seats.json  # ③ 받기만 (kr_boxoffice.py 1단계)
   python fetch_boxoffice.py --merge=.cache/seats.json          # ①② + 캐시의 ③ 병합 (2단계)
+  python fetch_boxoffice.py --seats --near --cache=...          # ③ 가까운 날짜만(오늘~3일 뒤 + 개봉일) — boxseats.yml 3시간 회차
+  python fetch_boxoffice.py --merge=... --no-kobis              # ③ 병합만 — boxseats.yml 커밋 잡(KOBIS 는 시세 회차 몫)
   python fetch_boxoffice.py --dry-run
 """
 import datetime, html as htmlmod, http.cookiejar, json, re, sys, time, urllib.parse, urllib.request
@@ -79,22 +81,39 @@ KOBIS = "https://www.kobis.or.kr/kobis/business/stat/boxs/"
 _TAG = re.compile(r"<[^>]*>")
 
 
-def kobis_post(page, form, tries=3):
-    """세션 쿠키를 먼저 받아야 표가 채워져 온다(없으면 껍데기). 러너에선 KOBIS 가 느리다 — 90초."""
+KOBIS_BUDGET = 240     # 초 — 한 실행에서 KOBIS 에 쓰는 시간 전체
+_K = {"op": None, "t0": None}
+
+
+class KobisBudget(TimeoutError):
+    pass
+
+
+def kobis_post(page, form, tries=2):
+    """세션 쿠키를 먼저 받아야 표가 채워져 온다(없으면 껍데기). 쿠키는 한 실행에 한 번만 받아 같이 쓴다
+       (예전엔 호출마다 GET+POST — 회당 6요청이던 것이 4요청).
+       ⚠ 러너에선 KOBIS 가 들쭉날쭉하다(스텝 실측 13초~128초, 가끔 6분 초과). 스텝 타임아웃(6분)에 걸리면
+         runstep 이 사유를 못 남기고 **시세 회차 전체가 실패**로 끝나 그 시간 커밋이 통째로 빠졌다
+         (2026-09-27 17시·09-28 09시). 그래서 실행 전체에 시간 예산(KOBIS_BUDGET)을 두고 넘기면 스스로 접는다."""
     url = KOBIS + page
     last = None
     for i in range(tries):
+        left = KOBIS_BUDGET - (time.time() - (_K["t0"] or time.time()))
+        if left < 15:
+            raise KobisBudget(f"KOBIS 시간 예산 {KOBIS_BUDGET}초 소진")
+        tmo = min(60, left)
         try:
-            op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-            h = ua(referer=url, doc=True)
-            op.addheaders = list(h.items())
-            op.open(url, timeout=90).read()
+            if _K["op"] is None:
+                op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+                op.addheaders = list(ua(referer=url, doc=True).items())
+                op.open(url, timeout=tmo).read()
+                _K["op"] = op
             req = urllib.request.Request(url, data=urllib.parse.urlencode(form).encode(),
                                          headers={"X-Requested-With": "XMLHttpRequest", "Referer": url})
-            return op.open(req, timeout=90).read().decode("utf-8", "replace")
+            return _K["op"].open(req, timeout=tmo).read().decode("utf-8", "replace")
         except Exception as e:
-            last = e
-            time.sleep(5 * (i + 1))
+            last, _K["op"] = e, None
+            time.sleep(3 * (i + 1))
     raise last
 
 
@@ -159,6 +178,17 @@ def booking():
 #   ⚠ 탐침은 대형 지점만 본다. 그 지점에 안 걸리고 소형관에만 먼저 걸린 날짜는 놓칠 수 있다(와이드 개봉작은 드묾).
 SEAT_DAYS = 14
 SEAT_BUDGET = 38 * 60     # 전수 시간 예산(초). 넘기면 먼 날짜부터 생략 — 워크플로 시간 제한(75분) 안에서 끝나게
+NEAR_DAYS = 3             # --near: 오늘~3일 뒤 + 개봉 예정일만. 먼 날짜는 하루 두 번 전수(full)에서만 본다
+
+
+def seat_dates(today, near=False):
+    """좌석을 볼 상영일. near 는 예매가 빨리 움직이는 가까운 날짜만 — 3시간마다 도는 회차의 요청량을 줄인다
+       (롯데 239관 × 열린 날짜 10여 일 → 4~5일. 회당 요청 절반 이하)."""
+    full = [today + datetime.timedelta(days=i) for i in range(SEAT_DAYS + 1)]
+    if not near:
+        return full
+    opens = {datetime.date.fromisoformat(f["open"]) for f in FILMS}
+    return [d for d in full if (d - today).days <= NEAR_DAYS or d in opens]
 PROBE = {"CGV": ["0001", "0013", "0059", "0074"],          # 강변·용산·영등포·왕십리 (fetch_screens.PROBE_SITES)
          "LC": ["월드타워", "건대입구", "김포공항", "수원"],   # 이름으로 ID 를 찾는다
          "MB": ["1372", "1351"]}                             # 강남·코엑스
@@ -382,12 +412,14 @@ def seats(plan, cins, crt):
     return out, failed, cut
 
 
-def collect_seats(crt):
-    """탐침 → 전수. 결과는 JSON 으로 옮길 수 있는 꼴(캐시 파일·병합 공용)."""
+def collect_seats(crt, near=False):
+    """탐침 → 전수. 결과는 JSON 으로 옮길 수 있는 꼴(캐시 파일·병합 공용).
+       near=True 면 가까운 상영일만(seat_dates) — 병합 때 그 날짜들만 갈아 끼우고 나머지는 둔다."""
     import fetch_screens as fs
     t0 = time.time()
     today = datetime.datetime.strptime(crt, "%Y%m%d").date()
-    dates = [today + datetime.timedelta(days=i) for i in range(SEAT_DAYS + 1)]
+    dates = seat_dates(today, near)
+    print(f"  범위 {'가까운 날짜' if near else '열린 날짜 전부'} · 상영일 {len(dates)}개")
     plan, cins, dead = seat_plan(fs, dates, crt)
     desc = ", ".join(p[4:6] + "/" + p[6:] + ":" + "".join(sorted(c)) for p, c in sorted(plan.items()))
     print(f"  편성 탐침 · {desc}")
@@ -400,6 +432,7 @@ def collect_seats(crt):
     plan = {p: c for p, c in plan.items() if c}
     print(f"  3사 전수 {time.time() - t0:.0f}초 · (영화×상영일) {len(res)}건" + (f" · 실패 {sorted(failed)}" if failed else ""))
     return {"t": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
+            "scope": "near" if near else "full", "dates": [d.strftime("%Y%m%d") for d in dates],
             "plan": {p: sorted(c) for p, c in plan.items()}, "failed": sorted(failed),
             "res": [{"title": t, "play": p, "by": by} for (t, p), by in sorted(res.items())]}
 
@@ -420,17 +453,21 @@ def merge_seats(out, cache, today):
     lines = []
     slim = lambda by: {c: {k: v[k] for k in ("seatSold", "seatTot", "screens")} for c, v in (by or {}).items()}
     newest = max([p["t"] for v in ser.values() for p in v] or [""])
+    day = stamp[:10].replace("-", "")
     for r in cache["res"]:
         key = f"{r['title']}|{r['play']}"
         by, t = dict(r["by"]), stamp
         # 같은 날 두 번째 수집이면 **체인별로 합친다** — 한국 IP 에서 받은 3사(CGV 포함) 뒤에 서버가 롯데·메가만
         # 받아 오면, 통째로 바꿔 끼울 때 그날 CGV 가 사라졌다(2026-09-26 치이카와 개봉일 10.1만→7.1만석).
         # 겹치는 체인은 더 최근 값, 한쪽에만 있는 체인은 그 값. 날짜가 다르면 섞지 않는다(굳은 숫자 방지).
+        # ⚠ 단 **당일 상영분(상영일 = 수집일)은 그날 첫 수집이 이긴다.** 지난 회차는 예매 API 에서 빠지므로
+        #   하루에 여러 번 받으면(2026-09-28 부터 3시간마다) 오늘 칸이 저녁으로 갈수록 쪼그라들어 급감처럼 보인다.
         same = next((p for p in ser.get(key, []) if p.get("t", "")[:10] == stamp[:10]), None)
         if same:
             old = same.get("by") or {}
-            by = {**old, **by} if stamp >= same.get("t", "") else {**by, **old}
-            t = max(stamp, same.get("t", ""))
+            win_new = (stamp >= same.get("t", "")) != (r["play"] == day)
+            by = {**old, **by} if win_new else {**by, **old}
+            t = stamp if win_new else same.get("t", "")
         tot = {k: sum(v.get(k, 0) for v in by.values()) for k in ("sites", "screens", "shows", "seatTot", "seatSold")}
         pts = [{**{k: v for k, v in p.items() if k != "by"}, "by": slim(p.get("by"))}
                for p in ser.get(key, []) if p.get("t", "")[:10] != stamp[:10]]
@@ -443,7 +480,14 @@ def merge_seats(out, cache, today):
     older = stamp < newest                  # 지난 캐시를 다시 끼우는 경우(예: 같은 날 한국 IP 수집분 복원)
     if not older:
         out["seatsAt"] = stamp
-        out["seatPlan"] = cache.get("plan") or {}
+        if cache.get("scope") == "near":    # 가까운 날짜만 본 회차 — 그 날짜의 '연 체인'만 바꾸고 먼 날짜는 전수 결과를 둔다
+            cov = set(cache.get("dates") or [])
+            pl = {p: c for p, c in (out.get("seatPlan") or {}).items() if p not in cov and p >= day}
+            pl.update(cache.get("plan") or {})
+            out["seatPlan"] = dict(sorted(pl.items()))
+        else:
+            out["seatsFullAt"] = stamp
+            out["seatPlan"] = cache.get("plan") or {}
         out["seatFailed"] = sorted(failed)
     else:                                   # 계획·실패 목록은 최신 수집 것을 두고, 연 체인만 합집합
         pl = out.setdefault("seatPlan", {})
@@ -509,34 +553,12 @@ def _block(h):
     return (json.loads(m.group(1)), m) if m else ({}, None)
 
 
-def main():
-    now = datetime.datetime.now(KST)
-    today = now.date()
-    if today.isoformat() > UNTIL:
-        print(f"[극장가] 추적 기한({UNTIL}) 경과 — 수집 안 함"); return
-    stamp = now.strftime("%Y-%m-%d %H:%M")
-    # 3사 전수는 20~30분 걸린다. 그 사이 원격이 움직이므로 PC 자동 실행(kr_boxoffice.py)은
-    #   ① --seats --cache=파일 로 받기만 하고  ② 원격 최신으로 맞춘 뒤 --merge=파일 로 끼워 넣는다(재주입 규칙).
-    seat_cache = None
-    cache_out = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--cache=")), None)
-    merge_in = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--merge=")), None)
-    if "--seats" in sys.argv:
-        seat_cache = collect_seats(today.strftime("%Y%m%d"))
-        if cache_out:
-            import os
-            os.makedirs(os.path.dirname(cache_out) or ".", exist_ok=True)
-            json.dump(seat_cache, open(cache_out, "w", encoding="utf-8"), ensure_ascii=False)
-            print(f"[캐시] {cache_out} · (영화×상영일) {len(seat_cache['res'])}건"); return
-    elif merge_in:
-        seat_cache = json.load(open(merge_in, encoding="utf-8"))
-        print(f"[병합] {merge_in} · {seat_cache['t']} 수집분 {len(seat_cache['res'])}건")
-    h = open(HTML, encoding="utf-8").read()
-    old, _ = _block(h)
-    out = json.loads(json.dumps(old)) if old else {}      # 깊은 복사 — 변동 비교를 위해 old 는 그대로 둔다
+def kobis_update(out, stamp, today, fails):
+    """①② — 실시간 예매 1건 + 일별(어제·그제 재확인 + 아직 안 본 날). 시간 예산을 넘기면 남은 일별은 다음 회차로."""
+    _K["t0"] = time.time()
     days = out.setdefault("daily", {})
     mkt = out.setdefault("market", {})
     scanned = set(out.get("scanned") or [])
-    fails = []
 
     # ② 예매 먼저 — 매번 바뀌는 값이라 백필보다 우선
     try:
@@ -562,6 +584,8 @@ def main():
     for ymd in todo:
         try:
             got, tot, n = daily(ymd)
+        except KobisBudget as e:
+            print(f"  {e} — 남은 일별은 다음 회차로"); fails.append("시간 예산 소진"); break
         except Exception as e:
             print(f"  {ymd} 일별 실패: {str(e)[:60]}"); fails.append(f"일별 {ymd}"); continue
         if not n:
@@ -573,8 +597,41 @@ def main():
             pts.append(v)
             days[t] = sorted(pts, key=lambda p: p["d"])
         nap(0.3)
-    print(f"  일별 {len(todo)}일 훑음({todo[0] if todo else '-'}~{todo[-1] if todo else '-'})")
+    print(f"  일별 {len(todo)}일 훑음({todo[0] if todo else '-'}~{todo[-1] if todo else '-'}) · KOBIS {time.time() - _K['t0']:.0f}초")
     out["scanned"] = sorted(scanned)
+
+
+def main():
+    now = datetime.datetime.now(KST)
+    today = now.date()
+    if today.isoformat() > UNTIL:
+        print(f"[극장가] 추적 기한({UNTIL}) 경과 — 수집 안 함"); return
+    stamp = now.strftime("%Y-%m-%d %H:%M")
+    # 3사 전수는 20~30분 걸린다. 그 사이 원격이 움직이므로 PC 자동 실행(kr_boxoffice.py)은
+    #   ① --seats --cache=파일 로 받기만 하고  ② 원격 최신으로 맞춘 뒤 --merge=파일 로 끼워 넣는다(재주입 규칙).
+    seat_cache = None
+    cache_out = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--cache=")), None)
+    merge_in = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--merge=")), None)
+    if "--seats" in sys.argv:
+        seat_cache = collect_seats(today.strftime("%Y%m%d"), near="--near" in sys.argv)
+        if cache_out:
+            import os
+            os.makedirs(os.path.dirname(cache_out) or ".", exist_ok=True)
+            json.dump(seat_cache, open(cache_out, "w", encoding="utf-8"), ensure_ascii=False)
+            print(f"[캐시] {cache_out} · (영화×상영일) {len(seat_cache['res'])}건"); return
+    elif merge_in:
+        seat_cache = json.load(open(merge_in, encoding="utf-8"))
+        print(f"[병합] {merge_in} · {seat_cache['t']} 수집분 {len(seat_cache['res'])}건")
+    h = open(HTML, encoding="utf-8").read()
+    old, _ = _block(h)
+    out = json.loads(json.dumps(old)) if old else {}      # 깊은 복사 — 변동 비교를 위해 old 는 그대로 둔다
+    days = out.setdefault("daily", {})
+    fails = []
+    # --no-kobis: 좌석 병합만(boxseats.yml 커밋 잡). KOBIS 는 시세 회차가 매시간 받으므로 여기서 또 부를 이유가 없고,
+    #   repo-write 잠금을 쥔 채 KOBIS 를 기다리면 그동안 시세 회차가 줄을 선다.
+    kobis = "--no-kobis" not in sys.argv
+    if kobis:
+        kobis_update(out, stamp, today, fails)
 
     # ③ 3사 좌석 — 방금 받았거나(--seats) 캐시에서 읽은(--merge) 결과를 합친다
     if seat_cache:
@@ -586,9 +643,9 @@ def main():
         out["ref"] = ref_baseline()
     except Exception as e:
         print(f"  기준선(하츄핑2) 실패: {e}")
-    if fails and len(fails) >= 2:
+    if kobis and len(fails) >= 2:
         note_health("극장가(KOBIS)", " · ".join(fails[:4]))
-    elif not fails:
+    elif kobis and not fails:
         note_health("극장가(KOBIS)", None)
 
     cmp_old = {k: v for k, v in old.items() if k != "asOf"}
