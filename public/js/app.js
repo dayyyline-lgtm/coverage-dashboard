@@ -4438,6 +4438,194 @@ function drawBoxChart(){
     note.innerHTML=`KOBIS 실시간 예매관객(남은 상영분 기준 · 하루 중에도 줄어듦). 매시간 찍히며, 개봉 전엔 유일한 수요 지표입니다. 같은 시각끼리 비교하세요.`;
   }
 }
+/* ══ 흥행 모델 — 치이카와 → 대원미디어 (2026-09-28) ══════════════════════════════════
+   ① 최종 관객 = 치이카와의 N일차 누적 × 비교작의 '최종 ÷ N일차 누적'(BOXOFFICE.comps · 한국 개봉 일본 애니 극장판 +
+      하츄핑 18편, KOBIS 통계 페이지의 개봉 10일 + 최종 누적). 영화마다 '이 경로면 최종 몇 명'이 나오고
+      보수/기준/낙관 = 그 값들의 P25/중앙/P75.
+      ⚠ 배수는 개봉이 클수록 작다(큰 팬덤 개봉은 1일의 4~8배로 끝나고, 입소문으로 큰 작은 개봉은 20~80배).
+        그래서 기본은 '개봉 규모가 비슷한'(1일 관객이 치이카와의 ½~2배) 비교작만 쓴다. 전체는 표에서 본다.
+      N = 개봉 후 KOBIS 확정 일수(10일까지 — 통계 페이지가 개봉 10일만 준다). 14일차부터는 치이카와 자신의
+      주간 유지율(최근 7일 ÷ 그 전 7일)로 남은 관객을 기하급수로 더한 값이 기준이 된다(자기 자료가 비교작보다 낫다).
+      개봉 전(N=0)엔 개봉일 관객을 추정해 N=1 로 계산한다:
+        개봉일 판매석(3사 · CGV 가 빠진 수집은 마지막 3사 수집의 체인 비중으로 환산) ÷ 0.89(3사 = 전국 예매의 약 89%)
+        × 전환배수 1.2 / 1.5 / 1.75 — 1.75 = 하츄핑2 실측(D-1 저녁 판매석 → 개봉일 관객). 팬덤 영화는 미리 사 두는 비중이
+        커서 더 낮게 본다. 10/1 아침 KOBIS 확정치가 들어오면 이 추정은 사라진다.
+   ② 예매 → 관객: 날마다 10시 전후 KOBIS 예매관객과 그날 관객의 비. 영화·요일마다 크게 달라서(하츄핑 평일 0.3~0.9 ·
+      주말 1.5~2.9, 암살자·타짜 일요일 2.3~2.5) 치이카와 자신의 평일/주말·휴일 비율로만 오늘을 추정한다.
+   ③ 대원미디어 = 극장 매출(관객 × 객단가) ÷ 1.1(부가세) × 부율 × (1 − 배급수수료) → 수입사 정산 매출.
+      판권료(원작사 몫)·P&A 를 빼면 기여 영업이익. 부율 52% = 외화 서울 6:4 · 지방 5:5 를 서울 비중 약 20% 로 가중.
+      입장권 부과금 3% 는 2025-01-01 폐지. 판권료·P&A 는 비공개라 가정이다 — 화면에서 바꾼다(브라우저에 기억).
+      MD·라이선스 파급은 넣지 않았다. */
+const BOX_ASM0={atp:0, split:52, fee:10, roy:40, pa:15};      // atp 0 = KOBIS 실측 객단가 자동
+let boxAsm=null, boxCmpAll=false;
+function boxAsmGet(){ if(boxAsm) return boxAsm; let s={};
+  try{ s=JSON.parse(localStorage.getItem("boxAsm")||"{}")||{}; }catch(e){}
+  boxAsm={...BOX_ASM0,...s}; return boxAsm; }
+const KR_REST=new Set(["20261003","20261005","20261009","20261225"]);     // 개천절·대체공휴일·한글날·성탄절
+const boxRest=d=>{ const w=new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)).getDay(); return w===0||w===6||KR_REST.has(d); };
+const qtl=(a,q)=>{ const s=a.filter(v=>v!=null&&isFinite(v)).sort((x,y)=>x-y); if(!s.length) return null;
+  const i=(s.length-1)*q, lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); };
+function renderBoxModel(BO, FL, star){
+  const el=document.getElementById("boxModel"); if(!el) return;
+  const me=FL.find(star), C=BO.comps||[];
+  if(!me||C.length<5){ el.innerHTML=`<p class="note">비교작 자료 대기 중(fetch_boxoffice.py --comps)</p>`; return; }
+  const A=boxAsmGet(), ok=me.open.replace(/-/g,""), md=s=>`${+s.slice(4,6)}/${+s.slice(6,8)}`;
+  const post=me.days.filter(p=>p.d>=ok).sort((a,b)=>a.d.localeCompare(b.d));
+  const preAcc=(me.days.filter(p=>p.d<ok).slice(-1)[0]||{}).acc||0;
+  const N=post.length, man=v=>v==null?"—":(v>=1e6?(v/1e4).toFixed(0):(v/1e4).toFixed(1))+"만";
+
+  // ── 개봉 전: 개봉일 관객 추정 ──
+  let d1=null, d1Lo=null, d1Hi=null, soldTxt="";
+  if(!N){
+    const sp=(BO.seats||{})[`${me.key}|${ok}`]||[], last=sp[sp.length-1];
+    const full=sp.filter(p=>p.by&&p.by.CGV&&p.by.LC&&p.by.MB).slice(-1)[0];
+    if(last){
+      const pr=Object.keys(last.by||{});
+      const sh=c=>full?full.by[c].seatSold/full.seatSold:null;
+      const sold3=(full&&pr.length<3)? pr.reduce((a,c)=>a+last.by[c].seatSold,0)/pr.reduce((a,c)=>a+sh(c),0) : last.seatSold;
+      const floor=sold3/0.89;
+      d1Lo=floor*1.2; d1=floor*1.5; d1Hi=floor*1.75;
+      soldTxt=`개봉일 판매석 ${fmt0(last.seatSold)}석(${pr.map(c=>({CGV:"CGV",LC:"롯데",MB:"메가"})[c]).join("·")} · ${last.t.slice(5)})`
+        +(pr.length<3&&full?` → 3사 환산 ${fmt0(sold3)}석(${full.t.slice(5)} 3사 수집의 체인 비중)`:"")
+        +` → 전국 ${fmt0(floor)}석(÷0.89)`;
+    }
+  }
+  const d1Act=N?post[0].audi:null, d1Use=N?d1Act:d1;
+  const n=Math.min(N||1,10);
+  const accN= N ? (N>10 ? post[9].acc : post[n-1].acc) : (d1!=null?preAcc+d1:null);
+
+  // ── 비교작 경로 ──
+  const rows=C.map(c=>{ const cd=c.days.find(x=>x.n===n); const m=cd&&cd.acc?c.final/cd.acc:null;
+    const sim=d1Use?(c.days[0].audi>=d1Use/2&&c.days[0].audi<=d1Use*2):false;
+    return {...c, m, sim, imp:(m&&accN)?accN*m:null}; });
+  let use=rows.filter(r=>r.sim&&r.m), simUsed=true;
+  if(boxCmpAll||use.length<4){ use=rows.filter(r=>r.m); simUsed=false; }
+  const sc={lo:qtl(use.map(r=>r.imp),.25), mid:qtl(use.map(r=>r.imp),.5), hi:qtl(use.map(r=>r.imp),.75)};
+  // 14일차부터 자기 감쇠
+  let decay=null;
+  if(N>=14){
+    const a=post.slice(-7).reduce((s,p)=>s+p.audi,0), b=post.slice(-14,-7).reduce((s,p)=>s+p.audi,0);
+    const r=Math.min(0.9,Math.max(0.1,b?a/b:0.5)), acc=post[N-1].acc;
+    const fin=r2=>acc+a*r2/(1-r2);
+    decay={r, a, b, mid:fin(r), lo:fin(Math.max(0.1,r-0.1)), hi:fin(Math.min(0.9,r+0.1))};
+    sc.lo=decay.lo; sc.mid=decay.mid; sc.hi=decay.hi;
+  }
+  const accNow=N?post[N-1].acc:preAcc;
+  ["lo","mid","hi"].forEach(k=>{ if(sc[k]!=null) sc[k]=Math.max(sc[k],accNow); });
+
+  // ── 대원미디어 브리지 ──
+  const atpAct=N?post.reduce((s,p)=>s+(p.sales||0),0)/Math.max(1,post.reduce((s,p)=>s+p.audi,0)):null;
+  const atp=A.atp>0?A.atp:(atpAct||10500);
+  const L=((LIVE.stocks||{})["대원미디어"])||{}, ys=(((L.cons||{}).year||{}).series)||[];
+  const yRef=ys.filter(p=>p.op!=null).slice(-1)[0];
+  const opRef=yRef?yRef.op*10:null;                                  // 십억원 → 억원
+  const pl=aud=>{ const box=aud*atp/1e8, rev=box/1.1*A.split/100*(1-A.fee/100), roy=rev*A.roy/100, op=rev-roy-A.pa;
+    return {box, rev, roy, op}; };
+  const q3=(N?post.filter(p=>p.d<="20260930").slice(-1).map(p=>p.acc)[0]:null) ?? (preAcc+(d1||0));
+
+  // ── 예매 → 관객 ──
+  const b10=d=>{ let best=null; me.book.forEach(p=>{ if(p.t.slice(0,10).replace(/-/g,"")!==d) return;
+      const g=Math.abs(+p.t.slice(11,13)*60+ +p.t.slice(14,16)-600); if(g<=120&&(!best||g<best.g)) best={g,p}; }); return best&&best.p; };
+  const conv=post.map(p=>{ const b=b10(p.d); return {d:p.d, audi:p.audi, b, r:b&&b.book?p.audi/b.book:null, rest:boxRest(p.d)}; });
+  const tb=b10(TODAY_C), tRest=boxRest(TODAY_C), same=conv.filter(x=>x.r!=null&&x.rest===tRest).map(x=>x.r);
+  const nowc=(tb&&same.length&&TODAY_C>=ok&&!post.some(p=>p.d===TODAY_C))?{b:tb.book, r:qtl(same,.5), v:tb.book*qtl(same,.5), k:same.length}:null;
+
+  // ── 그리기 ──
+  const stage=N>=14?`개봉 ${N}일차 · 자체 감쇠(주간 유지율 ${(decay.r*100).toFixed(0)}%)`
+    :N?`개봉 ${N}일차 확정 · 비교작 ${n}일차 배수`:`개봉 전 · 개봉일 관객 추정(${soldTxt?"판매석 기준":"자료 대기"})`;
+  const kp=(k,v,d,c="")=>`<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="d">${d}</div></div>`;
+  const P=pl(sc.mid||0), pctOp=v=>opRef?` · 연간 영업이익(${yRef.t.slice(0,4)}${yRef.e?"E":"A"} ${fmt0(opRef)}억)의 ${(v/opRef*100).toFixed(0)}%`:"";
+  let h=`<div class="sub-h">흥행 모델 — ${me.short} → 대원미디어 <span class="tag-inline">${stage}</span></div>
+    <div class="kpis">
+      ${kp("최종 관객 전망 <span class='th-sub'>기준</span>", sc.mid!=null?man(sc.mid)+"<small>명</small>":"—",
+          sc.lo!=null?`보수 ${man(sc.lo)} · 낙관 ${man(sc.hi)}`:"")}
+      ${kp(N?"개봉일 관객 <span class='th-sub'>확정</span>":"개봉일 관객 <span class='th-sub'>추정</span>",
+          d1Use!=null?man(d1Use)+"<small>명</small>":"—", N?`${md(post[0].d)} KOBIS`:(d1Lo!=null?`범위 ${man(d1Lo)}~${man(d1Hi)}`:""))}
+      ${kp("대원 영화 매출 <span class='th-sub'>기준 · 수입사 정산</span>", sc.mid!=null?fmt0(P.rev)+"<small>억</small>":"—",
+          `극장 매출 ${fmt0(P.box)}억 · 객단가 ${fmt0(atp)}원${A.atp>0?"(입력)":atpAct?"(실측)":"(가정)"}`)}
+      ${kp("기여 영업이익 <span class='th-sub'>기준 · 가정</span>", sc.mid!=null?fmt0(P.op)+"<small>억</small>":"—",
+          `판권료 ${A.roy}% · P&A ${A.pa}억${pctOp(P.op)}`, cls(P.op))}
+    </div>`;
+  if(!N&&soldTxt) h+=`<p class="note" style="margin-top:6px">개봉일 관객 추정: ${soldTxt} × 전환배수 1.2 / <b>1.5</b> / 1.75
+    (1.75 = 하츄핑2 실측 · 팬덤 영화는 미리 사 두는 비중이 커서 낮게 본다). 개봉일 아침 KOBIS 확정치가 들어오면 실측으로 바뀝니다.</p>`;
+
+  // 시나리오 × 대원 실적 + 분기
+  const scRow=(lab,v)=>{ if(v==null) return ""; const p=pl(v), a3=Math.min(v,q3), s3=pl(a3), s4=pl(v-a3);
+    return `<tr><td class="l"><b>${lab}</b></td><td><b>${man(v)}</b></td><td>${fmt0(p.box)}억</td><td>${fmt0(p.rev)}억</td>
+      <td>${fmt0(s3.rev)}억<span class="th-sub">3Q</span></td><td>${fmt0(s4.rev)}억<span class="th-sub">4Q</span></td>
+      <td class="${cls(p.op)}"><b>${fmt0(p.op)}억</b></td><td>${opRef?(p.op/opRef*100).toFixed(0)+"%":"—"}</td>
+      <td>${L.mktcapEok?(p.op/L.mktcapEok*100).toFixed(1)+"%":"—"}</td></tr>`; };
+  h+=`<div class="tbl-wrap" style="margin-top:10px"><table class="mini-tbl box-tbl"><thead><tr><th class="l">시나리오</th><th>최종 관객</th><th>극장 매출</th>
+    <th>대원 매출<span class="th-sub">수입사 정산</span></th><th>그중 3Q26</th><th>4Q26 이후</th><th>기여 영업이익</th>
+    <th>연간 OP 대비</th><th>시총 대비<span class="th-sub">${L.mktcapEok?fmt0(L.mktcapEok)+"억":""}</span></th></tr></thead><tbody>
+    ${scRow("보수",sc.lo)}${scRow("기준",sc.mid)}${scRow("낙관",sc.hi)}</tbody></table></div>`;
+
+  // 가정 입력
+  const inp=(k,lab,unit,step,tip)=>`<label style="display:inline-flex;gap:5px;align-items:center;font-size:12.5px;color:var(--muted);font-weight:700" title="${tip}">${lab}
+    <input data-asm="${k}" type="number" value="${A[k]}" step="${step}" class="theme-btn" style="width:78px;padding:5px 8px;font-weight:700;font-size:13px">${unit}</label>`;
+  h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:10px 0 4px" id="boxAsmRow">
+      ${inp("atp","객단가","원",100,"0 = KOBIS 실측(개봉 후 누적 매출 ÷ 관객) · 개봉 전엔 10,500원 가정")}
+      ${inp("split","부율","%",1,"배급사 몫. 외화 서울 6:4 · 지방 5:5 → 서울 비중 약 20% 로 가중해 52%")}
+      ${inp("fee","배급수수료","%",1,"배급사(CJ ENM) 수수료 — 통상 10% 안팎")}
+      ${inp("roy","판권료","%",5,"원작사(일본 제작위원회) 몫 · 대원 매출 대비. 비공개라 가정")}
+      ${inp("pa","P&A","억",1,"마케팅·프린트 비용. 비공개라 가정")}
+      <button class="theme-btn" id="boxAsmReset" style="padding:5px 10px;font-size:12px">기본값</button></div>
+    <p class="note" style="margin-top:2px">대원 매출 = 극장 매출 ÷ 1.1(부가세) × 부율 × (1 − 배급수수료). 입장권 부과금 3% 는 2025-01-01 폐지.
+      판권료·P&A 는 계약이 공개되지 않아 가정이며 브라우저에 기억됩니다. MD·라이선스 파급은 넣지 않았습니다.</p>`;
+
+  // 민감도
+  const grid=[50,100,150,200,300,500].map(v=>v*1e4);
+  h+=`<div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">최종 관객</th>${grid.map(v=>`<th>${man(v)}</th>`).join("")}</tr></thead><tbody>
+    <tr><td class="l">대원 매출</td>${grid.map(v=>`<td>${fmt0(pl(v).rev)}억</td>`).join("")}</tr>
+    <tr><td class="l">기여 영업이익</td>${grid.map(v=>{const o=pl(v).op; return `<td class="${cls(o)}"><b>${fmt0(o)}억</b></td>`;}).join("")}</tr>
+    ${opRef?`<tr><td class="l">연간 OP 대비</td>${grid.map(v=>`<td>${(pl(v).op/opRef*100).toFixed(0)}%</td>`).join("")}</tr>`:""}
+    </tbody></table></div>`;
+
+  // 예매 → 관객 추적
+  h+=`<div class="sub-h" style="margin-top:14px">예매 → 관객 <span class="tag-inline">10시 전후 KOBIS 예매관객 대비 그날 관객 · ${me.short} 자신의 평일/주말·휴일 비율로 오늘을 추정</span></div>`;
+  if(!N){
+    const bk=me.book.slice(-1)[0];
+    h+=`<p class="note">개봉 후부터 쌓입니다. 지금 예매관객 ${bk?fmt0(bk.book)+"명("+bk.t.slice(5)+" · "+(bk.rank||"—")+"위 · 예매율 "+fmt(bk.rate,1)+"%)":"—"} —
+      KOBIS 예매관객은 개봉일만이 아니라 남은 모든 상영분의 합입니다.</p>`;
+  } else {
+    h+=`<div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">날짜</th><th>10시 예매관객</th><th>그날 관객</th><th>관객 ÷ 예매</th><th>누적</th></tr></thead><tbody>`
+      +(nowc?`<tr class="box-star"><td class="l">${md(TODAY_C)} 오늘 <span class="th-sub">${tRest?"주말·휴일":"평일"} 추정</span></td><td>${fmt0(nowc.b)}</td>
+        <td><b>~${man(nowc.v)}</b><span class="th-sub">비율 ${nowc.r.toFixed(2)} (같은 유형 ${nowc.k}일 중앙값)</span></td><td>—</td><td>—</td></tr>`:"")
+      +conv.slice().reverse().map(x=>`<tr><td class="l">${md(x.d)} <span class="th-sub">${x.rest?"주말·휴일":"평일"}</span></td>
+        <td>${x.b?fmt0(x.b.book):"—"}${x.b?`<span class="th-sub">${x.b.t.slice(11)}</span>`:""}</td><td>${fmt0(x.audi)}</td>
+        <td>${x.r!=null?x.r.toFixed(2):"—"}</td><td>${fmt0((post.find(p=>p.d===x.d)||{}).acc)}</td></tr>`).join("")
+      +`</tbody></table></div>`;
+  }
+
+  // 비교작 표(접기)
+  const wk="일월화수목금토";
+  h+=`<details class="fold"><summary>비교작 ${C.length}편 — '이 영화 경로를 따르면' <span class="sub">${simUsed?"개봉 규모 비슷한 것만 반영(✓)":"전체 반영"} · 기준 N=${n}일차</span></summary>
+    <div style="margin:6px 0"><button class="theme-btn" id="boxCmpAll" style="padding:4px 10px;font-size:12px">${boxCmpAll?"개봉 규모 비슷한 것만 쓰기":"전체 비교작으로 계산"}</button></div>
+    <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">비교작</th><th class="l">개봉</th><th>1일 관객</th><th>7일 누적</th><th>최종</th>
+    <th>최종 ÷ ${n}일 누적</th><th>이 경로면 ${me.short}</th><th>반영</th></tr></thead><tbody>`
+    +rows.slice().sort((a,b)=>(b.imp||0)-(a.imp||0)).map(r=>{ const od=new Date(r.open+"T00:00:00");
+      return `<tr${use.includes(r)?"":' style="opacity:.55"'}><td class="l">${r.short}<span class="th-sub">${r.kind}</span></td>
+      <td class="l">${r.open}<span class="th-sub">${wk[od.getDay()]}</span></td><td>${fmt0(r.days[0].audi)}</td><td>${fmt0((r.days[6]||{}).acc)}</td>
+      <td><b>${man(r.final)}</b></td><td>${r.m?r.m.toFixed(1)+"배":"—"}</td><td>${r.imp?man(r.imp):"—"}</td><td>${use.includes(r)?"✓":""}</td></tr>`; }).join("")
+    +`</tbody></table></div>
+    <p class="note" style="margin-top:6px">KOBIS 통계(개봉 10일 · 최종 누적, 누적은 개봉 전 시사 포함). 개봉 규모가 클수록 배수가 작습니다 —
+      큰 팬덤 개봉(하이큐·코난·그대들은)은 1일의 4~8배에서 끝났고, 작게 시작해 입소문으로 큰 영화(슬램덩크·스즈메·레제)는 30배를 넘었습니다.
+      그래서 기본은 1일 관객이 ${me.short}의 ½~2배인 비교작만 씁니다(4편 미만이면 전체).
+      ${N>=14?`14일차부터는 ${me.short} 자신의 주간 유지율(최근 7일 ${fmt0(decay.a)} ÷ 그 전 7일 ${fmt0(decay.b)} = ${(decay.r*100).toFixed(0)}%)로 남은 관객을 더한 값이 기준입니다(±10%p = 보수·낙관).`:""}
+      일본에선 1,133만 명·165억 엔(9/23 · 2026년 1위)을 넘겼지만 일본 흥행이 한국 규모를 정하지는 못합니다 —
+      일본 158억 엔의 코난 펜타그램은 한국 75만, 149억 엔의 스즈메는 한국 559만이었습니다.</p></details>`;
+  el.innerHTML=h;
+  if(!el.dataset.bound){ el.dataset.bound="1";
+    el.addEventListener("change",e=>{ const i=e.target.closest("[data-asm]"); if(!i) return;
+      const v=parseFloat(i.value); if(!isFinite(v)) return; boxAsmGet()[i.dataset.asm]=v;
+      try{ localStorage.setItem("boxAsm",JSON.stringify(boxAsm)); }catch(err){}
+      renderBoxModel(BO, FL, star); });
+    el.addEventListener("click",e=>{
+      if(e.target.closest("#boxAsmReset")){ boxAsm={...BOX_ASM0}; try{ localStorage.removeItem("boxAsm"); }catch(err){} renderBoxModel(BO, FL, star); }
+      if(e.target.closest("#boxCmpAll")){ boxCmpAll=!boxCmpAll; renderBoxModel(BO, FL, star); } });
+  }
+}
+
 function renderBoxTab(){
   const BO=(typeof BOXOFFICE!=="undefined")?BOXOFFICE:null;
   const kpi=document.getElementById("boxKpi"); if(!kpi) return;
@@ -4465,6 +4653,7 @@ function renderBoxTab(){
         <td>${dl?fmt0(dl.scrn):"—"}</td>
         <td class="l">${f.imp?`수입 ${f.imp} · `:""}${f.dist}${f.prod?` · 제작 ${f.prod}`:""}<span class="th-sub">${lst||f.note||""}</span></td></tr>`;
     }).join("")+`</tbody></table></div>`;
+  try{ renderBoxModel(BO, FL, star); }catch(e){ console.error("흥행 모델", e); }
 
   // 차트 컨트롤 — 칩은 매번 새로 그리되 켜고 끈 상태(boxOff)는 유지
   const fs=document.getElementById("boxFilmSeg");
@@ -4671,7 +4860,7 @@ function renderBoxTab(){
     관객·스크린은 전일 확정치이고, 개봉 전 날짜의 관객은 유료 시사입니다. 3사 좌석은 온라인 예매분만(현장 판매 제외)이며,
     하츄핑 때 3사 합이 KOBIS 전국 예매의 약 89%였습니다. 9/24~26은 추석 연휴입니다.
     <b>암살자(들)의 하이브미디어코프는 하이브(HYBE)와 무관한 영화사</b>입니다.
-    KOBIS는 매시간 자동 수집(${BO.until||""}까지), 3사 좌석은 러너에서 CGV가 막혀 한국 IP(이 PC)에서 수동으로 받습니다.`;
+    KOBIS는 매시간 자동 수집(${BO.until||""}까지), 3사 좌석은 서버가 08~23시에 약 3시간마다 받습니다(러너에선 CGV가 막혀 대개 롯데·메가 기준).`;
 }
 
 function renderMovie(){

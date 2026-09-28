@@ -31,6 +31,7 @@
   python fetch_boxoffice.py --merge=.cache/seats.json          # ①② + 캐시의 ③ 병합 (2단계)
   python fetch_boxoffice.py --seats --near --cache=...          # ③ 가까운 날짜만(오늘~3일 뒤 + 개봉일) — boxseats.yml 3시간 회차
   python fetch_boxoffice.py --merge=... --no-kobis              # ③ 병합만 — boxseats.yml 커밋 잡(KOBIS 는 시세 회차 몫)
+  python fetch_boxoffice.py --comps --no-kobis                  # 비교작 18편(흥행 모델 보정) — 과거 기록이라 손으로 한 번
   python fetch_boxoffice.py --dry-run
 """
 import datetime, html as htmlmod, http.cookiejar, json, re, sys, time, urllib.parse, urllib.request
@@ -164,6 +165,64 @@ def booking():
             got[t] = {"rank": _n(c[0]) or None, "rate": float(re.sub(r"[^\d.]", "", c[3]) or 0),
                       "book": _n(c[6]), "acc": _n(c[7])}
     return got, len(rows)
+
+
+# ── 비교작(흥행 모델 보정용) — KOBIS 영화 상세 '통계정보'의 개봉 10일 + 최종 누적 ─────
+#   2026-09-28 · 치이카와 흥행 모델(화면 renderBoxModel)이 '최종 ÷ N일차 누적' 배수를 여기서 가져온다.
+#   한국에 개봉한 일본 애니 극장판 + 하츄핑. 과거 기록이라 한 번 받으면 안 바뀐다 → `--comps` 로 손으로만 돈다.
+#   ⚠ 통계 페이지에는 '박스오피스'와 '점유율' 두 표에 똑같이 '개봉N일' 행이 있다 — 첫 표만 읽을 것(점유율 표를 섞으면 관객수 칸이 %다).
+#   ⚠ 제목 검색은 재개봉판 코드가 먼저 나온다(스즈메 20236557 = 재개봉) — 그래서 코드를 박아 둔다.
+COMPS = [  # (짧은 이름, KOBIS 코드, 성격, 개봉 연도)  성격 = 시리즈(원작·전편 팬덤) / 첫 극장판(원작 첫 영화화·오리지널)
+    ("스즈메의 문단속", "20226270", "첫 극장판", "2023"), ("더 퍼스트 슬램덩크", "20228555", "첫 극장판", "2023"),
+    ("너의 이름은.", "20161872", "첫 극장판", "2017"), ("그대들은 어떻게 살 것인가", "20234664", "첫 극장판", "2023"),
+    ("귀멸 무한성편", "20253289", "시리즈", "2025"), ("귀멸 무한열차편", "20200703", "시리즈", "2021"),
+    ("체인소 맨 레제편", "20256757", "시리즈", "2025"), ("하이큐 쓰레기장의 결전", "20249507", "시리즈", "2024"),
+    ("주술회전 0", "20223278", "첫 극장판", "2022"), ("스파이 패밀리 코드 화이트", "20236714", "첫 극장판", "2024"),
+    ("원피스 필름 레드", "20227445", "시리즈", "2022"), ("코난 흑철의 어영", "20232536", "시리즈", "2023"),
+    ("코난 100만 달러의 펜타그램", "20240983", "시리즈", "2024"), ("코난 척안의 잔상", "20254824", "시리즈", "2025"),
+    ("짱구 우리들의 공룡일기", "20245977", "시리즈", "2024"), ("짱구 떡잎마을 댄서즈", "20259383", "시리즈", "2025"),
+    ("사랑의 하츄핑", "20249733", "첫 극장판", "2024"), ("하츄핑2 고래보석의 전설", "20262381", "시리즈", "2026"),
+]
+_MST = "https://www.kobis.or.kr/kobis/business/mast/mvie/"
+
+
+def kobis_movie_stats(code, op):
+    req = urllib.request.Request(_MST + "searchMovieDtl.do", data=urllib.parse.urlencode({"code": code, "sType": "stat"}).encode(),
+                                 headers={"X-Requested-With": "XMLHttpRequest", "Referer": _MST + "searchMovieList.do"})
+    s = op.open(req, timeout=60).read().decode("utf-8", "replace")
+    a = s.find('<caption class="blind">박스오피스</caption>')
+    tbl = s[a:s.find("</table>", a)] if a >= 0 else ""
+    num = lambda x: int(re.sub(r"[^\d]", "", x) or 0)
+    pre, days, opened = 0, [], None
+    for lab, n, md, rest in re.findall(r"<td>\s*(개봉이전|개봉(\d+)일\((\d\d/\d\d)\))\s*</td>((?:\s*<td[^>]*>[^<]*</td>){7})", tbl):
+        c = [x.strip() for x in re.findall(r"<td[^>]*>([^<]*)</td>", rest)]
+        if lab == "개봉이전":
+            pre = num(c[3]); continue
+        days.append({"n": int(n), "audi": num(c[3]), "acc": num(c[5])})
+        opened = opened or md
+    t = re.search(r"전국\s*</td>\s*<td[^>]*>[\d,]+</td>\s*<td[^>]*>([\d,]+) \(100%\)</td>\s*<td[^>]*>([\d,]+) \(100%\)", s)
+    return {"pre": pre, "days": days, "final": num(t.group(2)) if t else (days[-1]["acc"] if days else 0),
+            "finalSales": num(t.group(1)) if t else None, "md": opened}
+
+
+def fetch_comps():
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    op.addheaders = list(ua(referer=_MST + "searchMovieList.do", doc=True).items())
+    op.open(_MST + "searchMovieList.do", timeout=60).read()
+    out = []
+    for short, code, kind, yr in COMPS:
+        try:
+            st = kobis_movie_stats(code, op)
+        except Exception as e:
+            print(f"  비교작 {short} 실패: {e}"); continue
+        if len(st["days"]) < 10:
+            print(f"  비교작 {short}: 개봉 10일 행이 {len(st['days'])}개 — 건너뜀"); continue
+        md = st.pop("md") or "01/01"
+        out.append({"short": short, "code": code, "kind": kind, "open": f"{yr}-{md.replace('/', '-')}", **st})
+        d = st["days"]
+        print(f"  비교작 {short:14} 1일 {d[0]['audi']:>8,} · 7일 {d[6]['acc']:>9,} · 최종 {st['final']:>9,} ({out[-1]['open']})")
+        nap(0.8)
+    return out
 
 
 # ── 3사 좌석 (요청 함수는 fetch_screens 것을 그대로 쓴다) ─────
@@ -636,6 +695,13 @@ def main():
     # ③ 3사 좌석 — 방금 받았거나(--seats) 캐시에서 읽은(--merge) 결과를 합친다
     if seat_cache:
         merge_seats(out, seat_cache, today)
+
+    if "--comps" in sys.argv:                 # 비교작은 과거 기록이라 손으로 한 번만(흥행 모델 보정용)
+        cp = fetch_comps()
+        if len(cp) >= len(COMPS) // 2:
+            out["comps"] = cp
+        else:
+            print(f"  비교작 {len(cp)}편뿐 — 기존 값 유지")
 
     out["films"] = FILMS
     out["until"] = UNTIL
