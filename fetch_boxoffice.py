@@ -156,14 +156,16 @@ def daily(ymd):
 
 
 def booking():
-    """실시간 예매. 칸: 순위·영화명·개봉일·예매율·예매매출·누적매출·예매관객·누적관객."""
+    """실시간 예매. 칸: 순위·영화명·개봉일·예매율·예매매출·누적매출·예매관객·누적관객.
+       sales = 예매매출(2026-09-29~) — 예매분 객단가 = sales ÷ book. 남은 상영분의 표라 상영이 끝난 표(일별 확정)와 겹치지 않아
+       화면이 '확정 + 예매'를 더해 지금까지 팔린 표 전체의 평균 단가를 낸다(흥행 모델 ⑤). 첫 값: 치이카와 10,646원(9/29 00시)."""
     rows = _rows(kobis_post("findRealTicketList.do", {"loadEnd": 0, "searchType": "real"}))
     got = {}
     for code, c in rows:
         t = BY_CODE.get(code)
         if t and len(c) >= 8:
             got[t] = {"rank": _n(c[0]) or None, "rate": float(re.sub(r"[^\d.]", "", c[3]) or 0),
-                      "book": _n(c[6]), "acc": _n(c[7])}
+                      "book": _n(c[6]), "acc": _n(c[7]), "sales": _n(c[4])}
     return got, len(rows)
 
 
