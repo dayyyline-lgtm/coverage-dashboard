@@ -4637,7 +4637,11 @@ function drawBoxChart(){
       극장 매출 = 지금까지 KOBIS 확정 매출 + 남은 관객 × 객단가(boxOf). 이미 상영된 표에 평균 단가를 곱하지 않는다.
       ⚠ 개봉일 9/30 은 9월 마지막 수요일(문화가 있는 날)이라 첫날 확정 단가가 낮게 나올 수 있다(8/26 오디세이 −6%).
       (같은 날 '기본 가정 13,000원 고정' 요청이 있었으나 곧바로 이 방식으로 바꿨다 — 고정값은 입력칸에 넣으면 된다.) */
-const BOX_ASM0={atp:0, split:52, fee:10, roy:40, pa:15, pa3:70, tgt:0};  // atp 0 = KOBIS 평균(⑤) · pa3 = P&A 중 개봉 전(9월) 집행 % · tgt = 판정 목표(만 명, 0 = 안 씀)
+const BOX_ASM0={atp:0, split:52, fee:20, roy:45, pa:12, pa3:33, tgt:0};  // atp 0 = KOBIS 평균(⑤) · pa3 = P&A 중 개봉 전(9월) 집행 % · tgt = 판정 목표(만 명, 0 = 안 씀)
+// ⑥ 2026-09-29 보정(외부 정리의 실측 사례만 씀): 애니플러스 '귀멸 무한성'(2025 · 소니 배급) 극장 630억 → 수입사 증분 매출 242억(38%) · 증분 영업이익 115억(48%).
+//    수입사 몫 = ÷1.1 × 부율 52% × (1 − 수수료) = 38% → 배급수수료(배급사 몫·정산 차감) 약 20%. 증분 이익률 48% → 판권료 + P&A ≈ 매출의 52% → 판권료 약 45%.
+//    지브리 2023(대원 수입) 극장 196억 → 매출 62~87억(32~44%)과도 맞는다. P&A 12억(9/28 채팅 '고정비 12억'과 9/29 정리 공통) 중 개봉 전 4억(33%).
+//    옛 기본(수수료 10 · 판권료 40 · P&A 15 · 3Q 70%)은 수입사 몫 42.5% 로 사례보다 높았다.
 // 입력칸 기억(localStorage boxAsm) — 예전(v 없음)엔 칸 하나만 고쳐도 전 칸이 저장돼 나중에 기본값을 바꿔도 가려졌다.
 //   지금은 기본값과 다른 칸만 {v:2,…} 로 저장하고, v 없는 옛 저장분은 그때 기본값(BOX_ASM_OLD)과 같은 칸을 '안 고친 칸'으로 보고 버린다.
 //   ⚠ 기본값을 바꿀 땐 BOX_ASM_OLD 는 그대로 둘 것(옛 저장분 판별용) — 새 저장분(v:2)은 원래 고친 칸만 들고 있다.
@@ -4650,6 +4654,8 @@ function boxAsmGet(){ if(boxAsm) return boxAsm; let s={};
 function boxAsmSave(){ const d={v:2}; Object.keys(BOX_ASM0).forEach(k=>{ if(boxAsm[k]!==BOX_ASM0[k]) d[k]=boxAsm[k]; });
   try{ localStorage.setItem("boxAsm",JSON.stringify(d)); }catch(e){} }
 const KR_REST=new Set(["20261003","20261005","20261009","20261225"]);     // 개천절·대체공휴일·한글날·성탄절
+// 비교작 D-1 예매관객(만) → 최종(만) — 외부 정리(9/29). [이름, D-1 예매, 시점(D-n), 최종]. 레제는 입소문형(31배)이라 교차 점검에서 뺀다
+const BOX_PRESALE_PEERS=[["귀멸 무한성",79,-1,582.8],["그대들은",25,-1,201.6],["하이큐",9.78,-2,75.6],["레제",11.1,-1,345.6]];
 const BOX_JN=[1,3,6,7,10];                                                // 초기 데이터 판정표의 확인 시점(개봉 N일차) — 점선 경로도 이 날 판정표와 같게 맞춘다
 const boxRest=d=>{ const w=new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)).getDay(); return w===0||w===6||KR_REST.has(d); };
 const qtl=(a,q)=>{ const s=a.filter(v=>v!=null&&isFinite(v)).sort((x,y)=>x-y); if(!s.length) return null;
@@ -4859,10 +4865,17 @@ function renderBoxModel(BO, FL, star){
     const mult= decay ? `보수·낙관 = 유지율 ±10%p`
       : `× ${simUsed?"<b>초반 집중형</b>":"전체"} 비교작 ${use.length}편의 '최종 ÷ ${n}일차 누적' ${byM[0].m.toFixed(1)}~${byM[byM.length-1].m.toFixed(1)}배`
         +` (${[...new Set([0,1,2,3,4].map(i=>Math.round(i*(byM.length-1)/4)))].map(i=>`${sn(byM[i])} ${byM[i].m.toFixed(1)}`).join(" · ")}${byM.length>5?" 등 — 전체는 아래 비교작 표":""}) → 하위 25% · 중간 · 상위 25%`;
-    const warn=(!decay&&simUsed&&boomSc&&boomSc.lo)
+    // 교차 점검 — D-1 예매관객 × 비교작 '최종 ÷ D-1 예매'(외부 정리 9/29 · 초반 집중형만). 판매석이 아니라 KOBIS 예매관객으로 가는 두 번째 길
+    const oD1=new Date(+ok.slice(0,4),+ok.slice(4,6)-1,+ok.slice(6,8)-1);
+    const d1s=`${oD1.getFullYear()}-${String(oD1.getMonth()+1).padStart(2,"0")}-${String(oD1.getDate()).padStart(2,"0")}`;
+    const pb=me.book.filter(p=>p.t.slice(0,10)===d1s).slice(-1)[0], PM=BOX_PRESALE_PEERS.filter(x=>x[3]/x[1]<15).map(x=>x[3]/x[1]);
+    const xck=(pb&&N<=3&&!decay)?`<br><span style="color:var(--muted)">교차 점검 — D-1 예매관객 ${man(pb.book)}(${pb.t.slice(5)}) × 비교작 '최종 ÷ D-1 예매'
+      (${BOX_PRESALE_PEERS.filter(x=>x[3]/x[1]<15).map(x=>`${x[0]} ${(x[3]/x[1]).toFixed(1)}${x[2]!==-1?"(D"+x[2]+")":""}`).join(" · ")}배 · 입소문형 레제 31배는 뺌)
+      = <b>${man(pb.book*Math.min(...PM))}~${man(pb.book*Math.max(...PM))}</b> — 판매석 기반 경로(위)의 ${pb.book*Math.max(...PM)<sc.mid?"보수 쪽":"기준 부근"}. 개봉일 KOBIS 확정치가 들어오면 어느 쪽인지 갈린다.</span>`:"";
+    const warn=xck+((!decay&&simUsed&&boomSc&&boomSc.lo)
       ? `<br><span style="color:var(--muted)">상방 참고 — <b>입소문형</b>(${boomRows.slice().sort((a,b)=>a.m-b.m).map(sn).join("·")}, ${Math.min(...boomRows.map(r=>r.m)).toFixed(0)}~${Math.max(...boomRows.map(r=>r.m)).toFixed(0)}배)을 타면
          ${man(boomSc.lo)}~${man(boomSc.hi)}. 캐릭터 영화라 기본에선 뺐고, 개천절 연휴(6일차) 누적이 판정표의 낙관 경로를 넘으면 그때 의심할 것.</span>`
-      : (!decay&&!simUsed?`<br><span style="color:var(--muted)">지금은 입소문형까지 섞은 전체 계산이라 낙관이 크게 나옵니다 — 기본은 초반 집중형.</span>`:"");
+      : (!decay&&!simUsed?`<br><span style="color:var(--muted)">지금은 입소문형까지 섞은 전체 계산이라 낙관이 크게 나옵니다 — 기본은 초반 집중형.</span>`:""));
     const parts=[kAud?`${N?"상영 끝난 표":"개봉 전 시사"} ${man(kAud)} 명 ${won(kSales/kAud)}`:"", bk?`예매 ${man(bAud)} 장 ${won(atpBook)}(${bk.t.slice(5)})`:""].filter(Boolean).join(" + ");
     const atpTxt= A.atp>0 ? `객단가 <b>${won(atp)}</b>(입력) — 남은 관객에만 곱합니다${kAud?` · 이미 상영된 ${man(kAud)} 명은 KOBIS 확정 매출 ${eok(kSales)}`:""}${atpAvg?` · 참고로 KOBIS 평균은 ${won(atpAvg)}(입력칸 0)`:""}`
       : atpAvg ? `객단가 <b>${won(atpAvg)}</b> = 지금까지 팔린 표 전체의 KOBIS 평균(매출 ÷ 관객) — ${parts}. 예매는 매시간, 확정치는 매일 들어와 계속 갱신됩니다`
@@ -4924,10 +4937,10 @@ function renderBoxModel(BO, FL, star){
   h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:10px 0 4px" id="boxAsmRow">
       ${inp("atp","객단가","원",100,"0 = KOBIS 평균 — 지금까지 팔린 표 전체(상영 끝난 표 + 남은 상영 예매)의 매출 ÷ 장수, 수집할 때마다 갱신. 값을 넣으면 그 값을 남은 관객에 곱한다(이미 상영된 표는 KOBIS 확정 매출)")}
       ${inp("split","부율","%",1,"배급사 몫. 외화 서울 6:4 · 지방 5:5 → 서울 비중 약 20% 로 가중해 52%")}
-      ${inp("fee","배급수수료","%",1,"배급사(CJ ENM) 수수료 — 통상 10% 안팎")}
-      ${inp("roy","판권료","%",5,"원작사(일본 제작위원회) 몫 · 대원 매출 대비. 비공개라 가정")}
-      ${inp("pa","P&A","억",1,"마케팅·프린트 비용. 비공개라 가정")}
-      ${inp("pa3","P&A 3Q","%",5,"P&A 중 개봉 전 9월(3Q)에 집행한 비중 — 분기 영업이익 배분용. 합계 영업이익은 안 바뀐다")}
+      ${inp("fee","배급수수료","%",1,"배급사(CJ ENM) 몫·정산 차감 — 애니플러스 귀멸(2025, 소니 배급) 극장 630억 → 매출 242억(38%) 에서 역산한 약 20%")}
+      ${inp("roy","판권료","%",5,"원작사(일본 제작위원회) 몫 · 대원 매출 대비 — 애니플러스 귀멸 증분 영업이익률 48% 에서 역산한 약 45%. 계약은 비공개")}
+      ${inp("pa","P&A","억",1,"마케팅·프린트 비용 — 12억(9/28 채팅·9/29 정리 공통 가정). 비공개")}
+      ${inp("pa3","P&A 3Q","%",5,"P&A 중 개봉 전 9월(3Q)에 집행한 비중 — 12억 중 4억(33%). 분기 영업이익 배분용 · 합계 영업이익은 안 바뀐다")}
       ${inp("tgt","판정 목표","만명",10,"초기 데이터 판정표·민감도에 따로 넣어 볼 최종 관객(만 명). 0 = 안 씀 — 기본은 모델의 보수·기준·낙관(실시간)")}
       <button class="theme-btn" id="boxAsmReset" style="padding:5px 10px;font-size:12px">기본값</button></div>
     <p class="note" style="margin-top:2px">객단가는 0 이면 KOBIS 평균(위 객단가 표 · 수집할 때마다 갱신)이고, 숫자를 넣으면 그 값으로 고정됩니다.
@@ -5045,27 +5058,39 @@ function renderBoxModel(BO, FL, star){
      치이카와 = 위 흥행 모델(boxCalc) 그대로 — 최종 관객(보수·기준·낙관) → 3Q(9/30까지 누적)·4Q(나머지) → 수입사 정산 매출,
                영업이익 = 매출 − 판권료 − P&A(3Q 에 pa3% 선집행). 라이선스/콘텐츠에 더한다(리포트: 극장판 유통 = 라이선스 사업).
                판권료는 매출원가, P&A 는 판관비. 비지배 몫은 매기지 않는다(수입사 = 대원미디어 본사 가정).
-     그 밖의 매출 = 전년 동기 × (1 + 성장률). 기본값(자동)
-        라이선스(영화 제외)·방송·출판 = 최근 2분기 전년비
-        닌텐도·TCG·Shop = 최근 2분기 ÷ 그 앞 2분기 — 비교 분기가 스위치2 출시(2025-06-05) 전에 걸리면 전년비가 왜곡된다
-          (1H26 닌텐도 전년비 +92%). '작년 하반기보다 올해 상반기가 컸던 만큼' = 상반기 수준 유지. 3Q26 실적이 들어오면 저절로 전년비로 바뀐다.
+     그 밖의 매출 = 전년 동기 × (1 + 성장률). 라이선스(영화 제외)·방송·출판 = 최근 2분기 전년비(자동).
+       유통 3종은 근거를 보고 정한 기본값(2026-09-29 사용자 "구체적 수치를 보고 사업부별로 합리적으로 추론") — 외부 정리 JSON 의 분기 연결
+       매출·영업이익 14개가 DART 와 전부 일치하는 걸 확인하고 그 안의 수치만 썼다.
+        닌텐도 2H26 0% — 대원 닌텐도는 하반기가 상반기보다 작다(IR 2023 0.65배 · 2024 0.64배). 4Q25 는 스위치2 첫 연말 기저.
+                         전년 하반기 수준 = 1H26 × 0.85. (1H26 ÷ 2H25 +17% 로 두면 하반기가 상반기만큼 나온다 — 과거 모양과 반대)
+        Shop 2H26 +70% — 관세청 수입 선행 회귀(Shop = 7.17 × 일본산 완구(3개월 선행) + 8.17 × 중국산 피규어, R² 0.91 · LOO 오차 11% — 재현 확인)
+                         3Q 332억, 일본만(R² 0.80)이면 266억 → 중국 피규어는 팝마트 등이 섞여 중간 300억 = 3Q25 176억의 +70%.
+                         치이카와 굿즈 수입도 여기 들어 있어 굿즈를 따로 더하지 않는다(이중 계상).
+        TCG 2H26 +10% — 2Q 가 해마다 정점이고 2Q26(+46%)은 그중에도 이례적 → 1Q26 전년비(+6%)에 가깝게.
         2027 = 입력(기본 라이선스 +3 · 닌텐도 0 · TCG·Shop +5 · 방송 0 · 출판 +3 %).
-     부문 영업이익 = 매출 × 최근 4분기 부문 영업이익률(자동, 영화 제외) + 치이카와 기여
+     부문 영업이익 = 매출 × 최근 4분기 부문 영업이익률(자동, 영화 제외) + 치이카와 기여.
+       **유통만 품목 이익 구조** — 닌텐도 5%(신한 '수익성 약 5%') · TCG 25%(신한 '20%대') · Shop 22%(외부 정리) 공헌이익 − 고정비(최근 4분기 DART
+       유통 영업이익으로 역산, 분기 약 6). 평균 이익률(4.1%)보다 최근 4분기 적합이 낫고(평균 오차 0.6 vs 1.4), 1H26 유통 증분이익률 8.8% 처럼
+       Shop·TCG 가 크면 이익이 더 붙는 구조가 산다.
      판관비 = 최근 2분기 평균 × 연 +3% + 치이카와 P&A → 매출원가 = 매출 − 영업이익 − 판관비(역산)
      영업외 = 최근 4분기 평균 · 세율 = 최근 4분기 법인세 ÷ 세전 · 비지배 = 최근 4분기 비지배 ÷ 순이익(영화 이익엔 안 매김)
    ⚠ IR 부문(리포트의 라이선스·방송)과 DART 부문은 경계가 다르다 — IR '방송' 분기 7~8 = DART 방송 3~4 + 라이선스/콘텐츠 일부.
      DART 를 원본으로 쓴다. 리포트 추정치를 비교 줄로 넣지 않는다(컴투스 때 사용자 결정 — KB 비교를 뺐다). 비교는 네이버 컨센 줄. */
-const DW_IR={   // [닌텐도, TCG, Shop] 십억원 — 신한투자증권 2026-09-03 '대원미디어 실적 추이'(회사 자료). 합은 DART 유통과 ±0.8
+const DW_IR={   // [닌텐도, TCG, Shop] 십억원 — 회사 IR(신한 9/3 표 '회사 자료' · 2023~24 는 9/29 외부 정리, 2024 합이 신한 연간 73.6/17.7/49.6 과 일치).
+                //   2025~ 합은 DART 유통과 ±0.8. 2023~24 는 부문 기준이 달라(DART 2024 재분류) 닌텐도 계절성 참고용 — 표 칸엔 안 쓴다
+  "2023Q1":[35.82,4.62,8.38], "2023Q2":[47.29,4.91,10.12], "2023Q3":[20.65,2.84,9.69], "2023Q4":[33.36,3.85,9.50],
+  "2024Q1":[25.72,4.00,11.50], "2024Q2":[19.27,5.13,11.90], "2024Q3":[13.79,4.69,14.84], "2024Q4":[14.80,3.92,11.35],
   "2025Q1":[11.4,4.8,14.6], "2025Q2":[41.0,6.5,14.8], "2025Q3":[37.7,5.5,17.6], "2025Q4":[48.2,5.0,19.4],
   "2026Q1":[46.3,5.0,22.5], "2026Q2":[54.1,9.6,31.7],
 };
 const DW_SEG={lc:"라이선스/콘텐츠", ds:"유통", bc:"방송", pb:"출판", adj:"조정"};
 const DW_ASM0={scn:"기준",
-  gLc:null, gN:null, gT:null, gS:null, gBc:null, gPb:null,           // 2H26 성장률(전년 동기 대비 %) — null = 자동
+  gLc:null, gN:0, gT:10, gS:70, gBc:null, gPb:null,                  // 2H26 성장률(전년 동기 대비 %) — null = 자동, 유통 3종은 근거 기본값(머리말)
   gLc7:3, gN7:0, gT7:5, gS7:5, gBc7:0, gPb7:3,                       // 2027
-  mLc:null, mDs:null, mBc:null, mPb:null, adjOp:null, adjR:null,     // 부문 영업이익률(%) · 조정 영업이익(분기) · 조정 매출(부문 합 대비 %)
+  mLc:null, mBc:null, mPb:null, adjOp:null, adjR:null,               // 부문 영업이익률(%) · 조정 영업이익(분기) · 조정 매출(부문 합 대비 %)
+  cN:5, cT:25, cS:22, dsF:null,                                      // 유통 공헌이익률(닌텐도·기타 / TCG / Shop %) · 고정비(분기, null = 최근 4분기 역산)
   sga:null, gSga:3, nonop:null, tax:null, minor:null, show25:0};
-const DW_V=1;
+const DW_V=2;                                                        // 기본값을 바꿀 때 올린다(옛 저장 버림)
 let dwAsm=null, dwOpen=null;
 function dwAsmGet(){ if(dwAsm) return dwAsm; let s={}; try{ s=JSON.parse(localStorage.getItem("dwAsm")||"{}")||{}; }catch(e){}
   if(s._v!==DW_V) s={}; delete s._v; dwAsm={...DW_ASM0,...s}; return dwAsm; }
@@ -5087,7 +5112,7 @@ function dwMovie(scn){
   return {v, "2026Q3":q(s3,p3,a3), "2026Q4":q(s4,p4,v-a3)};
 }
 /* 자동 기본값 — 실적(DART 부문 + 손익 둘 다 있는 분기)에서. 실적 분기에 영화가 들어 있으면(3Q26~) 모델값을 떼고 낸다 */
-function dwAuto(mv){
+function dwAuto(mv, A){
   const D=DWMODEL, act=dwActQ(), L4=act.slice(-4), L2=act.slice(-2), F=D.fin;
   const sg=(q,k)=>(D.seg[q]&&D.seg[q][DW_SEG[k]])||[0,0], mq=q=>(mv&&mv[q])||{rev:0,op:0,pa:0};
   const lcx=q=>sg(q,"lc")[0]-mq(q).rev, lcxo=q=>sg(q,"lc")[1]-mq(q).op;
@@ -5100,15 +5125,18 @@ function dwAuto(mv){
   const irG=i=>(LI.length&&base.every(q=>ir(q,i)!=null))?(S(LI,q=>ir(q,i))/S(base,q=>ir(q,i))-1)*100:0;
   const m=(f,fo)=>{ const r=S(L4,f); return r?S(L4,fo)/r*100:0; };
   const gross=q=>lcx(q)+sg(q,"ds")[0]+sg(q,"bc")[0]+sg(q,"pb")[0], pbt=S(L4,q=>F[q].pbt), np=S(L4,q=>F[q].np);
+  // 유통 고정비 = 최근 4분기(IR 있는 분기) 공헌이익 − DART 유통 영업이익의 분기 평균
+  const LF=L4.filter(q=>DW_IR[q]), cm=q=>{ const [n,t,s_]=DW_IR[q], o=sg(q,"ds")[0]-n-t-s_; return ((n+o)*A.cN+t*A.cT+s_*A.cS)/100; };
+  const dsF=LF.length?S(LF,q=>cm(q)-sg(q,"ds")[1])/LF.length:6;
   return {gLc:yoy(lcx), gBc:yoy(q=>sg(q,"bc")[0]), gPb:yoy(q=>sg(q,"pb")[0]), gN:irG(0), gT:irG(1), gS:irG(2),
-    mLc:m(lcx,lcxo), mDs:m(q=>sg(q,"ds")[0],q=>sg(q,"ds")[1]), mBc:m(q=>sg(q,"bc")[0],q=>sg(q,"bc")[1]), mPb:m(q=>sg(q,"pb")[0],q=>sg(q,"pb")[1]),
+    mLc:m(lcx,lcxo), dsF, mDs:m(q=>sg(q,"ds")[0],q=>sg(q,"ds")[1]), mBc:m(q=>sg(q,"bc")[0],q=>sg(q,"bc")[1]), mPb:m(q=>sg(q,"pb")[0],q=>sg(q,"pb")[1]),
     adjOp:S(L4,q=>sg(q,"adj")[1])/L4.length, adjR:S(L4,q=>sg(q,"adj")[0])/S(L4,gross)*100,
     sga:S(L2,q=>F[q].sga-mq(q).pa)/L2.length, nonop:S(L4,q=>F[q].pbt-F[q].op)/L4.length,
     tax:pbt>0?Math.min(35,Math.max(10,S(L4,q=>F[q].pbt-F[q].np)/pbt*100)):22,
     minor:np>0?Math.min(40,Math.max(0,S(L4,q=>F[q].np-F[q].npp)/np*100)):0,
     _L4:L4, _L2:L2, _LI:LI, _base:base, _launch:launch};
 }
-function dwParams(mv){ const A=dwAsmGet(), au=dwAuto(mv), P={...A};
+function dwParams(mv){ const A=dwAsmGet(), au=dwAuto(mv, A), P={...A};
   Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); }); P._auto=au; return P; }
 
 function dwBuild(P, mv){
@@ -5136,7 +5164,7 @@ function dwBuild(P, mv){
       o.lcEx=b.lcEx*g("gLc"); o.n=b.n*g("gN"); o.t=b.t*g("gT"); o.s=b.s*g("gS"); o.bc=b.bc*g("gBc"); o.pb=b.pb*g("gPb"); o.dsO=b.dsO;
       o.lc=o.lcEx+o.mv; o.ds=o.n+o.t+o.s+o.dsO; o.adj=P.adjR/100*(o.lcEx+o.ds+o.bc+o.pb);
       o.rev=o.lc+o.ds+o.bc+o.pb+o.adj;
-      o.lcExOp=o.lcEx*P.mLc/100; o.lcOp=o.lcExOp+o.mvOp; o.dsOp=o.ds*P.mDs/100; o.bcOp=o.bc*P.mBc/100; o.pbOp=o.pb*P.mPb/100; o.adjOp=P.adjOp;
+      o.lcExOp=o.lcEx*P.mLc/100; o.lcOp=o.lcExOp+o.mvOp; o.dsF=P.dsF*Math.pow(1+P.gSga/100,n/4); o.dsOp=((o.n+o.dsO)*P.cN+o.t*P.cT+o.s*P.cS)/100-o.dsF; o.bcOp=o.bc*P.mBc/100; o.pbOp=o.pb*P.mPb/100; o.adjOp=P.adjOp;
       o.op=o.lcOp+o.dsOp+o.bcOp+o.pbOp+o.adjOp;
       o.sga=P.sga*Math.pow(1+P.gSga/100,n/4)+o.mvPa; o.gp=o.op+o.sga; o.cogs=o.rev-o.gp;
       o.nonop=P.nonop; o.pbt=o.op+o.nonop; o.tax=Math.max(0,o.pbt)*P.tax/100; o.np=o.pbt-o.tax;
@@ -5146,7 +5174,7 @@ function dwBuild(P, mv){
         t:`전년 동기(${bq}) ${fmt(b.t,1)} × (1${pc("gT")})`, s:`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})`,
         bc:`전년 동기(${bq}) ${fmt(b.bc,1)} × (1${pc("gBc")})`, pb:`전년 동기(${bq}) ${fmt(b.pb,1)} × (1${pc("gPb")})`,
         dsO:`전년 동기(${bq}) 그대로`, adj:`부문 합(영화 제외) × ${P.adjR}%`,
-        lcExOp:`영화 제외 매출 ${fmt(o.lcEx,1)} × ${P.mLc}%`, dsOp:`유통 ${fmt(o.ds,1)} × ${P.mDs}%`, bcOp:`방송 ${fmt(o.bc,1)} × ${P.mBc}%`,
+        lcExOp:`영화 제외 매출 ${fmt(o.lcEx,1)} × ${P.mLc}%`, dsOp:`닌텐도·기타 ${fmt(o.n+o.dsO,1)}×${P.cN}% + TCG ${fmt(o.t,1)}×${P.cT}% + Shop ${fmt(o.s,1)}×${P.cS}% − 고정비 ${fmt(o.dsF,1)} (영업이익률 ${fmt(o.dsOp/o.ds*100,1)}%)`, bcOp:`방송 ${fmt(o.bc,1)} × ${P.mBc}%`,
         pbOp:`출판 ${fmt(o.pb,1)} × ${P.mPb}%`, adjOp:`최근 4분기 평균 ${P.adjOp}`,
         sga:`${fmt(P.sga,1)} × 연 ${P.gSga}% 증가${o.mvPa?` + 치이카와 P&A ${fmt(o.mvPa,2)}`:""}`, cogs:"매출 − 영업이익 − 판관비(역산)", gp:"영업이익 + 판관비",
         nonop:`최근 4분기 평균 ${P.nonop}`, tax:`세전 × ${P.tax}%`, minor:`(순이익 − 치이카와 이익) × ${P.minor}% — 영화 이익은 본사(수입사) 몫`};
@@ -5323,10 +5351,14 @@ function renderDwModel(){
       ${["보수","기준","낙관"].map(k=>`<button class="theme-btn${A.scn===k?" active":""}" data-dwscn="${k}" style="padding:3px 10px;font-size:12px${A.scn===k?";background:var(--accent);color:var(--onacc);border-color:var(--accent)":""}">${k}</button>`).join("")}
       <span style="font-size:11px;color:var(--muted2)">최종 관객은 위 흥행 모델(KOBIS·3사 좌석으로 매번 다시 잡음). 객단가·부율·수수료·판권료·P&A 는 흥행 모델 입력칸에서 바꿉니다.</span></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${grp(`매출 — 전년 동기 대비 성장률 (자동: ${au._L2.map(c2QLab).join("·")} ÷ ${au._L2.map(q=>c2QLab(c2QAdd(q,-4))).join("·")}${` · 유통 3종 = IR ${au._LI.map(c2QLab).join("·")} ÷ ${au._base.map(c2QLab).join("·")}${au._launch?"(스위치2 출시 기저라 직전 2분기 대비)":""}`})`,
-        gRow("라이선스(영화 제외)","gLc")+gRow("닌텐도","gN")+gRow("TCG","gT")+gRow("Shop","gS")+gRow("방송","gBc")+gRow("출판","gPb"))}
-      ${grp(`부문 영업이익률 (자동: ${au._L4.map(c2QLab).join("·")} 합계 · 영화 제외)`, inp("mLc","라이선스(영화 제외)","%",0.5)+inp("mDs","유통","%",0.5)+inp("mBc","방송","%",1)
+      ${grp(`매출 — 전년 동기 대비 성장률 (자동 = ${au._L2.map(c2QLab).join("·")} ÷ ${au._L2.map(q=>c2QLab(c2QAdd(q,-4))).join("·")} · 유통 3종은 아래 근거로 정한 기본값)`,
+        gRow("라이선스(영화 제외)","gLc")+gRow("닌텐도","gN")+gRow("TCG","gT")+gRow("Shop","gS")+gRow("방송","gBc")+gRow("출판","gPb")
+        +`<div style="font-size:11px;color:var(--muted2);line-height:1.5;width:100%">유통 3종 근거 — 닌텐도: 하반기 ÷ 상반기 2023 0.65 · 2024 0.64배(IR), 1H26 ÷ 2H25 ${sign(au.gN,0)}% ·
+          Shop: 관세청 수입 선행 회귀 3Q 일본산 완구만 266억 ~ 일본+중국 피규어 332억(R² 0.91) → 300억 · TCG: 1Q26 전년비 +6% · 2Q26 +46%(2Q 계절 정점)</div>`)}
+      ${grp(`부문 영업이익률 (자동: ${au._L4.map(c2QLab).join("·")} 합계 · 영화 제외)`, inp("mLc","라이선스(영화 제외)","%",0.5)+inp("mBc","방송","%",1)
         +inp("mPb","출판","%",0.5)+inp("adjOp","조정 영업이익 분기","십억",0.1)+inp("adjR","조정 매출(부문 합 대비)","%",0.1))}
+      ${grp(`유통 이익 구조 — 공헌이익 − 고정비 (고정비 자동: ${au._L4.filter(q=>DW_IR[q]).map(c2QLab).join("·")} DART 유통 영업이익으로 역산)`,
+        inp("cN","닌텐도·기타","%",0.5)+inp("cT","TCG","%",1)+inp("cS","Shop","%",1)+inp("dsF","고정비 분기","십억",0.1))}
       ${grp("판관비 · 영업외 · 세금", inp("sga","판관비 분기(영화 제외)","십억",0.5)+inp("gSga","판관비 증가","%/년",1)+inp("nonop","영업외 분기","십억",0.1)
         +inp("tax","세율","%",1)+inp("minor","비지배 비율","%",1))}
     </div>
