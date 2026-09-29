@@ -8,6 +8,10 @@
   fin  {"2026Q2": {rev,cogs,gp,sga,op,pbt,np,npp,opex}}   연결 손익 — 전체 재무제표 API(fnlttSinglAcntAll)
   seg  {"2026Q2": {"라이선스/콘텐츠":[매출,영업손익], "유통":[..], "방송":[..], "출판":[..], "조정":[..]}}
        연결 주석 '부문정보' 표 — **누적**(1Q·반기·3Q·연간)으로만 나와서 분기 = 누적 차분(4Q = 연간 − 3Q 누적).
+  imp  {"jpToy": {"2022-01": 2.8, ...}, "cnFig": {...}}  관세청 월별 **수입**($M) — Shop 선행지표(2026-09-29 사용자 "이치방쿠지 수입을 물려서")
+       jpToy = 일본산 완구 HS 9503 전체(이치방쿠지 경품·애니메이트 굿즈·조립 키트 — 대원 Shop 이 파는 일본 캐릭터 상품)
+       cnFig = 중국산 인형 중 '플라스틱으로 만든 것'(9503002130 = 피규어). 팝마트 등 대원과 무관한 수입도 섞인다.
+       외부 정리(9/29)의 회귀 Shop = 7.17 × 일본 완구(3개월 선행) + 8.17 × 중국 피규어(R² 0.91)를 월별 값까지 재현 확인했다.
   segCum {"2026-06": {...누적...}} · src {"2026-06": 접수번호}   원 누적값과 출처(다음 실행의 캐시)
   reclass {"2026-12": "2025-12 비교치 재분류: 방송 14.0→…"}   새 보고서의 전기 표가 우리 전년 값과 부문별로 다를 때(경고)
   ⚠ 부문은 **그 해 보고서의 원래 값**만 쓴다. 이 회사는 재분류 뒤 1Q·반기 비교치는 옛 기준, 3Q·사업보고서 비교치는
@@ -124,6 +128,53 @@ def seg_tables(rcept):
     return out if out and "합계" in out[0] else None
 
 
+IMP_FROM = "2022-01"
+
+
+def imports():
+    """관세청 품목별·국가별 수입(nitemtrade, 키 = DATA_GO_KR_KEY). 6자리 950300 으로 부르면 10자리·국가·월이 한 번에 온다.
+       조회 기간이 1년 이내라 12개월씩. 반환 {"jpToy": {"2026-08": 6.2}, "cnFig": {...}} ($M)"""
+    import urllib.parse
+    import xml.etree.ElementTree as ET
+    import fetch_trade as FT
+    if not FT.DATA_GO_KR_KEY:
+        raise RuntimeError("DATA_GO_KR_KEY 없음")
+    now = datetime.datetime.now(KST)
+    ms = []
+    y, m = int(IMP_FROM[:4]), int(IMP_FROM[5:])
+    while (y, m) <= (now.year, now.month):
+        ms.append(f"{y}{m:02d}")
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
+    jp, cn = {}, {}
+    for i in range(0, len(ms), 12):
+        w = ms[i:i + 12]
+        p = {"serviceKey": FT.DATA_GO_KR_KEY, "strtYymm": w[0], "endYymm": w[-1], "hsSgn": "950300"}
+        raw = urllib.request.urlopen(urllib.request.Request(FT.API + "?" + urllib.parse.urlencode(p, safe=""),
+                                                            headers={"User-Agent": "Mozilla/5.0"}), timeout=90).read()
+        root = ET.fromstring(raw)
+        msg = root.findtext(".//resultMsg") or ""
+        if msg and "정상" not in msg:
+            raise RuntimeError(msg[:60])
+        for it in root.iter("item"):
+            g = lambda t: (it.findtext(t) or "").strip()
+            ym, hs, cd = g("year"), g("hsCd"), g("statCd")
+            if not re.fullmatch(r"\d{4}\.\d{2}", ym):
+                continue
+            try:
+                v = float(g("impDlr").replace(",", "")) / 1e6
+            except ValueError:
+                continue
+            k = ym.replace(".", "-")
+            if cd == "JP":
+                jp[k] = jp.get(k, 0) + v
+            if cd == "CN" and hs == "9503002130":
+                cn[k] = cn.get(k, 0) + v
+    r = lambda d: {k: round(v, 3) for k, v in sorted(d.items())}
+    return {"jpToy": r(jp), "cnFig": r(cn)}
+
+
 def main():
     html = open(HTML, encoding="utf-8").read()
     old = {}
@@ -221,6 +272,15 @@ def main():
             print(f"  {k} 부문 이상 {bad} — 기준이 섞인 것으로 보고 뺌")
             del seg[k]
 
+    try:
+        imp = imports()
+    except Exception as e:
+        imp = old.get("imp", {})
+        warn.append(f"관세청 수입: {str(e)[:40]}")
+    if old.get("imp") and len(imp.get("jpToy", {})) < len(old["imp"].get("jpToy", {})):
+        imp = old["imp"]                                   # 일부 창만 받아진 날 — 옛 값을 지킨다
+        warn.append("관세청 수입 일부 실패 — 이전 값 유지")
+
     if not fin or not seg:
         note_health("대원미디어 모델", ("재료 수집 실패: " + " · ".join(dead + warn))[:160])
         print("[dwmodel] 실패 — " + " · ".join(dead + warn))
@@ -229,7 +289,7 @@ def main():
     note_health("대원미디어 모델", (" · ".join(warn))[:160] if warn else None)
 
     out = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "stock": "대원미디어",
-           "fin": fin, "seg": seg, "reclass": notes, "segCum": seg_cum, "src": src}
+           "fin": fin, "seg": seg, "imp": imp, "reclass": notes, "segCum": seg_cum, "src": src}
     if warn:
         print("  경고:", " · ".join(warn))
     for k in sorted(fin)[-6:]:
@@ -239,7 +299,10 @@ def main():
               + " ".join(f"{n[:2]} {v[0]:.1f}/{v[1]:.1f}" for n, v in s.items()))
     if "--dry-run" in sys.argv:
         return
-    if all(old.get(k) == out.get(k) for k in ("fin", "seg", "src", "reclass")):
+    if imp.get("jpToy"):
+        ks = sorted(imp["jpToy"])[-4:]
+        print("  수입($M) 일본 완구", {k: imp["jpToy"][k] for k in ks}, "· 중국 피규어", {k: imp["cnFig"].get(k) for k in ks})
+    if all(old.get(k) == out.get(k) for k in ("fin", "seg", "src", "reclass", "imp")):
         print("변동 없음 — index.html 그대로 둠")
         return
     open(HTML, "w", encoding="utf-8").write(C2._put(html, "DWMODEL", out))

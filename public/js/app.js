@@ -5063,9 +5063,9 @@ function renderBoxModel(BO, FL, star){
        매출·영업이익 14개가 DART 와 전부 일치하는 걸 확인하고 그 안의 수치만 썼다.
         닌텐도 2H26 0% — 대원 닌텐도는 하반기가 상반기보다 작다(IR 2023 0.65배 · 2024 0.64배). 4Q25 는 스위치2 첫 연말 기저.
                          전년 하반기 수준 = 1H26 × 0.85. (1H26 ÷ 2H25 +17% 로 두면 하반기가 상반기만큼 나온다 — 과거 모양과 반대)
-        Shop 2H26 +70% — 관세청 수입 선행 회귀(Shop = 7.17 × 일본산 완구(3개월 선행) + 8.17 × 중국산 피규어, R² 0.91 · LOO 오차 11% — 재현 확인)
-                         3Q 332억, 일본만(R² 0.80)이면 266억 → 중국 피규어는 팝마트 등이 섞여 중간 300억 = 3Q25 176억의 +70%.
-                         치이카와 굿즈 수입도 여기 들어 있어 굿즈를 따로 더하지 않는다(이중 계상).
+        Shop = 관세청 수입 모델(dwShop · 매달 자동) — 일본산 완구(3개월 선행)·중국산 피규어 수입으로 IR Shop 을 맞춘 회귀.
+                         9/29 기준 3Q 일본만 266억 ~ 일본+중국 332억 → 중간 약 300억(= 3Q25 의 +70%). 수입이 줄면 Shop 추정이 저절로 준다.
+                         치이카와 굿즈 수입도 여기 들어 있어 굿즈를 따로 더하지 않는다(이중 계상). 선행 분기 수입이 없는 분기(1Q27~)는 전년비 입력.
         TCG 2H26 +10% — 2Q 가 해마다 정점이고 2Q26(+46%)은 그중에도 이례적 → 1Q26 전년비(+6%)에 가깝게.
         2027 = 입력(기본 라이선스 +3 · 닌텐도 0 · TCG·Shop +5 · 방송 0 · 출판 +3 %).
      부문 영업이익 = 매출 × 최근 4분기 부문 영업이익률(자동, 영화 제외) + 치이카와 기여.
@@ -5089,8 +5089,9 @@ const DW_ASM0={scn:"기준",
   gLc7:3, gN7:0, gT7:5, gS7:5, gBc7:0, gPb7:3,                       // 2027
   mLc:null, mBc:null, mPb:null, adjOp:null, adjR:null,               // 부문 영업이익률(%) · 조정 영업이익(분기) · 조정 매출(부문 합 대비 %)
   cN:5, cT:25, cS:22, dsF:null,                                      // 유통 공헌이익률(닌텐도·기타 / TCG / Shop %) · 고정비(분기, null = 최근 4분기 역산)
+  shopImp:1, shopW:50,                                               // Shop = 관세청 수입 모델(1) / 전년비 입력(0) · 중국 피규어 반영 %(0 = 일본만, 100 = 일본+중국)
   sga:null, gSga:3, nonop:null, tax:null, minor:null, show25:0};
-const DW_V=2;                                                        // 기본값을 바꿀 때 올린다(옛 저장 버림)
+const DW_V=3;                                                        // 기본값을 바꿀 때 올린다(옛 저장 버림)
 let dwAsm=null, dwOpen=null;
 function dwAsmGet(){ if(dwAsm) return dwAsm; let s={}; try{ s=JSON.parse(localStorage.getItem("dwAsm")||"{}")||{}; }catch(e){}
   if(s._v!==DW_V) s={}; delete s._v; dwAsm={...DW_ASM0,...s}; return dwAsm; }
@@ -5102,6 +5103,33 @@ function dwOpenSave(){ try{ localStorage.setItem("dwOpen",JSON.stringify(dwOpen)
 const dwQs=(a,b)=>{ const o=[]; for(let q=a;q<=b;q=c2QAdd(q,1)) o.push(q); return o; };
 const dwActQ=()=>{ const D=(typeof DWMODEL!=="undefined")?DWMODEL:{}; return Object.keys(D.seg||{}).filter(q=>(D.fin||{})[q]).sort(); };
 
+/* Shop 수입 선행 모델 (2026-09-29 사용자 "이치방쿠지 수입을 물려서 봐야 — 수입이 줄면 Shop 에 부정적") — DWMODEL.imp(관세청 월별 수입 $M).
+   대원 Shop(애니메이트·도토리숲·이치방쿠지)이 파는 건 대부분 일본 캐릭터 상품 수입품이라, 수입이 매출보다 먼저 움직인다.
+     일본만     Shop(십억) = a × 일본산 완구 HS 9503(3개월 선행 = 직전 분기 합)
+     일본+중국  Shop(십억) = b1 × 일본 완구(선행) + b2 × 중국산 플라스틱 인형(9503002130 · 피규어, 같은 분기)
+   계수는 IR Shop 실적(DW_IR 2023Q1~)으로 **매번 다시 맞춘다**(절편 없음). 외부 정리(9/29)의 7.17·8.17(억) · R² 0.91 을 그대로 재현한다.
+   추정 = 두 식을 shopW(중국 반영 %)로 섞는다 — 기본 50 = 중간. 중국 피규어엔 팝마트 등 대원과 무관한 수입이 섞여서다(6~8월 급증).
+   분기 입력은 받은 달만큼 ×3/n 로 채우고(3Q26 중국 7~8월 → ×1.5), 일본 선행 분기가 한 달도 없으면 모델 없음(→ 전년비 입력),
+   중국이 한 달도 없으면 직전 분기 값을 잇는다. 관세청은 매달 15일 전후에 전월치를 낸다 → 그때마다 Shop 추정이 저절로 바뀐다. */
+function dwShop(P){
+  const I=(typeof DWMODEL!=="undefined"&&DWMODEL.imp)||{}, J=I.jpToy||{}, C=I.cnFig||{};
+  if(!Object.keys(J).length) return null;
+  const mOf=q=>{ const y=q.slice(0,4), s0=(+q.slice(-1)-1)*3; return [1,2,3].map(i=>`${y}-${String(s0+i).padStart(2,"0")}`); };
+  const qsum=(src,q)=>{ const ks=mOf(q).filter(k=>src[k]!=null); return ks.length?{v:ks.reduce((t,k)=>t+src[k],0)*3/ks.length, n:ks.length}:null; };
+  const inp={};
+  dwQs("2023Q1","2027Q4").forEach(q=>{ const lq=c2QAdd(q,-1), j=qsum(J,lq); let c=qsum(C,q), carry=false;
+    if(!c){ const p=inp[c2QAdd(q,-1)]; if(p&&p.cn!=null&&p.cnN>0){ c={v:p.cn,n:0}; carry=true; } }   // 직전 분기 잇기는 한 분기만
+    inp[q]={lq, jp:j?j.v:null, jpN:j?j.n:0, cn:c?c.v:null, cnN:c?c.n:0, carry}; });
+  const fitQ=Object.keys(DW_IR).filter(q=>inp[q]&&inp[q].jpN===3&&inp[q].cnN===3).sort();
+  if(fitQ.length<6) return null;
+  const y=fitQ.map(q=>DW_IR[q][2]), x1=fitQ.map(q=>inp[q].jp), x2=fitQ.map(q=>inp[q].cn), dot=(u,v)=>u.reduce((t,a,i)=>t+a*v[i],0);
+  const a=dot(x1,y)/dot(x1,x1), s11=dot(x1,x1), s22=dot(x2,x2), s12=dot(x1,x2), det=s11*s22-s12*s12;
+  const b1=(dot(x1,y)*s22-dot(x2,y)*s12)/det, b2=(dot(x2,y)*s11-dot(x1,y)*s12)/det;
+  const ym=y.reduce((t,v)=>t+v,0)/y.length, sst=y.reduce((t,v)=>t+(v-ym)**2,0), r2=f=>1-y.reduce((t,v,i)=>t+(v-f(i))**2,0)/sst;
+  const w=Math.min(1,Math.max(0,(P.shopW??50)/100));
+  const est=q=>{ const o=inp[q]; if(!o||o.jp==null) return null; const A=a*o.jp, B=o.cn!=null?b1*o.jp+b2*o.cn:A; return {A, B, v:(1-w)*A+w*B, o}; };
+  return {a, b1, b2, r2A:r2(i=>a*x1[i]), r2B:r2(i=>b1*x1[i]+b2*x2[i]), n:fitQ.length, fitQ, inp, est, w, last:Object.keys(J).sort().pop()};
+}
 /* 치이카와 → 분기(십억) — 흥행 모델의 시나리오 최종 관객을 3Q(9/30까지)·4Q(나머지)로 */
 function dwMovie(scn){
   const M=boxM; if(!M||!M.sc) return null;
@@ -5137,7 +5165,7 @@ function dwAuto(mv, A){
     _L4:L4, _L2:L2, _LI:LI, _base:base, _launch:launch};
 }
 function dwParams(mv){ const A=dwAsmGet(), au=dwAuto(mv, A), P={...A};
-  Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); }); P._auto=au; return P; }
+  Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); }); P._auto=au; P._shop=dwShop(P); return P; }
 
 function dwBuild(P, mv){
   const D=DWMODEL, act=new Set(dwActQ()), last=[...act].pop(), Q={};
@@ -5161,7 +5189,9 @@ function dwBuild(P, mv){
       let b=Q[c2QAdd(q,-4)]; if(!b||b.lite) for(let j=1;j<=8;j++){ const c=Q[c2QAdd(q,-j)]; if(c&&!c.lite){ b=c; break; } }
       const yr=y<=2026?"":"7", g=k=>1+P[k+yr]/100;
       const n=(y*4+ +q.slice(-1))-(+last.slice(0,4)*4+ +last.slice(-1));
-      o.lcEx=b.lcEx*g("gLc"); o.n=b.n*g("gN"); o.t=b.t*g("gT"); o.s=b.s*g("gS"); o.bc=b.bc*g("gBc"); o.pb=b.pb*g("gPb"); o.dsO=b.dsO;
+      o.lcEx=b.lcEx*g("gLc"); o.n=b.n*g("gN"); o.t=b.t*g("gT"); o.bc=b.bc*g("gBc"); o.pb=b.pb*g("gPb"); o.dsO=b.dsO;
+      const sm=(P.shopImp&&P._shop)?P._shop.est(q):null;           // Shop = 관세청 수입 모델(선행 분기 수입이 있으면) · 없으면 전년비
+      o.s=sm?sm.v:b.s*g("gS"); o.sm=sm;
       o.lc=o.lcEx+o.mv; o.ds=o.n+o.t+o.s+o.dsO; o.adj=P.adjR/100*(o.lcEx+o.ds+o.bc+o.pb);
       o.rev=o.lc+o.ds+o.bc+o.pb+o.adj;
       o.lcExOp=o.lcEx*P.mLc/100; o.lcOp=o.lcExOp+o.mvOp; o.dsF=P.dsF*Math.pow(1+P.gSga/100,n/4); o.dsOp=((o.n+o.dsO)*P.cN+o.t*P.cT+o.s*P.cS)/100-o.dsF; o.bcOp=o.bc*P.mBc/100; o.pbOp=o.pb*P.mPb/100; o.adjOp=P.adjOp;
@@ -5171,7 +5201,9 @@ function dwBuild(P, mv){
       o.minor=(o.np-o.mvOp*(1-P.tax/100))*P.minor/100; o.npp=o.np-o.minor;
       const pc=k=>`${P[k+yr]>=0?"+":""}${fmt(P[k+yr],1)}%`, bq=c2QLab(b.q)+(b.act?"":"E");
       o.why={lcEx:`전년 동기(${bq}) ${fmt(b.lcEx,1)} × (1${pc("gLc")})`, n:`전년 동기(${bq}) ${fmt(b.n,1)} × (1${pc("gN")})`,
-        t:`전년 동기(${bq}) ${fmt(b.t,1)} × (1${pc("gT")})`, s:`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})`,
+        t:`전년 동기(${bq}) ${fmt(b.t,1)} × (1${pc("gT")})`,
+        s:sm?`수입 모델 — 일본 완구 ${c2QLab(sm.o.lq)} $${fmt(sm.o.jp,1)}M${sm.o.jpN<3?`(${sm.o.jpN}개월 ×3/${sm.o.jpN})`:""} → 일본만 ${fmt(sm.A,1)} · 중국 피규어 $${fmt(sm.o.cn,1)}M${sm.o.carry?"(직전 분기 유지)":sm.o.cnN<3?`(${sm.o.cnN}개월 ×3/${sm.o.cnN})`:""} → 일본+중국 ${fmt(sm.B,1)} · 중국 반영 ${P.shopW}% → ${fmt(sm.v,1)} (전년비 ${sign((sm.v/b.s-1)*100,0)}%)`
+          :`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})${P.shopImp?" — 선행 분기 수입이 아직 없어 전년비 입력":""}`,
         bc:`전년 동기(${bq}) ${fmt(b.bc,1)} × (1${pc("gBc")})`, pb:`전년 동기(${bq}) ${fmt(b.pb,1)} × (1${pc("gPb")})`,
         dsO:`전년 동기(${bq}) 그대로`, adj:`부문 합(영화 제외) × ${P.adjR}%`,
         lcExOp:`영화 제외 매출 ${fmt(o.lcEx,1)} × ${P.mLc}%`, dsOp:`닌텐도·기타 ${fmt(o.n+o.dsO,1)}×${P.cN}% + TCG ${fmt(o.t,1)}×${P.cT}% + Shop ${fmt(o.s,1)}×${P.cS}% − 고정비 ${fmt(o.dsF,1)} (영업이익률 ${fmt(o.dsOp/o.ds*100,1)}%)`, bcOp:`방송 ${fmt(o.bc,1)} × ${P.mBc}%`,
@@ -5278,7 +5310,21 @@ function renderDwModel(){
     {k:"mvBox", t:"극장 매출 (KOBIS 확정 + 남은 관객 × 객단가)", i:1, g:"mv"},
     {k:"mv", t:"대원 정산 매출 (÷1.1 × 부율 × (1−수수료))", i:1, g:"mv"},
     {k:"mvRoy", t:"판권료 (원작사 · 매출원가)", i:1, g:"mv"},
+    {t:"Shop 선행지표 · 관세청 수입", m:"hdr", tg:"imp", top:2},
+    {t:"일본산 완구 수입 ($M · 직전 분기 = 3개월 선행)", m:"jp", i:1, g:"imp"},
+    {t:"전년비", m:"jpy", r:"x", g:"imp"},
+    {t:"중국산 플라스틱 인형(피규어) 수입 ($M · 같은 분기)", m:"cn", i:1, g:"imp"},
+    {t:"전년비", m:"cny", r:"x", g:"imp"},
+    {t:"수입 모델 Shop (십억)", m:"sm", i:1, g:"imp"},
+    {t:"실제 Shop(IR) − 모델", m:"sr", i:1, g:"imp"},
   ];
+  // Shop 선행지표 줄 — 분기는 dwShop 의 입력, 연간은 네 분기 합(하나라도 없으면 비움)
+  const SH=P._shop;
+  const qv=(q,m)=>{ const I=SH&&SH.inp[q]; if(!I) return null;
+    if(m==="jp") return I.jp; if(m==="cn") return I.cn;
+    const e=SH.est(q); if(m==="sm") return e?e.v:null;
+    if(m==="sr") return (e&&DW_IR[q]&&I.jpN===3&&I.cnN===3)?DW_IR[q][2]-e.v:null; return null; };
+  const iv=(o,m)=>{ if(!o.yr) return qv(o.q,m); const a=[1,2,3,4].map(k=>qv(`${o.q}Q${k}`,m)); return a.some(v=>v==null)?null:a.reduce((t,v)=>t+v,0); };
   const TGS=[...new Set(ROWS.filter(r=>r.tg).map(r=>r.tg))], OPEN=dwOpenGet();
   const nextQ=cols.findIndex(o=>!o.yr&&!o.act), firstY=qCols.length;
   const yrEdge=k=>k===firstY||(k>0&&k<firstY&&cols[k].q.slice(0,4)!==cols[k-1].q.slice(0,4));
@@ -5292,6 +5338,14 @@ function renderDwModel(){
     else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o[row.k],p[row.k]):"—"; }
     else if(row.r==="opm"||row.r==="gpm"){ const x=o[row.r]; v=x==null?"—":fmt(x*100,1)+"%"; }
     else if(row.m==="hdr"){ v=""; }
+    else if(["jp","cn","sm","sr"].includes(row.m)){ const x=iv(o,row.m), I=SH&&!o.yr?SH.inp[o.q]:null;
+      v=x==null?"—":row.m==="sr"?`<span class="${cls(x)}">${sign(x,1)}</span>`:fmt(x,1);
+      const part=I&&((row.m==="jp"&&I.jpN<3)||(row.m==="cn"&&(I.cnN<3))||(row.m==="sm"&&(I.jpN<3||I.cnN<3)));
+      if(x!=null&&part){ v+=`<sup style="color:var(--warn)">*</sup>`; tip=row.m==="cn"&&I.carry?"이 분기 수입이 아직 없어 직전 분기 값을 이음"
+        :`받은 달만큼 ×3 환산 — 일본 ${I.jpN}/3개월 · 중국 ${I.cnN}/3개월${I.carry?"(직전 분기 유지)":""}`; }
+      else if(row.m==="jp"&&I) tip=`${c2QLab(I.lq)}(${I.lq.slice(0,4)}년 ${(+I.lq.slice(-1)-1)*3+1}~${(+I.lq.slice(-1))*3}월) 일본산 완구 HS 9503 수입 → ${lab(o)} Shop 의 선행`;
+      else if(row.m==="sm"&&x!=null&&SH) tip=`(1−${SH.w}) × 일본만 ${fmt(SH.a,3)} × 일본 + ${SH.w} × (${fmt(SH.b1,3)} × 일본 + ${fmt(SH.b2,3)} × 중국)`; }
+    else if(row.m==="jpy"||row.m==="cny"){ const k=row.m==="jpy"?"jp":"cn", c=iv(o,k), p=o.yr?iv({q:String(+o.q-1),yr:1},k):qv(c2QAdd(o.q,-4),k); v=(c!=null&&p)?pct(c/p-1,0):"—"; }
     else if(row.m==="aud"){ v=o.mvAud?man(o.mvAud):"—"; }
     else if(row.m==="eps"){ v=(o.yr&&shares)?(o.npp>0?fmt0(o.npp*1e9/shares):`<span class="down">적자</span>`):"";
       if(o.yr&&shares) tip=`${lab(o)} 지배주주 순이익 ${fmt(o.npp*10,0)}억 ÷ 주식수 ${fmt0(shares)}주 (시총 ÷ 주가)`; }
@@ -5352,9 +5406,13 @@ function renderDwModel(){
       <span style="font-size:11px;color:var(--muted2)">최종 관객은 위 흥행 모델(KOBIS·3사 좌석으로 매번 다시 잡음). 객단가·부율·수수료·판권료·P&A 는 흥행 모델 입력칸에서 바꿉니다.</span></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       ${grp(`매출 — 전년 동기 대비 성장률 (자동 = ${au._L2.map(c2QLab).join("·")} ÷ ${au._L2.map(q=>c2QLab(c2QAdd(q,-4))).join("·")} · 유통 3종은 아래 근거로 정한 기본값)`,
-        gRow("라이선스(영화 제외)","gLc")+gRow("닌텐도","gN")+gRow("TCG","gT")+gRow("Shop","gS")+gRow("방송","gBc")+gRow("출판","gPb")
+        gRow("라이선스(영화 제외)","gLc")+gRow("닌텐도","gN")+gRow("TCG","gT")+gRow(P.shopImp&&SH?"Shop (수입 없는 분기만)":"Shop","gS")+gRow("방송","gBc")+gRow("출판","gPb")
+        +`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%"><span style="min-width:112px;font-size:12px;font-weight:700">Shop 추정</span>
+          ${[[1,"관세청 수입 모델"],[0,"전년비 입력"]].map(([v,t])=>`<button class="theme-btn" data-dwshop="${v}" style="padding:3px 10px;font-size:12px${(+P.shopImp===v)?";background:var(--accent);color:var(--onacc);border-color:var(--accent)":""}">${t}</button>`).join("")}
+          ${inp("shopW","중국 피규어 반영","%",10,58)}</div>`
         +`<div style="font-size:11px;color:var(--muted2);line-height:1.5;width:100%">유통 3종 근거 — 닌텐도: 하반기 ÷ 상반기 2023 0.65 · 2024 0.64배(IR), 1H26 ÷ 2H25 ${sign(au.gN,0)}% ·
-          Shop: 관세청 수입 선행 회귀 3Q 일본산 완구만 266억 ~ 일본+중국 피규어 332억(R² 0.91) → 300억 · TCG: 1Q26 전년비 +6% · 2Q26 +46%(2Q 계절 정점)</div>`)}
+          Shop: ${SH?`관세청 수입 모델(매달 자동) — 일본만 ${fmt(SH.a,2)} × 일본 완구(R² ${fmt(SH.r2A,2)}) · 일본+중국 ${fmt(SH.b1,2)}·${fmt(SH.b2,2)}(R² ${fmt(SH.r2B,2)}) · ${SH.n}분기 적합 · 수입 ${SH.last.slice(2).replace("-",".")}까지`:"수입 자료 대기"}
+          · TCG: 1Q26 전년비 +6% · 2Q26 +46%(2Q 계절 정점)</div>`)}
       ${grp(`부문 영업이익률 (자동: ${au._L4.map(c2QLab).join("·")} 합계 · 영화 제외)`, inp("mLc","라이선스(영화 제외)","%",0.5)+inp("mBc","방송","%",1)
         +inp("mPb","출판","%",0.5)+inp("adjOp","조정 영업이익 분기","십억",0.1)+inp("adjR","조정 매출(부문 합 대비)","%",0.1))}
       ${grp(`유통 이익 구조 — 공헌이익 − 고정비 (고정비 자동: ${au._L4.filter(q=>DW_IR[q]).map(c2QLab).join("·")} DART 유통 영업이익으로 역산)`,
@@ -5385,6 +5443,7 @@ function dwBind(){
     const v=parseFloat(i.value); if(!isFinite(v)) return; dwAsmGet()[i.dataset.dw]=v; dwAsmSave(); renderDwModel(); });
   sec.addEventListener("click",e=>{
     const s=e.target.closest("[data-dwscn]"); if(s){ dwAsmGet().scn=s.dataset.dwscn; dwAsmSave(); renderDwModel(); return; }
+    const sh=e.target.closest("[data-dwshop]"); if(sh){ dwAsmGet().shopImp=+sh.dataset.dwshop; dwAsmSave(); renderDwModel(); return; }
     if(e.target.closest("#dwReset")){ dwAsm={...DW_ASM0, show25:dwAsmGet().show25}; dwAsmSave(); renderDwModel(); return; }
     if(e.target.closest("#dwShow25")){ const A=dwAsmGet(); A.show25=A.show25?0:1; dwAsmSave(); renderDwModel(); return; }
     const tg=e.target.closest("[data-dwtg]"); if(tg){ const O=dwOpenGet(), k=tg.dataset.dwtg; O[k]=O[k]?0:1; dwOpenSave(); renderDwModel(); return; }

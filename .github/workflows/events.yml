@@ -208,12 +208,13 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python runstep.py "컴투스 모델" fetch_c2model.py
 
-      # 대원미디어 분기 손익 재료(DART 연결 손익 + 주석 부문정보). 새 정기보고서가 나올 때만 원문을 받는다.
+      # 대원미디어 분기 손익 재료(DART 연결 손익 + 주석 부문정보 + 관세청 일본 완구·중국 피규어 수입 = Shop 선행). 원문은 새 보고서만 받는다.
       - name: 대원미디어 손익 모델 재료
         continue-on-error: true
         timeout-minutes: 5
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: python runstep.py "대원미디어 모델" fetch_dwmodel.py
 
       # 수출입(관세청) — 10~26일에 매일 확인, fetch_trade 가 새 월/현행화 있을 때만 파일 변경.
