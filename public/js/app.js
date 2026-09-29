@@ -5111,7 +5111,6 @@ const dwActQ=()=>{ const D=(typeof DWMODEL!=="undefined")?DWMODEL:{}; return Obj
      일본+중국  Shop(십억) = b1 × 일본 완구(선행) + b2 × 중국산 플라스틱 인형(9503002130 · 피규어, 같은 분기)
    계수는 IR Shop 실적(DW_IR 2023Q1~)으로 **매번 다시 맞춘다**(절편 없음). 외부 정리(9/29)의 7.17·8.17(억) · R² 0.91 을 그대로 재현한다.
    추정 = 두 식을 shopW(중국 반영 %)로 섞는다 — 기본 50 = 중간. 중국 피규어엔 팝마트 등 대원과 무관한 수입이 섞여서다(6~8월 급증).
-   거기에 앞 2분기 '실제 ÷ 회귀값' 평균을 곱한다(회귀만 쓰면 8분기 중 7번 낮았다 — 아래 convAt).
    분기 입력은 받은 달만큼 ×3/n 로 채우고(3Q26 중국 7~8월 → ×1.5), 일본 선행 분기가 한 달도 없으면 모델 없음(→ 전년비 입력),
    중국이 한 달도 없으면 직전 분기 값을 잇는다. 관세청은 매달 15일 전후에 전월치를 낸다 → 그때마다 Shop 추정이 저절로 바뀐다. */
 function dwShop(P){
@@ -5130,12 +5129,7 @@ function dwShop(P){
   const b1=(dot(x1,y)*s22-dot(x2,y)*s12)/det, b2=(dot(x2,y)*s11-dot(x1,y)*s12)/det;
   const ym=y.reduce((t,v)=>t+v,0)/y.length, sst=y.reduce((t,v)=>t+(v-ym)**2,0), r2=f=>1-y.reduce((t,v,i)=>t+(v-f(i))**2,0)/sst;
   const w=Math.min(1,Math.max(0,(P.shopW??50)/100));
-  const mix=q=>{ const o=inp[q]; if(!o||o.jp==null) return null; const A=a*o.jp, B=o.cn!=null?b1*o.jp+b2*o.cn:A; return {A, B, v:(1-w)*A+w*B, o}; };
-  // 최근 2분기 보정(2026-09-29 사용자 "3Q·4Q 30·30 이 이해가 안 된다" → 점검에서 발견): 회귀만 쓰면 8분기 중 7번 낮게 잡혔다(평균 −2.7) —
-  //   Shop 이 수입보다 빨리 커진다(매장 확대·기기 판매 등 수입에 안 잡히는 몫). 닌텐도처럼 앞 2분기 '실제 ÷ 회귀값' 평균을 곱한다.
-  //   실전 검정 평균 오차 2.7 → 1.9 · 최근 3분기 3.5 → 2.4. 실적 분기는 그 분기 앞 2분기 보정으로 낸 '그때 예측'.
-  const convAt=q=>{ const pr=fitQ.filter(x=>x<q).slice(-2); if(pr.length<2) return null; const rs=pr.map(x=>DW_IR[x][2]/mix(x).v); return {v:(rs[0]+rs[1])/2, qs:pr}; };
-  const est=q=>{ const m=mix(q); if(!m) return null; const c=convAt(q); return {...m, v0:m.v, v:m.v*(c?c.v:1), c}; };
+  const est=q=>{ const o=inp[q]; if(!o||o.jp==null) return null; const A=a*o.jp, B=o.cn!=null?b1*o.jp+b2*o.cn:A; return {A, B, v:(1-w)*A+w*B, o}; };
   return {a, b1, b2, r2A:r2(i=>a*x1[i]), r2B:r2(i=>b1*x1[i]+b2*x2[i]), n:fitQ.length, fitQ, inp, est, w, last:Object.keys(J).sort().pop()};
 }
 /* 닌텐도 수입 선행 모델 (2026-09-29 사용자 "닌텐도도 수입으로 — 최근 분기가 잘 맞게") — DWMODEL.imp.nsHw·nsSw($M)
@@ -5247,7 +5241,7 @@ function dwBuild(P, mv){
         n:nm?`수입 모델 — 물량 $${fmt(nm.o.x,1)}M(본체 ${nm.o.hm[0].slice(2).replace("-",".")}~${+nm.o.hm[5].slice(5)}월 $${fmt(nm.o.hw,1)}M${nm.o.hwN<6?` · ${nm.o.hwN}/6개월 환산`:""} + 게임카드 $${fmt(nm.o.sw,1)}M${nm.o.carry?" · 직전 분기 유지":nm.o.swN<3?` · ${nm.o.swN}/3개월 환산`:""}) × 전환율 ${fmt(nm.c.v*10,2)}억/$M(${nm.c.qs.map(c2QLab).join("·")} 평균) = ${fmt(nm.v0,1)}${nm.adj?` − 선판매 되돌림 ${fmt(-nm.adj,1)}(${c2QLab(nm.la)} 초과 ${sign(nm.lres,1)} × ${P.ninRho}%)`:""} = ${fmt(nm.v,1)} (전년비 ${sign((nm.v/b.n-1)*100,0)}%)`
           :`전년 동기(${bq}) ${fmt(b.n,1)} × (1${pc("gN")})${P.ninImp?" — 본체 수입이 6개월 중 3개월 미만이라 전년비 입력":""}`,
         t:`전년 동기(${bq}) ${fmt(b.t,1)} × (1${pc("gT")})`,
-        s:sm?`수입 모델 — 일본 완구 ${c2QLab(sm.o.lq)} $${fmt(sm.o.jp,1)}M${sm.o.jpN<3?`(${sm.o.jpN}개월 ×3/${sm.o.jpN})`:""} → 일본만 ${fmt(sm.A,1)} · 중국 피규어 $${fmt(sm.o.cn,1)}M${sm.o.carry?"(직전 분기 유지)":sm.o.cnN<3?`(${sm.o.cnN}개월 ×3/${sm.o.cnN})`:""} → 일본+중국 ${fmt(sm.B,1)} · 중국 반영 ${P.shopW}% → ${fmt(sm.v0,1)}${sm.c?` × 최근 2분기 보정 ${fmt(sm.c.v,2)}(${sm.c.qs.map(c2QLab).join("·")} 실제 ÷ 회귀)`:""} = ${fmt(sm.v,1)} (전년비 ${sign((sm.v/b.s-1)*100,0)}%)`
+        s:sm?`수입 모델 — 일본 완구 ${c2QLab(sm.o.lq)} $${fmt(sm.o.jp,1)}M${sm.o.jpN<3?`(${sm.o.jpN}개월 ×3/${sm.o.jpN})`:""} → 일본만 ${fmt(sm.A,1)} · 중국 피규어 $${fmt(sm.o.cn,1)}M${sm.o.carry?"(직전 분기 유지)":sm.o.cnN<3?`(${sm.o.cnN}개월 ×3/${sm.o.cnN})`:""} → 일본+중국 ${fmt(sm.B,1)} · 중국 반영 ${P.shopW}% → ${fmt(sm.v,1)} (전년비 ${sign((sm.v/b.s-1)*100,0)}%)`
           :`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})${P.shopImp?" — 선행 분기 수입이 아직 없어 전년비 입력":""}`,
         bc:`전년 동기(${bq}) ${fmt(b.bc,1)} × (1${pc("gBc")})`, pb:`전년 동기(${bq}) ${fmt(b.pb,1)} × (1${pc("gPb")})`,
         dsO:`전년 동기(${bq}) 그대로`, adj:`부문 합(영화 제외) × ${P.adjR}%`,
@@ -5396,7 +5390,7 @@ function renderDwModel(){
       if(x!=null&&part){ v+=`<sup style="color:var(--warn)">*</sup>`; tip=row.m==="cn"&&I.carry?"이 분기 수입이 아직 없어 직전 분기 값을 이음"
         :`받은 달만큼 ×3 환산 — 일본 ${I.jpN}/3개월 · 중국 ${I.cnN}/3개월${I.carry?"(직전 분기 유지)":""}`; }
       else if(row.m==="jp"&&I) tip=`${c2QLab(I.lq)}(${I.lq.slice(0,4)}년 ${(+I.lq.slice(-1)-1)*3+1}~${(+I.lq.slice(-1))*3}월) 일본산 완구 HS 9503 수입 → ${lab(o)} Shop 의 선행`;
-      else if(row.m==="sm"&&x!=null&&SH&&!o.yr&&SH.est(o.q)){ const e=SH.est(o.q); tip=`[(1−${SH.w}) × 일본만 ${fmt(SH.a,3)} × 일본 + ${SH.w} × (${fmt(SH.b1,3)} × 일본 + ${fmt(SH.b2,3)} × 중국)] = ${fmt(e.v0,1)}${e.c?` × 앞 2분기 보정 ${fmt(e.c.v,2)}(${e.c.qs.map(c2QLab).join("·")})`:""}`; } }
+      else if(row.m==="sm"&&x!=null&&SH) tip=`(1−${SH.w}) × 일본만 ${fmt(SH.a,3)} × 일본 + ${SH.w} × (${fmt(SH.b1,3)} × 일본 + ${fmt(SH.b2,3)} × 중국)`; }
     else if(["nh","ns","nr","nm","nres"].includes(row.m)){ const I=nq(o);
       if(o.yr&&row.m==="ns"&&NN){ const a=[1,2,3,4].map(k=>(NN.inp[`${o.q}Q${k}`]||{}).sw); v=a.some(x=>x==null)?"—":fmt(a.reduce((t,x)=>t+x,0),1); }
       else if(!I) v="—";
