@@ -5070,9 +5070,12 @@ function renderBoxModel(BO, FL, star){
         TCG 2H26 +10% — 2Q 가 해마다 정점이고 2Q26(+46%)은 그중에도 이례적 → 1Q26 전년비(+6%)에 가깝게.
         2027 = 입력(기본 라이선스 +3 · 닌텐도 0 · TCG·Shop +5 · 방송 0 · 출판 +3 %).
      부문 영업이익 = 매출 × 최근 4분기 부문 영업이익률(자동, 영화 제외) + 치이카와 기여.
-       **유통만 품목 이익 구조** — 닌텐도 5%(신한 '수익성 약 5%') · TCG 25%(신한 '20%대') · Shop 22%(외부 정리) 공헌이익 − 고정비(최근 4분기 DART
+       **유통만 품목 이익 구조** — 닌텐도 5%(신한 '수익성 약 5%') · TCG 25%(신한 '20%대') · Shop 19%(DART 역산 — 아래) 공헌이익 − 고정비(최근 4분기 DART
        유통 영업이익으로 역산, 분기 약 6). 평균 이익률(4.1%)보다 최근 4분기 적합이 낫고(평균 오차 0.6 vs 1.4), 1H26 유통 증분이익률 8.8% 처럼
        Shop·TCG 가 크면 이익이 더 붙는 구조가 산다.
+       Shop 19% = 닌텐도 5·TCG 25 로 두고 최근 6분기 DART 유통 영업이익을 맞춘 역산(고정비 분기 5.1 · 닌텐도 3~7%·TCG 20~30% 로 흔들면 16~24%).
+       처음 22%(외부 정리 가정)는 범위의 높은 쪽이었다(2026-09-29 교체). 고정비를 최근 실적으로 다시 맞추므로 이 값을 바꿔도 연간 영업이익은
+       ±1 안쪽으로만 움직인다(15% → 2026E 23.2 · 22% → 24.3). ⚠ 1H26 매장 확대로 지급임차료가 1.6 → 3.6십억 — 새 매장은 고정비를 같이 늘린다.
      판관비 = 최근 2분기 평균 × 연 +3% + 치이카와 P&A → 매출원가 = 매출 − 영업이익 − 판관비(역산)
      영업외 = 최근 4분기 평균 · 세율 = 최근 4분기 법인세 ÷ 세전 · 비지배 = 최근 4분기 비지배 ÷ 순이익(영화 이익엔 안 매김)
    ⚠ IR 부문(리포트의 라이선스·방송)과 DART 부문은 경계가 다르다 — IR '방송' 분기 7~8 = DART 방송 3~4 + 라이선스/콘텐츠 일부.
@@ -5089,11 +5092,11 @@ const DW_ASM0={scn:"기준",
   gLc:null, gN:0, gT:10, gS:70, gBc:null, gPb:null,                  // 2H26 성장률(전년 동기 대비 %) — null = 자동, 유통 3종은 근거 기본값(머리말)
   gLc7:3, gN7:0, gT7:5, gS7:5, gBc7:0, gPb7:3,                       // 2027
   mLc:null, mBc:null, mPb:null, adjOp:null, adjR:null,               // 부문 영업이익률(%) · 조정 영업이익(분기) · 조정 매출(부문 합 대비 %)
-  cN:5, cT:25, cS:22, dsF:null,                                      // 유통 공헌이익률(닌텐도·기타 / TCG / Shop %) · 고정비(분기, null = 최근 4분기 역산)
+  cN:5, cT:25, cS:19, dsF:null,                                      // 유통 공헌이익률(닌텐도·기타 / TCG / Shop %) · 고정비(분기, null = 최근 4분기 역산)
   shopImp:1, shopW:50,                                               // Shop = 관세청 수입 모델(1) / 전년비 입력(0) · 중국 피규어 반영 %(0 = 일본만, 100 = 일본+중국)
   ninImp:1, ninRho:25,                                               // 닌텐도 = 관세청 수입 모델(1) / 전년비 입력(0) · 선판매 되돌림 %
   sga:null, gSga:3, nonop:null, tax:null, minor:null, show25:0};
-const DW_V=4;                                                        // 기본값을 바꿀 때 올린다(옛 저장 버림)
+const DW_V=5;                                                        // 기본값을 바꿀 때 올린다(옛 저장 버림)
 let dwAsm=null, dwOpen=null;
 function dwAsmGet(){ if(dwAsm) return dwAsm; let s={}; try{ s=JSON.parse(localStorage.getItem("dwAsm")||"{}")||{}; }catch(e){}
   if(s._v!==DW_V) s={}; delete s._v; dwAsm={...DW_ASM0,...s}; return dwAsm; }
@@ -5225,10 +5228,18 @@ function dwBuild(P, mv){
       const yr=y<=2026?"":"7", g=k=>1+P[k+yr]/100;
       const n=(y*4+ +q.slice(-1))-(+last.slice(0,4)*4+ +last.slice(-1));
       o.lcEx=b.lcEx*g("gLc"); o.t=b.t*g("gT"); o.bc=b.bc*g("gBc"); o.pb=b.pb*g("gPb"); o.dsO=b.dsO;
-      const nm=(P.ninImp&&P._nin)?P._nin.est(q):null;              // 닌텐도 = 관세청 수입 모델(물량 × 최근 2분기 전환율) · 없으면 전년비
-      o.n=nm?nm.v:b.n*g("gN"); o.nm=nm;
-      const sm=(P.shopImp&&P._shop)?P._shop.est(q):null;           // Shop = 관세청 수입 모델(선행 분기 수입이 있으면) · 없으면 전년비
-      o.s=sm?sm.v:b.s*g("gS"); o.sm=sm;
+      // 수입 모델은 입력이 충분할 때만(닌텐도: 본체 5/6개월·게임카드 2/3개월 이상 · Shop: 일본 완구 3/3·중국 피규어 2/3 이상).
+      //   모자란 분기(9/29 기준 4Q26)는 3Q 와 같은 방식으로 세우지 않는다(사용자 2026-09-29 "3Q·4Q 를 같은 방식으로 추정하는 건 말이 안 된다") —
+      //   직전 분기 추정 × 작년 같은 분기쌍의 계절 비율(4Q26 = 3Q26E × 4Q25/3Q25). 다른 줄(전년 동기 × 성장률)과 같은 계절 모양이 된다.
+      //   2026 분기에만 쓴다(2027 은 전년비 입력). 수입이 차면(11~12월) 저절로 수입 모델로 넘어간다.
+      const lyR=(i,q)=>{ const a=DW_IR[c2QAdd(q,-4)], c=DW_IR[c2QAdd(q,-5)]; return (a&&c&&c[i])?{r:a[i]/c[i], a:a[i], c:c[i], qa:c2QAdd(q,-4), qc:c2QAdd(q,-5)}:null; };
+      const seas=(i,k)=>{ const pr=Q[c2QAdd(q,-1)], r=lyR(i,q); return (y<=2026&&pr&&!pr.lite&&r)?{v:pr[k]*r.r, pv:pr[k], pq:pr.q, pAct:pr.act, ...r}:null; };
+      const nm0=(P.ninImp&&P._nin)?P._nin.est(q):null, nmOk=!!(nm0&&nm0.o.hwN>=5&&nm0.o.swN>=2);
+      const nm=nmOk?nm0:null, nS=(P.ninImp&&P._nin&&!nmOk)?seas(0,"n"):null;
+      o.n=nm?nm.v:nS?nS.v:b.n*g("gN"); o.nm=nm;
+      const sm0=(P.shopImp&&P._shop)?P._shop.est(q):null, smOk=!!(sm0&&sm0.o.jpN===3&&sm0.o.cnN>=2);
+      const sm=smOk?sm0:null, sS=(P.shopImp&&P._shop&&!smOk)?seas(2,"s"):null;
+      o.s=sm?sm.v:sS?sS.v:b.s*g("gS"); o.sm=sm;
       o.lc=o.lcEx+o.mv; o.ds=o.n+o.t+o.s+o.dsO; o.adj=P.adjR/100*(o.lcEx+o.ds+o.bc+o.pb);
       o.rev=o.lc+o.ds+o.bc+o.pb+o.adj;
       o.lcExOp=o.lcEx*P.mLc/100; o.lcOp=o.lcExOp+o.mvOp; o.dsF=P.dsF*Math.pow(1+P.gSga/100,n/4); o.dsOp=((o.n+o.dsO)*P.cN+o.t*P.cT+o.s*P.cS)/100-o.dsF; o.bcOp=o.bc*P.mBc/100; o.pbOp=o.pb*P.mPb/100; o.adjOp=P.adjOp;
@@ -5239,10 +5250,12 @@ function dwBuild(P, mv){
       const pc=k=>`${P[k+yr]>=0?"+":""}${fmt(P[k+yr],1)}%`, bq=c2QLab(b.q)+(b.act?"":"E");
       o.why={lcEx:`전년 동기(${bq}) ${fmt(b.lcEx,1)} × (1${pc("gLc")})`,
         n:nm?`수입 모델 — 물량 $${fmt(nm.o.x,1)}M(본체 ${nm.o.hm[0].slice(2).replace("-",".")}~${+nm.o.hm[5].slice(5)}월 $${fmt(nm.o.hw,1)}M${nm.o.hwN<6?` · ${nm.o.hwN}/6개월 환산`:""} + 게임카드 $${fmt(nm.o.sw,1)}M${nm.o.carry?" · 직전 분기 유지":nm.o.swN<3?` · ${nm.o.swN}/3개월 환산`:""}) × 전환율 ${fmt(nm.c.v*10,2)}억/$M(${nm.c.qs.map(c2QLab).join("·")} 평균) = ${fmt(nm.v0,1)}${nm.adj?` − 선판매 되돌림 ${fmt(-nm.adj,1)}(${c2QLab(nm.la)} 초과 ${sign(nm.lres,1)} × ${P.ninRho}%)`:""} = ${fmt(nm.v,1)} (전년비 ${sign((nm.v/b.n-1)*100,0)}%)`
-          :`전년 동기(${bq}) ${fmt(b.n,1)} × (1${pc("gN")})${P.ninImp?" — 본체 수입이 6개월 중 3개월 미만이라 전년비 입력":""}`,
+          :nS?`${c2QLab(nS.pq)}${nS.pAct?"":"E"} ${fmt(nS.pv,1)} × 작년 계절 ${fmt(nS.r,2)}(${c2QLab(nS.qa)} ${fmt(nS.a,1)} ÷ ${c2QLab(nS.qc)} ${fmt(nS.c,1)}) = ${fmt(nS.v,1)} (전년비 ${sign((nS.v/b.n-1)*100,0)}%) — 이 분기 수입이 아직 모자라(본체 ${nm0?nm0.o.hwN:0}/6 · 게임카드 ${nm0?nm0.o.swN:0}/3개월) 수입 모델 대신. 차면 자동 전환`
+          :`전년 동기(${bq}) ${fmt(b.n,1)} × (1${pc("gN")})${P.ninImp?" — 수입이 모자라 전년비 입력":""}`,
         t:`전년 동기(${bq}) ${fmt(b.t,1)} × (1${pc("gT")})`,
         s:sm?`수입 모델 — 일본 완구 ${c2QLab(sm.o.lq)} $${fmt(sm.o.jp,1)}M${sm.o.jpN<3?`(${sm.o.jpN}개월 ×3/${sm.o.jpN})`:""} → 일본만 ${fmt(sm.A,1)} · 중국 피규어 $${fmt(sm.o.cn,1)}M${sm.o.carry?"(직전 분기 유지)":sm.o.cnN<3?`(${sm.o.cnN}개월 ×3/${sm.o.cnN})`:""} → 일본+중국 ${fmt(sm.B,1)} · 중국 반영 ${P.shopW}% → ${fmt(sm.v,1)} (전년비 ${sign((sm.v/b.s-1)*100,0)}%)`
-          :`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})${P.shopImp?" — 선행 분기 수입이 아직 없어 전년비 입력":""}`,
+          :sS?`${c2QLab(sS.pq)}${sS.pAct?"":"E"} ${fmt(sS.pv,1)} × 작년 계절 ${fmt(sS.r,2)}(${c2QLab(sS.qa)} ${fmt(sS.a,1)} ÷ ${c2QLab(sS.qc)} ${fmt(sS.c,1)}) = ${fmt(sS.v,1)} (전년비 ${sign((sS.v/b.s-1)*100,0)}%) — 이 분기 수입이 아직 모자라(일본 완구 ${sm0?sm0.o.jpN:0}/3 · 중국 피규어 ${sm0?sm0.o.cnN:0}/3개월) 수입 모델 대신. 차면 자동 전환`
+          :`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})${P.shopImp?" — 수입이 모자라 전년비 입력":""}`,
         bc:`전년 동기(${bq}) ${fmt(b.bc,1)} × (1${pc("gBc")})`, pb:`전년 동기(${bq}) ${fmt(b.pb,1)} × (1${pc("gPb")})`,
         dsO:`전년 동기(${bq}) 그대로`, adj:`부문 합(영화 제외) × ${P.adjR}%`,
         lcExOp:`영화 제외 매출 ${fmt(o.lcEx,1)} × ${P.mLc}%`, dsOp:`닌텐도·기타 ${fmt(o.n+o.dsO,1)}×${P.cN}% + TCG ${fmt(o.t,1)}×${P.cT}% + Shop ${fmt(o.s,1)}×${P.cS}% − 고정비 ${fmt(o.dsF,1)} (영업이익률 ${fmt(o.dsOp/o.ds*100,1)}%)`, bcOp:`방송 ${fmt(o.bc,1)} × ${P.mBc}%`,
