@@ -87,9 +87,9 @@ def _num(s):
         return None
 
 
-def _pick(rows, key):
+def _pick(rows, key, acc=None):
     """손익(IS·CIS)에서 계정 하나. 같은 계정이 두 번 나오면 첫 줄(손익 본문)."""
-    ids, nms = ACC[key]
+    ids, nms = (acc or ACC)[key]
     for r in rows:
         if r.get("sj_div") not in ("IS", "CIS"):
             continue
@@ -98,9 +98,9 @@ def _pick(rows, key):
     return None
 
 
-def _fs(y, rc, fs_div):
+def _fs(y, rc, fs_div, corp=None):
     u = (f"https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json?crtfc_key={DART_KEY}"
-         f"&corp_code={CORP}&bsns_year={y}&reprt_code={rc}&fs_div={fs_div}")
+         f"&corp_code={corp or CORP}&bsns_year={y}&reprt_code={rc}&fs_div={fs_div}")
     try:
         d = json.loads(urllib.request.urlopen(u, timeout=25).read().decode())
     except Exception:
@@ -108,23 +108,25 @@ def _fs(y, rc, fs_div):
     return d["list"] if d.get("status") == "000" else None
 
 
-def dart_quarters(fs_div="CFS", y0=2019):
+def dart_quarters(fs_div="CFS", y0=2019, corp=None, acc=None):
     """분기 손익(십억) — 전체 재무제표 API(fnlttSinglAcntAll).
        1Q·반기·3Q 보고서의 thstrm_amount 는 그 분기 3개월, 사업보고서는 연간이라 4Q = 연간 − 3Q누적.
        **다음 해 보고서의 비교치(재작성)를 우선한다** — 2023 은 엔피 중단영업 재분류로 매출이
        1Q 192.7→182.8 처럼 바뀌었는데, 원래 값을 쓰면 연간(재작성)과 분기 합이 안 맞는다.
+       corp·acc 를 주면 다른 회사·계정으로 쓴다(fetch_dwmodel.py 가 대원미디어로 부른다).
        반환: {"2026Q2": {"rev":..,"opex":..,"op":..,"pbt":..,"np":..,"npp":..}, ...}"""
+    acc = acc or ACC
     y1 = datetime.datetime.now(KST).year
     raw = {}                                    # (y, q) -> rows
     for y in range(y0, y1 + 1):
         for rc, q in REPORTS:
-            rows = _fs(y, rc, fs_div)
+            rows = _fs(y, rc, fs_div, corp)
             if rows:
                 raw[(y, q)] = rows
     orig, rest = {}, {}
     for (y, q), rows in raw.items():
-        for key in ACC:
-            r = _pick(rows, key)
+        for key in acc:
+            r = _pick(rows, key, acc)
             if not r:
                 continue
             if q < 4:
@@ -134,7 +136,7 @@ def dart_quarters(fs_div="CFS", y0=2019):
                 if pv is not None:                        # 전년 같은 분기(재작성)
                     rest.setdefault(f"{y-1}Q{q}", {})[key] = pv
             else:
-                r3 = _pick(raw.get((y, 3), []), key)
+                r3 = _pick(raw.get((y, 3), []), key, acc)
                 if r3:
                     yr, c9 = _num(r.get("thstrm_amount")), _num(r3.get("thstrm_add_amount"))
                     if yr is not None and c9 is not None:

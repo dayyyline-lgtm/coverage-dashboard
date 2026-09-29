@@ -4496,7 +4496,7 @@ function boxFilms(){
 const boxD=(s,o)=>Math.round((new Date(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8))-new Date(o+"T00:00:00"))/864e5);
 function boxLine(el, series, o){
   const W=el.clientWidth||900, H=300, P={l:58,r:104,t:14,b:30};
-  const pts=series.flatMap(s=>s.pts);
+  const pts=series.flatMap(s=>[...s.pts, ...(s.band?[...s.band.lo,...s.band.hi]:[])]);   // 음영(보수~낙관)도 눈금에 넣는다
   if(!pts.length){ el.innerHTML=`<p class="note" style="padding:40px 0;text-align:center">${o.empty||"아직 값이 없습니다"}</p>`; return; }
   const x0=o.x0!=null?o.x0:Math.min(...pts.map(p=>p.x)), x1=o.x1!=null?o.x1:Math.max(...pts.map(p=>p.x));
   const vis=pts.filter(p=>p.x>=x0&&p.x<=x1), vy=vis.map(p=>p.y), ymax=(Math.max(...vy,0)||1)*(o.fit?1.03:1.08);
@@ -4515,13 +4515,19 @@ function boxLine(el, series, o){
     s+=`<text x="${sx(x)}" y="${H-P.b+16}" text-anchor="middle" font-size="10" fill="${mut}">${o.xFmt(x)}</text>`; }
   if(o.zero && x0<=0 && x1>=0) s+=`<line x1="${sx(0)}" y1="${P.t}" x2="${sx(0)}" y2="${H-P.b}" stroke="${mut}" stroke-dasharray="3 3"/>`
     +`<text x="${sx(0)+4}" y="${P.t+10}" font-size="10" fill="${mut}">개봉</text>`;
-  const ends=[];
+  const ends=[], inR=a=>a.filter(p=>p.x>=x0&&p.x<=x1).sort((a,b)=>a.x-b.x);
+  // 예상 음영(보수~낙관) — 선보다 먼저 깐다
+  series.filter(se=>se.band).forEach(se=>{ const lo=inR(se.band.lo), hi=inR(se.band.hi); if(lo.length<2||hi.length<2) return;
+    s+=`<polygon points="${[...hi, ...lo.slice().reverse()].map(p=>`${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="${se.color}" fill-opacity=".14" stroke="none"/>`; });
   series.forEach(se=>{
-    const q=se.pts.filter(p=>p.x>=x0&&p.x<=x1).sort((a,b)=>a.x-b.x); if(!q.length) return;
-    const w=se.star?2.8:1.8;
-    if(q.length>1) s+=`<polyline points="${q.map(p=>`${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.color}" stroke-width="${w}" stroke-linejoin="round"${se.ref?' stroke-dasharray="5 3"':""}/>`;
-    q.forEach(p=>{ s+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${q.length>1?2.2:3.5}" fill="${se.color}"><title>${se.name} · ${p.lab} · ${o.tip(p.y)}</title></circle>`; });
-    const l=q[q.length-1]; ends.push({y:sy(l.y), t:`${se.name} ${o.tip(l.y)}`, c:se.color});
+    const q=inR(se.pts); if(!q.length) return;
+    if(se.floor){   // 3사 예매 확보분 — 빈 원(하한)
+      q.forEach(p=>{ s+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="3.6" fill="var(--panel)" stroke="${se.color}" stroke-width="1.6"><title>${se.name} · ${p.lab} · ${o.tip(p.y)}</title></circle>`; });
+      return; }
+    const w=se.star?2.8:se.proj?2.2:1.8;
+    if(q.length>1) s+=`<polyline points="${q.map(p=>`${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.color}" stroke-width="${w}" stroke-linejoin="round"${se.proj?' stroke-dasharray="7 4"':se.ref?' stroke-dasharray="5 3"':""}/>`;
+    q.forEach(p=>{ s+=`<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${se.proj?1.8:q.length>1?2.2:3.5}" fill="${se.color}"${se.proj?' fill-opacity=".55"':""}><title>${se.name} · ${p.lab} · ${o.tip(p.y)}</title></circle>`; });
+    const l=q[q.length-1]; ends.push({y:sy(l.y), t:se.endLab?se.endLab(l.y):`${se.name} ${o.tip(l.y)}`, c:se.color});
   });
   ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;   // 끝 라벨 겹침 풀기
   ends.forEach(e=>{ s+=`<text x="${W-P.r+6}" y="${e.y+3}" font-size="10.5" font-weight="700" fill="${e.c}">${e.t}</text>`; });
@@ -4536,12 +4542,35 @@ function drawBoxChart(){
   const ser=fn=>F.map(x=>({name:x.short, color:x.color, ref:x.ref, star:!!(x.f&&x.f.stock==="대원미디어"), pts:fn(x)}));
   const note=document.getElementById("boxChartNote");
   if(boxMetric==="cum"||boxMetric==="daily"){
-    const k=boxMetric==="cum"?"acc":"audi";
-    boxLine(el, ser(x=>x.days.map(p=>({x:boxD(p.d,x.open), y:p[k], lab:`${dfmt(boxD(p.d,x.open))}(${+p.d.slice(4,6)}/${+p.d.slice(6,8)})`}))),
-      {x0:-7, x1:early?14:null, zero:true, xFmt:dfmt, yFmt:v=>nAbbr(v), tip:cnt});
+    const k=boxMetric==="cum"?"acc":"audi", cumM=boxMetric==="cum";
+    const S=ser(x=>x.days.map(p=>({x:boxD(p.d,x.open), y:p[k], lab:`${dfmt(boxD(p.d,x.open))}(${+p.d.slice(4,6)}/${+p.d.slice(6,8)})`})));
+    // 예상 관객 점선 — 흥행 모델의 기준 경로 + 보수~낙관 음영 + 3사 예매 확보분(빈 원). 치이카와를 켜 둔 때만.
+    const me=F.find(x=>x.f&&x.f.stock==="대원미디어"), PJ=me?boxProj(boxM):null;
+    if(PJ&&PJ.mid){
+      const X=k=>k-1, H=early?14:60, md=d=>`${+d.slice(4,6)}/${+d.slice(6,8)}`;
+      const lab=p=>{ const d=PJ.dOf(p.k).s; return `${dfmt(X(p.k))}(${md(d)}${KR_REST.has(d)?" 휴일":""}) 예상${p.est?" · 개봉일 = 3사 판매석 기반 추정":""}`; };
+      const conv=a=>(a||[]).filter(p=>X(p.k)<=H).map(p=>({x:X(p.k), y:cumM?p.cum:p.daily, lab:lab(p)}));
+      const lastA=me.days[me.days.length-1];
+      const st=cumM&&lastA?[{x:boxD(lastA.d,me.open), y:lastA.acc, lab:"마지막 확정"}]:[];
+      // 음영 — 누적은 보수·낙관 경로 그대로, 일별은 기준 경로를 (보수·낙관 − 기준일 누적) ÷ (기준 − 기준일 누적) 비율로 늘리고 줄인다
+      //   (누적 분위수를 날마다 빼면 보수·낙관의 순서가 날마다 뒤집혀 음영이 들쭉날쭉해진다)
+      const a0=PJ.mid[0]?PJ.mid[0].cum-PJ.mid[0].daily:0, fm=PJ.mid[PJ.mid.length-1].cum-a0;
+      const scl=nm=>{ const a=PJ[nm]; if(!a||!a.length||fm<=0) return []; const r=(a[a.length-1].cum-a0)/fm;
+        return conv(PJ.mid.map(p=>({...p, daily:p.daily*r}))); };
+      S.push({name:`${me.short} 예상`, color:me.color, proj:true, endLab:v=>`예상 ${nAbbr(Math.round(v))}`, pts:[...st, ...conv(PJ.mid)],
+        band:cumM?{lo:[...st,...conv(PJ.lo)], hi:[...st,...conv(PJ.hi)]}:{lo:scl("lo"), hi:scl("hi")}});
+      if(!cumM&&PJ.floor.length) S.push({name:"3사 예매 확보", color:me.color, floor:true,
+        pts:PJ.floor.map(f=>({x:boxD(f.d,me.open), y:f.v, lab:`${md(f.d)} 상영분 ${fmt0(f.sold)}석 판매(${f.t.slice(5)} · ${f.ch>=3?"3사 → 전국 ÷0.89":f.ch+"개 체인만 열림 · 그대로"})`})).filter(p=>p.x<=H)});
+    }
+    boxLine(el, S, {x0:-7, x1:early?14:null, zero:true, xFmt:dfmt, yFmt:v=>nAbbr(v), tip:cnt});
+    const fin=boxM&&boxM.sc&&boxM.sc.mid!=null?boxM.sc:null, man=v=>(v/1e4).toFixed(v>=1e6?0:1)+"만";
     note.innerHTML=`가로축 = 개봉 N일차(개봉 전 날짜는 유료 시사·전야 상영). `
-      +(boxMetric==="cum"?"누적 관객 — KOBIS 누적은 시사 관객을 포함합니다.":"일별 관객 — 주말·연휴(9/24~26 추석)에 튑니다.")
-      +` 점선 = 하츄핑 보관 기록(Top10 에 든 날만). 칩을 눌러 영화를 켜고 끕니다 — 오디세이를 끄면 나머지 규모가 잘 보입니다.`;
+      +(cumM?"누적 관객 — KOBIS 누적은 시사 관객을 포함합니다.":"일별 관객 — 주말·연휴(9/24~26 추석)에 튑니다.")
+      +(PJ&&PJ.mid&&fin?` <b>굵은 점선 = ${me.short} 예상</b>(위 흥행 모델의 기준 경로 · 음영 = 보수~낙관 · 최종 ${man(fin.lo)}~<b>${man(fin.mid)}</b>~${man(fin.hi)}) —
+        10일차까지는 비교작 누적 곡선의 모양(${boxM.use.length}편 중 ${boxM.use.filter(c=>new Date(c.open+"T00:00:00").getDay()===3).length}편이 같은 수요일 개봉이라 주말이 4·5일차),
+        평일 공휴일(10/5·10/9)은 휴일 배수로 올렸고(판정표의 '점선 누적' 열이 이 선의 값), 그 뒤는 남은 관객을 기하급수로 나눴습니다${cumM?"":". <b>빈 원 = 3사에서 이미 팔린 좌석</b>(전국 환산 · 예상이 이보다 낮아지지 않게 함)"}.
+        개봉 전엔 개봉일 관객이 3사 판매석 기반 추정이라 KOBIS 확정치가 들어오는 대로 다시 그려집니다.`:"")
+      +` 가는 점선 = 하츄핑 보관 기록(Top10 에 든 날만). 칩을 눌러 영화를 켜고 끕니다 — 오디세이를 끄면 나머지 규모가 잘 보입니다.`;
   } else if(boxMetric==="share"){
     const base="2026-08-01", days=Object.keys(mk).sort(), last=days[days.length-1]||"20260801";
     const xi=d=>boxD(d,base);
@@ -4621,13 +4650,14 @@ function boxAsmGet(){ if(boxAsm) return boxAsm; let s={};
 function boxAsmSave(){ const d={v:2}; Object.keys(BOX_ASM0).forEach(k=>{ if(boxAsm[k]!==BOX_ASM0[k]) d[k]=boxAsm[k]; });
   try{ localStorage.setItem("boxAsm",JSON.stringify(d)); }catch(e){} }
 const KR_REST=new Set(["20261003","20261005","20261009","20261225"]);     // 개천절·대체공휴일·한글날·성탄절
+const BOX_JN=[1,3,6,7,10];                                                // 초기 데이터 판정표의 확인 시점(개봉 N일차) — 점선 경로도 이 날 판정표와 같게 맞춘다
 const boxRest=d=>{ const w=new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)).getDay(); return w===0||w===6||KR_REST.has(d); };
 const qtl=(a,q)=>{ const s=a.filter(v=>v!=null&&isFinite(v)).sort((x,y)=>x-y); if(!s.length) return null;
   const i=(s.length-1)*q, lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); };
-function renderBoxModel(BO, FL, star){
-  const el=document.getElementById("boxModel"); if(!el) return;
+/* 흥행 모델 계산 — 표(renderBoxModel)·차트 점선(boxProj)·대원미디어 분기 손익(renderDwModel)이 같은 값을 쓴다 */
+function boxCalc(BO, FL, star){
   const me=FL.find(star), C=BO.comps||[];
-  if(!me||C.length<5){ el.innerHTML=`<p class="note">비교작 자료 대기 중(fetch_boxoffice.py --comps)</p>`; return; }
+  if(!me||C.length<5) return null;
   const A=boxAsmGet(), ok=me.open.replace(/-/g,""), md=s=>`${+s.slice(4,6)}/${+s.slice(6,8)}`;
   const post=me.days.filter(p=>p.d>=ok).sort((a,b)=>a.d.localeCompare(b.d));
   const preAcc=(me.days.filter(p=>p.d<ok).slice(-1)[0]||{}).acc||0;
@@ -4663,14 +4693,15 @@ function renderBoxModel(BO, FL, star){
   const boomRows=rows.filter(r=>!r.front&&r.m);
   const boomSc=(boomRows.length&&accN)?{lo:qtl(boomRows.map(r=>r.imp),.25), hi:qtl(boomRows.map(r=>r.imp),.75)}:null;
   const sc={lo:qtl(use.map(r=>r.imp),.25), mid:qtl(use.map(r=>r.imp),.5), hi:qtl(use.map(r=>r.imp),.75)};
-  // 14일차부터 자기 감쇠
+  // 14일차부터 자기 감쇠 — 14→21일차에 걸쳐 비교작 기준(10일차 누적 × 배수)에서 서서히 넘어간다(w = 자체 감쇠 비중).
+  //   한 번에 갈아타면 실적이 점선대로 가도 최종이 하루 만에 수십 % 튄다(2026-09-29 점검에서 발견 — 비교작 배수와 주간 유지율은 다른 가정이다).
   let decay=null;
   if(N>=14){
     const a=post.slice(-7).reduce((s,p)=>s+p.audi,0), b=post.slice(-14,-7).reduce((s,p)=>s+p.audi,0);
     const r=Math.min(0.9,Math.max(0.1,b?a/b:0.5)), acc=post[N-1].acc;
-    const fin=r2=>acc+a*r2/(1-r2);
-    decay={r, a, b, mid:fin(r), lo:fin(Math.max(0.1,r-0.1)), hi:fin(Math.min(0.9,r+0.1))};
-    sc.lo=decay.lo; sc.mid=decay.mid; sc.hi=decay.hi;
+    const fin=r2=>acc+a*r2/(1-r2), w=Math.min(1,(N-13)/8);
+    decay={r, a, b, w, mid:fin(r), lo:fin(Math.max(0.1,r-0.1)), hi:fin(Math.min(0.9,r+0.1))};
+    ["lo","mid","hi"].forEach(k=>{ sc[k]=sc[k]==null?decay[k]:w*decay[k]+(1-w)*sc[k]; });
   }
   const accNow=N?post[N-1].acc:preAcc;
   ["lo","mid","hi"].forEach(k=>{ if(sc[k]!=null) sc[k]=Math.max(sc[k],accNow); });
@@ -4712,8 +4743,89 @@ function renderBoxModel(BO, FL, star){
   const tb=b10(TODAY_C), tRest=boxRest(TODAY_C), same=conv.filter(x=>x.r!=null&&x.rest===tRest).map(x=>x.r);
   const nowc=(tb&&same.length&&TODAY_C>=ok&&!post.some(p=>p.d===TODAY_C))?{b:tb.book, r:qtl(same,.5), v:tb.book*qtl(same,.5), k:same.length}:null;
 
+  return {me,C,A,ok,md,post,preAcc,N,man,d1,d1Lo,d1Hi,soldTxt,sold3v,d1Act,d1Use,n,accN,rows,use,simUsed,boomRows,boomSc,sc,decay,accNow,sum,won,eok,preDays,preAud,preSales,atpPre,postAud,postSales,atpAct,kAud,kSales,bk,bAud,bSales,atpBook,atpAvg,atpR,rs,rMid,rLo,rHi,atpEst,atp,atpSrc,kAtp,boxOf,L,ys,yRef,opRef,plB,pl,q3,b10,conv,tb,tRest,same,nowc};
+}
+let boxM=null;                                  // 마지막 계산 — 차트 점선·대원미디어 분기 손익이 읽는다
+
+/* 예상 관객 경로 — 흥행 모델(boxCalc)의 최종 관객(보수·기준·낙관)까지 가는 일별 경로. 차트의 점선·음영이다 (2026-09-29).
+   ① 10일차까지: 비교작(use) 'k일차 누적 ÷ 기준일 누적' 중앙값 × 기준일 누적 — 하루하루 모양(요일·주말)이 산다.
+      판정표의 '경로 필요 누적'(최종 ÷ 날마다의 배수 중앙값)과는 다르다 — 그건 '그날 누적이 이만큼이면 모델 최종이 유지된다'는 문턱이고
+      날마다 다른 비교작의 중앙값이라 모양이 없다(3일차가 토요일 휴일보다 커진다). 판정표에 '점선 누적' 열로 나란히 적었다.
+      보수·낙관은 개봉 전엔 기준 경로 × 최종 비율, 개봉 뒤엔 마지막 확정 누적에서 최종까지 벌린다.
+      비교작 대부분이 치이카와처럼 **수요일 개봉**이라(초반 집중형 12편 중 9편) 주말(4·5일차)·평일 모양이 곡선에 들어 있다.
+   ② 평일 공휴일(10/5 대체휴일 · 10/9 한글날)은 그날 관객을 '휴일 ÷ 그 요일' 배수(BO.market 전체 관객의 요일 모양)로 올린다.
+      최종 관객은 모델 값 그대로라 그만큼 꼬리가 준다(수요가 앞당겨질 뿐).
+   ③ 3사 예매 확보분(전국 환산 ÷0.89)보다 낮게 그리지 않는다 — 이미 팔린 표다. 개봉 뒤 '오늘'은 흥행 모델의 예매 → 관객 추정
+      (10시 KOBIS 예매관객 × 치이카와 자신의 평일/휴일 '관객 ÷ 예매' 중앙값)으로 바꿔 끼운다.
+   ④ 10일차(또는 마지막 확정일) 뒤: 남은 관객(모델 최종 − 경로 누적)을 최근 7일 평균에서 시작하는 기하급수로 붓고 요일 모양을 입힌다.
+   ⚠ 경로는 '최종 관객'을 날짜에 나눠 그린 것이지 독립 예측이 아니다 — 최종이 바뀌면(보수·기준·낙관 · 비교작 규칙) 경로도 바뀐다. */
+function boxDow(){
+  const mk=((typeof BOXOFFICE!=="undefined")&&BOXOFFICE.market)||{}, ds=Object.keys(mk).sort(), wk={};
+  ds.forEach(d=>{ const t=new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)), m=new Date(t); m.setDate(t.getDate()-(t.getDay()+6)%7);
+    const k=m.toDateString(); (wk[k]=wk[k]||[]).push({w:t.getDay(), v:mk[d]}); });
+  const by=[[],[],[],[],[],[],[]];
+  Object.values(wk).filter(a=>a.length===7).forEach(a=>{ const m=a.reduce((s,x)=>s+x.v,0)/7; a.forEach(x=>by[x.w].push(x.v/m)); });
+  const w=by.map(a=>qtl(a,.5)||1), mean=w.reduce((s,x)=>s+x,0)/7;
+  return w.map(x=>x/mean);                                            // 0=일 … 6=토, 평균 1
+}
+function boxProj(M){
+  if(!M||!M.sc||M.sc.mid==null||!M.accN) return null;
+  const {me,use,sc,N,post,ok,decay}=M, BO=(typeof BOXOFFICE!=="undefined")?BOXOFFICE:{};
+  const oD=new Date(+ok.slice(0,4),+ok.slice(4,6)-1,+ok.slice(6,8));
+  const dOf=k=>{ const t=new Date(oD.getFullYear(),oD.getMonth(),oD.getDate()+k-1); return {t, s:`${t.getFullYear()}${String(t.getMonth()+1).padStart(2,"0")}${String(t.getDate()).padStart(2,"0")}`}; };
+  const W=boxDow(), wHol=Math.max(W[0],W[6]);
+  const hol=k=>{ const {t,s}=dOf(k), w=t.getDay(); return KR_REST.has(s)&&w>0&&w<6; };   // 평일 공휴일만(주말 휴일은 곡선에 이미 있다)
+  const wOf=k=>{ const {t,s}=dOf(k); return KR_REST.has(s)?Math.max(wHol,W[t.getDay()]):W[t.getDay()]; };
+  // 3사 예매 확보분 — 오늘 이후 상영일, 마지막 수집. 3사가 다 열린 날만 ÷0.89(전국 환산), 일부만 열린 날은 판 좌석 그대로(하한)
+  const floor={};
+  Object.entries(BO.seats||{}).forEach(([key,sp])=>{ const [t,d]=key.split("|"); if(t!==me.key||d<TODAY_C) return;
+    const l=sp[sp.length-1]; if(!l||!l.seatSold) return; const ch=Object.keys(l.by||{}).length;
+    floor[d]={v:ch>=3?l.seatSold/0.89:l.seatSold, sold:l.seatSold, ch, t:l.t}; });
+  const k0=Math.max(N,1), last=N?post[N-1]:null;
+  const A0=N?last.acc:M.accN;                                          // 기준일 누적(개봉 전이면 시사 + 개봉일 추정)
+  // 하루하루의 모양 = 비교작(use) 'k일차 누적 ÷ 기준일 누적' 중앙값 — 요일·주말 모양이 살고, 예매(토 ≫ 목·금)와 방향이 같다.
+  //   판정표의 '경로 필요 누적'(최종 ÷ 날마다의 배수 중앙값)을 그대로 긋지 않는다 — 날마다 다른 비교작의 중앙값이라 목·금이 토요일 휴일보다
+  //   커지고, 휴일을 몰라 평일 공휴일을 맞추면 옆날이 1.5만까지 꺼진다(2026-09-29 검토). 두 값은 판정표에 나란히 적는다('점선 누적' 열).
+  const shape=k=>k===k0?1:qtl(use.map(c=>{ const a=c.days.find(x=>x.n===k), b=c.days.find(x=>x.n===k0); return a&&b&&b.acc?a.acc/b.acc:null; }),.5);
+  const KMAX=90, out={};
+  [["lo",sc.lo],["mid",sc.mid],["hi",sc.hi]].forEach(([nm,fin])=>{
+    if(fin==null) return;
+    // 보수·낙관 — 개봉 전엔 기준 경로 × 최종 비율(개봉일부터 벌어진다), 개봉 뒤엔 마지막 확정 누적에서 최종까지 벌린다
+    const pts=[]; let cum=A0;
+    const scl=N?(fin-A0)/Math.max(1,sc.mid-A0):fin/sc.mid;
+    if(!N){ cum=A0*scl; pts.push({k:1, daily:cum-M.preAcc, cum, est:1}); }
+    // ①~③ 10일차까지 — 모양에 평일 공휴일 올림 · 오늘 예매 추정 · 예매 확보분 하한
+    for(let k=k0+1; k<=10&&N<10; k++){
+      const g1=shape(k), g0=shape(k-1); if(g1==null||g0==null) break;
+      let dl=Math.max(0,A0*(g1-g0))*scl; const d=dOf(k).s;
+      if(hol(k)) dl*=wHol/W[dOf(k).t.getDay()];
+      if(M.nowc&&d===TODAY_C) dl=M.nowc.v;                     // 오늘 = 10시 KOBIS 예매관객 × 치이카와 자신의 같은 유형(평일/휴일) '관객 ÷ 예매'
+      const f=floor[d]; if(f) dl=Math.max(dl,f.v);
+      cum+=dl; pts.push({k, daily:dl, cum});
+    }
+    // ④ 꼬리 — 최근 7일(경로 또는 확정) 평균에서 시작하는 기하급수 × 요일 가중치, 합 = 남은 관객.
+    //   자체 감쇠 구간(14일차~)이면 모델과 같은 주간 유지율로 줄인다
+    const kL=pts.length?pts[pts.length-1].k:k0;
+    const hist=[...post.map((p,i)=>({k:i+1, daily:p.audi})), ...pts].filter(p=>p.k>kL-7&&p.k<=kL);
+    const d0=decay?decay.a/7:(hist.length?hist.reduce((t,p)=>t+p.daily,0)/hist.length:0);
+    const R=Math.max(0,fin-cum);
+    if(R>0&&d0>0){
+      const qq=decay?Math.pow(decay.r,1/7):R/(R+d0), raw=[]; for(let k=kL+1;k<=KMAX;k++) raw.push({k, v:d0*Math.pow(qq,k-kL)*wOf(k)});
+      const sR=raw.reduce((t,x)=>t+x.v,0)||1;
+      raw.forEach(x=>{ const dl=x.v*R/sR; cum+=dl; pts.push({k:x.k, daily:dl, cum}); });
+    }
+    out[nm]=pts;
+  });
+  return {...out, floor:Object.entries(floor).map(([d,f])=>({d,...f})), dOf};
+}
+function renderBoxModel(BO, FL, star){
+  const el=document.getElementById("boxModel"); if(!el) return;
+  const M=boxM=boxCalc(BO, FL, star);
+  if(!M){ el.innerHTML=`<p class="note">비교작 자료 대기 중(fetch_boxoffice.py --comps)</p>`; return; }
+  const {me,C,A,ok,md,post,preAcc,N,man,d1,d1Lo,d1Hi,soldTxt,sold3v,d1Act,d1Use,n,accN,rows,use,simUsed,boomRows,boomSc,sc,decay,accNow,sum,won,eok,preDays,preAud,preSales,atpPre,postAud,postSales,atpAct,kAud,kSales,bk,bAud,bSales,atpBook,atpAvg,atpR,rs,rMid,rLo,rHi,atpEst,atp,atpSrc,kAtp,boxOf,L,ys,yRef,opRef,plB,pl,q3,b10,conv,tb,tRest,same,nowc}=M;
+
   // ── 그리기 ──
-  const stage=N>=14?`개봉 ${N}일차 · 자체 감쇠(주간 유지율 ${(decay.r*100).toFixed(0)}%)`
+  const stage=N>=14?`개봉 ${N}일차 · 자체 감쇠(주간 유지율 ${(decay.r*100).toFixed(0)}%)${decay.w<1?` ${Math.round(decay.w*100)}% + 비교작 배수`:""}`
     :N?`개봉 ${N}일차 확정 · 비교작 ${n}일차 배수`:`개봉 전 · 개봉일 관객 추정(${soldTxt?"판매석 기준":"자료 대기"})`;
   const kp=(k,v,d,c="")=>`<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="d">${d}</div></div>`;
   const P=pl(sc.mid||0), pctOp=v=>opRef?` · 연간 영업이익(${yRef.t.slice(0,4)}${yRef.e?"E":"A"} ${fmt0(opRef)}억)의 ${(v/opRef*100).toFixed(0)}%`:"";
@@ -4741,7 +4853,7 @@ function renderBoxModel(BO, FL, star){
   if(sc.mid!=null){
     const byM=use.slice().sort((a,b)=>a.m-b.m);
     const scTxt=[["보수",sc.lo],["기준",sc.mid],["낙관",sc.hi]].map(([k,v])=>`${k} <b>${man(v)}</b>${decay?"":` (${(v/accN).toFixed(1)}배)`}`).join(" · ");
-    const start= decay ? `개봉 ${N}일차 누적 <b>${man(post[N-1].acc)}</b>(KOBIS) + 남은 관객(최근 7일 ${fmt0(decay.a)} × 주간 유지율 ${(decay.r*100).toFixed(0)}% 로 계속 줄어든다고 보고)`
+    const start= decay ? `개봉 ${N}일차 누적 <b>${man(post[N-1].acc)}</b>(KOBIS) + 남은 관객(최근 7일 ${fmt0(decay.a)} × 주간 유지율 ${(decay.r*100).toFixed(0)}% 로 계속 줄어든다고 보고)${decay.w<1?` — 21일차까지는 비교작 기준(10일차 누적 × 배수)과 섞어 넘어가는 중(자체 감쇠 ${Math.round(decay.w*100)}%)`:""}`
       : N ? `개봉 ${n}일차 누적 <b>${man(accN)}</b>(KOBIS 확정)`
       : `개봉일 관객 <b>${man(d1)}</b> 추정(3사 판매석 ${sold3v!=null?man(sold3v):"—"}석 ÷ 0.89 × 1.5)`+(preAcc?` + 시사 ${man(preAcc)}`:"")+` = 출발 누적 <b>${man(accN)}</b>`;
     const mult= decay ? `보수·낙관 = 유지율 ±10%p`
@@ -4840,7 +4952,7 @@ function renderBoxModel(BO, FL, star){
   // 초기 데이터 판정표 — 개봉 N일차 누적이 각 최종 관객 경로에 필요한 값 vs 실제
   //   배수 = 비교작(위 use 규칙: 개봉 규모 ½~2배, 4편 미만이면 전체) '최종 ÷ N일 누적'의 중앙값.
   //   필요 누적 = 목표 ÷ 배수. KOBIS 확정치가 들어오면 실제 누적이 자동으로 채워지고 '이 경로면 최종' = 실제 × 배수.
-  const JN=[1,3,6,7,10];
+  const JN=BOX_JN, PJ=boxProj(M);                 // PJ = 차트 점선(기준 경로) — 판정표에 '점선 누적'으로 나란히
   const JT=LIVE_SC.length?LIVE_SC:[50,100,200].map(v=>({k:"",v:v*1e4}));        // 모델 값이 없을 때만 둥근 수
   const dayOf=k=>{ const t=new Date(+ok.slice(0,4),+ok.slice(4,6)-1,+ok.slice(6,8)+k-1);
     return `${t.getFullYear()}${String(t.getMonth()+1).padStart(2,"0")}${String(t.getDate()).padStart(2,"0")}`; };
@@ -4851,18 +4963,20 @@ function renderBoxModel(BO, FL, star){
   const jrows=JN.map(k=>{ const ms=use.map(c=>{ const cd=c.days.find(x=>x.n===k); return cd&&cd.acc?c.final/cd.acc:null; }).filter(x=>x!=null);
     const mult=qtl(ms,.5), d=dayOf(k), act=post[k-1]?post[k-1].acc:null, fin=(act!=null&&mult)?act*mult:null;
     const near=fin!=null?JT.reduce((b,t)=>Math.abs(t.v-fin)<Math.abs(b.v-fin)?t:b,JT[0]):null;
-    return {k, d, mult, n:ms.length, act, fin, near}; });
+    const pj=PJ&&PJ.mid.find(p=>p.k===k);
+    return {k, d, mult, n:ms.length, act, fin, near, pj:(pj&&k>N)?pj.cum:null}; });
   h+=`<div class="sub-h" style="margin-top:14px">초기 데이터 판정표 <span class="tag-inline">개봉 N일차 누적이 어느 최종 경로 위에 있나 · 경로 = 모델의 보수·기준·낙관(실시간) · 배수 = 비교작 '최종 ÷ N일 누적' 중앙값(${simUsed?"초반 집중형 비교작":"전체 비교작"})</span></div>
     <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">개봉 N일차</th><th>배수</th>`
     +JT.map(t=>`<th${t.k==="기준"?' style="color:var(--accent)"':""}>${t.k?t.k+" ":""}${man(t.v)} 경로<span class="th-sub">필요 누적</span></th>`).join("")
-    +`<th>실제 누적<span class="th-sub">KOBIS</span></th><th>이 경로면 최종</th></tr></thead><tbody>`
+    +`<th>점선 누적<span class="th-sub">차트 기준 예상</span></th><th>실제 누적<span class="th-sub">KOBIS</span></th><th>이 경로면 최종</th></tr></thead><tbody>`
     +jrows.map(r=>`<tr${JUDGE[r.d]?' class="box-star"':""}><td class="l"><b>${r.k}일차</b> ${md(r.d)} <span class="th-sub">${dayTag(r.d)}${JUDGE[r.d]?" · 판정 — "+JUDGE[r.d]:""}</span></td>
       <td>${r.mult?r.mult.toFixed(2)+"배":"—"}<span class="th-sub">${r.n}편</span></td>`
       +JT.map(t=>`<td${t.k==="기준"?' style="font-weight:800"':""}>${r.mult?man(t.v/r.mult):"—"}</td>`).join("")
-      +`<td>${r.act!=null?`<b>${man(r.act)}</b>`:`<span class="g">개봉 후</span>`}</td>
+      +`<td style="color:var(--muted)">${r.pj!=null?man(r.pj):"—"}</td><td>${r.act!=null?`<b>${man(r.act)}</b>`:`<span class="g">개봉 후</span>`}</td>
       <td>${r.fin!=null?`<b>${man(r.fin)}</b><span class="th-sub">≈ ${r.near.k||man(r.near.v)} 경로</span>`:"—"}</td></tr>`).join("")
     +`</tbody></table></div>
-    <p class="note" style="margin-top:6px">필요 누적 = 경로의 최종 관객 ÷ 배수. 경로(보수·기준·낙관)는 고정값이 아니라 모델이 KOBIS·좌석 자료로 매번 다시 잡은 값이라,
+    <p class="note" style="margin-top:6px">필요 누적 = 경로의 최종 관객 ÷ 배수 — 그날 누적이 이만큼이면 모델 최종이 그대로 유지되는 문턱입니다.
+      <b>점선 누적</b>은 차트 점선(기준)의 그날 값 — 요일·휴일 모양을 살린 하루하루 예상이라 필요 누적과 다를 수 있습니다(필요 누적은 날마다 다른 비교작의 배수 중앙값이라 모양이 없고 휴일을 모릅니다). 경로(보수·기준·낙관)는 고정값이 아니라 모델이 KOBIS·좌석 자료로 매번 다시 잡은 값이라,
       자료가 들어오면 이 표의 목표도 같이 움직입니다(특정 숫자는 '판정 목표'). 누적은 KOBIS 기준(개봉 전 시사 포함)이라 비교작과 같은 잣대입니다.
       <b>판정 시점은 개천절 연휴(10/3~5 · 6일차) 누적과 한글날 연휴(10/9~11 · 10일차)</b> — 연휴가 몰린 개봉이라 평일 1·3일차보다 이 두 점이 경로를 가릅니다.
       개봉일(9/30) 아침부터 KOBIS 확정치가 '실제 누적'에 자동으로 들어갑니다. 배수는 비교작 가정을 바꾸면(아래 '전체 비교작으로 계산') 같이 바뀝니다.</p>`;
@@ -4904,19 +5018,347 @@ function renderBoxModel(BO, FL, star){
       큰 팬덤 개봉(하이큐·코난·그대들은)은 1일의 4~8배에서 끝났고, 작게 시작해 입소문으로 큰 영화(슬램덩크·스즈메·레제)는 30배를 넘었습니다.
       배수는 두 무리로 갈립니다 — <b>초반 집중형</b>(최종이 첫날 누적의 15배 미만)과 <b>입소문형</b>(15배 이상). ${me.short}는 캐릭터·팬덤 영화라
       기본은 초반 집중형만 씁니다(4편 미만이면 전체). 입소문형은 설명 칸의 '상방 참고'로만 봅니다.
-      ${N>=14?`14일차부터는 ${me.short} 자신의 주간 유지율(최근 7일 ${fmt0(decay.a)} ÷ 그 전 7일 ${fmt0(decay.b)} = ${(decay.r*100).toFixed(0)}%)로 남은 관객을 더한 값이 기준입니다(±10%p = 보수·낙관).`:""}
+      ${N>=14?`14일차부터는 ${me.short} 자신의 주간 유지율(최근 7일 ${fmt0(decay.a)} ÷ 그 전 7일 ${fmt0(decay.b)} = ${(decay.r*100).toFixed(0)}%)로 남은 관객을 더한 값이 기준입니다(±10%p = 보수·낙관). 한 번에 갈아타면 최종이 튀어서 21일차까지는 비교작 기준과 섞습니다(14일차 1/8 → 21일차 전부).`:""}
       일본에선 1,133만 명·165억 엔(9/23 · 2026년 1위)을 넘겼지만 일본 흥행이 한국 규모를 정하지는 못합니다 —
       일본 158억 엔의 코난 펜타그램은 한국 75만, 149억 엔의 스즈메는 한국 559만이었습니다.</p></details>`;
   el.innerHTML=h;
   if(!el.dataset.bound){ el.dataset.bound="1";
+    // 가정을 바꾸면 차트 점선(최종 관객 경로)과 대원미디어 분기 손익(영화 줄)도 같이 다시 그린다
+    const redo=()=>{ renderBoxModel(BO, FL, star); drawBoxChart(); try{ renderDwModel(); }catch(err){ console.error("대원 손익", err); } };
     el.addEventListener("change",e=>{ const i=e.target.closest("[data-asm]"); if(!i) return;
       const v=parseFloat(i.value); if(!isFinite(v)) return; boxAsmGet()[i.dataset.asm]=v;
-      boxAsmSave();
-      renderBoxModel(BO, FL, star); });
+      boxAsmSave(); redo(); });
     el.addEventListener("click",e=>{
-      if(e.target.closest("#boxAsmReset")){ boxAsm={...BOX_ASM0}; try{ localStorage.removeItem("boxAsm"); }catch(err){} renderBoxModel(BO, FL, star); }
-      if(e.target.closest("#boxCmpAll")){ boxCmpAll=!boxCmpAll; renderBoxModel(BO, FL, star); } });
+      if(e.target.closest("#boxAsmReset")){ boxAsm={...BOX_ASM0}; try{ localStorage.removeItem("boxAsm"); }catch(err){} redo(); }
+      if(e.target.closest("#boxCmpAll")){ boxCmpAll=!boxCmpAll; redo(); } });
   }
+}
+
+/* ══════════ 대원미디어 분기 손익 모델 (DW · 2026-09-29) ═══════════════════════════════════════
+   사용자 요청(2026-09-29): 신한(9/3) 리포트 + DART 분기로 '컴투스처럼' 분기 IS — 치이카와 흥행을 실시간으로 얹어서.
+   뼈대 = DART(fetch_dwmodel.py → DWMODEL, 매일 05시)
+     fin  연결 손익(매출·매출원가·판관비·영업이익·세전·순이익·지배) 2023Q1~
+     seg  주석 '부문정보' — 라이선스/콘텐츠·유통·방송·출판·조정의 매출과 **영업손익**(누적 표 차분) 2025Q1~
+   유통 안의 닌텐도·TCG·Shop 은 DART 에 없다 → IR(리포트 표의 '회사 자료')을 DW_IR 에 **손으로** 넣는다. 분기 IR 이 나오면 한 줄.
+     없는 분기는 전년 동기 비중으로 DART 유통을 나눈다(표에 * 표시).
+   추정 칸
+     치이카와 = 위 흥행 모델(boxCalc) 그대로 — 최종 관객(보수·기준·낙관) → 3Q(9/30까지 누적)·4Q(나머지) → 수입사 정산 매출,
+               영업이익 = 매출 − 판권료 − P&A(3Q 에 pa3% 선집행). 라이선스/콘텐츠에 더한다(리포트: 극장판 유통 = 라이선스 사업).
+               판권료는 매출원가, P&A 는 판관비. 비지배 몫은 매기지 않는다(수입사 = 대원미디어 본사 가정).
+     그 밖의 매출 = 전년 동기 × (1 + 성장률). 기본값(자동)
+        라이선스(영화 제외)·방송·출판 = 최근 2분기 전년비
+        닌텐도·TCG·Shop = 최근 2분기 ÷ 그 앞 2분기 — 비교 분기가 스위치2 출시(2025-06-05) 전에 걸리면 전년비가 왜곡된다
+          (1H26 닌텐도 전년비 +92%). '작년 하반기보다 올해 상반기가 컸던 만큼' = 상반기 수준 유지. 3Q26 실적이 들어오면 저절로 전년비로 바뀐다.
+        2027 = 입력(기본 라이선스 +3 · 닌텐도 0 · TCG·Shop +5 · 방송 0 · 출판 +3 %).
+     부문 영업이익 = 매출 × 최근 4분기 부문 영업이익률(자동, 영화 제외) + 치이카와 기여
+     판관비 = 최근 2분기 평균 × 연 +3% + 치이카와 P&A → 매출원가 = 매출 − 영업이익 − 판관비(역산)
+     영업외 = 최근 4분기 평균 · 세율 = 최근 4분기 법인세 ÷ 세전 · 비지배 = 최근 4분기 비지배 ÷ 순이익(영화 이익엔 안 매김)
+   ⚠ IR 부문(리포트의 라이선스·방송)과 DART 부문은 경계가 다르다 — IR '방송' 분기 7~8 = DART 방송 3~4 + 라이선스/콘텐츠 일부.
+     DART 를 원본으로 쓴다. 리포트 추정치를 비교 줄로 넣지 않는다(컴투스 때 사용자 결정 — KB 비교를 뺐다). 비교는 네이버 컨센 줄. */
+const DW_IR={   // [닌텐도, TCG, Shop] 십억원 — 신한투자증권 2026-09-03 '대원미디어 실적 추이'(회사 자료). 합은 DART 유통과 ±0.8
+  "2025Q1":[11.4,4.8,14.6], "2025Q2":[41.0,6.5,14.8], "2025Q3":[37.7,5.5,17.6], "2025Q4":[48.2,5.0,19.4],
+  "2026Q1":[46.3,5.0,22.5], "2026Q2":[54.1,9.6,31.7],
+};
+const DW_SEG={lc:"라이선스/콘텐츠", ds:"유통", bc:"방송", pb:"출판", adj:"조정"};
+const DW_ASM0={scn:"기준",
+  gLc:null, gN:null, gT:null, gS:null, gBc:null, gPb:null,           // 2H26 성장률(전년 동기 대비 %) — null = 자동
+  gLc7:3, gN7:0, gT7:5, gS7:5, gBc7:0, gPb7:3,                       // 2027
+  mLc:null, mDs:null, mBc:null, mPb:null, adjOp:null, adjR:null,     // 부문 영업이익률(%) · 조정 영업이익(분기) · 조정 매출(부문 합 대비 %)
+  sga:null, gSga:3, nonop:null, tax:null, minor:null, show25:0};
+const DW_V=1;
+let dwAsm=null, dwOpen=null;
+function dwAsmGet(){ if(dwAsm) return dwAsm; let s={}; try{ s=JSON.parse(localStorage.getItem("dwAsm")||"{}")||{}; }catch(e){}
+  if(s._v!==DW_V) s={}; delete s._v; dwAsm={...DW_ASM0,...s}; return dwAsm; }
+function dwAsmSave(){ const d={_v:DW_V}; Object.keys(dwAsm).forEach(k=>{ if(dwAsm[k]!==DW_ASM0[k]) d[k]=dwAsm[k]; });
+  try{ localStorage.setItem("dwAsm",JSON.stringify(d)); }catch(e){} }
+function dwOpenGet(){ if(dwOpen) return dwOpen; try{ dwOpen=JSON.parse(localStorage.getItem("dwOpen")||"null"); }catch(e){}
+  if(!dwOpen) dwOpen={rev:1, op:1}; return dwOpen; }                  // 기본: 매출·영업이익 세부는 펼쳐 둔다(부문이 이 모델의 뼈대)
+function dwOpenSave(){ try{ localStorage.setItem("dwOpen",JSON.stringify(dwOpen)); }catch(e){} }
+const dwQs=(a,b)=>{ const o=[]; for(let q=a;q<=b;q=c2QAdd(q,1)) o.push(q); return o; };
+const dwActQ=()=>{ const D=(typeof DWMODEL!=="undefined")?DWMODEL:{}; return Object.keys(D.seg||{}).filter(q=>(D.fin||{})[q]).sort(); };
+
+/* 치이카와 → 분기(십억) — 흥행 모델의 시나리오 최종 관객을 3Q(9/30까지)·4Q(나머지)로 */
+function dwMovie(scn){
+  const M=boxM; if(!M||!M.sc) return null;
+  const v={"보수":M.sc.lo, "기준":M.sc.mid, "낙관":M.sc.hi}[scn]; if(v==null) return null;
+  const A=M.A, a3=Math.min(v,M.q3), s3=M.plB(M.boxOf(a3)), s4=M.plB(M.boxOf(v)-M.boxOf(a3));
+  const p3=A.pa*A.pa3/100, p4=A.pa-p3;
+  const q=(x,pa,aud)=>({aud, box:x.box/10, rev:x.rev/10, roy:x.roy/10, pa:pa/10, op:(x.rev-x.roy-pa)/10});
+  return {v, "2026Q3":q(s3,p3,a3), "2026Q4":q(s4,p4,v-a3)};
+}
+/* 자동 기본값 — 실적(DART 부문 + 손익 둘 다 있는 분기)에서. 실적 분기에 영화가 들어 있으면(3Q26~) 모델값을 떼고 낸다 */
+function dwAuto(mv){
+  const D=DWMODEL, act=dwActQ(), L4=act.slice(-4), L2=act.slice(-2), F=D.fin;
+  const sg=(q,k)=>(D.seg[q]&&D.seg[q][DW_SEG[k]])||[0,0], mq=q=>(mv&&mv[q])||{rev:0,op:0,pa:0};
+  const lcx=q=>sg(q,"lc")[0]-mq(q).rev, lcxo=q=>sg(q,"lc")[1]-mq(q).op;
+  const S=(qs,f)=>qs.reduce((t,q)=>t+f(q),0), P4=L2.map(q=>c2QAdd(q,-4)), H2=L2.map(q=>c2QAdd(q,-2));
+  const yoy=f=>P4.every(q=>D.seg[q])&&S(P4,f)?(S(L2,f)/S(P4,f)-1)*100:0;
+  // 유통 3종은 IR 이 있는 최근 2분기로 — 3Q26 DART 가 IR 보다 먼저 들어와도 자동값이 0 으로 떨어지지 않게(2026-09-29 점검에서 발견)
+  const LI=act.filter(q=>DW_IR[q]).slice(-2), launch=LI.some(q=>c2QAdd(q,-4)<"2025Q3");      // 스위치2 출시 기저
+  const base=LI.map(q=>c2QAdd(q,launch?-2:-4));
+  const ir=(q,i)=>DW_IR[q]?DW_IR[q][i]:null;
+  const irG=i=>(LI.length&&base.every(q=>ir(q,i)!=null))?(S(LI,q=>ir(q,i))/S(base,q=>ir(q,i))-1)*100:0;
+  const m=(f,fo)=>{ const r=S(L4,f); return r?S(L4,fo)/r*100:0; };
+  const gross=q=>lcx(q)+sg(q,"ds")[0]+sg(q,"bc")[0]+sg(q,"pb")[0], pbt=S(L4,q=>F[q].pbt), np=S(L4,q=>F[q].np);
+  return {gLc:yoy(lcx), gBc:yoy(q=>sg(q,"bc")[0]), gPb:yoy(q=>sg(q,"pb")[0]), gN:irG(0), gT:irG(1), gS:irG(2),
+    mLc:m(lcx,lcxo), mDs:m(q=>sg(q,"ds")[0],q=>sg(q,"ds")[1]), mBc:m(q=>sg(q,"bc")[0],q=>sg(q,"bc")[1]), mPb:m(q=>sg(q,"pb")[0],q=>sg(q,"pb")[1]),
+    adjOp:S(L4,q=>sg(q,"adj")[1])/L4.length, adjR:S(L4,q=>sg(q,"adj")[0])/S(L4,gross)*100,
+    sga:S(L2,q=>F[q].sga-mq(q).pa)/L2.length, nonop:S(L4,q=>F[q].pbt-F[q].op)/L4.length,
+    tax:pbt>0?Math.min(35,Math.max(10,S(L4,q=>F[q].pbt-F[q].np)/pbt*100)):22,
+    minor:np>0?Math.min(40,Math.max(0,S(L4,q=>F[q].np-F[q].npp)/np*100)):0,
+    _L4:L4, _L2:L2, _LI:LI, _base:base, _launch:launch};
+}
+function dwParams(mv){ const A=dwAsmGet(), au=dwAuto(mv), P={...A};
+  Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); }); P._auto=au; return P; }
+
+function dwBuild(P, mv){
+  const D=DWMODEL, act=new Set(dwActQ()), last=[...act].pop(), Q={};
+  const sgv=(q,k)=>(D.seg[q]&&D.seg[q][DW_SEG[k]])||[0,0];
+  // 2024 는 부문이 없어(기준 변경) 손익 합계만 — 2025 전년비용
+  dwQs("2024Q1","2024Q4").forEach(q=>{ const f=D.fin[q]; if(f) Q[q]={q, act:true, lite:true, ...f, nonop:f.pbt-f.op, tax:f.pbt-f.np, minor:f.np-f.npp}; });
+  dwQs("2025Q1","2027Q4").forEach(q=>{
+    const o={q, act:act.has(q)}, m=(mv&&mv[q])||null, y=+q.slice(0,4);
+    o.mv=m?m.rev:0; o.mvOp=m?m.op:0; o.mvPa=m?m.pa:0; o.mvRoy=m?m.roy:0; o.mvBox=m?m.box:0; o.mvAud=m?m.aud:0;
+    if(o.act){
+      const f=D.fin[q];
+      [o.lc,o.lcOp]=sgv(q,"lc"); [o.ds,o.dsOp]=sgv(q,"ds"); [o.bc,o.bcOp]=sgv(q,"bc"); [o.pb,o.pbOp]=sgv(q,"pb"); [o.adj,o.adjOp]=sgv(q,"adj");
+      o.lcEx=o.lc-o.mv; o.lcExOp=o.lcOp-o.mvOp;
+      let ir=DW_IR[q]; o.irEst=!ir;
+      if(!ir){ const b=Q[c2QAdd(q,-4)], t=b&&!b.lite?b.n+b.t+b.s:0; ir=t?[b.n,b.t,b.s].map(v=>v/t*o.ds):[o.ds,0,0]; }
+      [o.n,o.t,o.s]=ir; o.dsO=o.ds-(o.n+o.t+o.s);
+      ["rev","cogs","gp","sga","op","pbt","np","npp"].forEach(k=>o[k]=f[k]);
+      o.nonop=o.pbt-o.op; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
+    } else {
+      // 전년 동기가 부문 없는 분기(2024 · 또는 수집 누락)면 가장 가까운 앞 분기로 — 계절성은 잃지만 NaN 이 카드까지 번지지 않게
+      let b=Q[c2QAdd(q,-4)]; if(!b||b.lite) for(let j=1;j<=8;j++){ const c=Q[c2QAdd(q,-j)]; if(c&&!c.lite){ b=c; break; } }
+      const yr=y<=2026?"":"7", g=k=>1+P[k+yr]/100;
+      const n=(y*4+ +q.slice(-1))-(+last.slice(0,4)*4+ +last.slice(-1));
+      o.lcEx=b.lcEx*g("gLc"); o.n=b.n*g("gN"); o.t=b.t*g("gT"); o.s=b.s*g("gS"); o.bc=b.bc*g("gBc"); o.pb=b.pb*g("gPb"); o.dsO=b.dsO;
+      o.lc=o.lcEx+o.mv; o.ds=o.n+o.t+o.s+o.dsO; o.adj=P.adjR/100*(o.lcEx+o.ds+o.bc+o.pb);
+      o.rev=o.lc+o.ds+o.bc+o.pb+o.adj;
+      o.lcExOp=o.lcEx*P.mLc/100; o.lcOp=o.lcExOp+o.mvOp; o.dsOp=o.ds*P.mDs/100; o.bcOp=o.bc*P.mBc/100; o.pbOp=o.pb*P.mPb/100; o.adjOp=P.adjOp;
+      o.op=o.lcOp+o.dsOp+o.bcOp+o.pbOp+o.adjOp;
+      o.sga=P.sga*Math.pow(1+P.gSga/100,n/4)+o.mvPa; o.gp=o.op+o.sga; o.cogs=o.rev-o.gp;
+      o.nonop=P.nonop; o.pbt=o.op+o.nonop; o.tax=Math.max(0,o.pbt)*P.tax/100; o.np=o.pbt-o.tax;
+      o.minor=(o.np-o.mvOp*(1-P.tax/100))*P.minor/100; o.npp=o.np-o.minor;
+      const pc=k=>`${P[k+yr]>=0?"+":""}${fmt(P[k+yr],1)}%`, bq=c2QLab(b.q)+(b.act?"":"E");
+      o.why={lcEx:`전년 동기(${bq}) ${fmt(b.lcEx,1)} × (1${pc("gLc")})`, n:`전년 동기(${bq}) ${fmt(b.n,1)} × (1${pc("gN")})`,
+        t:`전년 동기(${bq}) ${fmt(b.t,1)} × (1${pc("gT")})`, s:`전년 동기(${bq}) ${fmt(b.s,1)} × (1${pc("gS")})`,
+        bc:`전년 동기(${bq}) ${fmt(b.bc,1)} × (1${pc("gBc")})`, pb:`전년 동기(${bq}) ${fmt(b.pb,1)} × (1${pc("gPb")})`,
+        dsO:`전년 동기(${bq}) 그대로`, adj:`부문 합(영화 제외) × ${P.adjR}%`,
+        lcExOp:`영화 제외 매출 ${fmt(o.lcEx,1)} × ${P.mLc}%`, dsOp:`유통 ${fmt(o.ds,1)} × ${P.mDs}%`, bcOp:`방송 ${fmt(o.bc,1)} × ${P.mBc}%`,
+        pbOp:`출판 ${fmt(o.pb,1)} × ${P.mPb}%`, adjOp:`최근 4분기 평균 ${P.adjOp}`,
+        sga:`${fmt(P.sga,1)} × 연 ${P.gSga}% 증가${o.mvPa?` + 치이카와 P&A ${fmt(o.mvPa,2)}`:""}`, cogs:"매출 − 영업이익 − 판관비(역산)", gp:"영업이익 + 판관비",
+        nonop:`최근 4분기 평균 ${P.nonop}`, tax:`세전 × ${P.tax}%`, minor:`(순이익 − 치이카와 이익) × ${P.minor}% — 영화 이익은 본사(수입사) 몫`};
+    }
+    o.opm=o.rev?o.op/o.rev:null; o.gpm=o.rev?o.gp/o.rev:null;
+    Q[q]=o;
+  });
+  const K=["lc","lcEx","mv","ds","n","t","s","dsO","bc","pb","adj","rev","cogs","gp","sga","mvPa","op","lcOp","lcExOp","mvOp","dsOp","bcOp","pbOp","adjOp",
+    "nonop","pbt","tax","np","minor","npp","mvBox","mvRoy","mvAud"], Y={};
+  ["2024","2025","2026","2027"].forEach(y=>{ const qq=[1,2,3,4].map(k=>Q[`${y}Q${k}`]); if(qq.some(x=>!x)) return;
+    const o={q:y, yr:1, act:qq.every(x=>x.act), lite:qq.some(x=>x.lite)}; K.forEach(k=>o[k]=qq.reduce((s,x)=>s+(x[k]||0),0));
+    o.opm=o.rev?o.op/o.rev:null; o.gpm=o.rev?o.gp/o.rev:null; o.irEst=qq.some(x=>x.irEst); Y[y]=o; });
+  return {Q, Y, last};
+}
+
+function renderDwModel(){
+  const box=document.getElementById("dwBox"); if(!box) return;
+  if(typeof DWMODEL==="undefined"||!DWMODEL.seg){ box.innerHTML=`<p class="note">DART 재료 대기 중(fetch_dwmodel.py)</p>`; return; }
+  const A=dwAsmGet(), mv=dwMovie(A.scn), P=dwParams(mv), B=dwBuild(P, mv), Q=B.Q, Y=B.Y;
+  const f1=v=>(v==null||!isFinite(v))?"—":fmt(v,1);
+  const pct=(v,d=1)=>(v==null||!isFinite(v))?"—":v>3?`<span class="up">×${fmt(v+1,1)}</span>`
+    :Math.abs(v*100)<0.5*Math.pow(10,-d)?`<span class="flat">${fmt(0,d)}%</span>`:`<span class="${cls(v)}">${sign(v*100,d)}%</span>`;
+  const chg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return pct(c/b-1); return c>0?`<span class="up">흑전</span>`:(b<0?`<span class="g">적지</span>`:"—"); };
+  const opChg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return c>0?pct(c/b-1):`<span class="down">적전</span>`;
+    return c>0?`<span class="up">흑전</span>`:`<span class="g">적지</span>`; };
+  // 컨센(네이버) · 잠정/DART
+  const LS=(typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[DWMODEL.stock])||{}, cn=LS.cons||{}, cons={};
+  ((cn.quarter||{}).series||[]).forEach(x=>{ if(x.e) cons[c2QOf(`${x.k.slice(0,4)}-${x.k.slice(4,6)}-01`)]=x; });
+  ((cn.year||{}).series||[]).forEach(x=>{ if(x.e) cons[x.k.slice(0,4)]=x; });
+  const pre={}, PR=(typeof PRELIM!=="undefined"&&PRELIM[DWMODEL.stock])||{};
+  Object.keys(PR).forEach(k=>{ const q=c2QOf(`${k.slice(0,4)}-${k.slice(4,6)}-01`); if(Q[q]&&!Q[q].act) pre[q]=PR[k]; });
+  Object.keys(DWMODEL.fin).forEach(q=>{ if(Q[q]&&!Q[q].act&&!Q[q].lite) pre[q]={rev:DWMODEL.fin[q].rev, op:DWMODEL.fin[q].op, dart:1}; });
+  const mcap=LS.mktcapEok?LS.mktcapEok/10:null, shares=(LS.mktcapEok&&LS.price)?LS.mktcapEok*1e8/LS.price:null;
+  const T1=new Date(Date.parse(TODAY+"T00:00:00Z")+365*864e5).toISOString().slice(0,10);
+  let npp12=0, cov=0; for(let k=0;k<5;k++){ const q=c2QAdd(c2QOf(TODAY),k), o=Q[q]; if(!o) continue;
+    const s0=c2QStart(q), s1=c2QStart(c2QAdd(q,1)), ov=Math.max(0,c2DDiff(s0>TODAY?s0:TODAY, s1<T1?s1:T1)); npp12+=o.npp*ov/c2DDiff(s0,s1); cov+=ov; }
+  if(cov<360) npp12=null;
+
+  // ── 머리 카드 ──
+  const card=(t,v,sub,acc)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:var(--radius);padding:12px 14px"><div style="font-size:11.5px;color:var(--muted);font-weight:700">${t}</div>
+    <div style="font-size:20px;font-weight:800;margin-top:3px${acc?";color:var(--accent)":""}">${v}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.45">${sub||""}</div></div>`;
+  const vsC=(o,k)=>{ const c=cons[k]; return c?`컨센 ${f1(c.rev)} / ${f1(c.op)} → 괴리 ${pct(o.rev/c.rev-1)} / ${c.op>0?pct(o.op/c.op-1):"—"}`:"컨센 없음"; };
+  const q3=Q["2026Q3"], q4=Q["2026Q4"], y6=Y["2026"], m3=(mv||{})["2026Q3"], m4=(mv||{})["2026Q4"], eok=v=>fmt0(v*10)+"억";
+  const man=v=>(v/1e4).toFixed(v>=1e6?0:1)+"만";
+  const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    ${card(`치이카와 → 대원 <span style="font-weight:600">(${A.scn})</span>`, mv?`${eok(m3.op+m4.op)} <small style="font-size:12px;color:var(--muted)">영업이익</small>`:"—",
+      mv?`최종 ${man(mv.v)}명 · 매출 ${eok(m3.rev+m4.rev)}<br>3Q26 ${eok(m3.rev)} / ${eok(m3.op)} · 4Q26 ${eok(m4.rev)} / ${eok(m4.op)} (매출 / 영업이익)`:"흥행 모델 대기", true)}
+    ${card(`3Q26${q3.act?"":"E"} 매출 / 영업이익`, `${f1(q3.rev)} / ${f1(q3.op)}`, `십억원 · 영업이익률 ${fmt(q3.opm*100,1)}%<br>${vsC(q3,"2026Q3")}`)}
+    ${card(`4Q26${q4.act?"":"E"} 매출 / 영업이익`, `${f1(q4.rev)} / ${f1(q4.op)}`, `십억원 · 영업이익률 ${fmt(q4.opm*100,1)}%<br>${vsC(q4,"2026Q4")}`)}
+    ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, `십억원 · 지배 순이익 ${f1(y6.npp)}${mcap&&y6.npp>0?` · PER ${fmt(mcap/y6.npp,1)}배`:""}<br>${vsC(y6,"2026")}`)}
+  </div>`;
+
+  // ── 분기 손익표 ──
+  const qCols=(A.show25?dwQs("2025Q1","2025Q4"):[]).concat(dwQs("2026Q1","2027Q4"));
+  const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
+  const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
+  const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
+  const MVK=new Set(["mv","mvOp","mvPa","mvBox","mvRoy","mvAud"]);
+  const ROWS=[
+    {k:"rev", t:"매출액", em:1, tg:"rev"},
+    {k:"rev", t:"YoY", r:"yoy"},
+    {k:"rev", t:"QoQ", r:"qoq"},
+    {k:"lc", t:"라이선스/콘텐츠", i:1, b:1, g:"rev"},
+    {k:"mv", t:"치이카와 극장판 (흥행 모델)", i:2, z:1, g:"rev"},
+    {k:"lcEx", t:"라이선스·콘텐츠 (영화 제외)", i:2, g:"rev"},
+    {k:"ds", t:"유통", i:1, b:1, g:"rev"},
+    {k:"n", t:"닌텐도 (IR)", i:2, g:"rev", ir:1},
+    {k:"t", t:"TCG (IR)", i:2, g:"rev", ir:1},
+    {k:"s", t:"Shop — 매장·이치방쿠지 (IR)", i:2, g:"rev", ir:1},
+    {k:"dsO", t:"기타 (DART 유통 − IR 합)", i:2, g:"rev"},
+    {k:"bc", t:"방송", i:1, b:1, g:"rev"},
+    {k:"pb", t:"출판", i:1, b:1, g:"rev"},
+    {k:"adj", t:"내부거래 조정", i:1, g:"rev"},
+    {k:"gp", t:"매출총이익", b:1, tg:"cost", top:1},
+    {k:"gpm", t:"GPM", r:"gpm"},
+    {k:"cogs", t:"매출원가", i:1, g:"cost"},
+    {k:"sga", t:"판관비", i:1, g:"cost"},
+    {k:"mvPa", t:"그중 치이카와 P&A", i:2, z:1, g:"cost"},
+    {k:"op", t:"영업이익", em:1, hl:1, tg:"op"},
+    {k:"opm", t:"영업이익률", r:"opm"},
+    {k:"op", t:"YoY", r:"opyoy"},
+    {k:"lcOp", t:"라이선스/콘텐츠", i:1, g:"op"},
+    {k:"mvOp", t:"치이카와 기여 (매출 − 판권료 − P&A)", i:2, z:1, g:"op"},
+    {k:"dsOp", t:"유통", i:1, g:"op"},
+    {k:"bcOp", t:"방송", i:1, g:"op"},
+    {k:"pbOp", t:"출판", i:1, g:"op"},
+    {k:"adjOp", t:"조정", i:1, g:"op"},
+    {k:"nonop", t:"영업외손익", tg:"ni", top:1},
+    {k:"pbt", t:"세전이익", i:1, g:"ni"},
+    {k:"tax", t:"법인세", i:1, g:"ni"},
+    {k:"np", t:"당기순이익", i:1, g:"ni"},
+    {k:"minor", t:"비지배 몫", i:1, g:"ni"},
+    {k:"npp", t:"지배주주 순이익", em:1},
+    {k:"npp", t:"YoY", r:"opyoy"},
+    {k:"npp", t:"EPS (원)", m:"eps"},
+    {k:"npp", t:"PER (배)", m:"per"},
+    {t:"치이카와 · 흥행 → 대원", m:"hdr", tg:"mv", top:2},
+    {k:"mvAud", t:"관객 (분기 귀속)", i:1, m:"aud", g:"mv"},
+    {k:"mvBox", t:"극장 매출 (KOBIS 확정 + 남은 관객 × 객단가)", i:1, g:"mv"},
+    {k:"mv", t:"대원 정산 매출 (÷1.1 × 부율 × (1−수수료))", i:1, g:"mv"},
+    {k:"mvRoy", t:"판권료 (원작사 · 매출원가)", i:1, g:"mv"},
+  ];
+  const TGS=[...new Set(ROWS.filter(r=>r.tg).map(r=>r.tg))], OPEN=dwOpenGet();
+  const nextQ=cols.findIndex(o=>!o.yr&&!o.act), firstY=qCols.length;
+  const yrEdge=k=>k===firstY||(k>0&&k<firstY&&cols[k].q.slice(0,4)!==cols[k-1].q.slice(0,4));
+  const SHADE="color-mix(in srgb, var(--accent) 13%, transparent)", EM="1.5px solid var(--muted2)";
+  const thS=(o,k)=>`text-align:right;white-space:nowrap;padding:6px 9px;${k===nextQ?`background:${SHADE};`:""}${yrEdge(k)?"border-left:2px solid var(--muted2);":""}`;
+  const LITE=new Set(["rev","gp","cogs","sga","op","nonop","pbt","tax","np","minor","npp"]);
+  const cell=(row,o,k)=>{
+    let v="", tip="";
+    if(row.r==="yoy"){ const p=prevOf(o); v=p?chg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="qoq"){ v=o.yr?"":chg(o[row.k],(Q[c2QAdd(o.q,-1)]||{})[row.k]); }
+    else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="opm"||row.r==="gpm"){ const x=o[row.r]; v=x==null?"—":fmt(x*100,1)+"%"; }
+    else if(row.m==="hdr"){ v=""; }
+    else if(row.m==="aud"){ v=o.mvAud?man(o.mvAud):"—"; }
+    else if(row.m==="eps"){ v=(o.yr&&shares)?(o.npp>0?fmt0(o.npp*1e9/shares):`<span class="down">적자</span>`):"";
+      if(o.yr&&shares) tip=`${lab(o)} 지배주주 순이익 ${fmt(o.npp*10,0)}억 ÷ 주식수 ${fmt0(shares)}주 (시총 ÷ 주가)`; }
+    else if(row.m==="per"){ v=(o.yr&&mcap)?(o.npp>0?`<b>${fmt(mcap/o.npp,1)}</b>`:`<span class="down">적자</span>`):"";
+      if(o.yr&&mcap&&o.npp>0) tip=`${lab(o)} 현재 시총 ${fmt0(mcap*10)}억 ÷ 지배주주 순이익 ${fmt(o.npp*10,0)}억`; }
+    else { const x=o[row.k];
+      v=(o.lite&&!LITE.has(row.k))?"—":(MVK.has(row.k)&&!x)?"—":f1(x);
+      tip=(o.why&&o.why[row.k])||(MVK.has(row.k)&&x?`흥행 모델 ${A.scn} 경로 — 최종 ${mv?man(mv.v):"—"}명 중 ${lab(o)} 귀속 ${man(o.mvAud)}명`:"");
+      if(row.ir&&o.irEst){ v+=`<sup style="color:var(--warn)">*</sup>`; tip="IR 분해 미입력 — DART 유통을 전년 동기 비중으로 나눔"; } }
+    let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
+      +(row.r?"font-size:11px;color:var(--muted);":"")+(row.z?"color:var(--accent);font-weight:700;":"");
+    if(row.hl) st+=`background:${k===nextQ?"color-mix(in srgb, var(--accent) 24%, transparent)":"color-mix(in srgb, var(--accent) 7%, transparent)"};`;
+    return `<td style="${st}"${tip?` title="${attr(tip)}"`:""}>${v}</td>`;
+  };
+  const rowHtml=row=>{
+    if(row.g&&!OPEN[row.g]) return "";
+    const lst="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;z-index:1;"
+      +`background:${row.hl?"color-mix(in srgb, var(--accent) 7%, var(--panel))":"var(--panel)"};padding-left:${22+(row.i||0)*14+(row.r?14:0)}px;`
+      +(row.r?"font-size:11px;color:var(--muted);":"")+(row.m==="hdr"?"font-weight:700;color:var(--muted);font-size:11.5px;":"")
+      +(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"")+(row.tg?"cursor:pointer;":"");
+    const tr=(row.em?`border-top:${EM};border-bottom:${EM};`:"")+(row.top===2?"border-top:2px solid var(--line);":row.top?"border-top:1px solid var(--line);":"");
+    const caret=row.tg?`<span style="display:inline-block;width:15px;margin-left:-15px;color:var(--accent);font-size:12px;line-height:1">${OPEN[row.tg]?"▾":"▸"}</span>`:"";
+    const lbl=row.m==="per"?`PER (배) <span style="font-size:10.5px;font-weight:600;color:var(--muted2);margin-left:4px">현재 시총 ${mcap?fmt0(mcap*10)+"억":"—"}${mcap&&npp12>0?` · 12개월 선행 <b style="color:var(--accent)">${fmt(mcap/npp12,1)}배</b>`:""}</span>`:row.t;
+    return `<tr style="${tr}"${row.tg?` data-dwtg="${row.tg}" title="눌러서 ${OPEN[row.tg]?"접기":"세부 펼치기"}"`:""}><td style="${lst}">${caret}${lbl}</td>${cols.map((o,k)=>cell(row,o,k)).join("")}</tr>`; };
+  const cmp=(t,f,rs)=>`<tr style="${rs||""}"><td style="text-align:left;white-space:nowrap;padding:6px 10px 6px 22px;position:sticky;left:0;background:var(--panel);font-size:11px;color:var(--muted)">${t}</td>`
+    +cols.map((o,k)=>`<td style="${thS(o,k)}font-size:11px;color:var(--muted)">${f(o)}</td>`).join("")+`</tr>`;
+  const allOpen=TGS.every(k=>OPEN[k]);
+  const yrs=[]; qCols.forEach(q=>{ const y=q.slice(0,4); if(!yrs.length||yrs[yrs.length-1].y!==y) yrs.push({y,n:0}); yrs[yrs.length-1].n++; });
+  const hd="position:sticky;left:0;background:var(--panel2);z-index:3;text-align:left;padding:6px 10px 6px 22px;cursor:default";
+  const h1="text-align:center;padding:6px 9px 2px;font-size:11.5px;color:var(--text);cursor:default;border-bottom:1px solid var(--line-soft);";
+  const head1=`<tr><th style="${hd};border-bottom:none"></th>${yrs.map((g,j)=>`<th colspan="${g.n}" style="${h1}${j?"border-left:2px solid var(--muted2);":""}">${g.y}</th>`).join("")}<th colspan="3" style="${h1}border-left:2px solid var(--muted2)">연간</th></tr>`;
+  const head2=`<tr><th style="${hd}">(십억원)</th>${cols.map((o,k)=>`<th style="${thS(o,k)}cursor:default;font-size:12px;padding-top:4px;${k===nextQ?"background:color-mix(in srgb, var(--accent) 24%, var(--panel2));color:var(--text);":""}">${lab(o)}</th>`).join("")}</tr>`;
+  const tbl=`<div class="sub-h" style="margin:14px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결 · 부문 = DART · 칸에 마우스를 올리면 계산식</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+      <button class="theme-btn" id="dwOpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
+      <button class="theme-btn" id="dwShow25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+    <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
+    <thead>${head1}${head2}</thead><tbody>${ROWS.map(rowHtml).join("")}
+    ${cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[o.q]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")}
+    ${cmp("모델 ÷ 컨센 − 1 (매출 / 영업이익)",o=>{ const c=cons[o.q]; return c?`${pct(o.rev/c.rev-1,0)} / ${c.op>0?pct(o.op/c.op-1,0):"—"}`:""; })}
+    ${cols.some(o=>pre[o.q])?cmp("실적(DART) 매출 / 영업이익",o=>{ const p=pre[o.q]; return p?`<b>${f1(p.rev)} / ${f1(p.op)}</b>${p.dart?"":" 잠정"}`:""; }):""}
+    </tbody></table></div>
+    <p class="note" style="margin-top:6px"><b style="color:var(--accent)">▸</b> 줄을 누르면 세부가 펼쳐집니다. <span style="background:${SHADE};padding:0 5px;border-radius:3px">음영 칸</span>이 다음 발표 분기(${nextQ>=0?c2QLab(cols[nextQ].q):"—"}),
+      굵은 세로선이 연도 경계, E 는 추정, <span style="color:var(--accent);font-weight:700">금색 줄</span>이 치이카와(위 흥행 모델에서 실시간). PER = 현재 시가총액${mcap?`(${LS.price?fmt0(LS.price)+"원 · ":""}${fmt0(mcap*10)}억)`:""} ÷ 그 해 지배주주 순이익.</p>`;
+
+  // ── 가정 ──
+  const au=P._auto, isAuto=k=>A[k]==null&&au[k]!=null;
+  const inp=(k,label,unit,step,w)=>`<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">${label}
+      <input data-dw="${k}" type="number" value="${P[k]}" step="${step||0.5}" class="theme-btn" style="width:${w||62}px;padding:4px 7px;font-weight:700;font-size:12.5px">${unit||""}${isAuto(k)?`<span style="font-size:10px;color:var(--accent);font-weight:800">자동</span>`:""}</label>`;
+  const grp=(t,body)=>`<div style="flex:1;min-width:260px;border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px">
+    <div style="font-size:12px;font-weight:800;margin-bottom:7px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px">${body}</div></div>`;
+  const gRow=(nm,k)=>`<div style="display:flex;gap:8px;align-items:center;width:100%;flex-wrap:wrap"><span style="min-width:112px;font-size:12px;font-weight:700">${nm}</span>${inp(k,"26하반기","%",1,58)}${inp(k+"7","2027","%",1,58)}</div>`;
+  const asm=`<details class="fold" data-fold="dwasm"${(()=>{ try{ return localStorage.getItem("fold_dwasm")==="1"?" open":""; }catch(e){ return ""; } })()}>
+    <summary>가정 바꾸기 <span class="sub">치이카와 시나리오 · 부문 성장률 · 이익률 · 판관비·영업외·세금 — 바꾸면 표가 바로 다시 계산됩니다(브라우저에 기억)</span></summary>
+    <div class="fold-b">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><b style="font-size:12.5px">치이카와 시나리오</b>
+      ${["보수","기준","낙관"].map(k=>`<button class="theme-btn${A.scn===k?" active":""}" data-dwscn="${k}" style="padding:3px 10px;font-size:12px${A.scn===k?";background:var(--accent);color:var(--onacc);border-color:var(--accent)":""}">${k}</button>`).join("")}
+      <span style="font-size:11px;color:var(--muted2)">최종 관객은 위 흥행 모델(KOBIS·3사 좌석으로 매번 다시 잡음). 객단가·부율·수수료·판권료·P&A 는 흥행 모델 입력칸에서 바꿉니다.</span></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${grp(`매출 — 전년 동기 대비 성장률 (자동: ${au._L2.map(c2QLab).join("·")} ÷ ${au._L2.map(q=>c2QLab(c2QAdd(q,-4))).join("·")}${` · 유통 3종 = IR ${au._LI.map(c2QLab).join("·")} ÷ ${au._base.map(c2QLab).join("·")}${au._launch?"(스위치2 출시 기저라 직전 2분기 대비)":""}`})`,
+        gRow("라이선스(영화 제외)","gLc")+gRow("닌텐도","gN")+gRow("TCG","gT")+gRow("Shop","gS")+gRow("방송","gBc")+gRow("출판","gPb"))}
+      ${grp(`부문 영업이익률 (자동: ${au._L4.map(c2QLab).join("·")} 합계 · 영화 제외)`, inp("mLc","라이선스(영화 제외)","%",0.5)+inp("mDs","유통","%",0.5)+inp("mBc","방송","%",1)
+        +inp("mPb","출판","%",0.5)+inp("adjOp","조정 영업이익 분기","십억",0.1)+inp("adjR","조정 매출(부문 합 대비)","%",0.1))}
+      ${grp("판관비 · 영업외 · 세금", inp("sga","판관비 분기(영화 제외)","십억",0.5)+inp("gSga","판관비 증가","%/년",1)+inp("nonop","영업외 분기","십억",0.1)
+        +inp("tax","세율","%",1)+inp("minor","비지배 비율","%",1))}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="dwReset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
+      <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = DART 실적에서 계산(입력하면 그 값으로 고정). 2027 성장률은 입력값(기본 라이선스 +3 · 닌텐도 0 · TCG·Shop +5 · 방송 0 · 출판 +3%).</span></div>
+    </div></details>`;
+  box.innerHTML=head+tbl+asm;
+
+  document.getElementById("dwNote").innerHTML=
+    `<b>구조</b>: 매출 = DART 부문(라이선스/콘텐츠 · 유통 · 방송 · 출판 + 내부거래 조정 — 부문 매출은 조정 전이라 조정을 더해야 연결 매출).
+     실적 칸의 부문 매출·<b>부문 영업손익</b>은 DART 주석 '부문정보'(누적 표를 분기로 차분), 손익 합계·매출원가·판관비·세전·순이익은 DART 연결 손익입니다.
+     유통 안의 닌텐도·TCG·Shop 은 공시에 없어 IR(신한투자증권 9/3 표의 '회사 자료')로 나눴습니다.
+     <br><b>추정</b>: 치이카와 = 위 흥행 모델의 <b>${A.scn}</b> 경로(최종 ${mv?man(mv.v):"—"}명 · 3Q = 9/30까지 누적 ${m3?man(m3.aud):"—"}명, 4Q = 나머지) — KOBIS·좌석이 들어올 때마다 바뀝니다.
+     나머지 매출 = 전년 동기 × (1 + 성장률), 부문 영업이익 = 매출 × 최근 4분기(${au._L4.map(c2QLab).join("·")}) 부문 이익률 + 치이카와 기여.
+     판관비는 최근 2분기 평균 + P&A, 매출원가는 역산입니다. 영업외 ${P.nonop} · 세율 ${P.tax}% · 비지배 ${P.minor}%(영화 이익 제외)는 최근 4분기 실적.
+     <br>⚠ 리포트의 '라이선스·방송'과 DART 부문은 경계가 다릅니다(IR 방송 분기 7~8 = DART 방송 3~4 + 라이선스/콘텐츠 일부) — DART 를 원본으로 씁니다.
+     2024 부문은 사업보고서에서 방송 일부가 라이선스/콘텐츠로 옮겨 가 분기 비교가 안 돼 뺐습니다(합계 손익만 전년비에 씀).
+     MD·콜라보 파급(치이카와 굿즈)은 넣지 않았습니다. <b>3Q26 실적이 나오면</b> DART 칸은 저절로 채워지고, IR 유통 분해만 DW_IR 에 한 줄 넣으면 됩니다.
+     <span style="color:var(--muted2)">DART ${attr(DWMODEL.asOf||"")} 수집</span>`;
+}
+function dwBind(){
+  const sec=document.getElementById("dwSec"); if(!sec||sec.dataset.bound) return; sec.dataset.bound="1";
+  sec.addEventListener("change",e=>{ const i=e.target.closest("[data-dw]"); if(!i) return;
+    const v=parseFloat(i.value); if(!isFinite(v)) return; dwAsmGet()[i.dataset.dw]=v; dwAsmSave(); renderDwModel(); });
+  sec.addEventListener("click",e=>{
+    const s=e.target.closest("[data-dwscn]"); if(s){ dwAsmGet().scn=s.dataset.dwscn; dwAsmSave(); renderDwModel(); return; }
+    if(e.target.closest("#dwReset")){ dwAsm={...DW_ASM0, show25:dwAsmGet().show25}; dwAsmSave(); renderDwModel(); return; }
+    if(e.target.closest("#dwShow25")){ const A=dwAsmGet(); A.show25=A.show25?0:1; dwAsmSave(); renderDwModel(); return; }
+    const tg=e.target.closest("[data-dwtg]"); if(tg){ const O=dwOpenGet(), k=tg.dataset.dwtg; O[k]=O[k]?0:1; dwOpenSave(); renderDwModel(); return; }
+    if(e.target.closest("#dwOpenAll")){ const O=dwOpenGet(), ks=[...new Set([...document.querySelectorAll("#dwBox [data-dwtg]")].map(x=>x.dataset.dwtg))],
+      all=ks.every(k=>O[k]); ks.forEach(k=>O[k]=all?0:1); dwOpenSave(); renderDwModel(); }
+  });
 }
 
 function renderBoxTab(){
@@ -4947,6 +5389,7 @@ function renderBoxTab(){
         <td class="l">${f.imp?`수입 ${f.imp} · `:""}${f.dist}${f.prod?` · 제작 ${f.prod}`:""}<span class="th-sub">${lst||f.note||""}</span></td></tr>`;
     }).join("")+`</tbody></table></div>`;
   try{ renderBoxModel(BO, FL, star); }catch(e){ console.error("흥행 모델", e); }
+  try{ dwBind(); renderDwModel(); }catch(e){ console.error("대원 손익", e); }
 
   // 차트 컨트롤 — 칩은 매번 새로 그리되 켜고 끈 상태(boxOff)는 유지
   const fs=document.getElementById("boxFilmSeg");
