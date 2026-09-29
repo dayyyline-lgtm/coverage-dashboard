@@ -12,6 +12,9 @@
        jpToy = 일본산 완구 HS 9503 전체(이치방쿠지 경품·애니메이트 굿즈·조립 키트 — 대원 Shop 이 파는 일본 캐릭터 상품)
        cnFig = 중국산 인형 중 '플라스틱으로 만든 것'(9503002130 = 피규어). 팝마트 등 대원과 무관한 수입도 섞인다.
        외부 정리(9/29)의 회귀 Shop = 7.17 × 일본 완구(3개월 선행) + 8.17 × 중국 피규어(R² 0.91)를 월별 값까지 재현 확인했다.
+       nsHw = 중국산 게임기 '기타'(9504.50-9000 — 스위치 본체·조이콘 등 · TV 전용인 PS5·엑스박스는 -1000 이라 빠진다)
+       nsSw = 일본산 9504.90-9090 '기타' = **스위치 실물 게임카드**(2026-09-29 확인 — 일본의 대한국 HS950450 수출과 월별 상관 0.84 ·
+              연간 비율 0.98~1.17 · 일본이 개수를 적은 달 개당 24~30달러·47~117g = 포장 게임). 한국 결정사례는 없어 데이터로 한 추론이다.
   segCum {"2026-06": {...누적...}} · src {"2026-06": 접수번호}   원 누적값과 출처(다음 실행의 캐시)
   reclass {"2026-12": "2025-12 비교치 재분류: 방송 14.0→…"}   새 보고서의 전기 표가 우리 전년 값과 부문별로 다를 때(경고)
   ⚠ 부문은 **그 해 보고서의 원래 값**만 쓴다. 이 회사는 재분류 뒤 1Q·반기 비교치는 옛 기준, 3Q·사업보고서 비교치는
@@ -147,32 +150,34 @@ def imports():
         m += 1
         if m > 12:
             y, m = y + 1, 1
-    jp, cn = {}, {}
+    # 계열 = (부르는 6자리, 원산지, 10자리 — None 이면 그 6자리 전체)
+    SER = {"jpToy": ("950300", "JP", None), "cnFig": ("950300", "CN", "9503002130"),
+           "nsHw": ("950450", "CN", "9504509000"), "nsSw": ("950490", "JP", "9504909090")}
+    out = {k: {} for k in SER}
     for i in range(0, len(ms), 12):
         w = ms[i:i + 12]
-        p = {"serviceKey": FT.DATA_GO_KR_KEY, "strtYymm": w[0], "endYymm": w[-1], "hsSgn": "950300"}
-        raw = urllib.request.urlopen(urllib.request.Request(FT.API + "?" + urllib.parse.urlencode(p, safe=""),
-                                                            headers={"User-Agent": "Mozilla/5.0"}), timeout=90).read()
-        root = ET.fromstring(raw)
-        msg = root.findtext(".//resultMsg") or ""
-        if msg and "정상" not in msg:
-            raise RuntimeError(msg[:60])
-        for it in root.iter("item"):
-            g = lambda t: (it.findtext(t) or "").strip()
-            ym, hs, cd = g("year"), g("hsCd"), g("statCd")
-            if not re.fullmatch(r"\d{4}\.\d{2}", ym):
-                continue
-            try:
-                v = float(g("impDlr").replace(",", "")) / 1e6
-            except ValueError:
-                continue
-            k = ym.replace(".", "-")
-            if cd == "JP":
-                jp[k] = jp.get(k, 0) + v
-            if cd == "CN" and hs == "9503002130":
-                cn[k] = cn.get(k, 0) + v
-    r = lambda d: {k: round(v, 3) for k, v in sorted(d.items())}
-    return {"jpToy": r(jp), "cnFig": r(cn)}
+        for hs6 in sorted({v[0] for v in SER.values()}):
+            p = {"serviceKey": FT.DATA_GO_KR_KEY, "strtYymm": w[0], "endYymm": w[-1], "hsSgn": hs6}
+            raw = urllib.request.urlopen(urllib.request.Request(FT.API + "?" + urllib.parse.urlencode(p, safe=""),
+                                                                headers={"User-Agent": "Mozilla/5.0"}), timeout=90).read()
+            root = ET.fromstring(raw)
+            msg = root.findtext(".//resultMsg") or ""
+            if msg and "정상" not in msg:
+                raise RuntimeError(msg[:60])
+            for it in root.iter("item"):
+                g = lambda t: (it.findtext(t) or "").strip()
+                ym, hs, cd = g("year"), g("hsCd"), g("statCd")
+                if not re.fullmatch(r"\d{4}\.\d{2}", ym):
+                    continue
+                try:
+                    v = float(g("impDlr").replace(",", "")) / 1e6
+                except ValueError:
+                    continue
+                k = ym.replace(".", "-")
+                for nm, (h6, cc, h10) in SER.items():
+                    if h6 == hs6 and cd == cc and (h10 is None or hs == h10):
+                        out[nm][k] = out[nm].get(k, 0) + v
+    return {nm: {k: round(v, 3) for k, v in sorted(d.items())} for nm, d in out.items()}
 
 
 def main():
@@ -302,6 +307,7 @@ def main():
     if imp.get("jpToy"):
         ks = sorted(imp["jpToy"])[-4:]
         print("  수입($M) 일본 완구", {k: imp["jpToy"][k] for k in ks}, "· 중국 피규어", {k: imp["cnFig"].get(k) for k in ks})
+        print("  수입($M) 닌텐도 본체(중국)", {k: imp.get("nsHw", {}).get(k) for k in ks}, "· 게임카드(일본)", {k: imp.get("nsSw", {}).get(k) for k in ks})
     if all(old.get(k) == out.get(k) for k in ("fin", "seg", "src", "reclass", "imp")):
         print("변동 없음 — index.html 그대로 둠")
         return
