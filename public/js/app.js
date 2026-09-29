@@ -8560,7 +8560,7 @@ function renderAmzTrend(){
       +btn("m","t50","진입 SKU",amztMetric==="t50","US 탑100 · 유럽 탑50 — 맨 아래 '우리 트래커' 카드와 같은 기준. 트래커 브랜드까지 나온다")
       +(amztView==="mk"?btn("m","best","최고 순위",amztMetric==="best","나라별로 그 브랜드 제품 중 가장 높은 순위"):"");
   let h=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-      <div class="seg" style="margin-bottom:0">${btn("v","sum","브랜드 합산(5개국)",amztView!=="mk")}${btn("v","mk","국가별",amztView==="mk")}</div>
+      <div class="seg" style="margin-bottom:0">${btn("v","sum","브랜드 합산(5개국)",amztView==="sum")}${btn("v","stock","종목 합산(5개국)",amztView==="stock","상장사별로 브랜드를 더한 것 — 아모레퍼시픽 = 코스알엑스 + 라네즈 등")}${btn("v","mk","국가별",amztView==="mk")}</div>
       <div class="seg" style="margin-bottom:0">${mBtns}</div></div>`;
   if(amztView==="mk") h+=`<div class="seg">${T.brands.map(o=>btn("b",o.key,o.label,o.key===cur.key)).join("")}</div>`;
   h+=`<div class="chart-box"><div id="amztChart"></div></div><p class="note" id="amztNote"></p>`;
@@ -8573,8 +8573,22 @@ function renderAmzTrend(){
 
   const M=amztMetric, rank=M==="best";
   const unit=v=>rank?`${v}위`:`${v}개`;
-  let series=[];
-  if(amztView!=="mk"){
+  let series=[], grp=null;
+  if(amztView==="stock"){
+    // 종목 합산(2026-09-29 사용자 "아모레 하위 브랜드를 묶어서") — 상장사가 확인된 브랜드만 종목별로 더한다. 브랜드 연결은 채널(KMJAMZ.brands.stock)·
+    //   트래커(inject_amazon.BRAND_STOCK)가 원본이라 새 브랜드(설화수·에스트라 등)가 Top100 에 들어오면 저절로 합쳐진다.
+    //   그날 값을 모르는 브랜드(라네즈 6/29 전 · 트래커만 있는 날의 유럽 51~100위)는 빼고 더하고 풍선말에 적는다. 전부 모르면 그 날은 건너뛴다.
+    //   ⚠ 이니스프리·에뛰드는 아모레퍼시픽(090430)이 아니라 지주사(아모레퍼시픽홀딩스) 자회사라 종목 연결이 없는 게 맞다.
+    grp={}; T.brands.forEach(o=>{ if(o.stock) (grp[o.stock]=grp[o.stock]||[]).push(o); });
+    series=Object.entries(grp).map(([st,bs])=>{
+      const pts=[];
+      T.dates.forEach(d=>{ const vs=bs.map(o=>({o, v:amztVal(o,d,"sum",M)})), kn=vs.filter(x=>x.v!==undefined); if(!kn.length) return;
+        const v=kn.reduce((t,x)=>t+(x.v||0),0), un=vs.filter(x=>x.v===undefined&&(!x.o.kmj||d>=x.o.kmj.since)).map(x=>x.o.label);
+        pts.push({x:amztDn(d), y:v, tip:`${st} · ${amztMd(amztDn(d))} · 5개국 ${v}개 (${kn.map(x=>`${x.o.label} ${x.v}`).join(" + ")})${un.length?` · ${un.join("·")} 모름`:""}`}); });
+      return {name:st, color:bs[0].color, pts, n:bs.length};
+    }).filter(se=>se.pts.length>=3&&se.pts.some(p=>p.y>0));
+    series.sort((a,b)=>b.pts[b.pts.length-1].y-a.pts[a.pts.length-1].y);
+  } else if(amztView!=="mk"){
     series=T.brands.map(o=>{
       const pts=[];
       T.dates.forEach(d=>{ const v=amztVal(o,d,"sum",M); if(v===undefined) return;
@@ -8596,7 +8610,7 @@ function renderAmzTrend(){
   amztLine(el, series, {x0:X0, x1:X1, rank, yFmt:v=>rank?`${v}위`:`${v}`, endFmt:unit,
     bands:AMZT_EVENTS.map(e=>({x0:amztDn(e.d0), x1:amztDn(e.d1), t:e.t})),
     marks:T.trackStart?[{x:amztDn(T.trackStart), t:"트래커 시작"}]:[],
-    aria:amztView!=="mk"?"브랜드별 아마존 5개국 베스트셀러 진입 제품 수 추이":`${cur.label} 아마존 나라별 추이`,
+    aria:amztView==="stock"?"상장사별 아마존 5개국 베스트셀러 진입 제품 수 추이":amztView!=="mk"?"브랜드별 아마존 5개국 베스트셀러 진입 제품 수 추이":`${cur.label} 아마존 나라별 추이`,
     empty:rank?"이 브랜드는 한투 채널이 다루지 않아 순위 이력이 없습니다":"이 기준으로는 값이 없습니다"});
 
   const src=`출처 — 한투증권 김명주 텔레그램(5/28~ · 평일 아침 · 5개 브랜드 · 미·영·독·프·스 탑100) + 우리 트래커(8/2~ · 주말 포함 · US 탑100·유럽 탑50).
@@ -8604,7 +8618,10 @@ function renderAmzTrend(){
   const why=M==="t100"?`<b>탑100</b>은 유럽 51~100위까지 셉니다. 트래커만 있는 날(주로 주말)은 유럽 51~100위를 몰라 ${amztView!=="mk"?"합계에서 빠지고":"유럽 선에서 빠지고"}, 선은 그 날을 건너 잇습니다.`
     : M==="t50"?`<b>진입 SKU</b>는 맨 아래 '우리 트래커'와 같은 기준(US 탑100 · 유럽 탑50)이라 트래커 브랜드도 나옵니다. 8/2 앞은 채널이 다루는 5개 브랜드뿐입니다.`
     : `<b>최고 순위</b> = 나라별로 그 브랜드 제품 중 가장 높은 순위. 100위 밖인 날은 선이 끊깁니다.`;
-  document.getElementById("amztNote").innerHTML=`${why} 음영 = 할인 행사(프라임데이 미국 6/23~26). 합계에 이탈리아·일본은 넣지 않습니다(채널이 안 보는 나라).<br>${src}`;
+  const stk=grp?`<b>종목 합산</b> = 상장사가 확인된 브랜드를 더한 것 — ${Object.entries(grp).map(([st,bs])=>`${st} = ${bs.map(o=>o.label+(o.kmj&&o.kmj.since>"2026-05-28"?`(${amztMd(amztDn(o.kmj.since))}~)`:"")).join(" + ")}`).join(" · ")}.
+    이니스프리·에뛰드는 아모레퍼시픽이 아니라 지주사(아모레퍼시픽홀딩스) 자회사라 넣지 않았고, 비상장 브랜드(아누아·조선미녀·바이오던스 등)는 빠집니다.
+    새 브랜드(설화수·에스트라 등)가 Top100 에 들어오면 저절로 합쳐집니다.<br>`:"";
+  document.getElementById("amztNote").innerHTML=`${stk}${why} 음영 = 할인 행사(프라임데이 미국 6/23~26). 합계에 이탈리아·일본은 넣지 않습니다(채널이 안 보는 나라).<br>${src}`;
 }
 
 /* ══ 아마존 Top100 탭 본문 — 한투 김명주 채널(KMJAMZ) (2026-09-29 개편) ══════════════════════════════
