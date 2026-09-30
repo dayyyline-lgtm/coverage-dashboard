@@ -6645,6 +6645,16 @@ const C2_ASM0={a:12.3, alpha:0.84, s:1, rios:0.25, lp:1.05, tau:15, vat:1.1,
 //   (108만주 × 2,600원 = 2.8억, 11/2 결제)를 넘겨 31.6% → 약 27.1%.
 //   연결 제외 처분손익(남는 지분의 공정가치 재측정)은 공시 전이라 0 — 3Q 보고서에서 확인. 비지배 몫도 위지윅 외부 주주가 빠져 거의 0.
 //   ⚠ 계속 연결로 보려면 가정 패널에서 자회사 매출 29 · 영업이익 −5 · 3Q26 일회성 −7.5 · 비지배 −2.5 (엔피 사업이 더해지는 경우).
+// 컴프야(V26 · 연도판) 한국 월평균 매출순위 [애플, 구글] — gamerscroll 게임 페이지 '월별 추이'(차트 진입일 평균, 2025-12 집계 시작).
+//   대시보드 APPRANK 가 있는 날은 그 일별 순위가 이긴다(c2KboDays). 구글 '—'(그 달 차트 밖)은 null.
+//   ⚠ 컴프야는 KBO 라이선스라 **국내 매출**이다 → 제우스처럼 순위로 세운다. MLB 9이닝스·라이벌은 해외 비중이 커서 추세로 둔다.
+//   for 매니저·2025 판은 100위 밖이라 빼고(분기 1~3) MLB·기타 쪽에 남긴다. 새 시즌판(V27·2027)이 나오면 이름 규칙(/V\d+/ · /\d{4}/)으로 잡힌다.
+const C2_KBO_GS={
+  V:{"2025-12":[10.1,39.0],"2026-01":[11.0,38.7],"2026-02":[11.4,45.0],"2026-03":[11.0,39.2],"2026-04":[9.7,33.6],
+     "2026-05":[7.5,29.0],"2026-06":[8.4,26.9],"2026-07":[10.2,33.2],"2026-08":[10.2,33.1],"2026-09":[9.8,30.1]},
+  Y:{"2025-12":[71.0,71.9],"2026-01":[91.6,83.4],"2026-02":[97.9,87.2],"2026-03":[88.0,89.8],"2026-04":[59.0,57.5],
+     "2026-05":[61.9,59.4],"2026-06":[59.7,61.0],"2026-07":[80.0,69.9],"2026-08":[99.6,81.5],"2026-09":[81.8,73.1]}};
+const C2_KBO_FROM="2025-12-01";
 // 제우스 순위 시나리오 — 기존 MMORPG 감쇠(리니지W 첫 8개월 월 −15%, 레이븐2 −9%, 로드나인 등)를 월별 경로로 세운 뒤
 // 이 곡선으로 순위를 역산한 것. 기준: 10월 −25%(프리미엄·PC 할인 종료·경쟁작) → 월 −15~−10% → 2027 하반기 월 −4%.
 const C2_SCN={"보수":{zg:[2.7,6.6,9.6,12.1,14.8],za:[20,30,40,50,60]},
@@ -6734,6 +6744,38 @@ function c2ZeusDays(P){
   return {obs, fwd, end};
 }
 
+/* 컴프야 일별 국내 매출(억, 결제액) — APPRANK 일별 우선, 없으면 gamerscroll 월평균, 그것도 없으면 전날 순위.
+   반환 {q: {s: 합, n: 관측일수}}, last7: 최근 7일 평균 일매출, end: 마지막 관측일 */
+function c2KboDays(P){
+  const ap={V:{and:{},ios:{}},Y:{and:{},ios:{}}};
+  if(typeof APPRANK!=="undefined"&&APPRANK.apps) APPRANK.apps.forEach(a=>{
+    if(a.stock!=="컴투스"||(a.cc||"KR")!=="KR"||!/^컴투스프로야구\s*(V\d+|\d{4})$/.test(a.nm||"")) return;
+    const t=/V\d+/.test(a.nm)?"V":"Y"; if(!ap[t][a.mk]) return;
+    (a.hist||[]).forEach(h=>{ if(h.gr!=null) ap[t][a.mk][h.d]=h.gr; }); });
+  const gsEnd=Object.keys(C2_KBO_GS.V).sort().pop(), gsLast=c2DAdd(c2DAdd(gsEnd+"-01",32).slice(0,7)+"-01",-1);
+  const apEnd=["V","Y"].flatMap(t=>[...Object.keys(ap[t].and),...Object.keys(ap[t].ios)]).sort().pop()||"";
+  let end=apEnd>gsLast?apEnd:gsLast; if(end>TODAY) end=TODAY;          // APPRANK 는 05시 스냅샷이라 오늘 치가 있다
+  const q={}, days=[], last={V:[null,null],Y:[null,null]};
+  for(let d=C2_KBO_FROM; d<=end; d=c2DAdd(d,1)){
+    let v=0;
+    ["V","Y"].forEach(t=>{ const m=(C2_KBO_GS[t][d.slice(0,7)])||null;
+      const i=ap[t].ios[d]!=null?ap[t].ios[d]:m?m[0]:last[t][0], g=ap[t].and[d]!=null?ap[t].and[d]:m?m[1]:last[t][1];
+      last[t]=[i,g]; v+=c2Rev(P,g,i); });
+    const k=c2QOf(d), o=q[k]=q[k]||{s:0,n:0}; o.s+=v; o.n++; days.push(v);
+  }
+  const l7=days.slice(-7);
+  return {q, last7:l7.length?l7.reduce((a,b)=>a+b,0)/l7.length:0, end};
+}
+/* 야구 계절성 — IR 스포츠 매출의 전분기 대비 배수를 분기별로 기하평균한 뒤, 네 분기 곱이 1 이 되게 나눈다
+   (연간 성장은 추세 g 가 맡고 이건 분기 모양만 준다). 2024~ IR: 2Q↑ 3Q↓ 4Q↑↑ 1Q↓ 가 해마다 같다. */
+function c2Seas(){
+  const qs=Object.keys(C2_IR).sort(), r={1:[],2:[],3:[],4:[]};
+  qs.forEach(q=>{ const p=C2_IR[c2QAdd(q,-1)]; if(p) r[+q.slice(-1)].push(C2_IR[q].g[1]/p.g[1]); });
+  const gm=a=>a.length?Math.exp(a.reduce((s,x)=>s+Math.log(x),0)/a.length):1;
+  const S={}; [1,2,3,4].forEach(k=>S[k]=gm(r[k])); const nz=Math.pow(S[1]*S[2]*S[3]*S[4],0.25);
+  [1,2,3,4].forEach(k=>S[k]/=nz); S._n=r; return S;
+}
+
 /* 분기 손익 — 2024Q1~2027Q4. 실적 = DART 합계 + IR 분해, 추정 = 위 머리말의 식. */
 function c2Build(P){
   const F=(typeof C2MODEL!=="undefined"&&C2MODEL.fin)||{};
@@ -6743,6 +6785,10 @@ function c2Build(P){
     if(x.g!=null){ o.g+=x.g*x.w; o.gw+=x.w; } if(x.i!=null){ o.i+=x.i*x.w; o.iw+=x.w; } });
   const qs=[]; for(let q="2024Q1"; q<="2027Q4"; q=c2QAdd(q,1)) qs.push(q);
   const lastAct=Object.keys(C2_IR).filter(q=>F[q]).sort().pop();
+  const KB=c2KboDays(P), SE=c2Seas(), rankQ=c2QAdd(lastAct,1);
+  // 컴프야 분기 매출(십억) — 관측일이 분기의 80% 이상이면 관측 평균 × 일수(실적 분기의 쪼개기용)
+  const kboFull=q=>{ const k=KB.q[q], dn=c2DDiff(c2QStart(q),c2QStart(c2QAdd(q,1)));
+    return k&&k.n>=dn*0.8?k.s/k.n*dn/P.vat/10:null; };
   const Q={};
   qs.forEach(q=>{
     const f=F[q], ir=C2_IR[q], z=zq[q];
@@ -6752,20 +6798,32 @@ function c2Build(P){
       const zz=q>=c2QOf(C2_LAUNCH)?(ir.z!=null?ir.z:o.zRaw):0;       // IR 이 제우스를 밝히면 그 값
       o.zeus=zz; o.zEst=q>=c2QOf(C2_LAUNCH)&&ir.z==null;
       o.rpg=ir.g[0]-zz; o.bb=ir.g[1]; o.cas=ir.g[2]+ir.g[3]; o.newg=0;
+      o.kbo=kboFull(q); o.mlb=o.kbo!=null?o.bb-o.kbo:null;
       o.sep=ir.g.reduce((a,b)=>a+b,0); o.rev=f.c.rev; o.sub=o.rev-o.sep;
       o.mkt=ir.x[0]; o.lab=ir.x[1]; o.fee=ir.x[2]; o.roy=ir.x[3]; o.oth=ir.x[4]+ir.x[5];
       o.opex=f.c.opex; o.subx=o.opex-(o.mkt+o.lab+o.fee+o.roy+o.oth);
       o.op=f.c.op; o.pbt=f.c.pbt; o.nonop=o.pbt-o.op; o.np=f.c.np; o.npp=f.c.npp; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
     } else {
-      // 기존 게임은 롱테일 — 직전 분기에서 성장률 추세를 이어 간다(연율 → 분기 환산 (1+g)^¼−1). 계절성은 넣지 않는다.
+      // 기존 게임은 롱테일 — 직전 분기에서 성장률 추세를 이어 간다(연율 → 분기 환산 (1+g)^¼−1). RPG 는 계절성을 넣지 않는다.
       //   (예전엔 '전년 동기 × (1+전년비)'였는데, 작년 분기의 일회성·계절 요인이 그대로 옮겨 와 3Q 가 꺾여 보였다 — 사용자 2026-09-28)
+      // 야구는 계절성이 해마다 같아서(IR 2Q↑ 3Q↓ 4Q↑↑) 추세 × 계절 지수(c2Seas, 네 분기 곱 = 1). 사용자 2026-09-30:
+      //   **다음 발표 분기의 컴프야 = 관측 순위**(남은 날은 최근 7일 평균), 그 뒤 분기와 MLB·기타 = 직전 분기 × 추세 × 계절.
       const p1=Q[c2QAdd(q,-1)]||{rpg:0,bb:0}, y=+q.slice(0,4), n=lastAct?(+q.slice(0,4)*4+ +q.slice(-1))-(+lastAct.slice(0,4)*4+ +lastAct.slice(-1)):1;
       const gR=(y<=2026?P.gRpg26:P.gRpg27)/100, gB=(y<=2026?P.gBb26:P.gBb27)/100;
       const qR=Math.pow(1+gR,0.25)-1, qB=Math.pow(1+gB,0.25)-1;
-      o.zeus=o.zRaw; o.rpg=p1.rpg*(1+qR); o.bb=p1.bb*(1+qB); o.cas=P.cas; o.newg=y>=2027?P.newg:0;
-      const pc=v=>`${v>=0?"+":"−"}${fmt(Math.abs(v*100),1)}%`;
-      o.why={rpg:`직전 분기 ${fmt(p1.rpg,1)} × (1${pc(qR)}) — 추세 연 ${pc(gR)} 의 분기 환산`,
-             bb:`직전 분기 ${fmt(p1.bb,1)} × (1${pc(qB)}) — 추세 연 ${pc(gB)} 의 분기 환산`};
+      const sq=SE[+q.slice(-1)], mB=(1+qB)*sq;
+      o.zeus=o.zRaw; o.rpg=p1.rpg*(1+qR); o.cas=P.cas; o.newg=y>=2027?P.newg:0;
+      const pc=v=>`${v>=0?"+":"−"}${fmt(Math.abs(v*100),1)}%`, kq=KB.q[q];
+      const tr=v=>`직전 분기 ${fmt(v,1)} × (1${pc(qB)}) × 계절 ${fmt(sq,3)}`;
+      o.why={rpg:`직전 분기 ${fmt(p1.rpg,1)} × (1${pc(qR)}) — 추세 연 ${pc(gR)} 의 분기 환산`};
+      if(q===rankQ&&kq&&kq.n){                       // 다음 발표 분기 — 컴프야는 순위로
+        const rest=c2DDiff(c2QStart(q),c2QStart(c2QAdd(q,1)))-kq.n;
+        o.kbo=(kq.s+rest*KB.last7)/P.vat/10;
+        o.why.kbo=`관측 ${kq.n}일 결제액 ${fmt(kq.s,1)}억${rest>0?` + 남은 ${rest}일 × 최근 7일 평균 ${fmt(KB.last7,2)}억`:""} ÷ ${P.vat} (V26·연도판, 구글+애플 순위 → 곡선)`;
+      } else if(p1.kbo!=null){ o.kbo=p1.kbo*mB; o.why.kbo=tr(p1.kbo); }
+      if(p1.mlb!=null){ o.mlb=p1.mlb*mB; o.why.mlb=tr(p1.mlb)+` — 추세 연 ${pc(gB)}`; }
+      if(o.kbo!=null&&o.mlb!=null){ o.bb=o.kbo+o.mlb; o.why.bb=`컴프야 ${fmt(o.kbo,1)} + MLB·기타 ${fmt(o.mlb,1)}`; }
+      else { o.kbo=o.mlb=null; o.bb=p1.bb*mB; o.why.bb=tr(p1.bb)+` — 추세 연 ${pc(gB)}`; }
       const leg=o.rpg+o.bb+o.cas+o.newg;
       o.sep=o.zeus+leg; o.sub=P.subRev; o.rev=o.sep+o.sub;
       o.fee=P.feeL/100*leg+(P.feeZ+P.rsZ)/100*o.zeus;              // 개발사 RS 는 지급수수료 계정(회사 확인)
@@ -6789,10 +6847,11 @@ function c2Build(P){
   ["2024","2025","2026","2027"].forEach(y=>{
     const qq=[1,2,3,4].map(k=>Q[`${y}Q${k}`]); const o={q:y, yr:1, act:qq.every(x=>x.act)};
     K.forEach(k=>o[k]=qq.reduce((s,x)=>s+(x[k]||0),0));
+    ["kbo","mlb"].forEach(k=>o[k]=qq.every(x=>x[k]!=null)?qq.reduce((s,x)=>s+x[k],0):null);
     const zs=qq.reduce((s,x)=>s+(x.zd!=null?x.zd*x.zdays:0),0), zw=qq.reduce((s,x)=>s+x.zdays,0);
     o.zd=zw?zs/zw:null; o.zdays=zw; o.opm=o.rev?o.op/o.rev:null; o.days=qq.reduce((s,x)=>s+x.days,0); Y[y]=o;
   });
-  return {Q, Y, Z, lastAct};
+  return {Q, Y, Z, lastAct, KB, SE};
 }
 
 /* 곡선 적합도 — 앵커 게임의 그 달 일별 순위로 모델 일매출을 내 실제(모바일인덱스)와 견준다(표본 내: 이 점들로 계수를 맞췄다) */
@@ -6881,7 +6940,7 @@ function renderC2Model(){
     +(o.zobs&&o.zobs<o.zdays?` (관측 ${fmt(o.zobs,1)}일 + 가정 ${fmt(o.zdays-o.zobs,0)}일)`:o.zobs?" (전부 관측 순위)":" (가정 순위)"):"";
   const eTip=(o,k)=>{ if(o.act||o.yr) return "";
     const leg=o.rpg+o.bb+o.cas+o.newg;
-    return ({zeus:zTip(o), rpg:o.why&&o.why.rpg, bb:o.why&&o.why.bb, cas:"최근 2분기 평균(가정)", newg:"2027년 신작 자리값(가정)",
+    return ({zeus:zTip(o), rpg:o.why&&o.why.rpg, bb:o.why&&o.why.bb, kbo:o.why&&o.why.kbo, mlb:o.why&&o.why.mlb, cas:"최근 2분기 평균(가정)", newg:"2027년 신작 자리값(가정)",
       sub:`게임 자회사(OOTP·타이젬·티키타카·해외법인) 분기 매출 ${P.subRev} — 컴투스엔(7/14 엔피가 위지윅 흡수합병) 3Q26 부터 연결 제외`,
       fee:`기존 게임 ${fmt(leg,1)} × ${P.feeL}% + 제우스 ${fmt(o.zeus,1)} × (마켓·PG ${P.feeZ}% + 개발사 RS ${P.rsZ}%)`,
       roy:`RPG·야구 ${fmt(o.rpg+o.bb,1)} × ${P.royL}% (MLB·KBO 라이선스·콜라보 IP)`,
@@ -6901,6 +6960,8 @@ function renderC2Model(){
     {k:"zeus", t:"제우스: 오만의 신", i:2, z:1, g:"rev"},
     {k:"rpg", t:"RPG — 서머너즈워 외", i:2, g:"rev"},
     {k:"bb", t:"야구 — 컴프야·MLB 9이닝스 외", i:2, g:"rev"},
+    {k:"kbo", t:"컴프야 (국내 순위)", i:3, g:"rev", sm:1},
+    {k:"mlb", t:"MLB·기타 (추세 × 계절)", i:3, g:"rev", sm:1},
     {k:"cas", t:"캐주얼·기타", i:2, g:"rev"},
     {k:"newg", t:"신작 (2027~, 자리값)", i:2, g:"rev"},
     {k:"sub", t:"자회사 (연결 − 별도)", i:1, b:1, g:"rev"},
@@ -6973,10 +7034,12 @@ function renderC2Model(){
     else if(row.m==="dq"){ v=o[row.k]!=null&&o.days?fmt(o[row.k]*10/o.days,1):"—";
       tip=`${lab(o)} ${fmt(o[row.k],1)}십억 × 10 ÷ ${o.days}일`; }
     else { const x=o[row.k]; v=((row.k==="newg"||row.k==="zeus")&&!x)?"—":f1(x); tip=eTip(o,row.k)||(row.z?zTip(o):"");
+      if(o.act&&!o.yr&&o[row.k]!=null&&(row.k==="kbo"||row.k==="mlb"))
+        tip=row.k==="kbo"?`${lab(o)} 컴프야 V26·연도판 순위 → 곡선(결제액 ÷ ${P.vat}) — IR 은 야구를 쪼개 주지 않는다`:`IR 스포츠 ${fmt(o.bb,1)} − 컴프야(순위) ${fmt(o.kbo,1)}`;
       if(!o.act&&!o.yr&&o.q==="2026Q3"&&row.k==="nonop"&&P.oneoff) v+=`<sup style="color:var(--warn)">*</sup>`; }
     if(row.z&&o.act&&o.zEst&&o.zeus) tip=(tip?tip+" · ":"")+"IR 이 제우스를 따로 밝히지 않아 모델값을 RPG 에서 뗐다";
     let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
-      +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"?"color:var(--muted);":"")
+      +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"||row.sm?"color:var(--muted);":"")+(row.sm?"font-size:11.5px;":"")
       +(row.z||row.m==="dz"?"color:var(--accent);":"")+(row.z?"font-weight:700;":"")+(row.m==="per"?"font-weight:700;":"");
     if(row.hl) st+=`background:${k===nextQ?"color-mix(in srgb, var(--accent) 24%, transparent)":"color-mix(in srgb, var(--accent) 7%, transparent)"};`;
     return `<td style="${st}"${tip?` title="${attr(tip)}"`:""}>${v}</td>`;
@@ -6986,7 +7049,7 @@ function renderC2Model(){
     const small=row.r||row.m==="zd"||row.m==="zr";
     const lst="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;z-index:1;"
       +`background:${row.hl?"color-mix(in srgb, var(--accent) 7%, var(--panel))":"var(--panel)"};`
-      +`padding-left:${22+(row.i||0)*14+(row.r?14:0)}px;`+(small?"font-size:11px;color:var(--muted);":"")
+      +`padding-left:${22+(row.i||0)*14+(row.r?14:0)}px;`+(small?"font-size:11px;color:var(--muted);":"")+(row.sm?"font-size:11.5px;color:var(--muted);":"")
       +(row.m==="hdr"?"font-weight:700;color:var(--muted);font-size:11.5px;":"")+(row.m==="dz"?"color:var(--accent);":"")
       +(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"")+(row.tg?"cursor:pointer;":"");
     const tr=(row.em?`border-top:${EM};border-bottom:${EM};`:"")+(row.top===2?"border-top:2px solid var(--line);":row.top?"border-top:1px solid var(--line);":"");
@@ -7024,6 +7087,9 @@ function renderC2Model(){
       <b>지급수수료·로열티는 IR 분류</b>입니다(DART 주석의 지급수수료 = IR 지급수수료 + 로열티 + 일부 기타). 개발사 RS 는 회사 설명대로 지급수수료에 넣었습니다.
       <b>자회사는 3Q26 부터 컴투스엔 연결 제외</b>(7/14 엔피가 위지윅 흡수합병 · 9/30 레드아이스에 4.5% 매각 → 컴투스 약 27%): 적자 미디어가 빠지고 게임 자회사만 남습니다(분기 매출 약 8 · 손익 ≈ 0).
       컴투스엔 손익은 3Q26 부터 지분법으로 영업외에 들어갑니다. 연결 제외 처분손익은 공시 전이라 넣지 않았습니다.
+      <b>야구</b>는 컴프야(국내 순위)와 MLB·기타로 나눕니다 — 다음 발표 분기의 컴프야는 관측 순위로, 그 뒤와 MLB·기타는 직전 분기 × 추세 × 계절 지수
+      (IR 스포츠 매출 분기별 전분기 대비 배수의 평균, 네 분기 곱 = 1: ${[1,2,3,4].map(k=>`${k}Q ${fmt(B.SE[k],2)}`).join(" · ")}).
+      실적 분기의 컴프야도 순위 추정이라(IR 은 야구를 쪼개지 않는다) MLB·기타 = IR 스포츠 − 컴프야입니다. 순위 기록은 2025-12 부터(gamerscroll).
       세금은 게임(별도) 이익에만 매깁니다 — 자회사 적자는 본사 세금을 줄이지 못합니다.</p>`;
 
   // ── 제우스: 순위 → 일매출 ─────────────────────────────────────────
@@ -7074,11 +7140,11 @@ function renderC2Model(){
       <td>${g.ios?`${g.ios.r}위 <span class="g" style="font-size:10.5px">(${fmt(g.ios.a7,1)})</span>`:`<span class="g">권외</span>`}</td>
       <td><b>${fmt(g.rev,g.rev<1?2:1)}</b>억</td><td>${fmt(g.rev*91/P.vat/10,1)}십억</td>
       <td>${g.sk&&sYoY(g.sk)!=null?pct(sYoY(g.sk),0):`<span class="g">—</span>`}</td>
-      <td style="text-align:left;font-size:11.5px;color:${g.ln==="제우스"?"var(--accent)":"var(--muted)"}">${g.ln==="제우스"?"제우스 줄(순위로 직접)":g.ln+" 줄(전년비로 추정)"}</td></tr>`).join("")
+      <td style="text-align:left;font-size:11.5px;color:${g.ln==="제우스"?"var(--accent)":"var(--muted)"}">${g.ln==="제우스"?"제우스 줄(순위로 직접)":/^컴투스프로야구\s*(V\d+|\d{4})$/.test(g.nm)?"야구 › 컴프야 줄(다음 분기는 순위로 직접)":g.ln+" 줄(추세로 추정)"}</td></tr>`).join("")
     +`</tbody></table></div>
     <p class="note" style="margin-top:6px">국내 차트로 보이는 기존 게임 합은 <b>${fmt(legKR,1)}억/일</b>${legQ?` — 이번 분기 기존 게임 추정 매출(하루 ${fmt(legQ,1)}억, 결제액 환산)의 <b>${fmt(legKR/legQ*100,0)}%</b>뿐`:""}입니다.
       서머너즈워는 매출의 89%가 해외(북미 33%·아시아 30%·유럽 23%)라 한국 차트에 거의 안 잡힙니다 — 그래서 기존 게임은 <b>순위가 아니라 성장률 추세</b>로 세우고,
-      순위는 제우스(국내 단독 출시)에만 씁니다.${over.length?` 해외 차트: ${over.join(" · ")}.`:""}</p>`;
+      순위는 국내 매출인 제우스(국내 단독 출시)와 <b>컴프야</b>(KBO 라이선스 · V26·연도판)에만 씁니다.${over.length?` 해외 차트: ${over.join(" · ")}.`:""}</p>`;
 
   // ── 가정 패널 ────────────────────────────────────────────────────
   const au=P._auto, isAuto=k=>A[k]==null&&au[k]!=null;
