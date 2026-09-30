@@ -280,6 +280,10 @@ jobs:
               echo "푸시 밀림 - 재시도 $i"
               git fetch origin main
               if ! git rebase origin/main; then
+                # index.html 만 막혔으면 상수 블록 단위로 합친다(merge_blocks.py · 2026-09-30)
+                if [ "$(git diff --name-only --diff-filter=U)" = "public/index.html" ] && python merge_blocks.py                    && git add public/index.html && GIT_EDITOR=true git rebase --continue; then
+                  sleep $((i * 3)); continue
+                fi
                 git rebase --abort || true
                 echo '리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)'; break
               fi
