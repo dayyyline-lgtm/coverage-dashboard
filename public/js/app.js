@@ -4686,10 +4686,13 @@ function boxCalc(BO, FL, star){
   //      하츄핑2 개봉일 1.40(8/5 05:57 판매석 55,378 × k 0.93 → 실제 72,976) · 치이카와 유료 시사 9/27 1.12(전날 20시 4,816석 × k 0.86 → 4,659 ·
   //      팬 예매 위주) · 기준 = 중간 1.25. 치이카와 개봉일 판매석은 9/29 하루 +3%(하츄핑2 개봉 전날 +45%)로 거의 멈췄다 —
   //      새 예매는 개천절(10/3)로 가고 있어서(같은 날 +1.7만석) 개봉일에 늦게 사는 수요가 하츄핑2 만큼 붙지 않는다고 본다.
-  //   개봉 뒤에도 D1 을 남긴다(당일 첫 수집이 그 날 값으로 굳으므로 = 개봉일 아침 추정) — 표 1 에서 실제와 견줘 BOX_DAYOF 를 다시 맞출 근거.
+  //   개봉 뒤에도 D1 을 남긴다(개봉 전날 마지막 수집 기준으로 고정) — 표 1 에서 실제와 견줘 BOX_DAYOF 를 다시 맞출 근거.
   const tms=s=>Date.parse(s.replace(" ","T")+":00+09:00");
   let d1=null, d1Lo=null, d1Hi=null, D1=null;
-  { const sp=(BO.seats||{})[`${me.key}|${ok}`]||[], last=sp[sp.length-1];
+  //   ⚠ 개봉일 06시 이후 수집은 쓰지 않는다(2026-09-30 사용자 "전날 모아 놓은 걸 기반으로 당일 추정") — 당일 수집은 이미 시작한
+  //      회차가 예매 API 에서 빠져 판매석이 줄어든다(9/30 08:27 13.10만 < 전날 18:19 13.23만). 전날 마지막 수집에 밤사이 증가를 더해 고정.
+  { const spAll=(BO.seats||{})[`${me.key}|${ok}`]||[], cut=tms(`${me.open} 06:00`);
+    const spPre=spAll.filter(p=>tms(p.t)<cut), sp=spPre.length?spPre:spAll, last=sp[sp.length-1], frozen=spPre.length<spAll.length;
     const full=sp.filter(p=>p.by&&p.by.CGV&&p.by.LC&&p.by.MB).slice(-1)[0];
     if(last&&last.seatSold){
       const pr=Object.keys(last.by||{}), shS=c=>full?full.by[c].seatSold/full.seatSold:1;
@@ -4709,7 +4712,7 @@ function boxCalc(BO, FL, star){
       const rate=dS!=null?Math.max(0,dS)/hrs:0;
       const H=Math.max(0,(tms(`${me.open} 06:00`)-tms(last.t))/36e5);
       const night3=rate*H*BOX_NIGHT, P0=(sold3+night3)*k;
-      D1={t:last.t, pr, by:last.by, scaled:pr.length<3&&!!full, sold3, k, kk, prevT:prev?prev.t:null, dS, g:base?dS/base:null,
+      D1={t:last.t, frozen, pr, by:last.by, scaled:pr.length<3&&!!full, sold3, k, kk, prevT:prev?prev.t:null, dS, g:base?dS/base:null,
           H, night3, P0, lo:P0*BOX_DAYOF.lo, mid:P0*BOX_DAYOF.mid, hi:P0*BOX_DAYOF.hi};
       if(!N){ d1Lo=D1.lo; d1=D1.mid; d1Hi=D1.hi; }
     }
@@ -4931,7 +4934,7 @@ function renderBoxModel(BO, FL, star){
   if(D1&&N<=10){
     const CH={CGV:"CGV",LC:"롯데",MB:"메가"}, g=BOX_DAYOF, ro=(a,b,c,x="")=>`<tr${x}><td class="l">${a}</td><td>${b}</td><td class="l" style="white-space:normal;min-width:340px;line-height:1.5">${c}</td></tr>`;
     const pct=v=>(v>=0?"+":"")+(v*100).toFixed(1)+"%";
-    h+=`<div class="sub-h" style="margin-top:14px">표 1 · 개봉일(${md(ok)}) 관객 <span class="tag-inline">${N?"개봉일 아침 수집으로 낸 마지막 추정 vs 실제":"지금 예매 → 개봉일 아침 → 당일 · 수집할 때마다 갱신"}</span></div>
+    h+=`<div class="sub-h" style="margin-top:14px">표 1 · 개봉일(${md(ok)}) 관객 <span class="tag-inline">${N?"개봉 전날 마지막 수집으로 낸 추정 vs 실제":D1.frozen?`전날 마지막 수집(${D1.t.slice(5)})으로 고정 · 실제는 내일 아침 KOBIS 확정`:"지금 예매 → 개봉일 아침 → 당일 · 수집할 때마다 갱신"}</span></div>
       <div class="tbl-wrap"><table class="mini-tbl box-tbl"><thead><tr><th class="l">단계</th><th>명</th><th class="l">어떻게</th></tr></thead><tbody>`
       +ro(`개봉일 예매 <span class="th-sub">3사 판매석</span>`, fmt0(D1.sold3)+"석",
           `${D1.t.slice(5)} 수집 · ${D1.pr.map(c=>`${CH[c]} ${man(D1.by[c].seatSold)}`).join(" · ")}${D1.scaled?" → 빠진 체인은 직전 3사 수집 비중으로 채움":""}`)
