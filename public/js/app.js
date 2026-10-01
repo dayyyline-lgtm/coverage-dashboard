@@ -6639,7 +6639,7 @@ const C2_ASM0={a:12.3, alpha:0.84, s:1, rios:0.25, lp:1.05, tau:15, vat:1.1,
   subRev:7.8, subOp:-0.8, medRev:0, medOp:0, nonop:-5.5, oneoff:0, tax:22, minor:-0.2, show25:0};
 // 미디어 = 위지윅스튜디오 연결(VFX·방송·매니지먼트 · 7/14 엔피에 흡수합병 → 컴투스엔) 분기 [매출, 영업이익] — **수기**, DART 위지윅 연결 손익
 //   (corp 01276327, 분기 = 누적 차분). 2Q26 은 위지윅 보고서가 없다(합병 소멸) → 매출 = 컴투스 반기 부문정보 VFX+방송,
-//   영업이익 = 자회사 합계(연결 − 별도) − 게임 자회사 1Q26 값(−0.8) 으로 역산한 **추정**(세 번째 칸 1).
+//   영업이익은 **공개된 숫자가 없어 비운다(null)** — 역산하지 않는다(사용자 2026-10-01). 그 분기 영업이익 칸은 미디어 포함(보고 기준) 그대로.
 //   1Q26 부문정보 VFX+방송 13.70 = 위지윅 연결 매출 13.69 로 검산된다. 컴투스 연결 안의 PPA 상각 등 조정은 무시(작다).
 // 이걸로 실적 분기를 **계속영업 기준**(게임 = 컴투스 별도 + 게임 자회사)으로 다시 나눈다 — 3Q26 부터 미디어가 연결에서 빠지면
 //   보고 기준 매출은 2Q26 157 → 3Q 에서 미디어 15.6 만큼 계단처럼 꺼지고 영업이익은 적자 4~5 가 사라진다. 같은 잣대로 YoY 를 보려면
@@ -6647,7 +6647,7 @@ const C2_ASM0={a:12.3, alpha:0.84, s:1, rios:0.25, lp:1.05, tau:15, vat:1.1,
 //   미디어 손익은 표의 '영업외' 아래 한 줄로 남긴다 → 세전·순이익은 실적과 그대로 맞는다.
 const C2_MEDIA={"2024Q1":[17.04,-3.66],"2024Q2":[6.86,-4.83],"2024Q3":[25.32,-1.60],"2024Q4":[31.22,-1.72],
   "2025Q1":[20.79,-3.45],"2025Q2":[24.51,-3.30],"2025Q3":[29.62,-1.67],"2025Q4":[27.08,-1.13],
-  "2026Q1":[13.69,-1.83],"2026Q2":[15.57,-4.36,1]};
+  "2026Q1":[13.69,-1.83],"2026Q2":[15.57,null]};
 // 자회사 = 컴투스엔 **연결 제외** 가정(사용자 2026-09-28 "곧 그렇게 된대"). 7/14 엔피가 위지윅을 흡수합병해 컴투스엔(컴투스 31.3%)이
 //   됐고, 연결에서 빠지면 위지윅 미디어(분기 매출 약 15 · 적자 −3)가 연결 영업이익에서 나간다 → 남는 건 게임 자회사
 //   (OOTP·타이젬·티키타카·해외법인, 분기 매출 약 8 · 손익 ≈ 0)와 마이뮤직테이스트뿐. 컴투스엔 손익은 지분법(31% × 순손실 3~4/분기 ≈ −1.0)으로
@@ -6811,11 +6811,12 @@ function c2Build(P){
       o.rpg=ir.g[0]-zz; o.bb=ir.g[1]; o.cas=ir.g[2]+ir.g[3]; o.newg=0;
       o.kbo=kboFull(q); o.mlb=o.kbo!=null?o.bb-o.kbo:null;
       // 계속영업 기준 — 보고 연결에서 미디어(C2_MEDIA)를 뗀다. 영업외(nonop)는 보고 그대로라 세전 = 영업이익 + 미디어 + 영업외 = 실적
-      const md=C2_MEDIA[q]||[0,0]; o.med=md[0]; o.medOp=md[1]; o.medEst=!!md[2]; o.repRev=f.c.rev; o.repOp=f.c.op;
+      const md=C2_MEDIA[q]||[0,0]; o.med=md[0]; o.medNA=md[1]==null; o.medOp=o.medNA?0:md[1]; o.repRev=f.c.rev; o.repOp=f.c.op;
+      // 미디어 영업이익 미공시 분기(2Q26): 매출만 떼고 비용은 미디어 몫을 모른다 → 영업이익·게임 자회사 영업이익에 미디어 손익이 섞여 있다(* 표시)
       o.sep=ir.g.reduce((a,b)=>a+b,0); o.rev=f.c.rev-o.med; o.sub=o.rev-o.sep;
       o.mkt=ir.x[0]; o.lab=ir.x[1]; o.fee=ir.x[2]; o.roy=ir.x[3]; o.oth=ir.x[4]+ir.x[5];
-      o.opex=f.c.opex-(o.med-o.medOp); o.subx=o.opex-(o.mkt+o.lab+o.fee+o.roy+o.oth);
-      o.op=f.c.op-o.medOp; o.pbt=f.c.pbt; o.nonop=o.pbt-f.c.op; o.np=f.c.np; o.npp=f.c.npp; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
+      o.opex=f.c.opex-(o.medNA?o.med:o.med-o.medOp); o.subx=o.opex-(o.mkt+o.lab+o.fee+o.roy+o.oth);
+      o.op=o.rev-o.opex; o.pbt=f.c.pbt; o.nonop=o.pbt-f.c.op; o.np=f.c.np; o.npp=f.c.npp; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
     } else {
       // 기존 게임은 롱테일 — 직전 분기에서 성장률 추세를 이어 간다(연율 → 분기 환산 (1+g)^¼−1). RPG 는 계절성을 넣지 않는다.
       //   (예전엔 '전년 동기 × (1+전년비)'였는데, 작년 분기의 일회성·계절 요인이 그대로 옮겨 와 3Q 가 꺾여 보였다 — 사용자 2026-09-28)
@@ -7057,9 +7058,10 @@ function renderC2Model(){
       if(o.act&&!o.yr&&o[row.k]!=null&&(row.k==="kbo"||row.k==="mlb"))
         tip=row.k==="kbo"?`${lab(o)} 컴프야 V26·연도판 순위 → 곡선(결제액 ÷ ${P.vat}) — IR 은 야구를 쪼개 주지 않는다`:`IR 스포츠 ${fmt(o.bb,1)} − 컴프야(순위) ${fmt(o.kbo,1)}`;
       if(!o.act&&!o.yr&&o.q==="2026Q3"&&row.k==="nonop"&&P.oneoff) v+=`<sup style="color:var(--warn)">*</sup>`;
-      if(o.act&&!o.yr&&o.medEst&&["medOp","op","subOp","subx","opex"].includes(row.k)){ v+=`<sup style="color:var(--warn)">*</sup>`;
-        tip=(tip?tip+" · ":"")+`미디어 영업이익 ${f1(o.medOp)} 은 추정(위지윅 2Q26 보고서 없음 — 자회사 합계 − 게임 자회사 1Q26 값)`; }
-      if(o.act&&!o.yr&&row.k==="med") tip=`위지윅 연결 매출(DART)${o.medEst?" — 2Q26 은 컴투스 부문정보 VFX+방송":""}`; }
+      if(o.act&&!o.yr&&o.medNA&&row.k==="medOp") v="—";
+      if(o.act&&!o.yr&&o.medNA&&["medOp","op","subOp","subx","opex"].includes(row.k)){ v+=`<sup style="color:var(--warn)">*</sup>`;
+        tip=(tip?tip+" · ":"")+`위지윅(미디어) ${c2QLab(o.q)} 영업이익은 공개된 숫자가 없다(합병으로 보고서 없음) — 영업이익·게임 자회사 영업이익에 미디어 손익이 섞여 있다. 컴투스엔 3Q 보고서에서 채운다`; }
+      if(o.act&&!o.yr&&row.k==="med") tip=`위지윅 연결 매출(DART)${o.medNA?" — 이 분기는 컴투스 반기보고서 부문정보 VFX+방송":""}`; }
     if(row.z&&o.act&&o.zEst&&o.zeus) tip=(tip?tip+" · ":"")+"IR 이 제우스를 따로 밝히지 않아 모델값을 RPG 에서 뗐다";
     let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
       +(row.r||row.m==="zd"||row.m==="zr"?"font-size:11px;color:var(--muted);":"")+(row.m==="dq"||row.sm?"color:var(--muted);":"")+(row.sm?"font-size:11.5px;":"")
