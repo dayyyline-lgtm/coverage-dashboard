@@ -20,7 +20,11 @@ import datetime, os, subprocess, sys
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 KST = datetime.timezone(datetime.timedelta(hours=9))
-COLLECTORS = [("게임머니", "fetch_gamemoney.py"), ("올리브영", "fetch_beauty.py")]
+# 극장가(KOBIS) 추가(2026-10-04) — 러너에선 KOBIS 가 자주 timed out 인데 이 PC 에선 0.2초다.
+#   주말엔 러너 회차가 12·20시 둘뿐이라 한 번 막히면 그날 예매·일별이 통째로 빈다(10/4 실제로 그랬다).
+#   인자 없이 부르면 KOBIS 예매·일별만 받는다(좌석 --seats 는 boxseats.yml 몫).
+COLLECTORS = [("게임머니", "fetch_gamemoney.py"), ("올리브영", "fetch_beauty.py"),
+              ("극장가(KOBIS)", "fetch_boxoffice.py")]
 
 
 def git(*a):
@@ -45,7 +49,7 @@ def main():
             subprocess.run([sys.executable, "runstep.py", name, script],
                            env={**os.environ, "PYTHONIOENCODING": "utf-8"})
         git("add", "public/index.html", "health.json")
-        c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영) {now} KST")
+        c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영·KOBIS) {now} KST")
         if "nothing to commit" in (c.stdout + c.stderr):
             print("변동 없음 — push 생략"); return 0
         p = git("push", "origin", "main")
