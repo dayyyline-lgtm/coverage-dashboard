@@ -31,7 +31,7 @@
   python fetch_dwmodel.py            # 수집·기록
   python fetch_dwmodel.py --dry-run  # 출력만
 """
-import json, re, sys, io, zipfile, html as _html, urllib.request, datetime, copy
+import json, re, sys, io, zipfile, html as _html, urllib.request, datetime, copy, time
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -158,8 +158,17 @@ def imports():
         w = ms[i:i + 12]
         for hs6 in sorted({v[0] for v in SER.values()}):
             p = {"serviceKey": FT.DATA_GO_KR_KEY, "strtYymm": w[0], "endYymm": w[-1], "hsSgn": hs6}
-            raw = urllib.request.urlopen(urllib.request.Request(FT.API + "?" + urllib.parse.urlencode(p, safe=""),
-                                                                headers={"User-Agent": "Mozilla/5.0"}), timeout=90).read()
+            # 관세청 API 는 러너에서 가끔 응답 없이 끊긴다(2026-10-03·04 timed out) — 창 하나 실패가 계열 전체를
+            # '이전 값 유지'로 돌리므로 창 단위로 세 번까지 다시 부른다.
+            for t in range(3):
+                try:
+                    raw = urllib.request.urlopen(urllib.request.Request(FT.API + "?" + urllib.parse.urlencode(p, safe=""),
+                                                                        headers={"User-Agent": "Mozilla/5.0"}), timeout=60).read()
+                    break
+                except Exception:
+                    if t == 2:
+                        raise
+                    time.sleep(10 * (t + 1))
             root = ET.fromstring(raw)
             msg = root.findtext(".//resultMsg") or ""
             if msg and "정상" not in msg:

@@ -5,7 +5,7 @@
 검색 트렌드가 '관심'이라면 이쪽은 '실제로 팔리고 있나'에 가깝다.
 리뷰 수는 구매자만 남기므로, 주간 증가분이 판매 대리지표가 된다.
 
-  러시아 — 와일드베리즈 (인증 불필요)
+  러시아 — 와일드베리즈 (인증 불필요) — ⚠ 2026-09-21 이후 수집 중단(아래 WB_STOPPED)
   일본  — 라쿠텐 이치바   (RAKUTEN_APP_ID + RAKUTEN_ACCESS_KEY)
 
 중요: 두 API 모두 '현재 스냅샷'만 준다. 과거 시계열을 주지 않는다.
@@ -16,6 +16,7 @@
 중국에서 만들어 러시아로 직접 나가는 물량도 러시아 쪽에 반영된다.
 """
 import urllib.request, urllib.parse, json, re, sys, os, time, datetime
+from collector_health import note_health
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -29,6 +30,10 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
 RAKUTEN_APP_ID     = os.environ.get("RAKUTEN_APP_ID", "")
 RAKUTEN_ACCESS_KEY = os.environ.get("RAKUTEN_ACCESS_KEY", "")
 
+# 와일드베리즈는 2026-09 말부터 모든 요청에 JS 봇 챌린지(/__wbaas/challenges/antibot)를 건다.
+# 러너뿐 아니라 한국 가정용 IP 에서도 검색 API v4~v18·card API 가 전부 403 · 0바이트(2026-10-04 실측).
+# 챌린지를 푸는 건 우회라 하지 않는다 — 수집을 멈추고, 9/21 까지 쌓인 점은 화면에 그대로 둔다.
+WB_STOPPED = "2026-09-21"
 WB_URL = "https://search.wb.ru/exactmatch/ru/common/v4/search"
 RK_URL = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
 
@@ -97,12 +102,14 @@ def fetch_rakuten(query):
     # 앱 등록의 Allowed websites 를 검사한다. 헤더만으로는 403
     # REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING 이 떨어져 쿼리로도 같이 보낸다.
     ref = "https://coverage-dashboard.pages.dev/"
+    # 2026-02 새 엔드포인트(openapi.rakuten.co.jp)는 Referer 와 Origin 을 둘 다 보고 앱의 '허용된 웹사이트'와 대조한다.
+    # Referer 만 보냈더니 7/26 이후 한 번도 못 받았다(REQUEST_CONTEXT_BODY_HTTP_REFERRER_MISSING).
     p = urllib.parse.urlencode({
         "applicationId": RAKUTEN_APP_ID, "accessKey": RAKUTEN_ACCESS_KEY,
         "httpReferrer": ref,
         "keyword": query, "hits": 30, "sort": "-reviewCount"})
     req = urllib.request.Request(f"{RK_URL}?{p}", headers={
-        **UA, "Referer": ref, "Accept": "application/json",
+        **UA, "Referer": ref, "Origin": ref.rstrip("/"), "Accept": "application/json",
         "accessKey": RAKUTEN_ACCESS_KEY})
     try:
         raw = urllib.request.urlopen(req, timeout=25).read().decode("utf-8")
@@ -140,7 +147,7 @@ def main():
     for t in TARGETS:
         meta.append({k: t[k] for k in ("stock", "label") if k in t})
         for src, key, fn in (("wb", "wb", fetch_wb), ("rk", "rk", fetch_rakuten)):
-            if not t.get(key):
+            if not t.get(key) or (src == "wb" and WB_STOPPED):
                 continue
             sid = f"{t['label']}|{src}"
             try:
@@ -159,9 +166,12 @@ def main():
             print(f"  {sid:<22} 상품 {r['n']:>3} · 리뷰 {r['rev']:>7} · 평점 {r['rating']}")
 
     if not ok:
-        print("수집 0건 - index.html 그대로 둠"); return
+        # 예전엔 여기서 조용히 return 했다 → runstep 은 '성공'으로 보고 9/21 부터 2주간 아무도 몰랐다(2026-10-04).
+        note_health("쇼핑 수요", ("수집 0건: " + ", ".join(fail))[:180] if fail else "수집 0건(대상 없음)")
+        print("수집 0건 - index.html 그대로 둠"); sys.exit(1)
+    note_health("쇼핑 수요", None)
 
-    shop = {"asOf": today, "targets": TARGETS, "series": series}
+    shop = {"asOf": today, "wbStopped": WB_STOPPED, "targets": TARGETS, "series": series}
     block = "const SHOP = " + json.dumps(shop, ensure_ascii=False) + ";\n"
     if m:
         html = html[:m.start()] + block + html[m.end():]

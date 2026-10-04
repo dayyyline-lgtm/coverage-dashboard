@@ -243,7 +243,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72, KMJAMZ:120};
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["AMAZON","아마존 뷰티",72],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["AMAZON","아마존 뷰티",72],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -3173,6 +3173,8 @@ function renderShop(){
     if(!pts||!pts.length) return;
     const last=pts[pts.length-1], prev=pts.length>1?pts[pts.length-2]:null;
     const d=(prev&&prev.rev>0)?((last.rev/prev.rev-1)*100):null;   // 리뷰 증가율 = 판매 대리지표
+    // 와일드베리즈는 봇 챌린지로 막혀 수집을 멈췄다(fetch_shop.WB_STOPPED) — 옛 점이 지금 값처럼 보이지 않게
+    const stop=(src==="wb")?(S.wbStopped||"2026-09-21"):null;
     cells.push(`<div class="sm-cell"${t.comp?' style="opacity:.82"':''}>
       <div class="sm-h"><span class="dot" style="background:var(--${t.comp?'muted':'accent'})"></span>${t.label}
         ${t.comp?`<span class="src">경쟁 · ${t.comp}</span>`:""}
@@ -3180,7 +3182,8 @@ function renderShop(){
         <span class="v">${fmt0(last.rev)}</span></div>
       <div class="shop-kv">리뷰 누적 <b>${fmt0(last.rev)}</b>
         · 상품 ${last.n}개 · 평점 ${last.rating==null?"—":last.rating}
-        · ${d==null?`<span class="th-sub">추이는 다음 수집부터</span>`
+        · ${stop?`<span class="th-sub">${stop.slice(5).replace("-","/")} 이후 수집 중단(사이트 봇 차단)</span>`
+          :d==null?`<span class="th-sub">추이는 다음 수집부터</span>`
                    :`전주비 <span class="${cls(d)}">${sign(d,1)}%</span>`}</div>
     </div>`);
   }));

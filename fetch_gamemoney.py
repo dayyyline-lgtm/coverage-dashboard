@@ -151,6 +151,18 @@ def reachable(host="www.itemmania.com", port=443, timeout=5):
 def main():
     now = datetime.datetime.now(KST)
     if not reachable():
+        # 러너에서 막히는 건 확정된 사실이다. PC(kr_collect.py)가 하루 안에 채워 뒀으면 고장이 아니다 —
+        # 여기서 매번 사유를 남기면 watchdog 이 날마다 '게임머니 차단'을 울려 진짜 고장이 묻힌다(2026-10-04).
+        m = re.search(r'const GAMEMONEY\s*=\s*\{\s*"asOf"\s*:\s*"([^"]+)"', open(HTML, encoding="utf-8").read())
+        try:
+            t = datetime.datetime.strptime(m.group(1).replace("KST", "").strip(), "%Y-%m-%d %H:%M").replace(tzinfo=KST)
+            fresh = (now - t).total_seconds() < 30 * 3600
+        except Exception:
+            fresh = False
+        if fresh:
+            note_health("게임머니", None)
+            print(f"[게임머니] 이 IP 는 막혀 있지만 PC 수집분({m.group(1)})이 신선하다 — 건너뜀")
+            return
         note_health("게임머니", "러너 IP 차단 — 아이템매니아가 TCP 연결을 안 받음(클라우드 대역 드롭 · "
                               "2026-09-09 진단). 한국 IP(kr_collect.py)에서만 수집 가능")
         print("[게임머니] 아이템매니아 TCP 연결 불가 — 이 IP 에서는 수집할 수 없다(사유 기록 후 종료)")

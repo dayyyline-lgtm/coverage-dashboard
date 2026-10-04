@@ -100,6 +100,10 @@ def freshness(html, now):
         # 예전 정규식은 AMAZON·SPOTIFY·STEAM 등을 통째로 놓치고 있었다.
         m = re.search(r'const %s\s*=\s*\{\s*"asOf"\s*:\s*"([^"]+)"' % key, html)
         if not m:
+            # asOf 를 맨 끝에 쓰는 수집기도 있다(QOO10) — 첫 키만 보던 탓에 9/24 신설 이후 한 번도 감시되지 않았다(2026-10-04).
+            ln = re.search(r'^const %s\s*=.*$' % key, html, re.M)
+            m = ln and re.search(r'"asOf"\s*:\s*"([^"]+)"\s*\}\s*;?\s*$', ln.group(0))
+        if not m:
             continue
         ts = parse_ts(m.group(1))
         if not ts:
