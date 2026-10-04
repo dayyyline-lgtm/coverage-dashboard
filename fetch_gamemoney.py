@@ -182,7 +182,16 @@ def main():
     for g in GAMES:
         p = prev.get(g["code"]) or {"hist": []}
         hist = {h["d"]: h for h in (p.get("hist") or [])}
-        n = 3 if hist else BACKFILL              # 처음엔 백필, 이후엔 최근 며칠만
+        # 처음엔 백필, 이후엔 마지막 점 이후 + 여유 2일. 예전엔 늘 3일이라 PC 가 못 돈 기간이 영영 비었다
+        # (9/21~10/3 2주 공백이 3점만 남음 · 2026-10-04).
+        #   중간 구멍도 본다 — 사이트가 주는 창(BACKFILL일) 안에서 가장 오래된 빈 날까지 받아 오면 다음 회차에 메워진다.
+        if hist:
+            first = datetime.date.fromisoformat(min(hist))
+            hole = next((k for k in range(BACKFILL - 1, 0, -1)
+                         if (d := now.date() - datetime.timedelta(days=k)) >= first and d.isoformat() not in hist), 0)
+            n = min(BACKFILL, max(3, hole + 2))
+        else:
+            n = BACKFILL
         per_day = {}                              # d -> [prices], [amounts]
         mult = 1000
         for sc, sname in g["servers"]:
