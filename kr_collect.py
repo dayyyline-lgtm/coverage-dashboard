@@ -49,7 +49,11 @@ def main():
             subprocess.run([sys.executable, "runstep.py", name, script],
                            env={**os.environ, "PYTHONIOENCODING": "utf-8"})
         git("add", "public/index.html", "health.json")
-        c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영·KOBIS) {now} KST")
+        # Pages 빌드 한도(월 500)가 빠듯하다 — 봇이 곧 배포하는 시간대(평일 ~16시 · 주말 12~20시)엔 배포 생략 표시를
+        # 달아 다음 봇 배포에 실려 가게 한다. 평일 저녁·주말 아침/밤 회차만 직접 배포(월 ~40건).
+        t = datetime.datetime.now(KST)
+        quiet = (t.weekday() < 5 and t.hour < 17) or (t.weekday() >= 5 and 12 <= t.hour < 20)
+        c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영·KOBIS) {now} KST" + (" [CI Skip]" if quiet else ""))
         if "nothing to commit" in (c.stdout + c.stderr):
             print("변동 없음 — push 생략"); return 0
         p = git("push", "origin", "main")
