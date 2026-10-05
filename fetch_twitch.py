@@ -27,7 +27,7 @@ GAMES = [
     ("크래프톤", "배틀그라운드",   "PUBG: BATTLEGROUNDS"),
     ("시프트업", "스텔라블레이드", "Stellar Blade"),
     ("시프트업", "니케",           "GODDESS OF VICTORY: NIKKE"),
-    ("NC",       "아이온2",        "AION2"),
+    ("NC",       "아이온2",        "AION 2"),   # 트위치 표기는 띄어쓰기 있음('AION2'는 못 찾아 7/28~10/5 전부 0으로 쌓였다)
 ]
 
 
@@ -118,10 +118,12 @@ def main():
         hist = list(prev.get((stock, title), []))
         try:
             gid = _game_id(gname, tok)
-            v = _viewers(gid, tok) if gid else 0
-            hist = _merge_day(hist, today, v)
-            hist = hist[-DAYS:]
-            print(f"  {title}: 시청자 {v:,}" + ("" if gid else f" (게임 '{gname}' 못 찾음)"))
+            if gid:                          # 못 찾으면 0을 쌓지 말고 비워 둔다(0은 '시청자 없음'으로 읽힌다)
+                v = _viewers(gid, tok)
+                hist = _merge_day(hist, today, v)[-DAYS:]
+                print(f"  {title}: 시청자 {v:,}")
+            else:
+                print(f"  [{title}] 게임 '{gname}' 못 찾음 — 기록 안 함")
         except Exception as e:
             print(f"  [{title}] 실패: {str(e)[:90]}")
         games.append({"stock": stock, "title": title, "hist": hist})
