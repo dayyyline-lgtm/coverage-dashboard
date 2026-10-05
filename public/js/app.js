@@ -6824,8 +6824,7 @@ function c2Build(P){
       // 기존 게임은 롱테일 — 직전 분기에서 성장률 추세를 이어 간다(연율 → 분기 환산 (1+g)^¼−1). RPG 는 계절성을 넣지 않는다.
       //   (예전엔 '전년 동기 × (1+전년비)'였는데, 작년 분기의 일회성·계절 요인이 그대로 옮겨 와 3Q 가 꺾여 보였다 — 사용자 2026-09-28)
       // 야구는 계절성이 해마다 같아서(IR 2Q↑ 3Q↓ 4Q↑↑) 추세 × 계절 지수(c2Seas, 네 분기 곱 = 1). 사용자 2026-09-30:
-      //   **다음 발표 분기의 컴프야 = 관측 순위**(남은 날은 최근 7일 평균), 그 뒤 분기와 MLB·기타 = 직전 분기 × 추세 × 계절
-      //   (MLB·기타도 다음 발표 분기엔 계절 지수 없이 — 아래 mlbS 주석).
+      //   **다음 발표 분기의 컴프야 = 관측 순위**(남은 날은 최근 7일 평균), 그 뒤 분기와 MLB·기타 = 직전 분기 × 추세 × 계절.
       const p1=Q[c2QAdd(q,-1)]||{rpg:0,bb:0}, y=+q.slice(0,4), n=lastAct?(+q.slice(0,4)*4+ +q.slice(-1))-(+lastAct.slice(0,4)*4+ +lastAct.slice(-1)):1;
       const gR=(y<=2026?P.gRpg26:P.gRpg27)/100, gB=(y<=2026?P.gBb26:P.gBb27)/100;
       const qR=Math.pow(1+gR,0.25)-1, qB=Math.pow(1+gB,0.25)-1;
@@ -6839,13 +6838,7 @@ function c2Build(P){
         o.kbo=(kq.s+rest*KB.last7)/P.vat/10;
         o.why.kbo=`관측 ${kq.n}일 결제액 ${fmt(kq.s,1)}억${rest>0?` + 남은 ${rest}일 × 최근 7일 평균 ${fmt(KB.last7,2)}억`:""} ÷ ${P.vat} (V26·연도판, 구글+애플 순위 → 곡선)`;
       } else if(p1.kbo!=null){ o.kbo=p1.kbo*mB; o.why.kbo=tr(p1.kbo); }
-      // MLB·기타는 해외 매출이라 분기를 덮는 데이터가 없다(해외 매출순위 9/21~ · 구글 트렌드 KR 은 거의 0).
-      //   사용자 2026-10-05 "임박한 분기는 데이터를 신뢰, 계절성은 그 뒤 분기에만" → **다음 발표 분기엔 계절 지수를 곱하지 않는다**(추세만).
-      //   그 뒤 분기는 계절성을 낀 그림자 값(mlbS = 직전 실적 × 추세 × 계절)에서 이어 간다 — 안 그러면 3Q 하나를 뺀 만큼(1/0.872)
-      //   4Q 이후 전 분기가 영구히 14.7% 올라간다(네 분기 계절 곱 = 1 이 깨진다).
-      if(p1.mlb!=null){ const base=p1.mlbS!=null?p1.mlbS:p1.mlb; o.mlbS=base*mB;
-        if(q===rankQ){ o.mlb=p1.mlb*(1+qB); o.why.mlb=`직전 분기 ${fmt(p1.mlb,1)} × (1${pc(qB)}) — 추세 연 ${pc(gB)} · 임박 분기라 계절 지수 미적용(분기를 덮는 해외 데이터 없음)`; }
-        else { o.mlb=o.mlbS; o.why.mlb=tr(base)+` — 추세 연 ${pc(gB)}`; } }
+      if(p1.mlb!=null){ o.mlb=p1.mlb*mB; o.why.mlb=tr(p1.mlb)+` — 추세 연 ${pc(gB)}`; }
       if(o.kbo!=null&&o.mlb!=null){ o.bb=o.kbo+o.mlb; o.why.bb=`컴프야 ${fmt(o.kbo,1)} + MLB·기타 ${fmt(o.mlb,1)}`; }
       else { o.kbo=o.mlb=null; o.bb=p1.bb*mB; o.why.bb=tr(p1.bb)+` — 추세 연 ${pc(gB)}`; }
       const leg=o.rpg+o.bb+o.cas+o.newg;
