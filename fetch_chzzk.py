@@ -22,21 +22,45 @@ DAYS = 180
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 PAGES = 8          # 인기 라이브 페이지 수(page=50) — 상위 400개면 게임별 총시청 대부분 포착
 
-# (종목, 표시명, 카테고리 매칭 키워드) — 치지직 카테고리명에 이 키워드가 들면 그 게임으로 합산
+# (종목, 표시명, 카테고리 매칭 키워드, 치지직 카테고리 ID)
+# 키워드는 **공백을 지운 상태**로 비교한다 — 치지직 표기는 "스텔라 블레이드"(공백)라
+# 예전 '스텔라블레이드' 키워드로는 7/28~10/5 내내 0이 쌓였다(2026-10-05 발견).
+# 카테고리 ID 는 카테고리별 라이브 목록(_cat_viewers)용 — 인기 상위 400 에 못 드는 작은 방송까지 다 센다.
 GAMES = [
-    ("펄어비스", "붉은사막",       ["붉은사막"]),
-    ("펄어비스", "검은사막",       ["검은사막"]),
-    ("크래프톤", "배틀그라운드",   ["배틀그라운드", "PUBG"]),
-    ("시프트업", "스텔라블레이드", ["스텔라블레이드"]),
-    ("시프트업", "니케",           ["니케"]),
-    ("NC",       "아이온2",        ["아이온2"]),
+    ("펄어비스", "붉은사막",       ["붉은사막"],               "CrimsonDesert"),
+    ("펄어비스", "검은사막",       ["검은사막"],               "Black_Desert"),
+    ("크래프톤", "배틀그라운드",   ["배틀그라운드", "PUBG"],   "Player_Unknowns_Battle_Grounds"),
+    ("시프트업", "스텔라블레이드", ["스텔라블레이드"],         "Stellar_Blade"),
+    ("시프트업", "니케",           ["니케"],                   "NIKKE_The_Goddess_of_Victory"),
+    ("NC",       "아이온2",        ["아이온2"],                "AION2"),
 ]
+CAT_PAGES = 20     # 카테고리당 최대 50×20 방송(배그 저녁 피크도 충분)
+
+
+def _ns(s):
+    return re.sub(r"\s+", "", s or "")
 
 
 def _get(url):
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
+
+
+def _cat_viewers(cat_id):
+    """카테고리별 라이브 목록을 커서로 끝까지 넘기며 시청자 합. 실패하면 None."""
+    total = 0
+    url = f"https://api.chzzk.naver.com/service/v2/categories/GAME/{cat_id}/lives?size=50"
+    for _ in range(CAT_PAGES):
+        c = (_get(url).get("content") or {})
+        ls = c.get("data") or []
+        total += sum(x.get("concurrentUserCount") or 0 for x in ls)
+        nxt = (c.get("page") or {}).get("next")
+        if not ls or not nxt or not nxt.get("concurrentUserCount"):
+            break
+        url = (f"https://api.chzzk.naver.com/service/v2/categories/GAME/{cat_id}/lives?size=50"
+               f"&concurrentUserCount={nxt.get('concurrentUserCount')}&liveId={nxt.get('liveId')}")
+    return total
 
 
 def _agg_viewers():
@@ -102,13 +126,18 @@ def main():
         return
 
     games = []
-    for stock, title, keys in GAMES:
-        v = sum(val for cat, val in agg.items() if any(k in cat for k in keys))
+    for stock, title, keys, cat_id in GAMES:
+        pop = sum(val for cat, val in agg.items() if any(_ns(k) in _ns(cat) for k in keys))
+        try:
+            cv = _cat_viewers(cat_id)
+        except Exception as e:
+            cv = None; print(f"  [{title}] 카테고리 목록 실패: {str(e)[:60]} — 인기 목록 합만 씀")
+        v = max(pop, cv or 0)            # 카테고리 목록이 정답, 인기 합은 안전망
         hist = list(prev.get((stock, title), []))
         hist = _merge_day(hist, today, v)
         hist = hist[-DAYS:]
         games.append({"stock": stock, "title": title, "hist": hist})
-        print(f"  {title}: 시청자 {v:,}")
+        print(f"  {title}: 시청자 {v:,} (카테고리 {cv if cv is not None else '—'} · 인기상위 {pop:,})")
 
     chzzk = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "games": games}
     if "--dry-run" in sys.argv:

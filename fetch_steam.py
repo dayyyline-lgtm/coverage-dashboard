@@ -29,6 +29,7 @@ GAMES = [
     ("펄어비스", "검은사막",       582660),
     ("크래프톤", "배틀그라운드",   578080),
     ("시프트업", "스텔라블레이드", 3489700),
+    ("NC",       "아이온2",        3393110),   # 글로벌판 2026-10-05 스팀 출시(첫날 동접 14만). 한국·대만판은 퍼플 런처라 스팀 밖
 ]
 
 
@@ -127,7 +128,7 @@ def main():
                 if p is not None:
                     lbl = f"{today.month}/{today.day}"
                     if dates and dates[-1] == lbl:
-                        players[-1] = p
+                        players[-1] = max(players[-1] or 0, p)   # 하루 여러 번 돌면 그날 최댓값(peak)을 남긴다
                     else:
                         dates, players, avgs = dates + [lbl], players + [p], avgs + [None]
                     dates, players, avgs = dates[-DAYS:], players[-DAYS:], avgs[-DAYS:]
