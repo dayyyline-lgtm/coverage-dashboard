@@ -56,6 +56,7 @@ BRAND = {
     "라네즈":     ("라네즈", None, "아모레퍼시픽"),
     "아누아":     ("아누아", "Anua", None),
     "조선미녀":   ("조선미녀", "Beauty of Joseon", None),
+    "SKIN1004":   ("SKIN1004", "SKIN1004", None),     # 크레이버(비상장 · 구다이글로벌 계열) · 10/8 첫 등장
 }
 MAX_PAGES = 45                  # 백필 상한(20개 × 45 = 900글 — 5/28 이후 약 600글)
 
@@ -155,6 +156,8 @@ def key(name):
 
 
 def main():
+    try: sys.stdout.reconfigure(encoding="utf-8")   # 이 PC(cp949)에서 ⚠ 출력에 죽지 않게
+    except Exception: pass
     dry = "--dry-run" in sys.argv
     rebuild = "--rebuild" in sys.argv          # 파서를 고쳤을 때 — 5/28 부터 다시 받는다
     html = open(HTML, encoding="utf-8").read()
@@ -207,6 +210,8 @@ def main():
                 new_brands.add(b)
             info = out["brands"].setdefault(b, {"en": (BRAND.get(b) or (None, None, None))[1],
                                                 "stock": (BRAND.get(b) or (None, None, None))[2], "since": p["d"]})
+            if b in BRAND:                       # 사전에 나중에 넣은 브랜드도 en·stock 을 채운다
+                info["en"], info["stock"] = BRAND[b][1], BRAND[b][2]
             if p["d"] < info["since"]:
                 info["since"] = p["d"]
             for name, rk in items.items():

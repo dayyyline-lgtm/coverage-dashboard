@@ -2362,10 +2362,10 @@ const topicsOf0=n=>{
    아마존 탭(renderAmzTrend)과 트렌드 탭 주입(바로 아래)이 같이 쓴다. 트렌드 주입이 로드 때 돌아서 여기 둔다. */
 const AMZT_MK=["US","UK","DE","FR","ES"];
 const AMZT_MKNM={US:"미국",UK:"영국",DE:"독일",FR:"프랑스",ES:"스페인"};
-const AMZT_ORDER=["medicube","d'Alba","COSRX","Anua","Beauty of Joseon","BIODANCE","Purito","Melaxin","LANEIGE","Coreana","VT Cosmetics","innisfree","Aromatica","Cellimax"];
+const AMZT_ORDER=["medicube","d'Alba","COSRX","Anua","Beauty of Joseon","BIODANCE","Purito","Melaxin","LANEIGE","Coreana","VT Cosmetics","innisfree","Aromatica","Cellimax","SKIN1004"];
 const AMZT_KO={"medicube":"메디큐브","d'Alba":"달바","COSRX":"코스알엑스","Anua":"아누아","Beauty of Joseon":"조선미녀",
   "BIODANCE":"바이오던스","Purito":"퓨리토","Melaxin":"닥터멜락신","LANEIGE":"라네즈","Coreana":"코리아나",
-  "VT Cosmetics":"VT","innisfree":"이니스프리","Aromatica":"아로마티카","Cellimax":"셀리맥스"};
+  "VT Cosmetics":"VT","innisfree":"이니스프리","Aromatica":"아로마티카","Cellimax":"셀리맥스","SKIN1004":"스킨1004"};
 // 계열색은 브랜드(나라)에 고정한다 — 필터로 선이 줄어도 남은 선의 색이 바뀌지 않게. 팔레트는 트렌드 탭과 같은 벌.
 const AMZT_PAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6","#5fb3b3","#9aa5b1","#a8b561","#c7a27c","#e5989b","#7d9bc1","#b5838d","#90a955","#d69f7e"];
 const AMZT_MKCOL={US:"#d8b46a",UK:"#6fa8dc",DE:"#e07a5f",FR:"#81b29a",ES:"#c98aa6"};
