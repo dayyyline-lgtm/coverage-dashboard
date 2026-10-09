@@ -237,7 +237,7 @@ function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2
    새 데이터 블록을 넣을 때는 watchdog.LIMITS 와 여기를 같이 고칠 것. */
 // MOVIE 는 2026-09-21 수집을 멈춰 뺐다 — 두면 그날부터 영영 "N일째 갱신 없음"(고장 신호)이
 // 붙는다. 멈춘 건 고장이 아니라 결정이라, 섹션 제목에 "수집 중단"으로 따로 적는다.
-const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72, KMJAMZ:120};
+const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72, KMJAMZ:120, AMZSUB:48};
 /* 신선도 보드 (2026-09-24 · 개편계획.md Phase 1) — 블록마다 마지막 갱신 시각과 한도.
    값은 watchdog.py 의 LIMITS 와 같아야 한다(시간). 새 블록을 넣으면 두 곳을 같이 고칠 것.
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
@@ -249,6 +249,7 @@ const FRESH_LIMITS = [
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
   ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
+  ["AMZSUB","아마존 세부 카테고리",48],
 ];
 
 function ageHours(a){
@@ -8642,7 +8643,7 @@ function amzMetricFmt(v, m){
 
 function renderAmazon(){
   // 탭 본문은 한투 채널(renderKmj · renderAmzTrend) — 트래커 블록이 비어도 그린다. 아래는 맨 아래 접힌 '우리 아마존 트래커'.
-  renderKmj(); renderAmzTrend();
+  renderKmj(); renderAmzTrend(); renderAmzSub();
   if(typeof AMAZON==="undefined" || !AMAZON.brands || !AMAZON.brands.length) return;
   const asOf=document.getElementById("amzAsOf");   // 접힘 요약줄 — 접힌 채로도 기준일·상태가 읽히게
   if(asOf){ const st=staleNote("AMAZON", AMAZON.asOf);
@@ -8807,7 +8808,7 @@ const amztEsc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"
 /* 꺾은선 — boxLine 과 같은 모양에 셋을 더했다: 순위 축(1위가 위) · null 에서 끊기(100위 밖) · 행사 음영과 세로 표시.
    점이 없는 날(관측 없음)은 건너 잇는다. 끝 라벨 글씨는 본문색, 식별은 옆의 색 점이 맡는다. */
 function amztLine(el, series, o){
-  const W=el.clientWidth||900, H=300, P={l:44,r:124,t:18,b:30};
+  const W=el.clientWidth||900, H=300, P={l:44,r:o.padR||124,t:18,b:30};
   const pts=series.flatMap(s=>s.pts.filter(p=>p.y!=null));
   if(!pts.length){ el.innerHTML=`<p class="note" style="padding:40px 0;text-align:center">${o.empty||"아직 값이 없습니다"}</p>`; return; }
   const x0=o.x0, x1=o.x1;
@@ -8827,7 +8828,7 @@ function amztLine(el, series, o){
   (o.marks||[]).forEach(m=>{ if(m.x<x0||m.x>x1) return; const x=sx(m.x).toFixed(1);
     s+=`<line x1="${x}" y1="${P.t}" x2="${x}" y2="${H-P.b}" stroke="${mut}" stroke-dasharray="3 3"/>`
       +`<text x="${(+x+4).toFixed(1)}" y="${o.rank?H-P.b-6:P.t+10}" font-size="10" fill="${mut}">${m.t}</text>`; });
-  const span=x1-x0, xs=[7,14,28,56].find(v=>span/v<=10)||Math.ceil(span/10);
+  const span=x1-x0, xs=[1,2,7,14,28,56].find(v=>span/v<=10)||Math.ceil(span/10);   // 1·2일 간격은 열흘·스무날 안쪽의 짧은 선(세부 카테고리 첫 주)용
   for(let x=x0; x<=x1; x+=xs) s+=`<text x="${sx(x).toFixed(1)}" y="${H-P.b+16}" text-anchor="middle" font-size="10" fill="${mut}">${amztMd(x)}</text>`;
   const ends=[];
   series.forEach(se=>{
@@ -8835,8 +8836,12 @@ function amztLine(el, series, o){
     const segs=[]; let g=[];
     q.forEach(p=>{ if(p.y==null){ if(g.length) segs.push(g); g=[]; } else g.push(p); }); if(g.length) segs.push(g);
     segs.forEach(g=>{ if(g.length>1) s+=`<polyline points="${g.map(p=>`${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.color}" stroke-width="${se.w||1.8}" stroke-linejoin="round" stroke-linecap="round"/>`; });
+    // o.dots==="peak" — 점은 그 선의 최고점(순위 축이면 최저 순위) 하나에만. 마우스 판정 원은 모든 점에 그대로 둔다(보이지 않는다).
+    const pk=o.dots==="peak"?q.reduce((b,p)=>(p.y==null?b:(!b||(o.rank?p.y<b.y:p.y>b.y))?p:b),null):null;
     q.forEach(p=>{ if(p.y==null) return; const cx=sx(p.x).toFixed(1), cy=sy(p.y).toFixed(1);
-      s+=`<circle cx="${cx}" cy="${cy}" r="2.1" fill="${se.color}"/><circle cx="${cx}" cy="${cy}" r="7" fill="transparent"><title>${amztEsc(p.tip)}</title></circle>`; });
+      if(o.dots!=="peak") s+=`<circle cx="${cx}" cy="${cy}" r="2.1" fill="${se.color}"/>`;
+      else if(p===pk) s+=`<circle cx="${cx}" cy="${cy}" r="3.2" fill="${se.color}"/>`;
+      s+=`<circle cx="${cx}" cy="${cy}" r="7" fill="transparent"><title>${amztEsc(p.tip)}</title></circle>`; });
     const l=[...q].reverse().find(p=>p.y!=null);
     if(l) ends.push({y:sy(l.y), t:`${se.name} ${o.endFmt(l.y)}`, c:se.color});
   });
@@ -9033,3 +9038,162 @@ function renderKmj(){
       '처음 잡힌 날'이 5/28 이면 채널 시작 전부터 있던 제품입니다.</p>`;
 }
 
+
+/* ══ 아마존 탭 — 미국 세부 카테고리 Top100 · 상장사 SKU (2026-10-09 · AMZSUB) ══════════════════════════
+   사용자 "상장사 노출된 SKU 다 정리 → 추이를 만들어 대시보드까지, 예약 작업으로". 베스트셀러 목록은 100위에서 잘려서
+   뷰티 전체 Top100 만 보면 한국 SKU 가 30여 개뿐이다. 그래서 세부 카테고리 155개(토너·세럼·선크림·립·헤어…)의 Top100 을
+   매일 받아 한국 브랜드 SKU 를 찾고 상장사로 묶는다. 수집은 사용자 PC 크롬(예약 작업 · subcat/collector.js) → ingest.py → 이 블록.
+   보기: 카드(상장사 합계) → 회사별 추이 → 회사 표 → SKU 표(회사로 거르기) → 접힘(방법·새 브랜드 후보).
+   ⚠ 노출 = 카테고리 자리 수 — SKU 하나가 세럼·스킨케어·뷰티 전체에 동시에 오르면 3으로 센다(얼마나 넓게 깔렸나). SKU 수는 중복 없이.
+   ⚠ 부분 회차(성공 카테고리 97% 밑)는 선에 넣지 않고, 증감도 '직전 완전한 회차'와만 비교한다 — 섞으면 가짜 하락이 생긴다. */
+let amzSubM="a", amzSubCo="", amzSubAll=false, amzSubP=true;
+try{ const s=JSON.parse(localStorage.getItem("amzSub")||"{}"); if(s.m) amzSubM=s.m; if(s.p!=null) amzSubP=!!s.p; }catch(e){}
+// 회사 색은 이름에 고정 — 날마다 순서가 바뀌어도 선 색이 그대로다(골드=1번 강조색은 에이피알)
+const AMZSUB_COL={"에이피알":"#d8b46a","아모레퍼시픽":"#6fa8dc","구다이글로벌":"#e07a5f","LG생활건강":"#81b29a","아모레퍼시픽홀딩스":"#c98aa6",
+  "달바글로벌":"#5fb3b3","클리오":"#9aa5b1","브이티":"#a8b561","토니모리":"#c7a27c","동국제약":"#e5989b","에이블씨엔씨":"#7d9bc1","아이패밀리에스씨":"#b5838d",
+  "아로마티카":"#90a955","파마리서치":"#d69f7e"};
+const amzSubColor=n=>AMZSUB_COL[n]||AMZT_PAL[[...n].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7)%AMZT_PAL.length];
+const AMZSUB_M=[["s","SKU 수","그날 세부 카테고리 Top100 어딘가에 든 SKU — 중복 없이"],["a","노출 자리","카테고리 자리 수 — 한 SKU 가 세 카테고리에 오르면 3"],
+  ["t","Top10 자리","10위 안에 든 자리 수"],["w","1위","1위를 차지한 카테고리 수"],["b","뷰티 전체 Top100","Beauty & Personal Care 전체 Top100 안 SKU"]];
+
+function renderAmzSub(){
+  const box=document.getElementById("amzSub"); if(!box) return;
+  if(typeof AMZSUB==="undefined"||!AMZSUB.days||!AMZSUB.days.length){ box.innerHTML=`<p class="note">세부 카테고리 자료를 아직 못 받았습니다</p>`; return; }
+  const S=AMZSUB, n=S.days.length, last=n-1;
+  const li=Math.max(0,S.days.indexOf(S.date));                                   // 기준 회차 = 마지막 완전한 회차(ingest 가 고른다)
+  let pi=-1; for(let i=li-1;i>=0;i--) if(!S.part[i]){ pi=i; break; }          // 그 직전 완전한 회차
+  const md=d=>amztMd(amztDn(d));
+  const esc=amztEsc;
+  const stale=staleNote("AMZSUB", S.asOf);
+  const stamp=document.getElementById("amzSubAsOf");
+  const partNote=last!==li?` · <span style="color:var(--warn)">최근 ${md(S.days[last])} 회차는 부분 수집(${S.ok[last]}/${S.tot[last]}) — 아래는 ${md(S.date)} 기준</span>`
+    :S.part[li]?` · <span style="color:var(--warn)">부분 수집</span>`:"";
+  if(stamp) stamp.innerHTML=`${fmtUpd(S.asOf)} 수집 · 카테고리 ${S.ok[last]}/${S.tot[last]}${partNote}${stale?` · <span style="color:var(--warn)">${stale}</span>`:""}`;
+  const cov=c=>typeof R!=="undefined"&&R.some(r=>r.name===c);
+  const coName=c=>cov(c.n)?`<span class="clickable" data-stock="${esc(c.n)}" style="font-weight:700">${esc(c.n)}</span>`:`<span style="font-weight:700">${esc(c.n)}</span>`;
+  const coTag=c=>(c.st==="P"?` <span class="pill" style="font-size:10px">상장 준비</span>`:"")
+    +(c.chk?` <span class="pill" style="font-size:10px;color:var(--warn)" title="상장 여부·지분 관계를 다시 확인할 것">확인 필요</span>`:"");
+  const L=S.cos.filter(c=>c.st==="L"), show=S.cos.filter(c=>c.st==="L"||(amzSubP&&c.st==="P"));
+  const sum=(arr,k,i)=>arr.reduce((t,c)=>t+(c[k][i]||0),0);
+  const dArrow=(cur,prev,sz)=>{ if(prev==null||cur==null||cur===prev) return ""; const d=cur-prev;
+    return ` <span style="font-size:${sz||11}px;font-weight:700;color:${d>0?"var(--up)":"var(--down)"}">${d>0?"▲":"▼"}${Math.abs(d)}</span>`; };
+  const pct=(a,b)=>b?Math.round(a/b*100)+"%":"—";
+
+  /* ---- 카드 — 상장사(L) 합계 ---- */
+  const card=(lab,k,tt)=>{ const v=sum(L,k,li), p=pi>=0?sum(L,k,pi):null, kv=S.k[k]?S.k[k][li]:null;
+    return `<div class="kpi" title="${esc(tt)}"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">${lab}</div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:21px;font-weight:800">${amzNum(v)}</span>${dArrow(v,p,11.5)}</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${kv!=null?`한국 브랜드 전체 ${amzNum(kv)} 중 ${pct(v,kv)}`:""}</div></div>`; };
+  let h=`<p class="note" style="margin:-2px 0 12px">아마존 미국 뷰티 <b>세부 카테고리 ${S.tot[li]}개</b>(토너·세럼·선크림·립·헤어 등)의 Top100 을 매일 모아
+      한국 브랜드 SKU 를 찾고 <b>상장사별로</b> 묶었습니다. 뷰티 전체 Top100 하나만 보면 100위에서 잘려 한국 SKU 가 ${S.k.b[li]}개뿐이지만,
+      세부 카테고리까지 펴면 <b>${amzNum(S.k.s[li])}개</b>가 보입니다. 카드는 상장사 ${L.length}곳 합계${pi>=0?` · 화살표는 직전 수집(${md(S.days[pi])}) 대비`:""}.</p>
+    <div class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">
+      ${card("상장사 SKU","s",AMZSUB_M[0][2])}${card("노출 자리","a",AMZSUB_M[1][2])}${card("Top10 자리","t",AMZSUB_M[2][2])}
+      ${card("1위 카테고리","w",AMZSUB_M[3][2])}${card("뷰티 전체 Top100 SKU","b",AMZSUB_M[4][2])}</div>`;
+
+  /* ---- 회사별 추이 ---- */
+  const btn=(k,v,t,on,tt)=>`<button data-${k}="${esc(v)}" class="${on?"active":""}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 10px">
+      <div class="seg" style="margin-bottom:0">${AMZSUB_M.map(([k,t,tt])=>btn("m",k,t,amzSubM===k,tt)).join("")}</div>
+      <div class="seg" style="margin-bottom:0">${btn("p","1","상장 준비 포함",amzSubP,"구다이글로벌(조선미녀·티르티르·스킨1004·라운드랩 등) — IPO 준비 중")}</div></div>
+    <div class="chart-box"><div id="amzSubChart"></div></div>`;
+
+  /* ---- 회사 표 ---- */
+  const cell=(c,k)=>{ const v=c[k][li], p=pi>=0?c[k][pi]:null;
+    return `<td style="text-align:right;white-space:nowrap">${v?`<b>${amzNum(v)}</b>`:`<span style="color:var(--muted2)">0</span>`}${dArrow(v,p)}</td>`; };
+  const rowsCo=show.filter(c=>c.a[li]||(pi>=0&&c.a[pi])).map(c=>`<tr${c.st==="P"?' style="opacity:.82"':""}>
+      <td style="text-align:left;white-space:nowrap"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${amzSubColor(c.n)};margin-right:7px;vertical-align:middle"></span>${coName(c)}${coTag(c)}</td>
+      ${cell(c,"s")}${cell(c,"a")}${cell(c,"t")}${cell(c,"w")}
+      <td style="text-align:right;white-space:nowrap">${c.b[li]?`<b>${c.b[li]}</b>${c.o[li]?` <span style="color:var(--muted);font-size:11px">최고 ${c.o[li]}위</span>`:""}`:`<span style="color:var(--muted2)">0</span>`}</td>
+      <td style="text-align:left;color:var(--muted);font-size:11.5px;white-space:normal">${(c.br||[]).slice(0,4).map(b=>`${esc(b[0])} ${b[1]}`).join(" · ")}${(c.br||[]).length>4?` 외 ${c.br.length-4}`:""}</td></tr>`).join("");
+  const foot=(lab,o,isK)=>`<tr style="border-top:2px solid var(--line)"><td style="text-align:left;font-weight:800;white-space:nowrap">${lab}</td>
+      ${["s","a","t","w"].map(k=>{ const v=isK?o[k][li]:sum(o,k,li), p=pi<0?null:(isK?o[k][pi]:sum(o,k,pi));
+        return `<td style="text-align:right;font-weight:800;white-space:nowrap">${amzNum(v)}${dArrow(v,p)}</td>`; }).join("")}
+      <td style="text-align:right;font-weight:800">${isK?o.b[li]:sum(o,"b",li)}</td><td></td></tr>`;
+  h+=`<div class="sub-h" style="font-size:13.5px;margin-top:18px">회사별 ${md(S.date)}</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th style="text-align:left">회사</th><th style="text-align:right" title="${esc(AMZSUB_M[0][2])}">SKU</th>
+        <th style="text-align:right" title="${esc(AMZSUB_M[1][2])}">노출 자리</th><th style="text-align:right">Top10</th><th style="text-align:right">1위</th>
+        <th style="text-align:right" title="${esc(AMZSUB_M[4][2])}">뷰티 전체 Top100</th><th style="text-align:left">브랜드(SKU 수)</th></tr></thead>
+      <tbody>${rowsCo}${foot(`상장사 ${L.length}곳 합계`,L,false)}${foot("한국 브랜드 전체",S.k,true)}</tbody></table></div>`;
+
+  /* ---- SKU 표 ---- */
+  const hdI={}; (S.hd||[]).forEach((d,j)=>{ hdI[d]=j; });
+  const hAt=(s,d)=>{ const j=hdI[d]; if(j==null) return null; return parseInt(s[6].substr(j*2,2),36)||0; };
+  const coOk=s=>{ const c=S.cos[s[2]]; return c&&(c.st==="L"||(amzSubP&&c.st==="P")); };
+  if(amzSubCo&&!show.some(c=>c.n===amzSubCo)) amzSubCo="";
+  const live=S.skus.filter(s=>s[5].length&&coOk(s)&&(!amzSubCo||S.cos[s[2]].n===amzSubCo));
+  const prevD=pi>=0?S.days[pi]:null;
+  const gone=prevD?S.skus.filter(s=>!s[5].length&&coOk(s)&&(!amzSubCo||S.cos[s[2]].n===amzSubCo)&&hAt(s,prevD)>0):[];
+  const cntBy={}; S.skus.forEach(s=>{ if(s[5].length&&coOk(s)){ const k=S.cos[s[2]].n; cntBy[k]=(cntBy[k]||0)+1; } });
+  const coBtns=btn("co","","전체 "+Object.values(cntBy).reduce((a,b)=>a+b,0),!amzSubCo)
+    +show.filter(c=>cntBy[c.n]).slice(0,10).map(c=>btn("co",c.n,`${esc(c.n)} ${cntBy[c.n]}`,amzSubCo===c.n)).join("");
+  const catNm=i=>S.cats[i]?S.cats[i][1]||S.cats[i][0]:"?";
+  const lim=amzSubAll?live.length:Math.min(25,live.length);
+  const skuRows=live.slice(0,lim).map(s=>{
+    const c=S.cos[s[2]], best=s[5][0], all=s[5].map(r=>`${catNm(r[0])} ${r[1]}위`).join(" · ");
+    const pv=prevD?hAt(s,prevD):null;
+    const isNew=s[4]===li&&li>0, delta=pv==null?"":pv===0?(isNew?`<span style="font-size:10.5px;color:var(--accent);font-weight:700">새 SKU</span>`:`<span style="font-size:10.5px;color:var(--accent)">재진입</span>`):(pv===best[1]?`<span style="color:var(--muted)">-</span>`:dArrow(pv,best[1],11).trim());
+    return `<tr><td style="text-align:right;font-weight:800;white-space:nowrap">${best[1]}위</td>
+      <td style="text-align:left;white-space:nowrap" title="${esc(all)}">${esc(catNm(best[0]))}${s[5].length>1?` <span style="color:var(--muted);font-size:11px">외 ${s[5].length-1}</span>`:""}</td>
+      <td style="text-align:left;white-space:nowrap;font-weight:700">${esc(S.bl[s[1]])}</td>
+      <td style="text-align:left;white-space:normal;max-width:380px;font-size:12px">${esc(s[3])}</td>
+      <td style="text-align:left;white-space:nowrap">${cov(c.n)?`<span class="clickable" data-stock="${esc(c.n)}">${esc(c.n)}</span>`:esc(c.n)}</td>
+      ${prevD?`<td style="text-align:right">${delta}</td>`:""}
+      <td style="text-align:right;color:var(--muted);white-space:nowrap">${s[4]>=0?md(S.days[s[4]]):"—"}</td></tr>`; }).join("");
+  h+=`<div class="sub-h" style="font-size:13.5px;margin-top:20px">SKU ${md(S.date)} <span style="font-size:12px;font-weight:600;color:var(--muted);margin-left:8px">카테고리에 마우스를 올리면 오른 자리 전부</span></div>
+    <div class="seg">${coBtns}</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th style="text-align:right">최고 순위</th><th style="text-align:left">카테고리</th><th style="text-align:left">브랜드</th>
+        <th style="text-align:left">제품</th><th style="text-align:left">회사</th>${prevD?`<th style="text-align:right" title="최고 순위를 직전 완전한 수집과 비교">직전 대비</th>`:""}
+        <th style="text-align:right">처음 잡힌 날</th></tr></thead>
+      <tbody>${skuRows||`<tr><td colspan="7" style="color:var(--muted)">해당 SKU 없음</td></tr>`}</tbody></table></div>
+    ${live.length>25?`<button class="theme-btn" id="amzSubMore" style="margin-top:8px;padding:4px 10px;font-size:11.5px">${amzSubAll?"25개만 보기":`${live.length}개 모두 보기`}</button>`:""}
+    ${gone.length?`<p class="note">직전 수집(${md(prevD)})엔 있었는데 이번엔 모든 카테고리 100위 밖 — ${gone.slice(0,30).map(s=>`<b>${esc(S.bl[s[1]])}</b> ${esc(s[3].slice(0,40))}`).join(" / ")}${gone.length>30?` 외 ${gone.length-30}개`:""}</p>`:""}`;
+
+  /* ---- 접힘 — 방법·한계·새 브랜드 후보 ---- */
+  const unk=(S.unk||[]).map(u=>`<tr><td style="text-align:right">${u[2]}위</td><td style="text-align:left;white-space:nowrap">${esc(catNm(u[1]))}</td>
+      <td style="text-align:left;white-space:normal;font-size:12px">${esc(u[3])}</td><td style="text-align:left;font-family:monospace;font-size:11px">${esc(u[0])}</td></tr>`).join("");
+  h+=`<details class="fold" style="margin-top:12px"><summary>어떻게 모으나 · 무엇을 못 보나${unk?` <span class="sub">새 브랜드 후보 ${S.unk.length}개</span>`:""}</summary><div class="fold-b">
+    <p class="note" style="margin-top:0">· 사용자 PC 크롬에서 예약 작업이 하루 두 번(오전·오후) 돈다. 카테고리마다 베스트셀러 1·2쪽과, 스크롤할 때 페이지가 부르는
+      '나머지 20개' 요청까지 받아 <b>100위 전부의 제목</b>을 읽는다. 상품 페이지는 열지 않는다(차단 위험이 거기서 났다).<br>
+      · 제목 맨 앞을 한국 브랜드 사전(${S.bl.length}개 브랜드가 오늘 걸림 · 저장소 <code>subcat/config.json</code>)과 맞춘다. 사전에 없는 한국 브랜드는 안 잡힌다 —
+      제목에 Korean·K-beauty 가 들어간 미매칭 상품을 아래 '새 브랜드 후보'로 띄운다.<br>
+      · 새 SKU 는 자동으로 붙는다 — 브랜드가 사전에 있으면 처음 보는 ASIN 이 그날 마스터에 추가되고 회사로 묶인다.
+        새 브랜드·회사 관계가 바뀌면(인수·상장) 사전 한 줄만 고친다.<br>
+      · <b>판매량이 아니라 순위</b>다. 카테고리마다 크기가 달라 '세럼 5위'와 '립 5위'는 같은 판매가 아니다 — 같은 방법으로 매일 재는 추이로 볼 것.<br>
+      · 미국 아마존만. 카테고리는 한국 SKU 가 한 번이라도 잡힌 ${S.tot[li]}개로 고정(새 카테고리는 사람이 덧붙인다).</p>
+    ${unk?`<div class="tbl-wrap"><table><thead><tr><th style="text-align:right">순위</th><th style="text-align:left">카테고리</th><th style="text-align:left">제목</th><th style="text-align:left">ASIN</th></tr></thead><tbody>${unk}</tbody></table></div>
+      <p class="note">사전에 없는 브랜드라 위 숫자에 안 들어갔다. 한국 브랜드가 맞으면 config.json 에 한 줄 더하면 다음 수집부터 잡힌다.</p>`:""}
+    </div></details>`;
+  box.innerHTML=h;
+
+  /* ---- 차트 ---- */
+  const M=amzSubM, full=S.days.map((d,i)=>i).filter(i=>!S.part[i]);
+  const el=document.getElementById("amzSubChart");
+  const mLab=(AMZSUB_M.find(x=>x[0]===M)||AMZSUB_M[1])[1];
+  if(full.length<2){
+    el.innerHTML=`<p class="note" style="padding:28px 12px;text-align:center">추이는 두 번째 수집부터 선으로 이어집니다 — 지금은 ${md(S.date)} 하루치입니다.<br>
+      오늘 ${mLab}: ${show.filter(c=>c[M][li]).slice(0,8).map(c=>`<b>${esc(c.n)}</b> ${c[M][li]}`).join(" · ")}</p>`;
+  } else {
+    const X0=amztDn(S.days[full[0]]), X1=amztDn(S.days[full[full.length-1]]);
+    const series=show.map(c=>({name:c.n, color:amzSubColor(c.n), w:c.st==="P"?1.4:1.8,
+      pts:full.map(i=>({x:amztDn(S.days[i]), y:c[M][i], tip:`${c.n} · ${md(S.days[i])} · ${mLab} ${c[M][i]}`}))}))
+      .filter(se=>se.pts.some(p=>p.y>0)).sort((a,b)=>b.pts[b.pts.length-1].y-a.pts[a.pts.length-1].y).slice(0,8);
+    amztLine(el, series, {x0:X0, x1:X1, rank:false, dots:"peak", padR:156, yFmt:v=>`${v}`, endFmt:v=>`${v}`,
+      bands:AMZT_EVENTS.map(e=>({x0:amztDn(e.d0), x1:amztDn(e.d1), t:e.t})), marks:[],
+      aria:`상장사별 아마존 미국 세부 카테고리 ${mLab} 추이`, empty:"값이 없습니다"});
+  }
+  const skipped=S.part.filter(Boolean).length;
+  if(skipped) el.insertAdjacentHTML("afterend",`<p class="note">부분 수집 ${skipped}회(카테고리 97% 미만)는 선에서 뺐습니다.</p>`);
+
+  box.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+    if(b.dataset.m) amzSubM=b.dataset.m;
+    if(b.dataset.p) amzSubP=!amzSubP;
+    if(b.dataset.co!==undefined) { amzSubCo=b.dataset.co; amzSubAll=false; }
+    try{ localStorage.setItem("amzSub",JSON.stringify({m:amzSubM,p:amzSubP})); }catch(e){}
+    renderAmzSub();
+  });
+  const more=document.getElementById("amzSubMore");
+  if(more) more.onclick=()=>{ amzSubAll=!amzSubAll; renderAmzSub(); };
+}

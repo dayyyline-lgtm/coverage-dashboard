@@ -56,8 +56,12 @@ top100 **밖**이라 리스트만 봤으면 안 보였을 숫자다.
 
 아마존은 페이지당 **30개만 서버 렌더**한다. 31~50위(US는 81~100위도)는 상세가 비어 있다.
 
-- 지연 로딩 엔드포인트 `/acp/p13n-zg-list-grid-desktop/...`는 **GET·POST 모두 404**로 확인됨.
-  `data-acp-path` / `data-acp-params`를 그대로 써도 안 된다. **다시 시도하지 말 것.**
+- 지연 로딩 엔드포인트 `/acp/p13n-zg-list-grid-desktop/...`는 **GET·POST 모두 404**로 확인됨(2026-08 curl_cffi).
+  ⚠ **정정(2026-10-09, 크롬 안에서 실측)**: `{data-acp-path}nextPage?page-type=zeitgeist&stamp={data-acp-stamp}` 에
+  헤더 `x-amz-acp-params: {data-acp-params}` · `Content-Type: application/json` 과 본문
+  `{faceoutkataname, ids:[rec JSON 문자열…], indexes:[…], linkparameters:'', offset, reftagprefix}` 를 주면 **200 · 나머지 20개 카드**가 온다.
+  세부 카테고리 수집(`subcat/collector.js`)이 이걸로 100위 전부의 제목을 받는다. curl_cffi 로도 되는지는 아직 안 봤다 —
+  되면 /dp/ 보강(§3-1)을 이걸로 바꿀 수 있다(요청 수가 크게 준다).
 - 대신 `/dp/{ASIN}`을 개별 조회한다. 실측 40/40 성공.
 - 요청 수 폭증을 막는 장치가 `data/asin_cache.json`(ASIN→제목)이다. 브랜드가 아닌 걸로 이미
   판명된 ASIN은 다시 조회하지 않는다. `detail.mode: tracked`가 기본이며, 이 캐시가 전제다.
