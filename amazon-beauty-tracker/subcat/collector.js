@@ -17,7 +17,8 @@
      2) 30~60초마다 window.__AMZSUB.status() — 'done ...' 이 나올 때까지(동시 1개 기준 6~7분)
      3) window.__AMZSUB.plan() 이 '0-160,160-480' 처럼 2.5만 자 안쪽 덩어리를 알려 준다.
         덩어리마다 window.__AMZSUB.dump(a,b) → get_page_text → 파일에 그대로 적는다(줄 끝 공백까지).
-     4) ingest.py 가 줄마다 CRC 를 확인한다. 틀린 줄은 window.__AMZSUB.line(n) 으로 그 줄만 다시 받는다.
+     4) ingest.py 가 줄마다 CRC 를 확인한다. 틀린 줄은 ingest 가 알려 주는 window.__AMZSUB.redo('C|53|,…') 로 그 줄들만 다시 띄워 받는다.
+     부트스트랩(1)의 반환값은 undefined 가 정상이다 — 이 파일은 즉시 실행 함수라 new Function 쪽으로 값이 안 나온다. status() 로 확인할 것.
 
    지키는 것
      - 타이머로 쉬지 않는다. 숨은 탭은 setTimeout 이 1분 단위로 묶인다(크롬 집중 절전). 요청 응답을 기다리는 것만으로 속도가 난다.
