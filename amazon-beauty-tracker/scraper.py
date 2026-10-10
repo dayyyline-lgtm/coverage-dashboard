@@ -435,14 +435,50 @@ def parse_parent(page):
     return m.group(1) if m else None
 
 
+# 상세 페이지에서 '이 상품'의 가격이 들어 있는 칸. 이 밖의 .a-price 는 남의 가격이다.
+_PRICE_BOXES = ("#corePrice_feature_div", "#corePriceDisplay_desktop_feature_div",
+                "#apex_offerDisplay_desktop", "#apex_desktop", "#corePrice_desktop")
+
+
+def _price_of(pr):
+    """.a-price 하나 → float. 보이는 정수부·소수부 칸이 있으면 그걸로 만든다(소수점은 우리가 넣는다).
+    .a-offscreen 은 비어 있거나('' — 2026-10 실측) 소수점이 빠져 올 때가 있다('$1799')."""
+    whole, frac = pr.select_one(".a-price-whole"), pr.select_one(".a-price-fraction")
+    if whole is not None and frac is not None:
+        w = re.sub(r"\D", "", whole.get_text())
+        f = re.sub(r"\D", "", frac.get_text())
+        if w and f:
+            return round(float(f"{w}.{f}"), 2)
+    for sel in (".a-offscreen", ".aok-offscreen"):        # 엔화처럼 소수부가 없는 통화
+        el = pr.select_one(sel)
+        if el is not None and el.get_text(strip=True):
+            return parse_price(el.get_text(strip=True))
+    return None
+
+
+def _detail_price(soup):
+    """상세 페이지의 가격. **페이지 전체의 첫 .a-price 로 내려가지 않는다** —
+    가격 칸이 비면(품절·옵션 선택 필요 등) 그 첫 .a-price 는 '비슷한 상품' 캐러셀의 남의 가격이고,
+    캐러셀은 소수점 칸을 비운 채 보내서 '$17.99' 가 1799.0 으로 읽혔다(2026-09-03~ 미국 235행 · 유럽 146행.
+    2026-10-11 B0BFQ9RD5B 실측: corePrice_desktop 이 비어 있고 첫 .a-price 가 sims 캐러셀 '$1799').
+    못 찾으면 None — 리스트·검색 카드 가격이 있으면 collect_market 이 그걸 쓴다."""
+    for box in _PRICE_BOXES:
+        root = soup.select_one(box)
+        if root is None:
+            continue
+        for sel in (".priceToPay, .apexPriceToPay", ".a-price:not(.a-text-price)", ".a-price"):
+            for pr in root.select(sel):
+                p = _price_of(pr)
+                if p:
+                    return p
+    return None
+
+
 def parse_detail(page):
     """/dp/{ASIN} 상세 페이지 파싱. 하위 카테고리 BSR까지 뽑는다."""
     soup = BeautifulSoup(page, "html.parser")
 
     title_el = soup.select_one("#productTitle")
-    price_el = (soup.select_one("#corePrice_feature_div .a-offscreen")
-                or soup.select_one("#corePriceDisplay_desktop_feature_div .a-offscreen")
-                or soup.select_one(".a-price .a-offscreen"))
     star_el = soup.select_one("#acrPopover span.a-icon-alt") or soup.select_one("span.a-icon-alt")
     rev_el = soup.select_one("#acrCustomerReviewText")
 
@@ -454,7 +490,7 @@ def parse_detail(page):
         "bought_m": bm, "bought_w": bw,
         "parent_asin": parse_parent(page),
         "title": title_el.get_text(strip=True) if title_el else "",
-        "price": parse_price(price_el.get_text(strip=True) if price_el else None),
+        "price": _detail_price(soup),
         "rating": parse_rating(star_el.get_text(strip=True) if star_el else None),
         "reviews": parse_int(rev_el.get_text(strip=True) if rev_el else None),
         "bsr_main": bsr["main_rank"], "bsr_main_cat": bsr["main_cat"],

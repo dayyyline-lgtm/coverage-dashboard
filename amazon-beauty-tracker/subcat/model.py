@@ -24,6 +24,11 @@ import csv
 import datetime
 import math
 import statistics as st
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pricefix  # noqa: E402  트래커 상세 페이지의 '남의 가격'을 거른다
 
 # 트래커가 상품 페이지 BSR 줄에서 읽는 카테고리 이름 → 세부 카테고리 번호(config.cats 위치). 이름이 같으면 따로 안 적는다.
 # 상품 페이지는 'Facial Serums' · 베스트셀러 페이지 제목은 'Face Serums' 처럼 같은 노드를 다르게 부른다.
@@ -54,18 +59,20 @@ def _f(x):
 def load_tracker(path, asof, days=TRACK_DAYS):
     """미국 행만, asof 로부터 days 일 안. [{date, asin, m, sub, subcat, u, per, price}]"""
     cut = (datetime.date.fromisoformat(asof) - datetime.timedelta(days=days)).isoformat()
-    out = []
     try:
         with open(path, encoding="utf-8", newline="") as f:
-            for r in csv.DictReader(f):
-                if r.get("market") != "US" or (r.get("date") or "") < cut:
-                    continue
-                out.append({"date": r["date"], "asin": r["asin"], "m": _f(r.get("bsr_main")), "sub": _f(r.get("bsr_sub")),
-                            "subcat": (r.get("bsr_sub_cat") or "").strip(), "u": _f(r.get("bought")),
-                            "per": r.get("bought_period") or "",
-                            "price": _f(r.get("price")) if (r.get("currency") or "USD") in FX_USD else None})
+            rows = [r for r in csv.DictReader(f) if r.get("market") == "US"]
     except FileNotFoundError:
-        pass
+        return []
+    out = []
+    # 가격 보정은 기간을 자르기 전에 — 같은 ASIN 의 옛 가격도 견줄 근거다
+    for r, p in zip(rows, pricefix.repair(rows)):
+        if (r.get("date") or "") < cut:
+            continue
+        out.append({"date": r["date"], "asin": r["asin"], "m": _f(r.get("bsr_main")), "sub": _f(r.get("bsr_sub")),
+                    "subcat": (r.get("bsr_sub_cat") or "").strip(), "u": _f(r.get("bought")),
+                    "per": r.get("bought_period") or "",
+                    "price": p if (r.get("currency") or "USD") in FX_USD else None})
     return out
 
 
@@ -210,12 +217,10 @@ def validate(cal, cv, trk, slots):
 
 
 def clean_price(p):
-    """트래커 가격에 소수점이 빠진 값이 섞여 있다($14.16 → 1416.0 · $164.61 → 16461.0 — 2026-10-11 미국 행 236개).
-    300 달러 넘는 정수는 센트로 읽고, 그래도 600 달러가 넘거나 1 달러 밑이면 버린다."""
+    """범위 검사만 — 1~600 달러 밖은 버린다. 소수점 빠진 '남의 가격'은 load_tracker 가 pricefix 로 이미 고쳤다
+    (예전엔 300 넘는 정수를 센트로 읽었는데, 그러면 캐러셀의 남의 가격이 그럴듯한 숫자로 남고 진짜 $349 기기는 $3.49 가 된다)."""
     if not p or p <= 0:
         return None
-    if p >= 300 and abs(p - round(p)) < 1e-9:
-        p = p / 100.0
     return p if 1 <= p <= 600 else None
 
 

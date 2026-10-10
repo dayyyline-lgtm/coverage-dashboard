@@ -9155,7 +9155,10 @@ function renderAmzSub(){
     revBox=`<div class="chart-box"><div class="asd-h">누적 추정 매출 순위<span class="sub">${spanTxt}</span></div>
       <div class="asd-lg"><span>막대 = 누적 · 오른쪽 작은 글씨 = ${md(S.date)} 하루 · 억원(환율 ${amzNum(Math.round(fx))}원)</span></div>
       ${rr.map(rvRow).join("")||`<p class="note">추정 매출이 아직 없습니다</p>`}
-      <p class="note" style="margin-top:8px">한국 브랜드 전체 누적 ${fE(eok(cumK.sum))} · 순위 → 판매량 곡선 × 가격으로 낸 <b>추정치</b>라 회사끼리의 크기·추이로 보세요.</p></div>`;
+      <p class="note" style="margin-top:8px">한국 브랜드 전체 누적 ${fE(eok(cumK.sum))} · 순위 → 판매량 곡선 × 가격으로 낸 <b>추정치</b>라 회사끼리의 크기·추이로 보세요.${(()=>{
+        const px=(S.rm&&S.rm.px)||{}, all=Object.values(px).reduce((a,b)=>a+b,0), kn=(px.c||0)+(px.t||0);
+        return all&&kn/all<0.9?` ${md(S.date)} 가격을 아는 SKU 는 ${amzNum(kn)}/${amzNum(all)}개 — 나머지는 중앙값 가격이라 가격이 붙는 날 숫자가 한 번 움직입니다.`:"";
+      })()}</p></div>`;
   }
   h+=`<div class="asd-duo${hasRev?"":" one"}">
     <div class="chart-box"><div class="asd-h">Top100 순위 분포<span class="sub">${md(S.date)} · 상장사 노출 자리</span></div>${rkLegend}
