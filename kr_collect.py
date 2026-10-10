@@ -34,7 +34,14 @@ def git(*a):
 def main():
     now = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M")
     print(f"===== kr_collect {now} KST")
-    if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
+    # 수집기 산출물(index.html·health.json)만 더러우면 이전 회차가 절전 등으로 끊긴 잔해다 — 버리고 진행.
+    #   10/10 01:05 회차가 수집 도중 끊겨 index.html 을 남겼고, 10:44 회차가 그걸 '사람 작업'으로 보고 멈춰
+    #   토요일 영화 일별이 통째로 비었다. 그 밖의 파일이 더러우면 여전히 사람 작업으로 보고 중단한다.
+    dirty = [l[3:] for l in git("status", "--porcelain", "--untracked-files=no").stdout.splitlines() if l.strip()]
+    if dirty and set(dirty) <= {"public/index.html", "health.json"}:
+        print("이전 회차 잔해(", ", ".join(dirty), ") — 버리고 진행")
+        git("checkout", "--", *dirty)
+    elif dirty:
         print("작업트리에 미커밋 변경이 있어 건드리지 않는다 — 중단"); return 2
     f = git("fetch", "origin", "main")
     if f.returncode != 0:
@@ -51,8 +58,10 @@ def main():
         git("add", "public/index.html", "health.json")
         # Pages 빌드 한도(월 500)가 빠듯하다 — 봇이 곧 배포하는 시간대(평일 ~16시 · 주말 12~20시)엔 배포 생략 표시를
         # 달아 다음 봇 배포에 실려 가게 한다. 평일 저녁·주말 아침/밤 회차만 직접 배포(월 ~40건).
+        #   (2026-10-10) 06:00 회차 신설 — 전날 KOBIS 일별을 아침 6시에 화면에 올리는 게 목적이라 이 회차는 항상 배포.
+        #   대신 평일 20:30 은 생략(다음 날 06시 배포에 실림) · 주말 08:30 도 생략(06시 직후라 바뀐 게 적다) → 빌드 수 그대로.
         t = datetime.datetime.now(KST)
-        quiet = (t.weekday() < 5 and t.hour < 17) or (t.weekday() >= 5 and 12 <= t.hour < 20)
+        quiet = t.hour >= 7 and (t.weekday() < 5 or t.hour < 20)
         c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영·KOBIS) {now} KST" + (" [CI Skip]" if quiet else ""))
         if "nothing to commit" in (c.stdout + c.stderr):
             print("변동 없음 — push 생략"); return 0
