@@ -14,7 +14,9 @@
   4. data/subcat/days.csv    — 회차 요약(성공 카테고리 · 자리 수 · 부분 여부).
   5. data/subcat/unknown.csv — 사전에 없는데 제목에 Korean·K-beauty 가 들어간 상품(새 브랜드 후보). ASIN 당 한 줄.
   6. config.json             — 비어 있는 카테고리 이름만 채운다(구분용으로 고쳐 둔 이름은 안 건드린다).
-  7. public/index.html       — `const AMZSUB = …;` 한 줄만 교체(없으면 KMJAMZ 줄 뒤에 넣는다). 바뀐 게 없으면 안 쓴다.
+  7. data/subcat/prices.csv  — 한국 SKU 카드 가격(asin,date,price USD). 값이 바뀐 날만 적는다(2026-10-11 ~ · 덤프의 P 줄).
+  8. public/index.html       — `const AMZSUB = …;` 한 줄만 교체(없으면 KMJAMZ 줄 뒤에 넣는다). 바뀐 게 없으면 안 쓴다.
+     추정 매출(model.py — 세부 순위 → 전체 순위 → 월 판매량 → × 가격)은 블록을 만들 때마다 트래커 history.csv 로 다시 보정한다.
 
 부분 회차: 성공 카테고리가 97% 밑이면 그날은 part=1 — 화면이 완전한 날과 같은 선에 잇지 않는다.
 """
@@ -28,6 +30,9 @@ import re
 import sys
 import zlib
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import model  # noqa: E402  (같은 폴더 — 추정 매출)
+
 HERE = pathlib.Path(__file__).resolve().parent          # amazon-beauty-tracker/subcat
 TRACKER = HERE.parent
 REPO = TRACKER.parent
@@ -36,6 +41,7 @@ CFG = HERE / "config.json"
 MASTER = DATA / "skus.json"
 DAYS = DATA / "days.csv"
 UNK = DATA / "unknown.csv"
+PRICES = DATA / "prices.csv"
 INDEX = REPO / "public" / "index.html"
 
 PART_CUT = 0.97     # 성공 카테고리 비율이 이 밑이면 부분 회차
@@ -47,12 +53,15 @@ SHOW_ST = ("L", "P")  # 블록에 SKU·회사 줄을 싣는 상태 — 상장(L)
 # 블록 모양 (app.js renderAmzSub 가 읽는다 — 바꾸면 거기도 같이)
 #   asOf 마지막 회차가 끝난 시각(KST) · latest 그 날짜 · date 기준 회차(마지막 완전한 회차 — 표·카드·SKU 의 r 이 이 날) · days/ok/tot/part 회차별(최근 CO_DAYS)
 #   cats [[cat_id, 이름]] (번호 = 카테고리 번호) · bl [브랜드 이름] (SKU 의 브랜드 번호)
-#   cos [{n 회사, st L/P, chk 확인 필요, memo, br [[브랜드, 마지막 회차 SKU 수]], s SKU 수, a 노출 자리, t Top10 자리, w 1위 자리,
+#   cos [{n 회사, st L/P, chk 확인 필요, memo, br [[브랜드, 마지막 회차 SKU 수]], s SKU 수, a 노출 자리, t Top10 자리, q Top30 자리, w 1위 자리,
 #         b 뷰티 전체 Top100 안 SKU, o 뷰티 전체 최고 순위(0 = 밖)}]  ← 배열은 days 와 같은 길이
-#   k {s,a,t,w,b} 한국 브랜드 전체 · hd SKU 이력의 날짜(최근 SKU_H)
+#   k {s,a,t,q,w,b,r} 한국 브랜드 전체 · hd SKU 이력의 날짜(최근 SKU_H)
 #   skus [[asin, 브랜드 번호, 회사 번호(cos), 제목, 처음 본 회차(days 번호 · -1 = 창 밖), [[카테고리 번호, 순위]](마지막 회차), h]]
 #        h = hd 날마다 최고 순위를 36진수 두 자리로 이은 문자열('00' = 그날 없음) — 배열보다 1/3 작다
 #   unk [[asin, 카테고리 번호, 순위, 제목]] 마지막 회차의 새 브랜드 후보
+#   추정 매출(2026-10-11 · model.py): cos[].r · k.r = 회차별 하루 추정 매출(USD 정수, 부분 회차는 null)
+#        skus[i][7..10] = 기준 회차의 가격(센트) · 추정 월 판매량 · 하루 추정 매출(USD) · 가격 출처(c 카드 · t 트래커 · m 카테고리 중앙값 · g 전체 중앙값)
+#        rm = 보정 요약 {a,b1,b2 판매량 곡선 · nu 배지 수 · beta · direct/linked/ncat 카테고리 · npairs · val 맞춤 · px 가격 출처 수 · gmed}
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -92,7 +101,7 @@ def read_lines(paths):
     return out
 
 
-REC = re.compile(r"^(AMZSUB|C|F|N|T|U|END)\|")
+REC = re.compile(r"^(AMZSUB|C|F|N|T|U|P|END)\|")
 
 
 def _key(l):
@@ -122,7 +131,7 @@ def parse_dump(paths):
     for k, l, v in ent:
         if v and k not in good:
             good[k] = l
-    d = {"hdr": None, "C": {}, "F": {}, "N": {}, "T": {}, "U": {}, "bad": [], "warn": [], "end": None, "lines": lines}
+    d = {"hdr": None, "C": {}, "F": {}, "N": {}, "T": {}, "U": {}, "P": {}, "bad": [], "warn": [], "end": None, "lines": lines}
     emitted = set()
     body_lines = []
     for k, l, v in ent:
@@ -159,6 +168,8 @@ def parse_dump(paths):
                 d["T"][p[1]] = (int(p[2], 36), p[3])
             elif p[0] == "U":
                 d["U"][p[1]] = (int(p[2]), int(p[3]), p[4])
+            elif p[0] == "P":
+                d["P"][int(p[1])] = p[2]
         except (ValueError, IndexError):
             d["bad"].append(k)
     d["body_lines"] = body_lines
@@ -199,6 +210,15 @@ def verify(d, master_n):
                     errs.append(f"C {ci}: 새 ASIN {p[2]} 의 T 줄이 없다")
             else:
                 errs.append(f"C {ci}: 자리 형식 오류 {t}")
+    for pk, tok in d["P"].items():
+        for t in tok.split(","):
+            a, _, c = t.rpartition(".")
+            try:
+                int(c, 36)
+                if len(a) < 10 and int(a, 36) >= h["masterN"]:
+                    errs.append(f"P {pk}: 짧은 번호 {a} 가 마스터({h['masterN']}개) 밖")
+            except ValueError:
+                errs.append(f"P {pk}: 가격 형식 오류 {t}")
     # END — 줄 수와 전체 CRC. 덩어리를 순서대로 줬다면 맞는다(아니면 경고만: 줄마다 CRC 가 이미 맞았다).
     if d["end"]:
         p = d["end"].split("|")
@@ -350,7 +370,45 @@ def store(d, cfg, master, names_file=None):
     if cfg_changed and write_if_changed(CFG, dump_config(cfg)):
         changed.append(CFG)
 
+    if store_prices(d, date, L):
+        changed.append(PRICES)
+
     return {"date": date, "rows": rows, "new": new_rows, "part": part, "changed": changed, "h": h}
+
+
+def store_prices(d, date, L):
+    """P 줄 → prices.csv (asin,date,price). 직전에 적힌 값과 달라진 ASIN 만 그날 날짜로 적는다(같은 날 다시 넣으면 그날 줄을 갈아 끼운다)."""
+    if not d["P"]:
+        return False
+    got = {}
+    for tok in d["P"].values():
+        for t in tok.split(","):
+            a, _, c = t.rpartition(".")
+            asin = a if len(a) >= 10 else L[int(a, 36)][0]
+            got[asin] = int(c, 36) / 100.0
+    old = read_csv(PRICES)[1:]
+    keep = [r for r in old if len(r) >= 3 and r[1] != date]
+    last = {}
+    for r in sorted(keep, key=lambda r: r[1]):
+        if r[1] < date:
+            last[r[0]] = float(r[2])
+    add = [[a, date, f"{p:.2f}"] for a, p in sorted(got.items()) if a not in last or abs(last[a] - p) > 0.004]
+    rows = sorted(keep + add, key=lambda r: (r[0], r[1]))
+    return write_if_changed(PRICES, csv_text(["asin", "date", "price"], rows))
+
+
+def load_prices():
+    """{asin: [(date, usd)]} 날짜순"""
+    out = {}
+    for r in read_csv(PRICES)[1:]:
+        if len(r) >= 3:
+            try:
+                out.setdefault(r[0], []).append((r[1], float(r[2])))
+            except ValueError:
+                pass
+    for v in out.values():
+        v.sort()
+    return out
 
 
 _CO = {}
@@ -395,41 +453,63 @@ def build_block(cfg, master):
         st = b[3] or comps.get(b[2], {}).get("st", "")
         return b[0], b[2], st
 
+    # 추정 매출 — 날마다 다시 보정한다(트래커 자료가 쌓이면 곡선이 조금씩 움직인다 · 지난 날도 같은 곡선으로 다시 계산)
+    try:
+        est, rmeta = model.estimate(cats, hist, model.load_tracker(TRACKER / "data" / "history.csv", dates[-1]), load_prices(), dates[-1])
+    except Exception as e:                     # 매출 추정이 깨져도 순위 블록은 그대로 낸다
+        print("경고: 추정 매출 계산 실패 —", repr(e)[:200])
+        est, rmeta = {}, None
+
     # 회사 목록 — 상장(L)·상장 준비(P)
     names = []
     for b in brands:
         st = b[3] or comps.get(b[2], {}).get("st", "")
         if st in SHOW_ST and b[2] and b[2] not in names:
             names.append(b[2])
-    ser = {n: {"s": [], "a": [], "t": [], "w": [], "b": [], "o": []} for n in names}
-    ksr = {"s": [], "a": [], "t": [], "w": [], "b": []}
+    ser = {n: {"s": [], "a": [], "t": [], "q": [], "w": [], "b": [], "o": [], "r": []} for n in names}
+    ksr = {"s": [], "a": [], "t": [], "q": [], "w": [], "b": [], "r": []}
     ok, tot, part, kpos = [], [], [], []
     for dt in dates:
         mt = dmeta.get(dt)
         ok.append(int(mt[2]) if mt else 0)
         tot.append(int(mt[3]) if mt else 0)
         part.append(int(mt[8]) if mt else 0)
-        agg = {n: [set(), 0, 0, 0, set(), 0] for n in names}
-        kk = [set(), 0, 0, 0, set()]
+        agg = {n: [set(), 0, 0, 0, set(), 0, 0] for n in names}
+        kk = [set(), 0, 0, 0, set(), 0, 0]
         for cat, r, a in hist[dt]:
             br, co, st = co_of(a)
             if br is None:
                 continue
-            kk[0].add(a); kk[1] += 1; kk[2] += r <= 10; kk[3] += r == 1
+            kk[0].add(a); kk[1] += 1; kk[2] += r <= 10; kk[3] += r == 1; kk[6] += r <= 30
             if cat == "beauty":
                 kk[4].add(a)
             if co in agg:
                 g = agg[co]
-                g[0].add(a); g[1] += 1; g[2] += r <= 10; g[3] += r == 1
+                g[0].add(a); g[1] += 1; g[2] += r <= 10; g[3] += r == 1; g[6] += r <= 30
                 if cat == "beauty":
                     g[4].add(a)
                     g[5] = r if not g[5] else min(g[5], r)
         for n in names:
             g = agg[n]
-            for key, v in zip("satwbo", (len(g[0]), g[1], g[2], g[3], len(g[4]), g[5])):
+            for key, v in zip("satwboq", (len(g[0]), g[1], g[2], g[3], len(g[4]), g[5], g[6])):
                 ser[n][key].append(v)
-        for key, v in zip("satwb", (len(kk[0]), kk[1], kk[2], kk[3], len(kk[4]))):
+        for key, v in zip("satwbq", (len(kk[0]), kk[1], kk[2], kk[3], len(kk[4]), kk[6])):
             ksr[key].append(v)
+        # 하루 추정 매출(USD) — 부분 회차는 null(자리가 빠져 매출도 빠진다 — 선·누적은 완전한 날로만)
+        ed = est.get(dt)
+        rv = {n: 0.0 for n in names}
+        kr = 0.0
+        if ed and not part[-1]:
+            for a, x in ed.items():
+                br, co, st = co_of(a)
+                if br is None:
+                    continue
+                kr += x[2]
+                if co in rv:
+                    rv[co] += x[2]
+        for n in names:
+            ser[n]["r"].append(round(rv[n]) if ed and not part[-1] else None)
+        ksr["r"].append(round(kr) if ed and not part[-1] else None)
 
     # 기준 회차 = 마지막 '완전한' 회차(부분 회차의 숫자를 표·카드에 쓰면 가짜 하락이 된다). 완전한 회차가 없으면 마지막 회차.
     full = [dt for i, dt in enumerate(dates) if not part[i]]
@@ -477,7 +557,9 @@ def build_block(cfg, master):
         r = sorted(pos_last.get(a, []), key=lambda x: x[1])
         first = row[3] if len(row) > 3 else ""
         h = "".join(b36(bd[dt]).rjust(2, "0") if dt in bd else "00" for dt in hd)
-        skus.append([a, bl_i[br], co_i[co], row[2][:TITLE_N].rstrip(), day_i.get(first, -1), r, h])
+        x = est.get(last, {}).get(a)
+        ex = [round(x[1] * 100), round(x[0]), round(x[2]), x[3]] if x else [0, 0, 0, ""]
+        skus.append([a, bl_i[br], co_i[co], row[2][:TITLE_N].rstrip(), day_i.get(first, -1), r, h] + ex)
     skus.sort(key=lambda s: (s[5][0][1] if s[5] else 999, -len(s[5]), s[0]))
 
     mt = dmeta.get(dates[-1])                   # asOf 는 마지막 회차(부분이어도) — 신선도 판정은 '돌았는가'를 본다
@@ -491,6 +573,7 @@ def build_block(cfg, master):
         "days": dates, "ok": ok, "tot": tot, "part": part,
         "cats": [[c[0], c[1]] for c in cats], "bl": bl,
         "cos": cos, "k": ksr, "hd": hd, "skus": skus, "unk": unk[:30],
+        **({"rm": rmeta} if rmeta else {}),
     }
 
 
@@ -535,6 +618,11 @@ def summary(res, cfg, master, block):
     if block:
         top = ", ".join(f"{c['n']} {c['s'][-1]}개/{c['a'][-1]}자리" for c in block["cos"][:6])
         print(f"  상장사 상위: {top}")
+        li = block["days"].index(block["date"])
+        rv = sorted(((c["r"][li] or 0, c["n"]) for c in block["cos"] if c.get("r")), reverse=True)
+        if rv and rv[0][0]:
+            kr = block["k"]["r"][li] or 0
+            print(f"  추정 매출(하루, {block['date']}): 한국 전체 ${kr / 1e6:.2f}M · " + ", ".join(f"{n} ${v / 1e6:.2f}M" for v, n in rv[:5]))
         if block["unk"]:
             print(f"  새 브랜드 후보 {len(block['unk'])}개 (unknown.csv)")
 

@@ -34,6 +34,8 @@
      N|카테고리 번호|이름|crc          ← config 에 이름이 비어 있을 때만
      T|ASIN|브랜드 번호|제목(64자)|crc  ← 처음 보는 ASIN 만
      U|ASIN|카테고리 번호|순위|제목|crc ← 사전에 없는데 제목에 Korean·K-beauty 가 들어간 것(최대 30개, 새 브랜드 후보)
+     P|덩어리 번호|번호.가격(아는 ASIN) 또는 ASIN.가격(처음 보는 것), …|crc ← 한국 SKU 의 카드 가격(센트 · 36진수 · 120개씩).
+                                          추정 매출(subcat/model.py)의 가격이다. 2026-10-11 부터 · 이전 덤프엔 없다(ingest 가 없어도 받는다)
      END|줄 수|앞 줄 전체의 crc
 */
 (function () {
@@ -44,7 +46,7 @@
 
   const J = window.__AMZSUB = {
     state: 'init', v: 1, t0: Date.now(), done: 0, total: 0, req: 0, posN: 0, notitle: 0,
-    fail: {}, blockRun: 0, blocked: false, res: {}, names: {}, newTitles: {}, unk: {}, err: null, cfgSrc: '', L: null,
+    fail: {}, blockRun: 0, blocked: false, res: {}, names: {}, newTitles: {}, unk: {}, price: {}, err: null, cfgSrc: '', L: null,
   };
 
   /* ---------- 작은 도구 ---------- */
@@ -68,7 +70,16 @@
     return {status: r.status, text: t};
   }
 
-  function titlesFrom(root) {
+  // 카드 가격 — '$15.12' · '1 offer from $15.12' · '$12.99 - $24.99'(첫 값). 센트 정수, 못 읽으면 0. ($1~$1,000 밖은 버린다)
+  function priceOf(box) {
+    const el = box.querySelector('._cDEzb_p13n-sc-price_3mJ9Z, .p13n-sc-price, [class*="p13n-sc-price"]');
+    const m = /\$\s?(\d{1,4}(?:,\d{3})*(?:\.\d{1,2})?)/.exec((el && el.textContent) || box.textContent || '');
+    if (!m) return 0;
+    const v = Math.round(parseFloat(m[1].replace(/,/g, '')) * 100);
+    return v >= 100 && v <= 100000 ? v : 0;
+  }
+
+  function titlesFrom(root, prices) {
     const m = new Map();
     root.querySelectorAll('[id]').forEach(el => {
       const id = el.id;
@@ -78,6 +89,7 @@
       let t = img ? img.getAttribute('alt') : '';
       if (!t || !t.trim()) { const a = box.querySelector('a span, a div'); t = a ? a.textContent : ''; }
       if (t && t.trim()) m.set(id, t.trim());
+      if (prices && !prices.has(id)) { const c = priceOf(box); if (c) prices.set(id, c); }
     });
     return m;
   }
@@ -106,7 +118,8 @@
     const recsEl = doc.querySelector('[data-client-recs-list]');
     if (!recsEl) return {norecs: true, status: g.status, h1: !!doc.querySelector('h1')};
     const recs = JSON.parse(recsEl.getAttribute('data-client-recs-list'));
-    const titles = titlesFrom(doc);
+    const prices = new Map();
+    const titles = titlesFrom(doc, prices);
     // 이름: h1 이 둘이다 — 첫째는 늘 'Amazon Best Sellers'(첫날 155개가 전부 이걸로 찍혔다), 둘째가 'Best Sellers in 카테고리'.
     let name = '';
     if (pg === 1) {
@@ -132,11 +145,11 @@
             'x-amz-acp-params': acp.getAttribute('data-acp-params'), 'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'text/html, application/json', 'Content-Type': 'application/json', 'x-amz-amabot-click-attributes': 'disable'},
             body: JSON.stringify(body)});
-          if (g2.status === 200) titlesFrom(new DOMParser().parseFromString(g2.text, 'text/html')).forEach((t, a) => { if (!titles.has(a)) titles.set(a, t); });
+          if (g2.status === 200) titlesFrom(new DOMParser().parseFromString(g2.text, 'text/html'), prices).forEach((t, a) => { if (!titles.has(a)) titles.set(a, t); });
         } catch (e) { /* 제목 없이 남는다 — notitle 로 센다 */ }
       }
     }
-    return {recs: recs.map(r => ({a: r.id, r: +r.metadataMap['render.zg.rank'], t: titles.get(r.id) || ''})), name};
+    return {recs: recs.map(r => ({a: r.id, r: +r.metadataMap['render.zg.rank'], t: titles.get(r.id) || '', p: prices.get(r.id) || 0})), name};
   }
 
   async function oneCat(cfg, i) {
@@ -166,6 +179,7 @@
         return;
       }
       pos.push([x.r, b, x.a]);
+      if (x.p && !(x.a in J.price)) J.price[x.a] = x.p;
       if (!(x.a in known) && !J.newTitles[x.a]) J.newTitles[x.a] = [b, clean(x.t, 64)];
     });
     pos.sort((a, b) => a[0] - b[0]);
@@ -237,6 +251,13 @@
     Object.keys(J.fail).map(Number).sort((a, b) => a - b).forEach(i => L.push(['F', i, clean(J.fail[i], 30)].join('|')));
     Object.keys(J.names).map(Number).sort((a, b) => a - b).forEach(i => { const s = ['N', i, J.names[i]].join('|'); L.push(s + '|' + crc32(s)); });
     Object.keys(J.newTitles).sort().forEach(a => { const x = J.newTitles[a]; const s = ['T', a, x[0].toString(36), x[1]].join('|'); L.push(s + '|' + crc32(s)); });
+    // 가격 — 아는 ASIN 은 마스터 번호 순, 처음 보는 ASIN 은 뒤에 ASIN 그대로. 120개씩 끊어 CRC 가 틀려도 그 덩어리만 다시 받는다.
+    const kn = a => ((a in J.known) ? J.known[a] : 1e9);
+    const pk = Object.keys(J.price).sort((a, b) => (kn(a) - kn(b)) || (a < b ? -1 : 1));
+    for (let i = 0, k = 0; i < pk.length; i += 120, k++) {
+      const s = ['P', k, pk.slice(i, i + 120).map(a => ((a in J.known) ? J.known[a].toString(36) : a) + '.' + J.price[a].toString(36)).join(',')].join('|');
+      L.push(s + '|' + crc32(s));
+    }
     Object.keys(J.unk).sort((a, b) => J.unk[a][1] - J.unk[b][1]).slice(0, 30).forEach(a => {
       const x = J.unk[a]; const s = ['U', a, x[0], x[1], x[2]].join('|'); L.push(s + '|' + crc32(s));
     });

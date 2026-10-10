@@ -54,6 +54,20 @@ BRAND_STOCK = {
 FX_TO_USD = {"USD": 1.0, "EUR": 1.08, "GBP": 1.27, "JPY": 0.0067}   # JPY 2026-09 ≈ 149엔/$
 
 
+def _price(p, cur):
+    """트래커 가격에 소수점이 빠진 값이 섞인다($14.16 → 1416.0 · $164.61 → 16461.0 — 2026-10-11 발견, 미국 행 235개 ·
+    10/10 조선미녀 월 매출이 그것 때문에 6배로 찍혔다). USD·EUR·GBP 에서 300 넘는 정수는 센트로 읽고, 그래도 600 이 넘으면 버린다.
+    엔화는 원래 정수라 건드리지 않는다. 원인(scraper 의 가격 읽기)은 아직 그대로다 — 고치면 이 보정은 그냥 지나간다."""
+    if not p or p <= 0:
+        return None
+    if cur in ("USD", "EUR", "GBP"):
+        if p >= 300 and abs(p - round(p)) < 1e-9:
+            p = p / 100.0
+        if p > 600:
+            return None
+    return p
+
+
 def _n(v):
     try:
         return float(v)
@@ -72,7 +86,7 @@ def build():
     agg = {}
     for r in rows:
         b, d, mk = r["brand"], r["date"], r["market"]
-        u, p, bsr = _n(r.get("bought")), _n(r.get("price")), _n(r.get("bsr_main"))
+        u, p, bsr = _n(r.get("bought")), _price(_n(r.get("price")), r.get("currency")), _n(r.get("bsr_main"))
         e = agg.setdefault((b, d), {"u": 0, "rev": 0.0, "n": 0, "il": 0, "bsr": None, "mk": {}})
         m = e["mk"].setdefault(mk, {"u": 0, "rev": 0.0, "n": 0, "il": 0, "bsr": None})
         e["n"] += 1
@@ -115,7 +129,7 @@ def build():
                 "sub": r.get("bsr_sub_cat") or None,
                 "subR": int(_n(r["bsr_sub"])) if _n(r.get("bsr_sub")) else None,
                 "u": int(_n(r["bought"])) if _n(r.get("bought")) else None,
-                "p": _n(r.get("price")), "cur": r.get("currency")}
+                "p": _price(_n(r.get("price")), r.get("currency")), "cur": r.get("currency")}
                for r in today_rows[:TOP_N]]
         brands.append({"brand": b, **BRAND_STOCK.get(b, {}), "hist": hist, "top": top})
 

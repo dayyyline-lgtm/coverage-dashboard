@@ -8821,7 +8821,8 @@ function amztLine(el, series, o){
   (o.bands||[]).forEach(b=>{ const a=Math.max(x0,b.x0-0.5), z=Math.min(x1,b.x1+0.5); if(z<=a) return;
     s+=`<rect x="${sx(a).toFixed(1)}" y="${P.t}" width="${(sx(z)-sx(a)).toFixed(1)}" height="${H-P.t-P.b}" fill="${mut}" fill-opacity="0.13"/>`
       +`<text x="${((sx(a)+sx(z))/2).toFixed(1)}" y="${P.t-5}" text-anchor="middle" font-size="10" fill="${mut}">${b.t}</text>`; });
-  const ticks=o.rank?[1,20,40,60,80,100]:(()=>{ const st=[1,2,5,10,20,50].find(v=>ymax/v<=6)||100, a=[]; for(let v=0;v<=ymax+1e-9;v+=st) a.push(v); return a; })();
+  // o.step — 부르는 쪽이 눈금 간격을 정할 때(추정 매출처럼 값의 크기가 수십~수천으로 자라는 계열)
+  const ticks=o.rank?[1,20,40,60,80,100]:(()=>{ const st=o.step||[1,2,5,10,20,50].find(v=>ymax/v<=6)||100, a=[]; for(let v=0;v<=ymax+1e-9;v+=st) a.push(+v.toFixed(6)); return a; })();
   ticks.forEach(v=>{ const y=sy(v).toFixed(1);
     s+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="${gc}"/>`
       +`<text x="${P.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${mut}">${o.yFmt(v)}</text>`; });
@@ -9042,19 +9043,33 @@ function renderKmj(){
 /* ══ 아마존 탭 — 미국 세부 카테고리 Top100 · 상장사 SKU (2026-10-09 · AMZSUB) ══════════════════════════
    사용자 "상장사 노출된 SKU 다 정리 → 추이를 만들어 대시보드까지, 예약 작업으로". 베스트셀러 목록은 100위에서 잘려서
    뷰티 전체 Top100 만 보면 한국 SKU 가 30여 개뿐이다. 그래서 세부 카테고리 155개(토너·세럼·선크림·립·헤어…)의 Top100 을
-   매일 받아 한국 브랜드 SKU 를 찾고 상장사로 묶는다. 수집은 사용자 PC 크롬(예약 작업 · subcat/collector.js) → ingest.py → 이 블록.
-   보기: 카드(상장사 합계) → 회사별 추이 → 회사 표 → SKU 표(회사로 거르기) → 접힘(방법·새 브랜드 후보).
+   매일 받아 한국 브랜드 SKU 를 찾고 상장사로 묶는다. 수집은 사용자 PC 크롬(이 대화 세션의 아침 예약 · subcat/collector.js) → ingest.py → 이 블록.
+   보기: 카드(상장사 합계) → 순위 분포 · 누적 추정 매출 순위(나란히) → 회사별 추이 → 회사 표 → SKU 표(회사로 거르기) → 접힘(방법·새 브랜드 후보).
    ⚠ 노출 = 카테고리 자리 수 — SKU 하나가 세럼·스킨케어·뷰티 전체에 동시에 오르면 3으로 센다(얼마나 넓게 깔렸나). SKU 수는 중복 없이.
-   ⚠ 부분 회차(성공 카테고리 97% 밑)는 선에 넣지 않고, 증감도 '직전 완전한 회차'와만 비교한다 — 섞으면 가짜 하락이 생긴다. */
-let amzSubM="a", amzSubCo="", amzSubAll=false, amzSubP=true;
-try{ const s=JSON.parse(localStorage.getItem("amzSub")||"{}"); if(s.m) amzSubM=s.m; if(s.p!=null) amzSubP=!!s.p; }catch(e){}
+   ⚠ 부분 회차(성공 카테고리 97% 밑)는 선에 넣지 않고, 증감도 '직전 완전한 회차'와만 비교한다 — 섞으면 가짜 하락이 생긴다.
+   2026-10-11 사용자 "아마존 top 100 과 누적 매출액 순위로 그래프 시각화":
+   ① Top100 순위 분포 — 회사별 노출 자리를 1위 · 2~10위 · 11~30위 · 31~100위로 쪼갠 가로 막대(한 색의 진하기 = 순위 · 순서가 있는 구간이라).
+   ② 누적 추정 매출 순위 — subcat/model.py 가 SKU 마다 낸 하루 추정 매출(세부 순위 → 전체 순위 → 월 판매량 × 카드 가격)을 회사로 묶어
+      수집 시작일부터 더한 것. 수집이 빈 날은 직전 완전한 날 값으로 채운다(그날도 팔렸다). 부분 회차는 매출도 빠지므로 쓰지 않는다.
+   추이 차트(추정 매출·누적)·회사 표·SKU 표(가격·추정 월매출·매출순)에도 붙였다. 금액은 USD 로 받아 오늘 환율(amzFx)로 억원.
+   ⚠ 추정이다 — 개별 SKU 는 ±2~3배까지 틀릴 수 있다. 회사 합계와 추이로 볼 것. 방법·맞춤 수치는 맨 아래 접힘(S.rm). */
+let amzSubM="a", amzSubCo="", amzSubAll=false, amzSubP=true, amzSubSort="rank";
+try{ const s=JSON.parse(localStorage.getItem("amzSub")||"{}"); if(s.m) amzSubM=s.m; if(s.p!=null) amzSubP=!!s.p; if(s.o) amzSubSort=s.o; }catch(e){}
 // 회사 색은 이름에 고정 — 날마다 순서가 바뀌어도 선 색이 그대로다(골드=1번 강조색은 에이피알)
 const AMZSUB_COL={"에이피알":"#d8b46a","아모레퍼시픽":"#6fa8dc","구다이글로벌":"#e07a5f","LG생활건강":"#81b29a","아모레퍼시픽홀딩스":"#c98aa6",
   "달바글로벌":"#5fb3b3","클리오":"#9aa5b1","브이티":"#a8b561","토니모리":"#c7a27c","동국제약":"#e5989b","에이블씨엔씨":"#7d9bc1","아이패밀리에스씨":"#b5838d",
   "아로마티카":"#90a955","파마리서치":"#d69f7e"};
 const amzSubColor=n=>AMZSUB_COL[n]||AMZT_PAL[[...n].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7)%AMZT_PAL.length];
 const AMZSUB_M=[["s","SKU 수","그날 세부 카테고리 Top100 어딘가에 든 SKU — 중복 없이"],["a","노출 자리","카테고리 자리 수 — 한 SKU 가 세 카테고리에 오르면 3"],
-  ["t","Top10 자리","10위 안에 든 자리 수"],["w","1위","1위를 차지한 카테고리 수"],["b","뷰티 전체 Top100","Beauty & Personal Care 전체 Top100 안 SKU"]];
+  ["t","Top10 자리","10위 안에 든 자리 수"],["w","1위","1위를 차지한 카테고리 수"],["b","뷰티 전체 Top100","Beauty & Personal Care 전체 Top100 안 SKU"],
+  ["r","추정 매출(하루)","SKU 마다 순위 → 판매량 곡선 × 가격으로 낸 하루 매출을 회사로 더한 것(억원, 오늘 환율) — 추정"],
+  ["c","누적 추정 매출","수집 시작일부터 하루 추정 매출을 더한 것(빈 날은 직전 완전한 날 값으로 채움) — 추정"]];
+// 순위 분포의 네 구간 — 한 색(강조색)의 진하기로 순서를 보인다. 패널과 섞는 비율 100·80·62·46% 는 다크·라이트 둘 다 서열 검사 통과
+// (밝기 단조 · 인접 ΔL 0.06 이상 · 가장 옅은 칸 대비 다크 2.86 · 라이트 2.06 — dataviz validate_palette --ordinal, 2026-10-11)
+const AMZSUB_RK=[["1위",100],["2~10위",80],["11~30위",62],["31~100위",46]];
+const amzSubRkCol=w=>w===100?"var(--accent)":`color-mix(in srgb, var(--accent) ${w}%, var(--panel))`;
+// 눈금 간격 — 1·2·2.5·5 × 10ⁿ
+const amzNiceStep=v=>{ if(!(v>0)) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))), f=v/p; return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p; };
 
 function renderAmzSub(){
   const box=document.getElementById("amzSub"); if(!box) return;
@@ -9079,42 +9094,105 @@ function renderAmzSub(){
     return ` <span style="font-size:${sz||11}px;font-weight:700;color:${d>0?"var(--up)":"var(--down)"}">${d>0?"▲":"▼"}${Math.abs(d)}</span>`; };
   const pct=(a,b)=>b?Math.round(a/b*100)+"%":"—";
 
+  /* ---- 추정 매출 도구 — USD → 억원(오늘 환율) · 누적은 완전한 날만, 빈 날은 직전 완전한 날 값으로 채운다 ---- */
+  const hasRev=!!(S.rm&&S.k&&S.k.r);
+  const fx=amzFx(), eok=u=>(u||0)*fx/1e8;
+  const fE=v=>{ const a=Math.abs(v); return a>=100?`${amzNum(Math.round(v))}억`:a>=10?`${v.toFixed(1)}억`:a>=0.1?`${v.toFixed(2)}억`:a>0?"0.1억 미만":"0"; };
+  const fUsd=u=>u>=1e6?`$${(u/1e6).toFixed(2)}M`:u>=1e3?`$${Math.round(u/1e3)}K`:`$${Math.round(u||0)}`;
+  const fullR=hasRev?S.days.map((d,i)=>i).filter(i=>!S.part[i]&&S.k.r[i]!=null):[];
+  const cumOf=(arr,upto)=>{
+    const pts=fullR.filter(i=>i<=upto).map(i=>[amztDn(S.days[i]),(arr&&arr[i])||0]);
+    if(!pts.length) return {sum:0,n:0,fill:0};
+    let s=0,j=0,v=0; const x0=pts[0][0], x1=pts[pts.length-1][0];
+    for(let x=x0;x<=x1;x++){ while(j<pts.length&&pts[j][0]<=x){ v=pts[j][1]; j++; } s+=v; }
+    return {sum:s,n:x1-x0+1,fill:x1-x0+1-pts.length};
+  };
+  const span0=fullR.length?md(S.days[fullR[0]]):"", cumK=hasRev?cumOf(S.k.r,li):{sum:0,n:0,fill:0};
+  const spanTxt=hasRev?`${span0}~${md(S.date)} · ${cumK.n}일${cumK.fill?`(빈 ${cumK.fill}일은 직전 날 값으로 채움)`:""}`:"";
+
   /* ---- 카드 — 상장사(L) 합계 ---- */
   const card=(lab,k,tt)=>{ const v=sum(L,k,li), p=pi>=0?sum(L,k,pi):null, kv=S.k[k]?S.k[k][li]:null;
     return `<div class="kpi" title="${esc(tt)}"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">${lab}</div>
       <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:21px;font-weight:800">${amzNum(v)}</span>${dArrow(v,p,11.5)}</div>
       <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${kv!=null?`한국 브랜드 전체 ${amzNum(kv)} 중 ${pct(v,kv)}`:""}</div></div>`; };
+  const revCards=()=>{ if(!hasRev) return "";
+    const v=L.reduce((t,c)=>t+((c.r&&c.r[li])||0),0), p=pi>=0&&S.k.r[pi]!=null?L.reduce((t,c)=>t+((c.r&&c.r[pi])||0),0):null, kv=S.k.r[li]||0;
+    const cv=L.reduce((t,c)=>t+cumOf(c.r,li).sum,0);
+    const tip="순위 → 판매량 곡선 × 가격으로 낸 추정치(아래 '어떻게 모으나' 접힘에 방법·오차)";
+    return `<div class="kpi" title="${esc(tip)}"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">추정 매출 · 하루</div>
+        <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:21px;font-weight:800">${fE(eok(v))}</span>${amzDelta(v,p)}</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">월 환산 ${fE(eok(v*30))} · 한국 브랜드 중 ${pct(v,kv)}</div></div>
+      <div class="kpi" title="${esc(tip)}"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">누적 추정 매출</div>
+        <div style="display:flex;align-items:baseline;gap:6px"><span style="font-size:21px;font-weight:800">${fE(eok(cv))}</span></div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${span0}~${md(S.date)} · ${cumK.n}일</div></div>`; };
   let h=`<p class="note" style="margin:-2px 0 12px">아마존 미국 뷰티 <b>세부 카테고리 ${S.tot[li]}개</b>(토너·세럼·선크림·립·헤어 등)의 Top100 을 매일 모아
       한국 브랜드 SKU 를 찾고 <b>상장사별로</b> 묶었습니다. 뷰티 전체 Top100 하나만 보면 100위에서 잘려 한국 SKU 가 ${S.k.b[li]}개뿐이지만,
-      세부 카테고리까지 펴면 <b>${amzNum(S.k.s[li])}개</b>가 보입니다. 카드는 상장사 ${L.length}곳 합계${pi>=0?` · 화살표는 직전 수집(${md(S.days[pi])}) 대비`:""}.</p>
-    <div class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr))">
+      세부 카테고리까지 펴면 <b>${amzNum(S.k.s[li])}개</b>가 보입니다. 카드는 상장사 ${L.length}곳 합계${pi>=0?` · 화살표는 직전 수집(${md(S.days[pi])}) 대비`:""}.
+      ${hasRev?`매출은 순위로 낸 <b>추정치</b>입니다(방법·오차는 맨 아래 접힘).`:""}</p>
+    <div class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
       ${card("상장사 SKU","s",AMZSUB_M[0][2])}${card("노출 자리","a",AMZSUB_M[1][2])}${card("Top10 자리","t",AMZSUB_M[2][2])}
-      ${card("1위 카테고리","w",AMZSUB_M[3][2])}${card("뷰티 전체 Top100 SKU","b",AMZSUB_M[4][2])}</div>`;
+      ${card("1위 카테고리","w",AMZSUB_M[3][2])}${card("뷰티 전체 Top100 SKU","b",AMZSUB_M[4][2])}${revCards()}</div>`;
+
+  /* ---- 순위 분포 · 누적 추정 매출 순위 — 나란히(좁으면 위아래) ---- */
+  const btn=(k,v,t,on,tt)=>`<button data-${k}="${esc(v)}" class="${on?"active":""}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`;
+  const rkRows=show.filter(c=>c.a[li]>0).slice(0,12);
+  const mxA=Math.max(1,...rkRows.map(c=>c.a[li]));
+  const rkRow=c=>{ const a=c.a[li], w=c.w[li], t=c.t[li], q=c.q?c.q[li]:t;
+    const v=[w,t-w,q-t,a-q];
+    const tip=`${c.n} · 노출 ${a}자리 = `+v.map((x,k)=>`${AMZSUB_RK[k][0]} ${x}`).join(" · ")+` · SKU ${c.s[li]}개`;
+    return `<div class="asd-row" title="${esc(tip)}"><div class="asd-l">${coName(c)}${c.st==="P"?` <span class="asd-m">상장 준비</span>`:""}</div>
+      <div class="asd-bar"><div class="asd-fill" style="width:${(a/mxA*100).toFixed(1)}%">${v.map((x,k)=>x>0?`<span style="flex:${x};background:${amzSubRkCol(AMZSUB_RK[k][1])}" title="${esc(`${c.n} · ${AMZSUB_RK[k][0]} ${x}자리`)}"></span>`:"").join("")}</div></div>
+      <div class="asd-r"><b>${a}</b><span class="asd-m">자리 · SKU ${c.s[li]}</span></div></div>`; };
+  const rkLegend=`<div class="asd-lg">${AMZSUB_RK.map(([t,w])=>`<span><i style="background:${amzSubRkCol(w)}"></i>${t}</span>`).join("")}</div>`;
+  let revBox="";
+  if(hasRev){
+    const rr=show.filter(c=>c.r).map(c=>({c,cum:cumOf(c.r,li).sum,d:c.r[li]||0})).filter(x=>x.cum>0).sort((a,b)=>b.cum-a.cum).slice(0,12);
+    const mxR=Math.max(1,...rr.map(x=>x.cum));
+    const rvRow=(x,k)=>{ const tip=`${x.c.n} · 누적 ${fE(eok(x.cum))}(${fUsd(x.cum)}) · 하루 ${fE(eok(x.d))}(${fUsd(x.d)}) · 월 환산 ${fE(eok(x.d*30))} · 한국 브랜드 누적의 ${pct(x.cum,cumK.sum)}`;
+      return `<div class="asd-row" title="${esc(tip)}"><div class="asd-l"><span class="asd-rk">${k+1}</span>${coName(x.c)}${x.c.st==="P"?` <span class="asd-m">상장 준비</span>`:""}</div>
+        <div class="asd-bar"><div class="asd-fill" style="width:${(x.cum/mxR*100).toFixed(1)}%"><span style="flex:1;background:var(--accent)"></span></div></div>
+        <div class="asd-r"><b>${fE(eok(x.cum))}</b><span class="asd-m">하루 ${fE(eok(x.d))}</span></div></div>`; };
+    revBox=`<div class="chart-box"><div class="asd-h">누적 추정 매출 순위<span class="sub">${spanTxt}</span></div>
+      <div class="asd-lg"><span>막대 = 누적 · 오른쪽 작은 글씨 = ${md(S.date)} 하루 · 억원(환율 ${amzNum(Math.round(fx))}원)</span></div>
+      ${rr.map(rvRow).join("")||`<p class="note">추정 매출이 아직 없습니다</p>`}
+      <p class="note" style="margin-top:8px">한국 브랜드 전체 누적 ${fE(eok(cumK.sum))} · 순위 → 판매량 곡선 × 가격으로 낸 <b>추정치</b>라 회사끼리의 크기·추이로 보세요.</p></div>`;
+  }
+  h+=`<div class="asd-duo${hasRev?"":" one"}">
+    <div class="chart-box"><div class="asd-h">Top100 순위 분포<span class="sub">${md(S.date)} · 상장사 노출 자리</span></div>${rkLegend}
+      ${rkRows.map(rkRow).join("")}
+      <p class="note" style="margin-top:8px">한 SKU 가 여러 카테고리에 오르면 자리마다 셉니다. 진할수록 높은 순위.</p></div>
+    ${revBox}</div>`;
 
   /* ---- 회사별 추이 ---- */
-  const btn=(k,v,t,on,tt)=>`<button data-${k}="${esc(v)}" class="${on?"active":""}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`;
+  const MS=hasRev?AMZSUB_M:AMZSUB_M.filter(x=>x[0]!=="r"&&x[0]!=="c");
+  if(!MS.some(x=>x[0]===amzSubM)) amzSubM="a";
   h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 10px">
-      <div class="seg" style="margin-bottom:0">${AMZSUB_M.map(([k,t,tt])=>btn("m",k,t,amzSubM===k,tt)).join("")}</div>
+      <div class="seg" style="margin-bottom:0">${MS.map(([k,t,tt])=>btn("m",k,t,amzSubM===k,tt)).join("")}</div>
       <div class="seg" style="margin-bottom:0">${btn("p","1","상장 준비 포함",amzSubP,"구다이글로벌(조선미녀·티르티르·스킨1004·라운드랩 등) — IPO 준비 중")}</div></div>
     <div class="chart-box"><div id="amzSubChart"></div></div>`;
 
   /* ---- 회사 표 ---- */
   const cell=(c,k)=>{ const v=c[k][li], p=pi>=0?c[k][pi]:null;
     return `<td style="text-align:right;white-space:nowrap">${v?`<b>${amzNum(v)}</b>`:`<span style="color:var(--muted2)">0</span>`}${dArrow(v,p)}</td>`; };
+  const revCell=c=>{ if(!hasRev) return ""; const v=(c.r&&c.r[li])||0, p=pi>=0&&c.r&&c.r[pi]!=null?c.r[pi]:null;
+    return `<td style="text-align:right;white-space:nowrap" title="${esc(`${fUsd(v)} · 월 환산 ${fE(eok(v*30))}`)}">${v?`<b>${fE(eok(v))}</b> ${amzDelta(v,p)}`:`<span style="color:var(--muted2)">0</span>`}</td>`; };
   const rowsCo=show.filter(c=>c.a[li]||(pi>=0&&c.a[pi])).map(c=>`<tr${c.st==="P"?' style="opacity:.82"':""}>
       <td style="text-align:left;white-space:nowrap"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${amzSubColor(c.n)};margin-right:7px;vertical-align:middle"></span>${coName(c)}${coTag(c)}</td>
       ${cell(c,"s")}${cell(c,"a")}${cell(c,"t")}${cell(c,"w")}
       <td style="text-align:right;white-space:nowrap">${c.b[li]?`<b>${c.b[li]}</b>${c.o[li]?` <span style="color:var(--muted);font-size:11px">최고 ${c.o[li]}위</span>`:""}`:`<span style="color:var(--muted2)">0</span>`}</td>
+      ${revCell(c)}
       <td style="text-align:left;color:var(--muted);font-size:11.5px;white-space:normal">${(c.br||[]).slice(0,4).map(b=>`${esc(b[0])} ${b[1]}`).join(" · ")}${(c.br||[]).length>4?` 외 ${c.br.length-4}`:""}</td></tr>`).join("");
   const foot=(lab,o,isK)=>`<tr style="border-top:2px solid var(--line)"><td style="text-align:left;font-weight:800;white-space:nowrap">${lab}</td>
       ${["s","a","t","w"].map(k=>{ const v=isK?o[k][li]:sum(o,k,li), p=pi<0?null:(isK?o[k][pi]:sum(o,k,pi));
         return `<td style="text-align:right;font-weight:800;white-space:nowrap">${amzNum(v)}${dArrow(v,p)}</td>`; }).join("")}
-      <td style="text-align:right;font-weight:800">${isK?o.b[li]:sum(o,"b",li)}</td><td></td></tr>`;
+      <td style="text-align:right;font-weight:800">${isK?o.b[li]:sum(o,"b",li)}</td>
+      ${hasRev?`<td style="text-align:right;font-weight:800;white-space:nowrap">${fE(eok(isK?(o.r[li]||0):o.reduce((t,c)=>t+((c.r&&c.r[li])||0),0)))}</td>`:""}<td></td></tr>`;
   h+=`<div class="sub-h" style="font-size:13.5px;margin-top:18px">회사별 ${md(S.date)}</div>
     <div class="tbl-wrap"><table>
       <thead><tr><th style="text-align:left">회사</th><th style="text-align:right" title="${esc(AMZSUB_M[0][2])}">SKU</th>
         <th style="text-align:right" title="${esc(AMZSUB_M[1][2])}">노출 자리</th><th style="text-align:right">Top10</th><th style="text-align:right">1위</th>
-        <th style="text-align:right" title="${esc(AMZSUB_M[4][2])}">뷰티 전체 Top100</th><th style="text-align:left">브랜드(SKU 수)</th></tr></thead>
+        <th style="text-align:right" title="${esc(AMZSUB_M[4][2])}">뷰티 전체 Top100</th>
+        ${hasRev?`<th style="text-align:right" title="${esc(AMZSUB_M[5][2])}">추정 매출 하루</th>`:""}<th style="text-align:left">브랜드(SKU 수)</th></tr></thead>
       <tbody>${rowsCo}${foot(`상장사 ${L.length}곳 합계`,L,false)}${foot("한국 브랜드 전체",S.k,true)}</tbody></table></div>`;
 
   /* ---- SKU 표 ---- */
@@ -9123,12 +9201,22 @@ function renderAmzSub(){
   const coOk=s=>{ const c=S.cos[s[2]]; return c&&(c.st==="L"||(amzSubP&&c.st==="P")); };
   if(amzSubCo&&!show.some(c=>c.n===amzSubCo)) amzSubCo="";
   const live=S.skus.filter(s=>s[5].length&&coOk(s)&&(!amzSubCo||S.cos[s[2]].n===amzSubCo));
+  const skuRev=hasRev&&S.skus.length&&S.skus[0].length>9;
+  if(skuRev&&amzSubSort==="rev") live.sort((a,b)=>(b[9]||0)-(a[9]||0));
   const prevD=pi>=0?S.days[pi]:null;
   const gone=prevD?S.skus.filter(s=>!s[5].length&&coOk(s)&&(!amzSubCo||S.cos[s[2]].n===amzSubCo)&&hAt(s,prevD)>0):[];
   const cntBy={}; S.skus.forEach(s=>{ if(s[5].length&&coOk(s)){ const k=S.cos[s[2]].n; cntBy[k]=(cntBy[k]||0)+1; } });
   const coBtns=btn("co","","전체 "+Object.values(cntBy).reduce((a,b)=>a+b,0),!amzSubCo)
     +show.filter(c=>cntBy[c.n]).slice(0,10).map(c=>btn("co",c.n,`${esc(c.n)} ${cntBy[c.n]}`,amzSubCo===c.n)).join("");
+  const sortBtns=skuRev?`<div class="seg">${btn("o","rank","순위순",amzSubSort!=="rev")}${btn("o","rev","추정 매출순",amzSubSort==="rev","SKU 하루 추정 매출이 큰 순서")}</div>`:"";
   const catNm=i=>S.cats[i]?S.cats[i][1]||S.cats[i][0]:"?";
+  const PX_SRC={c:"아마존 카드 가격",t:"트래커가 상품 페이지에서 읽은 가격",m:"가격 미확인 — 같은 카테고리 SKU 가격 중앙값",g:"가격 미확인 — 전체 SKU 가격 중앙값"};
+  const pxCell=s=>{ if(!skuRev) return ""; const p=(s[7]||0)/100, src=s[10]||"";
+    if(!p) return `<td style="text-align:right;color:var(--muted2)">—</td>`;
+    const est=src==="m"||src==="g";
+    return `<td style="text-align:right;white-space:nowrap${est?";color:var(--muted)":""}" title="${esc(PX_SRC[src]||"")}">${est?"≈":""}$${p.toFixed(p>=100?0:2)}</td>`; };
+  const rvCell=s=>{ if(!skuRev) return ""; const d=s[9]||0;
+    return `<td style="text-align:right;white-space:nowrap" title="${esc(`하루 ${fUsd(d)} · 추정 월 판매량 ${amzNum(s[8]||0)}개`)}">${d?fE(eok(d*30)):`<span style="color:var(--muted2)">0</span>`}</td>`; };
   const lim=amzSubAll?live.length:Math.min(25,live.length);
   const skuRows=live.slice(0,lim).map(s=>{
     const c=S.cos[s[2]], best=s[5][0], all=s[5].map(r=>`${catNm(r[0])} ${r[1]}위`).join(" · ");
@@ -9139,59 +9227,84 @@ function renderAmzSub(){
       <td style="text-align:left;white-space:nowrap;font-weight:700">${esc(S.bl[s[1]])}</td>
       <td style="text-align:left;white-space:normal;max-width:380px;font-size:12px">${esc(s[3])}</td>
       <td style="text-align:left;white-space:nowrap">${cov(c.n)?`<span class="clickable" data-stock="${esc(c.n)}">${esc(c.n)}</span>`:esc(c.n)}</td>
-      ${prevD?`<td style="text-align:right">${delta}</td>`:""}
+      ${prevD?`<td style="text-align:right">${delta}</td>`:""}${pxCell(s)}${rvCell(s)}
       <td style="text-align:right;color:var(--muted);white-space:nowrap">${s[4]>=0?md(S.days[s[4]]):"—"}</td></tr>`; }).join("");
+  const nCol=5+(prevD?1:0)+(skuRev?2:0)+1;
   h+=`<div class="sub-h" style="font-size:13.5px;margin-top:20px">SKU ${md(S.date)} <span style="font-size:12px;font-weight:600;color:var(--muted);margin-left:8px">카테고리에 마우스를 올리면 오른 자리 전부</span></div>
-    <div class="seg">${coBtns}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start"><div class="seg">${coBtns}</div>${sortBtns}</div>
     <div class="tbl-wrap"><table>
       <thead><tr><th style="text-align:right">최고 순위</th><th style="text-align:left">카테고리</th><th style="text-align:left">브랜드</th>
         <th style="text-align:left">제품</th><th style="text-align:left">회사</th>${prevD?`<th style="text-align:right" title="최고 순위를 직전 완전한 수집과 비교">직전 대비</th>`:""}
+        ${skuRev?`<th style="text-align:right" title="카드 가격 · ≈ 는 가격을 못 읽어 중앙값으로 둔 것">가격</th><th style="text-align:right" title="하루 추정 매출 × 30 · 억원">추정 월매출</th>`:""}
         <th style="text-align:right">처음 잡힌 날</th></tr></thead>
-      <tbody>${skuRows||`<tr><td colspan="7" style="color:var(--muted)">해당 SKU 없음</td></tr>`}</tbody></table></div>
+      <tbody>${skuRows||`<tr><td colspan="${nCol}" style="color:var(--muted)">해당 SKU 없음</td></tr>`}</tbody></table></div>
     ${live.length>25?`<button class="theme-btn" id="amzSubMore" style="margin-top:8px;padding:4px 10px;font-size:11.5px">${amzSubAll?"25개만 보기":`${live.length}개 모두 보기`}</button>`:""}
     ${gone.length?`<p class="note">직전 수집(${md(prevD)})엔 있었는데 이번엔 모든 카테고리 100위 밖 — ${gone.slice(0,30).map(s=>`<b>${esc(S.bl[s[1]])}</b> ${esc(s[3].slice(0,40))}`).join(" / ")}${gone.length>30?` 외 ${gone.length-30}개`:""}</p>`:""}`;
 
   /* ---- 접힘 — 방법·한계·새 브랜드 후보 ---- */
   const unk=(S.unk||[]).map(u=>`<tr><td style="text-align:right">${u[2]}위</td><td style="text-align:left;white-space:nowrap">${esc(catNm(u[1]))}</td>
       <td style="text-align:left;white-space:normal;font-size:12px">${esc(u[3])}</td><td style="text-align:left;font-family:monospace;font-size:11px">${esc(u[0])}</td></tr>`).join("");
+  let revHow="";
+  if(hasRev){
+    const M_=S.rm, um=x=>Math.exp(M_.a+M_.b1*Math.min(Math.log(x),Math.log(1000))+M_.b2*Math.max(0,Math.log(x)-Math.log(1000)));
+    const px=M_.px||{}, val=M_.val||{}, prior=Math.max(0,(M_.ncat||0)-1-(M_.direct||0)-(M_.linked||0));
+    revHow=`<br><b>추정 매출은 어떻게 내나</b> — 베스트셀러 목록엔 순위만 있어서 세 단계로 바꾼다(SKU 마다 · 날마다).<br>
+      ① <b>세부 순위 → 아마존 전체 순위.</b> 트래커가 상품 페이지에서 읽은 '전체 #m · 세부 카테고리 #r' 실측 쌍 ${amzNum(M_.npairs||0)}개로
+        카테고리 ${M_.direct}곳을 맞추고, 한 SKU 가 같은 날 여러 카테고리에 오른 자리로 ${M_.linked}곳을 이어 맞췄다(뷰티 전체 Top100 은 그 자체가 전체 순위).
+        나머지 ${prior}곳은 평균값. SKU 가 여러 카테고리에 오르면 근거가 가장 많은 카테고리 순위로 환산한다.<br>
+      ② <b>전체 순위 → 월 판매량.</b> 트래커가 읽은 '지난주/지난달 N+개 구매' 배지 ${amzNum(M_.nu||0)}개(최근 8주)로 맞춘 곡선 —
+        전체 1위 ${amzNum(Math.round(um(1)))}개 · 10위 ${amzNum(Math.round(um(10)))} · 100위 ${amzNum(Math.round(um(100)))} · 1,000위 ${amzNum(Math.round(um(1000)))} · 1만위 ${amzNum(Math.round(um(1e4)))}개/월.
+        배지는 구간의 아랫값이라 <b>낮게 나오는 쪽</b>이다.<br>
+      ③ <b>× 가격.</b> ${md(S.date)} SKU 가격 출처 — 카드 ${px.c||0} · 트래커 ${px.t||0} · 같은 카테고리 중앙값 ${px.m||0} · 전체 중앙값($${M_.gmed}) ${px.g||0}개
+        (카드 가격은 10/11 수집기부터 함께 읽는다 — 다음 수집부터 '≈' 가 준다).<br>
+      · 맞춤(보정에 쓴 자료 안): 트래커가 ±3일 안에 잰 ${val.n||0}개 — 전체 순위 추정 중앙 오차 ×${val.bsrX||"?"} · 판매량은 그 주 배지의 ${val.uBias||"?"}배(10/7~8 빅딜데이 주라 배지가 높다).
+        <b>개별 SKU 는 ±2~3배까지 틀릴 수 있다</b> — 회사 합계와 추이로 볼 것. 원화는 오늘 환율, 미국 아마존 세부 카테고리 Top100 안 SKU 만 센다(밖으로 밀리면 0).`;
+  }
   h+=`<details class="fold" style="margin-top:12px"><summary>어떻게 모으나 · 무엇을 못 보나${unk?` <span class="sub">새 브랜드 후보 ${S.unk.length}개</span>`:""}</summary><div class="fold-b">
-    <p class="note" style="margin-top:0">· 사용자 PC 크롬에서 예약 작업이 하루 두 번(오전·오후) 돈다. 카테고리마다 베스트셀러 1·2쪽과, 스크롤할 때 페이지가 부르는
+    <p class="note" style="margin-top:0">· 사용자 PC 크롬에서 매일 아침 돈다. 카테고리마다 베스트셀러 1·2쪽과, 스크롤할 때 페이지가 부르는
       '나머지 20개' 요청까지 받아 <b>100위 전부의 제목</b>을 읽는다. 상품 페이지는 열지 않는다(차단 위험이 거기서 났다).<br>
       · 제목 맨 앞을 한국 브랜드 사전(${S.bl.length}개 브랜드가 오늘 걸림 · 저장소 <code>subcat/config.json</code>)과 맞춘다. 사전에 없는 한국 브랜드는 안 잡힌다 —
       제목에 Korean·K-beauty 가 들어간 미매칭 상품을 아래 '새 브랜드 후보'로 띄운다.<br>
       · 새 SKU 는 자동으로 붙는다 — 브랜드가 사전에 있으면 처음 보는 ASIN 이 그날 마스터에 추가되고 회사로 묶인다.
         새 브랜드·회사 관계가 바뀌면(인수·상장) 사전 한 줄만 고친다.<br>
-      · <b>판매량이 아니라 순위</b>다. 카테고리마다 크기가 달라 '세럼 5위'와 '립 5위'는 같은 판매가 아니다 — 같은 방법으로 매일 재는 추이로 볼 것.<br>
-      · 미국 아마존만. 카테고리는 한국 SKU 가 한 번이라도 잡힌 ${S.tot[li]}개로 고정(새 카테고리는 사람이 덧붙인다).</p>
+      · <b>순위가 원자료</b>다. 카테고리마다 크기가 달라 '세럼 5위'와 '립 5위'는 같은 판매가 아니다 — 매출은 그 차이를 보정해 낸 추정이다.<br>
+      · 미국 아마존만. 카테고리는 한국 SKU 가 한 번이라도 잡힌 ${S.tot[li]}개로 고정(새 카테고리는 사람이 덧붙인다).${revHow}</p>
     ${unk?`<div class="tbl-wrap"><table><thead><tr><th style="text-align:right">순위</th><th style="text-align:left">카테고리</th><th style="text-align:left">제목</th><th style="text-align:left">ASIN</th></tr></thead><tbody>${unk}</tbody></table></div>
       <p class="note">사전에 없는 브랜드라 위 숫자에 안 들어갔다. 한국 브랜드가 맞으면 config.json 에 한 줄 더하면 다음 수집부터 잡힌다.</p>`:""}
     </div></details>`;
   box.innerHTML=h;
 
   /* ---- 차트 ---- */
-  const M=amzSubM, full=S.days.map((d,i)=>i).filter(i=>!S.part[i]);
+  const M=amzSubM, full=S.days.map((d,i)=>i).filter(i=>!S.part[i]&&(M!=="r"&&M!=="c"||(S.k.r&&S.k.r[i]!=null)));
+  const money=M==="r"||M==="c";
   const el=document.getElementById("amzSubChart");
   const mLab=(AMZSUB_M.find(x=>x[0]===M)||AMZSUB_M[1])[1];
+  const valAt=(c,i)=>M==="r"?eok((c.r&&c.r[i])||0):M==="c"?eok(cumOf(c.r,i).sum):c[M][i];
+  const vFmt=v=>money?fE(v):`${v}`;
   if(full.length<2){
     el.innerHTML=`<p class="note" style="padding:28px 12px;text-align:center">추이는 두 번째 수집부터 선으로 이어집니다 — 지금은 ${md(S.date)} 하루치입니다.<br>
-      오늘 ${mLab}: ${show.filter(c=>c[M][li]).slice(0,8).map(c=>`<b>${esc(c.n)}</b> ${c[M][li]}`).join(" · ")}</p>`;
+      오늘 ${mLab}: ${show.filter(c=>valAt(c,li)).slice(0,8).map(c=>`<b>${esc(c.n)}</b> ${vFmt(valAt(c,li))}`).join(" · ")}</p>`;
   } else {
     const X0=amztDn(S.days[full[0]]), X1=amztDn(S.days[full[full.length-1]]);
     const series=show.map(c=>({name:c.n, color:amzSubColor(c.n), w:c.st==="P"?1.4:1.8,
-      pts:full.map(i=>({x:amztDn(S.days[i]), y:c[M][i], tip:`${c.n} · ${md(S.days[i])} · ${mLab} ${c[M][i]}`}))}))
+      pts:full.map(i=>({x:amztDn(S.days[i]), y:valAt(c,i), tip:`${c.n} · ${md(S.days[i])} · ${mLab} ${vFmt(valAt(c,i))}`}))}))
       .filter(se=>se.pts.some(p=>p.y>0)).sort((a,b)=>b.pts[b.pts.length-1].y-a.pts[a.pts.length-1].y).slice(0,8);
-    amztLine(el, series, {x0:X0, x1:X1, rank:false, dots:"peak", padR:156, yFmt:v=>`${v}`, endFmt:v=>`${v}`,
+    const ymax=Math.max(0,...series.flatMap(se=>se.pts.map(p=>p.y)));
+    amztLine(el, series, {x0:X0, x1:X1, rank:false, dots:"peak", padR:156, yFmt:v=>money?(v===0?"0":`${+v.toFixed(2)}억`):`${v}`, endFmt:vFmt,
+      step:money?amzNiceStep(Math.max(ymax,4)/5):null,
       bands:AMZT_EVENTS.map(e=>({x0:amztDn(e.d0), x1:amztDn(e.d1), t:e.t})), marks:[],
       aria:`상장사별 아마존 미국 세부 카테고리 ${mLab} 추이`, empty:"값이 없습니다"});
   }
   const skipped=S.part.filter(Boolean).length;
   if(skipped) el.insertAdjacentHTML("afterend",`<p class="note">부분 수집 ${skipped}회(카테고리 97% 미만)는 선에서 뺐습니다.</p>`);
+  if(money) el.insertAdjacentHTML("afterend",`<p class="note">추정치 — 순위 → 판매량 곡선 × 가격(맨 아래 접힘). ${M==="c"?"빈 날은 직전 완전한 날 값으로 채워 더했습니다.":""}</p>`);
 
   box.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
     if(b.dataset.m) amzSubM=b.dataset.m;
     if(b.dataset.p) amzSubP=!amzSubP;
+    if(b.dataset.o) amzSubSort=b.dataset.o;
     if(b.dataset.co!==undefined) { amzSubCo=b.dataset.co; amzSubAll=false; }
-    try{ localStorage.setItem("amzSub",JSON.stringify({m:amzSubM,p:amzSubP})); }catch(e){}
+    try{ localStorage.setItem("amzSub",JSON.stringify({m:amzSubM,p:amzSubP,o:amzSubSort})); }catch(e){}
     renderAmzSub();
   });
   const more=document.getElementById("amzSubMore");
