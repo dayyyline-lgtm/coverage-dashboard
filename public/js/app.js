@@ -8942,20 +8942,44 @@ function renderAmzTrend(){
    사용자 "김명주 위원이 매일 올려 주는 걸로 채우고, 우리 아마존 수집은 완전치 않으니 일단 아래로". 그래서 탭 이름을
    '아마존' → '아마존 Top100' 으로, 본문을 채널 기준으로 바꾸고 우리 트래커(renderAmazon 의 카드·표)는 맨 아래 접힘으로 내렸다.
    카드(브랜드별 5개국 Top100 합계 · 전 글·4주 전 대비 · 최고 순위 제품 · 최근 40회 흐름) → 브랜드 × 국가 → (추이) → 제품별 순위.
-   ⚠ 여기 숫자는 **채널 글 날짜만** 쓴다(트래커 값을 섞지 않는다). 두 소스를 이은 선은 '브랜드별 추이'의 몫이다.
+   여기 숫자는 채널 글이 원본이고, 채널 마지막 글 **뒤** 날짜만 우리 트래커(KMJAMZ.trk)로 잇는다(2026-10-12 · 아래 renderKmj 주석).
    '4주 전' = 마지막 글에서 28일 이상 앞선 가장 최근 글. 브랜드는 최근 40회 동안 한 번이라도 Top100 에 든 것만(라네즈는 빠진다). */
 function renderKmj(){
   const cardsEl=document.getElementById("kmjCards"); if(!cardsEl) return;
   const T=amztBuild(), K=T.K;
   if(!K||!K.days.length){ cardsEl.innerHTML=`<p class="note">한투 채널 자료를 아직 못 받았습니다</p>`; return; }
-  const days=K.days, L=days[days.length-1], P=days.length>1?days[days.length-2]:null, lx=amztDn(L.d);
+  /* 듀얼 출처(2026-10-12 · 사용자 "한투 글이 없는 날은 우리 수집으로 이어 가자") — 채널 마지막 글 뒤 날짜는 K.trk(우리 트래커)로 잇는다.
+     ⚠ 트래커는 유럽을 Top50 까지만 읽는다(cap 50). 그래서 **비교는 늘 기준일(L)의 cap 으로 자른다** — 채널 날짜도 유럽 51~100위를
+     빼고 세야 '빠진 것처럼 보이는' 가짜 하락이 안 생긴다. 기준일이 채널이면 cap 은 전부 100 이라 예전과 같다.
+     트래커가 그날 못 받은 나라는 모름(—)이고, 합계는 기준일에 받은 나라만 더한다(비교하는 앞 날짜도 같은 나라만). */
+  const ALL={}; AMZT_MK.forEach(m=>ALL[m]=100);
+  const KL=K.days[K.days.length-1];
+  const days=K.days.map(x=>({...x, src:"k", mk:AMZT_MK, cap:ALL}))
+    .concat(((K.trk&&K.trk.days)||[]).filter(x=>x.d>KL.d).map(x=>({...x, src:"t"})));
+  const L=days[days.length-1], lx=amztDn(L.d);
+  // 직전 = 기준일에 받은 나라를 다 가진 가장 최근 날(트래커가 한 나라를 빠뜨린 날은 건너뛴다 — 안 그러면 비교가 통째로 빈다)
+  const P=[...days].slice(0,-1).reverse().find(x=>L.mk.every(m=>x.mk.includes(m)))||null;
   const C4=[...days].reverse().find(x=>amztDn(x.d)<=lx-28)||days[0];
+  const trkOn=L.src==="t";
+  const capped=AMZT_MK.filter(m=>L.mk.includes(m)&&L.cap[m]<100);
+  const capTxt=capped.length?`${capped.map(m=>AMZT_MKNM[m]).join("·")} 50위까지`:"";
+  const miss=AMZT_MK.filter(m=>!L.mk.includes(m));
   const md=d=>amztMd(amztDn(d));
+  const srcTag=day=>day.src==="t"?"우리 수집":"한투 글";
   const stamp=document.getElementById("kmjAsOf");
-  if(stamp) stamp.textContent=`마지막 글 ${md(L.d)} · ${days.length}회(5/28~) · 평일 아침마다 자동 수집`;
-  const tot=(o,d)=>{ const v=amztVal(o,d,"sum","t100"); return v==null?null:v; };
-  const B=T.brands.filter(o=>o.kmj&&o.d[L.d]&&days.slice(-40).some(x=>tot(o,x.d)))
-    .sort((a,b)=>(tot(b,L.d)||0)-(tot(a,L.d)||0));
+  if(stamp) stamp.innerHTML=trkOn
+    ?`${md(L.d)} 우리 수집 · 한투 마지막 글 ${md(KL.d)}`
+    :`한투 마지막 글 ${md(L.d)} · ${K.days.length}회`;
+  const brandOf=p=>(K.prod[p]||[])[0];
+  // 한 날짜·브랜드·나라의 Top100(기준 cap 안) 제품 수 — 그날 못 받은 나라·채널이 다루기 전이면 null(모름)
+  const cnt=(o,day,m)=>{ if(!day||!day.mk.includes(m)) return null; if(o.kmj.since&&day.d<o.kmj.since) return null;
+    const j=AMZT_MK.indexOf(m), c=Math.min(day.cap[m]||100, L.cap[m]||100);
+    let n=0; day.r.forEach(r=>{ if(brandOf(r[0])===o.kmj.name&&r[1+j]&&r[1+j]<=c) n++; }); return n; };
+  const tot=(o,day)=>{ let s=0; for(const m of L.mk){ const v=cnt(o,day,m); if(v==null) return null; s+=v; } return s; };
+  const bestM=(o,day,m)=>{ if(!day||!day.mk.includes(m)) return null; const j=AMZT_MK.indexOf(m); let b=null;
+    day.r.forEach(r=>{ const v=r[1+j]; if(brandOf(r[0])===o.kmj.name&&v&&(b==null||v<b)) b=v; }); return b; };
+  const B=T.brands.filter(o=>o.kmj&&!(o.kmj.since&&L.d<o.kmj.since)&&days.slice(-40).some(x=>tot(o,x)))
+    .sort((a,b)=>(tot(b,L)||0)-(tot(a,L)||0));
   const owner=o=>o.owner||o.stock||"";
   const listed=o=>!!(o.stock&&typeof R!=="undefined"&&R.some(r=>r.name===o.stock));
   const arrow=(d,sz)=>d?` <span style="font-size:${sz||10.5}px;font-weight:700;color:${d>0?"var(--up)":"var(--down)"}">${d>0?"▲":"▼"}${Math.abs(d)}</span>`:"";
@@ -8964,56 +8988,71 @@ function renderKmj(){
     :`<span style="font-size:11.5px;color:var(--muted)">${lab}</span>${arrow(cur-prev,11.5)}`);
   const bestOn=(o,day)=>{ let b=null; (day?day.r:[]).forEach(r=>{ const p=K.prod[r[0]]; if(!p||p[0]!==o.kmj.name) return;
     AMZT_MK.forEach((m,j)=>{ const v=r[1+j]; if(v&&(!b||v<b.v)) b={v, m, name:p[1]}; }); }); return b; };
-  const spark=o=>{ const v=days.slice(-40).map(x=>tot(o,x.d)).filter(x=>x!=null); if(v.length<2) return "";
+  const spark=o=>{ const v=days.slice(-40).map(x=>tot(o,x)).filter(x=>x!=null); if(v.length<2) return "";
     const W=150, H=30, mx=Math.max(1,...v), sx=i=>2+i/(v.length-1)*(W-4), sy=y=>H-3-y/mx*(H-6);
     return `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;margin-top:7px" aria-hidden="true">`
       +`<polyline points="${v.map((y,i)=>sx(i).toFixed(1)+","+sy(y).toFixed(1)).join(" ")}" fill="none" stroke="${o.color}" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`; };
+  const mkLab=m=>AMZT_MKNM[m]+(L.mk.includes(m)&&L.cap[m]<100?`<div style="font-size:10px;font-weight:400;color:var(--muted)">50위까지</div>`:"");
 
   /* ---- 브랜드 카드 ---- */
   cardsEl.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin-bottom:8px">${B.map(o=>{
-    const v=tot(o,L.d), bs=bestOn(o,L), own=owner(o);
+    const v=tot(o,L), bs=bestOn(o,L), own=owner(o);
     const tie=listed(o)?`<span class="clickable" data-stock="${amztEsc(o.stock)}" style="font-weight:700">${amztEsc(own)}</span>`
       :`<span style="color:var(--muted)">${amztEsc(own||"—")}</span>${own?`<span class="pill" style="margin-left:5px;font-size:10px">비상장</span>`:""}`;
-    return `<div class="kpi" title="${amztEsc(o.label)} — 5개국 아마존 뷰티 Top100 안 제품 수(한투 채널 ${md(L.d)} 글)">
+    return `<div class="kpi" title="${amztEsc(o.label)} — 아마존 뷰티 Top100 안 제품 수(${md(L.d)} · ${srcTag(L)})">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">${brandLogo(o.key)}
         <span style="font-weight:800;font-size:13.5px">${o.label}</span>
         <span title="추이 차트의 선 색" style="width:8px;height:8px;border-radius:50%;background:${o.color};margin-left:auto;flex:none"></span></div>
       <div style="font-size:11.5px;margin-bottom:8px">${tie}</div>
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-        <span style="font-size:21px;font-weight:800">${v}개</span>${dl(v,P?tot(o,P.d):null,"전 글")}${dl(v,tot(o,C4.d),"4주 전")}</div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${AMZT_MK.map(m=>`${AMZT_MKNM[m].slice(0,1)} ${amztVal(o,L.d,m,"t100")}`).join(" · ")}</div>
+        <span style="font-size:21px;font-weight:800">${v==null?"—":v+"개"}</span>${dl(v,P?tot(o,P):null,"직전")}${dl(v,tot(o,C4),"4주 전")}</div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${AMZT_MK.map(m=>{ const c=cnt(o,L,m); return `${AMZT_MKNM[m].slice(0,1)} ${c==null?"—":c}`; }).join(" · ")}</div>
       ${bs?`<div style="font-size:11.5px;margin-top:3px;line-height:1.45">최고 <b>${AMZT_MKNM[bs.m]} ${bs.v}위</b> <span style="color:var(--muted)">${amztEsc(bs.name)}</span></div>`:""}
       ${spark(o)}
     </div>`; }).join("")}</div>
-    <p class="note" style="margin-top:4px">큰 숫자 = 미·영·독·프·스 Top100 안 제품 수 합계(${md(L.d)} 글). 화살표는 직전 글(${P?md(P.d):"—"})·4주 전(${md(C4.d)}) 대비 개수 변화, 아래 선은 최근 40회 흐름.</p>`;
+    <p class="note" style="margin-top:4px">큰 숫자 = ${miss.length?`이날 받은 ${L.mk.map(m=>AMZT_MKNM[m]).join("·")}`:"미·영·독·프·스"} Top100 안 제품 수 합계(<b>${md(L.d)} ${srcTag(L)}</b>).
+      화살표는 직전(${P?`${md(P.d)} ${srcTag(P)}`:"—"})·4주 전(${md(C4.d)}) 대비 개수 변화, 아래 선은 최근 40회 흐름.
+      ${trkOn?`<br>한투 글이 ${md(KL.d)} 뒤로 없어서 우리 아마존 수집으로 이었습니다(겹친 날 순위까지 91% 일치).
+        ${capTxt?`우리 수집은 <b>${capTxt}</b>만 읽어서, 비교하는 앞 날짜들도 같은 기준으로 다시 세었습니다 — 그래서 한투 글 숫자보다 작게 보입니다.`:""}
+        ${miss.length?`이날 ${miss.map(m=>AMZT_MKNM[m]).join("·")}는 수집이 빠져 합계에서 뺐습니다(앞 날짜도 같은 나라만 더함).`:""}
+        한투 글이 다시 올라오면 그 글이 기준이 됩니다.`:""}</p>`;
 
   /* ---- 브랜드 × 국가 ---- */
   const cell=(v,v4,b,bold)=>v==null?`<td style="text-align:right;color:var(--muted2)">—</td>`
     :`<td style="text-align:right;white-space:nowrap">${v?`<span style="font-weight:${bold?800:700}">${v}</span>`:`<span style="color:var(--muted2)">0</span>`}${v4==null?"":arrow(v-v4)}`
       +`${b?`<div style="font-size:10.5px;color:var(--muted);font-weight:400">최고 ${b}위</div>`:""}</td>`;
-  const sumMk=(m,d)=>B.reduce((s,o)=>{ const v=m==="sum"?tot(o,d):amztVal(o,d,m,"t100"); return s+(v||0); },0);
+  const sumMk=(m,day)=>{ let s=0, any=false; for(const o of B){ const v=m==="sum"?tot(o,day):cnt(o,day,m); if(v!=null){ s+=v; any=true; } } return any?s:null; };
   document.getElementById("kmjMatrix").innerHTML=`<div class="tbl-wrap"><table>
     <thead><tr><th style="text-align:left">브랜드</th><th style="text-align:left">운영사</th>
-      ${AMZT_MK.map(m=>`<th style="text-align:right">${AMZT_MKNM[m]}</th>`).join("")}<th style="text-align:right">합계</th></tr></thead>
+      ${AMZT_MK.map(m=>`<th style="text-align:right">${mkLab(m)}</th>`).join("")}<th style="text-align:right">합계</th></tr></thead>
     <tbody>${B.map(o=>`<tr><td style="text-align:left;font-weight:700"><span style="display:inline-flex;align-items:center;gap:6px">${brandLogo(o.key)}${o.label}</span></td>
       <td style="text-align:left">${listed(o)?`<span class="clickable" data-stock="${amztEsc(o.stock)}" style="font-weight:700">${amztEsc(owner(o))}</span>`:`<span style="color:var(--muted)">${amztEsc(owner(o)||"—")}</span>`}</td>
-      ${AMZT_MK.map(m=>cell(amztVal(o,L.d,m,"t100"), amztVal(o,C4.d,m,"t100"), amztVal(o,L.d,m,"best"))).join("")}
-      ${cell(tot(o,L.d), tot(o,C4.d), null, true)}</tr>`).join("")}</tbody>
+      ${AMZT_MK.map(m=>cell(cnt(o,L,m), cnt(o,C4,m), bestM(o,L,m))).join("")}
+      ${cell(tot(o,L), tot(o,C4), null, true)}</tr>`).join("")}</tbody>
     <tfoot><tr style="border-top:2px solid var(--line)"><td style="text-align:left;font-weight:800">${B.length}개 브랜드 합계</td><td></td>
-      ${AMZT_MK.map(m=>cell(sumMk(m,L.d), sumMk(m,C4.d), null, true)).join("")}${cell(sumMk("sum",L.d), sumMk("sum",C4.d), null, true)}</tr></tfoot>
+      ${AMZT_MK.map(m=>cell(sumMk(m,L), sumMk(m,C4), null, true)).join("")}${cell(sumMk("sum",L), sumMk("sum",C4), null, true)}</tr></tfoot>
     </table></div>
-    <div class="note">${md(L.d)} 글 기준 · 칸 = 그 나라 Top100 안 제품 수 · 화살표는 4주 전(${md(C4.d)}) 대비 · '최고' = 그 나라에서 가장 높은 제품 순위.</div>`;
+    <div class="note">${md(L.d)} ${srcTag(L)} 기준 · 칸 = 그 나라 Top100 안 제품 수 · 화살표는 4주 전(${md(C4.d)}) 대비 · '최고' = 그 나라에서 가장 높은 제품 순위.
+      ${capTxt?`'50위까지' 나라는 우리 수집이 50위까지만 읽어서 4주 전 값도 50위까지로 다시 세어 비교합니다.`:""}
+      ${miss.length?` — = 그날 수집이 빠진 나라.`:""}</div>`;
 
   /* ---- 제품별 순위 ---- */
   const st=document.getElementById("kmjProdAsOf");
-  if(st) st.textContent=`${md(L.d)} 글 · 화살표는 4주 전(${md(C4.d)}) 대비`;
-  const nowR={}, preR={}; L.r.forEach(r=>{nowR[r[0]]=r.slice(1);}); C4.r.forEach(r=>{preR[r[0]]=r.slice(1);});
+  if(st) st.textContent=`${md(L.d)} ${srcTag(L)} · 화살표는 4주 전(${md(C4.d)}) 대비${capTxt?` · ${capTxt}`:""}`;
+  const capOf=m=>L.cap[m]||100;
+  const nowR={}, preR={};
+  L.r.forEach(r=>{nowR[r[0]]=r.slice(1);});
+  // 4주 전 순위도 기준 cap 으로 자른다 — 유럽 60위였던 제품이 '이탈'·'신규'로 잘못 읽히지 않게
+  C4.r.forEach(r=>{ preR[r[0]]=r.slice(1).map((v,j)=>v&&v<=capOf(AMZT_MK[j])?v:0); });
   const byKn={}; B.forEach((o,i)=>{ byKn[o.kmj.name]={o,i}; });
   const bestOf=a=>Math.min(...a.filter(v=>v));
-  const rows=Object.keys(nowR).map(Number).filter(p=>K.prod[p]&&byKn[K.prod[p][0]])
+  const rows=Object.keys(nowR).map(Number).filter(p=>K.prod[p]&&byKn[K.prod[p][0]]&&nowR[p].some(v=>v))
     .sort((a,b)=>byKn[K.prod[a][0]].i-byKn[K.prod[b][0]].i||bestOf(nowR[a])-bestOf(nowR[b]));
-  const gone=Object.keys(preR).map(Number).filter(p=>K.prod[p]&&byKn[K.prod[p][0]]&&!(p in nowR));
-  const pcell=(v,p)=>{
+  // 이탈 = 4주 전 (기준 안) 순위가 있던 나라 중 오늘 받은 나라 어디에도 없음
+  const gone=Object.keys(preR).map(Number).filter(p=>K.prod[p]&&byKn[K.prod[p][0]]
+    &&preR[p].some((v,j)=>v&&L.mk.includes(AMZT_MK[j]))&&!(p in nowR&&nowR[p].some(v=>v)));
+  const pcell=(v,p,m)=>{
+    if(!L.mk.includes(m)) return `<td style="text-align:right;color:var(--muted2)">—</td>`;
     if(!v) return `<td style="text-align:right;color:var(--muted2)">·</td>`;
     const tag=!p?` <span style="font-size:10.5px;color:var(--accent)">신규</span>`:arrow(p-v);
     return `<td style="text-align:right;white-space:nowrap">${v}위${tag}</td>`;
@@ -9025,18 +9064,19 @@ function renderKmj(){
       body+=`<tr><td colspan="${AMZT_MK.length+2}" style="text-align:left;font-weight:800;background:color-mix(in srgb,var(--muted) 8%,transparent)">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${o.color};margin-right:7px;vertical-align:middle"></span>${o.label}
         <span style="font-weight:600;color:var(--muted);font-size:11.5px;margin-left:4px">${n}개 제품</span></td></tr>`; }
-    body+=`<tr><td style="text-align:left;white-space:normal;padding-left:22px">${amztEsc(K.prod[p][1])}</td>
-      ${nowR[p].map((v,j)=>pcell(v,(preR[p]||[])[j])).join("")}
+    const asin=K.prod[p][2];
+    body+=`<tr><td style="text-align:left;white-space:normal;padding-left:22px">${amztEsc(K.prod[p][1])}${asin?` <span class="pill" style="font-size:10px" title="한투 글에 아직 안 나온 제품 — 아마존 제목을 줄여 적었습니다(ASIN ${amztEsc(asin)})">우리 수집</span>`:""}</td>
+      ${nowR[p].map((v,j)=>pcell(v,(preR[p]||[])[j],AMZT_MK[j])).join("")}
       <td style="text-align:right;color:var(--muted)">${T.firstSeen[p]?md(T.firstSeen[p]):"—"}</td></tr>`;
   });
   const goneTxt=B.map(o=>{ const g=gone.filter(p=>K.prod[p][0]===o.kmj.name); return g.length?`<b>${o.label}</b> ${g.map(p=>amztEsc(K.prod[p][1])).join(" · ")}`:""; }).filter(Boolean);
   document.getElementById("kmjProd").innerHTML=`<div class="tbl-wrap"><table>
-      <thead><tr><th style="text-align:left">제품</th>${AMZT_MK.map(m=>`<th style="text-align:right">${AMZT_MKNM[m]}</th>`).join("")}
+      <thead><tr><th style="text-align:left">제품</th>${AMZT_MK.map(m=>`<th style="text-align:right">${mkLab(m)}</th>`).join("")}
         <th style="text-align:right">처음 잡힌 날</th></tr></thead>
       <tbody>${body}</tbody></table></div>
-    ${goneTxt.length?`<p class="note">4주 전엔 Top100 에 있었는데 지금 5개국 모두 밖 — ${goneTxt.join(" / ")}</p>`:""}
-    <p class="note">▲▼ = 4주 전 대비 순위 변화(위로 오르면 ▲) · 신규 = 4주 전엔 그 나라 100위 밖. 제품명은 한투 채널 표기이고,
-      '처음 잡힌 날'이 5/28 이면 채널 시작 전부터 있던 제품입니다.</p>`;
+    ${goneTxt.length?`<p class="note">4주 전엔 ${capTxt?"같은 기준(유럽 50위까지) 안에":"Top100 에"} 있었는데 지금 받은 나라 모두 밖 — ${goneTxt.join(" / ")}</p>`:""}
+    <p class="note">▲▼ = 4주 전 대비 순위 변화(위로 오르면 ▲) · 신규 = 4주 전엔 그 나라 ${capTxt?"기준 순위":"100위"} 밖${miss.length?" · — = 그날 수집이 빠진 나라":""}. 제품명은 한투 채널 표기이고,
+      '처음 잡힌 날'이 5/28 이면 채널 시작 전부터 있던 제품입니다.${trkOn?" '우리 수집' 표시는 한투 글에 아직 안 나온 제품이라 아마존 제목을 줄여 적은 것입니다.":""}</p>`;
 }
 
 

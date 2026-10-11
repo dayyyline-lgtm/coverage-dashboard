@@ -58,6 +58,9 @@ BRAND = {
     "조선미녀":   ("조선미녀", "Beauty of Joseon", None),
     "SKIN1004":   ("SKIN1004", "SKIN1004", None),     # 크레이버(비상장 · 구다이글로벌 계열) · 10/8 첫 등장
 }
+TRK_CSV = "amazon-beauty-tracker/data/history.csv"   # 우리 트래커 원자료(트래커 PC 가 매일 아침 push)
+TRK_EXTRA = {"LANEIGE": "라네즈"}                    # BRAND 에 en 이 없는 것
+TRK_KEEP = 14                   # 채널 마지막 글 뒤로 이만큼까지만 트래커 날짜를 싣는다
 MAX_PAGES = 45                  # 백필 상한(20개 × 45 = 900글 — 5/28 이후 약 600글)
 
 
@@ -155,6 +158,75 @@ def key(name):
     return re.sub(r"\s+", "", name).lower()
 
 
+def short_title(t):
+    t = re.split(r"\s[|–—-]\s|,|\(", t.replace(" ", " "))[0].strip()
+    return t[:48] + ("…" if len(t) > 48 else "")
+
+
+def build_trk(out):
+    """채널 글이 끊긴 날(주말·연휴·채널 미게시)을 우리 트래커로 잇는다 (2026-10-12 · 사용자 "듀얼로 이어 나가자").
+    KMJAMZ.trk = {days:[{d, mk:[받은 나라], cap:{나라: 100|50}, r:[[제품번호, US, UK, DE, FR, ES]]}], match}
+      · 채널 마지막 글 **뒤** 날짜만 — 채널 글이 있는 날은 채널이 원본이다.
+      · 제품 번호는 채널 사전(prod)과 같은 번호를 쓴다. ASIN → 채널 제품은 겹친 날(같은 날·나라·브랜드·**같은 순위**)의
+        표결로 잇는다. 못 이은 ASIN 은 prod 에 [브랜드, 영문 제목 줄임, ASIN] 으로 새로 넣는다.
+      · ⚠ 트래커는 유럽을 Top50 까지만 읽는다(config top_n 50) → cap 50. 화면이 비교 기준을 cap 에 맞춘다.
+        51위가 넘는 순위가 하나라도 잡힌 나라는 100 으로 본다(트래커 설정을 100 으로 올리면 저절로 바뀐다).
+      · 그날 행이 하나도 없는 나라 = 못 받은 날(모름) — mk 에서 빠진다."""
+    import csv, os, collections
+    if not os.path.exists(TRK_CSV):
+        print("[KMJ] 트래커 원자료 없음 — trk 는 이전 값 유지"); return
+    tb = {v[1]: k for k, v in BRAND.items() if v[1]}
+    tb.update(TRK_EXTRA)
+    tr = collections.defaultdict(list)          # (날짜, 나라) -> [(브랜드, asin, 순위, 제목)]
+    seen = collections.defaultdict(set)         # 날짜 -> 받은 나라(브랜드 무관)
+    with open(TRK_CSV, encoding="utf-8") as f:
+        for x in csv.DictReader(f):
+            lr = (x.get("list_rank") or "").strip()
+            if not lr or x.get("list_cat") != "Beauty" or x["market"] not in MK:
+                continue
+            d = x["date"][:10]
+            seen[d].add(x["market"])
+            if x["brand"] in tb:
+                tr[(d, x["market"])].append((tb[x["brand"]], x["asin"], int(float(lr)), x.get("title") or ""))
+    prod = out["prod"]
+    votes = collections.defaultdict(collections.Counter)
+    for day in out["days"]:
+        for j, mk in enumerate(MK):
+            if (day["d"], mk) not in tr:
+                continue
+            cm = {(prod[r[0]][0], r[1 + j]): r[0] for r in day["r"] if r[1 + j]}
+            for kn, asin, rk, _ in tr[(day["d"], mk)]:
+                if (kn, rk) in cm:
+                    votes[asin][cm[(kn, rk)]] += 1
+    amap = {a: c.most_common(1)[0][0] for a, c in votes.items()}
+    aidx = {p[2]: i for i, p in enumerate(prod) if len(p) > 2}
+    d1 = out["days"][-1]["d"] if out["days"] else ""
+    days, hit, tot = [], 0, 0
+    for d in sorted(x for x in seen if x > d1)[-TRK_KEEP:]:
+        mks = [mk for mk in MK if mk in seen[d]]
+        cap, rows = {}, {}
+        for mk in mks:
+            j = MK.index(mk)
+            items = tr.get((d, mk), [])
+            cap[mk] = 100 if mk == "US" or any(rk > 50 for _, _, rk, _ in items) else 50
+            for kn, asin, rk, title in items:
+                tot += 1
+                if asin in amap:
+                    i = amap[asin]; hit += 1
+                else:
+                    if asin not in aidx:
+                        aidx[asin] = len(prod)
+                        prod.append([kn, short_title(title), asin])
+                    i = aidx[asin]
+                row = rows.setdefault(i, [i] + [0] * len(MK))
+                row[1 + j] = rk if not row[1 + j] else min(row[1 + j], rk)
+        r = sorted(rows.values(), key=lambda r: (prod[r[0]][0], min([v for v in r[1:] if v] or [999])))
+        days.append({"d": d, "mk": mks, "cap": cap, "r": r})
+    out["trk"] = {"days": days, "match": f"{hit}/{tot}",
+                  "note": "채널 마지막 글 뒤 날짜를 우리 아마존 트래커로 잇는다. 유럽은 트래커가 Top50 까지만 읽어 cap 50."}
+    print(f"[KMJ] 트래커 이음 {len(days)}일({', '.join(x['d'][5:] for x in days) or '-'}) · ASIN→채널 제품 {hit}/{tot} · 표결 ASIN {len(amap)}")
+
+
 def main():
     try: sys.stdout.reconfigure(encoding="utf-8")   # 이 PC(cp949)에서 ⚠ 출력에 죽지 않게
     except Exception: pass
@@ -227,6 +299,7 @@ def main():
         for o in p["off"]:
             print(f"  [{p['d']}] {o}")
     out["days"] = sorted(days.values(), key=lambda x: x["d"])
+    build_trk(out)
     out["mk"] = MK
     out["src"] = f"https://t.me/{CH}"
     out["note"] = ("한투증권 김명주 텔레그램 '주요 국가 아마존 뷰티 Top 100 내 브랜드별 제품 수'(각국 Best Sellers in Beauty "
