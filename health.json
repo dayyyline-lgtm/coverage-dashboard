@@ -1,6 +1,6 @@
 {
  "김명주 아마존": {
-  "t": "2026-10-12 15:04",
+  "t": "2026-10-12 16:07",
   "msg": "pidx = {(b, key(n)): i for i, (b, n) in enumerate(prod)} / ^^^^^^ / ValueError: too many values to unpack (expected 2) (종료코드 1)"
  }
 }
