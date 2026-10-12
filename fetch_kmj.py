@@ -269,7 +269,9 @@ def main():
     # 제품 사전·날짜 병합
     out = copy.deepcopy(base)
     prod = out["prod"]
-    pidx = {(b, key(n)): i for i, (b, n) in enumerate(prod)}
+    # 채널 제품만 이름으로 찾는다 — 3번째 원소(ASIN)가 있는 것은 트래커가 넣은 제품이라 이름 매칭에서 뺀다
+    # (2026-10-13 · 처음엔 (b, n) 으로 풀다가 3원소에서 ValueError → 10/12 아침부터 수집기가 매 회차 죽었다)
+    pidx = {(p[0], key(p[1])): i for i, p in enumerate(prod) if len(p) == 2}
     days = {x["d"]: x for x in out["days"]}
     new_brands = set()
     for pid in sorted(posts):
