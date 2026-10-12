@@ -58,6 +58,7 @@ PUB = {
     "펄어비스":   ["pearl abyss", "pearlabyss"],
     "시프트업":   ["shift up", "shiftup"],
     "컴투스":     ["com2us"],
+    "카카오게임즈": ["kakao games", "kakaogames"],   # 도깨비의세계·오딘·우마무스메(국내 퍼블리싱) — 2026-10-13 편입
 }
 # 이름이 겹치는 다른 상장사는 빼야 한다 — 컴투스홀딩스가 'Com2uS Holdings' 다.
 PUB_NOT = {"컴투스": ["holdings"]}
@@ -71,6 +72,8 @@ TITLE = {
                  "lineage", "aion", "throne and liberty", "天堂"],
     "펄어비스":   ["검은사막", "black desert", "crimson desert", "黑色沙漠"],
     "데브시스터즈": ["쿠키런", "cookie run", "クッキーラン"],
+    # 카카오게임즈 — 대만 오딘은 현지 퍼블리셔가 다를 수 있어 제목으로도 잡는다
+    "카카오게임즈": ["도깨비의세계", "도깨비의 세계", "오딘: 발할라", "odin: valhalla", "奧丁"],
     "컴투스":     ["서머너즈", "컴투스프로야구", "컴프야", "제우스: 오만", "mlb 9이닝스",
                  "summoners war", "サマナーズ", "9局職棒", "mlb 9 innings", "mlb：9局職棒"],
 }

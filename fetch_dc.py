@@ -50,6 +50,9 @@ GALLS = [
     #   astraeoratio 9,019글(현역) · dynamisone(개발사 '디나미스 원') 2,468글인데 1페이지가 2024-08 까지 = 사실상 죽음
     #   astora(89 도쿄) 9글 · astraemini 4글. 살아 있는 건 astraeoratio 하나뿐이다.
     {"stock": "NC",      "name": "아스트라에 오라티오", "kind": "mgallery", "id": "astraeoratio"},
+    # 카카오게임즈 도깨비의세계(10/8 출시) — 후보 다섯 중 현역은 tokkebiworld 하나(2026-10-13 실측 39,546글).
+    #   dokev = 펄어비스 DokeV(2024 이후 죽음) · dokebim·dokkaebi_world(미니, 2~47글) · dkv(인방 갤 8글).
+    {"stock": "카카오게임즈", "name": "도깨비의세계", "kind": "mgallery", "id": "tokkebiworld"},
     {"stock": "탑코미디어", "name": "탑툰",      "kind": "mgallery", "id": "toptoon"},
     {"stock": "탑코미디어", "name": "탑툰챗",    "kind": "mgallery", "id": "toptoonchat"},
 ]
