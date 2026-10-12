@@ -158,11 +158,18 @@
     if (p1.block) return {fail: 'block'};
     if (p1.norecs) return {fail: 'norecs' + (p1.status || '')};
     let all = p1.recs.slice();
-    if (p1.recs.length >= 50) {
+    // 1쪽이 50개를 꽉 못 채운 날(목록에서 하나가 빠져 49개)도 2쪽은 있다 — '50개 이상일 때만'으로 두었더니
+    // 10/13 엔 카테고리 4개(54·110·119·140)가 51~100위를 통째로 놓쳤다(읽은 자리 15,122 = 평소 15,303 − 4×50 남짓 ·
+    // 10/10 의 14,995 도 같은 일로 보인다). 실패로 안 잡혀 부분 회차로도 안 남았다.
+    const max1 = p1.recs.reduce((m, x) => Math.max(m, x.r || 0), 0);
+    if (p1.recs.length >= 45 || max1 >= 45) {
       const p2 = await page(id, 2);
       if (p2.block) return {fail: 'block'};
-      if (p2.recs) all = all.concat(p2.recs);
-      else if (!p2.h1) return {fail: 'p2'};
+      if (p2.recs) {
+        // 2쪽이 없는 작은 카테고리에서 1쪽을 다시 주더라도 겹치지 않게 — 1쪽에 없던 ASIN 이고 1쪽 끝 순위보다 뒤인 것만
+        const seen = new Set(all.map(x => x.a));
+        all = all.concat(p2.recs.filter(x => !seen.has(x.a) && x.r > max1));
+      } else if (!p2.h1) return {fail: 'p2'};
     }
     return {ok: true, name: p1.name, recs: all};
   }
