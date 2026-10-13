@@ -243,7 +243,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72, KMJAMZ:120, AMZSUB:48};
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["AMAZON","아마존 뷰티",72],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["KGMODEL","카카오게임즈 모델",3120],["AMAZON","아마존 뷰티",72],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -6069,7 +6069,7 @@ function renderTrendStockPicker(){
 function afterTrendStockChange(){
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
   trendKind=topicKind(trendGroup);
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
 }
 /* 시그널 카드 (2026-09-24 · 개편계획 Phase 2) — 고른 종목의 주제 전부를 한 판에.
    차트 하나만 보면 나머지 주제가 어디로 가는지 모른다. 카드 = 주제명 · 최근값 · 주간 변화 ·
@@ -6268,12 +6268,12 @@ document.getElementById("trendKindSeg").addEventListener("click",e=>{
   // 고른 분류 안의 첫 주제로 옮긴다 — 안 그러면 주제 줄에 없는 그래프가 그려진 채로 남는다
   const list=topicsOf(trendStock).filter(g=>!trendKind||topicKind(g)===trendKind);
   if(list.length&&!list.includes(trendGroup)) trendGroup=list[0];
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
@@ -6283,7 +6283,7 @@ function selectTrend(stock, group){
   const own=topicsOf(trendStock);
   if(own.length&&!own.includes(trendGroup)) trendGroup=own[0];
   trendKind=topicKind(trendGroup);              // 건너뛴 주제가 분류 필터에 가려지지 않게
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
 /* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
@@ -7255,6 +7255,382 @@ function c2Bind(){
   });
 }
 
+/* ══════════ 카카오게임즈 분기 손익 모델 (KG · 2026-10-13 신설) ═══════════════════
+   사용자 요청(2026-10-13): "카카오게임즈도 모델링 한번 해봐" — 도깨비의세계(슈퍼캣 개발 · 10/8 출시)가 구글 매출 1위.
+   컴투스(C2)와 같은 틀이다: 실적 칸 = DART, 추정 칸 = 신작은 앱 매출순위 → 일매출 곡선(컴투스와 같은 곡선), 기존 게임은 추세.
+
+   실적 — 전부 DART(KGMODEL, fetch_kgmodel.py). 컴투스와 달리 IR 수기 입력이 없다:
+     연결 손익(계속영업) · PC/모바일 매출(원문 '주요 제품 등의 현황') · 영업비용 항목(주석 '영업비용', 3개월 칸).
+     매출연동비 = 앱마켓·플랫폼 수수료 + 개발사 수익배분(주석 주1) — 퍼블리셔라 매출을 총액으로 잡고 이걸 비용으로 낸다.
+     2025 3Q 에 골프(카카오VX)·무선통신을 중단영업으로 뺐다 — 2025 1Q·2Q 는 2026 보고서의 재작성 비교치다.
+   추정
+     도깨비의세계 = Σ_일 [곡선(구글순위, 애플순위) × 출시 프리미엄 L(t)] ÷ VAT. 10/8~12 순위는 gamerscroll 일별(대시보드 수집 전),
+       10/13 부터 APPRANK. 앞으로는 '분기별 평균 순위' 가정(KG_SCN) — 컴투스 제우스와 같은 방식.
+     모바일 기존(오딘·우마무스메·아키에이지 워 등) = 직전 분기 × (1 + 분기 변화율). 2026 은 최근 2분기 전분기비 평균(자동).
+     PC(카카오 배틀그라운드·패스 오브 엑자일) = 최근 4분기 평균 — POE 시즌·패치에 따라 분기마다 크게 출렁여서 추세를 안 건다.
+     비용 = 기존 게임 매출연동비율(최근 4분기, 출시 뒤 분기는 도깨비를 떼고) + 도깨비 몫(마켓 32% + 개발사 RS) + 고정비 런레이트.
+   ⚠ 슈퍼캣 RS 는 비공개다. 기본 25%(매출 대비 = 마켓 수수료 뗀 순매출의 약 37%) — 컴투스 제우스(에이버튼)와 같은 가정. 4Q26 실적이 나오면
+     [매출연동비 − 기존 비율 × 기존 매출 − 마켓 32% × 도깨비] ÷ 도깨비 로 역산해 맞출 것.
+   ⚠ 4Q26 실적이 나오면 도깨비 매출은 회사가 밝히지 않는 한 모델값을 모바일에서 뗀다(제우스와 같은 처리). */
+const KG_LAUNCH="2026-10-08";
+// 출시 직후 순위(대시보드 APPRANK 는 10/13 부터) — gamerscroll 홈 데이터의 한국 일별 순위(10/8~10/12)
+const KG_PRE={g:"17.7.3.2.2", a:"2.4.2.3.5"};
+const KG_FWD=["2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"];
+// 도깨비 순위 시나리오 — 제우스 기준 경로(출시 후 개월 수를 맞춰 옮긴 것)를 바탕으로. 4Q26 칸은 관측 안 된 남은 날에만 쓴다.
+const KG_SCN={"보수":{dg:[2.5,5.5,8.5,11,14], da:[10,22,32,42,52]},
+              "기준":{dg:[1.5,2.8,4.0,4.9,5.8], da:[6,12,18,25,30]},
+              "낙관":{dg:[1.2,1.9,2.5,2.8,3.2], da:[3,5,8,10,13]}};
+const KG_ASM0={a:12.3, alpha:0.84, s:1, rios:0.25, lp:1.05, tau:15, vat:1.1,   // 곡선 = 컴투스 모델과 같은 값
+  dg:[...KG_SCN["기준"].dg], da:[...KG_SCN["기준"].da],
+  feeD:32, rsD:25, mkD:10, mkLaunch:10,                       // 도깨비 비용(매출 대비 %) · 4Q26 출시 마케팅(십억)
+  gMob26:null, gMob27:-3, pc:null, gPc27:0, newg:0, rsN:10, mkN:15,   // null = 자동
+  rsL:null, lab:null, gLab:3, fee:null, mkL:null, dep:null, oth:null,
+  nonop:null, tax:22, share:null, show25:1};
+const KG_V=1;
+let kgAsm=null, kgOpen=null;
+function kgAsmGet(){ if(kgAsm) return kgAsm; let s={};
+  try{ s=JSON.parse(localStorage.getItem("kgAsm")||"{}")||{}; }catch(e){}
+  if(s._v!==KG_V) s={}; delete s._v;
+  kgAsm={...KG_ASM0, dg:[...KG_ASM0.dg], da:[...KG_ASM0.da], ...s}; return kgAsm; }
+function kgAsmSave(){ const d={_v:KG_V};
+  Object.keys(kgAsm).forEach(k=>{ if(JSON.stringify(kgAsm[k])!==JSON.stringify(KG_ASM0[k])) d[k]=kgAsm[k]; });
+  try{ localStorage.setItem("kgAsm",JSON.stringify(d)); }catch(e){} }
+function kgOpenGet(){ if(kgOpen) return kgOpen; try{ kgOpen=JSON.parse(localStorage.getItem("kgOpen")||"{}")||{}; }catch(e){ kgOpen={}; } return kgOpen; }
+function kgOpenSave(){ try{ localStorage.setItem("kgOpen",JSON.stringify(kgOpen)); }catch(e){} }
+
+/* 도깨비 일별 — 관측(APPRANK 우선, 없으면 gamerscroll) + 앞으로(분기별 가정 순위) */
+function kgDays(P){
+  const ap={and:{},ios:{}};
+  if(typeof APPRANK!=="undefined"&&APPRANK.apps) APPRANK.apps.forEach(a=>{
+    if(a.stock!=="카카오게임즈"||(a.cc||"KR")!=="KR"||!/도깨비/.test(a.nm||"")||!ap[a.mk]) return;
+    (a.hist||[]).forEach(h=>{ ap[a.mk][h.d]=h.gr; }); });
+  const pg=c2Seq(KG_LAUNCH,KG_PRE.g), pa=c2Seq(KG_LAUNCH,KG_PRE.a), has=(o,d)=>Object.prototype.hasOwnProperty.call(o,d);
+  const end=[...Object.keys(ap.and),...Object.keys(ap.ios),...Object.keys(pg)].sort().pop();
+  const obs=[]; let lg=1, li=null;
+  for(let d=KG_LAUNCH; d<=end; d=c2DAdd(d,1)){
+    const gA=has(ap.and,d), iA=has(ap.ios,d);
+    let g=gA?ap.and[d]:pg[d], i=iA?ap.ios[d]:pa[d];
+    const src=(gA||iA)?"obs":(pg[d]!==undefined||pa[d]!==undefined)?"gs":"fill";
+    if(g===undefined) g=lg; if(i===undefined) i=li; lg=g; li=i;
+    const t=c2DDiff(KG_LAUNCH,d);
+    obs.push({d,g,i,t,w:1,v:c2Rev(P,g,i)*c2L(P,t),src});
+  }
+  const fwd=[];
+  for(let d=c2DAdd(end,1); d<="2027-12-31"; d=c2DAdd(d,1)){
+    const k=KG_FWD.indexOf(c2QOf(d)), g=P.dg[k], i=P.da[k], t=c2DDiff(KG_LAUNCH,d);
+    fwd.push({d,g,i,t,w:1,v:c2Rev(P,g,i)*c2L(P,t),src:"fwd"});
+  }
+  return {obs, fwd, end};
+}
+function kgDq(P,Z){ const zq={};
+  [...Z.obs,...Z.fwd].forEach(x=>{ const q=c2QOf(x.d), o=zq[q]=zq[q]||{s:0,w:0,g:0,gw:0,i:0,iw:0,obs:0};
+    o.s+=x.v*x.w; o.w+=x.w; if(x.src!=="fwd") o.obs+=x.w;
+    if(x.g!=null){ o.g+=x.g*x.w; o.gw+=x.w; } if(x.i!=null){ o.i+=x.i*x.w; o.iw+=x.w; } });
+  return zq; }
+const kgActQs=()=>{ if(typeof KGMODEL==="undefined") return [];
+  const F=KGMODEL.fin||{}, S=KGMODEL.seg||{}, C=KGMODEL.cost||{};
+  return Object.keys(F).filter(q=>S[q]&&C[q]).sort(); };
+
+/* 자동 기본값 — 최근 실적에서. 출시(4Q26) 뒤 분기는 도깨비를 떼고 기존 게임 비율을 낸다. */
+function kgAuto(A){
+  const F=KGMODEL.fin, S=KGMODEL.seg, C=KGMODEL.cost, LQ=c2QOf(KG_LAUNCH);
+  const qs=kgActQs(), L4=qs.slice(-4), L2=qs.slice(-2), L6=qs.slice(-6);
+  const zq=kgDq(A,kgDays(A)), dk=q=>q>=LQ&&zq[q]?zq[q].s/A.vat/10:0;
+  const mob=q=>S[q].mob-dk(q), sum=a=>a.reduce((x,y)=>x+y,0), avg=a=>a.length?sum(a)/a.length:0;
+  const qoq=L2.map(q=>{ const p=c2QAdd(q,-1); return S[p]?mob(q)/mob(p)-1:null; }).filter(x=>x!=null);
+  const leg=q=>F[q].rev-dk(q), rsLeg=q=>C[q].rs-(A.feeD+A.rsD)/100*dk(q), mkLeg=q=>C[q].mkt-A.mkD/100*dk(q)-(q===LQ?A.mkLaunch:0);
+  const no=L6.map(q=>F[q].pbt-F[q].op).sort((a,b)=>a-b), med=no.length?(no.length%2?no[(no.length-1)/2]:(no[no.length/2-1]+no[no.length/2])/2):0;
+  const np=sum(L4.map(q=>F[q].np)), npp=sum(L4.map(q=>F[q].npp));
+  return {gMob26:avg(qoq)*100, pc:avg(L4.map(q=>S[q].pc)), rsL:sum(L4.map(rsLeg))/sum(L4.map(leg))*100,
+    lab:avg(L2.map(q=>C[q].lab)), fee:avg(L2.map(q=>C[q].fee)), mkL:avg(L2.map(mkLeg)), dep:avg(L4.map(q=>C[q].dep)), oth:avg(L4.map(q=>C[q].oth)),
+    nonop:med, share:np?npp/np*100:80, _L2:L2, _L4:L4, _L6:L6};
+}
+function kgParams(){
+  const A=kgAsmGet(), au=kgAuto(A), P={...A};
+  Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); });
+  P._auto=au; return P;
+}
+
+function kgBuild(P){
+  const F=KGMODEL.fin, S=KGMODEL.seg, C=KGMODEL.cost, LQ=c2QOf(KG_LAUNCH);
+  const Z=kgDays(P), zq=kgDq(P,Z), act=new Set(kgActQs()), lastAct=[...act].pop();
+  const Q={};
+  for(let q="2025Q1"; q<="2027Q4"; q=c2QAdd(q,1)){
+    const z=zq[q], y=+q.slice(0,4);
+    const o={q, act:act.has(q), dkRaw:z?z.s/P.vat/10:0, dd:z?z.s/z.w:null, dg:z&&z.gw?z.g/z.gw:null, di:z&&z.iw?z.i/z.iw:null, dobs:z?z.obs:0, ddays:z?z.w:0};
+    if(o.act){
+      const f=F[q], s=S[q], c=C[q];
+      o.dk=q>=LQ?o.dkRaw:0; o.dkEst=o.dk>0;
+      o.mob=s.mob-o.dk; o.pc=s.pc; o.newg=0; o.rev=f.rev;
+      o.rs=c.rs; o.lab=c.lab; o.fee=c.fee; o.mkt=c.mkt; o.dep=c.dep; o.oth=c.oth; o.opex=f.opex; o.op=f.op;
+      o.pbt=f.pbt; o.nonop=f.pbt-f.op; o.np=f.np; o.tax=f.pbt-f.np; o.npp=f.npp; o.minor=f.np-f.npp;
+    } else {
+      const p1=Q[c2QAdd(q,-1)], n=(+q.slice(0,4)*4+ +q.slice(-1))-(+lastAct.slice(0,4)*4+ +lastAct.slice(-1));
+      const gM=(y<=2026?P.gMob26:P.gMob27)/100;
+      o.dk=o.dkRaw; o.mob=p1.mob*(1+gM); o.pc=P.pc*(y>=2027?1+P.gPc27/100:1); o.newg=y>=2027?P.newg:0;
+      o.rev=o.mob+o.pc+o.dk+o.newg;
+      const pc=v=>`${v>=0?"+":"−"}${fmt(Math.abs(v*100),1)}%`;
+      o.why={mob:`직전 분기 ${fmt(p1.mob,1)} × (1${pc(gM)})`};
+      o.rs=P.rsL/100*(o.mob+o.pc)+(P.feeD+P.rsD)/100*o.dk+(P.feeD+P.rsN)/100*o.newg;
+      o.lab=P.lab*Math.pow(1+P.gLab/100,n/4); o.fee=P.fee; o.dep=P.dep; o.oth=P.oth;
+      o.mkt=P.mkL+P.mkD/100*o.dk+(q===LQ?P.mkLaunch:0)+P.mkN/100*o.newg;
+      o.opex=o.rs+o.lab+o.fee+o.mkt+o.dep+o.oth; o.op=o.rev-o.opex;
+      o.nonop=P.nonop; o.pbt=o.op+o.nonop; o.tax=Math.max(0,o.pbt)*P.tax/100; o.np=o.pbt-o.tax;
+      o.npp=o.np*P.share/100; o.minor=o.np-o.npp;
+    }
+    o.opm=o.rev?o.op/o.rev:null; o.days=c2DDiff(c2QStart(q),c2QStart(c2QAdd(q,1)));
+    // 도깨비 기여 영업이익(마케팅까지) — 실적 분기도 모델 가정으로
+    o.dkOp=o.dk*(1-(P.feeD+P.rsD+P.mkD)/100)-(q===LQ?P.mkLaunch:0);
+    Q[q]=o;
+  }
+  const Y={}, K=["dk","mob","pc","newg","rev","rs","lab","fee","mkt","dep","oth","opex","op","nonop","pbt","tax","np","npp","minor","dkOp"];
+  ["2025","2026","2027"].forEach(y=>{
+    const qq=[1,2,3,4].map(k=>Q[`${y}Q${k}`]); const o={q:y, yr:1, act:qq.every(x=>x.act)};
+    K.forEach(k=>o[k]=qq.reduce((s,x)=>s+(x[k]||0),0));
+    const zs=qq.reduce((s,x)=>s+(x.dd!=null?x.dd*x.ddays:0),0), zw=qq.reduce((s,x)=>s+x.ddays,0);
+    o.dd=zw?zs/zw:null; o.ddays=zw; o.opm=o.rev?o.op/o.rev:null; o.days=qq.reduce((s,x)=>s+x.days,0); Y[y]=o;
+  });
+  return {Q, Y, Z, lastAct};
+}
+
+function kgChart(P, Z){
+  const W=760, H=220, ml=30, mr=12, mt=16, mb=24, x0=KG_LAUNCH, x1="2027-03-31", N=c2DDiff(x0,x1)+1;
+  const nv=p=>p.v/P.vat, fw=Z.fwd.filter(x=>x.d<=x1), all=[...Z.obs,...fw];
+  const ymax=Math.max(10,Math.ceil(Math.max(...all.map(nv))/5)*5);
+  const sx=d=>ml+(c2DDiff(x0,d)+0.5)/N*(W-ml-mr), sy=v=>mt+(1-v/ymax)*(H-mt-mb), bw=Math.max(1.2,(W-ml-mr)/N*0.78);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="도깨비의세계 일매출 추정 추이">`;
+  for(let v=0; v<=ymax; v+=5) s+=`<line x1="${ml}" x2="${W-mr}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--line)" stroke-opacity=".45"/>`
+    +`<text x="${ml-5}" y="${(sy(v)+3.5).toFixed(1)}" font-size="10" fill="var(--muted2)" text-anchor="end">${v}</text>`;
+  ["2026-11-01","2026-12-01","2027-01-01","2027-02-01","2027-03-01"].forEach(d=>{ s+=`<text x="${sx(d).toFixed(1)}" y="${H-7}" font-size="10" fill="var(--muted2)" text-anchor="middle">${+d.slice(5,7)}월</text>`; });
+  const qb=sx("2027-01-01")-(W-ml-mr)/N/2; s+=`<line x1="${qb.toFixed(1)}" x2="${qb.toFixed(1)}" y1="${mt}" y2="${H-mb}" stroke="var(--line)" stroke-dasharray="2 3"/>`
+    +`<text x="${(qb-4).toFixed(1)}" y="${mt+9}" font-size="10" fill="var(--muted2)" text-anchor="end">4Q26</text><text x="${(qb+4).toFixed(1)}" y="${mt+9}" font-size="10" fill="var(--muted2)">1Q27</text>`;
+  Z.obs.forEach(p=>{ const y=sy(nv(p));
+    s+=`<rect x="${(sx(p.d)-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${(sy(0)-y).toFixed(1)}" rx="1" fill="var(--accent)" opacity="${p.src==="obs"?0.9:0.55}">`
+      +`<title>${+p.d.slice(5,7)}/${+p.d.slice(8)} · 구글 ${p.g==null?"권외":p.g+"위"} · 애플 ${p.i==null?"권외":p.i+"위"} → 매출 ${fmt(nv(p),1)}억 (결제액 ${fmt(p.v,1)}억)${p.src==="gs"?" · 순위 gamerscroll":""}</title></rect>`; });
+  if(fw.length) s+=`<path d="${fw.map((p,k)=>(k?"L":"M")+sx(p.d).toFixed(1)+","+sy(nv(p)).toFixed(1)).join(" ")}" fill="none" stroke="var(--muted)" stroke-width="1.7" stroke-dasharray="5 3"/>`
+    +`<text x="${(W-mr).toFixed(1)}" y="${(sy(nv(fw[fw.length-1]))-6).toFixed(1)}" font-size="10" fill="var(--muted)" text-anchor="end">가정 순위(분기별 일정)</text>`;
+  s+=`<text x="${ml}" y="10" font-size="10" fill="var(--muted2)">억원/일 · 회사 매출 기준(스토어 결제액 ÷ ${P.vat})</text></svg>`;
+  return s;
+}
+
+function renderKgModel(){
+  const sec=document.getElementById("kgSec"), box=document.getElementById("kgBox");
+  if(!sec||!box) return;
+  if(typeof KGMODEL==="undefined"||trendStock!==KGMODEL.stock||!kgActQs().length){ sec.style.display="none"; return; }
+  sec.style.display="";
+  const A=kgAsmGet(), P=kgParams(), B=kgBuild(P), Q=B.Q, Y=B.Y, Z=B.Z;
+  const f1=v=>(v==null||!isFinite(v))?"—":fmt(v,1);
+  const pct=(v,d=1)=>(v==null||!isFinite(v))?"—":v>3?`<span class="up">×${fmt(v+1,1)}</span>`
+    :Math.abs(v*100)<0.5*Math.pow(10,-d)?`<span class="flat">${fmt(0,d)}%</span>`:`<span class="${cls(v)}">${sign(v*100,d)}%</span>`;
+  const chg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return pct(c/b-1); return c>0?`<span class="up">흑전</span>`:(b<0?`<span class="g">적지</span>`:"—"); };
+  const opChg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return c>0?pct(c/b-1):`<span class="down">적전</span>`;
+    return c>0?`<span class="up">흑전</span>`:`<span class="g">적지</span>`; };
+  const LS=(typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[KGMODEL.stock])||{}, cn=LS.cons||{}, cons={};
+  ((cn.quarter||{}).series||[]).forEach(x=>{ if(x.e) cons[c2QOf(`${x.k.slice(0,4)}-${x.k.slice(4,6)}-01`)]=x; });
+  ((cn.year||{}).series||[]).forEach(x=>{ if(x.e) cons[x.k.slice(0,4)]=x; });
+
+  // ── 머리 카드 ─────────────────────────────────────────────────────
+  const l7=Z.obs.slice(-7), run=l7.reduce((s,x)=>s+x.v,0)/l7.length, lastO=Z.obs[Z.obs.length-1];
+  const card=(t,v,sub,acc)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:var(--radius);padding:12px 14px"><div style="font-size:11.5px;color:var(--muted);font-weight:700">${t}</div>
+    <div style="font-size:20px;font-weight:800;margin-top:3px${acc?";color:var(--accent)":""}">${v}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.45">${sub||""}</div></div>`;
+  const vsC=(o,k)=>{ const c=cons[k]; if(!c) return "컨센 없음";
+    return `컨센 ${f1(c.rev)} / ${f1(c.op)} → 괴리 ${pct(o.rev/c.rev-1)} / ${c.op>0?pct(o.op/c.op-1):"—"}`; };
+  const q4=Q["2026Q4"], y6=Y["2026"], y7=Y["2027"];
+  const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    ${card("도깨비의세계 지금 일매출(모델)", fmt(run/P.vat,1)+"억/일",
+      `회사 매출 기준 · 최근 ${l7.length}일 평균(스토어 결제액 ${fmt(run,1)}억)<br>${+lastO.d.slice(5,7)}/${+lastO.d.slice(8)} 구글 ${lastO.g==null?"권외":lastO.g+"위"}·애플 ${lastO.i==null?"권외":lastO.i+"위"} · 출시 ${lastO.t+1}일째`, true)}
+    ${card(`4Q26${q4.act?"":"E"} 매출 / 영업이익`, `${f1(q4.rev)} / ${f1(q4.op)}`, `십억원 · 도깨비 ${f1(q4.dk)} (기여 영업이익 ${f1(q4.dkOp)})<br>${vsC(q4,"2026Q4")}`)}
+    ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, `십억원 · OPM ${fmt(y6.opm*100,1)}%<br>${vsC(y6,"2026")}`)}
+    ${card("2027E 매출 / 영업이익", `${f1(y7.rev)} / ${f1(y7.op)}`, `십억원 · 도깨비 ${f1(y7.dk)} · OPM ${fmt(y7.opm*100,1)}%<br>${vsC(y7,"2027")}`)}
+  </div>`;
+
+  // ── 분기 손익표 ───────────────────────────────────────────────────
+  const qCols=(A.show25?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
+  const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
+  const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
+  const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
+  const dTip=o=>(o.ddays&&!o.yr)?`${lab(o)} 도깨비: 구글 평균 ${fmt(o.dg,1)}위 · 애플 ${fmt(o.di,1)}위 → 결제액 ${fmt(o.dd,1)}억/일 × ${o.ddays}일 ÷ ${P.vat} = ${fmt(o.dk,1)}십억`
+    +(o.dobs&&o.dobs<o.ddays?` (관측 ${o.dobs}일 + 가정 ${o.ddays-o.dobs}일)`:o.dobs?" (전부 관측 순위)":" (가정 순위)"):"";
+  const eTip=(o,k)=>{ if(o.act||o.yr) return "";
+    return ({dk:dTip(o), mob:o.why&&o.why.mob, pc:`최근 4분기 평균 ${P.pc}${+o.q.slice(0,4)>=2027&&P.gPc27?` × (1+${P.gPc27}%)`:""} — POE 시즌·패치로 분기마다 출렁여 추세를 안 건다`,
+      newg:"2027 신작 자리값(가정 · 기본 0)",
+      rs:`기존 게임 ${fmt(o.mob+o.pc,1)} × ${P.rsL}% + 도깨비 ${fmt(o.dk,1)} × (마켓 ${P.feeD}% + 슈퍼캣 RS ${P.rsD}%)${o.newg?` + 신작 × (${P.feeD}+${P.rsN})%`:""}`,
+      lab:`최근 2분기 평균 ${P.lab} × 연 ${P.gLab}% 증가`, fee:`최근 2분기 평균 ${P.fee}`, dep:`최근 4분기 평균 ${P.dep}`, oth:`최근 4분기 평균 ${P.oth}`,
+      mkt:`기존 ${P.mkL} + 도깨비 × ${P.mkD}%${o.q===c2QOf(KG_LAUNCH)?` + 출시 마케팅 ${P.mkLaunch}`:""}${o.newg?` + 신작 × ${P.mkN}%`:""}`,
+      nonop:`최근 6분기 (세전 − 영업이익) 중앙값 ${P.nonop} — 이자비용·지분법·평가손. 4Q 의 대규모 손상차손(2024 −100 · 2025 −113)은 넣지 않았다`,
+      tax:`세전이익 × ${P.tax}% (적자면 0)`, npp:`당기순이익 × 지배주주 몫 ${P.share}%`,
+      dkOp:`도깨비 × (1 − 마켓 ${P.feeD}% − RS ${P.rsD}% − 마케팅 ${P.mkD}%)${o.q===c2QOf(KG_LAUNCH)?` − 출시 마케팅 ${P.mkLaunch}`:""}`})[k]||""; };
+  const ROWS=[
+    {k:"rev", t:"매출액", em:1, tg:"rev"},
+    {k:"rev", t:"YoY", r:"yoy"},
+    {k:"rev", t:"QoQ", r:"qoq"},
+    {k:"dk", t:"도깨비의세계 (10/8 출시)", i:1, z:1, g:"rev"},
+    {k:"mob", t:"모바일 기존 — 오딘·우마무스메·아키에이지 워 외", i:1, g:"rev"},
+    {k:"pc", t:"PC — 카카오 배틀그라운드·패스 오브 엑자일", i:1, g:"rev"},
+    {k:"newg", t:"신작 (2027~ · 오딘Q 등, 자리값)", i:1, g:"rev"},
+    {k:"opex", t:"영업비용", b:1, tg:"cost", top:1},
+    {k:"rs", t:"매출연동비 (마켓 수수료 + 개발사 RS)", i:1, g:"cost"},
+    {k:"lab", t:"인건비 (급여·퇴직·주식보상·복리)", i:1, g:"cost"},
+    {k:"mkt", t:"광고선전비", i:1, g:"cost"},
+    {k:"fee", t:"지급수수료", i:1, g:"cost"},
+    {k:"dep", t:"상각비 (유형·사용권·무형)", i:1, g:"cost"},
+    {k:"oth", t:"기타", i:1, g:"cost"},
+    {k:"op", t:"영업이익", em:1, hl:1, tg:"op"},
+    {k:"opm", t:"영업이익률", r:"opm"},
+    {k:"op", t:"YoY", r:"opyoy"},
+    {k:"dkOp", t:"도깨비 기여 영업이익 (마케팅 차감 · 모델)", i:1, z:1, g:"op"},
+    {k:"nonop", t:"영업외손익", tg:"ni", top:1},
+    {k:"pbt", t:"세전이익", i:1, g:"ni"},
+    {k:"tax", t:"법인세", i:1, g:"ni"},
+    {k:"np", t:"당기순이익", i:1, g:"ni"},
+    {k:"minor", t:"비지배 몫", i:1, g:"ni"},
+    {k:"npp", t:"지배주주 순이익", em:1},
+    {k:"npp", t:"PER (배)", m:"per"},
+    {t:"도깨비의세계 · 일평균 매출", m:"hdr", tg:"daily", top:2},
+    {k:"dd", t:"스토어 결제액/일 (억 · VAT 포함)", i:1, m:"dd", g:"daily"},
+    {k:"dg", t:"평균 순위 구글 / 애플", i:1, m:"dr", g:"daily"},
+    {k:"dk", t:"매출/일 (억 · 회사 매출 기준)", i:1, m:"dz", g:"daily"},
+  ];
+  const TGS=[...new Set(ROWS.filter(r=>r.tg).map(r=>r.tg))], OPEN=kgOpenGet();
+  const mcap=LS.mktcapEok?LS.mktcapEok/10:null;
+  const nextQ=cols.findIndex(o=>!o.yr&&!o.act), firstY=qCols.length;
+  const yrEdge=k=>k===firstY||(k>0&&k<firstY&&cols[k].q.slice(0,4)!==cols[k-1].q.slice(0,4));
+  const SHADE="color-mix(in srgb, var(--accent) 13%, transparent)", EM="1.5px solid var(--muted2)";
+  const thS=(o,k)=>{ let st="text-align:right;white-space:nowrap;padding:6px 9px;";
+    if(k===nextQ) st+=`background:${SHADE};`; if(yrEdge(k)) st+="border-left:2px solid var(--muted2);"; return st; };
+  const cell=(row,o,k)=>{
+    let v="", tip="";
+    if(row.r==="yoy"){ const p=prevOf(o); v=p?chg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="qoq"){ v=o.yr?"":chg(o[row.k],(Q[c2QAdd(o.q,-1)]||{})[row.k]); }
+    else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="opm"){ v=o.opm==null?"—":fmt(o.opm*100,1)+"%"; }
+    else if(row.m==="hdr"){ v=""; }
+    else if(row.m==="dd"){ v=o.dd==null?"":fmt(o.dd,1); }
+    else if(row.m==="dr"){ v=o.ddays&&!o.yr?`${fmt(o.dg,1)} / ${fmt(o.di,1)}`:""; }
+    else if(row.m==="dz"){ v=o.ddays&&o.dk?fmt(o.dk*10/o.ddays,1):"—"; if(o.ddays&&o.dk) tip=`${lab(o)} 도깨비 ${fmt(o.dk,1)}십억 × 10 ÷ 서비스 ${o.ddays}일`; }
+    else if(row.m==="per"){ v=(o.yr&&mcap)?(o.npp>0?`<b>${fmt(mcap/o.npp,1)}</b>`:`<span class="down">적자</span>`):"";
+      if(o.yr&&mcap&&o.npp>0) tip=`${lab(o)} 현재 시총 ${fmt0(mcap*10)}억 ÷ 지배주주 순이익 ${fmt(o.npp*10,0)}억`; }
+    else { const x=o[row.k]; v=((row.k==="newg"||row.k==="dk"||row.k==="dkOp")&&!x)?"—":f1(x); tip=eTip(o,row.k)||(row.z&&row.k==="dk"?dTip(o):"");
+      if(o.act&&!o.yr&&o.dkEst&&(row.k==="dk"||row.k==="mob")) tip=(tip?tip+" · ":"")+"회사가 도깨비 매출을 따로 밝히지 않아 모델값을 모바일에서 뗐다"; }
+    let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
+      +(row.r||row.m==="dd"||row.m==="dr"?"font-size:11px;color:var(--muted);":"")
+      +(row.z||row.m==="dz"?"color:var(--accent);":"")+(row.z?"font-weight:700;":"")+(row.m==="per"?"font-weight:700;":"");
+    if(row.hl) st+=`background:${k===nextQ?"color-mix(in srgb, var(--accent) 24%, transparent)":"color-mix(in srgb, var(--accent) 7%, transparent)"};`;
+    return `<td style="${st}"${tip?` title="${attr(tip)}"`:""}>${v}</td>`;
+  };
+  const rowHtml=row=>{
+    if(row.g&&!OPEN[row.g]) return "";
+    const small=row.r||row.m==="dd"||row.m==="dr";
+    const lst="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;z-index:1;"
+      +`background:${row.hl?"color-mix(in srgb, var(--accent) 7%, var(--panel))":"var(--panel)"};`
+      +`padding-left:${22+(row.i||0)*14+(row.r?14:0)}px;`+(small?"font-size:11px;color:var(--muted);":"")
+      +(row.m==="hdr"?"font-weight:700;color:var(--muted);font-size:11.5px;":"")+(row.m==="dz"?"color:var(--accent);":"")
+      +(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"")+(row.tg?"cursor:pointer;":"");
+    const tr=(row.em?`border-top:${EM};border-bottom:${EM};`:"")+(row.top===2?"border-top:2px solid var(--line);":row.top?"border-top:1px solid var(--line);":"");
+    const caret=row.tg?`<span style="display:inline-block;width:15px;margin-left:-15px;color:var(--accent);font-size:12px;line-height:1">${OPEN[row.tg]?"▾":"▸"}</span>`:"";
+    const lbl=row.m==="per"?`PER (배) <span style="font-size:10.5px;font-weight:600;color:var(--muted2);margin-left:4px">현재 시총 ${mcap?fmt0(mcap*10)+"억":"— (시세 수집 전)"}</span>`:row.t;
+    return `<tr style="${tr}"${row.tg?` data-kgtg="${row.tg}" title="눌러서 ${OPEN[row.tg]?"접기":"세부 펼치기"}"`:""}><td style="${lst}">${caret}${lbl}</td>${cols.map((o,k)=>cell(row,o,k)).join("")}</tr>`; };
+  const cmp=(t,f,rs)=>`<tr style="${rs||""}"><td style="text-align:left;white-space:nowrap;padding:6px 10px 6px 22px;position:sticky;left:0;background:var(--panel);font-size:11px;color:var(--muted)">${t}</td>`
+    +cols.map((o,k)=>`<td style="${thS(o,k)}font-size:11px;color:var(--muted)">${f(o)}</td>`).join("")+`</tr>`;
+  const allOpen=TGS.every(k=>OPEN[k]);
+  const yrs=[]; qCols.forEach(q=>{ const y=q.slice(0,4); if(!yrs.length||yrs[yrs.length-1].y!==y) yrs.push({y,n:0}); yrs[yrs.length-1].n++; });
+  const hd="position:sticky;left:0;background:var(--panel2);z-index:3;text-align:left;padding:6px 10px 6px 22px;cursor:default";
+  const h1="text-align:center;padding:6px 9px 2px;font-size:11.5px;color:var(--text);cursor:default;border-bottom:1px solid var(--line-soft);";
+  const head1=`<tr><th style="${hd};border-bottom:none"></th>${yrs.map((g,j)=>`<th colspan="${g.n}" style="${h1}${j?"border-left:2px solid var(--muted2);":""}">${g.y}</th>`).join("")}<th colspan="3" style="${h1}border-left:2px solid var(--muted2)">연간</th></tr>`;
+  const head2=`<tr><th style="${hd}">(십억원)</th>${cols.map((o,k)=>`<th style="${thS(o,k)}cursor:default;font-size:12px;padding-top:4px;${k===nextQ?"background:color-mix(in srgb, var(--accent) 24%, var(--panel2));color:var(--text);":""}">${lab(o)}</th>`).join("")}</tr>`;
+  const hasCons=cols.some(o=>cons[o.q]);
+  const tbl=`<div class="sub-h" style="margin:16px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결(계속영업) · 칸에 마우스를 올리면 계산식</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+      <button class="theme-btn" id="kgOpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
+      <button class="theme-btn" id="kgShow25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+    <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
+    <thead>${head1}${head2}</thead>
+    <tbody>${ROWS.map(rowHtml).join("")}
+    ${hasCons?cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[o.q]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")
+      +cmp("모델 ÷ 컨센 − 1 (매출 / 영업이익)",o=>{ const c=cons[o.q]; return c?`${pct(o.rev/c.rev-1,0)} / ${c.op>0?pct(o.op/c.op-1,0):"—"}`:""; }):""}
+    </tbody></table></div>
+    <p class="note" style="margin-top:6px"><b style="color:var(--accent)">▸</b> 줄을 누르면 세부가 펼쳐집니다(매출 → 게임별 · 영업비용 → 항목별 · 영업외 → 세전·세금·비지배 · 도깨비 순위·일매출).
+      <span style="background:${SHADE};padding:0 5px;border-radius:3px">음영 칸</span>이 다음 발표 분기(${nextQ>=0?c2QLab(cols[nextQ].q):"—"}), E 는 추정입니다.
+      실적 칸은 <b>전부 DART</b>(${attr(KGMODEL.asOf||"")} 수집) — 연결 손익(계속영업 · 2025 3Q 에 골프·무선통신을 중단영업으로 뺐고 2025 1Q·2Q 는 재작성 비교치),
+      PC/모바일 = 사업보고서 '주요 제품 등의 현황', 비용 항목 = 주석 '영업비용'(3개월). <b>매출연동비</b> = 앱마켓·플랫폼 수수료 + 개발사 수익배분 —
+      퍼블리셔라 결제액을 매출로 잡고 이걸 비용으로 냅니다. PER = 현재 시가총액 ÷ 그 해 지배주주 순이익.</p>`;
+
+  // ── 가정 패널 ────────────────────────────────────────────────────
+  const au=P._auto, isAuto=k=>A[k]==null&&au[k]!=null;
+  const inp=(k,label,unit,step,w)=>`<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">${label}
+      <input data-kg="${k}" type="number" value="${P[k]}" step="${step||0.1}" class="theme-btn" style="width:${w||66}px;padding:4px 7px;font-weight:700;font-size:12.5px">${unit||""}${isAuto(k)?`<span style="font-size:10px;color:var(--accent);font-weight:800">자동</span>`:""}</label>`;
+  const grp=(t,body)=>`<div style="flex:1;min-width:260px;border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px">
+    <div style="font-size:12px;font-weight:800;margin-bottom:7px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px">${body}</div></div>`;
+  const rIn=(key,k,step)=>`<td style="padding:3px 6px;text-align:center"><input data-kg="${key}.${k}" type="number" value="${A[key][k]}" step="${step}" min="1" class="theme-btn" style="width:54px;padding:3px 5px;font-weight:700;font-size:12px"></td>`;
+  const scn=Object.keys(KG_SCN).find(k=>KG_SCN[k].dg.every((v,i)=>v===A.dg[i])&&KG_SCN[k].da.every((v,i)=>v===A.da[i]));
+  const asm=`<details class="fold" data-fold="kgasm"${(()=>{ try{ return localStorage.getItem("fold_kgasm")==="1"?" open":""; }catch(e){ return ""; } })()}>
+    <summary>가정 바꾸기 <span class="sub">도깨비 순위 경로 · 비용 · 기존 게임 추세 — 바꾸면 표가 바로 다시 계산됩니다(브라우저에 기억)</span></summary>
+    <div class="fold-b">
+    <div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <b style="font-size:12.5px">도깨비의세계 앞으로의 순위 <span style="font-weight:600;color:var(--muted)">(분기 평균 · 아직 관측 안 된 날에 적용)</span></b>
+      ${Object.keys(KG_SCN).map(k=>`<button class="theme-btn${scn===k?" active":""}" data-kgscn="${k}" style="padding:3px 10px;font-size:12px${scn===k?";background:var(--accent);color:var(--onacc);border-color:var(--accent)":""}">${k}</button>`).join("")}
+      <span style="font-size:11px;color:var(--muted2)">기준 = 제우스 기준 경로(출시 후 개월 수 맞춤) — MMORPG 첫해 감쇠. 관측된 날은 실제 순위를 씁니다.</span></div>
+      <div class="tbl-wrap" style="display:inline-block;max-width:100%"><table style="border-collapse:collapse;font-size:12px"><thead><tr><th style="padding:5px 8px;text-align:left;background:var(--panel2)"></th>${KG_FWD.map(q=>`<th style="padding:5px 8px;background:var(--panel2)">${c2QLab(q)}</th>`).join("")}</tr></thead>
+      <tbody><tr><td style="padding:3px 8px;font-weight:700">구글</td>${KG_FWD.map((q,k)=>rIn("dg",k,0.1)).join("")}</tr>
+      <tr><td style="padding:3px 8px;font-weight:700">애플</td>${KG_FWD.map((q,k)=>rIn("da",k,1)).join("")}</tr>
+      <tr><td style="padding:3px 8px;font-size:11px;color:var(--muted)">→ 결제액/일 · 분기 매출</td>${KG_FWD.map(q=>`<td style="padding:3px 6px;text-align:center;font-size:11.5px;color:var(--accent);font-weight:700">${fmt(Q[q].dd,1)}억 · ${f1(Q[q].dk)}</td>`).join("")}</tr></tbody></table></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${grp("도깨비의세계 비용(매출 대비)", inp("feeD","마켓·PG 수수료","%",1)+inp("rsD","슈퍼캣 RS","%",1)+inp("mkD","마케팅","%",1)+inp("mkLaunch","4Q26 출시 마케팅","십억",1))}
+      ${grp("기존 게임 매출", inp("gMob26","모바일 26하반기","%/분기",1)+inp("gMob27","모바일 2027","%/분기",1)+inp("pc","PC 분기","십억",0.5)+inp("gPc27","PC 2027","%",1)
+        +inp("newg","2027 신작 분기 매출","십억",1)+inp("rsN","신작 개발사 RS","%",1)+inp("mkN","신작 마케팅","%",1))}
+      ${grp("기존 비용", inp("rsL","매출연동비율(기존)","%",0.5)+inp("lab","인건비 분기","십억",0.5)+inp("gLab","인건비 증가","%/년",1)
+        +inp("fee","지급수수료 분기","십억",0.5)+inp("mkL","광고선전비 분기(기존)","십억",0.5)+inp("dep","상각비 분기","십억",0.5)+inp("oth","기타 분기","십억",0.5))}
+      ${grp("영업외 · 순이익", inp("nonop","영업외 분기","십억",1)+inp("tax","세율(흑자일 때)","%",1)+inp("share","지배주주 몫","%",1))}
+      ${grp("순위 → 매출 곡선(컴투스 모델과 같은 값)", inp("a","구글 1위 일매출","억",0.1)+inp("alpha","순위 감쇠 α","",0.02)+inp("s","상위 평탄화 s","",0.25)+inp("rios","애플/구글","",0.05)
+        +inp("lp","출시 프리미엄","배",0.1)+inp("tau","프리미엄 반감","일",1)+inp("vat","VAT 나누기","",0.01))}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="kgReset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
+      <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(DART)에서 계산 — 모바일 = ${au._L2.map(c2QLab).join("·")} 전분기비 평균, 매출연동비율·PC·상각·기타 = ${au._L4.map(c2QLab).join("·")},
+      인건비·지급수수료·광고비 = 최근 2분기 평균, 영업외 = ${au._L6.map(c2QLab).join("·")} 중앙값, 지배주주 몫 = 최근 4분기 Σ지배 ÷ Σ순이익. 출시 뒤 분기는 도깨비를 떼고 냅니다. 입력하면 그 값으로 고정.</span></div>
+    </div></details>`;
+
+  // ── 도깨비: 순위 → 일매출 ────────────────────────────────────────
+  const RK=[1,2,3,5,10,20], tNow=lastO.t;
+  const rtbl=`<table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">순위</th><th>구글 일매출</th><th>분기 매출 환산</th><th>애플 일매출</th></tr></thead><tbody>`
+    +RK.map(r=>{ const g=c2Rev(P,r,null), i=c2Rev(P,null,r);
+      return `<tr><td style="text-align:left"><b>${r}위</b></td><td>${fmt(g,1)}억</td><td>${fmt(g*91/P.vat/10,1)}십억</td><td>${fmt(i,i<1?2:1)}억</td></tr>`; }).join("")
+    +`</tbody></table><p class="note" style="margin-top:6px">정상상태 곡선(출시 프리미엄 제외 · 컴투스 모델과 같은 곡선 — 모바일인덱스 월매출 12점으로 맞춘 것).
+      갓 나온 게임은 더 번다 — 도깨비는 오늘(출시 ${tNow+1}일째) × <b>${fmt(c2L(P,tNow),2)}</b>.</p>`;
+  const dkBox=`<div class="sub-h" style="margin:22px 0 8px">도깨비의세계 일매출 — 순위로 환산 <span class="th-sub" style="display:inline;margin-left:6px">회사 매출 기준 · 막대 = 관측 순위(연한 막대 = gamerscroll), 점선 = 분기별 가정 순위</span></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div class="chart-box" style="flex:3;min-width:300px;padding:12px 14px">${kgChart(P,Z)}</div>
+      <div style="flex:2;min-width:250px">${rtbl}</div></div>`;
+
+  box.innerHTML=head+tbl+asm+dkBox;
+  document.getElementById("kgNote").innerHTML=
+    `<b>읽는 법</b>: 도깨비의세계는 국내 단독 출시라 한국 앱 매출순위가 곧 매출이다 — 컴투스 제우스와 같은 곡선(구글 1위 정상상태 ${fmt(P.a,1)}억/일 결제액, 애플 ×${P.rios})에
+     출시 프리미엄(1 + ${P.lp}·e<sup>−t/${P.tau}</sup>)을 곱한다. 기존 모바일(오딘·우마무스메 등)은 2025 이후 분기마다 줄어 왔다 — 그 추세(분기 ${P.gMob26}%)를 이어 간다.
+     <br>⚠ <b>슈퍼캣 RS 는 비공개</b>라 가정(기본 ${P.rsD}%)이다 — 도깨비 이익을 가장 크게 흔드는 값. 4Q26 실적의 매출연동비로 역산할 것.
+     영업외는 이자·지분법 등 경상분만 넣었다 — 카카오게임즈는 해마다 4Q 에 대규모 손상차손을 잡아 왔다(순이익은 그만큼 더 나쁠 수 있다).
+     2027 신작(오딘Q 1Q27 · 던전 어라이즈 · 가디언 메이든)은 기본 0 — 가정 칸에서 넣는다.
+     <br><b>출처</b>: DART 분기·반기·사업보고서(연결 손익 · 주요 제품 매출 · 영업비용 주석) · 대시보드 앱 매출순위(APPRANK, 10/13~) · gamerscroll 일별 순위(10/8~12).`;
+}
+function kgBind(){
+  const sec=document.getElementById("kgSec"); if(!sec||sec.dataset.bound) return; sec.dataset.bound="1";
+  sec.addEventListener("change",e=>{ const i=e.target.closest("[data-kg]"); if(!i) return;
+    const v=parseFloat(i.value); if(!isFinite(v)) return;
+    const A=kgAsmGet(), k=i.dataset.kg;
+    if(k.includes(".")){ const [a,b]=k.split("."); A[a]=[...A[a]]; A[a][+b]=Math.max(1,v); } else A[k]=v;
+    kgAsmSave(); renderKgModel(); });
+  sec.addEventListener("click",e=>{
+    const s=e.target.closest("[data-kgscn]");
+    if(s){ const A=kgAsmGet(), S=KG_SCN[s.dataset.kgscn]; A.dg=[...S.dg]; A.da=[...S.da]; kgAsmSave(); renderKgModel(); return; }
+    if(e.target.closest("#kgReset")){ kgAsm={...KG_ASM0, dg:[...KG_ASM0.dg], da:[...KG_ASM0.da], show25:kgAsmGet().show25}; kgAsmSave(); renderKgModel(); return; }
+    if(e.target.closest("#kgShow25")){ const A=kgAsmGet(); A.show25=A.show25?0:1; kgAsmSave(); renderKgModel(); return; }
+    const tg=e.target.closest("[data-kgtg]");
+    if(tg){ const O=kgOpenGet(), k=tg.dataset.kgtg; O[k]=O[k]?0:1; kgOpenSave(); renderKgModel(); return; }
+    if(e.target.closest("#kgOpenAll")){ const O=kgOpenGet(), ks=[...new Set([...document.querySelectorAll("#kgBox [data-kgtg]")].map(x=>x.dataset.kgtg))],
+      all=ks.every(k=>O[k]); ks.forEach(k=>O[k]=all?0:1); kgOpenSave(); renderKgModel(); }
+  });
+}
+
 /* ══════════ 지금 화제 (BUZZ) ═══════════════════════════════════════════════
    트렌드 탭의 나머지는 전부 '종목 → 주제' 다 — 우리가 이미 보기로 정한 것만 보인다.
    여기만 반대다: 한국 인터넷 전체에서 지금 뜨는 것을 먼저 늘어놓고, 그 중 커버리지가
@@ -7588,6 +7964,7 @@ renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGa
 // 계수 입력 — 공시가 나올 때마다 재보정하라고 화면에 열어 둔다(탑툰챗 '방당 단가'와 같은 방식)
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
+kgBind();          // 카카오게임즈 손익 모델 — 가정 입력·시나리오
 c2Bind();          // 컴투스 손익 모델 — 가정 입력·시나리오·2025 펼치기(위임, change 이벤트)
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
@@ -8196,7 +8573,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }
