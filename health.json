@@ -1,1 +1,6 @@
-{}
+{
+ "게임머니": {
+  "t": "2026-10-15 05:21",
+  "msg": "전부 실패: 제우스:오만의신/아테나1 HTTPError HTTP Error 404: Not Found; 제우스:오만의신/아테나2 HTTPError HTTP Error 404: Not Found; 제우스:오만의신/아테나3 HTTP (종료코드 1)"
+ }
+}
