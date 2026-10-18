@@ -257,13 +257,13 @@ function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2
    새 데이터 블록을 넣을 때는 watchdog.LIMITS 와 여기를 같이 고칠 것. */
 // MOVIE 는 2026-09-21 수집을 멈춰 뺐다 — 두면 그날부터 영영 "N일째 갱신 없음"(고장 신호)이
 // 붙는다. 멈춘 건 고장이 아니라 결정이라, 섹션 제목에 "수집 중단"으로 따로 적는다.
-const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:72, KMJAMZ:120, AMZSUB:48};
+const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48};
 /* 신선도 보드 (2026-09-24 · 개편계획.md Phase 1) — 블록마다 마지막 갱신 시각과 한도.
    값은 watchdog.py 의 LIMITS 와 같아야 한다(시간). 새 블록을 넣으면 두 곳을 같이 고칠 것.
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["KGMODEL","카카오게임즈 모델",3120],["AMAZON","아마존 뷰티",72],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["KGMODEL","카카오게임즈 모델",3120],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -9651,7 +9651,7 @@ function renderAmazon(){
   const asOf=document.getElementById("amzAsOf");   // 접힘 요약줄 — 접힌 채로도 기준일·상태가 읽히게
   if(asOf){ const st=staleNote("AMAZON", AMAZON.asOf);
     asOf.innerHTML = `${AMAZON.latest} 기준 · 판매량·매출(하한) · ${(AMAZON.markets||[]).length}개국 · 브랜드 ${AMAZON.brands.length}개`
-      + ` · 환율 ${amzNum(Math.round(amzFx()))}원 · <b>수집 보완 중</b>${st?` · <span style="color:var(--warn)">${st}</span>`:""}`; }
+      + ` · 환율 ${amzNum(Math.round(amzFx()))}원 · 세부 카테고리 매출 환산표의 재료(나라가 빠지는 날 있음)${st?` · <span style="color:var(--warn)">${st}</span>`:""}`; }
 
   const B = AMAZON.brands.slice().sort((a,b)=>{
     const x=amzMetricVal(a.hist[a.hist.length-1], amzMetric);

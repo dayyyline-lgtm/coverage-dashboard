@@ -10,9 +10,10 @@
 
 무엇을 보나
   1. 첫 화면에서 잡히지 않은 JS 예외가 있는가
-  2. 탭 11개를 하나씩 눌렀을 때 각각 예외가 나는가
+  2. 탭 12개를 하나씩 눌렀을 때 각각 예외가 나는가 — '더보기 ▾' 안의 7개는 더보기를 먼저 펼친다
      (탭 전환은 그때그때 renderX() 를 부른다 — 안 눌러 보면 절반이 실행조차 안 된다)
   3. 각 탭에 실제로 내용이 그려졌는가 (예외 없이 백지인 경우가 있다)
+  4. 주소(#탭)로 새로 열 때 · 종목 페이지(#stock/이름)를 열고 그 안의 탭을 눌렀을 때 예외가 나는가
 
   python check_render.py            # 점검
   python check_render.py --shot DIR # 탭별 스크린샷도 남긴다
@@ -37,7 +38,11 @@ try:
 except Exception:
     pass
 
+from urllib.parse import quote
+
 ROOT = "public"
+# 종목 페이지 점검 대상 — 분기 모델 섹션을 빌려 오는 종목(컴투스·대원미디어·카카오게임즈)과 아마존 바로가기가 붙는 화장품 하나
+STOCKS = ["컴투스", "대원미디어", "카카오게임즈", "에이피알"]
 TABS = ["overview", "coverage", "valuation", "preview", "calendar", "news",
         "reports", "trends", "toptoon", "boxoffice", "altdata", "amazon"]   # 2026-09-26 boxoffice 되살림(영화 흥행)
 
@@ -111,7 +116,8 @@ def main():
             page.goto(f"http://127.0.0.1:{port}/index.html", wait_until="load", timeout=60000)
             page.wait_for_timeout(1500)
 
-            n = page.locator("nav.tabs button").count()
+            # 탭 버튼만 센다 — 2026-10-18 부터 탭 줄 끝에 '더보기 ▾'(data-more) 버튼이 하나 더 있다
+            n = page.locator("nav.tabs button[data-k]").count()
             if n != len(TABS):
                 errs.append(("(로딩)", "구조",
                              f"탭 버튼이 {n}개입니다 (TABS 는 {len(TABS)}개) — "
@@ -125,6 +131,16 @@ def main():
                 if not btn.count():
                     errs.append((k, "구조", "탭 버튼이 없습니다"))
                     continue
+                # 덜 쓰는 탭 7개는 '더보기 ▾' 안에 숨어 있다(2026-10-18) — 사람처럼 더보기를 먼저 펼친다.
+                # 이걸 안 하면 숨은 버튼을 30초 기다리다 점검 자체가 죽는다(10/18 오후 '배포 전 점검 실패' 6번).
+                if not btn.is_visible():
+                    more = page.locator("nav.tabs button[data-more]")
+                    if more.count() and more.is_visible():
+                        more.click()
+                        page.wait_for_timeout(200)
+                    if not btn.is_visible():
+                        errs.append((k, "구조", "더보기를 펼쳐도 탭 버튼이 안 보입니다"))
+                        continue
                 btn.click()
                 page.wait_for_timeout(900)          # 차트·비동기 렌더가 끝날 틈
 
@@ -162,6 +178,44 @@ def main():
                 if shown != k:
                     errs.append(("#" + k, "라우팅",
                                  f"주소로 열었을 때 '{shown}' 이 떴습니다 — 링크가 엉뚱한 탭을 엽니다"))
+                pg.close()
+
+            # ── 3차: 종목 페이지(#stock/이름 · 2026-10-18). 탭 줄에 없는 화면이라 위 두 바퀴가 안 지나간다.
+            #    분기 모델이 있는 종목은 다른 탭의 섹션을 손익 탭으로 빌려 오므로(DOM 이동) 따로 본다.
+            pg = browser.new_page(viewport={"width": 1440, "height": 900})
+            pg.goto(f"http://127.0.0.1:{port}/index.html", wait_until="load", timeout=60000)
+            names = pg.evaluate("() => (typeof DATA !== 'undefined' && Array.isArray(DATA.records) ? DATA.records.map(d => d.name) : [])") or []
+            pg.close()
+            want = [s for s in STOCKS if s in names] or names[:3]
+            if not names:
+                errs.append(("#stock", "구조", "DATA 를 못 읽어 종목 페이지를 점검하지 못했습니다"))
+            for si, nm in enumerate(want, 1):
+                pg = browser.new_page(viewport={"width": 1440, "height": 900})
+                tag = f"#stock/{nm}"
+                cur["tab"] = tag
+                pg.on("pageerror", lambda e, _t=tag: note(_t, "예외", e))
+                pg.on("console", lambda m, _t=tag: note(_t, "콘솔", m.text)
+                      if m.type == "error" else None)
+                pg.goto(f"http://127.0.0.1:{port}/index.html#stock/{quote(nm)}",
+                        wait_until="load", timeout=60000)
+                pg.wait_for_timeout(1200)
+                shown = pg.evaluate("() => { const a = document.querySelector('section.view.active');"
+                                    "        return a ? a.dataset.view : null; }")
+                if shown != "stock":
+                    errs.append((tag, "라우팅", f"종목 주소로 열었을 때 '{shown}' 이 떴습니다"))
+                    pg.close()
+                    continue
+                view = pg.locator('section.view[data-view="stock"]')
+                if len((view.inner_text() or "").strip()) < 40:
+                    empty.append((tag, len((view.inner_text() or "").strip())))
+                sp = pg.locator("#spTabs [data-sp]")
+                for j in range(sp.count()):
+                    b = sp.nth(j)
+                    if b.is_visible():
+                        b.click()
+                        pg.wait_for_timeout(600)
+                if shot_dir:
+                    pg.screenshot(path=os.path.join(shot_dir, f"stock-{si:02d}.png"))
                 pg.close()
 
             browser.close()

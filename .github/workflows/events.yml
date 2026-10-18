@@ -288,8 +288,9 @@ jobs:
               echo "푸시 밀림 - 재시도 $i"
               git fetch origin main
               if ! git rebase origin/main; then
-                # index.html 만 막혔으면 상수 블록 단위로 합친다(merge_blocks.py · 2026-09-30)
-                if [ "$(git diff --name-only --diff-filter=U)" = "public/index.html" ] && python merge_blocks.py                    && git add public/index.html && GIT_EDITOR=true git rebase --continue; then
+                # 막힌 파일은 merge_blocks.py 가 직접 본다 — index.html(상수 블록 단위 · 새로 생긴 상수 포함)과
+                # 상태 파일(health.json · watchdog_state.json · 키 단위)만 합치고, 그 밖의 파일이 막혔으면 포기(2026-10-18).
+                if python merge_blocks.py && GIT_EDITOR=true git rebase --continue; then
                   sleep $((i * 3)); continue
                 fi
                 git rebase --abort || true
