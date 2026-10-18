@@ -570,6 +570,12 @@ function drawSectorTrend(){
   keys.forEach(k=>{ s+=`<path d="${line(S[k])}" fill="none" stroke="${secColor(k)}" stroke-width="2.2" stroke-linejoin="round"/>`; });
   s+="</svg>";
   box.innerHTML=s;
+  const ks=keys.concat(ref?[ref]:[]);
+  attachChartTip(box,{W,H,pad,n:D.length,xOf:sx, xLab:i=>md(D[i]), yLab:Y=>sign(invLin(sy,Y),1)+"%",
+    pts:i=>ks.map(k=>S[k][i]==null?null:{y:sy(S[k][i]),c:k===ref?"var(--muted)":secColor(k)}),
+    html:i=>{ const rows=ks.map(k=>({k,v:S[k][i],c:k===ref?"var(--muted)":secColor(k)})).filter(r=>r.v!=null).sort((a,b)=>b.v-a.v);
+      if(!rows.length) return null;
+      return `<div class="tt-h">${md(D[i])}</div>`+rows.map(r=>`<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.k}${r.k===ref?"(기준)":""}</span><span class="v ${cls(r.v)}">${sign(r.v,1)}%</span></div>`).join(""); }});
 
   const last=a=>{ for(let i=a.length-1;i>=0;i--) if(a[i]!=null) return a[i]; return null; };
   leg.innerHTML=keys.map(k=>`<div class="li"><span class="dot" style="background:${secColor(k)}"></span>${k}
@@ -2761,41 +2767,67 @@ function viewGroup(G){ if(!G) return G;
 /* 그 주제가 실제로 가진 출처만 남긴다.
    only 가 붙어 있으면 반대쪽은 같은 값을 복사해 둔 것이라 눌러도 그래프가 안 바뀐다. */
 const srcOfGroup=G=> G && G.only ? [G.only] : ["naver","google"];
-/* 토스식 호버 툴팁 — 수출 차트에 쓰는 것과 같은 방식의 공용판.
-   svg viewBox 좌표로 역변환해 커서가 가리키는 기간을 찾고,
-   세로 가이드선 + 카드형 툴팁을 띄운다. 트렌드의 겹침·격자·스택 세 차트가 같이 쓴다.
-   getScreenCTM 이 스케일·레터박스(가운데 여백)·preserveAspectRatio=none 까지 보정한다. */
+/* HTS 식 십자선 + 즉시 툴팁 — 차트 공용 (2026-10-18 개편 · 사용자 "커서를 대면 한참 기다리지 않게, 십자 표시가 실시간으로 따라가고 강조되게").
+   커서를 따라 세로선(가장 가까운 시점에 붙는다)·가로선(커서 높이 그대로)이 움직이고, 그 시점의 각 선 위 점을 키우고,
+   x축에 날짜 꼬리표·y축에 값 꼬리표를 띄우고, 카드형 툴팁을 커서 옆에 즉시 띄운다. 십자선은 svg 안에 그려 viewBox 좌표 그대로 쓴다.
+   o: {W,H,pad,n, xOf(i)→viewBox x, html(i)→카드(null 이면 카드만 숨김),
+       pts(i)→[{y,c}] 강조 점(선택), xLab(i)→x축 꼬리표(선택), yLab(y)→그 높이의 값 글자(선택), ySide:"left"|"right"} */
 function attachChartTip(box, o){
-  // o: {W,H,pad,n, xOf(i)->viewBox x, html(i)->툴팁 내용(null 이면 안 띄움)}
   const svg=box.querySelector("svg"); if(!svg||!o.n) return;
-  box.style.position="relative";
-  const guide=document.createElement("div"); guide.className="chart-guide";
-  const tip=document.createElement("div"); tip.className="chart-tip";
-  box.append(guide,tip);
-  const hide=()=>{ tip.style.display="none"; guide.style.display="none"; };
-  box.onmousemove=(e)=>{
-    const m=svg.getScreenCTM();
-    if(!m||!m.a){ hide(); return; }                       // 미표시/0폭 방어
-    const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+  box.style.position="relative"; box.dataset.xh="1";
+  box.querySelectorAll(":scope > .chart-tip, :scope > .chart-guide").forEach(x=>x.remove());
+  const NS="http://www.w3.org/2000/svg";
+  const mk=(t,a)=>{ const e=document.createElementNS(NS,t); if(a) for(const k in a) e.setAttribute(k,a[k]); return e; };
+  const set=(e,a)=>{ for(const k in a) e.setAttribute(k,a[k]); };
+  const g=mk("g",{class:"xh"}); g.style.display="none";
+  const vl=mk("line",{class:"xh-v"}), hl=mk("line",{class:"xh-h"}), dots=mk("g");
+  const xr=mk("rect",{class:"xh-pill",rx:3,height:16}), xt=mk("text",{class:"xh-pt","text-anchor":"middle"});
+  const yr=mk("rect",{class:"xh-pill",rx:3,height:16}), yt=mk("text",{class:"xh-pt"});
+  g.append(vl,hl,dots,xr,xt,yr,yt); svg.appendChild(g);
+  const tip=document.createElement("div"); tip.className="chart-tip"; box.append(tip);
+  const hide=()=>{ tip.style.display="none"; g.style.display="none"; };
+  const L=o.pad.l, R=o.W-o.pad.r, T=o.pad.t, B=o.H-o.pad.b;
+  const move=(cx,cy)=>{
+    const m=svg.getScreenCTM(); if(!m||!m.a){ hide(); return; }       // 미표시/0폭 방어
+    const pt=svg.createSVGPoint(); pt.x=cx; pt.y=cy;
     const p=pt.matrixTransform(m.inverse());
-    if(p.x<o.pad.l||p.x>o.W-o.pad.r||p.y<o.pad.t||p.y>o.H-o.pad.b){ hide(); return; }
-    // 가장 가까운 점 — 등간격 가정 대신 실제 x 를 훑는다(막대 중심·꺾은선 둘 다 맞음)
+    if(p.x<L-6||p.x>R+6||p.y<T-6||p.y>B+6){ hide(); return; }
+    // 가장 가까운 시점 — 등간격 가정 대신 실제 x 를 훑는다(막대 중심·꺾은선·띄엄띄엄한 점 다 맞음)
     let i=0, best=Infinity;
-    for(let k=0;k<o.n;k++){ const d=Math.abs(o.xOf(k)-p.x); if(d<best){best=d;i=k;} }
-    const html=o.html(i); if(!html){ hide(); return; }
+    for(let k=0;k<o.n;k++){ const d=Math.abs(o.xOf(k)-p.x); if(d<best){ best=d; i=k; } }
+    const X=o.xOf(i), Y=Math.max(T,Math.min(B,p.y));
+    g.style.display="";
+    set(vl,{x1:X,x2:X,y1:T,y2:B}); set(hl,{x1:L,x2:R,y1:Y,y2:Y});
+    dots.textContent="";
+    ((o.pts&&o.pts(i))||[]).forEach(d=>{ if(d&&d.y!=null&&isFinite(d.y)) dots.appendChild(mk("circle",{cx:X,cy:d.y,r:4.3,fill:d.c||"var(--accent)",class:"xh-dot"})); });
+    const xl=o.xLab?o.xLab(i):null;
+    if(xl!=null&&xl!==""){ xt.textContent=xl; xt.style.display=xr.style.display="";
+      const w=xt.getComputedTextLength()+12, bx=Math.max(0,Math.min(o.W-w, X-w/2));
+      set(xr,{x:bx,y:B+2,width:w}); set(xt,{x:bx+w/2,y:B+14}); }
+    else xt.style.display=xr.style.display="none";
+    const yl=o.yLab?o.yLab(Y):null;
+    if(yl!=null&&yl!==""){ yt.textContent=yl; yt.style.display=yr.style.display="";
+      const w=yt.getComputedTextLength()+12, bx=o.ySide==="right"?Math.min(o.W-w,R+2):Math.max(0,L-w-2);
+      set(yr,{x:bx,y:Y-8,width:w}); set(yt,{x:bx+6,y:Y+4}); }
+    else yt.style.display=yr.style.display="none";
+    const html=o.html?o.html(i):null;
+    if(!html){ tip.style.display="none"; return; }
     tip.innerHTML=html; tip.style.display="block";
-    const rc=box.getBoundingClientRect();
-    const a=svg.createSVGPoint(); a.x=o.xOf(i); a.y=o.pad.t; const as=a.matrixTransform(m);
-    const b=svg.createSVGPoint(); b.x=o.xOf(i); b.y=o.H-o.pad.b; const bs=b.matrixTransform(m);
-    guide.style.display="block";
-    guide.style.left=(as.x-rc.left).toFixed(1)+"px";
-    guide.style.top=(as.y-rc.top).toFixed(1)+"px";
-    guide.style.height=Math.abs(bs.y-as.y).toFixed(1)+"px";
-    const tw=tip.offsetWidth||150, px=e.clientX-rc.left;
-    tip.style.left=((px+16+tw>rc.width)? Math.max(4,px-tw-14) : px+16).toFixed(1)+"px";
-    tip.style.top=Math.max(4,(e.clientY-rc.top)-tip.offsetHeight-10).toFixed(1)+"px";
+    const rc=box.getBoundingClientRect(), tw=tip.offsetWidth||150, px=cx-rc.left;
+    tip.style.left=((px+18+tw>rc.width)? Math.max(4,px-tw-16) : px+18).toFixed(1)+"px";
+    tip.style.top=Math.max(4,(cy-rc.top)-tip.offsetHeight-12).toFixed(1)+"px";
   };
+  box.onmousemove=e=>move(e.clientX,e.clientY);
   box.onmouseleave=hide;
+  box.ontouchstart=box.ontouchmove=e=>{ const t=e.touches&&e.touches[0]; if(t) move(t.clientX,t.clientY); };
+}
+/* 직선 눈금 함수 f(값)→y 의 역(가로선 높이 → 값). 축이 직선이면 두 점으로 충분하다. */
+const invLin=(f,Y)=>{ const a=f(0), b=f(1); return (b===a)?0:(Y-a)/(b-a); };
+/* 트렌드 차트의 y 꼬리표 — 축 눈금과 같은 말로(순위는 '위', peak 아는 계열은 실제 단위, 나머지는 지수) */
+function trendYLab(G,v){
+  if(G.rankN){ const n=G.rankN, of=G.rankOf||(x=>n+1-x); return Math.max(1,Math.round(of(v)))+"위"; }
+  if(G.peak&&!G.stack) return nAbbr(v*G.peak/100)+(typeof shortUnit==="function"?shortUnit(G):"");
+  return v>=10?String(Math.round(v)):v.toFixed(1);
 }
 
 function drawTrend(){
@@ -2878,7 +2910,10 @@ function drawTrend(){
   box.innerHTML=s;
   /* 호버 툴팁 — 그 시점의 모든 계열 값과 전기간비를 한 카드에.
      얀덱스 그룹(peak)은 100 이 실제 몇 건인지 알고 있으므로 절대 건수도 같이 적는다. */
-  attachChartTip(box,{W,H,pad,n:M.length,xOf:sx,html:i=>{
+  attachChartTip(box,{W,H,pad,n:M.length,xOf:sx,
+    pts:i=>series.map((ser,pi)=>ser[i]==null?null:{y:sy(ser[i]),c:TREND.colors[pi]}),
+    xLab:i=>M[i], yLab:Y=>trendYLab(G, invLin(sy,Y)),
+    html:i=>{
     const rows=series.map((ser,pi)=>({p:PRODUCTS[pi],c:TREND.colors[pi],v:ser[i],
         /* rawSer: 0-100 정규화 전의 실제 값. 순위처럼 peak 로 역산이 안 되는 계열이 쓴다. */
         r0:(G.rawSer&&G.rawSer[pi])?G.rawSer[pi][i]:null,
@@ -3010,7 +3045,8 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut, opt){
   // 칸마다 호버 툴팁 — 격자는 칸이 작아 x축 라벨이 양끝뿐이라, 중간 시점 값은 이걸로만 읽힌다
   [...box.querySelectorAll(".sm-cell")].forEach((cell,ci)=>{
     const ser=series[ci]||[];
-    attachChartTip(cell,{W,H,pad,n:M.length,xOf:sx,html:i=>{
+    attachChartTip(cell,{W,H,pad,n:M.length,xOf:sx,
+      html:i=>{
       const v=ser[i]; if(v==null) return null;
       const d=(i>0&&ser[i-1]>0&&!G.rankN)?(v/ser[i-1]-1)*100:null;
       return `<div class="tt-h">${PRODUCTS[ci]} · ${M[i]}</div>`
@@ -3048,7 +3084,7 @@ function drawTrendStack(box, G, PRODUCTS, series, M, gc, mut){
   });
   s+="</svg>"; box.innerHTML=s;
   // 호버 툴팁 — 막대 하나에 계열이 쌓여 있어 구성비는 이걸로만 읽힌다. 큰 것부터, 합계는 맨 위.
-  attachChartTip(box,{W,H,pad,n:N,xOf:cx,html:i=>{
+  attachChartTip(box,{W,H,pad,n:N,xOf:cx,xLab:i=>M[i],html:i=>{
     const rows=PRODUCTS.map((p,pi)=>({p,c:COL[pi%COL.length],v:(series[pi]||[])[i]||0}))
       .filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
     if(!rows.length) return null;
@@ -3397,7 +3433,7 @@ function drawToptoon(){
   }
   s+='</svg>';
   box.innerHTML=s;
-  attachChartTip(box,{W:W,H:H,pad:pad,n:keys.length,xOf:sx,html:i=>{
+  attachChartTip(box,{W:W,H:H,pad:pad,n:keys.length,xOf:sx,xLab:i=>M[i],html:i=>{
     const rows=TT_REG.map((g,gi)=>({g:g,r:raw[gi][i],p:i>0?raw[gi][i-1]:null})).filter(o=>o.r)
       .sort((a,b)=>b.r.tot-a.r.tot);
     if(!rows.length) return null;
@@ -4558,6 +4594,14 @@ function boxLine(el, series, o){
   ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;   // 끝 라벨 겹침 풀기
   ends.forEach(e=>{ s+=`<text x="${W-P.r+6}" y="${e.y+3}" font-size="10.5" font-weight="700" fill="${e.c}">${e.t}</text>`; });
   el.innerHTML=s+"</svg>";
+  // 십자선 — 보이는 x 들(모든 선의 점)을 모아 가장 가까운 날에 붙는다
+  const XS=[...new Set(series.flatMap(se=>se.pts.filter(p=>p.x>=x0&&p.x<=x1).map(p=>p.x)))].sort((a,b)=>a-b);
+  const at=(se,x)=>se.pts.find(p=>p.x===x);
+  attachChartTip(el,{W,H,pad:P,n:XS.length,xOf:k=>sx(XS[k]), xLab:k=>o.xFmt(XS[k]), yLab:Y=>o.yFmt(invLin(sy,Y)),
+    pts:k=>series.map(se=>{ const q=at(se,XS[k]); return q&&q.y!=null?{y:sy(q.y),c:se.color}:null; }),
+    html:k=>{ const rows=series.map(se=>({se,q:at(se,XS[k])})).filter(r=>r.q&&r.q.y!=null).sort((a,b)=>b.q.y-a.q.y);
+      if(!rows.length) return null;
+      return `<div class="tt-h">${o.xFmt(XS[k])}${rows[0].q.lab?` · ${rows[0].q.lab}`:""}</div>`+rows.map(r=>`<div class="tt-r"><span class="k"><span class="dot" style="background:${r.se.color};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.se.name}</span><span class="v">${o.tip(r.q.y)}</span></div>`).join(""); }});
 }
 function drawBoxChart(){
   const el=document.getElementById("boxChart"); if(!el) return;
@@ -6917,7 +6961,7 @@ function c2Chart(P, Z){
   const nv=p=>p.v/P.vat, fw=Z.fwd.filter(x=>x.d<=x1), all=[...Z.obs,...fw];
   const ymax=Math.max(25,Math.ceil(Math.max(...all.map(nv))/5)*5);
   const sx=d=>ml+(c2DDiff(x0,d)+0.5)/N*(W-ml-mr), sy=v=>mt+(1-v/ymax)*(H-mt-mb), bw=Math.max(1.2,(W-ml-mr)/N*0.78);
-  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="제우스 일매출 추정 추이">`;
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="제우스 일매출 추정 추이" data-ymax="${ymax}">`;
   for(let v=0; v<=ymax; v+=5) s+=`<line x1="${ml}" x2="${W-mr}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--line)" stroke-opacity=".45"/>`
     +`<text x="${ml-5}" y="${(sy(v)+3.5).toFixed(1)}" font-size="10" fill="var(--muted2)" text-anchor="end">${v}</text>`;
   ["2026-09-01","2026-10-01","2026-11-01","2026-12-01"].forEach(d=>{ s+=`<text x="${sx(d).toFixed(1)}" y="${H-7}" font-size="10" fill="var(--muted2)" text-anchor="middle">${+d.slice(5,7)}월</text>`; });
@@ -6933,6 +6977,23 @@ function c2Chart(P, Z){
     +`<text x="${(k9+5).toFixed(1)}" y="${(sy(20)+3.5).toFixed(1)}" font-size="10.5" fill="var(--warn)" font-weight="700">KB 9/17 ≈20억</text>`;
   s+=`<text x="${ml}" y="10" font-size="10" fill="var(--muted2)">억원/일 · 회사 매출 기준(스토어 결제액 ÷ ${P.vat})</text></svg>`;
   return s;
+}
+/* 일매출 막대 차트(제우스·도깨비)에 십자선 — 그려진 뒤 부른다. host = 차트를 담은 상자 */
+function dailyRevTip(host, P, Z, x0, x1, ml, mr, mt, mb, W, H){
+  if(!host) return;
+  const N=c2DDiff(x0,x1)+1, all=[...Z.obs,...Z.fwd.filter(x=>x.d<=x1)].filter(x=>x.d>=x0);
+  const sx=d=>ml+(c2DDiff(x0,d)+0.5)/N*(W-ml-mr);
+  const svg=host.querySelector("svg"); if(!svg) return;
+  const vals=all.map(p=>p.v/P.vat), ymax=+(svg.dataset.ymax||Math.max(...vals,1));
+  const sy=v=>mt+(1-v/ymax)*(H-mt-mb);
+  attachChartTip(host,{W,H,pad:{l:ml,r:mr,t:mt,b:mb},n:all.length,xOf:k=>sx(all[k].d), xLab:k=>`${+all[k].d.slice(5,7)}/${+all[k].d.slice(8)}`,
+    yLab:Y=>fmt((1-(Y-mt)/(H-mt-mb))*ymax,1)+"억",
+    pts:k=>[{y:sy(all[k].v/P.vat),c:all[k].src==="fwd"?"var(--muted)":"var(--accent)"}],
+    html:k=>{ const p=all[k];
+      return `<div class="tt-h">${+p.d.slice(5,7)}/${+p.d.slice(8)}${p.src==="fwd"?' <span style="color:var(--muted);font-size:10.5px">가정 순위</span>':""}</div>`
+        +`<div class="tt-r"><span class="k">구글 · 애플</span><span class="v">${p.g==null?"권외":fmt(p.g,p.src==="fwd"?1:0)+"위"} · ${p.i==null?"권외":fmt(p.i,p.src==="fwd"?1:0)+"위"}</span></div>`
+        +`<div class="tt-r"><span class="k">매출(회사 기준)</span><span class="v">${fmt(p.v/P.vat,1)}억</span></div>`
+        +`<div class="tt-r"><span class="k">결제액(VAT 포함)</span><span class="v">${fmt(p.v,1)}억</span></div>`; }});
 }
 
 function renderC2Model(){
@@ -7246,6 +7307,8 @@ function renderC2Model(){
     </div></details>`;
 
   box.innerHTML=head+tbl+asm+zeusBox+gtbl;
+  { const hb=[...box.querySelectorAll(".chart-box")].find(x=>x.querySelector('svg[aria-label^="제우스"]'));
+    dailyRevTip(hb, P, Z, C2_LAUNCH, "2026-12-31", 30, 12, 16, 24, 760, 232); }
 
   // ── 각주 ─────────────────────────────────────────────────────────
   let tail=0; for(let r=1;r<=200;r++) tail+=c2F(P,r);
@@ -7491,7 +7554,7 @@ function kgChart(P, Z){
   const nv=p=>p.v/P.vat, fw=Z.fwd.filter(x=>x.d<=x1), all=[...Z.obs,...fw];
   const ymax=Math.max(10,Math.ceil(Math.max(...all.map(nv))/5)*5);
   const sx=d=>ml+(c2DDiff(x0,d)+0.5)/N*(W-ml-mr), sy=v=>mt+(1-v/ymax)*(H-mt-mb), bw=Math.max(1.2,(W-ml-mr)/N*0.78);
-  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="도깨비의세계 일매출 추정 추이">`;
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="도깨비의세계 일매출 추정 추이" data-ymax="${ymax}">`;
   for(let v=0; v<=ymax; v+=5) s+=`<line x1="${ml}" x2="${W-mr}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--line)" stroke-opacity=".45"/>`
     +`<text x="${ml-5}" y="${(sy(v)+3.5).toFixed(1)}" font-size="10" fill="var(--muted2)" text-anchor="end">${v}</text>`;
   ["2026-11-01","2026-12-01","2027-01-01","2027-02-01","2027-03-01"].forEach(d=>{ s+=`<text x="${sx(d).toFixed(1)}" y="${H-7}" font-size="10" fill="var(--muted2)" text-anchor="middle">${+d.slice(5,7)}월</text>`; });
@@ -7743,6 +7806,8 @@ function renderKgModel(){
       <div style="flex:2;min-width:250px">${rtbl}</div></div>`;
 
   box.innerHTML=head+lineup+tbl+asm+dkBox;
+  { const hb=[...box.querySelectorAll(".chart-box")].find(x=>x.querySelector('svg[aria-label^="도깨비"]'));
+    dailyRevTip(hb, P, Z, KG_LAUNCH, "2027-03-31", 30, 12, 16, 24, 760, 220); }
   document.getElementById("kgNote").innerHTML=
     `<b>읽는 법</b>: 도깨비의세계는 국내 단독 출시라 한국 앱 매출순위가 곧 매출이다 — 컴투스 제우스와 같은 곡선(구글 1위 정상상태 ${fmt(P.a,1)}억/일 결제액, 애플 ×${P.rios})에
      출시 프리미엄(1 + ${P.lp}·e<sup>−t/${P.tau}</sup>)을 곱한다. <b>기존 게임도 같은 곡선으로 센다</b> — 카카오 모바일은 국내 비중이 커서(2026 상반기 공시 해외 매출 25.5 vs 모바일 108)
@@ -8439,41 +8504,13 @@ window.addEventListener("resize",()=>{
     s+=`<text x="16" y="${H/2}" text-anchor="middle" font-size="11" fill="${mut}" transform="rotate(-90 16 ${H/2})">수출액 (백만달러)</text>`;
     s+="</svg>";
     box.innerHTML=s;
-    // ── 토스식 호버 툴팁: 커서를 대면 그 달의 수출액·YoY 가 즉시 뜬다 ──
-    box.style.position="relative";
-    box.insertAdjacentHTML("beforeend",`<div class="chart-guide" id="tradeGuide"></div><div class="chart-tip" id="tradeTip"></div>`);
-    const tip=box.querySelector("#tradeTip"), guide=box.querySelector("#tradeGuide");
-    const svg=box.querySelector("svg");
-    const hideTip=()=>{ tip.style.display="none"; guide.style.display="none"; };
-    box.onmousemove=(e)=>{
-      const m=svg&&svg.getScreenCTM();
-      if(!m||!m.a){ hideTip(); return; }                              // 미표시/0폭 방어
-      // 마우스 화면좌표 → viewBox 좌표. getScreenCTM 이 스케일·레터박스(가운데 여백)까지 보정한다.
-      const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
-      const p=pt.matrixTransform(m.inverse());
-      const plotW=W-pad.l-pad.r;
-      // 플롯 영역(축 안쪽)에 있을 때만 — 제목·축 라벨·여백 위에선 안 뜬다
-      if(p.x<pad.l||p.x>W-pad.r||p.y<pad.t||p.y>H-pad.b){ hideTip(); return; }
-      let i=Math.round((p.x-pad.l)/plotW*labels.length-0.5);
-      if(i<0||i>=labels.length){ hideTip(); return; }
-      const v=shown[i], y=yoy[i];
-      tip.innerHTML=`<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정${pday[i]?` ${+labels[i].slice(3)}/1~${pday[i]}일`:''}</span>`:''}</div>`
-        +`<div class="tt-r"><span class="k">수출액</span><span class="v">${v==null?'—':fmt(v,1)+'<span style="color:var(--muted);font-weight:600;font-size:11px"> 백만$</span>'}</span></div>`
-        +`<div class="tt-r"><span class="k">YoY</span><span class="v ${y==null?'':cls(y)}">${y==null?'—':sign(y,1)+'%'}</span></div>`;
-      tip.style.display="block";
-      // 가이드선: 열 중심(viewBox xs(i))을 같은 변환으로 화면 px 에 매핑 → 커서와 정확히 일치
-      const rc=box.getBoundingClientRect();
-      const a=svg.createSVGPoint(); a.x=xs(i); a.y=pad.t; const as=a.matrixTransform(m);
-      const b=svg.createSVGPoint(); b.x=xs(i); b.y=H-pad.b; const bs=b.matrixTransform(m);
-      guide.style.display="block";
-      guide.style.left=(as.x-rc.left).toFixed(1)+"px";
-      guide.style.top=(as.y-rc.top).toFixed(1)+"px";
-      guide.style.height=Math.abs(bs.y-as.y).toFixed(1)+"px";
-      const tw=tip.offsetWidth||140, px=e.clientX-rc.left;
-      tip.style.left=((px+16+tw>rc.width)? Math.max(4,px-tw-14) : px+16).toFixed(1)+"px";
-      tip.style.top=Math.max(4,(e.clientY-rc.top)-tip.offsetHeight-10).toFixed(1)+"px";
-    };
-    box.onmouseleave=hideTip;
+    // ── 십자선 + 즉시 툴팁(공용 attachChartTip): 커서를 대면 그 달의 수출액·YoY ──
+    attachChartTip(box,{W,H,pad,n:labels.length,xOf:xs, xLab:i=>labels[i], yLab:Y=>fmt0(invLin(ys,Y)),
+      pts:i=>[shown[i]!=null?{y:ys(shown[i]),c:"var(--warn)"}:null, (yoy[i]!=null&&yoy[i]<=yMax&&yoy[i]>=yMin)?{y:yy(yoy[i]),c:yoy[i]>=0?"var(--up)":"var(--down)"}:null],
+      html:i=>{ const v=shown[i], y=yoy[i];
+        return `<div class="tt-h">${labels[i]}${prelim[i]?`<span style="color:var(--warn);font-weight:700;font-size:10.5px">잠정${pday[i]?` ${+labels[i].slice(3)}/1~${pday[i]}일`:''}</span>`:''}</div>`
+          +`<div class="tt-r"><span class="k">수출액</span><span class="v">${v==null?'—':fmt(v,1)+'<span style="color:var(--muted);font-weight:600;font-size:11px"> 백만$</span>'}</span></div>`
+          +`<div class="tt-r"><span class="k">YoY</span><span class="v ${y==null?'':cls(y)}">${y==null?'—':sign(y,1)+'%'}</span></div>`; }});
     document.getElementById("tradeLegend").innerHTML=
       `<div class="li"><span class="dot" style="background:var(--warn)"></span>수출액 (백만달러)</div>`+
       `<div class="li"><span class="dot" style="background:var(--up)"></span>YoY (%)</div>`+
@@ -8744,6 +8781,12 @@ function drawQuarter(qs){
   qs.forEach((q,i)=>{s+=`<circle cx="${sx(i).toFixed(1)}" cy="${syo(opms[i]).toFixed(1)}" r="2.6" fill="var(--up)"/>`;});
   s+="</svg>";
   box.innerHTML=s;
+  attachChartTip(box,{W,H,pad,n:qs.length,xOf:sx, xLab:i=>qs[i].q,
+    pts:i=>[{y:sy(qs[i].rev),c:"var(--accent)"},{y:syo(opms[i]),c:"var(--up)"}],
+    html:i=>`<div class="tt-h">${qs[i].q}${qs[i].q.includes("E")?' <span style="color:var(--muted);font-size:10.5px">컨센</span>':""}</div>`
+      +`<div class="tt-r"><span class="k">매출</span><span class="v">${eok(qs[i].rev)}억</span></div>`
+      +`<div class="tt-r"><span class="k">영업이익</span><span class="v">${eok(qs[i].op)}억</span></div>`
+      +`<div class="tt-r"><span class="k">영업이익률</span><span class="v">${fmt(opms[i])}%</span></div>`});
 }
 /* ══════════ 유니버스 보드 + 종목 페이지 (2026-10-18) ═══════════════════════════════
    사용자: "탑다운으로 — 유니버스에서 전체 종목을 조망하고, 특이 트렌드·20일/60일/52주 신고가가 뜬 종목을 강조,
@@ -8817,22 +8860,20 @@ function spPriceChart(name){
     return `<circle cx="${sx(i).toFixed(1)}" cy="${sy(v).toFixed(1)}" r="3" fill="${col}"/><text x="${x}" y="${(sy(v)+dy).toFixed(1)}" font-size="10.5" fill="${col}" font-weight="700" text-anchor="${right?"end":"start"}">${t} ${pf(v)} (${+Dt[i].slice(5,7)}/${+Dt[i].slice(8)})</text>`; };
   g+=lbl(iH,hi,-6,"var(--up)","최고")+lbl(iL,lo,15,"var(--down)","최저")
     +`<rect x="${W-mr+1}" y="${(sy(last)-8).toFixed(1)}" width="${mr-3}" height="16" rx="3" fill="var(--accent)"/><text x="${W-mr+5}" y="${(sy(last)+4).toFixed(1)}" font-size="10.5" font-weight="800" fill="var(--onacc)">${pf(last)}</text>`;
-  g+=`<line id="spHoverL" x1="0" x2="0" y1="${mt}" y2="${H-mb}" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/><circle id="spHoverC" r="3.5" fill="var(--accent)" stroke="var(--panel)" stroke-width="1.5" style="display:none"/>`
-    +`<rect x="${ml}" y="${mt}" width="${W-ml-mr}" height="${H-mt-mb}" fill="transparent" id="spHoverR" style="cursor:crosshair"/></svg>`;
+  g+=`</svg>`;
   const chg=P[0]?(last/P[0]-1)*100:null, asOfD=(LIVE.asOf||"").slice(0,10), lastD=Dt[n-1];
   const liveNote=(L.price&&L.price!==last)?` · 현재가 <b>${pf(L.price)}</b>원(${fmtUpd(LIVE.asOf)}${asOfD===lastD?" · 장 마감 뒤 시간외 포함":""})`:"";
   box.innerHTML=`<div style="display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:4px">
       <div class="seg" style="margin:0">${SP_PERIODS.map(([l,k])=>`<button data-spp="${k}" class="${k===spPeriod?"active":""}">${l}</button>`).join("")}</div>
       <span style="font-size:12px;color:var(--muted)">${Dt[0].slice(2).replace(/-/g,".")} ~ ${lastD.slice(2).replace(/-/g,".")} 종가 · 기간 수익률 <b class="${cls(chg)}">${sign(chg,1)}%</b>${liveNote}</span>
-      <span id="spHoverT" style="margin-left:auto;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums"></span></div>${g}`;
-  const R0=document.getElementById("spHoverR"), Ln=document.getElementById("spHoverL"), Cc=document.getElementById("spHoverC"), T=document.getElementById("spHoverT");
-  const show=e=>{ const r=R0.getBoundingClientRect(), x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
-    const i=Math.max(0,Math.min(n-1,Math.round(x/r.width*(n-1)))), X=sx(i), Y=sy(P[i]);
-    Ln.setAttribute("x1",X); Ln.setAttribute("x2",X); Ln.style.display=""; Cc.setAttribute("cx",X); Cc.setAttribute("cy",Y); Cc.style.display="";
-    const pv=i>0?(P[i]/P[i-1]-1)*100:null;
-    T.innerHTML=`${Dt[i].replace(/-/g,".")} 종가 ${pf(P[i])}원${pv!=null?` <span class="${cls(pv)}">${sign(pv,2)}%</span>`:""}`; };
-  R0.addEventListener("mousemove",show); R0.addEventListener("touchmove",show,{passive:true});
-  R0.addEventListener("mouseleave",()=>{ Ln.style.display="none"; Cc.style.display="none"; T.innerHTML=""; });
+      </div><div class="sp-plot">${g}</div>`;
+  const pbox=box.querySelector(".sp-plot");
+  attachChartTip(pbox,{W,H,pad:{l:ml,r:mr,t:mt,b:mb},n,xOf:sx, xLab:i=>Dt[i].slice(2).replace(/-/g,"."), yLab:Y=>pf(invLin(sy,Y)), ySide:"right",
+    pts:i=>[{y:sy(P[i]),c:"var(--accent)"}],
+    html:i=>{ const pv=i>0?(P[i]/P[i-1]-1)*100:null, fr=(last/P[i]-1)*100;
+      return `<div class="tt-h">${Dt[i].replace(/-/g,".")}</div>`
+        +`<div class="tt-r"><span class="k">종가</span><span class="v">${pf(P[i])}원${pv!=null?` <span class="${cls(pv)}" style="font-size:10.5px">${sign(pv,2)}%</span>`:""}</span></div>`
+        +(i<n-1?`<div class="tt-r"><span class="k">그날 → 마지막 종가</span><span class="v ${cls(fr)}">${sign(fr,1)}%</span></div>`:""); }});
 }
 document.addEventListener("click",e=>{ const b=e.target.closest("#spChart [data-spp]"); if(!b) return;
   spPeriod=+b.dataset.spp; try{ localStorage.setItem("spPeriod",spPeriod); }catch(_){}
@@ -8914,7 +8955,7 @@ function renderUniBoard(){
       rs.forEach(x=>{ const r=x.r; shown++;
         const pos=r.w52pos!=null?Math.max(0,Math.min(100,r.w52pos)):null;
         const ret=v=>v==null?`<span class="g">—</span>`:`<span class="${cls(v)}">${sign(v,1)}%</span>`;
-        h+=`<tr class="uni-r${x.sig.length?" uni-hot":""}" data-stock="${attr(r.name)}" title="눌러서 ${attr(r.name)} 종목 페이지">
+        h+=`<tr class="uni-r${x.sig.length?" uni-hot":""}" data-stock="${attr(r.name)}">
           <td class="l uni-nm"><b>${r.name}</b>${r.pick2?` <span class="uni-pk">${r.pick2==="Top pick"?"★":"☆"}</span>`:""}${x.sig.length?`<div class="uni-sig-m">${x.sig.map(s=>s.html).join("")}</div>`:""}</td>
           <td>${won(r.price)}</td><td>${ret(r.chgPct)}</td><td>${ret(r.ret1w)}</td><td>${ret(r.ret1m)}</td><td class="hx">${ret(r.ret3m)}</td>
           <td class="hx">${pos==null?"—":`<span class="uni-pos"><i style="left:${pos.toFixed(0)}%"></i></span>`}</td>
@@ -9121,6 +9162,55 @@ document.addEventListener("click",e=>{
 // 접어 둔 개요 블록을 펼치면 그때 그린다 — 접힌 채로는 폭이 0 이라 차트가 비어 있다
 document.addEventListener("toggle",e=>{ const d=e.target; if(!d||!d.open||!d.dataset) return;
   if(d.dataset.fold==="ov_port") drawSectorTrend(); else if(d.dataset.fold==="ov_heat") renderHeatmap(); }, true);
+/* ══════════ 즉시 툴팁 · 표 십자 강조 (2026-10-18) ══════════════════════════════════════
+   브라우저 기본 툴팁(title · svg <title>)은 커서를 1초쯤 대고 있어야 흰 상자가 뜬다. 사용자 "커서 대고 한참 기다릴 일이 없게".
+   → 처음 커서가 닿을 때 title 을 data-tip 으로 옮기고(기본 툴팁이 영영 안 뜨게) 같은 내용을 커서 옆 카드로 **바로** 띄워 따라다니게 한다.
+   십자선 차트([data-xh]) 안의 것은 차트 카드가 이미 같은 말을 하므로 title 만 지우고 띄우지 않는다.
+   표: 칸에 커서를 대면 그 행 + 그 열(같은 칸 번호)을 같이 옅게 칠한다(HTS 의 십자 강조). */
+(function fastTips(){
+  const NS="http://www.w3.org/2000/svg";
+  const tip=document.createElement("div"); tip.className="fast-tip"; document.body.appendChild(tip);
+  let cur=null;
+  const svgTitle=el=>el.namespaceURI===NS?[...el.children].find(c=>c.tagName&&c.tagName.toLowerCase()==="title"):null;
+  const host=t=>{ for(let el=t; el&&el.nodeType===1&&el!==document.body; el=el.parentNode){
+      if(el.hasAttribute("data-tip")||el.hasAttribute("title")||svgTitle(el)) return el; } return null; };
+  const take=el=>{ if(el.hasAttribute("data-tip")) return el.getAttribute("data-tip");
+    let t=null;
+    if(el.hasAttribute("title")){ t=el.getAttribute("title"); el.removeAttribute("title"); }
+    else { const tt=svgTitle(el); if(tt){ t=tt.textContent; tt.remove(); } }
+    if(t==null||!t.trim()) return null;
+    el.setAttribute("data-tip",t); return t; };
+  const place=(x,y)=>{ const w=tip.offsetWidth, h=tip.offsetHeight, vw=innerWidth, vh=innerHeight;
+    let L=x+14, T=y+18; if(L+w>vw-6) L=Math.max(6,x-w-12); if(T+h>vh-6) T=Math.max(6,y-h-12);
+    tip.style.left=L+"px"; tip.style.top=T+"px"; };
+  const off=()=>{ cur=null; tip.style.display="none"; };
+  document.addEventListener("mouseover",e=>{
+    const h=host(e.target); if(h===cur) return;
+    if(!h){ off(); return; }
+    const t=take(h); if(!t){ off(); return; }
+    if(h.closest&&h.closest("[data-xh]")){ off(); return; }      // 십자선 차트 안 — 차트 카드가 말한다
+    // 클릭 안내('눌러서 …')·행 전체에 걸린 문구는 커서를 따라다니면 거슬린다 — 기본 툴팁만 없애고 띄우지 않는다
+    if(h.tagName==="TR"||/^(눌러서|클릭|누르면)/.test(t.trim())){ off(); return; }
+    cur=h; tip.textContent=t; tip.style.display="block"; place(e.clientX,e.clientY);
+  }, true);
+  document.addEventListener("mousemove",e=>{ if(cur) place(e.clientX,e.clientY); }, {capture:true, passive:true});
+  document.addEventListener("mouseout",e=>{ if(!cur) return; const to=e.relatedTarget;
+    if(to&&(cur.contains(to)||host(to)===cur)) return; off(); }, true);
+  addEventListener("scroll",off,{passive:true}); document.addEventListener("mousedown",off,true);
+  // 표 십자 강조 — 같은 표의 같은 칸 번호(colspan 이 없는 줄만)를 칠한다
+  let col=[];
+  const clear=()=>{ col.forEach(c=>c.classList.remove("xh-col")); col=[]; };
+  document.addEventListener("mouseover",e=>{
+    const td=e.target.closest&&e.target.closest("td,th"); if(!td){ clear(); return; }
+    const tb=td.closest("table"); if(!tb||tb.closest("[data-xh]")||tb.classList.contains("cal")){ clear(); return; }
+    const row=td.parentNode, idx=td.cellIndex, n=row.cells.length;
+    if(idx<1){ clear(); return; }                                   // 첫 칸(이름)은 행만
+    if(col.length&&col[0].cellIndex===idx&&col[0].closest("table")===tb) return;
+    clear();
+    [...tb.rows].forEach(r=>{ if(r.cells.length===n&&r.cells[idx]) { r.cells[idx].classList.add("xh-col"); col.push(r.cells[idx]); } });
+  }, true);
+  document.addEventListener("mouseleave",clear);
+})();
 // 첫 화면이 개요(해시 없음)면 보드를 그린다 — 트렌드 주입 IIFE 들이 파일 뒤쪽에도 있어 스크립트가 다 돈 뒤에
 function _uniInit(){ const ov=document.querySelector('section[data-view="overview"]'); if(ov&&ov.classList.contains("active")) renderUniBoard(); }
 if(document.readyState==="loading") addEventListener("DOMContentLoaded",_uniInit); else setTimeout(_uniInit,0);
@@ -9755,6 +9845,14 @@ function amztLine(el, series, o){
   ends.forEach(e=>{ s+=`<circle cx="${W-P.r+9}" cy="${(e.y-0.5).toFixed(1)}" r="4" fill="${e.c}"/>`
     +`<text x="${W-P.r+17}" y="${(e.y+3).toFixed(1)}" font-size="10.5" font-weight="700" fill="${txt}">${amztEsc(e.t)}</text>`; });
   el.innerHTML=s+"</svg>";
+  const XS=[...new Set(series.flatMap(se=>se.pts.filter(p=>p.x>=x0&&p.x<=x1&&p.y!=null).map(p=>p.x)))].sort((a,b)=>a-b);
+  const at=(se,x)=>se.pts.find(p=>p.x===x&&p.y!=null);
+  attachChartTip(el,{W,H,pad:P,n:XS.length,xOf:k=>sx(XS[k]), xLab:k=>amztMd(XS[k]),
+    yLab:Y=>{ const v=invLin(sy,Y); return o.rank?Math.round(v)+"위":o.yFmt(v); },
+    pts:k=>series.map(se=>{ const q=at(se,XS[k]); return q?{y:sy(q.y),c:se.color}:null; }),
+    html:k=>{ const rows=series.map(se=>({se,q:at(se,XS[k])})).filter(r=>r.q).sort((a,b)=>o.rank?a.q.y-b.q.y:b.q.y-a.q.y);
+      if(!rows.length) return null;
+      return `<div class="tt-h">${amztMd(XS[k])}</div>`+rows.map(r=>`<div class="tt-r"><span class="k"><span class="dot" style="background:${r.se.color};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${amztEsc(r.se.name)}</span><span class="v">${amztEsc(o.endFmt(r.q.y))}</span></div>`).join(""); }});
 }
 
 function renderAmzTrend(){
