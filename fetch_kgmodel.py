@@ -8,6 +8,9 @@
   seg   PC게임 · 모바일게임 매출 — 원문 'II. 사업의 내용 > 주요 제품 등의 현황'(누적 → 분기 차분)
   cost  영업비용 항목 — 원문 주석 '영업비용'(연결) · 3개월 칸. 사업보고서는 연간이라 4Q = 연간 − 1~3Q
         매출연동비 = 앱마켓·플랫폼 수수료 + 개발사 수익배분(주석 주1). 퍼블리셔라 매출을 총액으로 잡고 이걸 비용으로 낸다.
+  rk    게임별 한국 매출순위(2026-10-18 신설) — gamerscroll 게임 페이지. 최근 90일 **일별**(차트에 박힌 JSON) +
+        2025-12 부터 **월평균**(월별 추이 표). 일별은 매일 받아 쌓는다(90일 창이 밀려도 안 잃게). 200위 밖 = null.
+        화면이 이걸로 게임별 국내 매출을 세고, DART 모바일 실적 − 국내 게임 합 = 해외·기타로 둔다.
 
 ⚠ 2025 3Q 에 골프(카카오VX)·무선통신을 중단영업으로 뺐다. 2025 1Q·반기 원본은 골프가 섞여 있어
   **2026 보고서의 전기 비교치(재작성)를 우선**한다(fin 은 dart_quarters 가 이미 그렇게 한다).
@@ -16,13 +19,15 @@
   python fetch_kgmodel.py            # 수집·저장
   python fetch_kgmodel.py --dry-run  # 출력만
 """
-import datetime, html as _html, io, json, re, sys, urllib.request, zipfile
+import datetime, html as _html, io, json, re, sys, urllib.parse, urllib.request, zipfile
 
 import fetch_c2model as C2
 try:
-    from collector_health import note_health
+    from collector_health import note_health, ua, nap
 except Exception:
     def note_health(*a, **k): pass
+    def ua(**k): return {"User-Agent": "Mozilla/5.0"}
+    def nap(x): pass
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -37,6 +42,74 @@ COST = {
     "mkt": ("광고선전비",),
     "dep": ("감가상각비", "사용권자산상각비", "무형자산상각비"),
 }
+
+# 게임별 순위 — (키, 표시명, gamerscroll 주소 조각, 손익표 줄). 줄: dk 도깨비 · odin · uma · aaw · etc(기타 국내)
+# ⚠ 주소는 gamerscroll 게임 DB(/ko/games/) 목록에서 찾았다 — 아키에이지 워는 'archeage-war' 가 붙는다.
+#   새 게임이 나오면 여기 한 줄. 페이지가 아직 없으면(404) 조용히 건너뛴다(도깨비도 출시 열흘쯤 뒤에 생겼다).
+GAMES = [
+    ("dk",    "도깨비의세계",          "도깨비의세계",                  "dk"),
+    ("odin",  "오딘: 발할라 라이징",    "오딘-발할라-라이징",             "odin"),
+    ("uma",   "우마무스메",            "우마무스메-프리티-더비",          "uma"),
+    ("aaw",   "아키에이지 워",          "아키에이지-워-archeage-war",     "aaw"),
+    ("ares",  "아레스",               "아레스-라이즈-오브-가디언즈",       "etc"),
+    ("rom",   "롬(R.O.M)",            "롬-리멤버-오브-마제스티",          "etc"),
+    ("pcr",   "프린세스 커넥트",        "프린세스-커넥트-redive",          "etc"),
+    ("fpop",  "프렌즈팝콘",            "프렌즈팝콘",                    "etc"),
+    ("gt",    "가디언 테일즈",          "가디언-테일즈",                  "etc"),
+    ("es",    "에버소울",              "에버소울-eversoul",              "etc"),
+]
+RK_KEEP = 540          # 일별 보관 일수
+
+
+def game_ranks(slug):
+    """gamerscroll 게임 페이지 → ({날짜: [구글, 애플]}, {YYYY-MM: [구글, 애플]}). 없는 순위 = None."""
+    u = "https://gamerscroll.com/ko/games/" + urllib.parse.quote(slug) + "/"
+    t = urllib.request.urlopen(urllib.request.Request(u, headers=ua(doc=True)), timeout=25).read().decode("utf-8", "replace")
+    daily, monthly = {}, {}
+    m = re.search(r'\{"labels":\["\d{4}-\d{2}-\d{2}"', t)
+    if m:
+        o, _ = json.JSONDecoder().raw_decode(t[m.start():])
+        ser = {x["name"]: x["values"] for x in o.get("series", [])}
+        g, a = ser.get("구글플레이", []), ser.get("앱스토어", [])
+        for i, d in enumerate(o.get("labels", [])):
+            gv = g[i] if i < len(g) else None
+            av = a[i] if i < len(a) else None
+            daily[d] = [gv, av]
+    for tb in re.findall(r"<table[^>]*>(.*?)</table>", t, re.S | re.I):
+        rows = [[_html.unescape(re.sub(r"<[^>]+>", "", x)).strip()
+                 for x in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S | re.I)]
+                for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tb, re.S | re.I)]
+        rows = [r for r in rows if r]
+        if not rows or rows[0][0] != "월":
+            continue
+        for c in rows[1:]:
+            mm = re.match(r"(\d{4})년\s*(\d+)월", c[0])
+            if not mm or len(c) < 4:
+                continue
+            num = lambda x: float(x) if re.match(r"^\d+(\.\d+)?$", x) else None
+            monthly[f"{mm.group(1)}-{int(mm.group(2)):02d}"] = [num(c[3]), num(c[1])]    # [구글, 애플]
+    return daily, monthly
+
+
+def ranks(old_rk):
+    """게임별 순위를 받아 옛 일별 기록과 합친다. 실패한 게임은 옛 값을 그대로 둔다."""
+    out, bad = {}, []
+    for key, nm, slug, line in GAMES:
+        prev = (old_rk or {}).get(key) or {}
+        d, m = dict(prev.get("d") or {}), dict(prev.get("m") or {})
+        try:
+            dd, mm = game_ranks(slug)
+            d.update(dd)
+            m.update(mm)
+        except Exception as e:
+            if "404" not in str(e):
+                bad.append(f"{nm} {str(e)[:30]}")
+        nap(0.4)
+        if not d and not m:
+            continue
+        keep = sorted(d)[-RK_KEEP:]
+        out[key] = {"nm": nm, "line": line, "d": {k: d[k] for k in keep}, "m": dict(sorted(m.items()))}
+    return out, bad
 
 
 def reports():
@@ -96,6 +169,27 @@ def products(t):
             nums = [x for x in nums if x is not None and abs(x) >= 100]       # 비중(%) 칸은 버린다
             if nums:
                 out[key] = round(nums[0] / 1e3, 3)                             # 백만원 → 십억
+        if len(out) == 2:
+            break
+    return out if len(out) == 2 else None
+
+
+def region(t):
+    """'영업부문별 연결 매출실적' → {"ov": 해외 당기 누적, "dom": 국내} (십억). 첫 숫자 칸 = 당기."""
+    i = t.find("영업부문별 연결 매출실적")
+    if i < 0:
+        return None
+    out = {}
+    for c in _rows(t[i:i + 8000]):
+        for j, x in enumerate(c):
+            k = x.replace(" ", "")
+            key = "ov" if k == "해외" else "dom" if k == "국내" else None
+            if key and key not in out:
+                nums = [_n(y) for y in c[j + 1:]]
+                nums = [y for y in nums if y is not None]
+                if nums:
+                    out[key] = round(nums[0] / 1e3, 3)
+                break
         if len(out) == 2:
             break
     return out if len(out) == 2 else None
@@ -185,7 +279,7 @@ def main():
         reps = {}
         dead.append(f"보고서 목록: {str(e)[:60]}")
     for per, rc in sorted(reps.items()):
-        if src.get(per) == rc and per in raw:
+        if src.get(per) == rc and per in raw and "reg" in raw[per]:
             continue
         try:
             t = _doc(rc)
@@ -193,12 +287,12 @@ def main():
             warn.append(f"{per} 원문 실패")
             print(f"  [경고] {per} 원문 실패: {e}")
             continue
-        p, c = products(t), costs(t)
+        p, c, rg = products(t), costs(t), region(t)
         if not p:
             warn.append(f"{per} 주요제품 표 못 찾음")
         if not c:
             print(f"  [참고] {per} 영업비용 주석 못 찾음(옛 양식) — 다음 해 보고서의 전기 비교치로 채운다")
-        raw[per] = {"prod": p, "cost": list(c) if c else None}
+        raw[per] = {"prod": p, "cost": list(c) if c else None, "reg": rg}
         src[per] = rc
         print(f"  {per} {rc} · 제품 {p} · 비용 표 {len(c) if c else 0}개")
 
@@ -214,6 +308,19 @@ def main():
         if prev is None:
             continue
         seg[f"{y}Q{q}"] = {k: round(p[k] - prev[k], 2) for k in ("pc", "mob")}
+
+    # 분기 국내/해외 — 누적 차분(국내·해외 합 = 연결 매출)
+    reg = {}
+    for per in sorted(raw):
+        y, mm = per.split("-")
+        q = PERIOD[mm]
+        r = (raw[per] or {}).get("reg")
+        if not r:
+            continue
+        prev = (raw.get(f"{y}-{['', '03', '06', '09'][q - 1]}") or {}).get("reg") if q > 1 else {"ov": 0, "dom": 0}
+        if prev is None:
+            continue
+        reg[f"{y}Q{q}"] = {k: round(r[k] - prev[k], 2) for k in ("ov", "dom")}
 
     # 분기 비용 — 당기 3개월(분기보고서) · 전기 3개월(재작성 비교치가 우선) · 4Q = 연간 − 1~3Q
     cost, rest = {}, {}
@@ -256,6 +363,12 @@ def main():
             warn.append(f"{q} 비용 합 {s:.1f} ≠ 영업비용 {ox:.1f}")
         v.pop("tot", None)
 
+    rk, bad = ranks(old.get("rk"))
+    if bad:
+        warn.append("순위 " + " · ".join(bad))
+    if len(bad) > len(GAMES) // 2:
+        rk = old.get("rk") or rk
+
     if not fin:
         note_health("카카오게임즈 모델", ("재료 수집 실패: " + " · ".join(dead + warn))[:160])
         print("[kgmodel] 실패 — " + " · ".join(dead + warn))
@@ -263,14 +376,17 @@ def main():
     note_health("카카오게임즈 모델", (" · ".join(dead + warn))[:160] if (dead or warn) else None)
 
     out = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "stock": "카카오게임즈",
-           "fin": fin, "seg": dict(sorted(seg.items())), "cost": dict(sorted(cost.items())), "src": src, "raw": raw}
+           "fin": fin, "seg": dict(sorted(seg.items())), "cost": dict(sorted(cost.items())), "reg": dict(sorted(reg.items())), "src": src, "raw": raw, "rk": rk}
+    for k, v in rk.items():
+        ds = sorted(v["d"])
+        print(f"  순위 {v['nm']:12s} 일별 {len(ds)}일 {ds[0] if ds else '-'}~{ds[-1] if ds else '-'} · 최근 {v['d'][ds[-1]] if ds else '-'} · 월 {len(v['m'])}")
     for q in sorted(fin)[-6:]:
-        print(f"  {q} 연결 {fin[q]} · 부문 {seg.get(q)} · 비용 {cost.get(q)}")
+        print(f"  {q} 연결 {fin[q]} · 부문 {seg.get(q)} · 국내/해외 {reg.get(q)} · 비용 {cost.get(q)}")
     if warn:
         print("  경고: " + " · ".join(warn))
     if "--dry-run" in sys.argv:
         return
-    if old and all(old.get(k) == out.get(k) for k in ("fin", "seg", "cost")):
+    if old and all(old.get(k) == out.get(k) for k in ("fin", "seg", "cost", "rk", "reg")):
         print("변동 없음 — index.html 그대로 둠")
         return
     open(HTML, "w", encoding="utf-8", newline="").write(C2._put(html, "KGMODEL", out))
