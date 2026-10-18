@@ -1,4 +1,4 @@
-{"v":1,"note":"한국 브랜드 ASIN 마스터 — [asin, 브랜드 번호(config.brands), 제목 64자, 처음 본 날]. 번호=위치. 맨 뒤에만 붙인다.","n":1170,"list":[
+{"v":1,"note":"한국 브랜드 ASIN 마스터 — [asin, 브랜드 번호(config.brands), 제목 64자, 처음 본 날]. 번호=위치. 맨 뒤에만 붙인다.","n":1184,"list":[
 ["B09V7Z4TJG",0,"medicube Toner Pads Zero Pore Pad 2.0 for Exfoliation and Pore C","2026-10-09"],
 ["B0B2RM68G2",66,"BIODANCE Bio-Collagen Real Deep Mask, Hydrating Overnight Hydrog","2026-10-09"],
 ["B0GHMZXX8Y",0,"medicube PDRN Collagen Volume Multi Balm Stick, Firming Face Bod","2026-10-09"],
@@ -1168,5 +1168,19 @@
 ["B0FBM28K9X",94,"BANILA CO Clean It Zero Pore Clarifying Balm Duo 180ml + 100ml K","2026-10-18"],
 ["B0DDSKC3X2",157,"Ariul Apple Cider All Kill Cleansing Bubble Pad - Exfoliating Wi","2026-10-18"],
 ["B0GPQ897NW",59,"ROUND LAB Dokdo 2-Step Pore Purifying Cleanser Duo 1025 Dokdo Cl","2026-10-18"],
-["B0899J3GHY",84,"ohora Semi Cured Gel Pedi Strips (P Blaze) - Red, Solid, Works w","2026-10-18"]
+["B0899J3GHY",84,"ohora Semi Cured Gel Pedi Strips (P Blaze) - Red, Solid, Works w","2026-10-18"],
+["B01MRGRL17",46,"THE SAEM Cover Perfection Tip Concealer - Highlighting Concealer","2026-10-19"],
+["B0DW47F2PC",57,"TIRTIR Mask Fit Ai Filter Cushion Foundation AI-Like Semi-Matte","2026-10-19"],
+["B0GH5DDH2C",69,"fwee Rose Obsession Stay-Fit Lip Tint GW01 HONEY ROSE Rosy Vibes","2026-10-19"],
+["B0GRGJMMWY",23,"HINCE Nu Blur Tint - Creamy Velvet Matte Lip Tint with Soft-Focu","2026-10-19"],
+["B0GLMKTJYP",94,"BANILA CO Cover Lip Base - Lip Color Corrector, Full Gray (0.06","2026-10-19"],
+["B0H4Q6J1MC",73,"celimax The Vita-A Retinal Shot Tightening 2-Step Gel Mask (4ea)","2026-10-19"],
+["B0H5X8VLH4",36,"TONYMOLY Hand Cream, Shea Butter Vitamin E Formula for Dry Hands","2026-10-19"],
+["B0F17N45T9",82,"SOME BY MI V10 Hyal Lip Sun Protector Clear - Pack of 2, 0.46oz","2026-10-19"],
+["B0CZF22BLD",98,"MAKE P:REM Soothing Pink Tone Up Sunscreen, SPF 50+, 1.69 fl.oz.","2026-10-19"],
+["B0DCJG838Y",137,"COSNORI Intensive Eyelash Serum - Korean Eyelash Root Care Serum","2026-10-19"],
+["B0H1GWQG1W",118,"Cell Fusion C BB Cream Puff Duo (No.23), Easy and Buildable Cove","2026-10-19"],
+["B0D95THYZ1",18,"AMOS PROFESSIONAL Green Tea Active Shampoo l Anti-Aging for Fine","2026-10-19"],
+["B07DYLQVVT",110,"MEDI-PEEL Naite Thread Neck Cream Anti-Ageing Anti-Wrinkle Neck","2026-10-19"],
+["B0DHRZHJ31",57,"TIRTIR Hydro UV Shield Sunscreen SPF 50+ Broad Spectrum UVA UVB","2026-10-19"]
 ]}

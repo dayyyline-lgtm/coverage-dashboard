@@ -1,4 +1,4 @@
-{"v":1,"note":"아마존 7개국 뷰티 Top100 의 한국 브랜드 ASIN 마스터(lists.js) — [asin, 브랜드 번호(subcat/config.json brands), 제목 64자, 처음 본 날]. 번호=위치. 맨 뒤에만 붙인다.","n":1189,"list":[
+{"v":1,"note":"아마존 7개국 뷰티 Top100 의 한국 브랜드 ASIN 마스터(lists.js) — [asin, 브랜드 번호(subcat/config.json brands), 제목 64자, 처음 본 날]. 번호=위치. 맨 뒤에만 붙인다.","n":1192,"list":[
 ["B09V7Z4TJG",0,"medicube Toner Pads Zero Pore Pad 2.0 for Exfoliation and Pore C","2026-10-09"],
 ["B0B2RM68G2",66,"BIODANCE Bio-Collagen Real Deep Mask, Hydrating Overnight Hydrog","2026-10-09"],
 ["B0GHMZXX8Y",0,"medicube PDRN Collagen Volume Multi Balm Stick, Firming Face Bod","2026-10-09"],
@@ -1187,5 +1187,8 @@
 ["B0HJ18TGTW",61,"Laka Raka Devil Melting Lip (#03, Honey) Lipstick, Color: Syrup","2026-10-18"],
 ["B0C2TT4XP6",34,"VTCOSMETICS Reedle Shot Pore Firmness Skincare Serum Essence (3.","2026-10-18"],
 ["B0BK87QVSX",65,"ANUA Heartleaf Toner 77 Soothing Toner, 8.5 fl oz (250 ml), Wipi","2026-10-18"],
-["B0CLXNBVBL",65,"ANUA Retinol 0.3 Niacin Serum 30ml Retinol Serum for Pores, Hydr","2026-10-18"]
+["B0CLXNBVBL",65,"ANUA Retinol 0.3 Niacin Serum 30ml Retinol Serum for Pores, Hydr","2026-10-18"],
+["B0FJLNLKSJ",35,"d'alba Piedmont White Truffle Intensive The Real Eye Pads (Pack","2026-10-19"],
+["B07TXV26WD",125,"[Mizon] Collagen Power Lifting Cream (75ml) Intensive Moisturizi","2026-10-19"],
+["B07TYYWS3F",125,"[MIZON] Collagen 100 (30ml) Collagen Serum, Intensive Treatment","2026-10-19"]
 ]}
