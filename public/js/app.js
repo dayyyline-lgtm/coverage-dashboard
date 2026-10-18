@@ -162,17 +162,35 @@ function pickPill(r){ return pill(sectorPickOf(r),false); }
 /* ==== tabs / routing ==== */
 
 const tabsEl = document.getElementById("tabs");
-tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}">${l}</button>`).join("");
+/* 주 탭 다섯만 늘 보이고, 나머지는 '더보기'로 접는다(2026-10-18 · 사용자 "섹션이 너무 많다 — 없애진 말고 원할 때").
+   접힌 탭도 주소(#amazon 등)·종목 페이지 링크로는 그대로 열리고, 지금 그 탭에 있으면 줄에 보인다. */
+const TAB_MAIN=new Set(["overview","coverage","preview","calendar","trends"]);
+tabsEl.innerHTML = TABS.map(([k,l],i)=>`<button data-k="${k}" class="${i===0?'active':''}${TAB_MAIN.has(k)?'':' tab-more'}">${l}</button>`).join("")
+  + `<button class="tab-moreBtn" data-more="1" title="덜 쓰는 탭(밸류에이션·뉴스·리포트·탑툰챗·영화·수출·아마존)">더보기 ▾</button>`;
+function syncTabMore(open){ tabsEl.classList.toggle("show-more",open);
+  const mb=tabsEl.querySelector("[data-more]"); if(mb) mb.textContent=open?"접기 ▴":"더보기 ▾"; }
+try{ syncTabMore(localStorage.getItem("tabMore")==="1"); }catch(e){ syncTabMore(false); }
 
 /* 탭 전환의 실체. 클릭·주소창·뒤로가기가 전부 여기로 모인다.
    scroll=false 는 '첫 로드에 주소의 탭을 여는' 경우 — 그때는 이미 맨 위다. */
 function activateTab(k, scroll){
+  k=decodeURIComponent(k||"");
+  // #stock/<이름> — 종목 페이지(2026-10-18). 탭 줄에는 없는 화면이다.
+  if(k.startsWith("stock/")){
+    const nm=k.slice(6); if(typeof byName==="undefined"||!byName[nm]) return false;
+    document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view==="stock"));
+    renderStockPage(nm);
+    window.scrollTo({top:0});
+    return true;
+  }
+  if(typeof spReturnAll==="function") spReturnAll();  // 종목 페이지가 빌려 간 모델 섹션을 제자리로
   // #boxoffice — 2026-09-07 에 트렌드 탭(SAMG)으로 접었다가 2026-09-26 '영화 흥행' 탭으로 되살렸다
   // (치이카와 + 흥행작 비교). 하츄핑 보관 기록은 트렌드 탭 SAMG 섹션에 그대로 있다.
   if(!TABS.some(([t])=>t===k)) return false;         // 주소에 엉뚱한 값이 와도 무시
   document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("active",x.dataset.k===k));
   document.querySelectorAll("section.view").forEach(v=>v.classList.toggle("active",v.dataset.view===k));
-  if(k==="overview"){ drawSectorTrend(); renderHeatmap(); }
+  if(k==="overview"){ renderUniBoard(); drawSectorTrend(); renderHeatmap(); }
   if(k==="valuation") drawScatter();
   if(k==="amazon") renderAmazon();
   if(k==="trends"){ renderBuzz(); const _t=renderTrendHighlights(); if(!trendGroup && _t && _t[0]){ trendStock=_t[0].stock; trendGroup=_t[0].gname; renderTrendSegs(); } renderTrendSegs(); drawTrend(); setTrendFoot(); renderGameEst(); renderMovie(); renderOliveYoung(); renderJobs(); }
@@ -194,6 +212,8 @@ function activateTab(k, scroll){
    hash 를 바꾸면 hashchange 가 뜨고 거기서 화면을 바꾼다(경로가 하나로 모인다). */
 tabsEl.addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.more){ const open=!tabsEl.classList.contains("show-more"); syncTabMore(open);
+    try{ localStorage.setItem("tabMore",open?"1":"0"); }catch(_){} if(typeof syncTabOverflow==="function") syncTabOverflow(); return; }
   if(location.hash.slice(1)===b.dataset.k) activateTab(b.dataset.k);   // 같은 탭 재클릭
   else location.hash = b.dataset.k;
 });
@@ -6467,8 +6487,8 @@ function renderGameEst(){
 /* 트렌드 탭 상단 '주목할 추이' — 모든 계열을 훑어 상위 몇 개를 칩으로(클릭 시 이동).
    앨범판매(스택)는 0→대량이라 %가 무의미 → 최신 기간 '신보'(그 아티스트 신고점, 10만장+)를
    절대수로. 그 외(검색·동접·청취자)는 기준선이 충분(자기 고점의 15%+)할 때만 % 를 쓴다. */
-function renderTrendHighlights(){
-  const box=document.getElementById("trendHighlights"); if(!box) return;
+/* 점수 계산만 따로 — 유니버스 보드(종목별 '트렌드 급변' 배지)도 같은 점수를 쓴다(2026-10-18). */
+function trendCands(){
   const g2s={}; Object.entries(TREND_STOCK).forEach(([st,gs])=>gs.forEach(g=>{ if(!g2s[g]) g2s[g]=st; }));
   const U={date:{u:"전일",n:7,unit:"일"},week:{u:"전주",n:4,unit:"주"},month:{u:"전월",n:3,unit:"개월"}};
   const cands=[];
@@ -6546,6 +6566,12 @@ function renderTrendHighlights(){
     if(best) cands.push({gname,stock,...best});
   });
   cands.sort((a,b)=>b.score-a.score);
+  return cands;
+}
+function renderTrendHighlights(){
+  const box=document.getElementById("trendHighlights"); if(!box) return;
+  const U={date:{u:"전일",n:7,unit:"일"},week:{u:"전주",n:4,unit:"주"},month:{u:"전월",n:3,unit:"개월"}};
+  const cands=trendCands();
   const per={}, top=[];
   for(const c of cands){ if((per[c.stock]||0)>=2) continue; per[c.stock]=(per[c.stock]||0)+1; top.push(c); if(top.length>=5) break; }
   const shortG=g=>g.replace(/\([^)]*\)/,"").replace(/앨범판매/,"앨범").replace(/월간청취자/,"청취자").trim();
@@ -8719,9 +8745,302 @@ function drawQuarter(qs){
   s+="</svg>";
   box.innerHTML=s;
 }
+/* ══════════ 유니버스 보드 + 종목 페이지 (2026-10-18) ═══════════════════════════════
+   사용자: "탑다운으로 — 유니버스에서 전체 종목을 조망하고, 특이 트렌드·20일/60일/52주 신고가가 뜬 종목을 강조,
+   궁금하면 눌러서 IS·특이 트렌드·리포트·리비전·뉴스까지" + "섹션이 너무 많으니 강조를 덜하고 원할 때 확인하게
+   (진짜 없애진 말고) — 아침에 간략하게 보고 원하면 자세히".
+   · 개요 탭 맨 위 = 보드(#uniBoard). 나머지 개요 블록(포트폴리오·한눈에 보기·탑픽 카드·히트맵)은 접힘(.fold).
+   · 종목을 누르면(어디서든 [data-stock]) 전용 페이지 #stock/<이름> — 옛 오른쪽 상세 창(openStock)을 대신한다.
+     페이지 탭: 손익(IS) · 트렌드 · 리포트·리비전 · 뉴스·공시. 분기 모델이 있는 종목(컴투스·카카오게임즈·대원미디어·펄어비스)은
+     그 섹션을 손익 탭으로 **빌려 온다**(DOM 이동 — 다른 화면으로 가면 원래 자리로 돌려놓는다. spBorrow/spReturnAll).
+   · 신호 = 사용자가 고른 두 가지: ① 종가 신고가·신저가(20·60일·52주) ② 트렌드 급변(트렌드 탭 '주목할 추이' 점수). */
+
+/* 가격 신호 — LIVE.stocks[이름].px = 최근 260거래일 종가(refresh_live 의 deep 회차), pxd = 마지막 종가 날짜.
+   마지막 종가가 지금 가격과 같으면(오늘 장중 일봉이거나 휴장일) 그 값을 빼고 지금 가격으로 판정한다.
+   신고가 = 지금 가격 ≥ 직전 N−1 거래일 종가의 최고(오늘 포함 N일 최고). 긴 창부터 본다(52주 > 60일 > 20일). */
+const PX_WIN=[[250,"52주"],[60,"60일"],[20,"20일"]];
+function pxSig(name){
+  const L=(LIVE.stocks||{})[name]; if(!L||!L.px||L.px.length<21||!L.price) return null;
+  let prior=L.px.slice();
+  if(L.pxd===TODAY_C||prior[prior.length-1]===L.price) prior=prior.slice(0,-1);
+  const p=L.price, out={hi:null, lo:null, ser:prior.concat([p])};
+  for(const [n,lab] of PX_WIN){
+    if(prior.length<n-1) continue;
+    const w=prior.slice(-(n-1));
+    if(!out.hi&&p>=Math.max(...w)) out.hi={n,lab};
+    if(!out.lo&&p<=Math.min(...w)) out.lo={n,lab};
+  }
+  return out;
+}
+/* 트렌드 신호 — 트렌드 탭과 같은 점수(trendCands). 보드는 종목마다 가장 센 것 하나 + 나머지 개수.
+   보드는 아침에 훑는 자리라 잡음을 더 뺀다(2026-10-18 실측 45종목 중 25개가 걸려서 조였다 → 14개):
+   · 참고 지표(topicTier 3 — 채용·갤 순위·캐릭터별·경쟁·거래순위)와 극장 관객(비교작이 섞인다)은 뺀다
+   · 순위는 100위 안에서 움직인 것만(200위권 안팎의 수십 칸 이동은 바닥 잡음)
+   · −100% = 값이 0 으로 떨어진 것(대개 구글 임계 미만·수집 공백)이라 뺀다
+   · 점수 60 이상 — 주간 ±60% · 기간 최고 + 35% · 순위 15칸(상위 30 목록은 4배 가중) 등 */
+const UNI_TREND_MIN=60;
+let _uniTrend=null;
+function uniTrendOK(c){ return topicTier(c.gname)<3 && !/극장/.test(c.gname) && !(c.rank!=null&&c.rank>100)
+  && !(c.wow!=null&&c.wow<=-99) && !(c.win!=null&&c.win<=-99); }
+function uniTrendBy(){ if(_uniTrend) return _uniTrend; const by={};
+  (typeof trendCands==="function"?trendCands():[]).forEach(c=>{ if(c.score<UNI_TREND_MIN||!uniTrendOK(c)) return; (by[c.stock]=by[c.stock]||[]).push(c); });
+  return (_uniTrend=by); }
+function trendChipTxt(c){
+  const U={date:{n:7,unit:"일"},week:{n:4,unit:"주"},month:{n:3,unit:"개월"}};
+  if(c.album) return {icon:"🚀", up:true, chg:"신보 "+(c.fmt?c.fmt(c.val):c.val.toLocaleString())};
+  if(c.rank!=null){ const up=c.drank>0; return {icon:(c.rank<=10&&up)?"🚀":up?"🔥":"🧊", up, chg:`${c.rank}위 ${up?"▲":"▼"}${Math.abs(c.drank)}`}; }
+  const u=U[c.freq]||U.week, useWin=c.win!=null&&Math.abs(c.win)>=Math.abs(c.wow||0);
+  const v=useWin?c.win:(c.wow!=null?c.wow:null), up=(v==null||v>=0);
+  const lw=c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
+  return {icon:(c.isHigh&&up)?"🚀":up?"🔥":"🧊", up, chg:v==null?(c.wk?"주간 최고":"신고점"):(useWin?lw:lm)+`${v>=0?"+":""}${v.toFixed(0)}%`};
+}
+const sigPill=(t,kind,title)=>`<span class="sig sig-${kind}"${title?` title="${attr(title)}"`:""}>${t}</span>`;
+function uniSignals(name){
+  const ps=pxSig(name), tr=uniTrendBy()[name]||[], out=[];
+  if(ps&&ps.hi) out.push({k:"hi", n:ps.hi.n, html:sigPill(`${ps.hi.lab} 신고가`,"hi",`종가 기준 — 지금 가격이 최근 ${ps.hi.n}거래일 종가 최고`)});
+  if(ps&&ps.lo) out.push({k:"lo", n:ps.lo.n, html:sigPill(`${ps.lo.lab} 신저가`,"lo",`종가 기준 — 지금 가격이 최근 ${ps.lo.n}거래일 종가 최저`)});
+  if(tr.length){ const c=tr[0], t=trendChipTxt(c);
+    out.push({k:"tr", html:sigPill(`${t.icon} ${attr(c.prod)} <b class="${t.up?"up":"down"}">${t.chg}</b>`,"tr",`${c.gname}${tr.length>1?` 외 ${tr.length-1}건`:""} — 누르면 종목 페이지 트렌드`)+(tr.length>1?`<span class="sig-more">+${tr.length-1}</span>`:"")}); }
+  return out;
+}
+function sparkSvg(ser, w, h, hiN){
+  const s=(ser||[]).filter(v=>v!=null); if(s.length<2) return "";
+  const mx=Math.max(...s), mn=Math.min(...s), sx=i=>i/(s.length-1)*w, sy=v=>h-1-((v-mn)/((mx-mn)||1))*(h-2);
+  const d=s.map((v,i)=>(i?"L":"M")+sx(i).toFixed(1)+","+sy(v).toFixed(1)).join("");
+  const last=s[s.length-1], first=s[0], col=last>=first?"var(--up)":"var(--down)";
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block">`
+    +(hiN?`<line x1="0" x2="${w}" y1="${sy(mx).toFixed(1)}" y2="${sy(mx).toFixed(1)}" stroke="var(--muted2)" stroke-dasharray="2 2" stroke-opacity=".6"/>`:"")
+    +`<path d="${d}" fill="none" stroke="${col}" stroke-width="1.4" stroke-linejoin="round"/><circle cx="${sx(s.length-1).toFixed(1)}" cy="${sy(last).toFixed(1)}" r="1.8" fill="${col}"/></svg>`;
+}
+
+let uniFilter="";
+try{ uniFilter=localStorage.getItem("uniFilter")||""; }catch(e){}
+function renderUniBoard(){
+  const box=document.getElementById("uniBoard"); if(!box) return;
+  _uniTrend=null;
+  const rows=R.map(r=>({r, sig:uniSignals(r.name), ps:pxSig(r.name)}));
+  const has=(x,k)=>x.sig.some(s=>s.k===k);
+  const cnt={all:rows.length, any:rows.filter(x=>x.sig.length).length, hi:rows.filter(x=>has(x,"hi")).length,
+    lo:rows.filter(x=>has(x,"lo")).length, tr:rows.filter(x=>has(x,"tr")).length};
+  const hiBy=n=>rows.filter(x=>x.sig.some(s=>s.k==="hi"&&s.n===n)).length;
+  const keep=x=>!uniFilter||(uniFilter==="any"?x.sig.length>0:has(x,uniFilter));
+  const F=[["","전체",cnt.all],["any","신호 있는 종목",cnt.any],["hi","신고가",cnt.hi],["lo","신저가",cnt.lo],["tr","트렌드 급변",cnt.tr]];
+  const pxOK=rows.some(x=>x.ps);
+  let h=`<div class="uni-top">
+    <div class="uni-sum">${pxOK?`<span><b class="up">신고가 ${cnt.hi}</b> <span class="g">(52주 ${hiBy(250)} · 60일 ${hiBy(60)} · 20일 ${hiBy(20)})</span></span>
+      <span><b class="down">신저가 ${cnt.lo}</b></span>`:`<span class="g">신고가·신저가는 다음 시세 수집(그날 첫 회차) 뒤에 뜬다</span>`}
+      <span><b style="color:var(--accent)">트렌드 급변 ${cnt.tr}</b></span>
+      <span class="g">시세 ${fmtUpd(LIVE.asOf)} · 트렌드 ${fmtUpd(TREND.asOf)}</span></div>
+    <div class="seg" id="uniSeg">${F.map(([k,l,n])=>`<button data-uf="${k}" class="${uniFilter===k?"active":""}">${l} <span class="g">${n}</span></button>`).join("")}</div>
+  </div>
+  <div class="tbl-wrap"><table class="uni-t"><thead><tr><th class="l">종목</th><th>현재가</th><th>오늘</th><th>1주</th><th>1개월</th><th class="hx">3개월</th>
+    <th class="hx" title="52주 저점(0%)~고점(100%) 사이 지금 위치">52주 위치</th><th class="l hx">최근 60일</th><th class="l hx">신호</th></tr></thead><tbody>`;
+  let shown=0;
+  SECTORS.forEach(sec=>{
+    const subs=[..._subsBySec[sec]];
+    subs.forEach(sub=>{
+      const rs=rows.filter(x=>x.r.sector===sec&&x.r.sub===sub&&keep(x)).sort((a,b)=>(mcJo(b.r)||0)-(mcJo(a.r)||0));
+      if(!rs.length) return;
+      const col=catColor(subs.length>1?sub:sec);
+      h+=`<tr class="uni-sec"><td colspan="9" style="border-left:3px solid ${col}"><span style="color:color-mix(in srgb, ${col} 62%, var(--text))">${sec}${subs.length>1?` · ${sub}`:""}</span> <span class="g">${rs.length}</span></td></tr>`;
+      rs.forEach(x=>{ const r=x.r; shown++;
+        const pos=r.w52pos!=null?Math.max(0,Math.min(100,r.w52pos)):null;
+        const ret=v=>v==null?`<span class="g">—</span>`:`<span class="${cls(v)}">${sign(v,1)}%</span>`;
+        h+=`<tr class="uni-r${x.sig.length?" uni-hot":""}" data-stock="${attr(r.name)}" title="눌러서 ${attr(r.name)} 종목 페이지">
+          <td class="l uni-nm"><b>${r.name}</b>${r.pick2?` <span class="uni-pk">${r.pick2==="Top pick"?"★":"☆"}</span>`:""}${x.sig.length?`<div class="uni-sig-m">${x.sig.map(s=>s.html).join("")}</div>`:""}</td>
+          <td>${won(r.price)}</td><td>${ret(r.chgPct)}</td><td>${ret(r.ret1w)}</td><td>${ret(r.ret1m)}</td><td class="hx">${ret(r.ret3m)}</td>
+          <td class="hx">${pos==null?"—":`<span class="uni-pos"><i style="left:${pos.toFixed(0)}%"></i></span>`}</td>
+          <td class="l hx">${x.ps?sparkSvg(x.ps.ser.slice(-61),96,22,1):""}</td>
+          <td class="l uni-sig hx">${x.sig.map(s=>s.html).join("")}</td></tr>`; });
+    });
+  });
+  if(!shown) h+=`<tr><td colspan="9" class="g" style="text-align:center;padding:18px">이 신호가 뜬 종목이 없습니다</td></tr>`;
+  h+=`</tbody></table></div>
+  <p class="note">종목을 누르면 종목 페이지(손익·트렌드·리포트·리비전·뉴스). 신고가·신저가 = <b>종가 기준</b>, 지금 가격이 최근 20·60·250거래일 종가의 최고·최저(긴 창을 먼저 표시).
+    트렌드 급변 = 트렌드 탭 '주목할 추이'와 같은 점수(검색·앱순위·동접·시청·아마존 등이 이번 주 지난주보다 크게 움직였거나 기간 최고) ${UNI_TREND_MIN}점 이상 —
+    채용·갤 순위 같은 참고 지표와 100위 밖 순위 이동은 뺐다(종목 페이지 트렌드 탭엔 다 있다).
+    ★ 탑픽 · ☆ 2nd pick. 52주 위치 막대의 점 = 저점~고점 사이 지금 가격.</p>`;
+  box.innerHTML=h;
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("#uniSeg [data-uf]"); if(!b) return;
+  uniFilter=b.dataset.uf; try{ localStorage.setItem("uniFilter",uniFilter); }catch(_){} renderUniBoard(); });
+
+/* ── 종목 페이지 ───────────────────────────────────────────────── */
+const SP_MODEL={"컴투스":"c2Sec","카카오게임즈":"kgSec","대원미디어":"dwSec","펄어비스":"geSec"};
+const SP_DEEP={"대원미디어":[["boxoffice","🎬 영화 흥행 탭"]],"탑코미디어":[["toptoon","💬 탑툰챗 탭"]],
+  "에이피알":[["amazon","🛒 아마존 Top100"]],"달바글로벌":[["amazon","🛒 아마존 Top100"]],"아모레퍼시픽":[["amazon","🛒 아마존 Top100"]],
+  "LG생활건강":[["amazon","🛒 아마존 Top100"]],"TS트릴리온":[["amazon","🛒 아마존 Top100"]],"아로마티카":[["amazon","🛒 아마존 Top100"]]};
+const spHome={};
+function spBorrow(id, host){
+  const el=document.getElementById(id); if(!el||!host) return null;
+  if(!spHome[id]){ const ph=document.createComment("sp-home:"+id); el.parentNode.insertBefore(ph, el); spHome[id]=ph; }
+  if(el.parentNode!==host) host.appendChild(el);
+  return el;
+}
+function spReturnAll(){ Object.keys(spHome).forEach(id=>{ const el=document.getElementById(id), ph=spHome[id];
+  if(el&&ph.parentNode&&el.previousSibling!==ph) ph.parentNode.insertBefore(el, ph.nextSibling); }); }
+let spTab="is", spFrom="overview";
+try{ spTab=localStorage.getItem("spTab")||"is"; }catch(e){}
+function openStockPage(name){ if(!byName[name]) return;
+  const cur=decodeURIComponent(location.hash.slice(1));
+  if(!cur.startsWith("stock/")) spFrom=cur||"overview";
+  location.hash="stock/"+encodeURIComponent(name); }
+function spNews(name){
+  const items=((typeof NEWS!=="undefined"&&NEWS.items)||[]).filter(n=>(n.co||[]).includes(name)||_newsTitleHit(n.t,name));
+  return items.sort((a,b)=>String(b.d).localeCompare(String(a.d)));
+}
+function spEvents(name){
+  return (typeof CAL!=="undefined"?CAL:[]).filter(e=>e.co===name).sort((a,b)=>String(b.d).localeCompare(String(a.d)));
+}
+function renderStockPage(name){
+  const box=document.getElementById("spBox"), r=byName[name]; if(!box||!r) return;
+  spReturnAll();
+  const L=(LIVE.stocks||{})[name]||{}, sig=uniSignals(name), ps=pxSig(name), th=thesisByName[name];
+  const topics=topicsOf(name), reps=(LIVE.researches||[]).filter(x=>x.co===name), news=spNews(name), evs=spEvents(name);
+  const RV=(typeof REVISION!=="undefined"&&REVISION.stocks)?REVISION.stocks[name]:null;
+  const TABS_SP=[["is","손익(IS)",""],["trend","트렌드",topics.length||""],["rep","리포트·리비전",(reps.length||"")+(RV?" · 리비전":"")],["news","뉴스·공시",(news.length+evs.length)||""]];
+  if(!TABS_SP.some(t=>t[0]===spTab)) spTab="is";
+  const fromLab=(TABS.find(t=>t[0]===spFrom)||["","유니버스"])[1];
+  const kv=(l,v,c)=>`<div class="sp-kv"><div class="l">${l}</div><div class="v${c?" "+c:""}">${v}</div></div>`;
+  const ret=v=>v==null?"—":`<span class="${cls(v)}">${sign(v,1)}%</span>`;
+  box.innerHTML=`<div class="sp-head">
+      <button class="theme-btn sp-back" id="spBack" title="돌아가기">← ${fromLab==="개요"?"유니버스":fromLab}</button>
+      <div class="sp-ttl"><div class="dsec">${r.sector} · ${r.sub}${r.code?` · ${r.code} ${r.mkt||""}`:""}</div>
+        <div class="dnm">${stockLogo(name)}${name} ${ratingBadge(r.score)} ${pickPill(r)}</div></div>
+      <div class="sp-px"><div class="p">${won(r.price)}<span class="u">원</span></div>
+        <div class="${cls(r.chgPct)}" style="font-weight:800">${r.chgPct!=null?sign(r.chgPct,2)+"%":""}</div></div>
+    </div>
+    ${sig.length?`<div class="sp-sig">${sig.map(s=>s.html).join("")}</div>`:""}
+    ${(r.pick2&&th)?`<div class="pick-why"><b>${r.pick2} 근거</b> ${th}</div>`:(th?`<div class="dthesis">${th}</div>`:"")}
+    <div class="sp-strip">
+      ${kv("시가총액",`${eok(mcJo(r),10000)}억`)}
+      ${kv("목표가(컨센)",won(r.target))}${kv("컨센 상승여력",r.upsideCons!=null?sign(r.upsideCons)+"%":"—",cls(r.upsideCons))}
+      ${kv("적정시총(당사)",r.fairMktcap?`${eok(r.fairMktcap,10)}억`:"—")}${kv("당사 상승여력",r.upsideOwn!=null?sign(r.upsideOwn)+"%":"—",cls(r.upsideOwn))}
+      ${kv("PER 26E / 27E",`${r.per26>0?fmt(r.per26)+"x":"—"} / ${r.per27>0?fmt(r.per27)+"x":"—"}`)}
+      ${kv("1주 · 1개월",`${ret(r.ret1w)} · ${ret(r.ret1m)}`)}${kv("3개월 · YTD",`${ret(r.ret3m)} · ${ret(r.retYtd)}`)}
+      ${kv("52주 위치",r.w52pos!=null?`${fmt(r.w52pos,0)}% <span class="g" style="font-size:11px">(${won(r.w52l)}~${won(r.w52h)})</span>`:"—")}
+      ${kv("외국인",r.foreign>0?fmt(r.foreign)+"%":"—")}
+    </div>
+    ${ps?`<div class="sp-chart" title="최근 260거래일 종가 · 점선 = 구간 최고">${sparkSvg(ps.ser,720,70,1).replace('width="720"','width="100%"').replace('<svg ','<svg preserveAspectRatio="none" ')}</div>`:""}
+    <div class="seg sp-tabs" id="spTabs">${TABS_SP.map(([k,l,n])=>`<button data-sp="${k}" class="${spTab===k?"active":""}">${l}${n!==""?` <span class="g">${n}</span>`:""}</button>`).join("")}
+      ${(SP_DEEP[name]||[]).map(([k,l])=>`<button data-spgo="${k}" style="margin-left:auto">${l} →</button>`).join("")}</div>
+    <div id="spBody"></div>`;
+  document.getElementById("spBack").onclick=()=>{ location.hash=spFrom||"overview"; };
+  renderStockTab(name);
+}
+function renderStockTab(name){
+  const body=document.getElementById("spBody"), r=byName[name]; if(!body||!r) return;
+  spReturnAll();
+  document.querySelectorAll("#spTabs [data-sp]").forEach(b=>b.classList.toggle("active",b.dataset.sp===spTab));
+  if(spTab==="is"){
+    const CS=(LIVE.stocks[name]||{}).cons||{};
+    const A=((CS.year||{}).series||[]).map(s=>({y:s.t.slice(0,4)+(s.e?"E":"A"), rev:s.rev, op:s.op, eps:s.eps, opm:s.opm}));
+    if(r.rev27!=null||r.op27!=null||r.eps27!=null) A.push({y:"2027E", rev:r.rev27, op:r.op27, eps:r.eps27, opm:null});
+    const Qs=((CS.quarter||{}).series||[]).map(s=>({q:`${Math.ceil(+s.k.slice(4,6)/3)}Q${s.k.slice(2,4)}${s.e?"E":""}`, rev:s.rev, op:s.op}));
+    const yoy=(arr,key,i)=>(i>0&&arr[i-1][key]>0&&arr[i][key]!=null)?(arr[i][key]/arr[i-1][key]-1)*100:null;
+    const opmOf=a=>(a.opm!=null?a.opm:(a.rev?a.op/a.rev*100:null));
+    const pc=v=>v==null?"—":`<span class="${cls(v)}">${sign(v,0)}%</span>`;
+    const mid=SP_MODEL[name];
+    body.innerHTML=(mid?`<div id="spModel"></div>`:"")+`
+      <div class="sub-h">${mid?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
+      <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
+        <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
+        <tr class="sub-row"><td class="l">매출 YoY</td>${A.map((a,i)=>`<td>${pc(yoy(A,"rev",i))}</td>`).join("")}</tr>
+        <tr><td class="l">영업이익</td>${A.map(a=>`<td>${eok(a.op)}</td>`).join("")}</tr>
+        <tr class="sub-row"><td class="l">영업이익률</td>${A.map(a=>{const v=opmOf(a);return `<td>${v==null?"—":fmt(v)+"%"}</td>`;}).join("")}</tr>
+        <tr class="sub-row"><td class="l">영업익 YoY</td>${A.map((a,i)=>`<td>${pc(yoy(A,"op",i))}</td>`).join("")}</tr>
+        <tr><td class="l">EPS(원)</td>${A.map(a=>`<td>${a.eps!=null?fmt0(a.eps):"—"}</td>`).join("")}</tr>
+      </tbody></table></div>
+      <div class="sub-h">분기 — 매출(막대)·영업이익률(선) <span class="th-sub" style="display:inline">연한 막대 = 컨센</span></div>
+      <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">분기</th>${Qs.map(q=>`<th class="ye">${q.q}</th>`).join("")}</tr></thead><tbody>
+        <tr><td class="l">매출액</td>${Qs.map(q=>`<td>${eok(q.rev)}</td>`).join("")}</tr>
+        <tr><td class="l">영업이익</td>${Qs.map(q=>`<td>${eok(q.op)}</td>`).join("")}</tr>
+        <tr class="sub-row"><td class="l">영업이익률</td>${Qs.map(q=>`<td>${q.rev?fmt(q.op/q.rev*100)+"%":"—"}</td>`).join("")}</tr>
+      </tbody></table></div>
+      <div id="qChart"></div>
+      <p class="note">실적·컨센은 네이버 금융 재무 API(${fmtUpd(LIVE.asOf)}).${mid?" 위 분기 모델은 이 종목 전용 — 실적은 DART, 추정은 대체 데이터.":""}</p>`;
+    drawQuarter(Qs);
+    if(mid){
+      const host=document.getElementById("spModel"), el=spBorrow(mid, host);
+      if(el){
+        if(mid==="c2Sec"||mid==="kgSec"||mid==="geSec"){ trendStock=name; trendGroup=topicsOf(name)[0]||trendGroup; }
+        // 대원미디어 손익은 영화 흥행 모델(boxM)을 쓴다 — 영화 탭을 아직 안 열었으면 한 번 계산해 둔다(그 탭이 다시 그린다)
+        if(mid==="dwSec"&&!boxM&&typeof renderBoxTab==="function"){ try{ renderBoxTab(); }catch(err){ console.error("흥행 모델", err); } }
+        try{ if(mid==="c2Sec") renderC2Model(); else if(mid==="kgSec") renderKgModel(); else if(mid==="geSec") renderGameEst(); else renderDwModel(); }
+        catch(err){ console.error("종목 페이지 모델", err); }
+        el.style.display="";
+      }
+    }
+    return;
+  }
+  if(spTab==="trend"){
+    const list=topicsOf(name), tr=uniTrendBy()[name]||[];
+    const W=140,H=34;
+    const card=g=>{ const S=trendCardStats(g); if(!S) return "";
+      const n=Math.max(2,...S.rows.map(x=>x.ser.length)), vals=S.rows.flatMap(x=>x.ser.filter(v=>v!=null)); if(!vals.length) return "";
+      const mx=Math.max(...vals), mn=Math.min(0,...vals), sx=i=>i/(n-1)*W, sy=v=>H-2-((v-mn)/((mx-mn)||1))*(H-4);
+      const paths=S.rows.map((x,i)=>`<path d="${trendPath(x.ser,sx,sy)}" fill="none" stroke="${TREND.colors[i%TREND.colors.length]}" stroke-width="${i?1.1:2}" stroke-opacity="${i?.5:1}"/>`).join("");
+      const chg=S.dRank!=null?`<span class="${S.dRank>0?"up":S.dRank<0?"down":""}" style="font-size:11px;font-weight:700">${S.dRank>0?"▲":S.dRank<0?"▼":"—"}${Math.abs(S.dRank)||""}</span>`
+        :S.chg==null?`<span class="g" style="font-size:11px">—</span>`:`<span class="${cls(S.chg)}" style="font-size:11px;font-weight:700">${sign(S.chg,0)}%</span>`;
+      const hot=tr.some(c=>c.gname===g);
+      return `<div class="sp-card${hot?" hot":""}" data-sptr="${attr(g)}" title="${attr(g)} — 누르면 트렌드 탭에서 크게">
+        <div class="t">${hot?"🔥 ":""}${attr(g)}</div>
+        <div class="m"><span class="v">${S.valTxt}</span><span><span class="g" style="font-size:10px">${S.freq==="date"?"최근 7일":S.freq==="week"?"전주":"전월"}</span> ${chg}</span></div>
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">${paths}</svg>
+        <div class="g" style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${attr(S.lead.label)}${S.rows.length>1?` 외 ${S.rows.length-1}`:""}</div></div>`; };
+    body.innerHTML=(tr.length?`<div class="sub-h">지금 튀는 것</div><div class="sp-sig">${tr.map(c=>{ const t=trendChipTxt(c);
+        return `<button class="sig sig-tr" data-sptr="${attr(c.gname)}">${t.icon} ${attr(c.prod)} <b class="${t.up?"up":"down"}">${t.chg}</b> <span class="g">${attr(c.gname)}</span></button>`; }).join("")}</div>`:"")
+      +(list.length?`<div class="sub-h">주제 ${list.length}개 <span class="th-sub" style="display:inline">카드를 누르면 트렌드 탭에서 차트로</span></div>
+        <div class="sp-cards">${list.map(card).join("")}</div>`
+        :`<p class="note">이 종목은 아직 트렌드 주제가 없습니다.</p>`);
+    return;
+  }
+  if(spTab==="rep"){
+    const reps=(LIVE.researches||[]).filter(x=>x.co===name).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    const rv=revisionHtml(name);
+    body.innerHTML=(rv?`<div class="sp-rev">${rv}</div>`:`<p class="note">증권사 리비전(어닝 리비전 트래커)은 12종목만 있습니다 — 이 종목은 아직 없음.</p>`)
+      +`<div class="sub-h">증권사 리포트 ${reps.length}건 <span class="th-sub" style="display:inline">네이버 금융 · 최신순</span></div>`
+      +(reps.length?`<div class="tbl-wrap"><table class="mini-tbl"><tbody>${reps.map(x=>`<tr>
+          <td class="l">${x.date?`${x.date.slice(4,6)}/${x.date.slice(6,8)}`:""}</td>
+          <td class="l" style="white-space:normal">${attr(x.title||"")}</td>
+          <td class="l g">${attr(x.broker||"")}</td><td class="g">${x.views?fmt0(x.views)+"회":""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="note">최근 리포트 없음.</p>`);
+    return;
+  }
+  if(spTab==="news"){
+    const news=spNews(name), evs=spEvents(name), today=TODAY;
+    const up=evs.filter(e=>e.d>=today).reverse(), past=evs.filter(e=>e.d<today).slice(0,15);
+    const evRow=e=>{ const u=e.rcp?`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${e.rcp}`:null;
+      return `<tr><td class="l">${e.d.slice(5).replace("-","/")}</td><td class="l" style="white-space:normal">${u?`<a href="${u}" target="_blank" rel="noopener">${attr(e.t||"")}</a>`:attr(e.t||"")}</td><td class="l g">${attr(e.src||"")}</td></tr>`; };
+    body.innerHTML=(up.length?`<div class="sub-h">다가오는 일정</div><div class="tbl-wrap"><table class="mini-tbl"><tbody>${up.map(evRow).join("")}</tbody></table></div>`:"")
+      +`<div class="sub-h">뉴스 ${news.length}건 <span class="th-sub" style="display:inline">네이버 종목 뉴스 · 최신순</span></div>`
+      +(news.length?`<div class="tbl-wrap"><table class="mini-tbl"><tbody>${news.slice(0,40).map(n=>`<tr>
+          <td class="l">${String(n.d||"").slice(5,16).replace("-","/")}</td>
+          <td class="l" style="white-space:normal"><a href="${attr(n.u||"#")}" target="_blank" rel="noopener">${attr(n.t||"")}</a></td>
+          <td class="l g">${attr(n.s||"")}</td></tr>`).join("")}</tbody></table></div>`:`<p class="note">최근 뉴스 없음(수집분 ${fmtUpd(NEWS.asOf)} 기준).</p>`)
+      +(past.length?`<div class="sub-h">지난 공시·일정</div><div class="tbl-wrap"><table class="mini-tbl"><tbody>${past.map(evRow).join("")}</tbody></table></div>`:"");
+  }
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("#spTabs [data-sp]");
+  if(t){ spTab=t.dataset.sp; try{ localStorage.setItem("spTab",spTab); }catch(_){} renderStockTab(decodeURIComponent(location.hash.slice(7))); return; }
+  const g=e.target.closest("#spTabs [data-spgo]"); if(g){ location.hash=g.dataset.spgo; return; }
+  const c=e.target.closest("#spBody [data-sptr]");
+  if(c){ const nm=decodeURIComponent(location.hash.slice(7)), g=c.dataset.sptr;
+    // 탭 전환(hashchange → activateTab)이 끝난 뒤에 주제를 고른다 — 이 리스너가 나중에 등록돼 뒤에 돈다
+    addEventListener("hashchange", function once(){ removeEventListener("hashchange", once); selectTrend(nm, g); window.scrollTo({top:0}); });
+    location.hash="trends"; }
+});
+
+// 접어 둔 개요 블록을 펼치면 그때 그린다 — 접힌 채로는 폭이 0 이라 차트가 비어 있다
+document.addEventListener("toggle",e=>{ const d=e.target; if(!d||!d.open||!d.dataset) return;
+  if(d.dataset.fold==="ov_port") drawSectorTrend(); else if(d.dataset.fold==="ov_heat") renderHeatmap(); }, true);
+// 첫 화면이 개요(해시 없음)면 보드를 그린다 — 트렌드 주입 IIFE 들이 파일 뒤쪽에도 있어 스크립트가 다 돈 뒤에
+function _uniInit(){ const ov=document.querySelector('section[data-view="overview"]'); if(ov&&ov.classList.contains("active")) renderUniBoard(); }
+if(document.readyState==="loading") addEventListener("DOMContentLoaded",_uniInit); else setTimeout(_uniInit,0);
 document.getElementById("drawerOverlay").addEventListener("click",closeDrawer);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();});
-document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");if(el)openStock(el.dataset.stock);});
+// 종목을 누르면 전용 종목 페이지(2026-10-18 · 옛 오른쪽 상세 창 openStock 은 남겨 두되 안 쓴다)
+document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");if(el){ e.preventDefault(); openStockPage(el.dataset.stock); }});
 
 /* ==== 엑셀(.xlsx) 내보내기 — Universe 시트 양식 (D열 시작 / 상승여력 수식) ==== */
 (function(){

@@ -91,7 +91,11 @@ def fetch_returns(code):
         return round((last_c / base - 1) * 100, 2) if base else None
 
     ytd_base = next((c for d, c in pts if d >= f"{today.year}0101"), None)
+    # 최근 260거래일 종가(2026-10-18) — 화면 '유니버스 보드'가 20·60일·52주 신고가/신저가를 지금 가격과 견준다.
+    # pxd = 마지막 종가의 날짜. 화면은 그게 오늘이면 마지막 값을 빼고 실시간 가격으로 판정한다(장중 회차도 일봉에 오늘이 들어온다).
+    tail = pts[-260:]
     return {
+        "px": [round(c) if c >= 100 else c for _, c in tail], "pxd": tail[-1][0],
         "ret1w": pct(close_on_or_before(today - datetime.timedelta(days=7))),
         "ret1m": pct(close_on_or_before(today - datetime.timedelta(days=30))),
         "ret3m": pct(close_on_or_before(today - datetime.timedelta(days=91))),
@@ -437,7 +441,7 @@ def resolve_code(name):
     return (items[0]["code"], items[0]["typeCode"]) if items else (None, None)
 
 
-SLOW_KEYS = ("cons", "ret1w", "ret1m", "ret3m", "ret6m", "ret1y", "retYtd")
+SLOW_KEYS = ("cons", "ret1w", "ret1m", "ret3m", "ret6m", "ret1y", "retYtd", "px", "pxd")
 
 
 def collect(names, prev=None, deep=True):
