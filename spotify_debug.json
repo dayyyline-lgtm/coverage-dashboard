@@ -1,12 +1,13 @@
 {
- "asOf": "2026-10-18 20:21 KST",
+ "asOf": "2026-10-19 05:14 KST",
  "token_ok": true,
  "zero_count": 26,
  "total": 26,
  "blocked": {
   "top": true,
   "top_why": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
-  "alb": false
+  "alb": true,
+  "alb_why": "HTTP 429 artists/1SIocsqdEefUTE6XKGUiVS/albums?in · {\"error\":{\"status\":429,\"message\":\"Too many requests\",\"reason\":\"QUOTA_EXCEEDED\"}}"
  },
  "artists": [
   {
