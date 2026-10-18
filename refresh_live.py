@@ -13,7 +13,7 @@ index.html 안의  const LIVE = {...};  블록을 최신 데이터로 교체합�
 
 장중에 돌리면 실시간 시세, 장 마감 후엔 종가 기준입니다.
 """
-import urllib.request, urllib.parse, json, time, re, datetime, sys
+import urllib.request, urllib.parse, json, time, re, datetime, sys, os
 
 # Windows 콘솔(cp949)에서 한글/기호가 깨지지 않도록
 try:
@@ -94,8 +94,13 @@ def fetch_returns(code):
     # 최근 260거래일 종가(2026-10-18) — 화면 '유니버스 보드'가 20·60일·52주 신고가/신저가를 지금 가격과 견준다.
     # pxd = 마지막 종가의 날짜. 화면은 그게 오늘이면 마지막 값을 빼고 실시간 가격으로 판정한다(장중 회차도 일봉에 오늘이 들어온다).
     tail = pts[-260:]
+    # pxg = 거래일 사이 날짜 간격(한 글자씩: 1~9, 10 이상은 a=10 b=11 …) — 종목 페이지 차트의 날짜축용.
+    #   날짜 260개를 통째로 싣는 것보다 작다(종목당 259글자). 화면이 pxd 에서 거꾸로 빼며 날짜를 되살린다.
+    _dt = [datetime.datetime.strptime(d, "%Y%m%d").date() for d, _ in tail]
+    _g = [(b - a).days for a, b in zip(_dt, _dt[1:])]
+    pxg = "".join(str(x) if x < 10 else chr(87 + min(x, 35)) for x in _g)
     return {
-        "px": [round(c) if c >= 100 else c for _, c in tail], "pxd": tail[-1][0],
+        "px": [round(c) if c >= 100 else c for _, c in tail], "pxd": tail[-1][0], "pxg": pxg,
         "ret1w": pct(close_on_or_before(today - datetime.timedelta(days=7))),
         "ret1m": pct(close_on_or_before(today - datetime.timedelta(days=30))),
         "ret3m": pct(close_on_or_before(today - datetime.timedelta(days=91))),
@@ -433,6 +438,68 @@ def append_intraday(live, old, html):
     print(f"  시간별 누적: {len(points)}점 · 탑픽 {port_ret:+.2f}% ({'장중' if is_open else '종가'})")
 
 
+CONS_ARCH = "archive/conshist.jsonl"
+
+
+def cons_point(st):
+    """종목 하나의 '지금 컨센' — 추정(e) 기간만. 십억원(rev·op·np), 원(eps), 목표주가(원)."""
+    c = st.get("cons") or {}
+    pt = {"tp": st.get("consTarget"), "y": {}, "q": {}}
+    for kind, key in (("year", "y"), ("quarter", "q")):
+        for x in ((c.get(kind) or {}).get("series") or []):
+            if x.get("e") and x.get("k"):
+                pt[key][x["k"]] = [x.get("rev"), x.get("op"), x.get("eps") if kind == "year" else x.get("np")]
+    return pt if (pt["y"] or pt["q"] or pt["tp"] is not None) else None
+
+
+def record_cons(html, stocks, today):
+    """컨센 기록(2026-10-18 · 사용자 "컨센 기록 켜 둬") → (새 CONSHIST 블록 dict, 바뀐 종목 수).
+    종목마다 **값이 바뀐 날만** 한 점을 쌓는다(같은 날 두 번 바뀌면 그날 점을 갈아 끼운다).
+    네이버 재무 API 는 지난 컨센을 주지 않는다 — 기록을 켠 날부터 쌓인다. 영구 보관은 archive/conshist.jsonl(추가만).
+    점: {d, tp 목표주가, y:{"202612":[매출, 영업이익, EPS]}, q:{"202609":[매출, 영업이익, 순이익]}}"""
+    m = re.search(r"const CONSHIST = (\{.*?\});", html, re.S)
+    old = {}
+    if m:
+        try:
+            old = json.loads(m.group(1))
+        except json.JSONDecodeError:
+            old = {}
+    S = {k: list(v) for k, v in (old.get("stocks") or {}).items()}
+    changed, arch = 0, []
+    for nm, st in stocks.items():
+        pt = cons_point(st)
+        if not pt:
+            continue
+        hist = S.setdefault(nm, [])
+        last = hist[-1] if hist else None
+        if last and {k: last.get(k) for k in ("tp", "y", "q")} == pt:
+            continue
+        entry = {"d": today, **pt}
+        if last and last.get("d") == today:
+            hist[-1] = entry
+        else:
+            hist.append(entry)
+        arch.append({"nm": nm, **entry})
+        changed += 1
+    if arch:
+        os.makedirs(os.path.dirname(CONS_ARCH), exist_ok=True)
+        with open(CONS_ARCH, "a", encoding="utf-8") as f:
+            for a in arch:
+                f.write(json.dumps(a, ensure_ascii=False, separators=(",", ":")) + "\n")
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    out = {"asOf": datetime.datetime.now(kst).strftime("%Y-%m-%d %H:%M"), "since": old.get("since") or today, "stocks": S}
+    return out, changed
+
+
+def put_block(html, name, obj):
+    block = "const %s = %s;" % (name, json.dumps(obj, ensure_ascii=False, separators=(",", ":")))
+    pat = re.compile(r"const %s = \{.*?\};" % name, re.S)
+    if pat.search(html):
+        return pat.sub(lambda _: block, html, count=1)
+    m = re.search(r"const LIVE = \{.*?\};", html, re.S)
+    return html[:m.end()] + "\n" + block + html[m.end():]
+
+
 def resolve_code(name):
     q = urllib.parse.quote(NAME_FIX.get(name, name))
     d = getj(f"https://m.stock.naver.com/front-api/search/autoComplete?query={q}&target=stock")
@@ -441,7 +508,7 @@ def resolve_code(name):
     return (items[0]["code"], items[0]["typeCode"]) if items else (None, None)
 
 
-SLOW_KEYS = ("cons", "ret1w", "ret1m", "ret3m", "ret6m", "ret1y", "retYtd", "px", "pxd")
+SLOW_KEYS = ("cons", "ret1w", "ret1m", "ret3m", "ret6m", "ret1y", "retYtd", "px", "pxd", "pxg")
 
 
 def collect(names, prev=None, deep=True):
@@ -650,9 +717,15 @@ def main():
     if snap:
         live["consSnap"] = snap
 
+    # ---- 컨센 기록(CONSHIST) — deep 회차(컨센을 새로 받은 회차)에만 ----
+    cons_hist, cons_changed = (record_cons(html, stocks, today_str) if deep else (None, 0))
+    if cons_hist is not None:
+        print(f"컨센 기록: {cons_changed}종목 변경")
+        html = put_block(html, "CONSHIST", cons_hist)
+
     # 수집 시각(asOf)만 바뀐 경우는 저장하지 않는다.
     # -> 장 마감 후·주말·공휴일에 불필요한 커밋/배포가 쌓이는 것을 막는다.
-    if old is not None:
+    if old is not None and not cons_changed:
         def strip(d):
             # asOf(수집시각)와 리포트 조회수는 계속 변하므로 비교에서 제외
             out = {k: v for k, v in d.items() if k != "asOf"}

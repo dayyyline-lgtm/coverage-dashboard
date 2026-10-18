@@ -8772,6 +8772,74 @@ function pxSig(name){
   }
   return out;
 }
+/* 일봉 날짜 — pxd(마지막 날짜)에서 pxg(거래일 사이 간격, 한 글자씩: 1~9 · a=10 …)를 거꾸로 빼서 되살린다. */
+function pxDates(L){
+  if(!L||!L.px||!L.pxd||!L.pxg) return null;
+  const n=L.px.length, g=L.pxg; if(g.length!==n-1) return null;
+  let t=Date.UTC(+L.pxd.slice(0,4), +L.pxd.slice(4,6)-1, +L.pxd.slice(6,8));
+  const out=new Array(n); out[n-1]=t;
+  for(let i=n-2;i>=0;i--){ const c=g[i], d=c>="0"&&c<="9"?+c:c.charCodeAt(0)-87; t-=d*864e5; out[i]=t; }
+  return out.map(x=>new Date(x).toISOString().slice(0,10));
+}
+/* 종목 페이지 주가 차트 — 종가 선 + 가격축(오른쪽) · 날짜축(아래) · 기간 버튼 · 마우스를 올리면 그날 종가
+   (2026-10-18 사용자 "종목 상세 주가는 날짜랑 가격축 빼놓지 말아 줘") */
+const SP_PERIODS=[["1개월",22],["3개월",66],["6개월",130],["1년",260]];
+let spPeriod=260; try{ spPeriod=+localStorage.getItem("spPeriod")||260; }catch(e){}
+function spPriceChart(name){
+  const box=document.getElementById("spChart"), L=(LIVE.stocks||{})[name]; if(!box||!L||!L.px) return;
+  const D=pxDates(L); if(!D){ box.innerHTML=""; return; }
+  const n=Math.min(spPeriod, L.px.length), P=L.px.slice(-n), Dt=D.slice(-n);
+  const W=Math.max(300, box.clientWidth-16), H=210, ml=8, mr=62, mt=16, mb=24;
+  const lo=Math.min(...P), hi=Math.max(...P);
+  // 가격 눈금 — 1·2·2.5·5 × 10^k 중 6칸 이하
+  const span=(hi-lo)||hi*0.05||1, mag=Math.pow(10,Math.floor(Math.log10(span/5)));
+  const step=[1,2,2.5,5,10].map(x=>x*mag).find(x=>span/x<=6)||mag*10;
+  const y0=Math.floor(lo/step)*step, y1=Math.ceil(hi/step)*step;
+  const sx=i=>ml+(n<2?0:i/(n-1))*(W-ml-mr), sy=v=>mt+(1-(v-y0)/((y1-y0)||1))*(H-mt-mb);
+  const pf=v=>v>=100?Math.round(v).toLocaleString("ko-KR"):fmt(v,2);
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block" role="img" aria-label="${attr(name)} 종가 추이">`;
+  for(let v=y0; v<=y1+step*0.01; v+=step){ const y=sy(v).toFixed(1);
+    g+=`<line x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-opacity=".55"/><text x="${W-mr+6}" y="${(+y+3.5).toFixed(1)}" font-size="10.5" fill="var(--muted2)">${pf(v)}</text>`; }
+  // 날짜축 — 1개월은 5거래일마다 날짜, 그보다 길면 달이 바뀌는 곳(1월은 연도를 붙인다)
+  Dt.forEach((d,i)=>{
+    const tick=n<=30?(i%5===0):(i>0&&d.slice(0,7)!==Dt[i-1].slice(0,7));
+    if(!tick) return; const x=sx(i).toFixed(1);
+    const lab=n<=30?`${+d.slice(5,7)}/${+d.slice(8)}`:(+d.slice(5,7)===1?`’${d.slice(2,4)}.1월`:`${+d.slice(5,7)}월`);
+    const anc=+x<ml+18?"start":+x>W-mr-18?"end":"middle";      // 양 끝 날짜가 잘리지 않게
+    g+=`<line x1="${x}" x2="${x}" y1="${mt}" y2="${H-mb}" stroke="var(--line)" stroke-opacity=".3"/><text x="${x}" y="${H-7}" font-size="10.5" fill="var(--muted2)" text-anchor="${anc}">${lab}</text>`; });
+  const path=P.map((v,i)=>(i?"L":"M")+sx(i).toFixed(1)+","+sy(v).toFixed(1)).join("");
+  g+=`<path d="${path} L${sx(n-1).toFixed(1)},${H-mb} L${sx(0).toFixed(1)},${H-mb} Z" fill="color-mix(in srgb, var(--accent) 10%, transparent)"/>`
+    +`<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.7" stroke-linejoin="round"/>`;
+  // 기간 최고·최저 + 마지막 종가 꼬리표(가격축 위)
+  const iH=P.indexOf(hi), iL=P.indexOf(lo), last=P[n-1];
+  // 점이 오른쪽 절반이면 글자를 점의 왼쪽에(끝 정렬) — 마지막 종가 꼬리표와 겹치지 않게
+  const lbl=(i,v,dy,col,t)=>{ const right=sx(i)>(ml+W-mr)/2, x=(sx(i)+(right?-7:7)).toFixed(1);
+    return `<circle cx="${sx(i).toFixed(1)}" cy="${sy(v).toFixed(1)}" r="3" fill="${col}"/><text x="${x}" y="${(sy(v)+dy).toFixed(1)}" font-size="10.5" fill="${col}" font-weight="700" text-anchor="${right?"end":"start"}">${t} ${pf(v)} (${+Dt[i].slice(5,7)}/${+Dt[i].slice(8)})</text>`; };
+  g+=lbl(iH,hi,-6,"var(--up)","최고")+lbl(iL,lo,15,"var(--down)","최저")
+    +`<rect x="${W-mr+1}" y="${(sy(last)-8).toFixed(1)}" width="${mr-3}" height="16" rx="3" fill="var(--accent)"/><text x="${W-mr+5}" y="${(sy(last)+4).toFixed(1)}" font-size="10.5" font-weight="800" fill="var(--onacc)">${pf(last)}</text>`;
+  g+=`<line id="spHoverL" x1="0" x2="0" y1="${mt}" y2="${H-mb}" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/><circle id="spHoverC" r="3.5" fill="var(--accent)" stroke="var(--panel)" stroke-width="1.5" style="display:none"/>`
+    +`<rect x="${ml}" y="${mt}" width="${W-ml-mr}" height="${H-mt-mb}" fill="transparent" id="spHoverR" style="cursor:crosshair"/></svg>`;
+  const chg=P[0]?(last/P[0]-1)*100:null, asOfD=(LIVE.asOf||"").slice(0,10), lastD=Dt[n-1];
+  const liveNote=(L.price&&L.price!==last)?` · 현재가 <b>${pf(L.price)}</b>원(${fmtUpd(LIVE.asOf)}${asOfD===lastD?" · 장 마감 뒤 시간외 포함":""})`:"";
+  box.innerHTML=`<div style="display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-bottom:4px">
+      <div class="seg" style="margin:0">${SP_PERIODS.map(([l,k])=>`<button data-spp="${k}" class="${k===spPeriod?"active":""}">${l}</button>`).join("")}</div>
+      <span style="font-size:12px;color:var(--muted)">${Dt[0].slice(2).replace(/-/g,".")} ~ ${lastD.slice(2).replace(/-/g,".")} 종가 · 기간 수익률 <b class="${cls(chg)}">${sign(chg,1)}%</b>${liveNote}</span>
+      <span id="spHoverT" style="margin-left:auto;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums"></span></div>${g}`;
+  const R0=document.getElementById("spHoverR"), Ln=document.getElementById("spHoverL"), Cc=document.getElementById("spHoverC"), T=document.getElementById("spHoverT");
+  const show=e=>{ const r=R0.getBoundingClientRect(), x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const i=Math.max(0,Math.min(n-1,Math.round(x/r.width*(n-1)))), X=sx(i), Y=sy(P[i]);
+    Ln.setAttribute("x1",X); Ln.setAttribute("x2",X); Ln.style.display=""; Cc.setAttribute("cx",X); Cc.setAttribute("cy",Y); Cc.style.display="";
+    const pv=i>0?(P[i]/P[i-1]-1)*100:null;
+    T.innerHTML=`${Dt[i].replace(/-/g,".")} 종가 ${pf(P[i])}원${pv!=null?` <span class="${cls(pv)}">${sign(pv,2)}%</span>`:""}`; };
+  R0.addEventListener("mousemove",show); R0.addEventListener("touchmove",show,{passive:true});
+  R0.addEventListener("mouseleave",()=>{ Ln.style.display="none"; Cc.style.display="none"; T.innerHTML=""; });
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("#spChart [data-spp]"); if(!b) return;
+  spPeriod=+b.dataset.spp; try{ localStorage.setItem("spPeriod",spPeriod); }catch(_){}
+  spPriceChart(decodeURIComponent(location.hash.slice(7))); });
+let _spRsz=null;
+addEventListener("resize",()=>{ clearTimeout(_spRsz); _spRsz=setTimeout(()=>{ if(location.hash.startsWith("#stock/")) spPriceChart(decodeURIComponent(location.hash.slice(7))); },200); });
+
 /* 트렌드 신호 — 트렌드 탭과 같은 점수(trendCands). 보드는 종목마다 가장 센 것 하나 + 나머지 개수.
    보드는 아침에 훑는 자리라 잡음을 더 뺀다(2026-10-18 실측 45종목 중 25개가 걸려서 조였다 → 14개):
    · 참고 지표(topicTier 3 — 채용·갤 순위·캐릭터별·경쟁·거래순위)와 극장 관객(비교작이 섞인다)은 뺀다
@@ -8921,12 +8989,31 @@ function renderStockPage(name){
       ${kv("52주 위치",r.w52pos!=null?`${fmt(r.w52pos,0)}% <span class="g" style="font-size:11px">(${won(r.w52l)}~${won(r.w52h)})</span>`:"—")}
       ${kv("외국인",r.foreign>0?fmt(r.foreign)+"%":"—")}
     </div>
-    ${ps?`<div class="sp-chart" title="최근 260거래일 종가 · 점선 = 구간 최고">${sparkSvg(ps.ser,720,70,1).replace('width="720"','width="100%"').replace('<svg ','<svg preserveAspectRatio="none" ')}</div>`:""}
+    ${L.px?`<div class="sp-chart" id="spChart"></div>`:""}
     <div class="seg sp-tabs" id="spTabs">${TABS_SP.map(([k,l,n])=>`<button data-sp="${k}" class="${spTab===k?"active":""}">${l}${n!==""?` <span class="g">${n}</span>`:""}</button>`).join("")}
       ${(SP_DEEP[name]||[]).map(([k,l])=>`<button data-spgo="${k}" style="margin-left:auto">${l} →</button>`).join("")}</div>
     <div id="spBody"></div>`;
   document.getElementById("spBack").onclick=()=>{ location.hash=spFrom||"overview"; };
+  spPriceChart(name);
   renderStockTab(name);
+}
+/* 컨센 기록(CONSHIST · refresh_live 의 컨센 수집 회차마다 · 값이 바뀐 날만 한 점) — 2026-10-18 기록 시작.
+   네이버는 지난 컨센을 주지 않아 기록을 켠 날(10/16 수집분)부터 쌓인다. 단위 십억 → 화면은 억. */
+function spConsHist(name){
+  const CH=(typeof CONSHIST!=="undefined"&&CONSHIST.stocks)?CONSHIST.stocks[name]:null;
+  if(!CH||!CH.length) return `<p class="note">컨센 기록 없음(네이버 컨센이 없는 종목).</p>`;
+  const last=CH[CH.length-1], yk=Object.keys(last.y||{}).sort(), qk=Object.keys(last.q||{}).sort();
+  const qlab=k=>`${Math.ceil(+k.slice(4)/3)}Q${k.slice(2,4)}E`;
+  const cols=[["목표주가",x=>x.tp,v=>won(v)],
+    ...yk.flatMap(k=>[[`${k.slice(0,4)}E 매출`,x=>((x.y||{})[k]||[])[0],v=>eok(v)],[`${k.slice(0,4)}E 영업이익`,x=>((x.y||{})[k]||[])[1],v=>eok(v)]]),
+    ...qk.map(k=>[`${qlab(k)} 영업이익`,x=>((x.q||{})[k]||[])[1],v=>eok(v)])];
+  const first=CH[0], chg=(a,b)=>(a!=null&&b!=null&&b>0)?(a/b-1)*100:null;
+  const rows=CH.slice().reverse().slice(0,30);
+  return `<div class="sub-h">컨센 기록 <span class="th-sub" style="display:inline">네이버 컨센 · ${CONSHIST.since} 부터 · 바뀐 날만 · 억 원(목표주가는 원) · 괄호 없는 % = 첫 기록 대비</span></div>
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">날짜</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}</tr></thead><tbody>`
+    +rows.map(x=>`<tr><td class="l">${x.d.slice(2).replace(/-/g,".")}</td>${cols.map(c=>{ const v=c[1](x), d=x===first?null:chg(v,c[1](first));
+      return `<td>${c[2](v)}${d!=null&&Math.abs(d)>=0.05?` <span class="${cls(d)}" style="font-size:11px">${sign(d,1)}%</span>`:""}</td>`; }).join("")}</tr>`).join("")
+    +`</tbody></table></div><p class="note">${CH.length<2?"아직 한 점뿐 — 컨센이 바뀌는 날부터 줄이 늘고 첫 기록 대비 변화가 붙습니다. ":""}컨센은 그날 첫 시세 수집과 16·18시에 받습니다(그때 값이 바뀌었으면 한 줄).</p>`;
 }
 function renderStockTab(name){
   const body=document.getElementById("spBody"), r=byName[name]; if(!body||!r) return;
@@ -8998,7 +9085,7 @@ function renderStockTab(name){
   if(spTab==="rep"){
     const reps=(LIVE.researches||[]).filter(x=>x.co===name).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
     const rv=revisionHtml(name);
-    body.innerHTML=(rv?`<div class="sp-rev">${rv}</div>`:`<p class="note">증권사 리비전(어닝 리비전 트래커)은 12종목만 있습니다 — 이 종목은 아직 없음.</p>`)
+    body.innerHTML=spConsHist(name)+(rv?`<div class="sp-rev">${rv}</div>`:`<p class="note">증권사별 리비전(어닝 리비전 트래커)은 12종목만 있습니다 — 이 종목은 아직 없음.</p>`)
       +`<div class="sub-h">증권사 리포트 ${reps.length}건 <span class="th-sub" style="display:inline">네이버 금융 · 최신순</span></div>`
       +(reps.length?`<div class="tbl-wrap"><table class="mini-tbl"><tbody>${reps.map(x=>`<tr>
           <td class="l">${x.date?`${x.date.slice(4,6)}/${x.date.slice(6,8)}`:""}</td>
