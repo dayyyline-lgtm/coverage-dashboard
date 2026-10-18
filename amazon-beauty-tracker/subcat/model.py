@@ -57,13 +57,17 @@ def _f(x):
 
 
 def load_tracker(path, asof, days=TRACK_DAYS):
-    """미국 행만, asof 로부터 days 일 안. [{date, asin, m, sub, subcat, u, per, price}]"""
-    cut = (datetime.date.fromisoformat(asof) - datetime.timedelta(days=days)).isoformat()
+    """미국 행만, asof 로부터 days 일 안. [{date, asin, m, sub, subcat, u, per, price}]
+    트래커가 멈춘 뒤(2026-10-18 · 아침 예약 작업으로 바꿈)에는 **트래커 마지막 날** 기준 days 일로 굳는다 —
+    asof 기준으로 두면 창이 밀려 배지가 바닥나고 추정 매출이 통째로 빠진다."""
     try:
         with open(path, encoding="utf-8", newline="") as f:
             rows = [r for r in csv.DictReader(f) if r.get("market") == "US"]
     except FileNotFoundError:
         return []
+    last = max((r.get("date") or "" for r in rows), default="")
+    anchor = min(asof, last[:10]) if last else asof
+    cut = (datetime.date.fromisoformat(anchor) - datetime.timedelta(days=days)).isoformat()
     out = []
     # 가격 보정은 기간을 자르기 전에 — 같은 ASIN 의 옛 가격도 견줄 근거다
     for r, p in zip(rows, pricefix.repair(rows)):

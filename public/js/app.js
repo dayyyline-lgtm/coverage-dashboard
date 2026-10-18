@@ -269,7 +269,7 @@ const FRESH_LIMITS = [
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
   ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
-  ["AMZSUB","아마존 세부 카테고리",48],
+  ["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],
 ];
 
 function ageHours(a){
@@ -2448,6 +2448,25 @@ function amztBuild(){
           const a=h&&h.mk&&h.mk[m], il=a?(a[4]||0):0;
           e[m]={t100:m==="US"?il:undefined, t50:il, best:undefined, src:"a"}; });
         if(Object.keys(e).length) o.d[d]=e;
+      });
+    });
+  }
+  /* 크롬 수집(AMZL · 2026-10-18 ~ · 아침 예약 작업 · 7개국 Top100) — PC 트래커를 대신한다. 채널이 본 날짜·브랜드는 채널이 이기고,
+     그 밖은 이 값이 트래커 값을 덮는다(같은 날 둘 다 있으면 크롬 — 유럽 51~100위까지 본다). 그날 받은 나라는 Top100 에 없는 브랜드도
+     0 으로 채운다(사전에 있는 브랜드라 '없음'이 관측이다). 2쪽을 못 받은 날(끝 순위 95 미만)은 t100 모름. */
+  const L=(typeof AMZL!=="undefined"&&AMZL.days&&AMZL.days.length)?AMZL:null;
+  if(L){
+    const by={};
+    L.c.forEach(x=>{ by[x[0]+"|"+x[1]+"|"+x[2]]=x; });
+    const bi={}; L.br.forEach((b,i)=>{ bi[b[0]]=i; const o=get(b[0]); o.owner=o.owner||b[1]||null; if(b[2]==="L"&&b[1]&&!o.stock) o.stock=b[1]; });
+    L.days.forEach((d,di)=>{
+      const col=AMZT_MK.filter(m=>{ const j=L.mk.indexOf(m); return j>=0&&"op".includes(L.st[di][j]); });
+      if(!col.length) return;
+      Object.values(B).forEach(o=>{
+        if(o.kmj&&kDays.has(d)&&o.d[d]) return;           // 채널이 이 날짜·브랜드를 봤으면 채널 우선
+        const e=o.d[d]||(o.d[d]={}), k=bi[o.key];
+        col.forEach(m=>{ const j=L.mk.indexOf(m), x=k==null?null:by[di+"|"+j+"|"+k], full=(L.mx[di][j]||0)>=95;
+          e[m]={t100:full?(x?x[3]:0):undefined, t50:x?x[4]:0, best:x?x[5]:(full?null:undefined), src:"l"}; });
       });
     });
   }
@@ -9962,10 +9981,11 @@ function renderKmj(){
     :`한투 마지막 글 ${md(L.d)} · ${K.days.length}회`;
   const brandOf=p=>(K.prod[p]||[])[0];
   // 한 날짜·브랜드·나라의 Top100(기준 cap 안) 제품 수 — 그날 못 받은 나라·채널이 다루기 전이면 null(모름)
-  const cnt=(o,day,m)=>{ if(!day||!day.mk.includes(m)) return null; if(o.kmj.since&&day.d<o.kmj.since) return null;
-    const j=AMZT_MK.indexOf(m), c=Math.min(day.cap[m]||100, L.cap[m]||100);
+  // ref = 견줄 날 — 두 날 중 작은 cap 으로 자른다(크롬 수집 첫날(100위)을 트래커 날(유럽 50위)과 견주면 51~100위가 가짜 증가로 보인다)
+  const cnt=(o,day,m,ref)=>{ if(!day||!day.mk.includes(m)) return null; if(o.kmj.since&&day.d<o.kmj.since) return null;
+    const j=AMZT_MK.indexOf(m), c=Math.min(day.cap[m]||100, L.cap[m]||100, (ref&&ref.cap&&ref.cap[m])||100);
     let n=0; day.r.forEach(r=>{ if(brandOf(r[0])===o.kmj.name&&r[1+j]&&r[1+j]<=c) n++; }); return n; };
-  const tot=(o,day)=>{ let s=0; for(const m of L.mk){ const v=cnt(o,day,m); if(v==null) return null; s+=v; } return s; };
+  const tot=(o,day,ref)=>{ let s=0; for(const m of L.mk){ const v=cnt(o,day,m,ref); if(v==null) return null; s+=v; } return s; };
   const bestM=(o,day,m)=>{ if(!day||!day.mk.includes(m)) return null; const j=AMZT_MK.indexOf(m); let b=null;
     day.r.forEach(r=>{ const v=r[1+j]; if(brandOf(r[0])===o.kmj.name&&v&&(b==null||v<b)) b=v; }); return b; };
   const B=T.brands.filter(o=>o.kmj&&!(o.kmj.since&&L.d<o.kmj.since)&&days.slice(-40).some(x=>tot(o,x)))
@@ -9995,13 +10015,13 @@ function renderKmj(){
         <span title="추이 차트의 선 색" style="width:8px;height:8px;border-radius:50%;background:${o.color};margin-left:auto;flex:none"></span></div>
       <div style="font-size:11.5px;margin-bottom:8px">${tie}</div>
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-        <span style="font-size:21px;font-weight:800">${v==null?"—":v+"개"}</span>${dl(v,P?tot(o,P):null,"직전")}${dl(v,tot(o,C4),"4주 전")}</div>
+        <span style="font-size:21px;font-weight:800">${v==null?"—":v+"개"}</span>${dl(P?tot(o,L,P):v,P?tot(o,P,L):null,"직전")}${dl(tot(o,L,C4),tot(o,C4,L),"4주 전")}</div>
       <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${AMZT_MK.map(m=>{ const c=cnt(o,L,m); return `${AMZT_MKNM[m].slice(0,1)} ${c==null?"—":c}`; }).join(" · ")}</div>
       ${spark(o)}
     </div>`; }).join("")}</div>
     <p class="note" style="margin-top:4px">큰 숫자 = ${miss.length?`이날 받은 ${L.mk.map(m=>AMZT_MKNM[m]).join("·")}`:"미·영·독·프·스"} Top100 안 제품 수 합계(<b>${md(L.d)} ${srcTag(L)}</b>).
       화살표는 직전(${P?`${md(P.d)} ${srcTag(P)}`:"—"})·4주 전(${md(C4.d)}) 대비 개수 변화, 아래 선은 최근 40회 흐름.
-      ${trkOn?`<br>한투 글이 ${md(KL.d)} 뒤로 없어서 우리 아마존 수집으로 이었습니다(겹친 날 순위까지 91% 일치).
+      ${trkOn?`<br>한투 글이 ${md(KL.d)} 뒤로 없어서 우리 아마존 수집(아침 예약 작업 · 각국 뷰티 Top100)으로 이었습니다.
         ${capTxt?`우리 수집은 <b>${capTxt}</b>만 읽어서, 비교하는 앞 날짜들도 같은 기준으로 다시 세었습니다 — 그래서 한투 글 숫자보다 작게 보입니다.`:""}
         ${miss.length?`이날 ${miss.map(m=>AMZT_MKNM[m]).join("·")}는 수집이 빠져 합계에서 뺐습니다(앞 날짜도 같은 나라만 더함).`:""}
         한투 글이 다시 올라오면 그 글이 기준이 됩니다.`:""}</p>`;

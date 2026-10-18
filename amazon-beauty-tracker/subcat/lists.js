@@ -61,9 +61,11 @@
   // 영문·숫자·한글·가나·한자 — 일본 제목의 브랜드 표기까지 낱말로 본다
   const W = 'a-z0-9ㄱ-ㆎ가-힣ぁ-ゖァ-ヺー一-鿿';
   const CJK = /[ぁ-ゖァ-ヺー一-鿿]$/;
-  // 맞추기 전 제목 다듬기 — 악센트 제거, 맨 앞 꼬리표(【公式】·[2 Pack]·(Official) 따위) 제거
-  const normT = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').normalize('NFC')
-    .replace(/^(?:\s*[\[【「(（〔][^\]】」)）〕]{0,24}[\]】」)）〕])+/, '')
+  // 맞추기 전 제목 다듬기 — 악센트 제거. 맨 앞 꼬리표는 두 가지로 본다: ① 괄호만 떼고 안은 남김([Mizon] → mizon]…, 미국 수집기와 같다)
+  // ② 꼬리표째 뗌(【公式】·[2 Pack]·(Official) → 그 뒤). 브랜드가 꼬리표 안에 있기도 밖에 있기도 해서 둘 다 맞춰 본다.
+  const base = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').normalize('NFC');
+  const normT = s => base(s).replace(/^[\s"'“”‘’\[【「(（〔]+/, '');
+  const normX = s => base(s).replace(/^(?:\s*[\[【「(（〔][^\]】」)）〕]{0,24}[\]】」)）〕])+/, '')
     .replace(/^[\s"'“”‘’]+/, '');
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -83,7 +85,7 @@
     out.sort((a, b) => b.len - a.len);
     PATS = out;
   }
-  const brandOf = t => { const n = normT(t); for (const p of PATS) if (p.re.test(n)) return p.i; return -1; };
+  const brandOf = t => { for (const n of [normT(t), normX(t)]) for (const p of PATS) if (p.re.test(n)) return p.i; return -1; };
   const HINT = /korea|corea|coreen|k-?beauty|韓国|한국/;   // korean·koreanisch·coreano·coréen·k-beauty·韓国·한국
 
   async function getText(url, init) {

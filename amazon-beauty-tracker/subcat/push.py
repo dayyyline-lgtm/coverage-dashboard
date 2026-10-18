@@ -3,7 +3,8 @@
 
   python amazon-beauty-tracker/subcat/push.py          # 저장소 루트 어디서 불러도 된다
 
-- 잡는 파일은 셋뿐: amazon-beauty-tracker/data/subcat/ · amazon-beauty-tracker/subcat/config.json · public/index.html.
+- 잡는 파일: amazon-beauty-tracker/data/subcat/ · data/lists/(7개국 Top100 · 2026-10-18) · amazon-beauty-tracker/subcat/config.json ·
+  public/index.html.
   pathspec 으로 커밋해 다른 작업이 인덱스에 올라와 있어도 휩쓸리지 않는다.
 - 배포 여부 (2026-10-09 사용자 "일어나자마자 6시 반에 볼 수 있게"):
   · 기본은 배포 생략 표시 — Cloudflare 빌드가 월 500건 한도 직전이라(10월 1~9일 145건 = 월 500건 페이스),
@@ -13,7 +14,7 @@
     놓치면 다음 배포가 아마존 트래커(06:45~07:15) · 평일 09시라 6시 반에 안 보인다. 놓치는 날만 빌드 1건이 는다.
   · --deploy 는 무조건 배포, --no-auto 는 아침에도 무조건 생략.
 - push 가 거절되면 **합치지 않는다**(루트 CLAUDE.md 'index.html 에 쓰는 법'): 내 데이터 파일을 떼어 두고 →
-  원격 최신으로 맞춘 뒤(reset --hard) → 데이터 파일을 되돌려 놓고 → ingest.py --inject 로 블록만 다시 주입 → 커밋.
+  원격 최신으로 맞춘 뒤(reset --hard) → 데이터 파일을 되돌려 놓고 → ingest.py · lists.py --inject 로 블록만 다시 주입 → 커밋.
   원격의 다른 상수는 원격 것이 그대로 남는다. 최대 4번.
 """
 import argparse
@@ -26,8 +27,10 @@ import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent.parent
-PATHS = ["amazon-beauty-tracker/data/subcat", "amazon-beauty-tracker/subcat/config.json", "public/index.html"]
-KEEP = ["amazon-beauty-tracker/data/subcat", "amazon-beauty-tracker/subcat/config.json"]   # 재주입 때 떼어 둘 내 파일
+PATHS = ["amazon-beauty-tracker/data/subcat", "amazon-beauty-tracker/data/lists", "amazon-beauty-tracker/subcat/config.json",
+         "public/index.html"]
+# 재주입 때 떼어 둘 내 파일 — 미국 세부 카테고리(AMZSUB) + 7개국 Top100(AMZL · 2026-10-18 · lists.py)
+KEEP = ["amazon-beauty-tracker/data/subcat", "amazon-beauty-tracker/data/lists", "amazon-beauty-tracker/subcat/config.json"]
 SKIP = "[CI " + "Skip]"     # 글자를 쪼개 둔 이유: 이 파일을 고치는 커밋 메시지에 설명으로 붙여 넣다 배포가 빠진 적이 있다(CLAUDE.md)
 
 try:
@@ -88,12 +91,19 @@ def main():
         tag = f"{last[0]} · 카테고리 {last[2]}/{last[3]} · 한국 자리 {last[5]}" + (" · 부분" if last[8] == "1" else "")
     except Exception:
         tag = kst.strftime("%Y-%m-%d")
+    try:   # 7개국 Top100 — 오늘 받은 나라 수
+        rows = [l.split(",") for l in (REPO / "amazon-beauty-tracker/data/lists/days.csv").read_text(encoding="utf-8").strip().splitlines()[1:]]
+        d = max(r[0] for r in rows)
+        okn = sum(1 for r in rows if r[0] == d and r[3] in ("ok", "part"))
+        tag += f" · 7개국 Top100 {okn}/7({d[5:]})"
+    except Exception:
+        pass
 
     for attempt in range(4):
         # 회차마다 다시 판단 — 거절된 사이에 아침 봇 배포가 지나갔을 수 있다
         kst = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=9)
         deploy, why = decide_deploy(a, kst)
-        msg = f"아마존 세부 카테고리 {tag} ({kst:%H:%M} KST)" + ("" if deploy else " " + SKIP)
+        msg = f"아마존 세부 카테고리 {tag} ({kst:%H:%M} KST)" + ("" if deploy else " " + SKIP)   # 제목 앞부분은 07:40 점검이 찾는다
         git("add", "-A", "--", *PATHS)
         if not staged():
             print("변경 없음 — 커밋하지 않는다")
@@ -130,11 +140,12 @@ def main():
             elif src.exists():
                 shutil.copy2(src, dst)
         shutil.rmtree(tmp, ignore_errors=True)
-        r = subprocess.run([sys.executable, str(HERE / "ingest.py"), "--inject"], cwd=REPO, capture_output=True, text=True)
-        print(r.stdout.strip())
-        if r.returncode:
-            print(r.stderr.strip()[-600:])
-            return 4
+        for script in ("ingest.py", "lists.py"):           # 블록 셋: AMZSUB · AMZL · KMJAMZ.trk
+            r = subprocess.run([sys.executable, str(HERE / script), "--inject"], cwd=REPO, capture_output=True, text=True)
+            print(r.stdout.strip())
+            if r.returncode:
+                print(r.stderr.strip()[-600:])
+                return 4
     print("4번 다 거절 — 다음 회차에 다시")
     return 5
 

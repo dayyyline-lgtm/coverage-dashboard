@@ -163,22 +163,47 @@ def short_title(t):
     return t[:48] + ("…" if len(t) > 48 else "")
 
 
-def build_trk(out):
-    """채널 글이 끊긴 날(주말·연휴·채널 미게시)을 우리 트래커로 잇는다 (2026-10-12 · 사용자 "듀얼로 이어 나가자").
-    KMJAMZ.trk = {days:[{d, mk:[받은 나라], cap:{나라: 100|50}, r:[[제품번호, US, UK, DE, FR, ES]]}], match}
-      · 채널 마지막 글 **뒤** 날짜만 — 채널 글이 있는 날은 채널이 원본이다.
-      · 제품 번호는 채널 사전(prod)과 같은 번호를 쓴다. ASIN → 채널 제품은 겹친 날(같은 날·나라·브랜드·**같은 순위**)의
-        표결로 잇는다. 못 이은 ASIN 은 prod 에 [브랜드, 영문 제목 줄임, ASIN] 으로 새로 넣는다.
-      · ⚠ 트래커는 유럽을 Top50 까지만 읽는다(config top_n 50) → cap 50. 화면이 비교 기준을 cap 에 맞춘다.
-        51위가 넘는 순위가 하나라도 잡힌 나라는 100 으로 본다(트래커 설정을 100 으로 올리면 저절로 바뀐다).
-      · 그날 행이 하나도 없는 나라 = 못 받은 날(모름) — mk 에서 빠진다."""
+LISTS_DIR = "amazon-beauty-tracker/data/lists"       # 아침 예약 작업(크롬 · subcat/lists.js)의 7개국 뷰티 Top100 — 2026-10-18 부터 트래커를 대신한다
+
+
+def _trk_brand_map():
+    """수집 쪽 브랜드 이름(소문자) → 채널 브랜드. 트래커·크롬 사전 표기가 조금씩 달라(LANEIGE·Laneige) 소문자로 맞춘다."""
+    tb = {(v[1] or "").lower(): k for k, v in BRAND.items() if v[1]}
+    tb.update({k.lower(): v for k, v in TRK_EXTRA.items()})
+    return tb
+
+
+def _rows_lists(tb):
+    """크롬 수집 — ({(날짜, 나라): [(채널 브랜드, asin, 순위, 제목)]}, {날짜: {나라: 끝 순위}}). ok·part 회차만."""
+    import csv, glob, os
+    got, tr, titles = {}, {}, {}
+    try:
+        titles = {x[0]: x[2] for x in json.load(open(os.path.join(LISTS_DIR, "skus.json"), encoding="utf-8"))["list"]}
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(LISTS_DIR, "days.csv"), encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r["status"] in ("ok", "part") and r["market"] in MK:
+                    got.setdefault(r["date"], {})[r["market"]] = int(r["maxr"] or 0)
+    except FileNotFoundError:
+        return tr, got
+    for p in sorted(glob.glob(os.path.join(LISTS_DIR, "[0-9][0-9][0-9][0-9]-[0-9][0-9].csv"))):
+        with open(p, encoding="utf-8") as f:
+            for x in csv.DictReader(f):
+                if x["market"] in got.get(x["date"], {}):
+                    kn = tb.get(x["brand"].lower())
+                    if kn:
+                        tr.setdefault((x["date"], x["market"]), []).append((kn, x["asin"], int(x["rank"]), titles.get(x["asin"], "")))
+    return tr, got
+
+
+def _rows_tracker(tb):
+    """PC 트래커(history.csv · 2026-10-18 까지) — ({(날짜, 나라): [...]}, {날짜: set(받은 나라)})"""
     import csv, os, collections
+    tr, seen = collections.defaultdict(list), collections.defaultdict(set)
     if not os.path.exists(TRK_CSV):
-        print("[KMJ] 트래커 원자료 없음 — trk 는 이전 값 유지"); return
-    tb = {v[1]: k for k, v in BRAND.items() if v[1]}
-    tb.update(TRK_EXTRA)
-    tr = collections.defaultdict(list)          # (날짜, 나라) -> [(브랜드, asin, 순위, 제목)]
-    seen = collections.defaultdict(set)         # 날짜 -> 받은 나라(브랜드 무관)
+        return tr, seen
     with open(TRK_CSV, encoding="utf-8") as f:
         for x in csv.DictReader(f):
             lr = (x.get("list_rank") or "").strip()
@@ -186,29 +211,61 @@ def build_trk(out):
                 continue
             d = x["date"][:10]
             seen[d].add(x["market"])
-            if x["brand"] in tb:
-                tr[(d, x["market"])].append((tb[x["brand"]], x["asin"], int(float(lr)), x.get("title") or ""))
+            kn = tb.get(x["brand"].lower())
+            if kn:
+                tr[(d, x["market"])].append((kn, x["asin"], int(float(lr)), x.get("title") or ""))
+    return tr, seen
+
+
+def build_trk(out):
+    """채널 글이 끊긴 날(주말·연휴·채널 미게시)을 우리 수집으로 잇는다 (2026-10-12 · 사용자 "듀얼로 이어 나가자").
+    KMJAMZ.trk = {days:[{d, mk:[받은 나라], cap:{나라: 100|50}, r:[[제품번호, US, UK, DE, FR, ES]]}], match}
+      · 채널 마지막 글 **뒤** 날짜만 — 채널 글이 있는 날은 채널이 원본이다.
+      · 출처 둘: 아침 예약 작업의 크롬 수집(data/lists · 2026-10-18 ~ · 7개국 Top100)이 먼저, 그 (날짜, 나라)가 없으면
+        PC 트래커(history.csv · 유럽 Top50 → cap 50). 크롬 수집이 2쪽을 못 받은 날(part)은 끝 순위로 cap 을 정한다.
+      · 제품 번호는 채널 사전(prod)과 같은 번호를 쓴다. ASIN → 채널 제품은 겹친 날(같은 날·나라·브랜드·**같은 순위**)의
+        표결로 잇는다. 못 이은 ASIN 은 prod 에 [브랜드, 영문 제목 줄임, ASIN] 으로 새로 넣는다.
+      · 그날 행이 하나도 없는 나라 = 못 받은 날(모름) — mk 에서 빠진다."""
+    tb = _trk_brand_map()
+    trl, gotl = _rows_lists(tb)
+    trt, seent = _rows_tracker(tb)
+
+    def rows_of(d, mk):
+        """(행, cap) — 그 (날짜, 나라)를 못 받았으면 None"""
+        if mk in gotl.get(d, {}):
+            return trl.get((d, mk), []), (100 if gotl[d][mk] > 50 else 50), "l"
+        if mk in seent.get(d, set()):
+            items = trt.get((d, mk), [])
+            return items, (100 if mk == "US" or any(rk > 50 for _, _, rk, _ in items) else 50), "t"
+        return None
+
+    import collections
     prod = out["prod"]
     votes = collections.defaultdict(collections.Counter)
     for day in out["days"]:
         for j, mk in enumerate(MK):
-            if (day["d"], mk) not in tr:
+            x = rows_of(day["d"], mk)
+            if not x:
                 continue
             cm = {(prod[r[0]][0], r[1 + j]): r[0] for r in day["r"] if r[1 + j]}
-            for kn, asin, rk, _ in tr[(day["d"], mk)]:
+            for kn, asin, rk, _ in x[0]:
                 if (kn, rk) in cm:
                     votes[asin][cm[(kn, rk)]] += 1
     amap = {a: c.most_common(1)[0][0] for a, c in votes.items()}
     aidx = {p[2]: i for i, p in enumerate(prod) if len(p) > 2}
     d1 = out["days"][-1]["d"] if out["days"] else ""
-    days, hit, tot = [], 0, 0
-    for d in sorted(x for x in seen if x > d1)[-TRK_KEEP:]:
-        mks = [mk for mk in MK if mk in seen[d]]
-        cap, rows = {}, {}
-        for mk in mks:
+    alld = set(gotl) | set(seent)
+    days, hit, tot, srcs = [], 0, 0, collections.Counter()
+    for d in sorted(x for x in alld if x > d1)[-TRK_KEEP:]:
+        mks, cap, rows = [], {}, {}
+        for mk in MK:
+            x = rows_of(d, mk)
+            if not x:
+                continue
+            items, cap[mk], src = x
+            mks.append(mk)
+            srcs[src] += 1
             j = MK.index(mk)
-            items = tr.get((d, mk), [])
-            cap[mk] = 100 if mk == "US" or any(rk > 50 for _, _, rk, _ in items) else 50
             for kn, asin, rk, title in items:
                 tot += 1
                 if asin in amap:
@@ -220,16 +277,41 @@ def build_trk(out):
                     i = aidx[asin]
                 row = rows.setdefault(i, [i] + [0] * len(MK))
                 row[1 + j] = rk if not row[1 + j] else min(row[1 + j], rk)
+        if not mks:
+            continue
         r = sorted(rows.values(), key=lambda r: (prod[r[0]][0], min([v for v in r[1:] if v] or [999])))
         days.append({"d": d, "mk": mks, "cap": cap, "r": r})
     out["trk"] = {"days": days, "match": f"{hit}/{tot}",
-                  "note": "채널 마지막 글 뒤 날짜를 우리 아마존 트래커로 잇는다. 유럽은 트래커가 Top50 까지만 읽어 cap 50."}
-    print(f"[KMJ] 트래커 이음 {len(days)}일({', '.join(x['d'][5:] for x in days) or '-'}) · ASIN→채널 제품 {hit}/{tot} · 표결 ASIN {len(amap)}")
+                  "note": "채널 마지막 글 뒤 날짜를 우리 수집으로 잇는다 — 아침 예약 작업의 크롬 수집(7개국 Top100)이 먼저, "
+                          "없으면 PC 트래커(유럽 Top50 · cap 50)."}
+    print(f"[KMJ] 우리 수집 이음 {len(days)}일({', '.join(x['d'][5:] for x in days) or '-'}) · 크롬 {srcs['l']}·트래커 {srcs['t']} (날짜×나라)"
+          f" · ASIN→채널 제품 {hit}/{tot} · 표결 ASIN {len(amap)}")
+
+
+def trk_only():
+    """KMJAMZ 블록의 trk 만 다시 만든다(네트워크 없음) — 아침 예약 작업(subcat/lists.py)이 크롬 수집 뒤에 부른다.
+    바뀌면 index.html 을 쓰고 True. asOf(채널 마지막 글 날짜)·fetched(채널을 받은 시각)는 그대로 둔다."""
+    html = open(HTML, encoding="utf-8").read()
+    old, m = load_block(html)
+    if not old or not m:
+        print("[KMJ] 블록이 없다 — trk 생략")
+        return False
+    out = copy.deepcopy(old)
+    build_trk(out)
+    if out == old:
+        print("[KMJ] trk 변동 없음")
+        return False
+    block = "const KMJAMZ = " + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";"
+    open(HTML, "w", encoding="utf-8").write(html[:m.start()] + block + html[m.end():])
+    print("[KMJ] trk 갱신")
+    return True
 
 
 def main():
     try: sys.stdout.reconfigure(encoding="utf-8")   # 이 PC(cp949)에서 ⚠ 출력에 죽지 않게
     except Exception: pass
+    if "--trk-only" in sys.argv:              # 크롬 수집 뒤 trk 만(네트워크 없음) — subcat/lists.py 가 부른다
+        trk_only(); return
     dry = "--dry-run" in sys.argv
     rebuild = "--rebuild" in sys.argv          # 파서를 고쳤을 때 — 5/28 부터 다시 받는다
     html = open(HTML, encoding="utf-8").read()
