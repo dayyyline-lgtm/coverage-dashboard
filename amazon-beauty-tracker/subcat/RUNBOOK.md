@@ -26,6 +26,9 @@
 3. **윈도우 크롬 기다리기** — `list_connected_browsers` 에 osPlatform Windows 가 없으면 `sleep 240` 하고 다시. 처음 본 때부터 최대 90분.
    붙으면 `select_browser` 로 그 브라우저를 고르고 1~3단계.
 4. 90분 안에 안 붙으면 수집하지 말고 멈추고, 같은 날 13:20 에 같은 메시지로 `send_later` 를 하나 건다(13:20 회차 자신이면 더 걸지 않는다).
+5. **한 번만(2026-10-18 등록 · 끝나면 이 줄을 지울 것)** — PC 셸 도구(`mcp__remote-devices__device_bash`)가 붙어 있으면 루트 CLAUDE.md
+   '아마존 7개국 Top100 → 아직 남은 것'의 PC 클론 동기화를 한다(트래커 메시지 끄기 · scraper 가격 수정 반영). 수집이 끝난 뒤에 · 트래커가 다 돈 뒤(07시 이후 권장)에.
+   PC 클론 경로는 PC 에서 `AmazonBeautyTracker` 작업의 실행 파일 경로(`schtasks /query /tn AmazonBeautyTracker /v /fo list`)로 확인한다.
 
 ## 0. 저장소
 
