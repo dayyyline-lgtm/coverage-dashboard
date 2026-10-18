@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # 워커는 평일 07~18시를 매시간 부른다. 그런데 회당 실측 7.7분이라
       # 하루 93분·월 2,790분이 나간다 — 한도 2,000분을 이것 하나로 넘긴다.

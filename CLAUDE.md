@@ -1995,6 +1995,10 @@ PC 트래커(curl_cffi · 작업 스케줄러 05:15/06:45)는 **고치지 않고
 > 그 외=시세(refresh). ⚠ **Cloudflare Cron Trigger 를 `0 20 * * SUN-THU`(수집)·`0 21 * * SUN-THU`(레터)로
 > 바꿔야** 정시성이 산다. GitHub cron(`0 20`·`0 21 * * 0-4`)은 밀리는 백업. `digest.py --once` 가 중복 발송 차단.
 
+> **2026-10-18: 러너를 `ubuntu-24.04` 로 고정했다(워크플로 19개 전부).** GitHub 이 `ubuntu-latest` 를 10/19~11/19 사이에 26.04 로 넘기는데,
+> 그 몇 주 동안은 회차마다 이미지가 섞여 같은 워크플로가 어떤 날은 되고 어떤 날은 죽는다(setup-python 3.11 · playwright `--with-deps` 가 걸릴 수 있다).
+> 26.04 로 옮길 땐 diag.yml 같은 시험 워크플로로 먼저 돌려 보고 한꺼번에 바꿀 것.
+
 **Cloudflare Worker의 Cron Trigger**가 GitHub Actions를 호출한다.
 
 - Worker: https://coverage-cron.dayyyline.workers.dev — `?wf=refresh.yml&key=<TRIGGER_KEY>` 로

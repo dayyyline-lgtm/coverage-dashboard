@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   send:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       sent: ${{ steps.s.outputs.sent }}
@@ -49,7 +49,7 @@ jobs:
   record:
     needs: send
     if: needs.send.outputs.sent == '1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
       group: repo-write

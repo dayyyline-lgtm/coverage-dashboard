@@ -52,7 +52,7 @@ concurrency:
 
 jobs:
   screens:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # 체크아웃보다 먼저 판정한다 — 슬롯이 아니면 여기서 끝내야 분이 안 나간다.
       # cron·수동 실행은 무조건 통과시키고, refresh.yml 에 얹혀 온 것만 시간으로 거른다.

@@ -37,7 +37,7 @@ jobs:
   alert:
     # 성공·취소는 조용히 넘어간다. 알림은 문제일 때만 와야 눈에 띈다.
     if: github.event.workflow_run.conclusion == 'failure'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

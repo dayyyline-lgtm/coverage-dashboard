@@ -59,7 +59,7 @@ concurrency:
 
 jobs:
   collect:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     outputs:
       go: ${{ steps.pass.outputs.ok }}
@@ -142,7 +142,7 @@ jobs:
     needs: collect
     # 수집을 안 한 회차(슬롯 아님·중복)는 여기서 끝 — 아티팩트가 없다.
     if: needs.collect.result == 'success' && needs.collect.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
       group: repo-write

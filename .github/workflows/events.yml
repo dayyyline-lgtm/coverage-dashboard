@@ -37,7 +37,7 @@ jobs:
   # 오늘 수집이 이미 돌았으면(커밋이 있거나, 5분 넘게 돈 성공 회차가 3시간 안에 있으면) 여기서 끝낸다.
   # 구글 트렌드 429 를 두 배로 부르지 않기 위해서다. 수동 force 만 예외.
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       go: ${{ steps.c.outputs.go }}
     steps:
@@ -80,7 +80,7 @@ jobs:
   collect:
     needs: gate
     if: needs.gate.outputs.go == '1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # 실측 32~35분(2026-09-23). 스텝마다 상한 + 전체 55분 컷. 06:00 안에 끝난다.
     timeout-minutes: 55
     steps:
