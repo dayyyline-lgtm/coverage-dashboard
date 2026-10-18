@@ -1,0 +1,74 @@
+name: 아마존 K뷰티 아침 알림
+
+# 아침 예약 작업(크롬)이 7개국 뷰티 Top100 을 올리면(data/lists/days.csv 가 바뀌면) 텔레그램 한 통 (2026-10-18 신설).
+# PC 트래커의 '💄 아마존 K뷰티'를 대신한다 — 나라마다 그 나라를 받은 직전 날과 비교하고, 이틀 연속 빠진 나라만 알린다.
+# 하루 한 번만 보낸다(data/lists/report_sent.json). 규칙은 amazon-beauty-tracker/subcat/lists_report.py 맨 위.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "amazon-beauty-tracker/data/lists/days.csv"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: amazon-report
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sent: ${{ steps.s.outputs.sent }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 알림 보내기
+        id: s
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python amazon-beauty-tracker/subcat/lists_report.py --send
+          if git status --porcelain amazon-beauty-tracker/data/lists/report_sent.json | grep -q .; then
+            echo "sent=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.s.outputs.sent == '1'
+        with:
+          name: report-sent
+          path: amazon-beauty-tracker/data/lists/report_sent.json
+          retention-days: 2
+
+  # 보낸 날 기록 — index.html 을 쓰는 다른 작업과 겹치지 않게 repo-write 줄에 선다(보내기는 그 줄을 기다리지 않는다)
+  record:
+    needs: send
+    if: needs.send.outputs.sent == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: repo-write
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: report-sent
+          path: amazon-beauty-tracker/data/lists/
+      - name: 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add amazon-beauty-tracker/data/lists/report_sent.json
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git commit -q -m "아마존 K뷰티 알림 발송기록 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST [CI Skip]"
+          for i in 1 2 3 4; do
+            git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0
+            sleep 7
+          done
+          echo "발송기록 push 실패 — 같은 날 다시 보낼 수 있다"; exit 1
