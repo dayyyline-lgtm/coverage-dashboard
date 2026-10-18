@@ -190,14 +190,28 @@
     }
     L.push(['END', L.length + 1, crc32(L.join('\n'))].join('|'));
     const text = L.join('\n');
-    J.last = {mk, text, ms: Date.now() - t0};
-    try { sessionStorage.setItem('amzl_last', text); } catch (e) { /* 저장이 막혀도 결과는 그대로 돌려준다 */ }
-    return text;
+    const sum = [mk, status, 'read ' + all.length, 'titled ' + titled, 'kpos ' + pos.length, 'new ' + Object.keys(newT).length,
+      'lines ' + L.length, 'chars ' + text.length, Math.round((Date.now() - t0) / 100) / 10 + 's'].join(' · ');
+    J.last = {mk, text, sum};
+    try { sessionStorage.setItem('amzl_last', JSON.stringify(J.last)); } catch (e) { /* 저장이 막혀도 결과는 그대로 보여 준다 */ }
+    show(text);
+    return sum;
   };
-  // 옮겨 적다 틀렸을 때 — 다시 받지 않고 이 탭 세션에 남겨 둔 마지막 결과를 준다(같은 나라 탭이어야 한다)
+  // 결과를 본문에 띄운다 → get_page_text 로 읽는다. javascript_tool 의 반환값은 1천 자 남짓에서 잘린다(10/18 실측).
+  function show(text) {
+    document.title = 'amzl dump';
+    document.body.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.id = 'amzl'; pre.style.whiteSpace = 'pre-wrap'; pre.textContent = text;
+    document.body.appendChild(pre);
+  }
+  // 옮겨 적다 틀렸을 때 — 다시 받지 않고 이 탭 세션에 남겨 둔 마지막 결과를 본문에 다시 띄운다(같은 나라 탭이어야 한다)
   J.again = function () {
-    if (J.last && J.last.text) return J.last.text;
-    try { return sessionStorage.getItem('amzl_last') || 'none'; } catch (e) { return 'none'; }
+    let x = J.last;
+    if (!x) { try { x = JSON.parse(sessionStorage.getItem('amzl_last') || 'null'); } catch (e) { x = null; } }
+    if (!x || !x.text) return 'none';
+    show(x.text);
+    return x.sum || 'shown';
   };
   J._t = {normT, buildPats, brandOf: t => brandOf(t), crc32, clean};    // 시험용(node 로 사전 매칭을 돌려 본다)
 })();
