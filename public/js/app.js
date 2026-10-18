@@ -2784,7 +2784,6 @@ const srcOfGroup=G=> G && G.only ? [G.only] : ["naver","google"];
    x축에 날짜 꼬리표·y축에 값 꼬리표를 띄우고, 카드형 툴팁을 커서 옆에 즉시 띄운다. 십자선은 svg 안에 그려 viewBox 좌표 그대로 쓴다.
    o: {W,H,pad,n, xOf(i)→viewBox x, html(i)→카드(null 이면 카드만 숨김),
        pts(i)→[{y,c}] 강조 점(선택), xLab(i)→x축 꼬리표(선택), yLab(y)→그 높이의 값 글자(선택), ySide:"left"|"right"} */
-const XH_ARM=14;     // 십자 팔 길이(px · viewBox)
 function attachChartTip(box, o){
   const svg=box.querySelector("svg"); if(!svg||!o.n) return;
   box.style.position="relative"; box.dataset.xh="1";
@@ -2810,8 +2809,9 @@ function attachChartTip(box, o){
     for(let k=0;k<o.n;k++){ const d=Math.abs(o.xOf(k)-p.x); if(d<best){ best=d; i=k; } }
     const X=o.xOf(i), Y=Math.max(T,Math.min(B,p.y));
     g.style.display="";
-    // 짧은 십자 — 차트를 가로지르던 긴 선은 너무 커 보였다(2026-10-18 사용자). 시점에 붙은 점 위아래·좌우로 팔 길이만큼만.
-    const arm=XH_ARM; set(vl,{x1:X,x2:X,y1:Math.max(T,Y-arm),y2:Math.min(B,Y+arm)}); set(hl,{x1:Math.max(L,X-arm),x2:Math.min(R,X+arm),y1:Y,y2:Y});
+    // 차트를 가로지르는 점선(세로 = 시점, 가로 = 커서 높이). 커서 자리의 십자 표시는 두지 않는다
+    //   (2026-10-18 사용자 "점선이 중요한 거고 십자는 없어도 된다" — 한때 짧은 십자로 줄였다가 되돌림).
+    set(vl,{x1:X,x2:X,y1:T,y2:B}); set(hl,{x1:L,x2:R,y1:Y,y2:Y});
     dots.textContent="";
     ((o.pts&&o.pts(i))||[]).forEach(d=>{ if(d&&d.y!=null&&isFinite(d.y)) dots.appendChild(mk("circle",{cx:X,cy:d.y,r:3.4,fill:d.c||"var(--accent)",class:"xh-dot"})); });
     const xl=o.xLab?o.xLab(i):null;
