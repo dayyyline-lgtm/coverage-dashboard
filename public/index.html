@@ -217,11 +217,10 @@
   .chart-guide{position:absolute;width:0;border-left:1px dashed var(--muted);pointer-events:none;display:none;z-index:15;opacity:.45}
   /* 십자선(2026-10-18) — svg 안에 그린다. 꼬리표는 글자색과 바탕을 뒤집은 알약(다크·라이트 둘 다 대비가 크다) */
   svg .xh{pointer-events:none}
-  svg .xh-v,svg .xh-h{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:.85}
-  svg .xh-dot{stroke:var(--panel);stroke-width:2}
+  svg .xh-v,svg .xh-h{stroke:var(--text);stroke-width:1;opacity:.55}
+  svg .xh-dot{stroke:var(--panel);stroke-width:1.5}
   svg .xh-pill{fill:var(--text)}
-  svg .xh-pt{fill:var(--bg);font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums}
-  [data-xh]{cursor:crosshair}
+  svg .xh-pt{fill:var(--bg);font-size:9.5px;font-weight:700;font-variant-numeric:tabular-nums}
   /* 즉시 툴팁 — 기본 title 대신(커서 옆에 바로, 따라다님) */
   .fast-tip{position:fixed;z-index:9999;pointer-events:none;display:none;max-width:380px;background:var(--panel);color:var(--text);
     border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:12px;line-height:1.5;white-space:pre-line;
