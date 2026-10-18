@@ -145,7 +145,8 @@
     let cfg = window.__AMZSUB_CFG || null;
     if (!cfg) cfg = await (await fetch(ROOT + 'subcat/config.json')).json();
     let master = null;
-    try { master = await (await fetch(ROOT + 'data/lists/skus.json')).json(); } catch (e) { master = null; }
+    // 마스터는 아침마다 바뀐다 — CDN 이 옛것(또는 없던 때의 404)을 주지 않게 매번 새 주소로
+    try { master = await (await fetch(ROOT + 'data/lists/skus.json' + Q + 'v' + E + Date.now(), {cache: 'no-store'})).json(); } catch (e) { master = null; }
     const known = {};
     ((master && master.list) || []).forEach((x, k) => { known[x[0]] = k; });
     const masterN = Object.keys(known).length;
