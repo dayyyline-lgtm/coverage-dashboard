@@ -1549,6 +1549,36 @@ const TREND_STOCK={
   // 빙그레 — 국내 IP(일별) · 메로나 해외(주별, 계절성이라 6개월) · 브랜드 인지도(주별)
   "빙그레":["빙그레 IP","메로나 국가별","바나나맛우유 국가별","빙그레 브랜드(해외)"],
 };
+/* 비교 그룹의 계열 주인 (2026-10-19) — 경쟁사·다른 커버리지 브랜드가 섞인 그룹은 계열마다 주인을 따로 준다.
+   예전엔 그룹을 처음 등록한 종목이 그룹 안 모든 계열의 주인이었다. 그래서 K-뷰티 브랜드(첫 등록 = 에이피알)의
+   아로마티카 계열이 빠지자 에이피알 헤더·유니버스 보드에 '🧊 아로마티카 지난주보다 −63%'가 떴다.
+   · 여기 없는 계열(경쟁사·비커버리지 브랜드)은 차트 맥락용이다. 어느 종목의 신호로도 쓰지 않는다.
+   · 주인 종목이 그 그룹을 주제로 갖고 있지 않으면 역시 뺀다(눌러도 갈 차트가 없다).
+     코스알엑스(아모레)·려·닥터그루트(LG생건)·리투오(앨엔씨바이오)가 그 경우다. 주제를 붙이면 바로 살아난다.
+   · 그룹에 남의 계열이 섞이면(경쟁사를 나란히 놓으면) 여기에 적을 것. 나라별·제품군처럼 전부 한 종목 것이면 안 적는다.
+   · 계열 이름은 그룹의 products(네이버 쪽 표기) 그대로다. */
+const TREND_OWNER={
+  "K-뷰티 브랜드":{"메디큐브":"에이피알","달바":"달바글로벌","아로마티카":"아로마티카","코스알엑스":"아모레퍼시픽"},
+  "러시아 K-뷰티(얀덱스)":{"메디큐브":"에이피알","달바":"달바글로벌","코스알엑스":"아모레퍼시픽","라네즈":"아모레퍼시픽"},
+  "카자흐 담배 브랜드(얀덱스)":{"ESSE(KT&G)":"KT&G"},
+  "카자흐 HnB 검색":{"lil solid":"KT&G"},                        // IQOS·TEREA = PMI
+  "KT&G 알마티 리테일 판매(브랜드별 일별 구매)":{"ESSE(KT&G)":"KT&G"},
+  "탈모샴푸 브랜드":{"TS샴푸":"TS트릴리온","려샴푸":"아모레퍼시픽","닥터그루트":"LG생활건강"},
+  "스킨부스터":{"리쥬란":"파마리서치","리투오":"앨엔씨바이오"},
+  "변신로봇 IP":{"메탈카드봇":"SAMG엔터"},                        // 헬로카봇·또봇 = 경쟁사
+  "변신로봇 IP 러시아":{"메탈카드봇":"SAMG엔터"},
+  "웹툰 플랫폼":{"탑툰":"탑코미디어"},
+  "웹툰앱 순위(도서)":{"탑툰(탑코미디어)":"탑코미디어"},
+  "AI 챗봇 경쟁":{"탑툰챗":"탑코미디어"},
+  "제타(경쟁)":{}, "네오나(경쟁)":{}, "AI챗 앱 매출순위":{}, "AI챗 앱 무료순위":{},   // 경쟁사뿐
+  "극장 일별 관객 — 치이카와·흥행작":{"치이카와":"대원미디어"},
+  "극장 예매관객(10시 기준) — 치이카와·흥행작":{"치이카와":"대원미디어"},
+};
+// 계열 하나의 주인 종목. 주인표에 없는 그룹은 fb(그룹을 처음 등록한 종목) 그대로, 주인이 없으면 null.
+function trendOwnerOf(gname, prod, fb){
+  const m=TREND_OWNER[gname]; if(!m) return fb;
+  const s=m[prod]; return (s&&(TREND_STOCK[s]||[]).includes(gname))?s:null;
+}
 /* Steam 동접을 트렌드 비교 탭에 편입 — 게임사는 검색보다 동접·리뷰가 실측 신호라
    같은 탭에서 검색트렌드와 나란히 고르게 한다. 별도 탭을 두면 헷갈리고 과하다.
    차트가 0–100 상대값이라 동접(명)도 자기 최고=100 으로 정규화하고, peak 로 실제 명수를
@@ -6152,7 +6182,7 @@ function afterTrendStockChange(){
 /* 시그널 카드 (2026-09-24 · 개편계획 Phase 2) — 고른 종목의 주제 전부를 한 판에.
    차트 하나만 보면 나머지 주제가 어디로 가는지 모른다. 카드 = 주제명 · 최근값 · 주간 변화 ·
    스파크라인(일별은 7일 평균, 최근 60점 / 주별 26점). 클릭하면 그 주제가 큰 차트로 온다. */
-function trendCardStats(gname){
+function trendCardStats(gname, stock){
   const G0=TREND.groups[gname]; if(!G0) return null;
   const V=freqView(G0,"date")||G0;                      // 일별이 있으면 일별
   const freq=nativeFreq(V);
@@ -6170,8 +6200,10 @@ function trendCardStats(gname){
     const raw=(V.rawSer&&V.rawSer[i])?V.rawSer[i].slice(-N):null;
     return {i, label:(V.products||[])[i]||"", ser:cut, last:lastNN(cut), raw}; }).filter(r=>r.last!=null);
   if(!rows.length) return null;
-  rows.sort((a,b)=>b.last-a.last);
-  const lead=rows[0], back=freq==="date"?7:1;            // 일별은 주간 변화, 주별·월별은 전기비
+  // 비교 그룹이면 그 종목 계열이 대표(굵은 선·수치) — 아로마티카 카드에 메디큐브 값이 찍히지 않게(TREND_OWNER)
+  const own=r=>(stock&&TREND_OWNER[gname]&&trendOwnerOf(gname,r.label,null)===stock)?1:0;
+  rows.sort((a,b)=>own(b)-own(a)||b.last-a.last);
+  const lead=rows[0], back=freq==="date"?7:1;           // 일별은 주간 변화, 주별·월별은 전기비
   const li=lead.ser.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop();
   const prev=(li!=null&&li-back>=0)?lead.ser[li-back]:null;
   let chg=null, dRank=null, valTxt, smoothed=k>1;
@@ -6205,7 +6237,7 @@ function renderTrendCards(){
   const W=140,H=34;
   const main=list.filter(g=>topicTier(g)<3), rest=list.filter(g=>topicTier(g)>=3);
   const card=g=>{
-    const S=trendCardStats(g); if(!S) return "";
+    const S=trendCardStats(g, trendStock); if(!S) return "";
     const n=Math.max(2,...S.rows.map(r=>r.ser.length));
     const vals=S.rows.flatMap(r=>r.ser.filter(v=>v!=null)); if(!vals.length) return "";
     const mx=Math.max(...vals), mn=Math.min(0,...vals);
@@ -6563,7 +6595,11 @@ function trendCands(){
       return;
     }
     const src=(G.only==="google"||!G.naver)?"google":"naver", series=G[src]||G.naver||[], prods=G.products||[];
-    let best=null;
+    // 주인 종목별 최고 하나씩 — 비교 그룹은 계열마다 주인이 다르고, 경쟁사 계열은 주인이 없다(TREND_OWNER)
+    const bests={};
+    const keep=(pi,o)=>{ const st=trendOwnerOf(gname,prods[pi],stock); if(!st) return;
+      if(!bests[st]||o.score>bests[st].score) bests[st]=o; };
+    const flush=()=>Object.keys(bests).forEach(st=>cands.push({gname,stock:st,...bests[st]}));
     /* 순위 계열은 %가 뜻이 없다 — '전일비 +481%' 는 (301−순위) 점수가 5배가 됐다는 말이라
        사람이 읽는 순간 틀린 그림이 된다(2026-09-18: 디시 갤 순위가 그렇게 찍혔다).
        순위는 **몇 위에서 몇 위로** 움직였는지가 전부다. */
@@ -6577,9 +6613,9 @@ function trendCands(){
         const d=prev-last;                                       // +면 순위 상승(작아짐)
         if(Math.abs(d)<Math.max(3, G.rankN*0.03)) return;        // 잔움직임은 뉴스가 아니다
         const score=Math.min(120, Math.abs(d)*(G.rankN<=30?4:1))+(last<=10?25:last<=20?10:0);
-        if(!best||score>best.score) best={prod:prods[pi]||gname, rank:last, drank:d, score, freq};
+        keep(pi,{prod:prods[pi]||gname, rank:last, drank:d, score, freq});
       });
-      if(best) cands.push({gname,stock,...best});
+      flush();
       return;
     }
     // 일별: 이번 주(최근 7일 합) vs 지난주 · 4주 전 주. 선은 평균으로 안 뭉개되 판정은 주 단위로 —
@@ -6604,7 +6640,7 @@ function trendCands(){
         const mag=Math.max(Math.abs(wow||0),Math.abs(win||0));
         if(mag<30 && !isHigh) return;
         const score=mag+(isHigh?25:0);
-        if(!best||score>best.score) best={prod:prods[pi]||gname,wow,win,isHigh,score,freq,wk:true};
+        keep(pi,{prod:prods[pi]||gname,wow,win,isHigh,score,freq,wk:true});
         return;
       }
       const c=a.filter(v=>v!=null); if(c.length<3) return;
@@ -6619,9 +6655,9 @@ function trendCands(){
       const mag=Math.max(Math.abs(wow||0),Math.abs(win||0));
       if(mag<25 && !isHigh) return;
       const score=mag+(isHigh?25:0);
-      if(!best||score>best.score) best={prod:prods[pi]||gname,wow,win,isHigh,score,freq};
+      keep(pi,{prod:prods[pi]||gname,wow,win,isHigh,score,freq});
     });
-    if(best) cands.push({gname,stock,...best});
+    flush();
   });
   cands.sort((a,b)=>b.score-a.score);
   return cands;
@@ -8914,13 +8950,24 @@ function trendChipTxt(c){
   const lw=c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
   return {icon:(c.isHigh&&up)?"🚀":up?"🔥":"🧊", up, chg:v==null?(c.wk?"주간 최고":"신고점"):(useWin?lw:lm)+`${v>=0?"+":""}${v.toFixed(0)}%`};
 }
+/* 배지 이름 — 계열 이름이 나라·합계뿐이면('한국' '5개국 합계') 무엇의 것인지 모른다 → 앞에 주제를 붙인다.
+   '아로마티카 국가별 / 한국' → '아로마티카 한국' · '아마존 Top100 제품 수(메디큐브) / 5개국 합계' → '메디큐브 아마존 5개국 합계'.
+   브랜드·게임·아티스트 이름(메디큐브·배틀그라운드·트와이스)은 그대로 둔다. */
+const TREND_PLACE_RE=/^(한국|미국|일본|중국|대만|홍콩|영국|독일|프랑스|스페인|이탈리아|캐나다|브라질|멕시코|러시아|카자흐|우즈베키스탄|키르기스스탄|타지키스탄|아르메니아|몽골|필리핀|베트남|태국|인도네시아|싱가포르|말레이시아|유럽|전세계|글로벌|전국|합계|\d+개국)|\(지역\)$/;
+function trendSigName(c){
+  const p=String(c.prod||""), g=String(c.gname||"");
+  if(!TREND_PLACE_RE.test(p)) return p;
+  const amz=g.match(/^아마존 Top100 제품 수\((.+)\)$/);
+  const subj=amz?`${amz[1]} 아마존`:g.replace(/\([^)]*\)/g,"").replace(/\s*국가별$/,"").replace(/\s+/g," ").trim();
+  return subj&&subj!==p?`${subj} ${p}`:p;
+}
 const sigPill=(t,kind,title)=>`<span class="sig sig-${kind}"${title?` title="${attr(title)}"`:""}>${t}</span>`;
 function uniSignals(name){
   const ps=pxSig(name), tr=uniTrendBy()[name]||[], out=[];
   if(ps&&ps.hi) out.push({k:"hi", n:ps.hi.n, html:sigPill(`${ps.hi.lab} 신고가`,"hi",`종가 기준 — 지금 가격이 최근 ${ps.hi.n}거래일 종가 최고`)});
   if(ps&&ps.lo) out.push({k:"lo", n:ps.lo.n, html:sigPill(`${ps.lo.lab} 신저가`,"lo",`종가 기준 — 지금 가격이 최근 ${ps.lo.n}거래일 종가 최저`)});
   if(tr.length){ const c=tr[0], t=trendChipTxt(c);
-    out.push({k:"tr", html:sigPill(`${t.icon} ${attr(c.prod)} <b class="${t.up?"up":"down"}">${t.chg}</b>`,"tr",`${c.gname}${tr.length>1?` 외 ${tr.length-1}건`:""} — 누르면 종목 페이지 트렌드`)+(tr.length>1?`<span class="sig-more">+${tr.length-1}</span>`:"")}); }
+    out.push({k:"tr", html:sigPill(`${t.icon} ${attr(trendSigName(c))} <b class="${t.up?"up":"down"}">${t.chg}</b>`,"tr",`${c.gname}${tr.length>1?` 외 ${tr.length-1}건`:""} — 누르면 종목 페이지 트렌드`)+(tr.length>1?`<span class="sig-more">+${tr.length-1}</span>`:"")}); }
   return out;
 }
 function sparkSvg(ser, w, h, hiN){
@@ -9115,7 +9162,7 @@ function renderStockTab(name){
   if(spTab==="trend"){
     const list=topicsOf(name), tr=uniTrendBy()[name]||[];
     const W=140,H=34;
-    const card=g=>{ const S=trendCardStats(g); if(!S) return "";
+    const card=g=>{ const S=trendCardStats(g, name); if(!S) return "";
       const n=Math.max(2,...S.rows.map(x=>x.ser.length)), vals=S.rows.flatMap(x=>x.ser.filter(v=>v!=null)); if(!vals.length) return "";
       const mx=Math.max(...vals), mn=Math.min(0,...vals), sx=i=>i/(n-1)*W, sy=v=>H-2-((v-mn)/((mx-mn)||1))*(H-4);
       const paths=S.rows.map((x,i)=>`<path d="${trendPath(x.ser,sx,sy)}" fill="none" stroke="${TREND.colors[i%TREND.colors.length]}" stroke-width="${i?1.1:2}" stroke-opacity="${i?.5:1}"/>`).join("");
