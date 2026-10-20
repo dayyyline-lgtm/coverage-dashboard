@@ -9693,7 +9693,7 @@ function amzMetricFmt(v, m){
 
 function renderAmazon(){
   // 탭 본문은 한투 채널(renderKmj · renderAmzTrend) — 트래커 블록이 비어도 그린다. 아래는 맨 아래 접힌 '우리 아마존 트래커'.
-  renderKmj(); renderAmzTrend(); renderAmzSub();
+  renderKmj(); renderAmzBrand(); renderAmzTrend(); renderAmzSub();
   if(typeof AMAZON==="undefined" || !AMAZON.brands || !AMAZON.brands.length) return;
   const asOf=document.getElementById("amzAsOf");   // 접힘 요약줄 — 접힌 채로도 기준일·상태가 읽히게
   if(asOf){ const st=staleNote("AMAZON", AMAZON.asOf);
@@ -9857,13 +9857,13 @@ const amztEsc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"
 /* 꺾은선 — boxLine 과 같은 모양에 셋을 더했다: 순위 축(1위가 위) · null 에서 끊기(100위 밖) · 행사 음영과 세로 표시.
    점이 없는 날(관측 없음)은 건너 잇는다. 끝 라벨 글씨는 본문색, 식별은 옆의 색 점이 맡는다. */
 function amztLine(el, series, o){
-  const W=el.clientWidth||900, H=300, P={l:44,r:o.padR||124,t:18,b:30};
+  const W=el.clientWidth||900, H=o.h||300, P={l:44,r:o.padR||124,t:18,b:30};   // o.h — 작은 차트(브랜드별 상세)
   const pts=series.flatMap(s=>s.pts.filter(p=>p.y!=null));
   if(!pts.length){ el.innerHTML=`<p class="note" style="padding:40px 0;text-align:center">${o.empty||"아직 값이 없습니다"}</p>`; return; }
   const x0=o.x0, x1=o.x1;
   const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
   const gc=css("--line"), mut=css("--muted"), txt=css("--text");
-  const ymax=o.rank?100:Math.max(4,...pts.map(p=>p.y));
+  const ymax=o.rank?100:Math.max(o.yFloor!=null?o.yFloor:4,...pts.map(p=>p.y));   // o.yFloor — 축 최소 높이(금액이 0.1억대인 작은 브랜드)
   const sx=x=>P.l+(x-x0)/Math.max(1,x1-x0)*(W-P.l-P.r);
   const sy=o.rank?(y=>P.t+(y-1)/99*(H-P.t-P.b)):(y=>H-P.b-y/ymax*(H-P.t-P.b));
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" role="img" aria-label="${amztEsc(o.aria||"")}">`;
@@ -9893,7 +9893,7 @@ function amztLine(el, series, o){
       else if(p===pk) s+=`<circle cx="${cx}" cy="${cy}" r="3.2" fill="${se.color}"/>`;
       s+=`<circle cx="${cx}" cy="${cy}" r="7" fill="transparent"><title>${amztEsc(p.tip)}</title></circle>`; });
     const l=[...q].reverse().find(p=>p.y!=null);
-    if(l) ends.push({y:sy(l.y), t:`${se.name} ${o.endFmt(l.y)}`, c:se.color});
+    if(l) ends.push({y:sy(l.y), t:o.endOnly?o.endFmt(l.y):`${se.name} ${o.endFmt(l.y)}`, c:se.color});   // o.endOnly — 선이 하나면 이름 없이 값만
   });
   ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<13) ends[i].y=ends[i-1].y+13;
   // 바닥 근처에 몰리면(0개 브랜드 여럿) 밀려 내려간 라벨이 그림 밖으로 나간다 — 아래에서부터 다시 위로 쌓는다
@@ -10058,7 +10058,7 @@ function renderKmj(){
       :`<span style="color:var(--muted)">${amztEsc(own||"—")}</span>${own?`<span class="pill" style="margin-left:5px;font-size:10px">비상장</span>`:""}`;
     return `<div class="kpi" title="${amztEsc(o.label)} — 아마존 뷰티 Top100 안 제품 수(${md(L.d)} · ${srcTag(L)})">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">${brandLogo(o.key)}
-        <span style="font-weight:800;font-size:13.5px">${o.label}</span>
+        <span class="clickable" data-amzb="${amztEsc(o.key)}" title="눌러서 브랜드별 상세" style="font-weight:800;font-size:13.5px">${o.label}</span>
         <span title="추이 차트의 선 색" style="width:8px;height:8px;border-radius:50%;background:${o.color};margin-left:auto;flex:none"></span></div>
       <div style="font-size:11.5px;margin-bottom:8px">${tie}</div>
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
@@ -10081,7 +10081,7 @@ function renderKmj(){
   document.getElementById("kmjMatrix").innerHTML=`<div class="tbl-wrap"><table>
     <thead><tr><th style="text-align:left">브랜드</th><th style="text-align:left">운영사</th>
       ${AMZT_MK.map(m=>`<th style="text-align:right">${mkLab(m)}</th>`).join("")}<th style="text-align:right">합계</th></tr></thead>
-    <tbody>${B.map(o=>`<tr><td style="text-align:left;font-weight:700"><span style="display:inline-flex;align-items:center;gap:6px">${brandLogo(o.key)}${o.label}</span></td>
+    <tbody>${B.map(o=>`<tr><td style="text-align:left;font-weight:700"><span class="clickable" data-amzb="${amztEsc(o.key)}" style="display:inline-flex;align-items:center;gap:6px">${brandLogo(o.key)}${o.label}</span></td>
       <td style="text-align:left">${listed(o)?`<span class="clickable" data-stock="${amztEsc(o.stock)}" style="font-weight:700">${amztEsc(owner(o))}</span>`:`<span style="color:var(--muted)">${amztEsc(owner(o)||"—")}</span>`}</td>
       ${AMZT_MK.map(m=>cell(cnt(o,L,m), cnt(o,C4,m), null)).join("")}
       ${cell(tot(o,L), tot(o,C4), null, true)}</tr>`).join("")}</tbody>
@@ -10280,7 +10280,7 @@ function renderAmzSub(){
       ${cell(c,"s")}${cell(c,"a")}${cell(c,"t")}${cell(c,"w")}
       <td style="text-align:right;white-space:nowrap">${c.b[li]?`<b>${c.b[li]}</b>`:`<span style="color:var(--muted2)">0</span>`}</td>
       ${revCell(c)}
-      <td style="text-align:left;color:var(--muted);font-size:11.5px;white-space:normal">${(c.br||[]).slice(0,4).map(b=>`${esc(b[0])} ${b[1]}`).join(" · ")}${(c.br||[]).length>4?` 외 ${c.br.length-4}`:""}</td></tr>`).join("");
+      <td style="text-align:left;color:var(--muted);font-size:11.5px;white-space:normal">${(c.br||[]).map(b=>`<span class="clickable" data-amzb="${esc(b[0])}">${esc(b[0])}</span> ${b[1]}`).join(" · ")}</td></tr>`).join("");
   const foot=(lab,o,isK)=>`<tr style="border-top:2px solid var(--line)"><td style="text-align:left;font-weight:800;white-space:nowrap">${lab}</td>
       ${["s","a","t","w"].map(k=>{ const v=isK?o[k][li]:sum(o,k,li), p=pi<0?null:(isK?o[k][pi]:sum(o,k,pi));
         return `<td style="text-align:right;font-weight:800;white-space:nowrap">${amzNum(v)}${dArrow(v,p)}</td>`; }).join("")}
@@ -10307,7 +10307,7 @@ function renderAmzSub(){
   const gone=prevD?S.skus.filter(s=>!s[5].length&&coOk(s)&&(!amzSubCo||S.cos[s[2]].n===amzSubCo)&&hAt(s,prevD)>0):[];
   const cntBy={}; S.skus.forEach(s=>{ if(s[5].length&&coOk(s)){ const k=S.cos[s[2]].n; cntBy[k]=(cntBy[k]||0)+1; } });
   const coBtns=btn("co","","전체 "+Object.values(cntBy).reduce((a,b)=>a+b,0),!amzSubCo)
-    +show.filter(c=>cntBy[c.n]).slice(0,10).map(c=>btn("co",c.n,`${esc(c.n)} ${cntBy[c.n]}`,amzSubCo===c.n)).join("");
+    +show.filter(c=>cntBy[c.n]).map(c=>btn("co",c.n,`${esc(c.n)} ${cntBy[c.n]}`,amzSubCo===c.n)).join("");   // 작은 회사도 거를 수 있게 전부(2026-10-20 · 예전엔 상위 10곳)
   const sortBtns="";
   const catNm=i=>S.cats[i]?S.cats[i][1]||S.cats[i][0]:"?";
   const PX_SRC={c:"아마존 카드 가격",t:"트래커가 상품 페이지에서 읽은 가격",m:"가격 미확인 — 같은 카테고리 SKU 가격 중앙값",g:"가격 미확인 — 전체 SKU 가격 중앙값"};
@@ -10325,7 +10325,7 @@ function renderAmzSub(){
     const top10=s[5].filter(r=>r[1]<=10).length;
     return `<tr><td style="text-align:right;font-weight:800;white-space:nowrap" title="${esc(all)}">${s[5].length}<span style="font-weight:600;color:var(--muted);font-size:11px">자리${top10?` · Top10 ${top10}`:""}</span></td>
       <td style="text-align:left;white-space:nowrap" title="${esc(all)}">${esc(catNm(s[5][0][0]))}${s[5].length>1?` <span style="color:var(--muted);font-size:11px">외 ${s[5].length-1}</span>`:""}</td>
-      <td style="text-align:left;white-space:nowrap;font-weight:700">${esc(S.bl[s[1]])}</td>
+      <td style="text-align:left;white-space:nowrap;font-weight:700"><span class="clickable" data-amzb="${esc(S.bl[s[1]])}">${esc(S.bl[s[1]])}</span></td>
       <td style="text-align:left;white-space:normal;max-width:380px;font-size:12px">${esc(s[3])}</td>
       <td style="text-align:left;white-space:nowrap">${cov(c.n)?`<span class="clickable" data-stock="${esc(c.n)}">${esc(c.n)}</span>`:esc(c.n)}</td>
       ${prevD?`<td style="text-align:right">${delta}</td>`:""}${pxCell(s)}${rvCell(s)}
@@ -10411,3 +10411,268 @@ function renderAmzSub(){
   const more=document.getElementById("amzSubMore");
   if(more) more.onclick=()=>{ amzSubAll=!amzSubAll; renderAmzSub(); };
 }
+
+/* ══ 아마존 탭 — 브랜드별 상세 (2026-10-20 · AMZSUB.bs · renderAmzBrand) ══════════════════════════════════
+   사용자 "모든 브랜드를 한꺼번에 보게 해 두니까 SKU 가 적은 애들은 추적하기가 어렵다 — 브랜드별로 자세하게".
+   회사 선 8개를 한 축에 겹치면 메디큐브(90개)에 눌려 아로마티카(6개)·라네즈(18개)는 바닥에 깔린다. 그래서 하나만 골라 **자기 축으로** 본다.
+   재료 ① 미국 세부 카테고리 Top100 — AMZSUB.bs(브랜드별 일별 SKU 수·노출 자리·Top10·1위·추정 매출 · ingest.py) + skus(SKU 목록·카테고리·최근 30회 진입)
+       ② 뷰티 전체 Top100 나라별 — amztBuild(한투 채널 5/28~ · 트래커 · 크롬 7개국 10/18~). 그 브랜드가 사전에 있을 때만.
+   고르기 = 회사 줄 → 브랜드 줄(브랜드가 둘 이상이면 '회사 전체'도). 탭 어디서든 [data-amzb] 를 누르면 그 브랜드로 온다(카드·표·SKU 표).
+   비상장 브랜드(아누아·바이오던스 등)는 세부 카테고리 SKU 를 블록에 싣지 않아(ingest SHOW_ST) 나라별 Top100 만 나온다.
+   ⚠ '최고 순위'는 쓰지 않는다(2026-10-18 사용자) — SKU 개수·자리·추정 매출이 지표다. 진입 띠도 순위 숫자 없이 Top10 안/Top100 안만. */
+let amzBrSel={co:"", b:""};
+try{ const s=JSON.parse(localStorage.getItem("amzBrand")||"{}"); if(s.co!=null) amzBrSel={co:String(s.co), b:String(s.b||"")}; }catch(e){}
+// 이름 맞추기 — 세 출처의 표기가 다르다(VT ↔ VT Cosmetics · Laneige ↔ LANEIGE · Innisfree ↔ innisfree · Mise en scène)
+const amzBrNorm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9가-힣]/g,"").replace(/cosmetics$/,"");
+const AMZBR_KO=(()=>{ const o={}; Object.entries(AMZT_KO).forEach(([k,v])=>{ o[amzBrNorm(k)]=v; });
+  Object.entries({Illiyoon:"일리윤",Centellian24:"센텔리안24","Mise en scène":"미장센",CNP:"차앤박",Aprilskin:"에이프릴스킨","Dr.Groot":"닥터그루트",
+    "Amos Professional":"아모스",Etude:"에뛰드",TIRTIR:"티르티르",CLIO:"클리오",MISSHA:"미샤",LAKA:"라카",Espoir:"에스쁘아",Peripera:"페리페라",
+    "the SAEM":"더샘",HERA:"헤라","AGE20's":"에이지투웨니스",SKINFOOD:"스킨푸드","rom&nd":"롬앤",hince:"힌스",AMUSE:"어뮤즈","ma:nyo":"마녀공장",
+    "The Face Shop":"더페이스샵",Sulwhasoo:"설화수","Round Lab":"라운드랩",Aestura:"에스트라",belif:"빌리프",TONYMOLY:"토니모리",Rejuran:"리쥬란",
+    Goodal:"구달",Atopalm:"아토팜","A'PIEU":"어퓨",Ryo:"려",Primera:"프리메라",Physiogel:"피지오겔",Hanyul:"한율","The Creme Shop":"더크렘샵",
+    "Dr.Althea":"닥터알떼아",Abib:"아비브",Meditherapy:"메디테라피",Mizon:"미즈온",Mediheal:"메디힐"}).forEach(([k,v])=>{ o[amzBrNorm(k)]=v; });
+  return o; })();
+const amzBrKo=n=>AMZBR_KO[amzBrNorm(n)]||"";
+
+/* 고를 수 있는 것 — 세부 카테고리 회사(노출 순) × 그 회사 브랜드(SKU 순) + 맨 끝 '그 밖'(뷰티 전체 Top100 기록만 있는 브랜드) */
+function amzBrGroups(){
+  const S=(typeof AMZSUB!=="undefined"&&AMZSUB.bs&&AMZSUB.bl&&AMZSUB.days&&AMZSUB.days.length)?AMZSUB:null, T=amztBuild();
+  const li=S?Math.max(0,S.days.indexOf(S.date)):0;
+  const tBy={}; T.brands.forEach(o=>{ tBy[amzBrNorm(o.key)]=o; });
+  const groups=[], seen=new Set();
+  if(S) S.cos.forEach((c,ci)=>{
+    const bs=S.bl.map((n,i)=>({n, i, nm:amzBrNorm(n), x:S.bs[i]})).filter(b=>b.x&&b.x.c===ci);
+    if(!bs.length) return;
+    bs.sort((a,b)=>(b.x.s[li]||0)-(a.x.s[li]||0)||(b.x.a[li]||0)-(a.x.a[li]||0)||a.n.localeCompare(b.n));
+    bs.forEach(b=>{ seen.add(b.nm); b.t=tBy[b.nm]||null; });
+    groups.push({key:c.n, n:c.n, c, ci, brands:bs});
+  });
+  // 최근 60일 안에 5개국 어디든 Top100 에 든 적이 있는 브랜드만(사전에만 있고 내내 0 인 브랜드는 고를 것이 없다)
+  const rest=T.brands.filter(o=>!seen.has(amzBrNorm(o.key))&&T.dates.slice(-60).some(d=>AMZT_MK.some(m=>(amztVal(o,d,m,"t100")||amztVal(o,d,m,"t50")||0)>0)))
+    .map(o=>({n:o.key, nm:amzBrNorm(o.key), x:null, t:o}));
+  if(rest.length) groups.push({key:"_n", n:"그 밖", c:null, ci:-1, brands:rest});
+  return {S, T, li, groups};
+}
+/* 탭 어디서든 브랜드 이름을 누르면 여기로 — 회사·브랜드를 찾아 고르고 칸으로 내려간다 */
+function amzBrPick(name){
+  const {groups}=amzBrGroups(), nm=amzBrNorm(name);
+  for(const g of groups){ const b=g.brands.find(x=>x.nm===nm); if(b){ amzBrSel={co:g.key, b:nm}; break; } }
+  try{ localStorage.setItem("amzBrand",JSON.stringify(amzBrSel)); }catch(e){}
+  renderAmzBrand();
+  const el=document.getElementById("amzBrandHead"); if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function renderAmzBrand(){
+  const box=document.getElementById("amzBrand"); if(!box) return;
+  const {S, T, li, groups}=amzBrGroups();
+  if(!groups.length){ box.innerHTML=`<p class="note">브랜드 자료를 아직 못 받았습니다</p>`; return; }
+  const esc=amztEsc, md=d=>amztMd(amztDn(d));
+  let g=groups.find(x=>x.key===amzBrSel.co)||groups[0];
+  let b=g.brands.find(x=>x.nm===amzBrSel.b)||null;
+  if(!b&&(g.brands.length===1||!g.c)) b=g.brands[0];
+  const sel=b||null;                                         // null = 회사 전체
+  const lab=x=>{ const ko=amzBrKo(x.n); return ko?`${esc(ko)} <span class="g" style="font-weight:600">${esc(x.n)}</span>`:esc(x.n); };
+  const cov=n=>typeof R!=="undefined"&&R.some(r=>r.name===n);
+  const btn=(attr,v,t,on,tt)=>`<button data-${attr}="${esc(v)}" class="${on?"active":""}"${tt?` title="${esc(tt)}"`:""}>${t}</button>`;
+  const stamp=document.getElementById("amzBrandAsOf");
+  if(stamp) stamp.textContent=S?`미국 세부 카테고리 ${md(S.date)} · 뷰티 전체 Top100 ${T.dates.length?md(T.dates[T.dates.length-1]):"—"}`:"";
+
+  /* ---- 고르기 ---- */
+  const coBtns=groups.map(x=>btn("bco",x.key,x.c?`${esc(x.n)} <span class="g">${amzNum(x.c.s[li])}</span>`:`그 밖 <span class="g">${x.brands.length}</span>`,x===g,
+    x.c?`${x.n} — 미국 세부 카테고리 Top100 SKU ${x.c.s[li]}개 · 브랜드 ${x.brands.length}개${x.c.st==="P"?" · 상장 준비":""}`:"세부 카테고리 SKU 를 싣지 않는 브랜드(비상장 등) — 뷰티 전체 Top100 나라별만"
+  )).join("");
+  const brBtns=(g.c&&g.brands.length>1?btn("bbr","",`회사 전체 <span class="g">${amzNum(g.c.s[li])}</span>`,!sel):"")
+    +g.brands.map(x=>btn("bbr",x.nm,`${esc(amzBrKo(x.n)||x.n)}${x.x?` <span class="g">${amzNum(x.x.s[li])}</span>`:""}`,x===sel,x.x?`${x.n} — SKU ${x.x.s[li]}개 · 노출 ${x.x.a[li]}자리`:x.n)).join("");
+  let h=`<p class="note" style="margin:-2px 0 10px">한 브랜드(또는 회사)만 골라 <b>그 브랜드 자기 축</b>으로 봅니다 — 회사끼리 겹친 차트에선 SKU 가 적은 브랜드가 바닥에 묻혀서요.
+      버튼 옆 숫자 = 미국 세부 카테고리 Top100 SKU 수(${S?md(S.date):"—"}). 탭 어디서든 브랜드 이름을 누르면 여기로 옵니다.</p>
+    <div class="seg" style="margin-bottom:6px">${coBtns}</div>
+    ${g.brands.length>1||!g.c?`<div class="seg">${brBtns}</div>`:""}`;
+
+  /* ---- 머리 ---- */
+  const owner=g.c?g.c.n:((sel&&sel.t&&(sel.t.owner||sel.t.stock))||"");
+  const ownerHtml=owner?(cov(owner)?`<span class="clickable" data-stock="${esc(owner)}" style="font-weight:700">${esc(owner)}</span>`:`<span style="color:var(--muted)">${esc(owner)}</span>`):"";
+  const tags=(g.c&&g.c.st==="P"?` <span class="pill" style="font-size:10px">상장 준비</span>`:"")+(!g.c&&owner&&!cov(owner)?` <span class="pill" style="font-size:10px">비상장</span>`:"");
+  const titleTxt=sel?`${brandLogo(sel.t?sel.t.key:sel.n)}<span style="font-size:17px;font-weight:800">${lab(sel)}</span>`
+    :`${typeof stockLogo==="function"?stockLogo(g.n):""}<span style="font-size:17px;font-weight:800">${esc(g.n)} 전체</span>`;
+  const brList=!sel&&g.c?`<span style="color:var(--muted);font-size:12px">${g.brands.map(x=>`<span class="clickable" data-amzb="${esc(x.n)}">${esc(amzBrKo(x.n)||x.n)}</span> ${x.x.s[li]}`).join(" · ")}</span>`:"";
+  h+=`<div id="amzBrandHead" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:8px 0 12px;scroll-margin-top:124px">
+      <span style="display:inline-flex;align-items:center;gap:8px">${titleTxt}</span>
+      ${sel&&owner?`<span style="font-size:12.5px">${ownerHtml}${tags}</span>`:tags}${brList}</div>`;
+
+  /* ---- 미국 세부 카테고리 쪽 재료 ---- */
+  const X=sel?sel.x:(g.c||null);                            // {s,a,t,w,r} 배열(days 길이)
+  const full=S?S.days.map((d,i)=>i).filter(i=>!S.part[i]&&i<=li):[];
+  const pi=full.filter(i=>i<li).pop(); const P=pi==null?-1:pi;
+  const wi=full.filter(i=>amztDn(S.days[i])<=amztDn(S.date)-7).pop(); const W=wi==null?-1:wi;
+  const fx=amzFx(), eok=u=>(u||0)*fx/1e8;
+  const fE=v=>{ const a=Math.abs(v); return a>=100?`${amzNum(Math.round(v))}억`:a>=10?`${v.toFixed(1)}억`:a>=0.1?`${v.toFixed(2)}억`:a>0?"0.1억 미만":"0"; };
+  const dA=(cur,prev)=>{ if(prev==null||cur==null) return ""; if(cur===prev) return `<span style="color:var(--muted);font-size:11.5px">-</span>`;
+    const d=cur-prev; return `<span style="font-size:11.5px;font-weight:700;color:${d>0?"var(--up)":"var(--down)"}">${d>0?"▲":"▼"}${Math.abs(d)}</span>`; };
+  const pct=(a,b)=>{ if(!b) return "—"; const v=a/b*100; return (v>0&&v<10?v.toFixed(1):Math.round(v))+"%"; };
+  // 금액 변화율 — 0 → 0 은 '-', 0 에서 생기면 '새로', 그 밖은 % (amzDelta 는 0 을 '없음'으로 읽어 빈칸이 된다)
+  const dP=(cur,prev)=>{ if(prev==null||cur==null) return ""; if(!prev) return cur?`<span style="font-size:11.5px;font-weight:700;color:var(--up)">새로</span>`:`<span style="color:var(--muted);font-size:11.5px">-</span>`;
+    return amzDelta(cur||0.0001,prev)||`<span style="font-size:11.5px;font-weight:700;color:var(--down)">▼100%</span>`; };
+  const hasRev=!!(S&&S.k&&S.k.r&&X&&X.r);
+  const fullR=hasRev?full.filter(i=>S.k.r[i]!=null):[];
+  const cumOf=(arr,upto)=>{ const pts=fullR.filter(i=>i<=upto).map(i=>[amztDn(S.days[i]),(arr&&arr[i])||0]); if(!pts.length) return 0;
+    let s=0,j=0,v=0; for(let x=pts[0][0];x<=pts[pts.length-1][0];x++){ while(j<pts.length&&pts[j][0]<=x){ v=pts[j][1]; j++; } s+=v; } return s; };
+
+  /* ---- 카드 ---- */
+  const card=(lab_,v,pv,wv,f,tt,sub,dfn)=>`<div class="kpi" title="${esc(tt)}"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">${lab_}</div>
+      <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap"><span style="font-size:21px;font-weight:800">${f(v)}</span></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap">${pv!=null?`<span>직전 ${(dfn||dA)(v,pv)}</span>`:""}${wv!=null?`<span>1주 전 ${(dfn||dA)(v,wv)}</span>`:""}</div>
+      ${sub?`<div style="font-size:11.5px;color:var(--muted);margin-top:3px">${sub}</div>`:""}</div>`;
+  // 비중의 분모 — 여러 브랜드 회사의 한 브랜드면 그 회사, 그 밖(회사 전체 · 브랜드 하나뿐인 회사)은 한국 브랜드 전체
+  const inCo=!!(sel&&g.c&&g.brands.length>1);
+  const base=inCo?g.c:(S?S.k:null), baseNm=inCo?g.n:"한국 브랜드 전체";
+  let cards="";
+  if(X&&S){
+    const at=(k,i)=>i<0?null:(X[k][i]||0);
+    [["s","미국 SKU","세부 카테고리 Top100 어딘가에 든 SKU — 중복 없이"],["a","노출 자리","카테고리 자리 수 — 한 SKU 가 세 카테고리에 오르면 3"],
+     ["t","Top10 자리","10위 안에 든 자리 수"]].forEach(([k,l,tt])=>{
+      cards+=card(l, at(k,li), at(k,P), at(k,W), v=>amzNum(v), tt, base?`${esc(baseNm)} 중 ${pct(at(k,li),base[k][li])}`:"");
+    });
+    if(hasRev){
+      const r=i=>i<0||X.r[i]==null?null:X.r[i];
+      cards+=card("추정 매출 · 하루", r(li), r(P), r(W), v=>v==null?"—":fE(eok(v)), "순위 → 판매량 곡선 × 가격으로 낸 추정치(아래 '미국 세부 카테고리' 접힘에 방법·오차)",
+        `월 환산 ${fE(eok((r(li)||0)*30))}${base&&base.r?` · ${esc(baseNm)} 중 ${pct(r(li)||0,base.r[li]||0)}`:""}`, dP);
+      cards+=card("누적 추정 매출", cumOf(X.r,li), null, null, v=>fE(eok(v)), "수집 시작일부터 하루 추정 매출을 더한 것(빈 날은 직전 완전한 날 값으로 채움)",
+        fullR.length?`${md(S.days[fullR[0]])}~${md(S.date)}`:"");
+    }
+  }
+  // 뷰티 전체 Top100 — 크롬 7개국(AMZL) 마지막 날. 사전 브랜드인데 AMZL 목록에 없으면 7개국 모두 0(관측)
+  const tb=sel?[sel]:g.brands;
+  const L7=(typeof AMZL!=="undefined"&&AMZL.days&&AMZL.days.length)?AMZL:null;
+  const l7=(nms,di)=>{ if(!L7||di<0) return null; const ks=L7.br.map((x,i)=>nms.includes(amzBrNorm(x[0]))?i:-1).filter(i=>i>=0);
+    const per=L7.mk.map((m,j)=>{ if(!"op".includes(L7.st[di][j])) return null; const full_=(L7.mx[di][j]||0)>=95;
+      let v=0; L7.c.forEach(x=>{ if(x[0]===di&&x[1]===j&&ks.includes(x[2])) v+=full_?x[3]:x[4]; }); return {m, v, full:full_}; });
+    return {per, tot:per.reduce((t,p)=>t+(p?p.v:0),0), n:per.filter(Boolean).length}; };
+  if(L7){
+    const nms=tb.map(x=>x.nm), dl=L7.days.length-1, cur=l7(nms,dl), prv=l7(nms,dl-1);
+    const MKK={US:"미",UK:"영",DE:"독",FR:"프",IT:"이",ES:"스",JP:"일"};
+    cards+=card("뷰티 전체 Top100 · 7개국", cur.tot, prv&&prv.n===cur.n?prv.tot:null, null, v=>`${v}개`,
+      "각국 Best Sellers in Beauty Top100 안 제품 수 합계 — 크롬 아침 수집(lists.js)",
+      `${md(L7.days[dl])} · ${cur.per.map((p,j)=>p?`${MKK[p.m]||p.m} ${p.v}${p.full?"":"*"}`:`${MKK[L7.mk[j]]||L7.mk[j]} —`).join(" · ")}`);
+  }
+  if(cards) h+=`<div class="kpis" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${cards}</div>
+    <p class="note" style="margin-top:2px">${X&&S?`직전 = ${P>=0?md(S.days[P]):"—"} · 1주 전 = ${W>=0?md(S.days[W]):"—"} 수집 대비(미국 세부 카테고리 · 부분 수집 회차는 건너뜀). `:""}${L7?"7개국 칸의 직전은 크롬 수집 전날, * = 그 나라 2쪽을 못 받아 50위까지.":""}</p>`;
+
+  /* ---- 추이 — 작은 차트 넷(미국 세부 카테고리) + 나라별(뷰티 전체 Top100) ---- */
+  const charts=[];
+  if(X&&S&&full.length>=2){
+    const lines=sel?[{n:sel.n, nm:sel.nm, x:sel.x, col:"var(--accent)"}]
+      :g.brands.filter(x=>x.x&&x.x.a.some(v=>v)).slice(0,7).map((x,k)=>({n:x.n, nm:x.nm, x:x.x, col:AMZT_PAL[k%AMZT_PAL.length]}));
+    [["s","SKU 수","개"],["a","노출 자리","자리"],["t","Top10 자리","자리"],["r","추정 매출(하루)","억"]].forEach(([k,t,u])=>{
+      if(k==="r"&&!hasRev) return;
+      const idx=k==="r"?fullR:full;
+      charts.push({id:`amzbC_${k}`, t, sub:k==="r"?`억원 · 환율 ${amzNum(Math.round(fx))}원 · 추정`:`미국 세부 카테고리 ${S.tot[li]}곳`,
+        draw:el=>{
+          const val=(x,i)=>k==="r"?eok(x.r[i]||0):(x[k][i]||0);
+          const series=lines.map(L=>({name:amzBrKo(L.n)||L.n, color:L.col, w:2,
+            pts:idx.map(i=>({x:amztDn(S.days[i]), y:val(L.x,i), tip:""}))}));
+          const ymax=Math.max(0,...series.flatMap(se=>se.pts.map(p=>p.y)));
+          const vF=v=>k==="r"?fE(v):`${Math.round(v)}${u==="개"?"개":""}`;
+          amztLine(el, series, {x0:amztDn(S.days[idx[0]]), x1:amztDn(S.days[idx[idx.length-1]]), rank:false, h:190, padR:sel?64:112, endOnly:!!sel,
+            dots:idx.length>40?"peak":undefined, yFmt:v=>k==="r"?(v===0?"0":`${+v.toFixed(2)}억`):`${v}`, endFmt:vF,
+            yFloor:k==="r"?0.04:4, step:k==="r"?amzNiceStep(Math.max(ymax,0.04)/4):(ymax<=4?1:null),
+            bands:AMZT_EVENTS.map(e=>({x0:amztDn(e.d0), x1:amztDn(e.d1), t:e.t})), marks:[], aria:`${sel?sel.n:g.n} 아마존 미국 세부 카테고리 ${t} 추이`, empty:"값이 없습니다"});
+        }});
+    });
+  }
+  // 나라별 — 브랜드면 나라마다 한 줄, 회사면 브랜드마다 5개국 합 한 줄. 값은 Top100(t100) · 모르는 날은 건너 잇는다
+  const tOs=tb.filter(x=>x.t).map(x=>x.t);
+  if(tOs.length&&T.dates.length){
+    const ser=sel
+      ? AMZT_MK.map(m=>({name:AMZT_MKNM[m], color:AMZT_MKCOL[m], pts:T.dates.map(d=>({x:amztDn(d), y:amztVal(tOs[0],d,m,"t100"), tip:""})).filter(p=>p.y!==undefined)}))
+          .filter(se=>se.pts.some(p=>p.y))
+      : tOs.map((o,k)=>({name:o.label, color:AMZT_PAL[k%AMZT_PAL.length], pts:T.dates.map(d=>({x:amztDn(d), y:amztVal(o,d,"sum","t100"), tip:""})).filter(p=>p.y!==undefined)}))
+          .filter(se=>se.pts.some(p=>p.y));
+    if(ser.length){
+      const xs=ser.flatMap(se=>se.pts.map(p=>p.x)), x0=Math.min(...xs), x1=Math.max(...xs);
+      const src=tOs.some(o=>o.kmj)?`한투 채널 ${md(tOs.find(o=>o.kmj).kmj.since)}~ · 글 없는 날은 우리 수집`:"우리 수집(트래커 8/2~ 미국 · 크롬 10/18~ 5개국)";
+      charts.push({id:"amzbC_mk", wide:true, t:sel?"뷰티 전체 Top100 · 나라별":"뷰티 전체 Top100 · 브랜드별(5개국 합)", sub:`제품 수 · ${src}`,
+        draw:el=>amztLine(el, ser, {x0, x1, rank:false, h:220, padR:sel?96:120, dots:"peak", yFmt:v=>`${v}`, endFmt:v=>`${v}개`,
+          bands:AMZT_EVENTS.map(e=>({x0:amztDn(e.d0), x1:amztDn(e.d1), t:e.t})), marks:[], aria:`${sel?sel.n:g.n} 아마존 뷰티 전체 Top100 나라별 추이`})});
+    }
+  }
+  if(charts.length) h+=`<div class="amzb-grid">${charts.map(c=>`<div class="chart-box${c.wide?" amzb-wide":""}"><div class="asd-h">${c.t}<span class="sub">${c.sub}</span></div><div id="${c.id}"></div></div>`).join("")}</div>`;
+  else if(X&&S) h+=`<p class="note">추이는 두 번째 수집부터 선으로 이어집니다.</p>`;
+
+  /* ---- 카테고리 지도 · SKU 목록 (미국 세부 카테고리) ---- */
+  if(S&&X){
+    const inSel=s=>sel?s[1]===sel.i:s[2]===g.ci;
+    const mine=S.skus.filter(inSel);
+    const live=mine.filter(s=>s[5].length), catNm=i=>S.cats[i]?S.cats[i][1]||S.cats[i][0]:"?";
+    const by={}; live.forEach(s=>s[5].forEach(([c,r])=>{ const o=by[c]||(by[c]={c, n:0, b:[0,0,0,0]}); o.n++; o.b[r===1?0:r<=10?1:r<=30?2:3]++; }));
+    const cats=Object.values(by).sort((a,b)=>b.n-a.n||(b.b[0]+b.b[1])-(a.b[0]+a.b[1]));
+    const mx=Math.max(1,...cats.map(c=>c.n)), CUT=14;
+    const rkLegend=`<div class="asd-lg">${AMZSUB_RK.map(([t,w])=>`<span><i style="background:${amzSubRkCol(w)}"></i>${t}</span>`).join("")}</div>`;
+    const catRows=cats.slice(0,CUT).map(c=>`<div class="asd-row" title="${esc(`${catNm(c.c)} · ${c.n}개 SKU = `+c.b.map((x,k)=>`${AMZSUB_RK[k][0]} ${x}`).join(" · "))}">
+        <div class="asd-l">${esc(catNm(c.c))}</div>
+        <div class="asd-bar"><div class="asd-fill" style="width:${(c.n/mx*100).toFixed(1)}%">${c.b.map((x,k)=>x>0?`<span style="flex:${x};background:${amzSubRkCol(AMZSUB_RK[k][1])}"></span>`:"").join("")}</div></div>
+        <div class="asd-r"><b>${c.n}</b><span class="asd-m">SKU${c.b[0]+c.b[1]?` · Top10 ${c.b[0]+c.b[1]}`:""}</span></div></div>`).join("");
+    const catMore=cats.length>CUT?`<p class="note" style="margin-top:6px">그 밖 ${cats.length-CUT}곳 — ${cats.slice(CUT).map(c=>`${esc(catNm(c.c))} ${c.n}`).join(" · ")}</p>`:"";
+
+    // SKU 목록 — 지금 든 것(추정 매출순) 다음에 최근 30회 안에 있다 빠진 것(마지막으로 본 날순)
+    const hd=S.hd||[], hdI={}; hd.forEach((d,j)=>{ hdI[d]=j; });
+    const hv=(s,j)=>parseInt(s[6].substr(j*2,2),36)||0;
+    const lastSeen=s=>{ for(let j=hd.length-1;j>=0;j--) if(hv(s,j)) return hd[j]; return null; };
+    const prevD=P>=0?S.days[P]:null;
+    const skuRev=S.skus.length&&S.skus[0].length>9;
+    live.sort((a,b)=>(skuRev?(b[9]||0)-(a[9]||0):0)||(b[5].length-a[5].length));
+    const gone=mine.filter(s=>!s[5].length).sort((a,b)=>String(lastSeen(b)).localeCompare(String(lastSeen(a))));
+    const strip=s=>`<span class="amzb-strip">${hd.map((d,j)=>{ const v=hv(s,j), part=S.part[S.days.indexOf(d)];
+        return `<i class="${v?(v<=10?"t10":"on"):""}" title="${esc(`${md(d)} · ${v?(v<=10?"Top10 안":"Top100 안"):"밖"}${part?" (부분 수집)":""}`)}"></i>`; }).join("")}</span>`;
+    const stat=s=>{ if(!s[5].length){ const ls=lastSeen(s); return `<span style="font-size:10.5px;color:var(--down);font-weight:700">이탈</span>${ls?` <span class="g" style="font-size:10.5px">${md(ls)}까지</span>`:""}`; }
+      const pv=prevD&&hdI[prevD]!=null?hv(s,hdI[prevD]):null;
+      if(s[4]===li&&li>0) return `<span style="font-size:10.5px;color:var(--accent);font-weight:700">새 SKU</span>`;
+      if(pv===0) return `<span style="font-size:10.5px;color:var(--accent)">재진입</span>`;
+      return ""; };
+    const PX_SRC={c:"아마존 카드 가격",t:"트래커가 상품 페이지에서 읽은 가격",m:"가격 미확인 — 같은 카테고리 SKU 가격 중앙값",g:"가격 미확인 — 전체 SKU 가격 중앙값"};
+    const row=s=>{ const pos=[...s[5]].sort((a,b)=>a[1]-b[1]), t10=pos.filter(r=>r[1]<=10).length;
+      const catTxt=pos.slice(0,4).map(([c,r])=>`${esc(catNm(c))} <b>${r}</b>`).join(" · ")+(pos.length>4?` <span class="g">외 ${pos.length-4}</span>`:"");
+      const p=(s[7]||0)/100, ps=s[10]||"", est=ps==="m"||ps==="g";
+      return `<tr${s[5].length?"":' style="opacity:.7"'}>
+        ${sel?"":`<td style="text-align:left;white-space:nowrap;font-weight:700"><span class="clickable" data-amzb="${esc(S.bl[s[1]])}">${esc(amzBrKo(S.bl[s[1]])||S.bl[s[1]])}</span></td>`}
+        <td style="text-align:left;white-space:normal;min-width:200px;max-width:360px;font-size:12px">${esc(s[3])}</td>
+        <td style="text-align:right;white-space:nowrap;font-weight:800">${s[5].length}${t10?`<span style="font-weight:600;color:var(--muted);font-size:11px"> · Top10 ${t10}</span>`:""}</td>
+        <td style="text-align:left;white-space:normal;min-width:180px;font-size:11.5px;color:var(--muted)" title="${esc(pos.map(([c,r])=>`${catNm(c)} ${r}위`).join("\n"))}">${catTxt||"—"}</td>
+        <td style="text-align:left;white-space:nowrap">${strip(s)}</td>
+        ${skuRev?`<td style="text-align:right;white-space:nowrap${est?";color:var(--muted)":""}" title="${esc(PX_SRC[ps]||"")}">${p&&s[5].length?`${est?"≈":""}$${p.toFixed(p>=100?0:2)}`:"—"}</td>
+          <td style="text-align:right;white-space:nowrap">${s[5].length&&s[9]?fE(eok(s[9]*30)):`<span class="g">0</span>`}</td>`:""}
+        <td style="text-align:right;white-space:nowrap">${stat(s)}</td>
+        <td style="text-align:right;color:var(--muted);white-space:nowrap">${s[4]>=0?md(S.days[s[4]]):"—"}</td></tr>`; };
+    const nNew=live.filter(s=>s[4]===li&&li>0).length, nBack=live.filter(s=>!(s[4]===li&&li>0)&&prevD&&hdI[prevD]!=null&&hv(s,hdI[prevD])===0).length;
+    const nOut=prevD&&hdI[prevD]!=null?gone.filter(s=>hv(s,hdI[prevD])>0).length:0;
+    h+=`<div class="asd-duo one" style="margin-top:14px"><div class="chart-box"><div class="asd-h">카테고리 지도<span class="sub">${md(S.date)} · ${cats.length}곳에 SKU ${live.length}개</span></div>${rkLegend}
+        ${catRows||`<p class="note">${md(S.date)} 세부 카테고리 Top100 에 든 SKU 가 없습니다</p>`}${catMore}
+        <p class="note" style="margin-top:8px">막대 길이 = 그 카테고리 Top100 안 SKU 수 · 진할수록 높은 순위 구간.</p></div></div>
+      <div class="sub-h" style="font-size:13.5px;margin-top:18px">SKU ${live.length}개${gone.length?` + 최근 빠진 ${gone.length}개`:""}
+        <span style="font-size:12px;font-weight:600;color:var(--muted);margin-left:8px">추정 매출순${prevD?` · 직전(${md(prevD)}) 대비 새 SKU ${nNew} · 재진입 ${nBack} · 이탈 ${nOut}`:""}</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>${sel?"":`<th style="text-align:left">브랜드</th>`}<th style="text-align:left">제품</th>
+          <th style="text-align:right" title="이 SKU 가 오른 세부 카테고리 Top100 자리 수">오른 자리</th>
+          <th style="text-align:left" title="오른 카테고리와 그 카테고리 안 순위(앞 4곳) — 마우스를 올리면 전부">카테고리 · 순위</th>
+          <th style="text-align:left" title="최근 ${hd.length}회 수집 — 진한 칸 Top10 안 · 옅은 칸 Top100 안 · 빈 칸 밖">최근 ${hd.length}회</th>
+          ${skuRev?`<th style="text-align:right" title="카드 가격 · ≈ 는 가격을 못 읽어 중앙값으로 둔 것">가격</th><th style="text-align:right" title="하루 추정 매출 × 30 · 억원">추정 월매출</th>`:""}
+          <th style="text-align:right">변화</th><th style="text-align:right">처음 잡힌 날</th></tr></thead>
+        <tbody>${live.concat(gone).map(row).join("")||`<tr><td colspan="9" style="color:var(--muted)">SKU 없음</td></tr>`}</tbody></table></div>
+      <p class="note">'최근 ${hd.length}회' 칸 하나가 수집 하루 — 진한 칸은 그날 어느 카테고리든 Top10 안, 옅은 칸은 Top100 안. 이탈 = 최근 ${hd.length}회 안에 있다가 ${md(S.date)} 엔 모든 카테고리 100위 밖.</p>`;
+  } else if(sel&&!sel.x){
+    h+=`<p class="note" style="margin-top:10px">이 브랜드는 미국 세부 카테고리 SKU 를 싣지 않습니다(상장·상장 준비 회사 브랜드만 싣는다) — 위 뷰티 전체 Top100 나라별만 봅니다.
+      ${sel.t&&sel.t.kmj?"제품별 순위는 아래 '제품별 순위' 표에 있습니다.":""}</p>`;
+  }
+  box.innerHTML=h;
+  charts.forEach(c=>{ const el=document.getElementById(c.id); if(el) c.draw(el); });
+  box.querySelectorAll(".seg button").forEach(bt=>bt.onclick=()=>{
+    if(bt.dataset.bco!==undefined){ amzBrSel={co:bt.dataset.bco, b:""}; }
+    if(bt.dataset.bbr!==undefined){ amzBrSel={co:g.key, b:bt.dataset.bbr}; }
+    try{ localStorage.setItem("amzBrand",JSON.stringify(amzBrSel)); }catch(e){}
+    renderAmzBrand();
+  });
+}
+(function amzBrInit(){
+  const sec=document.querySelector('section[data-view="amazon"]'); if(!sec) return;
+  sec.addEventListener("click",e=>{ const t=e.target.closest("[data-amzb]"); if(!t||e.target.closest("[data-stock]")||e.target.closest("#amzBrand .seg")) return;
+    amzBrPick(t.dataset.amzb); });
+})();

@@ -56,6 +56,7 @@ SHOW_ST = ("L", "P")  # 블록에 SKU·회사 줄을 싣는 상태 — 상장(L)
 #   cos [{n 회사, st L/P, chk 확인 필요, memo, br [[브랜드, 마지막 회차 SKU 수]], s SKU 수, a 노출 자리, t Top10 자리, q Top30 자리, w 1위 자리,
 #         b 뷰티 전체 Top100 안 SKU, o 뷰티 전체 최고 순위(0 = 밖)}]  ← 배열은 days 와 같은 길이
 #   k {s,a,t,q,w,b,r} 한국 브랜드 전체 · hd SKU 이력의 날짜(최근 SKU_H)
+#   bs [{c 회사 번호(cos), s SKU 수, a 노출 자리, t Top10 자리, w 1위 자리, r 하루 추정 매출(USD · 부분 회차 null)}] — bl 과 같은 순서 · 배열은 days 길이(2026-10-20)
 #   skus [[asin, 브랜드 번호, 회사 번호(cos), 제목, 처음 본 회차(days 번호 · -1 = 창 밖), [[카테고리 번호, 순위]](마지막 회차), h]]
 #        h = hd 날마다 최고 순위를 36진수 두 자리로 이은 문자열('00' = 그날 없음) — 배열보다 1/3 작다
 #   unk [[asin, 카테고리 번호, 순위, 제목]] 마지막 회차의 새 브랜드 후보
@@ -468,8 +469,9 @@ def build_block(cfg, master):
             names.append(b[2])
     ser = {n: {"s": [], "a": [], "t": [], "q": [], "w": [], "b": [], "o": [], "r": []} for n in names}
     ksr = {"s": [], "a": [], "t": [], "q": [], "w": [], "b": [], "r": []}
-    ok, tot, part, kpos = [], [], [], []
-    for dt in dates:
+    bser = {}                                   # 브랜드별 일별 집계(상장·상장 준비 회사의 브랜드) — 화면 '브랜드별 상세'
+    ok, tot, part, kpos, rok = [], [], [], [], []
+    for di, dt in enumerate(dates):
         mt = dmeta.get(dt)
         ok.append(int(mt[2]) if mt else 0)
         tot.append(int(mt[3]) if mt else 0)
@@ -489,6 +491,9 @@ def build_block(cfg, master):
                 if cat == "beauty":
                     g[4].add(a)
                     g[5] = r if not g[5] else min(g[5], r)
+                bs = bser.setdefault(br, {"s": [set() for _ in dates], "a": [0] * len(dates), "t": [0] * len(dates),
+                                          "w": [0] * len(dates), "r": [0.0] * len(dates)})
+                bs["s"][di].add(a); bs["a"][di] += 1; bs["t"][di] += r <= 10; bs["w"][di] += r == 1
         for n in names:
             g = agg[n]
             for key, v in zip("satwboq", (len(g[0]), g[1], g[2], g[3], len(g[4]), g[5], g[6])):
@@ -499,6 +504,7 @@ def build_block(cfg, master):
         ed = est.get(dt)
         rv = {n: 0.0 for n in names}
         kr = 0.0
+        rok.append(bool(ed and not part[-1]))
         if ed and not part[-1]:
             for a, x in ed.items():
                 br, co, st = co_of(a)
@@ -507,6 +513,8 @@ def build_block(cfg, master):
                 kr += x[2]
                 if co in rv:
                     rv[co] += x[2]
+                    if br in bser:
+                        bser[br]["r"][di] += x[2]
         for n in names:
             ser[n]["r"].append(round(rv[n]) if ed and not part[-1] else None)
         ksr["r"].append(round(kr) if ed and not part[-1] else None)
@@ -562,6 +570,18 @@ def build_block(cfg, master):
         skus.append([a, bl_i[br], co_i[co], row[2][:TITLE_N].rstrip(), day_i.get(first, -1), r, h] + ex)
     skus.sort(key=lambda s: (s[5][0][1] if s[5] else 999, -len(s[5]), s[0]))
 
+    # 브랜드별 일별 집계(2026-10-20 · 화면 '브랜드별 상세') — bl 순서(= SKU 의 브랜드 번호) · 배열은 days 와 같은 길이.
+    # 회사 합계만 있으면 SKU 가 적은 브랜드(라네즈·아로마티카…)는 회사 선에 묻혀 안 보인다.
+    bl_co = {}
+    for s_ in skus:
+        bl_co.setdefault(s_[1], s_[2])
+    zero = {"s": [set() for _ in dates], "a": [0] * len(dates), "t": [0] * len(dates), "w": [0] * len(dates), "r": [0.0] * len(dates)}
+    bs_out = []
+    for i, br in enumerate(bl):
+        x = bser.get(br, zero)
+        bs_out.append({"c": bl_co.get(i, -1), "s": [len(v) for v in x["s"]], "a": x["a"], "t": x["t"], "w": x["w"],
+                       "r": [round(v) if rok[j] else None for j, v in enumerate(x["r"])]})
+
     mt = dmeta.get(dates[-1])                   # asOf 는 마지막 회차(부분이어도) — 신선도 판정은 '돌았는가'를 본다
     unk = []
     for r in read_csv(UNK)[1:]:
@@ -572,7 +592,7 @@ def build_block(cfg, master):
         "asOf": (mt[1] if mt else dates[-1]), "v": 1, "date": last, "latest": dates[-1],
         "days": dates, "ok": ok, "tot": tot, "part": part,
         "cats": [[c[0], c[1]] for c in cats], "bl": bl,
-        "cos": cos, "k": ksr, "hd": hd, "skus": skus, "unk": unk[:30],
+        "cos": cos, "k": ksr, "bs": bs_out, "hd": hd, "skus": skus, "unk": unk[:30],
         **({"rm": rmeta} if rmeta else {}),
     }
 
