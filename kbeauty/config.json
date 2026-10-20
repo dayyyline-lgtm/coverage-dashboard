@@ -211,7 +211,8 @@
      "DE",
      "FR",
      "JP",
-     "TT:US"
+     "TT:US",
+     "TT:GB"
     ]
    }
   }
@@ -514,7 +515,7 @@
    "r": "US",
    "k": "medicube",
    "n": "MEDICUBE USA",
-   "note": "APR US INC 운영 · 판매 미미"
+   "note": "APR US INC 운영 · 180일 판매 0(예비 샵)"
   },
   {
    "s": "7495350836452493777",
@@ -522,7 +523,212 @@
    "k": "missha",
    "n": "missha.official",
    "note": "Able C&C US 운영 · 2024-07 개설"
+  },
+  {
+   "s": "7495877145981389397",
+   "r": "US",
+   "k": "aprilskin",
+   "n": "APRILSKIN",
+   "note": "APR US INC 운영"
+  },
+  {
+   "s": "7494221571082258140",
+   "r": "US",
+   "k": "dalba",
+   "n": "d'Alba Piedmont",
+   "note": "브랜드 공식 표시 · 운영사 확인 안 함"
+  },
+  {
+   "s": "7495173442985953451",
+   "r": "US",
+   "k": "cosrx",
+   "n": "COSRX US",
+   "note": "Cocomint Inc. 운영(유통사) · 브랜드 공식 표시"
+  },
+  {
+   "s": "7495286718562273613",
+   "r": "US",
+   "k": "laneige",
+   "n": "Laneige US",
+   "note": "AMOREPACIFIC US INC 운영"
+  },
+  {
+   "s": "7495971491988146527",
+   "r": "US",
+   "k": "illiyoon",
+   "n": "ILLIYOON US",
+   "note": "AMOREPACIFIC CORPORATION 운영"
+  },
+  {
+   "s": "8652636783666041201",
+   "r": "US",
+   "k": "mise",
+   "n": "Mise en Scene",
+   "note": "브랜드 공식 표시 · 운영사 확인 안 함"
+  },
+  {
+   "s": "7495990736054749969",
+   "r": "US",
+   "k": "belif",
+   "n": "belif USA",
+   "note": "LG H&H USA 운영"
+  },
+  {
+   "s": "7495710637520750880",
+   "r": "US",
+   "k": "tfs",
+   "n": "The Face Shop US",
+   "note": "LG H&H USA 운영"
+  },
+  {
+   "s": "7495545980900641649",
+   "r": "US",
+   "k": "drgroot",
+   "n": "Dr. Groot Hair",
+   "note": "LG H&H USA 운영"
+  },
+  {
+   "s": "7495285689647204741",
+   "r": "US",
+   "k": "cremeshop",
+   "n": "The Creme shop",
+   "note": "The Creme Shop Inc 운영"
+  },
+  {
+   "s": "8653834563460567685",
+   "r": "US",
+   "k": "hince",
+   "n": "hince",
+   "note": "브랜드 공식 표시 · 운영사 확인 안 함"
+  },
+  {
+   "s": "7494109558912025802",
+   "r": "US",
+   "k": "physiogel",
+   "n": "PHYSIOGEL",
+   "note": "브랜드 공식 표시 · 운영사 확인 안 함"
+  },
+  {
+   "s": "7494441269752661563",
+   "r": "US",
+   "k": "aromatica",
+   "n": "AROMATICA",
+   "note": "2026-05-12 첫 판매"
+  },
+  {
+   "s": "7496025466041043176",
+   "r": "US",
+   "k": "rejuran",
+   "n": "REJURAN US",
+   "note": "PHARMARESEARCH USA 운영"
+  },
+  {
+   "s": "7495992422530583306",
+   "r": "US",
+   "k": "biodance",
+   "n": "Biodance Store US",
+   "note": "Beauty Selection USA LLC 운영 · 브랜드 공식 표시"
   }
  ],
- "tt_note": "틱톡샵 샵 목록 — FastMoss seller_id. 새 샵은 FastMoss 스토어 검색(지역·브랜드)으로 찾아 '공식'(운영사가 회사 법인)만 넣는다. 리셀러·병행 샵은 넣지 않는다."
+ "tw": [
+  {
+   "s": "7496304415144774132",
+   "r": "GB",
+   "k": "medicube",
+   "n": "medicube UK",
+   "w": "medicube"
+  },
+  {
+   "s": "7494385350230247126",
+   "r": "DE",
+   "k": "medicube",
+   "n": "medicube Deutschland",
+   "w": "medicube"
+  },
+  {
+   "s": "8648556814322014934",
+   "r": "FR",
+   "k": "medicube",
+   "n": "medicube France",
+   "w": "medicube"
+  },
+  {
+   "s": "8648556360989317846",
+   "r": "ES",
+   "k": "medicube",
+   "n": "medicube Espana",
+   "w": "medicube"
+  },
+  {
+   "s": "8648556814322080470",
+   "r": "IT",
+   "k": "medicube",
+   "n": "medicube Italia",
+   "w": "medicube"
+  },
+  {
+   "s": "7496246990848100682",
+   "r": "JP",
+   "k": "medicube",
+   "n": "medicube_japan",
+   "w": "medicube"
+  },
+  {
+   "s": "7496019554130888970",
+   "r": "ID",
+   "k": "medicube",
+   "n": "Medicube Indonesia",
+   "w": "medicube"
+  },
+  {
+   "s": "7495121030350736094",
+   "r": "MY",
+   "k": "medicube",
+   "n": "medicube Malaysia",
+   "w": "medicube"
+  },
+  {
+   "s": "7494513940703774307",
+   "r": "VN",
+   "k": "medicube",
+   "n": "medicubeVN",
+   "w": "medicube"
+  },
+  {
+   "s": "7495722013709470142",
+   "r": "SG",
+   "k": "medicube",
+   "n": "Medicube Singapore",
+   "w": "medicube"
+  },
+  {
+   "s": "7494303730396268003",
+   "r": "GB",
+   "k": "dalba",
+   "n": "d'Alba UK",
+   "w": "dalba"
+  },
+  {
+   "s": "7496235433004993265",
+   "r": "JP",
+   "k": "dalba",
+   "n": "d'Alba Japan",
+   "w": "dalba"
+  },
+  {
+   "s": "7496240154547423661",
+   "r": "GB",
+   "k": "cosrx",
+   "n": "COSRX UK",
+   "w": "cosrx"
+  },
+  {
+   "s": "7496168796782889979",
+   "r": "GB",
+   "k": "biodance",
+   "n": "Biodance Store UK",
+   "w": "biodance"
+  }
+ ],
+ "tt_note": "틱톡샵 샵 — FastMoss seller_id. tt = 일별을 받는 샵(상세 페이지 '최근 180일') · tw = 구독(미국만) 밖이라 일별이 잠긴 샵 — 검색 화면(region · w) 목록 줄의 '최근 7일 판매액 · 누적 판매액'만 스냅샷으로 받는다(모델 계수엔 안 쓴다). 새 샵은 FastMoss 스토어 검색(지역·브랜드)으로 찾아 운영사가 회사 법인이거나 '브랜드' 표시가 붙은 공식 샵만 맨 뒤에 넣는다(유통사 운영 공식 샵 포함 — 코스알엑스 US = Cocomint Inc.). 리셀러·병행 샵은 넣지 않는다."
 }

@@ -83,7 +83,7 @@ def _key(line):
         return "|".join(f[:4]) + "|"
     if t in ("F",):
         return "|".join(f[:2]) + "|"
-    if t in ("S",):
+    if t in ("S", "E", "W"):
         return "|".join(f[:2]) + "|"
     if t == "D":
         return "|".join(f[:3]) + "|"
@@ -200,10 +200,12 @@ def parse_fm(lines):
     if not H:
         return None
     h = H.split("|")
-    res = {"date": h[2], "S": {}, "D": {}, "E": []}
+    res = {"date": h[2], "S": {}, "D": {}, "E": [], "W": []}
     for l in lines:
         f = l.split("|")
-        if f[0] == "S":
+        if f[0] == "W":       # W|샵ID|지역|브랜드키|날짜|7일 판매량|7일 판매액(USD)|누적 판매액(USD)|이름
+            res["W"].append({"s": f[1], "r": f[2], "k": f[3], "date": f[4], "u7": b36(f[5]), "v7": b36(f[6]), "vt": b36(f[7]), "name": f[8]})
+        elif f[0] == "S":
             res["S"][f[1]] = {"s": f[1], "r": f[2], "k": f[3], "cur": f[4], "name": f[5], "first": f[6]}
         elif f[0] == "D":
             res["D"][f[1]] = {"first": f[2], "u": [b36(x) for x in f[3].split(",")], "v": [b36(x) for x in f[4].split(",")]}
@@ -221,10 +223,15 @@ def save_fm(res, raw_text):
     if sp.exists():
         with open(sp, encoding="utf-8", newline="") as f:
             shops = {r["s"]: r for r in csv.DictReader(f)}
+    # w0 = 이 샵을 처음 받은 회차가 볼 수 있던 첫날(받은 날 − 179일 · Pro 는 180일). 샵의 첫 판매일(first)이 그보다 늦으면 그 사이는 '판매 0'(샵이 없었다),
+    # 이르면 같다. w0 보다 앞은 '모름'이다 — 화면이 부분 분기를 늘려 잡을지 판단하는 기준(아로마티카 = 5/12 개설 · 4/24~5/11 은 0)
+    w0 = (dt.date.fromisoformat(res["date"]) - dt.timedelta(days=179)).isoformat()
     for s, x in res["S"].items():
-        shops[s] = {"s": s, "r": x["r"], "k": x["k"], "name": x["name"], "cur": x["cur"], "first": min(x["first"], shops.get(s, {}).get("first", x["first"]) or x["first"])}
+        o = shops.get(s, {})
+        shops[s] = {"s": s, "r": x["r"], "k": x["k"], "name": x["name"], "cur": x["cur"], "first": min(x["first"], o.get("first", x["first"]) or x["first"]),
+                    "w0": min(w0, o.get("w0") or w0)}
     with open(sp, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["s", "r", "k", "name", "cur", "first"])
+        w = csv.DictWriter(f, fieldnames=["s", "r", "k", "name", "cur", "first", "w0"])
         w.writeheader()
         w.writerows(sorted(shops.values(), key=lambda r: (r["k"], r["r"], r["s"])))
     dp = DATA / "fm_daily.csv"
@@ -238,13 +245,31 @@ def save_fm(res, raw_text):
         d0 = dt.date.fromisoformat(x["first"])
         for i, (u, v) in enumerate(zip(x["u"], x["v"])):
             day = (d0 + dt.timedelta(days=i)).isoformat()
+            # 받은 날(UTC 날짜)과 그 뒤는 미국 시각으로 아직 진행 중인 날이다(10/21 아침에 받은 10/20 = 메디큐브 판매량이 평소의 60%) — 버리고 다음 회차가 채운다
+            if day >= res["date"]:
+                continue
             rows[(s, day)] = {"date": day, "r": res["S"].get(s, {}).get("r", ""), "s": s, "u": u, "v": v}
             n += 1
     with open(dp, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["date", "r", "s", "u", "v"])
         w.writeheader()
         w.writerows(sorted(rows.values(), key=lambda r: (r["s"], r["date"])))
+    if res.get("W"):
+        save_snap(res["W"])
     return n
+
+
+def save_snap(ws):
+    """잠긴 지역(구독 밖 — 일별이 흐림 처리되고 API 가 다른 지역 견본을 준다) 샵의 검색 목록 스냅샷 · 같은 (샵, 날짜)는 갈아 끼운다"""
+    sp = DATA / "fm_snap.csv"
+    rows = {(r["s"], r["date"]): r for r in load_csv(sp)}
+    for x in ws:
+        rows[(x["s"], x["date"])] = {"date": x["date"], "s": x["s"], "r": x["r"], "k": x["k"], "u7": x["u7"], "v7": x["v7"], "vt": x["vt"], "name": x["name"]}
+    with open(sp, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["date", "s", "r", "k", "u7", "v7", "vt", "name"])
+        w.writeheader()
+        w.writerows(sorted(rows.values(), key=lambda r: (r["k"], r["r"], r["date"])))
+    return len(ws)
 
 
 # ───────────────────────── 블록 ─────────────────────────
@@ -317,9 +342,32 @@ def build_block():
         for r in rs:
             i = (dt.date.fromisoformat(r["date"]) - d0).days
             U[i], V[i] = int(r["u"]), int(r["v"])
+        # FastMoss 판매액 = 판매량 × 그 회사가 본 가격. 가격을 잘못 읽은 날은 판매량은 평소인데 단가가 몇 배로 뛴다
+        # (7/21~27 · 10/13~19 메디큐브 미국 $30 → $112~261 · 바이오던스 $29 → $77~553 — 두 샵이 같은 날짜, 코스알엑스는 그대로) → 직전 28일 중앙 단가 × 판매량으로 바꾼다.
+        # 위로 튄 날만 고친다 — 단가가 떨어진 날은 판매량도 같이 뛴 할인 행사였다(10/4 리쥬란 판매량 8배 · 단가 0.4배). 2배로 낮추면 작은 샵의 묶음 판매 날까지 걸린다(10/21 시험).
+        fixed = []
+        for i in range(n):
+            if U[i] <= 0:
+                continue
+            past = sorted(V[j] / U[j] for j in range(max(0, i - 28), i) if U[j] > 0 and V[j] > 0 and j not in fixed)
+            if len(past) < 10:
+                continue
+            med = past[len(past) // 2]
+            if med > 0 and V[i] / U[i] > 2.5 * med:
+                V[i] = round(U[i] * med)
+                fixed.append(i)
         sh = shops.get(s, {})
-        tt[s] = {"k": sh.get("k", ""), "r": sh.get("r", ""), "n": sh.get("name", ""), "c": sh.get("cur", "USD"), "d0": d0.isoformat(), "u": U, "v": V}
+        tt[s] = {"k": sh.get("k", ""), "r": sh.get("r", ""), "n": sh.get("name", ""), "c": sh.get("cur", "USD"), "d0": d0.isoformat(),
+                 "w0": min(sh.get("w0") or d0.isoformat(), d0.isoformat()), "v": V}
+        if fixed:
+            tt[s]["fx"] = [len(fixed), (d0 + dt.timedelta(days=fixed[0])).isoformat(), (d0 + dt.timedelta(days=fixed[-1])).isoformat()]
         fm_last = max(fm_last, d1.isoformat())
+    snap = {}
+    for r in load_csv(DATA / "fm_snap.csv"):
+        e = snap.setdefault(r["s"], {"r": r["r"], "k": r["k"], "n": r["name"], "h": []})
+        e["h"].append([r["date"], int(r["u7"]), int(r["v7"]), int(r["vt"])])
+    for e in snap.values():
+        e["h"].sort()
     fx = {}
     fxr = load_csv(DATA / "fx_month.csv")
     for r in fxr:
@@ -330,7 +378,7 @@ def build_block():
         "asOf": max(meta.get("date", ""), fm_last),
         "kp": {"asOf": meta.get("date", ""), "months": yms, "b": kpb, "r30": k30, "h30": hist30, "top": top, "curves": curves,
                "fail": meta.get("fail", [])},
-        "tt": {"asOf": fm_last, "s": tt},
+        "tt": {"asOf": fm_last, "s": tt, "w": snap},
         "fx": {"cols": ["USD", "GBP", "EUR", "JPY", "CAD"], "m": fx},
         "dom": {k: v[:2] for k, v in cfg["domains"].items()},
         "co": cfg["companies"],

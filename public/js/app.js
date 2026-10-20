@@ -10247,11 +10247,13 @@ function amzMetricFmt(v, m){
 }
 
 /* ── K뷰티 채널 모델 (2026-10-20 · `KBCH` · kbeauty/ · 사용자 "FastMoss·Keepa 결제했으니 화장품 기업들을 모델링할 방법을 고안해 반영") ──
-   아마존 8개국(Keepa Product Finder · 브랜드 전 ASIN · 월판매 배지 + 월평균 순위 → 판매량 × 가격) + 틱톡샵(FastMoss 샵 일별 판매액)을
+   아마존 8개국(Keepa Product Finder · 브랜드 전 ASIN · 월판매 배지 + 월평균 순위 → 판매량 × 가격) + 틱톡샵(FastMoss 공식 샵 일별 판매액 · 미국)을
    회사·공시 지역으로 묶는다. 지역 매출 추정 = 관측 판매액 × 보정계수(지난 공시 분기 '공시 지역 매출 ÷ 관측 판매액').
-   관측 비중(= 1 ÷ 계수)이 낮은 지역(아마존이 공시 매출의 15% 밑)은 참고로만 적고 합계에 넣지 않는다.
+   관측 비중(= 1 ÷ 계수)이 낮은 지역(공시 매출의 15% 밑)은 참고로만 적고 합계에 넣지 않는다.
    ⚠ 관측 판매액은 소비자 결제액(판매가 × 판매량) — 회사 매출(출고가·수수료·반품 처리가 회사마다 다름)이 아니다. 계수가 그 차이와 관측 밖 채널을 다 담는다.
-   ⚠ 틱톡샵은 FastMoss Pro 가 최근 180일만 보여 2026-04-23 부터 — 그 전 분기 계수는 아마존만으로 낸다.
+   ⚠ 틱톡샵(2026-10-21~): FastMoss Pro 가 최근 180일만 보여 2026-04-24 부터 · 구독이 미국만이라 미국 밖 샵은 일별이 잠겨 검색 목록 스냅샷만(계수에 안 쓴다).
+     계수는 '공시 분기와 대상 분기에 둘 다 관측된 단위(아마존 나라 채널 · 틱톡 샵)'로만 낸다(kbModel 의 on) — 틱톡이 없던 분기의 계수를 틱톡이 붙은 분기에 곱하지 않는다.
+     성장률도 같은 단위끼리(kbGrowth). 2Q26 틱톡은 앞 23일(4/1~4/23)을 관측 첫 14일 평균으로 채운다(kbShopQ).
    데이터·방법은 CLAUDE.md 'K뷰티 채널 모델' 절 · 수집 절차는 kbeauty/RUNBOOK.md. */
 const KB_DOMC={1:"US",2:"UK",3:"DE",4:"FR",5:"JP",6:"CA",8:"IT",9:"ES"};
 const KB_DOMNM={US:"미국",UK:"영국",DE:"독일",FR:"프랑스",JP:"일본",CA:"캐나다",IT:"이탈리아",ES:"스페인"};
@@ -10259,10 +10261,12 @@ const KB_CURI={USD:0,GBP:1,EUR:2,JPY:3,CAD:4};
 const KB_DCUR={US:"USD",UK:"GBP",DE:"EUR",FR:"EUR",JP:"JPY",CA:"CAD",IT:"EUR",ES:"EUR"};
 const KB_TLD={US:"com",UK:"co.uk",DE:"de",FR:"fr",JP:"co.jp",CA:"ca",IT:"it",ES:"es"};
 const KB_TTNM={US:"미국",GB:"영국",JP:"일본",ES:"스페인",DE:"독일",FR:"프랑스",IT:"이탈리아",ID:"인니",MY:"말레이",TH:"태국",VN:"베트남",PH:"필리핀",SG:"싱가포르",MX:"멕시코",BR:"브라질"};
-const KB_CHCOL={US:"#d8b46a",CA:"#9aa5b1",UK:"#6fa8dc",DE:"#5fb3b3",FR:"#c98aa6",IT:"#a8b561",ES:"#e07a5f",JP:"#81b29a",
-  "TT:US":"#c7a27c","TT:GB":"#7d9bc1","TT:JP":"#90a955"};
+const KB_TT2AMZ={GB:"UK"};   // 틱톡 지역 코드 → 아마존 나라 코드(선 색 · 계절 비율)
+/* 나라 색 — 틱톡샵은 같은 나라 색에 점선(월별 선) · 빗금(분기 막대). 색 = 나라, 선 모양 = 채널 */
+const KB_CHCOL={US:"#d8b46a",CA:"#9aa5b1",UK:"#6fa8dc",DE:"#5fb3b3",FR:"#c98aa6",IT:"#a8b561",ES:"#e07a5f",JP:"#81b29a"};
 const KB_EVT={"2024Q3":"프라임데이","2024Q4":"빅딜데이","2025Q3":"프라임데이","2025Q4":"빅딜데이","2026Q2":"프라임데이","2026Q4":"빅딜데이"};   // 아마존 미국 기준(2026 프라임데이는 6/23~26 로 당겨졌다)
 const KB_COVMIN=0.15;   // 관측 비중이 이보다 낮은 지역은 추정 합계에서 뺀다(아마존이 공시 매출의 15% 밑이면 신호보다 잡음이 크다)
+const KB_FILLMIN=28;    // 분기 안 틱톡 관측일이 이보다 적으면 그 분기 틱톡은 '모름'(앞을 채우지 않는다)
 const kbOk=()=>typeof KBCH!=="undefined"&&KBCH&&KBCH.co&&KBCH.kp;
 const kbHas=name=>kbOk()&&!!KBCH.co[name];
 const kbQ=ym=>{ const y=+ym.slice(0,4), m=+ym.slice(5,7); return `${y}Q${Math.ceil(m/3)}`; };
@@ -10271,8 +10275,13 @@ const kbQOf=lab=>{ const m=/^(\d)Q(\d\d)$/.exec(lab); return m?`20${m[2]}Q${m[1]
 const kbQPrev=(q,k)=>{ let y=+q.slice(0,4), n=+q.slice(5)-k; while(n<1){ n+=4; y--; } return `${y}Q${n}`; };
 const kbQIdx=q=>+q.slice(0,4)*4+(+q.slice(5))-1;
 const kbQDays=q=>{ const y=+q.slice(0,4), n=+q.slice(5); const a=Date.UTC(y,(n-1)*3,1), b=Date.UTC(n===4?y+1:y,n===4?0:n*3,1); return Math.round((b-a)/864e5); };
+const kbQRange=q=>{ const y=+q.slice(0,4), n=+q.slice(5); return [Date.UTC(y,(n-1)*3,1), Date.UTC(n===4?y+1:y,n===4?0:n*3,1)-864e5]; };
 const kbMonthsOfQ=q=>{ const y=q.slice(0,4), n=+q.slice(5); return [1,2,3].map(i=>`${y}-${String((n-1)*3+i).padStart(2,"0")}`); };
 const kbYmPrev=(ym,k)=>{ let y=+ym.slice(0,4), m=+ym.slice(5,7)-k; while(m<1){ m+=12; y--; } return `${y}-${String(m).padStart(2,"0")}`; };
+const kbMonDays=ym=>new Date(Date.UTC(+ym.slice(0,4),+ym.slice(5,7),0)).getUTCDate();
+const kbT=d=>Date.parse(d+"T00:00:00Z");
+const kbD=t=>new Date(t).toISOString().slice(0,10);
+const kbMD=d=>`${+d.slice(5,7)}/${+d.slice(8,10)}`;
 /* 공시 키 → 분기 목록: '2Q26' · '1H26'(1·2분기) · '2H26' · 'FY25'(네 분기) */
 function kbKeyQs(key){
   let m=/^(\d)Q(\d\d)$/.exec(key); if(m) return [`20${m[2]}Q${m[1]}`];
@@ -10292,13 +10301,45 @@ function kbFx(cur, ym){
 /* 회사의 채널 목록 — config 의 지역별 코드("US" = 아마존 미국, "TT:US" = 틱톡샵 미국) */
 function kbChannels(co){
   const C=KBCH.co[co]||{}, out=[];
-  Object.entries(C.region||{}).forEach(([rg,codes])=>codes.forEach(c=>{
-    if(c.startsWith("TT:")){ const r=c.slice(3); out.push({key:"tt:"+r, code:c, src:"tt", cc:r, region:rg, label:`틱톡샵 ${KB_TTNM[r]||r}`}); }
-    else out.push({key:"kp:"+c, code:c, src:"kp", cc:c, region:rg, label:`아마존 ${KB_DOMNM[c]||c}`}); }));
+  Object.entries(C.region||{}).forEach(([rg,codes])=>codes.forEach(c=>out.push(kbChOf(c, rg))));
   return out;
 }
+function kbChOf(c, rg){
+  if(c.startsWith("TT:")){ const r=c.slice(3); return {key:"tt:"+r, code:c, src:"tt", cc:r, region:rg, label:`틱톡샵 ${KB_TTNM[r]||r}`}; }
+  return {key:"kp:"+c, code:c, src:"kp", cc:c, region:rg, label:`아마존 ${KB_DOMNM[c]||c}`};
+}
 const kbBrandsOf=co=>Object.keys(KBCH.brands||{}).filter(k=>KBCH.brands[k].co===co);
-/* 채널 하나의 월 판매액(억원) — {m:{ym:억}, part:{cur:억}(아마존 최근 30일), days:{ym:관측일}(틱톡)} */
+/* 틱톡 샵 — 일별을 받는 샵(tt.s) 중 이 채널(지역)·브랜드 것 */
+const kbChShops=(ch,bks)=>Object.entries((KBCH.tt&&KBCH.tt.s)||{}).filter(([,s])=>bks.includes(s.k)&&s.r===ch.cc).map(([id,s])=>({id,s}));
+const kbShopC=new WeakMap();
+/* 샵 하나 — 관측 구간 [w0, last] · w0~d0 사이는 샵이 없던 날(판매 0 · 아로마티카 5/12 개설) · 첫 14일 평균(앞 채움용) */
+function kbShop(s){
+  let K=kbShopC.get(s); if(K) return K;
+  const d0=kbT(s.d0), w0=Math.min(d0,kbT(s.w0||s.d0)), last=d0+(s.v.length-1)*864e5;
+  const val=t=>{ const i=Math.round((t-d0)/864e5); return i<0||i>=s.v.length?0:(s.v[i]||0); };
+  let a=0; for(let i=0;i<14;i++) a+=val(w0+i*864e5);
+  K={d0, w0, last, val, avg14:a/14, c:s.c||"USD"}; kbShopC.set(s,K); return K;
+}
+/* [a,b] 안 관측된 날의 합(억 원 · 그달 평균 환율) · 관측일 수 */
+function kbShopSum(s, a, b){
+  const K=kbShop(s), x=Math.max(a,K.w0), y=Math.min(b,K.last); let v=0, dd=0;
+  for(let t=x;t<=y;t+=864e5){ v+=K.val(t)*kbFx(K.c,kbD(t).slice(0,7))/1e8; dd++; }
+  return {v, dd};
+}
+function kbShopMonth(s, ym){ const a=Date.UTC(+ym.slice(0,4),+ym.slice(5,7)-1,1); return kbShopSum(s, a, a+(kbMonDays(ym)-1)*864e5); }
+/* 최근 30일(억 원 · 이번 달 환율) — 아마존 '최근 30일'과 같은 창 */
+function kbShop30(s, cur){ const K=kbShop(s); let v=0; for(let i=0;i<30;i++){ const t=K.last-i*864e5; if(t<K.w0) break; v+=K.val(t); } return v*kbFx(K.c,cur)/1e8; }
+/* 분기 값 — 다 관측되면 그대로. 앞부분만 관측 전(w0 > 분기 첫날)이고 분기 끝까지 받았고 28일 이상 관측이면 앞을 관측 첫 14일 평균으로 채운다(fill = 채운 일수).
+   첫 14일을 쓰는 이유 — 2Q26 평균으로 채우면 6월(프라임데이 · 틱톡 여름 행사)이 4월로 번진다: 큰 샵들의 첫 14일은 2Q 관측 평균의 0.66~0.76배였다(10/21). */
+function kbShopQ(s, q){
+  const K=kbShop(s), [qa,qb]=kbQRange(q), qd=kbQDays(q), o=kbShopSum(s,qa,qb);
+  if(o.dd===qd) return {v:o.v, dd:o.dd, fill:0, ob:true};
+  if(o.dd>=KB_FILLMIN&&K.last>=qb&&K.w0>qa){ let f=0, n=0;
+    for(let t=qa;t<K.w0;t+=864e5){ f+=K.avg14*kbFx(K.c,kbD(t).slice(0,7))/1e8; n++; }
+    return {v:o.v+f, raw:o.v, dd:o.dd, fill:n, ob:true}; }
+  return {v:o.v, dd:o.dd, fill:0, ob:false};
+}
+/* 채널 하나의 월 판매액(억원) — {m:{ym:억}, part:{cur:억}(최근 30일), days:{ym:관측일}(틱톡 — 샵 중 가장 적은 날 수)} */
 function kbChanMonthly(ch, bks){
   const months=KBCH.kp.months||[], cur=(KBCH.kp.asOf||"").slice(0,7), m={}, days={}, part={};
   if(ch.src==="kp"){
@@ -10306,12 +10347,15 @@ function kbChanMonthly(ch, bks){
     bks.forEach(k=>{ const e=((KBCH.kp.b[k]||{})[did]); if(e) months.forEach((ym,i)=>{ const v=e[1][i]||0; if(v) m[ym]=(m[ym]||0)+v*kbFx(c,ym)/1e8; });
       const r=((KBCH.kp.r30[k]||{})[did]); if(r&&r[1]) part[cur]=(part[cur]||0)+r[1]*kbFx(c,cur)/1e8; });
   } else {
-    const seen={};
-    Object.values((KBCH.tt&&KBCH.tt.s)||{}).filter(s=>bks.includes(s.k)&&s.r===ch.cc).forEach(s=>{
-      const d0=Date.parse(s.d0+"T00:00:00Z");
-      s.v.forEach((v,i)=>{ const day=new Date(d0+i*864e5).toISOString().slice(0,10), ym=day.slice(0,7);
-        (seen[ym]=seen[ym]||new Set()).add(day); if(v) m[ym]=(m[ym]||0)+v*kbFx(s.c||"USD",ym)/1e8; }); });
-    Object.keys(seen).forEach(ym=>{ days[ym]=seen[ym].size; });
+    const shops=kbChShops(ch,bks).map(x=>x.s);
+    if(shops.length){
+      const t0=Math.min(...shops.map(s=>kbShop(s).w0)), t1=Math.max(...shops.map(s=>kbShop(s).last));
+      for(let t=Date.UTC(new Date(t0).getUTCFullYear(),new Date(t0).getUTCMonth(),1); t<=t1; ){
+        const ym=kbD(t).slice(0,7); let v=0, dmin=Infinity;
+        shops.forEach(s=>{ const o=kbShopMonth(s,ym); v+=o.v; dmin=Math.min(dmin,o.dd); });
+        m[ym]=v; days[ym]=dmin; const x=new Date(t); t=Date.UTC(x.getUTCFullYear(),x.getUTCMonth()+1,1); }
+      part[cur]=shops.reduce((a,s)=>a+kbShop30(s,cur),0);
+    }
   }
   return {m, days, part};
 }
@@ -10320,16 +10364,11 @@ function kbMonthly(co){
   kbChannels(co).forEach(ch=>{ out[ch.key]=Object.assign({}, ch, kbChanMonthly(ch, bks)); });
   return out;
 }
-/* 분기 합 — 아마존은 지난달까지 달력 월 + 이번 달은 최근 30일, 틱톡은 관측된 날만 */
+/* 아마존 분기 합 — 지난달까지 달력 월 + 이번 달은 최근 30일 */
 function kbChanQ(c, q, cur){
-  let v=0, dd=0;
-  kbMonthsOfQ(q).forEach(ym=>{
-    if(c.src==="kp"){ if(ym<cur) v+=c.m[ym]||0; else if(ym===cur) v+=c.part[cur]||0; }
-    else { v+=c.m[ym]||0; dd+=c.days[ym]||0; } });
-  return {v, dd};
+  let v=0; kbMonthsOfQ(q).forEach(ym=>{ if(ym<cur) v+=c.m[ym]||0; else if(ym===cur) v+=c.part[cur]||0; });
+  return v;
 }
-/* 진행 분기 — 아마존 첫 달 = 최근 30일, 둘째·셋째 달 = 작년 같은 달 ÷ 작년 첫 달 비율(블프·연말 포함).
-   틱톡은 작년 자료가 없어 첫 달을 관측 일수로 늘린 뒤 같은 지역 아마존의 작년 비율을 빌린다. */
 /* 시장 계절 비율 — 나라마다 우리 브랜드들의 '그 분기 둘째·셋째 달 ÷ 첫 달' 중앙값(최근 두 해 평균).
    브랜드 자기 작년 비율을 쓰면 작년에 급성장한 브랜드(메디큐브 유럽)는 성장이 계절성으로 둔갑한다(10/20 검토 — 4Q 유럽이 3배로 나왔다). */
 const kbSeasCache={};
@@ -10344,19 +10383,36 @@ function kbSeas(cc, q){
     out[i]=ys.length?ys.reduce((s,x)=>s+x,0)/ys.length:1; });
   return (kbSeasCache[ck]=out);
 }
-/* 진행 분기 — 첫 달 = 아마존 최근 30일(틱톡은 관측 일수로 늘림) · 둘째·셋째 달 = 첫 달 × 시장 계절 비율(틱톡은 같은 나라 아마존 비율) */
-function kbProjQ(cs, q, cur){
-  const ms=kbMonthsOfQ(q), first=ms.indexOf(cur);
-  if(first<0) return null;
-  let est=0;
-  cs.forEach(c=>{
-    const cc=c.src==="kp"?c.cc:({GB:"UK"}[c.cc]||c.cc), r=KB_DOMC[Object.keys(KB_DOMC).find(d=>KB_DOMC[d]===cc)]?kbSeas(cc,q):[1,1,1];
-    const base=c.src==="kp"?(c.part[cur]||0):((c.days[cur]||0)?(c.m[cur]||0)*31/c.days[cur]:0);
-    ms.forEach((ym,i)=>{ if(i<first) est+=c.m[ym]||0; else est+=base*(r[i]/r[first]); });
-  });
+/* 진행 분기 — 지난달까지 실제 + 이번 달 = 최근 30일 · 남은 달 = 이번 달 × 시장 계절 비율(틱톡샵은 같은 나라 아마존 비율) */
+function kbProjQ(c, q, cur){
+  const ms=kbMonthsOfQ(q), first=ms.indexOf(cur); if(first<0) return null;
+  const r=Object.values(KB_DOMC).includes(c.cc)?kbSeas(c.cc,q):[1,1,1], base=c.part[cur]||0; let est=0;
+  ms.forEach((ym,i)=>{ est+= i<first ? (c.m[ym]||0) : base*(r[i]/r[first]); });
   return est;
 }
-/* 분기 표 — 지역별: 채널 합계 · 공시 · 계수 · 추정 */
+function kbShopProj(s, q, cur){
+  const K=kbShop(s), ms=kbMonthsOfQ(q), first=ms.indexOf(cur); if(first<0) return null;
+  const asOf=kbT((KBCH.tt&&KBCH.tt.asOf)||s.d0); if(K.last<asOf-7*864e5) return null;   // 1주 넘게 끊긴 샵 = 모름
+  const cc=KB_TT2AMZ[s.r]||s.r, r=Object.values(KB_DOMC).includes(cc)?kbSeas(cc,q):[1,1,1], base=kbShop30(s,cur);
+  let est=0; ms.forEach((ym,i)=>{ est+= i<first ? kbShopMonth(s,ym).v : base*(r[i]/r[first]); });
+  return est;
+}
+/* 단위 — 아마존 나라 채널 하나 · 틱톡 샵 하나. 분기마다 {v 억, ob 관측됨, fill 앞을 채운 일수} · proj = 진행 분기 추정
+   codes 를 주면 그 코드들만(참고 줄용 · region 없음) */
+function kbUnits(co, Q, nowQ, cur, codes){
+  const bks=kbBrandsOf(co), out=[];
+  const chs=codes?codes.map(c=>kbChOf(c,null)):kbChannels(co);
+  chs.forEach(ch=>{
+    if(ch.src==="kp"){ const c=Object.assign({}, ch, kbChanMonthly(ch,bks)), q={};
+      Q.forEach(x=>{ q[x]=x===nowQ?{v:null, ob:false}:{v:kbChanQ(c,x,cur), ob:true}; });
+      out.push({id:ch.key, ch:ch.key, src:"kp", region:ch.region, label:ch.label, q, proj:kbProjQ(c,nowQ,cur)}); }
+    else kbChShops(ch,bks).forEach(({id,s})=>{ const q={};
+      Q.forEach(x=>{ q[x]=x===nowQ?{v:null, ob:false}:kbShopQ(s,x); });
+      out.push({id:"tt:"+id, ch:ch.key, src:"tt", region:ch.region, label:s.n, shop:s, q, proj:kbShopProj(s,nowQ,cur)}); });
+  });
+  return out;
+}
+/* 분기 표 — 지역별: 관측(단위 합) · 공시 · 계수 · 추정 */
 function kbModel(co){
   const M=kbMonthly(co), chs=Object.values(M), IR=(KBCH.ir&&KBCH.ir[co])||{}, lines=IR.lines||{};
   const months=KBCH.kp.months||[], cur=(KBCH.kp.asOf||"").slice(0,7);
@@ -10364,54 +10420,80 @@ function kbModel(co){
   const Q=[...new Set(months.map(kbQ).concat([nowQ]))].sort().filter(q=>q>="2024Q1");
   const regions=[...new Set(chs.map(c=>c.region))];
   const supplier=(KBCH.co[co]||{}).type==="supplier";
+  const U=kbUnits(co,Q,nowQ,cur);
+  const val=(u,q)=>q===nowQ?u.proj:(u.q[q]&&u.q[q].ob?u.q[q].v:null);
   const rows={};
   regions.forEach(rg=>{
-    const cs=chs.filter(c=>c.region===rg), R={rg, chs:{}, T:{}, ttCov:{}, ir:{}, k:{}, kind:{}, est:{}, lo:{}, hi:{}, itp:{}, estEv:{}, per:[], qn:{}};
-    Q.forEach(q=>{ let T=0, ttMax=0, hasTT=false;
-      cs.forEach(c=>{ const o=kbChanQ(c,q,cur); (R.chs[c.key]=R.chs[c.key]||{})[q]=o.v; T+=o.v; if(c.src==="tt"&&o.dd){ hasTT=true; ttMax=Math.max(ttMax,o.dd); } });
-      R.T[q]=T; R.ttCov[q]=hasTT?Math.min(1,ttMax/kbQDays(q)):null; });
-    R.q4est=kbProjQ(cs, nowQ, cur)||0;
-    // 공시 — 분기 키는 그 분기, 반기·연간 키는 분기 합으로 계수
-    const L=supplier?Object.fromEntries(Q.map(q=>[kbQLab(q), kbTotal(co,q)]).filter(x=>x[1]!=null)):(lines[rg]||{});
-    Object.entries(L).forEach(([key,v])=>{ const qs=kbKeyQs(key); if(!qs||v==null) return;
-      if(qs.length===1){ R.ir[qs[0]]=v; if(R.T[qs[0]]>0) R.k[qs[0]]=v/R.T[qs[0]]; }
-      else { const T=qs.reduce((s,q)=>s+(R.T[q]||0),0); if(T>0) R.per.push({key, qs, v, T, k:v/T}); } });
-    Object.keys(R.k).forEach(q=>{ R.kind[q]=R.ttCov[q]==null?"amz":R.ttCov[q]>=0.85?"all":"part"; });
+    const us=U.filter(u=>u.region===rg);
+    const R={rg, us, chs:{}, fill:{}, T:{}, Ta:{}, Tt:{}, ir:{}, k:{}, kind:{}, est:{}, eb:{}, lo:{}, hi:{}, itp:{}, estEv:{}, per:[], qn:{}, win:[]};
+    R.hasTT=us.some(u=>u.src==="tt");
+    Q.forEach(q=>{ let T=0, Ta=0, Tt=0, f=0, tt=false;
+      us.forEach(u=>{ const x=u.q[q]; if(!x||!x.ob) return; T+=x.v;
+        if(u.src==="kp") Ta+=x.v; else { Tt+=x.v; tt=true; f=Math.max(f,x.fill||0); }
+        const o=R.chs[u.ch]=R.chs[u.ch]||{}; o[q]=(o[q]||0)+x.v; });
+      R.T[q]=T; R.Ta[q]=Ta; R.Tt[q]=tt?Tt:null; R.fill[q]=f; R.kind[q]=!R.hasTT?"":(!tt?"amz":f?"fill":"all"); });
+    R.q4est=us.reduce((s,u)=>s+(u.proj||0),0);
+    R.q4a=us.filter(u=>u.src==="kp").reduce((s,u)=>s+(u.proj||0),0);
+    // 공시 — 분기 키는 그 분기, 반기·연간 키는 분기 합으로. 주석(qn) 달린 분기는 계수에 안 쓴다
     Object.entries(IR.qn||{}).forEach(([kk,t])=>{ const [r,lab]=kk.split("|"); if(r===rg&&kbQOf(lab)) R.qn[kbQOf(lab)]=t; });
-    // 기준 계수 = 가장 최근 공시(분기든 반기든 끝 분기가 늦은 쪽). 계수 범위 = 최근 네 공시의 최소~최대
-    const obs=Object.keys(R.k).map(q=>({end:q, k:R.k[q], lab:kbQLab(q)})).concat(R.per.map(p=>({end:p.qs[p.qs.length-1], k:p.k, lab:p.key})))
-      .filter(o=>!R.qn[o.end]).sort((a,b)=>a.end.localeCompare(b.end));
-    const last=obs[obs.length-1];
-    R.ref=last?last.k:null; R.refLab=last?last.lab:null; R.refEnd=last?last.end:null;
-    // 범위 — 계수가 한 분기에 보통 움직이는 폭(연속 분기 계수 변화의 중앙값 · 8~35% · 자료가 모자라면 15%)과 최근 1년 공시 계수의 최소~최대 중 넓은 쪽
-    const qk0=Object.keys(R.k).filter(q=>!R.qn[q]).sort(), dl=[];
-    for(let i=1;i<qk0.length;i++) if(kbQIdx(qk0[i])-kbQIdx(qk0[i-1])===1) dl.push(Math.abs(Math.log(R.k[qk0[i]]/R.k[qk0[i-1]])));
-    dl.sort((a,b)=>a-b); R.kd=dl.length>=2?Math.min(0.35,Math.max(0.08,dl[Math.floor((dl.length-1)/2)])):0.15;
-    if(last){ const win=obs.filter(o=>kbQIdx(o.end)>kbQIdx(last.end)-4).map(o=>o.k);
-      R.kLo=Math.min(last.k*Math.exp(-R.kd),...win); R.kHi=Math.max(last.k*Math.exp(R.kd),...win); }
+    const L=supplier?Object.fromEntries(Q.map(q=>[kbQLab(q), kbTotal(co,q)]).filter(x=>x[1]!=null)):(lines[rg]||{});
+    const D=[];
+    Object.entries(L).forEach(([key,v])=>{ const qs=kbKeyQs(key); if(!qs||v==null) return;
+      if(qs.length===1) R.ir[qs[0]]=v;
+      const T=qs.reduce((s,q)=>s+(R.T[q]||0),0); if(!(T>0)) return;
+      if(qs.length===1) R.k[qs[0]]=v/T; else R.per.push({key, qs, v, T, k:v/T});
+      if(!R.qn[qs[qs.length-1]]) D.push({qs, v, lab:qs.length===1?kbQLab(qs[0]):key, end:qs[qs.length-1]}); });
+    D.sort((a,b)=>a.end.localeCompare(b.end));
+    // 같은 단위끼리 — 공시 분기들과 대상 분기에 모두 관측된 단위만으로 계수를 내고 대상 분기에 곱한다
+    const on=(d,q)=>{ const b=us.filter(u=>val(u,q)!=null&&d.qs.every(x=>val(u,x)!=null));
+      const Tr=d.qs.reduce((s,x)=>s+b.reduce((t,u)=>t+val(u,x),0),0), Tq=b.reduce((t,u)=>t+val(u,q),0);
+      return Tr>0?{k:d.v/Tr, Tq, Tr, v:Tq*d.v/Tr, tt:b.some(u=>u.src==="tt")}:null; };
+    R.on=on;
+    const last=D[D.length-1];
+    R.refLab=last?last.lab:null; R.refEnd=last?last.end:null;
+    R.refAll=last?last.v/last.qs.reduce((s,q)=>s+(R.T[q]||0),0):null;   // 그 공시 분기의 관측 전부 기준(표의 관측 비중)
+    const qNext=last?Q.find(q=>q>last.end):null, e0=qNext?on(last,qNext):null;
+    R.ref=e0?e0.k:R.refAll; R.refTT=!!(e0&&e0.tt);   // 다음 분기 추정에 쓰는 계수(같은 단위 기준)
     R.cov=R.ref?1/R.ref:null;
-    // 추정 — 마지막 공시 뒤 분기는 기준 계수로, 공시 사이 빈 분기는 앞뒤 계수를 직선으로 이어(보간) · 첫 공시 앞은 안 낸다
-    const qk=Object.keys(R.k).filter(q=>!R.qn[q]).sort();
+    // 범위 — 계수가 한 분기에 보통 움직이는 폭(연속 공시 분기 계수 변화의 중앙값 · 같은 단위끼리 · 8~35% · 모자라면 15%)과
+    //        최근 1년 공시들의 계수로 낸 추정값의 최소~최대 중 넓은 쪽
+    const qk=D.filter(d=>d.qs.length===1).map(d=>d.end), dl=[];
+    for(let i=1;i<qk.length;i++) if(kbQIdx(qk[i])-kbQIdx(qk[i-1])===1){
+      const a=on({qs:[qk[i-1]],v:R.ir[qk[i-1]]},qk[i]), b=on({qs:[qk[i]],v:R.ir[qk[i]]},qk[i-1]);
+      if(a&&b) dl.push(Math.abs(Math.log(b.k/a.k))); }
+    dl.sort((a,b)=>a-b); R.kd=dl.length>=2?Math.min(0.35,Math.max(0.08,dl[Math.floor((dl.length-1)/2)])):0.15;
+    if(last){ R.win=D.filter(d=>kbQIdx(d.end)>kbQIdx(last.end)-4);
+      const ks=R.win.map(d=>d.v/d.qs.reduce((s,q)=>s+(R.T[q]||0),0));
+      R.kLo=Math.min(R.refAll*Math.exp(-R.kd),...ks); R.kHi=Math.max(R.refAll*Math.exp(R.kd),...ks); }
+    // 추정 — 마지막 공시 뒤 분기는 그 공시 계수로(같은 단위), 공시 사이 빈 분기는 앞뒤 계수를 직선으로 이어(보간) · 첫 공시 앞은 안 낸다
     Q.forEach(q=>{ if(R.ir[q]!=null) return;
-      const T=q===nowQ?R.q4est:R.T[q]; if(!(T>0)) return;
-      if(R.ref!=null&&q>R.refEnd){ R.est[q]=T*R.ref; R.lo[q]=T*R.kLo; R.hi[q]=T*R.kHi;
-        // 이벤트 맞춤 — 같은 종류(프라임데이 · 빅딜데이 · 없음) 분기의 가장 최근 계수(1년 안). 기준 계수와 같은 분기면 생략
-        const ev=KB_EVT[q]||"", mq=qk0.filter(x=>(KB_EVT[x]||"")===ev&&kbQIdx(q)-kbQIdx(x)<=4).pop();
-        if(mq&&mq!==R.refEnd) R.estEv[q]={v:T*R.k[mq], q:mq};
+      if(last&&q>last.end){ const e=on(last,q); if(!e||!(e.Tq>0)) return;
+        R.est[q]=e.v; R.eb[q]=e.tt;
+        const vs=R.win.map(d=>on(d,q)).filter(x=>x&&x.Tq>0).map(x=>x.v);
+        R.lo[q]=Math.min(e.v*Math.exp(-R.kd),...vs); R.hi[q]=Math.max(e.v*Math.exp(R.kd),...vs);
+        // 이벤트 맞춤 — 같은 종류(프라임데이 · 빅딜데이 · 없음) 분기의 가장 최근 계수(1년 안 · 같은 단위). 기준 계수와 같은 분기면 생략
+        const ev=KB_EVT[q]||"", mq=qk.filter(x=>(KB_EVT[x]||"")===ev&&kbQIdx(q)-kbQIdx(x)<=4).pop();
+        if(mq&&mq!==last.end){ const x=on({qs:[mq],v:R.ir[mq]},q); if(x&&x.Tq>0) R.estEv[q]={v:x.v, q:mq, tt:x.tt}; }
         return; }
       const a=qk.filter(x=>x<q).pop(), b=qk.find(x=>x>q);
-      if(a&&b){ const t=(kbQIdx(q)-kbQIdx(a))/(kbQIdx(b)-kbQIdx(a)); R.itp[q]=T*(R.k[a]+(R.k[b]-R.k[a])*t); } });
+      if(a&&b){ const bs=us.filter(u=>[a,b,q].every(x=>val(u,x)!=null)), S=x=>bs.reduce((t,u)=>t+val(u,x),0);
+        if(S(a)>0&&S(b)>0&&S(q)>0){ const ka=R.ir[a]/S(a), kb=R.ir[b]/S(b), t=(kbQIdx(q)-kbQIdx(a))/(kbQIdx(b)-kbQIdx(a)); R.itp[q]=S(q)*(ka+(kb-ka)*t); } } });
     rows[rg]=R;
   });
   // 참고 줄(분류가 바뀌기 전 공시 등) — 자기 채널로 계수만
-  const refs=(IR.ref||[]).map(rf=>{ const cs=chs.filter(c=>rf.ch.includes(c.code));
-    const extra=rf.ch.filter(code=>!cs.some(c=>c.code===code)).map(code=>{ const ch=code.startsWith("TT:")?{key:"tt:"+code.slice(3),code,src:"tt",cc:code.slice(3)}:{key:"kp:"+code,code,src:"kp",cc:code};
-      return Object.assign(ch, kbChanMonthly(ch, kbBrandsOf(co))); });
-    const all=cs.concat(extra), T={}, ir={}, k={};
-    Q.forEach(q=>{ T[q]=all.reduce((s,c)=>s+kbChanQ(c,q,cur).v,0); });
+  const refs=(IR.ref||[]).map(rf=>{ const us=kbUnits(co,Q,nowQ,cur,rf.ch), T={}, ir={}, k={};
+    Q.forEach(q=>{ T[q]=us.reduce((s,u)=>s+(u.q[q]&&u.q[q].ob?u.q[q].v:0),0); });
     Object.entries(rf.q||{}).forEach(([lab,v])=>{ const q=kbQOf(lab); if(q){ ir[q]=v; if(T[q]>0) k[q]=v/T[q]; } });
     return {n:rf.n, ch:rf.ch, T, ir, k}; });
-  return {co, Q, nowQ, cur, regions, rows, chs, M, IR, refs, supplier, ttLast:(KBCH.tt&&KBCH.tt.asOf)||""};
+  return {co, Q, nowQ, cur, regions, rows, chs, M, U, IR, refs, supplier, ttLast:(KBCH.tt&&KBCH.tt.asOf)||""};
+}
+/* 같은 단위끼리의 성장률 — 두 분기에 모두 관측된 채널만(틱톡이 없던 분기와 견주면 틱톡만큼 부풀어 보인다) · tt = 틱톡이 들어갔나 */
+function kbGrowth(m, qa, qb, rgs){
+  if(!qa||!qb) return null; let A=0, B=0, tt=false;
+  (rgs||m.regions).forEach(rg=>m.rows[rg].us.forEach(u=>{
+    const a=u.q[qa], b=qb===m.nowQ?(u.proj!=null?{v:u.proj, ob:true}:null):u.q[qb];
+    if(a&&a.ob&&b&&b.ob){ A+=a.v; B+=b.v; if(u.src==="tt") tt=true; } }));
+  return A>0?{g:B/A-1, tt}:null;
 }
 /* 회사 전체 매출(억) — ir.json total → 네이버 실적(e 아닌 분기) */
 function kbTotal(co, q){
@@ -10426,42 +10508,52 @@ function kbCons(co, q){
 }
 const kbEok=v=>v==null||!isFinite(v)?"—":(Math.abs(v)>=100?Math.round(v).toLocaleString("ko-KR"):Math.abs(v)>=10?v.toFixed(0):v.toFixed(1));
 const kbPct=v=>v==null||!isFinite(v)?"—":`<span class="${cls(v)}">${v>0?"+":""}${Math.round(v*100)}%</span>`;
+const kbG=o=>kbPct(o?o.g:null);
 const kbCovTxt=c=>c==null?"—":`${Math.round(c*100)}%`;
 const kbCss=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
-const kbChCol=c=>KB_CHCOL[c.code]||(c.src==="tt"?"#e5989b":"#b5838d");
+const kbChCol=c=>KB_CHCOL[c.src==="tt"?(KB_TT2AMZ[c.cc]||c.cc):c.code]||"#b5838d";
+const kbUsd=v=>{ const a=Math.abs(v); return a>=1e6?`$${(v/1e6).toFixed(a>=1e7?1:2)}M`:a>=1e3?`$${Math.round(v/1e3)}K`:`$${Math.round(v)}`; };
+const kbSw=st=>`<i style="display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px;${st}"></i>`;   // 범례 칸(.legend i 에 크기가 없다)
+/* 빗금(틱톡샵 막대) — svg 마다 id 를 따로 */
+let kbPatN=0;
+const kbHatch=(col, op)=>{ const id="kbh"+(++kbPatN); return {id, def:`<pattern id="${id}" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="${col}" fill-opacity="${(0.18*op).toFixed(2)}"/><line x1="0" y1="0" x2="0" y2="5" stroke="${col}" stroke-width="2.4" stroke-opacity="${op}"/></pattern>`}; };
 
-/* 지역 하나의 분기 차트 — 막대 = 관측 판매액(진행 분기는 옅게) · ◆ 공시 매출 · ◇ 추정(계수 범위는 세로 막대) */
+/* 지역 하나의 분기 차트 — 막대 = 관측 판매액(아마존 · 위에 틱톡샵 빗금 · 진행 분기는 옅게) · ◆ 공시 매출 · ◇ 추정(계수 범위는 세로 막대) */
 function kbRegionChart(el, m, rg){
   const R=m.rows[rg], Q=m.Q.slice(-11), W=el.clientWidth||420, H=200, P={l:44,r:10,t:12,b:24};
-  const cats=Q.map(kbQLab), obs=Q.map(q=>q===m.nowQ?R.q4est:R.T[q]||0);
+  const cats=Q.map(kbQLab), now=q=>q===m.nowQ;
+  const amz=Q.map(q=>now(q)?R.q4a:(R.Ta[q]||0)), tt=Q.map(q=>now(q)?R.q4est-R.q4a:(R.Tt[q]||0)), obs=Q.map((q,i)=>amz[i]+tt[i]);
   const irv=Q.map(q=>R.ir[q]!=null?R.ir[q]:null), est=Q.map(q=>R.est[q]!=null?R.est[q]:(R.itp[q]!=null?R.itp[q]:null));
   const hi=Q.map(q=>R.hi[q]!=null?R.hi[q]:null), lo=Q.map(q=>R.lo[q]!=null?R.lo[q]:null);
   const mx=Math.max(1,...obs,...irv.filter(v=>v!=null),...est.filter(v=>v!=null),...hi.filter(v=>v!=null));
   const step=amzNiceStep(mx/4), top=Math.ceil(mx/step)*step;
   const bw=(W-P.l-P.r)/cats.length, sy=v=>H-P.b-v/top*(H-P.t-P.b), sx=i=>P.l+bw*i+bw/2;
   const gc=kbCss("--line"), mut=kbCss("--muted"), txt=kbCss("--text"), acc=kbCss("--accent"), pan=kbCss("--panel");
-  const col=acc;
-  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  const col=acc, h1=kbHatch(col,1), h2=kbHatch(col,0.5);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit"><defs>${h1.def}${h2.def}</defs>`;
   for(let v=0; v<=top+1e-9; v+=step){ const y=sy(v).toFixed(1); s+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="${gc}"/><text x="${P.l-5}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="9.5" fill="${mut}">${kbEok(v)}</text>`; }
   const every=Math.max(1,Math.ceil(cats.length/(W<380?6:11)));
-  cats.forEach((c,i)=>{ const w=Math.min(26,bw*0.6), x=sx(i)-w/2, v=obs[i], now=Q[i]===m.nowQ;
-    if(v>0) s+=`<rect x="${x.toFixed(1)}" y="${sy(v).toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.5,sy(0)-sy(v)).toFixed(1)}" fill="${col}" fill-opacity="${now?0.35:0.85}"${now?` stroke="${col}" stroke-dasharray="3 2"`:""}/>`;
-    if(i%every===0||i===cats.length-1) s+=`<text x="${sx(i).toFixed(1)}" y="${H-P.b+14}" text-anchor="middle" font-size="9.5" fill="${now?txt:mut}" font-weight="${now?800:400}">${c}${now?"E":""}</text>`; });
+  cats.forEach((c,i)=>{ const w=Math.min(26,bw*0.6), x=sx(i)-w/2, a=amz[i], t=tt[i], nw=now(Q[i]);
+    if(a>0) s+=`<rect x="${x.toFixed(1)}" y="${sy(a).toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(0.5,sy(0)-sy(a)).toFixed(1)}" fill="${col}" fill-opacity="${nw?0.35:0.85}"${nw?` stroke="${col}" stroke-dasharray="3 2"`:""}/>`;
+    if(t>0){ const y1=sy(a+t), y0=sy(a)-(a>0?1.5:0); if(y0-y1>0.4) s+=`<rect x="${x.toFixed(1)}" y="${y1.toFixed(1)}" width="${w.toFixed(1)}" height="${(y0-y1).toFixed(1)}" fill="url(#${nw?h2.id:h1.id})"${nw?` stroke="${col}" stroke-opacity="0.6" stroke-dasharray="3 2"`:""}/>`; }
+    if(i%every===0||i===cats.length-1) s+=`<text x="${sx(i).toFixed(1)}" y="${H-P.b+14}" text-anchor="middle" font-size="9.5" fill="${nw?txt:mut}" font-weight="${nw?800:400}">${c}${nw?"E":""}</text>`; });
   const dia=(x,y,f,st,op)=>`<path d="M${(x-5.5).toFixed(1)} ${y.toFixed(1)} L${x.toFixed(1)} ${(y-5.5).toFixed(1)} L${(x+5.5).toFixed(1)} ${y.toFixed(1)} L${x.toFixed(1)} ${(y+5.5).toFixed(1)} Z" fill="${f}" fill-opacity="${op}" stroke="${st}" stroke-width="1.3"/>`;
   Q.forEach((q,i)=>{ const x=sx(i);
     if(hi[i]!=null&&lo[i]!=null) s+=`<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${sy(hi[i]).toFixed(1)}" y2="${sy(lo[i]).toFixed(1)}" stroke="${acc}" stroke-width="2" stroke-opacity="0.45"/>`;
     if(irv[i]!=null) s+=dia(x,sy(irv[i]),txt,pan,1);
     else if(est[i]!=null) s+=dia(x,sy(est[i]),pan,acc,1); });
   el.innerHTML=s+"</svg>";
-  attachChartTip(el,{W,H,pad:P,n:cats.length,xOf:sx,xLab:i=>cats[i]+(Q[i]===m.nowQ?"E":""),yLab:Y=>kbEok(invLin(sy,Y)),
+  attachChartTip(el,{W,H,pad:P,n:cats.length,xOf:sx,xLab:i=>cats[i]+(now(Q[i])?"E":""),yLab:Y=>kbEok(invLin(sy,Y)),
     pts:i=>[irv[i]!=null?{y:sy(irv[i]),c:txt}:(est[i]!=null?{y:sy(est[i]),c:acc}:null)],
-    html:i=>{ const q=Q[i], now=q===m.nowQ;
-      return `<div class="tt-h">${rg} · ${cats[i]}${now?" 진행(추정)":""}</div>`
-        +m.chs.filter(c=>c.region===rg).map(c=>{ const v=now?null:(R.chs[c.key]||{})[q]; return v?`<div class="tt-r"><span class="k">${c.label}</span><span class="v">${kbEok(v)}억</span></div>`:""; }).join("")
-        +`<div class="tt-r"><span class="k">관측 합계${now?" (추정)":""}</span><span class="v">${kbEok(obs[i])}억</span></div>`
+    html:i=>{ const q=Q[i], nw=now(q);
+      return `<div class="tt-h">${rg} · ${cats[i]}${nw?" 진행(추정)":""}</div>`
+        +(nw?`<div class="tt-r"><span class="k">아마존</span><span class="v">${kbEok(amz[i])}억</span></div>${tt[i]>0?`<div class="tt-r"><span class="k">틱톡샵</span><span class="v">${kbEok(tt[i])}억</span></div>`:""}`
+          :m.chs.filter(c=>c.region===rg).map(c=>{ const v=(R.chs[c.key]||{})[q]; return v?`<div class="tt-r"><span class="k">${c.label}${c.src==="tt"&&R.fill[q]?` <span class="g">(앞 ${R.fill[q]}일 채움)</span>`:""}</span><span class="v">${kbEok(v)}억</span></div>`:""; }).join(""))
+        +`<div class="tt-r"><span class="k">관측 합계${nw?" (추정)":""}</span><span class="v">${kbEok(obs[i])}억</span></div>`
+        +(R.hasTT&&!nw&&R.Tt[q]==null?`<div class="tt-r"><span class="k g">틱톡샵 관측 전(4/24 부터)</span></div>`:"")
         +(irv[i]!=null?`<div class="tt-r"><span class="k">◆ 공시 매출</span><span class="v">${kbEok(irv[i])}억 · 관측 비중 ${kbCovTxt(obs[i]/irv[i])}</span></div>`:"")
-        +(R.est[q]!=null?`<div class="tt-r"><span class="k">◇ 추정(계수 ${R.ref.toFixed(2)})</span><span class="v">${kbEok(R.est[q])}억 <span class="g">(${kbEok(R.lo[q])}~${kbEok(R.hi[q])})</span></span></div>`:"")
-        +(R.estEv[q]?`<div class="tt-r"><span class="k">◇ 이벤트 맞춤(${kbQLab(R.estEv[q].q)} 계수)</span><span class="v">${kbEok(R.estEv[q].v)}억</span></div>`:"")
+        +(R.est[q]!=null?`<div class="tt-r"><span class="k">◇ 추정(${R.refLab} 계수 · ${R.eb[q]?"아마존+틱톡":"아마존"})</span><span class="v">${kbEok(R.est[q])}억 <span class="g">(${kbEok(R.lo[q])}~${kbEok(R.hi[q])})</span></span></div>`:"")
+        +(R.estEv[q]?`<div class="tt-r"><span class="k">◇ 이벤트 맞춤(${kbQLab(R.estEv[q].q)} 계수 · ${R.estEv[q].tt?"아마존+틱톡":"아마존"})</span><span class="v">${kbEok(R.estEv[q].v)}억</span></div>`:"")
         +(KB_EVT[q]?`<div class="tt-r"><span class="k g">아마존 ${KB_EVT[q]} 분기</span></div>`:"")
         +(R.itp[q]!=null?`<div class="tt-r"><span class="k">◇ 보간(앞뒤 공시 계수)</span><span class="v">${kbEok(R.itp[q])}억</span></div>`:"")
         +(R.qn[q]?`<div class="tt-r"><span class="k g">${attr(R.qn[q])}</span></div>`:""); }});
@@ -10493,12 +10585,13 @@ function kbLines(el, labels, series, o){
   ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;
   ends.forEach(e=>{ s+=`<circle cx="${W-P.r+8}" cy="${(e.y-0.5).toFixed(1)}" r="3.4" fill="${e.c}"/><text x="${W-P.r+15}" y="${(e.y+3).toFixed(1)}" font-size="10" font-weight="700" fill="${txt}">${attr(e.t)}</text>`; });
   // 좁은 화면 — 끝 꼬리표가 값만이라 이름은 아래 범례로
-  const leg=narrow?`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:11px;color:var(--muted)">${series.map(se=>`<span style="white-space:nowrap"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${se.c};margin-right:4px"></span>${attr(se.n)}</span>`).join("")}</div>`:"";
+  const sw=se=>se.dash?`<span style="display:inline-block;width:14px;height:0;border-top:2px dashed ${se.c};margin-right:4px;vertical-align:middle"></span>`:`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${se.c};margin-right:4px"></span>`;
+  const leg=narrow?`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:11px;color:var(--muted)">${series.map(se=>`<span style="white-space:nowrap">${sw(se)}${attr(se.n)}</span>`).join("")}</div>`:"";
   el.innerHTML=s+"</svg>"+leg;
   attachChartTip(el,{W,H,pad:P,n,xOf:i=>sx(i),xLab:i=>o.xFmt?o.xFmt(labels[i],i,true):labels[i],yLab:Y=>o.yFmt(invLin(sy,Y)),
     pts:i=>series.map(se=>se.v[i]!=null?{y:sy(se.v[i]),c:se.c}:null),
     html:i=>{ const rs=series.filter(se=>se.v[i]!=null).sort((a,b)=>b.v[i]-a.v[i]); if(!rs.length) return null;
-      return `<div class="tt-h">${o.xFmt?o.xFmt(labels[i],i,true):labels[i]}</div>`+rs.map(se=>`<div class="tt-r"><span class="k"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${se.c};margin-right:5px"></span>${attr(se.n)}</span><span class="v">${o.yFmt(se.v[i])}</span></div>`).join(""); }});
+      return `<div class="tt-h">${o.xFmt?o.xFmt(labels[i],i,true):labels[i]}</div>`+rs.map(se=>`<div class="tt-r"><span class="k">${sw(se)}${attr(se.n)}</span><span class="v">${o.yFmt(se.v[i])}</span></div>`).join("")+(o.tipNote?o.tipNote(i):""); }});
 }
 /* 제목이 일본어 등이라 ASCII 로 지우면 거의 안 남는 경우 — ASIN 으로 */
 const kbTitle=(t,asin)=>{ const s=String(t||"").replace(/[()\[\]\/#+*<>:-]+/g," ").replace(/\s+/g," ").trim();
@@ -10507,16 +10600,20 @@ const kbAmzUrl=(cc,asin)=>asin?`https://www.amazon.${KB_TLD[cc]||"com"}/dp/${asi
 /* 지역 요약(현재 기준) — 관측 비중이 충분한 지역만 합계에 */
 function kbSumm(m){
   const q3=m.Q.filter(q=>q<m.nowQ).slice(-1)[0], q2=q3?kbQPrev(q3,1):null, qly=q3?kbQPrev(q3,4):null;
-  const T=q=>m.regions.reduce((s,rg)=>s+(m.rows[rg].T[q]||0),0);
+  const sum=f=>m.regions.reduce((s,rg)=>s+(f(m.rows[rg])||0),0);
   const main=m.regions.filter(rg=>{ const R=m.rows[rg]; return R.cov!=null&&R.cov>=KB_COVMIN; });
   const est=q=>main.reduce((s,rg)=>s+(m.rows[rg].est[q]||0),0), lo=q=>main.reduce((s,rg)=>s+(m.rows[rg].lo[q]||0),0), hi=q=>main.reduce((s,rg)=>s+(m.rows[rg].hi[q]||0),0);
   const irPrev=q=>main.reduce((s,rg)=>s+(m.rows[rg].ir[q]!=null?m.rows[rg].ir[q]:NaN),0);
   const ok=!m.supplier&&main.length;
-  return {q3, q2, qly, T3:T(q3), T2:T(q2), Tly:T(qly), q4:m.regions.reduce((s,rg)=>s+(m.rows[rg].q4est||0),0), main,
+  const hasTT3=m.regions.some(rg=>m.rows[rg].Tt[q3]!=null);
+  return {q3, q2, qly, T3:sum(R=>R.T[q3]), Ta3:sum(R=>R.Ta[q3]), Tt3:hasTT3?sum(R=>R.Tt[q3]):null,
+    g2:kbGrowth(m,q2,q3), gly:kbGrowth(m,qly,q3), q4:sum(R=>R.q4est), q4t:sum(R=>R.q4est-R.q4a), main,
     est3:ok&&main.every(rg=>m.rows[rg].est[q3]!=null)?est(q3):null, lo3:lo(q3), hi3:hi(q3),
     est4:ok&&main.every(rg=>m.rows[rg].est[m.nowQ]!=null)?est(m.nowQ):null,
     ir2:main.length?irPrev(q2):null};
 }
+/* 성장률 글자 — 'QoQ +7% · YoY +111%(아마존끼리)' */
+const kbGTxt=S=>`QoQ ${kbG(S.g2)} · YoY ${kbG(S.gly)}${S.gly&&!S.gly.tt&&S.Tt3!=null?'<span class="g">(아마존끼리)</span>':""}`;
 
 /* 종목 페이지 손익 탭 — 채널 모델 섹션 */
 function renderKbModel(co, host){
@@ -10525,59 +10622,72 @@ function renderKbModel(co, host){
   const Q=m.Q.slice(-11), q3=S.q3, IR=m.IR||{};
   const cons=kbCons(co,q3);
   const kv=(l,v,sub)=>`<div class="sp-kv"><div class="l">${l}</div><div class="v">${v}</div>${sub?`<div class="g" style="font-size:11px;margin-top:2px;line-height:1.4">${sub}</div>`:""}</div>`;
+  const RG=m.regions.filter(rg=>{ const R=m.rows[rg]; return Object.keys(R.ir).length||m.Q.some(q=>(R.T[q]||0)>=0.05); });
+  const anyTT=m.regions.some(rg=>m.rows[rg].hasTT), hasTTch=Object.values(C.region||{}).some(cs=>cs.some(c=>c.startsWith("TT:")));
   const covs=m.regions.filter(rg=>m.rows[rg].cov!=null).map(rg=>`${rg} ${kbCovTxt(m.rows[rg].cov)}`);
-  const ttN=Object.values((KBCH.tt&&KBCH.tt.s)||{}).filter(s=>kbBrandsOf(co).includes(s.k)).length;
+  const fillQ=Q.find(q=>m.regions.some(rg=>m.rows[rg].fill[q]>0)), fillN=fillQ?Math.max(...m.regions.map(rg=>m.rows[rg].fill[fillQ]||0)):0;
+  const ttW0=m.U.filter(u=>u.src==="tt").map(u=>kbShop(u.shop).w0).sort((a,b)=>a-b)[0];
   const stale=staleNote("KBCH", KBCH.asOf);
   let h=`<div class="sub-h">${sup?"고객사 채널 판매 — 선행 지표":"채널 모델 — 아마존 + 틱톡샵 → 공시 지역 매출"} <span class="th-sub" style="display:inline">Keepa ${KBCH.kp.asOf.slice(5).replace("-","/")}${m.ttLast?` · FastMoss ${m.ttLast.slice(5).replace("-","/")}`:" · 틱톡샵 미수집"} · 억 원(그달 평균 환율)${stale?` · <span style="color:var(--warn)">${stale}</span>`:""}</span></div>
     <div class="sp-strip">
-      ${kv(`${kbQLab(q3)} 관측 판매액`,`${kbEok(S.T3)}억`,`QoQ ${kbPct(S.T2?S.T3/S.T2-1:null)} · YoY ${kbPct(S.Tly?S.T3/S.Tly-1:null)}`)}
-      ${kv(`${kbQLab(m.nowQ)} 진행(추정)`,`${kbEok(S.q4)}억`,`10월 = 최근 30일 · 11~12월 = 시장 계절 비율`)}
-      ${sup?kv("회사 매출 ÷ 고객사 판매액",(()=>{ const R=m.rows[m.regions[0]]; return R&&R.ref!=null?`${R.ref.toFixed(2)}배 <span class="g" style="font-size:11px">${R.refLab}</span>`:"—"; })(),`${co} 분기 매출 ÷ 고객사 아마존 판매액 · 주문이 판매보다 앞서 흔들린다`)
-        :kv("관측 비중(공시 대비)",covs.length?covs.join(" · "):"—",covs.length?`아마존${ttN?"·틱톡샵":""} 판매액 ÷ 공시 지역 매출 · ${m.regions.filter(rg=>m.rows[rg].refLab).map(rg=>m.rows[rg].refLab)[0]||""}`:"공시 지역 매출이 아직 없다")}
-      ${sup?kv(`${kbQLab(q3)}E 컨센(회사 전체)`,cons&&cons.rev?`${kbEok(cons.rev)}억`:"—",cons&&cons.rev&&S.T3?`고객사 관측 ${kbPct(S.T2?S.T3/S.T2-1:null)} QoQ`:"")
+      ${kv(`${kbQLab(q3)} 관측 판매액`,`${kbEok(S.T3)}억`,`${S.Tt3!=null?`아마존 ${kbEok(S.Ta3)} · 틱톡샵 ${kbEok(S.Tt3)} · `:""}${kbGTxt(S)}`)}
+      ${kv(`${kbQLab(m.nowQ)} 진행(추정)`,`${kbEok(S.q4)}억`,`10월 = 최근 30일 · 11~12월 = 시장 계절 비율${S.q4t>0?` · 틱톡샵 ${kbEok(S.q4t)}`:""}`)}
+      ${sup?kv("회사 매출 ÷ 고객사 판매액",(()=>{ const R=m.rows[m.regions[0]]; return R&&R.ref!=null?`${R.ref.toFixed(2)}배 <span class="g" style="font-size:11px">${R.refLab}</span>`:"—"; })(),`${co} 분기 매출 ÷ 고객사 아마존${anyTT?"·틱톡샵":""} 판매액 · 주문이 판매보다 앞서 흔들린다`)
+        :kv("관측 비중(공시 대비)",covs.length?covs.join(" · "):"—",covs.length?`${anyTT?"아마존·틱톡샵":"아마존"} 판매액 ÷ 공시 지역 매출 · ${m.regions.filter(rg=>m.rows[rg].refLab).map(rg=>m.rows[rg].refLab)[0]||""}`:"공시 지역 매출이 아직 없다")}
+      ${sup?kv(`${kbQLab(q3)}E 컨센(회사 전체)`,cons&&cons.rev?`${kbEok(cons.rev)}억`:"—",cons&&cons.rev&&S.T3?`고객사 관측 ${kbG(S.g2)} QoQ`:"")
         :kv(`${kbQLab(q3)}E 지역 매출`,S.est3!=null?`${kbEok(S.est3)}억`:"—",S.est3!=null?`${S.main.join("·")} · 범위 ${kbEok(S.lo3)}~${kbEok(S.hi3)}${S.ir2>0?` · QoQ ${kbPct(S.est3/S.ir2-1)}`:""}${cons&&cons.rev?` · 회사 전체 컨센 ${kbEok(cons.rev)}억`:""}`:"관측 비중 15% 넘는 지역이 없다")}
     </div>
-    <div class="kb-grid">${m.regions.map((rg,i)=>{ const R=m.rows[rg];
+    <div class="kb-grid">${RG.map((rg,i)=>{ const R=m.rows[rg];
       return `<div class="chart-box" style="padding:10px 12px"><div class="g" style="font-size:12px;margin-bottom:2px"><b style="color:var(--text)">${rg}</b>
-        ${R.cov!=null?` · 관측 비중 ${kbCovTxt(R.cov)} <span class="g">(${R.refLab})</span>`:""}${R.cov!=null&&R.cov<KB_COVMIN?` · <span style="color:var(--warn)">관측 작음 — 참고</span>`:""}</div><div id="kbR${i}"></div></div>`; }).join("")}</div>
-    <div class="legend" style="margin:2px 0 8px"><span><i style="background:var(--accent)"></i>관측 판매액(막대 · 진행 분기는 옅게)</span><span><i style="background:var(--text);transform:rotate(45deg);border-radius:1px"></i>공시 ${sup?"회사 매출":"지역 매출"}</span>${sup?"":`<span><i style="background:var(--panel);border:1.5px solid var(--accent);transform:rotate(45deg);border-radius:1px"></i>추정(세로 막대 = 최근 네 공시 계수 범위)</span>`}</div>
+        ${R.cov!=null?` · 관측 비중 ${kbCovTxt(R.cov)} <span class="g">(${R.refLab}${R.hasTT?(R.refTT?" · 아마존+틱톡":" · 아마존만"):""})</span>`:""}${R.cov!=null&&R.cov<KB_COVMIN?` · <span style="color:var(--warn)">관측 작음 — 참고</span>`:""}</div><div id="kbR${i}"></div></div>`; }).join("")}</div>
+    <div class="legend" style="margin:2px 0 8px"><span>${kbSw("background:var(--accent);opacity:.85")}아마존 판매액(막대 · 진행 분기는 옅게)</span>${anyTT?`<span>${kbSw("background:repeating-linear-gradient(45deg,var(--accent) 0 2px,transparent 2px 4px);box-shadow:inset 0 0 0 1px var(--accent)")}틱톡샵(빗금 · ${ttW0?kbMD(kbD(ttW0)):"4/24"} 부터)</span>`:""}<span>${kbSw("background:var(--text);transform:rotate(45deg) scale(.8)")}공시 ${sup?"회사 매출":"지역 매출"}</span>${sup?"":`<span>${kbSw("background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--accent);transform:rotate(45deg) scale(.8)")}추정(세로 막대 = 범위)</span>`}</div>
     <div class="tbl-wrap"><table class="mini-tbl" id="kbTbl"></table></div>
-    <div class="chart-box" style="padding:12px 14px;margin-top:10px"><div class="g" style="font-size:12px;margin-bottom:4px">월별 관측 판매액(억 원) — 아마존 나라별 · 마지막 점 = 최근 30일(달력 월 아님) · 음영 = 아마존 프라임데이·빅딜데이</div><div id="kbMChart"></div></div>
-    <div class="sub-h">틱톡샵 일별 판매액 <span class="th-sub" style="display:inline">FastMoss · 샵별 · 샵 통화</span></div><div id="kbDChart"></div>
+    ${fillQ?`<p class="note" style="margin:4px 0 0">* ${kbQLab(fillQ)} 틱톡샵 = ${kbMD(kbD(ttW0))}~ 관측 ${kbQDays(fillQ)-fillN}일 + 앞 ${fillN}일은 관측 첫 14일 평균으로 채움(FastMoss Pro 는 최근 180일만 준다). 아마존만 = 틱톡샵 관측 전 분기 — 그 분기 계수는 아마존 기준이라 틱톡샵이 붙은 분기엔 아마존 몫에만 곱한다.</p>`:""}
+    <div class="chart-box" style="padding:12px 14px;margin-top:10px"><div class="g" style="font-size:12px;margin-bottom:4px">월별 관측 판매액(억 원) — 색 = 나라${anyTT?" · 점선 = 틱톡샵(다 받은 달만)":""} · 마지막 점 = 최근 30일(달력 월 아님) · 음영 = 아마존 프라임데이·빅딜데이</div><div id="kbMChart"></div></div>
+    ${hasTTch?`<div class="sub-h">틱톡샵 일별 판매액 <span class="th-sub" style="display:inline">FastMoss · 공식 샵 · 미국(구독 지역)</span></div><div id="kbDChart"></div>`:""}
+    <div id="kbSnap"></div>
     <div class="sub-h">아마존 판매액 상위 제품 <span class="th-sub" style="display:inline">최근 3개월 · 현지 통화 · 같은 부모 ASIN 옵션은 하나로 · 누르면 아마존</span></div>
     <div class="tbl-wrap"><table class="mini-tbl" id="kbTop"></table></div>
     <details class="fold" style="margin-top:12px"><summary>방법 · 한계</summary><div class="fold-b" style="padding:10px 14px;font-size:12.5px;line-height:1.75">
       <b>아마존(Keepa)</b> — Product Finder 로 브랜드의 전 ASIN 을 받아(8개국) 그달 '지난달 N개 구매' 배지(구간 가운데값 · 50+ → 75 · 1K+ → 1,500) 합으로 판매량을 잡는다.
       배지는 옵션(자식 ASIN)마다 붙고 순위는 부모 묶음 단위라 묶음으로 센다. 100K+ 처럼 위가 막힌 1위권은 그달 평균 순위를 판매량 곡선(나라마다 이 회차 데이터로 맞춤)으로 바꾼 값과 큰 쪽.
       배지 없는 묶음(월 50개 밑)은 곡선 값과 옵션당 49개 중 작은 쪽. 가격 = 바이박스 30·90·180·365일 평균을 구간으로 풀어 그달 값. 이번 달은 달력 월이 아니라 최근 30일.<br>
-      <b>틱톡샵(FastMoss)</b> — 공식 샵(운영사가 회사 법인)의 일별 판매액. Pro 는 최근 180일만 보여 매주 받아 쌓는다.<br>
+      <b>틱톡샵(FastMoss)</b> — 공식 샵(운영사가 회사 법인이거나 '브랜드' 표시 · 유통사 운영 포함)의 일별 판매액. Pro 는 최근 180일(2026-04-24~)만 보여 매주 받아 쌓는다.
+      구독 지역이 미국뿐이라 미국 밖 샵(영국·유럽·동남아 메디큐브 등)은 일별이 잠겨 검색 목록의 '최근 7일 · 누적' 스냅샷만 받는다 — 계수에 안 쓰고 아래 표로만 본다.
+      FastMoss 판매액 = 판매량 × 단가인데, 판매량은 평소인데 단가가 몇 배로 뛴 날(7/21~27 · 10/13~19 메디큐브·바이오던스 미국 — 두 샵이 같은 날짜)은 직전 28일 중앙 단가 × 판매량으로 바꿨다.<br>
       <b>보정계수 = 공시 지역 매출 ÷ 관측 판매액</b> — 오프라인(얼타·코스트코·세포라)·자사몰·B2B·도매가와 소비자가의 차이가 다 들어간다. 관측 비중(= 1 ÷ 계수)이 분기마다 크게 흔들리면 관측 밖 채널이 커지고 있다는 뜻이다.
-      추정 = 그 분기 관측 판매액 × 가장 최근 공시 계수. 범위 = 계수가 한 분기에 보통 움직인 폭(연속 분기 변화의 중앙값)과 최근 1년 공시 계수의 최소~최대 중 넓은 쪽.
-      관측 비중 15% 밑 지역은 참고로만 적고 합계에서 뺀다.<br>
+      추정 = 그 분기 관측 판매액 × 가장 최근 공시 계수 — <b>공시 분기와 대상 분기에 둘 다 관측된 채널끼리만</b>(틱톡샵 관측 전 공시의 계수는 아마존 몫에만 곱한다).
+      범위 = 계수가 한 분기에 보통 움직인 폭(연속 분기 변화의 중앙값)과 최근 1년 공시 계수로 낸 값의 최소~최대 중 넓은 쪽. 관측 비중 15% 밑 지역은 참고로만 적고 합계에서 뺀다.<br>
       <b>이벤트</b> — 아마존 매출은 프라임데이(2024·2025 는 7월 = 3분기, 2026 은 6월 = 2분기)·10월 빅딜데이·연말에 몰리고, 회사 매출(입고)은 그보다 앞서거나 덜 출렁인다 —
       그래서 계수가 이벤트 분기엔 낮게, 없는 분기엔 높게 나온다. '맞춤' = 같은 종류 분기의 계수로 낸 값(표 아래 작은 숫자).<br>
-      <b>진행 분기</b> — 첫 달 = 아마존 최근 30일(달력 월 아님) · 둘째·셋째 달 = 첫 달 × 시장 계절 비율(나라마다 우리 브랜드들의 작년·재작년 '11월 ÷ 10월'·'12월 ÷ 10월' 중앙값).
-      틱톡샵 = 관측 일수로 늘린 뒤 같은 나라 비율.<br>
+      <b>진행 분기</b> — 첫 달 = 최근 30일(달력 월 아님 · 아마존·틱톡샵 같은 창) · 둘째·셋째 달 = 첫 달 × 시장 계절 비율(나라마다 우리 브랜드들의 작년·재작년 '11월 ÷ 10월'·'12월 ÷ 10월' 중앙값 · 틱톡샵은 같은 나라 아마존 비율).<br>
       ${IR.basis?`<b>공시 기준</b> — ${attr(IR.basis)}<br>`:""}
       ⚠ 판매액은 소비자 결제액(그달 평균 환율로 원화) — 회사 매출과 수준이 다르다. 추이와 계수의 안정성으로 읽을 것.
       ${(IR.src||[]).length?`<br><span class="g">공시 출처: ${(IR.src||[]).map(u=>/^https?:/.test(u)?`<a href="${attr(u)}" target="_blank" rel="noopener">${attr(u.replace(/^https?:\/\/(www\.)?/,"").slice(0,38))}</a>`:attr(u)).join(" · ")}</span>`:""}</div></details>`;
   host.innerHTML=h;
-  m.regions.forEach((rg,i)=>{ const el=document.getElementById("kbR"+i); if(el) kbRegionChart(el, m, rg); });
+  RG.forEach((rg,i)=>{ const el=document.getElementById("kbR"+i); if(el) kbRegionChart(el, m, rg); });
   // 표
   const tb=document.getElementById("kbTbl"), ncol=Q.length;
   let t=`<thead><tr><th class="l">${sup?"고객사":"지역"} · 채널</th>${Q.map(q=>`<th class="ye"${q===m.nowQ?' style="opacity:.8"':""}>${kbQLab(q)}${q===m.nowQ?"E":""}${KB_EVT[q]?`<div class="g" style="font-size:9.5px;font-weight:600">${KB_EVT[q]}</div>`:""}</th>`).join("")}</tr></thead><tbody>`;
-  m.regions.forEach(rg=>{ const R=m.rows[rg];
+  const fillMark=(R,q)=>R.fill[q]?`<span class="g" title="틱톡샵 앞 ${R.fill[q]}일은 관측 첫 14일 평균으로 채움">*</span>`:"";
+  RG.forEach(rg=>{ const R=m.rows[rg];
     m.chs.filter(c=>c.region===rg).forEach(c=>{ const o=R.chs[c.key]||{}; if(!Object.values(o).some(v=>v>0)) return;
-      t+=`<tr class="sub-row"><td class="l">${c.label}</td>${Q.map(q=>`<td>${q===m.nowQ?"":(o[q]?kbEok(o[q]):"—")}</td>`).join("")}</tr>`; });
-    t+=`<tr><td class="l"><b>${rg}</b> 관측 합계</td>${Q.map(q=>`<td><b>${q===m.nowQ?kbEok(R.q4est):kbEok(R.T[q])}</b>${R.ttCov[q]!=null&&R.ttCov[q]<0.85&&q!==m.nowQ?`<span class="g" style="font-size:10px"> 틱톡 ${Math.round(R.ttCov[q]*100)}%</span>`:""}</td>`).join("")}</tr>`;
+      t+=`<tr class="sub-row"><td class="l">${c.label}</td>${Q.map(q=>`<td>${q===m.nowQ?"":(o[q]?kbEok(o[q])+(c.src==="tt"?fillMark(R,q):""):(c.src==="tt"&&R.Tt[q]==null?'<span class="g" title="틱톡샵 관측 전">·</span>':"—"))}</td>`).join("")}</tr>`;
+      if(c.src==="tt"){ const vq=(u,q)=>u.q[q]&&u.q[q].ob?u.q[q].v:0, sh=R.us.filter(u=>u.ch===c.key&&Q.some(q=>vq(u,q)>0.05));
+        const big=sh.filter(u=>Q.some(q=>vq(u,q)>=0.5)).sort((a,b)=>vq(b,q3)-vq(a,q3)), small=sh.filter(u=>!big.includes(u));
+        if(sh.length>=2){ big.forEach(u=>{
+            t+=`<tr class="sub-row"><td class="l g" style="padding-left:18px">└ ${attr(u.label)}</td>${Q.map(q=>{ const x=u.q[q]; return `<td class="g">${q===m.nowQ||!x||!x.ob?"":kbEok(x.v)}</td>`; }).join("")}</tr>`; });
+          if(small.length) t+=`<tr class="sub-row"><td class="l g" style="padding-left:18px" title="${attr(small.map(u=>u.label).join(" · "))}">└ 그 밖 ${small.length}곳</td>${Q.map(q=>{ const v=small.reduce((s,u)=>s+vq(u,q),0); return `<td class="g">${q===m.nowQ||R.Tt[q]==null?"":kbEok(v)}</td>`; }).join("")}</tr>`; } } });
+    t+=`<tr><td class="l"><b>${rg}</b> 관측 합계</td>${Q.map(q=>`<td><b>${q===m.nowQ?kbEok(R.q4est):kbEok(R.T[q])}</b>${q!==m.nowQ?fillMark(R,q):""}</td>`).join("")}</tr>`;
     t+=`<tr><td class="l">${rg} ${sup?"회사 매출(공시)":"공시 매출"}</td>${Q.map(q=>{
       if(R.ir[q]!=null) return `<td>${kbEok(R.ir[q])}${R.qn[q]?`<span class="g" title="${attr(R.qn[q])}">*</span>`:""}</td>`;
       if(R.est[q]!=null&&sup) return `<td><span class="g" title="${co} 매출 ÷ 고객사 판매액 비율(${R.ref.toFixed(2)} · ${R.refLab})을 그대로 둔 참고값 — 비율이 분기마다 크게 흔들려(최근 ${R.kLo.toFixed(2)}~${R.kHi.toFixed(2)}) 추정으로 쓰지 않는다">${kbEok(R.est[q])}?</span></td>`;
-      if(R.est[q]!=null) return `<td><span style="color:var(--accent);font-weight:700" title="계수 ${R.ref.toFixed(2)}(${R.refLab}) · 범위 ${kbEok(R.lo[q])}~${kbEok(R.hi[q])}${R.estEv[q]?` · 이벤트 맞춤(${kbQLab(R.estEv[q].q)} 계수) ${kbEok(R.estEv[q].v)}`:""}">${kbEok(R.est[q])}E</span>${R.estEv[q]&&Math.abs(R.estEv[q].v/R.est[q]-1)>0.1?`<div class="g" style="font-size:10px">${kbEok(R.estEv[q].v)} <span title="${kbQLab(R.estEv[q].q)} 처럼 ${KB_EVT[q]||"이벤트 없는"} 분기의 계수">맞춤</span></div>`:""}</td>`;
+      if(R.est[q]!=null) return `<td><span style="color:var(--accent);font-weight:700" title="${R.refLab} 계수(${R.eb[q]?"아마존+틱톡샵":"아마존"} 기준) · 범위 ${kbEok(R.lo[q])}~${kbEok(R.hi[q])}${R.estEv[q]?` · 이벤트 맞춤(${kbQLab(R.estEv[q].q)} 계수) ${kbEok(R.estEv[q].v)}`:""}">${kbEok(R.est[q])}E</span>${R.estEv[q]&&Math.abs(R.estEv[q].v/R.est[q]-1)>0.1?`<div class="g" style="font-size:10px">${kbEok(R.estEv[q].v)} <span title="${kbQLab(R.estEv[q].q)} 처럼 ${KB_EVT[q]||"이벤트 없는"} 분기의 계수(${R.estEv[q].tt?"아마존+틱톡샵":"아마존"} 기준)">맞춤</span></div>`:""}</td>`;
       if(R.itp[q]!=null) return `<td><span class="g" title="앞뒤 공시 분기 계수를 이어 낸 값(보간)">${kbEok(R.itp[q])}≈</span></td>`;
       return `<td>—</td>`; }).join("")}</tr>`;
-    t+=`<tr class="sub-row"><td class="l">관측 비중(관측 ÷ 공시)</td>${Q.map(q=>{ const k=R.k[q];
-      return `<td>${k!=null?`${kbCovTxt(1/k)}${R.kind[q]==="amz"&&ttN?'<span class="g" style="font-size:10px"> 아마존만</span>':R.kind[q]==="part"?'<span class="g" style="font-size:10px"> 틱톡 일부</span>':""}`:"—"}</td>`; }).join("")}</tr>`;
+    const lastAmz=Q.filter(q=>R.kind[q]==="amz"&&R.k[q]!=null).pop();
+    t+=`<tr class="sub-row"><td class="l">관측 비중(관측 ÷ 공시)${R.hasTT&&lastAmz?`<div class="g" style="font-size:10px">${kbQLab(lastAmz)} 까지 아마존만</div>`:""}</td>${Q.map(q=>{ const k=R.k[q];
+      return `<td>${k!=null?`${kbCovTxt(1/k)}${R.kind[q]==="fill"?fillMark(R,q):""}`:"—"}</td>`; }).join("")}</tr>`;
     R.per.forEach(p=>{ t+=`<tr class="sub-row"><td class="l" colspan="${ncol+1}" style="white-space:normal">${p.key} ${rg} 공시 ${kbEok(p.v)}억 ÷ 관측 ${kbEok(p.T)}억 → 관측 비중 ${kbCovTxt(1/p.k)} (계수 ${p.k.toFixed(2)} · ${p.qs.map(kbQLab).join("+")})</td></tr>`; });
   });
   m.refs.forEach(rf=>{
@@ -10586,29 +10696,47 @@ function renderKbModel(co, host){
   t+=`<tr><td class="l">회사 전체 매출</td>${Q.map(q=>{ const v=kbTotal(co,q), c=kbCons(co,q);
     return `<td>${v!=null?kbEok(v):(c&&c.rev&&c.e?`<span class="g">${kbEok(c.rev)} 컨센</span>`:"—")}</td>`; }).join("")}</tr>`;
   tb.innerHTML=t+"</tbody>";
-  // 월별 — 나라 채널(큰 순서 5개 + 나머지 합)
+  // 월별 — 아마존 나라 채널(큰 순서 5개 + 나머지 합) + 틱톡샵 채널(늘 따로 · 다 받은 달만 — 4월은 4/24~ 라 뺀다)
   const months=(KBCH.kp.months||[]).filter(ym=>ym>="2024-01"), labs=months.concat([m.cur+"*"]);
-  const chSer=m.chs.map(c=>{ const v=months.map(ym=>{ if(c.src==="tt") return c.days[ym]?(c.m[ym]||0):null; return c.m[ym]||0; });
-    v.push(c.src==="kp"?(c.part[m.cur]||null):(c.days[m.cur]?(c.m[m.cur]||0)*31/c.days[m.cur]:null));
-    return {n:c.label, c:kbChCol(c), v, tot:v.reduce((s,x)=>s+(x||0),0), dash:c.src==="tt"?"4 2":null}; }).filter(se=>se.tot>0).sort((a,b)=>b.tot-a.tot);
-  const big=chSer.slice(0,5), rest=chSer.slice(5);
-  if(rest.length) big.push({n:`그 밖 ${rest.length}개`, c:"#9aa5b1", v:labs.map((_,i)=>rest.reduce((s,se)=>s+(se.v[i]||0),0)), w:1.3});
+  const chSer=m.chs.map(c=>{ const v=months.map(ym=>c.src==="tt"?(c.days[ym]===kbMonDays(ym)?(c.m[ym]||0):null):(c.m[ym]||0));
+    v.push(c.part[m.cur]||null);
+    return {n:c.label, c:kbChCol(c), v, tt:c.src==="tt", tot:v.reduce((s,x)=>s+(x||0),0), dash:c.src==="tt"?"5 3":null}; }).filter(se=>se.tot>0).sort((a,b)=>b.tot-a.tot);
+  const amzS=chSer.filter(se=>!se.tt), big=amzS.slice(0,5), rest=amzS.slice(5);
+  if(rest.length) big.push({n:`그 밖 아마존 ${rest.length}개`, c:"#9aa5b1", v:labs.map((_,i)=>rest.reduce((s,se)=>s+(se.v[i]||0),0)), w:1.3});
+  chSer.filter(se=>se.tt).forEach(se=>big.push(se));
   const bIdx=ym=>labs.indexOf(ym);
   kbLines(document.getElementById("kbMChart"), labs, big, {h:230, yFmt:v=>kbEok(v)+"억",
     xFmt:(l,i,full)=>full?(l.endsWith("*")?`${l.slice(0,7)} · 최근 30일(${KBCH.kp.asOf.slice(5).replace("-","/")}까지)`:l):(l.endsWith("*")?"30일":(l.slice(5)==="01"?l.slice(2,4)+"/01":l.slice(5))), xTicks:14,
     bands:[["2024-07","프라임"],["2024-10","빅딜"],["2025-07","프라임"],["2025-10","빅딜"],["2026-06","프라임"],[m.cur+"*","빅딜"]].map(([ym,t])=>({a:bIdx(ym),z:bIdx(ym),t})).filter(b=>b.a>=0)});
-  // 일별(틱톡)
-  const shops=Object.entries((KBCH.tt&&KBCH.tt.s)||{}).filter(([,s])=>kbBrandsOf(co).includes(s.k));
+  // 일별(틱톡) — 샵 통화 그대로(원값 · 미국 샵 = 달러)
+  const shops=m.U.filter(u=>u.src==="tt"&&u.shop.v.some(x=>x>0)).map(u=>u.shop);
   const del=document.getElementById("kbDChart");
-  if(!shops.length) del.innerHTML=`<p class="note">아직 이 회사 브랜드의 틱톡샵을 받지 않았습니다 — FastMoss 는 로그인된 크롬에서만 열려서, 사용자 PC 크롬에 FastMoss 로그인이 되면 주간 수집에 붙습니다(kbeauty/RUNBOOK.md 1-c-2).</p>`;
+  if(!del){} else if(!shops.length) del.innerHTML=`<p class="note">${m.U.some(u=>u.src==="tt")?"이 회사 브랜드의 틱톡샵 미국 판매가 180일 동안 없다.":"이 회사 브랜드의 틱톡샵 미국 공식 샵을 찾지 못했다(FastMoss 스토어 검색 · 2026-10-20) — 미국 밖은 아래 스냅샷."}</p>`;
   else {
-    const d0=Math.min(...shops.map(([,s])=>Date.parse(s.d0+"T00:00:00Z"))), d1=Math.max(...shops.map(([,s])=>Date.parse(s.d0+"T00:00:00Z")+(s.v.length-1)*864e5));
-    const n=Math.round((d1-d0)/864e5)+1, dl=[...Array(n)].map((_,i)=>new Date(d0+i*864e5).toISOString().slice(0,10));
-    const sers=shops.map(([id,s],i)=>{ const off=Math.round((Date.parse(s.d0+"T00:00:00Z")-d0)/864e5), v=Array(n).fill(null); s.v.forEach((x,j)=>{ v[off+j]=x/1e4; });
-      return {n:`${s.n} (${KB_TTNM[s.r]||s.r})`, c:["#c7a27c","#7d9bc1","#90a955","#e5989b","#b5838d"][i%5], v, w:1.4}; });
-    del.innerHTML=`<div class="chart-box" style="padding:12px 14px"><div id="kbDChart2"></div></div>`;
-    kbLines(document.getElementById("kbDChart2"), dl, sers, {h:220, yFmt:v=>v>=100?Math.round(v)+"만":v.toFixed(1)+"만", xFmt:(l,i,full)=>full?l:l.slice(5).replace("-","/"), xTicks:10});
+    const d0=Math.min(...shops.map(s=>kbShop(s).w0)), d1=Math.max(...shops.map(s=>kbShop(s).last));
+    const n=Math.round((d1-d0)/864e5)+1, dl=[...Array(n)].map((_,i)=>kbD(d0+i*864e5));
+    const PALD=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6","#5fb3b3","#9aa5b1","#a8b561"];
+    shops.sort((a,b)=>b.v.reduce((s,x)=>s+x,0)-a.v.reduce((s,x)=>s+x,0));
+    const sers=shops.map((s,i)=>{ const K=kbShop(s), v=Array(n).fill(null); for(let j=0;j<n;j++){ const t=d0+j*864e5; if(t>=K.w0&&t<=K.last) v[j]=K.val(t); }
+      const ko=(KBCH.brands[s.k]||{}).ko, dup=shops.filter(x=>x.k===s.k).length>1;
+      return {n:ko?(dup?`${ko} · ${s.n}`:ko):s.n, c:PALD[i%PALD.length], v, w:1.4}; });
+    const fx=shops.filter(s=>s.fx);
+    del.innerHTML=`<div class="chart-box" style="padding:12px 14px"><div id="kbDChart2"></div>${fx.length?`<p class="note" style="margin:6px 0 0">단가 고침: ${fx.map(s=>`${attr(s.n)} ${s.fx[0]}일(${kbMD(s.fx[1])}~${kbMD(s.fx[2])} 사이)`).join(" · ")} — 판매량은 평소인데 단가가 2.5배 넘게 뛴 날을 직전 28일 중앙 단가 × 판매량으로.</p>`:""}</div>`;
+    kbLines(document.getElementById("kbDChart2"), dl, sers, {h:220, yFmt:kbUsd, xFmt:(l,i,full)=>full?l:kbMD(l), xTicks:10});
   }
+  // 잠긴 지역 스냅샷(구독 밖) — 검색 목록의 '최근 7일 · 누적'만
+  const snapEl=document.getElementById("kbSnap");
+  const rgOf=r=>{ const e=Object.entries(C.region||{}).find(([,cs])=>cs.includes("TT:"+r)); return e?e[0]:"—"; };
+  const snaps=Object.entries((KBCH.tt&&KBCH.tt.w)||{}).filter(([,x])=>kbBrandsOf(co).includes(x.k)&&x.h&&x.h.length);
+  if(snapEl&&snaps.length){ const usd=kbFx("USD",m.cur);
+    snaps.sort((a,b)=>b[1].h[b[1].h.length-1][2]-a[1].h[a[1].h.length-1][2]);
+    const tot=snaps.reduce((s,[,x])=>s+x.h[x.h.length-1][2],0);
+    snapEl.innerHTML=`<div class="sub-h">틱톡샵 미국 밖 — 스냅샷 <span class="th-sub" style="display:inline">FastMoss 검색 목록 · 구독 밖 지역이라 일별 없음 · 계수에 안 쓴다 · 달러(괄호값)</span></div>
+      <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">샵</th><th class="l">나라 → 지역</th><th>기준일</th><th>최근 7일</th><th>≈ 억원</th><th>× 13 ≈ 분기(억)</th><th>직전 대비</th><th>누적(개설 후)</th></tr></thead><tbody>`
+      +snaps.map(([,x])=>{ const L=x.h[x.h.length-1], P=x.h.length>1?x.h[x.h.length-2]:null;
+        return `<tr><td class="l">${attr(x.n)}</td><td class="l">${KB_TTNM[x.r]||x.r} → ${attr(rgOf(x.r))}</td><td>${kbMD(L[0])}</td><td>${kbUsd(L[2])}</td><td>${kbEok(L[2]*usd/1e8)}</td><td class="g">${kbEok(L[2]*13*usd/1e8)}</td><td>${P&&P[2]>0?kbPct(L[2]/P[2]-1):'<span class="g">첫 회</span>'}</td><td>${kbUsd(L[3])}</td></tr>`; }).join("")
+      +`<tr><td class="l"><b>합계</b></td><td></td><td></td><td><b>${kbUsd(tot)}</b></td><td><b>${kbEok(tot*usd/1e8)}</b></td><td class="g">${kbEok(tot*13*usd/1e8)}</td><td></td><td></td></tr></tbody></table></div>
+      <p class="note" style="margin:4px 0 0">최근 7일 = 기준일 앞 7일 · '× 13' 은 그 한 주가 분기 내내 간다고 본 크기 감(한 주라 행사·광고에 크게 흔들린다). 매주 받으면 주간 추이가 된다. 일별을 받으려면 FastMoss 구독에 그 지역을 더해야 한다.</p>`; }
   // 상위 제품
   const top=kbBrandsOf(co).flatMap(k=>((KBCH.kp.top||{})[k]||[]).map(x=>({k, d:KB_DOMC[x[0]], i:x[1], t:x[2], p:x[3], n:x[4], v:x[5], a:x[6]})));
   top.forEach(x=>{ x.v3=x.v.slice(-4,-1).reduce((s,y)=>s+y,0); x.krw=x.v3*kbFx(KB_DCUR[x.d],m.cur)/1e8; });
@@ -10633,8 +10761,9 @@ function renderKbOverview(){
     const covs=m.regions.filter(rg=>m.rows[rg].cov!=null).map(rg=>({rg, c:m.rows[rg].cov}));
     return {co, sup:m.supplier, S, covs, cons:kbCons(co,S.q3)}; }).sort((a,b)=>b.S.T3-a.S.T3);
   const q3=rows[0]&&rows[0].S.q3, nowQ=kbQ(KBCH.kp.asOf.slice(0,7));
-  if(sumEl) sumEl.innerHTML=`${KBCH.kp.asOf.slice(5).replace("-","/")} Keepa · ${q3?kbQLab(q3):""} 관측 판매액 `
-    +rows.slice(0,4).map(r=>`${r.co} ${kbEok(r.S.T3)}억(${r.S.T2?(r.S.T3/r.S.T2-1>=0?"+":"")+Math.round((r.S.T3/r.S.T2-1)*100)+"%":"—"})`).join(" · ")
+  const gs=o=>o?`${o.g>=0?"+":""}${Math.round(o.g*100)}%`:"—";
+  if(sumEl) sumEl.innerHTML=`${KBCH.kp.asOf.slice(5).replace("-","/")} Keepa${KBCH.tt&&KBCH.tt.asOf?` · ${KBCH.tt.asOf.slice(5).replace("-","/")} FastMoss`:""} · ${q3?kbQLab(q3):""} 관측 판매액 `
+    +rows.slice(0,4).map(r=>`${r.co} ${kbEok(r.S.T3)}억(${gs(r.S.g2)})`).join(" · ")
     +(staleNote("KBCH",KBCH.asOf)?` · <span style="color:var(--warn)">${staleNote("KBCH",KBCH.asOf)}</span>`:"");
   // 브랜드 × 나라 — 마지막 완결 월(원화)
   const months=KBCH.kp.months||[], lm=months[months.length-1], ly=kbYmPrev(lm,12), cur=KBCH.kp.asOf.slice(0,7);
@@ -10643,23 +10772,26 @@ function renderKbOverview(){
     dids.forEach(d=>{ const e=(KBCH.kp.b[k]||{})[d]; if(!e) return; const c=KB_DCUR[KB_DOMC[d]], i=months.indexOf(lm), j=months.indexOf(ly);
       const v=(e[1][i]||0)*kbFx(c,lm)/1e8; per[KB_DOMC[d]]=v; tot+=v; if(j>=0) totLy+=(e[1][j]||0)*kbFx(c,ly)/1e8;
       const r=(KBCH.kp.r30[k]||{})[d]; if(r&&r[1]) r30+=r[1]*kbFx(c,cur)/1e8; });
-    return {k, co:B.co, ko:B.ko, per, tot, totLy, r30}; }).filter(b=>b.tot>0||b.r30>0).sort((a,b)=>b.tot-a.tot);
+    // 틱톡샵 미국 — 같은 달(다 받은 달이면)
+    let tt=null; Object.values((KBCH.tt&&KBCH.tt.s)||{}).filter(s=>s.k===k).forEach(s=>{ const o=kbShopMonth(s,lm); if(o.dd===kbMonDays(lm)) tt=(tt||0)+o.v; });
+    return {k, co:B.co, ko:B.ko, per, tot, totLy, r30, tt}; }).filter(b=>b.tot>0||b.r30>0||b.tt>0).sort((a,b)=>b.tot-a.tot);
   const cc=["US","UK","DE","FR","IT","ES","JP","CA"];
-  box.innerHTML=`<p class="note" style="margin:4px 0 10px">Keepa 로 브랜드의 아마존 <b>전 상품</b>(순위표에 안 드는 것까지) 판매액을 8개국에서 매주 잽니다.
+  box.innerHTML=`<p class="note" style="margin:4px 0 10px">Keepa 로 브랜드의 아마존 <b>전 상품</b>(순위표에 안 드는 것까지) 판매액을 8개국에서, FastMoss 로 틱톡샵 미국 공식 샵 판매액을 매주 잽니다.
       회사 표는 그걸 공시 지역으로 묶어 지난 분기 공시 매출과 맞춘 값입니다 — 종목 이름을 누르면 종목 페이지 손익 탭의 '채널 모델'로 갑니다.</p>
-    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">종목</th><th>${q3?kbQLab(q3):""} 관측 판매액</th><th>QoQ</th><th>YoY</th><th>${kbQLab(nowQ)}E 진행</th><th class="l">관측 비중(지역 · 최근 공시)</th><th>${q3?kbQLab(q3):""}E 지역 매출</th><th>회사 전체 컨센</th></tr></thead><tbody>`
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">종목</th><th>${q3?kbQLab(q3):""} 관측 판매액</th><th>틱톡샵</th><th>QoQ</th><th title="틱톡샵은 4/24 부터라 작년 같은 분기와는 아마존끼리">YoY</th><th>${kbQLab(nowQ)}E 진행</th><th class="l">관측 비중(지역 · 최근 공시)</th><th>${q3?kbQLab(q3):""}E 지역 매출</th><th>회사 전체 컨센</th></tr></thead><tbody>`
     +rows.map(r=>`<tr><td class="l"><a href="#" data-stock="${attr(r.co)}">${attr(r.co)}</a>${r.sup?' <span class="g" style="font-size:11px">고객사(바이오던스) 기준</span>':""}</td>`
-      +`<td>${kbEok(r.S.T3)}억</td><td>${kbPct(r.S.T2?r.S.T3/r.S.T2-1:null)}</td><td>${kbPct(r.S.Tly?r.S.T3/r.S.Tly-1:null)}</td><td>${kbEok(r.S.q4)}억</td>`
+      +`<td>${kbEok(r.S.T3)}억</td><td>${r.S.Tt3!=null&&r.S.Tt3>0?`${kbEok(r.S.Tt3)}억 <span class="g" style="font-size:11px">${Math.round(r.S.Tt3/r.S.T3*100)}%</span>`:'<span class="g">—</span>'}</td><td>${kbG(r.S.g2)}</td><td>${kbG(r.S.gly)}</td><td>${kbEok(r.S.q4)}억</td>`
       +`<td class="l">${r.sup?'<span class="g">—</span>':(r.covs.length?r.covs.map(x=>`<span${x.c<KB_COVMIN?' class="g"':""}>${x.rg} ${kbCovTxt(x.c)}</span>`).join(" · "):'<span class="g">공시 없음</span>')}</td>`
       +`<td>${r.S.est3!=null?`<b style="color:var(--accent)">${kbEok(r.S.est3)}억</b> <span class="g" style="font-size:11px">${r.S.main.join("·")}</span>`:"—"}</td><td>${r.cons&&r.cons.rev?kbEok(r.cons.rev)+"억":"—"}</td></tr>`).join("")
     +`</tbody></table></div>
+    <p class="note" style="margin:4px 0 0">QoQ·YoY = 두 분기에 다 관측된 채널끼리(틱톡샵은 2026-04-24 부터라 YoY 는 아마존끼리) · 틱톡샵 = 미국 공식 샵(구독 지역).</p>
     <div class="sub-h" style="margin-top:14px">브랜드 × 나라 — ${lm.replace("-",".")} 판매액 <span class="th-sub" style="display:inline">억 원 · 그달 평균 환율 · 최근 30일은 ${KBCH.kp.asOf.slice(5).replace("-","/")}까지</span></div>
-    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">브랜드</th><th class="l">회사</th>${cc.map(c=>`<th>${KB_DOMNM[c]}</th>`).join("")}<th>합계</th><th>YoY</th><th>최근 30일</th></tr></thead><tbody>`
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">브랜드</th><th class="l">회사</th>${cc.map(c=>`<th>${KB_DOMNM[c]}</th>`).join("")}<th>아마존 합계</th><th>YoY</th><th>최근 30일</th><th>틱톡샵 미국</th></tr></thead><tbody>`
     +br.map(b=>`<tr><td class="l">${attr(b.ko)}</td><td class="l g">${attr(b.co)}</td>${cc.map(c=>`<td>${b.per[c]>=0.05?kbEok(b.per[c]):(b.per[c]>0?'<span class="g">·</span>':'<span class="g">—</span>')}</td>`).join("")}`
-      +`<td><b>${kbEok(b.tot)}</b></td><td>${kbPct(b.totLy>0?b.tot/b.totLy-1:null)}</td><td>${kbEok(b.r30)}</td></tr>`).join("")
+      +`<td><b>${kbEok(b.tot)}</b></td><td>${kbPct(b.totLy>0?b.tot/b.totLy-1:null)}</td><td>${kbEok(b.r30)}</td><td>${b.tt!=null?(b.tt>=0.05?kbEok(b.tt):'<span class="g">·</span>'):'<span class="g">—</span>'}</td></tr>`).join("")
     +`</tbody></table></div>
     <p class="note">판매량 = 아마존 '지난달 N개 구매' 배지(구간 가운데값)의 옵션 합 · 배지가 막힌 1위권(100K+)과 배지 없는 상품은 순위 → 판매량 곡선. 판매액 = 판매량 × 바이박스 평균가(소비자가).
-      최근 30일엔 10월 빅딜데이가 들어 있어 9월보다 크게 나온다. 방법·한계는 종목 페이지 '채널 모델' 아래 접힘.</p>`;
+      최근 30일엔 10월 빅딜데이가 들어 있어 9월보다 크게 나온다. 틱톡샵 = FastMoss 공식 샵 판매액(같은 달). 방법·한계는 종목 페이지 '채널 모델' 아래 접힘.</p>`;
 }
 
 function renderAmazon(){

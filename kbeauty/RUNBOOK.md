@@ -42,20 +42,31 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
 
 ## 1-c-2. FastMoss (fastmoss.com 탭 · 사용자 Pro 로그인 세션)
 
-⚠ **로그인된 브라우저에서만.** 10/20 기준 사용자 노트북 크롬에만 로그인돼 있고 사슬이 도는 집 PC 크롬은 아니다 — 거기 로그인되면 매주 같이 돈다.
+⚠ **로그인된 브라우저에서만.** 10/21 기준 사용자 노트북 크롬(윈도우)에만 로그인돼 있고 사슬이 도는 집 PC 크롬은 아니다 — 거기 로그인되면 매주 같이 돈다.
 로그인 여부: `https://www.fastmoss.com/ko/dashboard` 를 열어 로그인 창이 뜨면 이 단계는 건너뛴다(대신 로그인하지 않는다).
 ⚠ 화면 데이터 API 를 직접 부르지 않는다(10/20 오후 직접 여러 번 부르다 슬라이드 캡차). 샵 상세 페이지를 열고 '최근 180일'을 눌러 화면이 부른 응답만 받는다.
+⚠ **구독이 미국만** — 미국 밖 샵 상세는 흐림 처리되고 API 가 다른 지역 견본을 준다(`grab` 이 `locked` 로 버린다). 그 샵들은 2번(스냅샷)으로.
+Pro 한도: 상세 500회/일 · 검색 300회/일 · 이력 180일 — 한 회차 = 상세 18 + 검색 5 안팎.
 
-1. 샵마다(`kbeauty/config.json` 의 `tt` 목록): `navigate https://www.fastmoss.com/ko/shop-marketing/detail/<s>` → 4초 → `javascript_tool`:
+0. 불러오기 — fastmoss.com 은 CSP 가 `eval`·`new Function` 을 막고 인라인 스크립트와 raw.githubusercontent fetch 는 연다:
    ```js
-   if(localStorage.getItem('fmx_v')!=='1'){ /* fastmoss.js 를 붙여 넣고 localStorage fmx_code·fmx_v 저장 — keepa.js 와 같은 방식 */ }
-   new Function(localStorage.getItem('fmx_code'))(); await window.__FMX.grab('<s>','<r>','<k>')
+   if(localStorage.getItem('fmx_v')!=='3'){ localStorage.setItem('fmx_code', await (await fetch('https://raw.githubusercontent.com/dayyyline-lgtm/coverage-dashboard/main/kbeauty/fastmoss.js')).text()); localStorage.setItem('fmx_v','3'); }
+   const s=document.createElement('script'); s.textContent=localStorage.getItem('fmx_code'); document.head.appendChild(s); window.__FMX.status()
    ```
-   → `ok … days 180 from … gmv …k`. `browser_batch` 로 navigate·wait·javascript_tool 을 샵마다 묶는다. 샵 사이 5~10초 쉰다.
+   → `shops 0 · err 0 · -`(새 회차면 `window.__FMX.reset()` 먼저). 페이지를 옮길 때마다(navigate) 다시 붙인다 — 버퍼는 localStorage(`fmx_buf`)라 남는다.
+1. 미국 샵마다(`kbeauty/config.json` 의 `tt` · 18곳): `navigate https://www.fastmoss.com/ko/shop-marketing/detail/<s>` → 4초 → 불러오기 → `await window.__FMX.grab('<s>','<r>','<k>')`
+   → `ok … days 180 from … gmv …k`. 샵 사이 5~10초 쉰다(`browser_batch` 로 navigate·wait·javascript_tool 을 묶는다).
    - 캡차(슬라이드)가 뜨면 **풀지 말고 멈춘다** — 사용자가 풀어야 한다. 받은 데까지만 넘긴다.
-2. 다 돌면 `window.__FMX.plan()` → `dump(a,b)` → `get_page_text` → `/tmp/kfm/part_N.txt`. 끝나면 `window.__FMX.reset()`(버퍼 비우기).
-3. 새 샵 찾기: `navigate https://www.fastmoss.com/ko/shop-marketing/search?region=<US|GB|JP|…>&words=<브랜드>` → 검색 버튼 한 번 →
-   `await window.__FMX.find()` → 운영사가 회사 법인인 공식 샵만 `config.json` `tt` 에 한 줄(맨 뒤에).
+   - `locked …` = 구독 밖 지역 · `stale …` = 마지막 날이 10일 넘게 지남 · `no response` = 화면이 안 불렀다(한 번 더 navigate).
+2. 미국 밖 샵(`tw` · 14곳) 스냅샷: `navigate https://www.fastmoss.com/ko/shop-marketing/search?region=<r>&words=<w>` → 검색 결과가 그려지면 불러오기 →
+   `window.__FMX.snapRow('<s>','<r>','<k>')` → `snap … u7 … v7 $… total $…`. 같은 검색 화면에 샵이 여럿이면(영국 메디큐브·달바·코스알엑스…) 그 화면에서 차례로.
+   - `no row` = 목록에 없다(검색어 · 지역 확인 · 첫 화면 20개 안에 없으면 브랜드명을 더 좁게).
+3. 다 돌면 `window.__FMX.plan()` → `dump(a,b)` → `get_page_text` → `/tmp/kfm/part_N.txt`. 끝나면 `window.__FMX.reset()`(버퍼 비우기).
+4. 새 샵 찾기: 검색 화면 → `await window.__FMX.find()`(훅을 건 뒤 검색 버튼을 누른 경우) 또는 `window.__FMX.findDom()`(이미 그려진 목록) →
+   운영사가 회사 법인이거나 '브랜드' 표시가 붙은 공식 샵만 `config.json` `tt`(미국) 또는 `tw`(그 밖 · `w` = 검색어)에 한 줄(맨 뒤에).
+
+ingest 가 하는 일(손댈 것 없음): 받은 날(FH 날짜)과 그 뒤는 버린다(미국 시각으로 진행 중) · `w0` = 받은 날 − 179일을 샵마다 기록 ·
+블록을 만들 때 판매량은 평소인데 단가가 2.5배 넘게 뛴 날을 직전 28일 중앙 단가 × 판매량으로 바꾼다(7/21~27 · 10/13~19 메디큐브·바이오던스 미국).
 
 ## 1-c-3. 저장 → 올리기
 
