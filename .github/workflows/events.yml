@@ -225,6 +225,14 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python runstep.py "카카오게임즈 모델" fetch_kgmodel.py
 
+      # 디어유 분기 손익 재료(DART 연결 손익 + 원문 '매출 실적'·구독수 문장·특수관계자 일본 JV + 주석 '영업비용') + 분기 평균 환율 + 버블 앱 소셜 매출순위.
+      - name: 디어유 손익 모델 재료
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python runstep.py "디어유 모델" fetch_dymodel.py
+
       # 수출입(관세청) — 10~26일에 매일 확인, fetch_trade 가 새 월/현행화 있을 때만 파일 변경.
       # 9/15~9/23 은 30분 컷에 잘려 한 번도 못 돌았다 — 그래서 앞으로 당겼다.
       - name: 월간 수출 갱신 (10~26일)

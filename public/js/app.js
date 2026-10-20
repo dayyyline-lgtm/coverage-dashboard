@@ -263,7 +263,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48}
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["KGMODEL","카카오게임즈 모델",3120],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -820,6 +820,7 @@ const NEWS_ALIAS={
   "NC":["엔씨소프트","엔씨","리니지"], "펄어비스":["펄어비스","검은사막","붉은사막"],
   "시프트업":["시프트업","니케","스텔라블레이드"],
   "카카오게임즈":["카카오게임즈","카겜","도깨비의세계","도깨비의 세계","오딘"],
+  "디어유":["디어유","DearU","Dear U"],
   "롯데관광개발":["롯데관광개발","롯데관광"], "파라다이스":["파라다이스"],
   "GS피앤엘":["GS피앤엘","지에스피앤엘"], "서부T&D":["서부T&D","서부티앤디","서부티엔디"],
   "티앤엘":["티앤엘","T&L"],
@@ -2181,6 +2182,26 @@ function injectCompanyStack(items, opt){
       reviewNote:free.length?("무료순위 "+free.slice(0,4).join(" · ")):""
     };
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
+/* 디어유 버블 앱 매출순위 점수(DYMODEL.rk · fetch_dymodel.py · 2026-10-20) — 나라별 '소셜 네트워킹' 매출 100 안의
+   디어유 앱(리슨·JYPnation·STARSHIP·with STARS …)들의 (101 − 순위) 합. 버블은 소속사별 앱으로 쪼개져 있어 앱 하나보다 합이 구독수에 가깝다.
+   그룹 = 마켓, 계열 = 나라. 나라끼리 크기는 비교 금지(selfNorm · 100 = 나라별 기간 최고). 이틀 쌓여야 뜬다. */
+(function injectDyRank(){
+  if(typeof DYMODEL==="undefined"||!DYMODEL.rk||!DYMODEL.rk.d) return;
+  const R=DYMODEL.rk, days=Object.keys(R.d).sort(); if(days.length<2) return;
+  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
+  const CC={kr:"한국",cn:"중국",jp:"일본",tw:"대만",th:"태국",us:"미국"};
+  [["i","앱스토어","Apple 앱스토어 '소셜 네트워킹' 매출 100"],["a","구글플레이","구글 플레이 '소셜' 매출 100"]].forEach(([p,mk,src])=>{
+    const keys=Object.keys(CC).filter(c=>days.some(d=>(R.d[d]||{})[p+"_"+c]!=null));
+    if(!keys.length) return;
+    const raw=keys.map(c=>days.map(d=>{ const v=(R.d[d]||{})[p+"_"+c]; return v==null?null:v.split(",").filter(Boolean).reduce((s,x)=>s+101-(+x.split(":")[1]),0); }));
+    const norm=raw.map(a=>{ const mx=Math.max(...a.filter(v=>v!=null),1); return a.map(v=>v==null?null:Math.round(v/mx*1000)/10); });
+    const name=`버블 앱 매출순위 점수(${mk})`;
+    TREND.groups[name]={products:keys.map(c=>CC[c]), productsGoogle:keys.map(c=>CC[c]), months:days.map(md), naver:norm, google:norm, rawSer:raw,
+      only:"naver", freq:"date", selfNorm:true, unit:"점", unitShort:"점",
+      srcName:src+" · 디어유 앱들의 (101 − 순위) 합 · 100 = 나라별 기간 최고 · ⚠ 나라끼리 비교 금지(시장 크기가 다르다)"};
+    (TREND_STOCK["디어유"]=TREND_STOCK["디어유"]||[]).push(name);
   });
 })();
 /* 스토어 판매·예약 순위(STORERANK · fetch_storerank.py) — '구매 시점'에 가장 가까운 신호.
@@ -6177,7 +6198,7 @@ function renderTrendStockPicker(){
 function afterTrendStockChange(){
   trendGroup=topicsOf(trendStock)[0]||trendGroup;   // 종목이 바뀌면 첫 주제로
   trendKind=topicKind(trendGroup);
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderDyModel(); renderMovie(); renderOliveYoung(); renderJobs();
 }
 /* 시그널 카드 (2026-09-24 · 개편계획 Phase 2) — 고른 종목의 주제 전부를 한 판에.
    차트 하나만 보면 나머지 주제가 어디로 가는지 모른다. 카드 = 주제명 · 최근값 · 주간 변화 ·
@@ -6378,12 +6399,12 @@ document.getElementById("trendKindSeg").addEventListener("click",e=>{
   // 고른 분류 안의 첫 주제로 옮긴다 — 안 그러면 주제 줄에 없는 그래프가 그려진 채로 남는다
   const list=topicsOf(trendStock).filter(g=>!trendKind||topicKind(g)===trendKind);
   if(list.length&&!list.includes(trendGroup)) trendGroup=list[0];
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderDyModel(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 document.getElementById("trendTopicSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
   trendGroup=b.dataset.grp;
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderDyModel(); renderMovie(); renderOliveYoung(); renderJobs();
 });
 // 하이라이트 칩 클릭 → 해당 종목·주제로 이동
 function selectTrend(stock, group){
@@ -6393,7 +6414,7 @@ function selectTrend(stock, group){
   const own=topicsOf(trendStock);
   if(own.length&&!own.includes(trendGroup)) trendGroup=own[0];
   trendKind=topicKind(trendGroup);              // 건너뛴 주제가 분류 필터에 가려지지 않게
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderDyModel(); renderMovie(); renderOliveYoung(); renderJobs();
   const c=document.getElementById("trendChart"); if(c) c.scrollIntoView({block:"nearest",behavior:"smooth"});
 }
 /* ══════════ 게임 판매·매출 추정 (GAMEEST) ══════════════════════════════════
@@ -7889,6 +7910,448 @@ function kgBind(){
   });
 }
 
+/* ══════════ 디어유(버블) 분기 손익 모델 (2026-10-20 · DYMODEL ← fetch_dymodel.py · renderDyModel) ══════════
+   사용자의 예전 메모(국가별 구독자 × ARPU + QQ뮤직 구독자 × 위안 단가 × 로열티율 − 인앱 수수료 · 웹결제 전환으로 마진 확대)를 뼈대로.
+   종목 페이지 손익 탭이 빌려 간다(spBorrow) — 집은 트렌드 탭(#dySec · 디어유를 고르면 뜬다).
+   실적 — 전부 DART(IR 수기 입력 없음):
+     연결 손익 · '매출 실적' 표(버블 수출/내수 · 기타 = 해외 로열티·라이선스) · 문장 '분기 평균 OOO만의 구독수'·'해외 이용 비중 OO%' ·
+     특수관계자 거래의 일본 JV(Dear U plus) 영업수익 · 주석 '영업비용'(지급수수료·인건비·상각·기타).
+   추정
+     버블 국내 = 국내 구독수 × 국내 ARPU(원/분기)
+     버블 해외 = 해외 구독수 × 해외 ARPU(달러/분기) × 분기 평균 원/달러 — 해외 결제는 달러(현지 통화) 가격이라 원화 매출이 환율을 탄다.
+       실측: 해외 ARPU 원화 12,245 → 12,960 → 13,228(4Q25~2Q26)이 원/달러 1,454 → 1,468 → 1,503 과 같이 움직였다(달러로는 8.42 → 8.83 → 8.80).
+     중국 QQ뮤직 = QQ 유료 구독자 × 월 단가(위안) × 3 × 로열티율 × 원/위안. 구독자는 TME 가 안 밝혀 실적 로열티에서 역산한다.
+     지급수수료 = 버블 매출 × [최근 비율 − PG 전환 효과] — 앱마켓 결제 대신 PG(웹·카카오 선물하기)로 사면 수수료가 준다.
+   ⚠ 순액법 — 소속사 몫(엔터테인먼트 수수료)은 매출과 지급수수료에서 같이 빠진다(2023 사업보고서). 매출 = 결제액 − 소속사 몫.
+   ⚠ 구독수는 '구독 건수'(아티스트 둘이면 2)이고 버블 포 재팬·더 버블(북미)·QQ뮤직 버블은 안 들어간다(그 셋은 로열티로 들어온다).
+   ⚠ 해외 이용 비중은 정수 %(분기말)라 국내/해외 구독수가 ±1%p 흔들린다 — 국내 ARPU 가 분기마다 ±5% 튀는 건 대부분 이것이다. */
+// 회사 IR 지표(증권사 리포트가 인용한 값 · 수기) — DART 에 없다. 분기 IR 이 나오면 한 줄씩.
+//   gross 결제액(총매출, 십억 · 키움 5/11) · pg PG 결제 전환율 %(카카오 선물하기 포함 · 키움 5/11·iM 8/5) · bfj 버블 포 재팬 구독수(만 · 키움·DS 8/5)
+//   qqK·qqC QQ뮤직 버블 입점 K-pop·C-pop 아티스트 수(DS 8/5 · 삼성 5/14) · cty 국가별 구독 비중 %(삼성 5/14)
+const DY_IR={
+  "2025Q1":{gross:25.4},
+  "2025Q2":{gross:29.3, qqK:285, qqC:0},
+  "2025Q3":{gross:33.5},
+  "2025Q4":{gross:32.4},
+  "2026Q1":{gross:32.0, pg:16, bfj:9.7, qqC:98, cty:{kr:34,cn:31,jp:13,us:7,sea:4,eu:3,etc:8}},
+  "2026Q2":{pg:17, bfj:10.7, qqK:351, qqC:129},
+};
+// QQ뮤직 로열티 인식 — 4Q25 는 3Q+4Q 두 분기치가 한꺼번에(삼성 5/14 '실적 인식 방법 변경'), 2026 부터 그 분기에 바로.
+//   메모의 '한 분기 이연'은 2026 부터 없어졌다.
+const DY_QQ_FROM="2025Q4", DY_QQ_N={"2025Q4":2};
+const DY_FWD=["2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"];
+const DY_SCN={
+  "보수":{gD26:-3, gO26:-4, gD27:-2, gO27:-2, gC26:5,  gC27:5,  pgT:19},
+  "기준":{gD26:null, gO26:null, gD27:0, gO27:0, gC26:15, gC27:15, pgT:23},
+  "낙관":{gD26:2,  gO26:1,  gD27:2,  gO27:2,  gC26:30, gC27:20, pgT:28},
+};
+const DY_ASM0={gD26:null, gO26:null, gD27:0, gO27:0,          // 구독수 분기 증감 %(null = 직전 분기 실측)
+  aD:null, aO:null, fx:null, cny:null, fxB:100,                // 국내 ARPU 원/분기 · 해외 ARPU 달러/분기 · 원/달러 · 원/위안(null = 자동) · 환율 연동 %
+  qqP:28, qqR:10, gC26:15, gC27:15, lic0:null,                  // QQ 월 단가(위안) · 로열티율 % · 유료 구독자 분기 증가 % · 그 밖 라이선스(분기)
+  gJ:5, od:null,                                                // 일본 JV 분기 증가 % · 국내 라이선스 등(분기)
+  pg0:null, pgT:23, pgK:0.3, fr0:null,                          // PG 전환율(지금 · 4Q27) · PG 1%p 당 지급수수료율 −%p · 기준 지급수수료율
+  lab:null, gLab:10, dep:null, oth:null, us:0,                  // 인건비 · 연 증가 % · 상각 · 기타 · 미국 신사업 추가비(분기)
+  nonop:null, tax:22, share:null, show25:0};
+const DY_V=1;
+let dyAsm=null, dyOpen=null;
+function dyAsmGet(){ if(dyAsm) return dyAsm; let s={};
+  try{ s=JSON.parse(localStorage.getItem("dyAsm")||"{}")||{}; }catch(e){}
+  if(s._v!==DY_V) s={}; delete s._v;
+  dyAsm={...DY_ASM0, ...s}; return dyAsm; }
+function dyAsmSave(){ const d={_v:DY_V};
+  Object.keys(dyAsm).forEach(k=>{ if(JSON.stringify(dyAsm[k])!==JSON.stringify(DY_ASM0[k])) d[k]=dyAsm[k]; });
+  try{ localStorage.setItem("dyAsm",JSON.stringify(d)); }catch(e){} }
+function dyOpenGet(){ if(dyOpen) return dyOpen; try{ dyOpen=JSON.parse(localStorage.getItem("dyOpen")||"{}")||{}; }catch(e){ dyOpen={}; } return dyOpen; }
+function dyOpenSave(){ try{ localStorage.setItem("dyOpen",JSON.stringify(dyOpen)); }catch(e){} }
+const dyActQs=()=>{ if(typeof DYMODEL==="undefined") return [];
+  const F=DYMODEL.fin||{}, S=DYMODEL.seg||{}, C=DYMODEL.cost||{};
+  return Object.keys(F).filter(q=>S[q]&&C[q]).sort(); };
+const dyFx=()=>(typeof LIVE!=="undefined"&&LIVE.market&&LIVE.market.FX)||{};
+/* 분기 평균 환율 — 끝난 분기는 실측 평균, 진행 중인 분기는 (관측한 영업일 평균 × 지난 비중) + (가정 × 남은 비중), 그 뒤는 가정 */
+function dyFxQ(P, q, kind){
+  const F=((DYMODEL.fx||{})[kind])||{}, N=((DYMODEL.fx||{})[kind+"_n"])||{}, spot=kind==="USD"?P.fx:P.cny, cur=c2QOf(TODAY);
+  if(F[q]==null||q>cur) return spot;
+  if(q<cur) return F[q];
+  const w=Math.min(1,(N[q]||0)/63); return F[q]*w+spot*(1-w);
+}
+/* 실적 분기 하나 → 구독·ARPU 등 파생값 */
+function dyActRow(q, P){
+  const D=DYMODEL, f=D.fin[q], s=D.seg[q], c=D.cost[q], sb=(D.sub||{})[q]||{}, jp=(D.jp||{})[q];
+  const o={q, act:true, bd:s.bd, bo:s.bo, od:s.od, oo:s.oo, jp:jp==null?null:jp, cn:jp==null?null:s.oo-jp,
+    fee:c.fee, lab:c.lab, dep:c.dep, oth:c.oth, us:0, opex:f.opex, op:f.op, pbt:f.pbt, np:f.np, npp:f.npp!=null?f.npp:f.np, rev:f.rev};
+  o.nonop=o.pbt-o.op; o.tax=o.pbt-o.np; o.minor=o.np-o.npp; o.bub=o.bd+o.bo; o.lic=o.oo+o.od;
+  o.n=sb.n!=null?sb.n:null; o.ovp=sb.ov!=null?sb.ov:null;
+  if(o.n!=null&&o.ovp!=null){ o.dom=o.n*(1-o.ovp/100); o.ovs=o.n*o.ovp/100; o.aD=o.bd*1e5/o.dom; o.aO=o.bo*1e5/o.ovs; }
+  o.fxq=((D.fx||{}).USD||{})[q]||null; o.cnyq=((D.fx||{}).CNY||{})[q]||null;
+  if(o.aO!=null&&o.fxq) o.aOu=o.aO/o.fxq;
+  o.fr=o.bub?o.fee/o.bub*100:null;
+  return o;
+}
+function dyAuto(A){
+  const D=DYMODEL, qs=dyActQs(), rows=qs.map(q=>dyActRow(q,A)), L=rows[rows.length-1], L2=rows.slice(-2), L4=rows.slice(-4), L6=rows.slice(-6);
+  const sum=a=>a.reduce((x,y)=>x+y,0), avg=a=>a.length?sum(a)/a.length:null;
+  const withS=rows.filter(r=>r.dom!=null), s2=withS.slice(-2);
+  const g=k=>s2.length===2?(s2[1][k]/s2[0][k]-1)*100:0;
+  const no=L6.map(r=>r.nonop).sort((a,b)=>a-b), med=no.length?(no.length%2?no[(no.length-1)/2]:(no[no.length/2-1]+no[no.length/2])/2):0;
+  const pre=rows.filter(r=>r.q<DY_QQ_FROM&&r.q>="2025Q1"&&r.cn!=null);
+  const irPg=Object.keys(DY_IR).sort().filter(q=>DY_IR[q].pg!=null).pop();
+  const FX=dyFx(), lastFx=k=>{ const F=((D.fx||{})[k])||{}; const ks=Object.keys(F).sort(); return ks.length?F[ks[ks.length-1]]:null; };
+  return {gD26:g("dom"), gO26:g("ovs"), aD:avg(s2.map(r=>r.aD)), aO:avg(s2.filter(r=>r.aOu!=null).map(r=>r.aOu)), _fx0:avg(s2.filter(r=>r.fxq).map(r=>r.fxq)),
+    fx:FX.USDKRW||lastFx("USD")||1400, cny:FX.CNYKRW||lastFx("CNY")||200,
+    lic0:pre.length?avg(pre.map(r=>r.cn)):0, od:avg(L4.map(r=>r.od)),
+    pg0:irPg?DY_IR[irPg].pg:17, fr0:L.fr, lab:L.lab, dep:L.dep, oth:avg(L2.map(r=>r.oth)), nonop:med,
+    share:sum(L4.map(r=>r.np))?sum(L4.map(r=>r.npp))/sum(L4.map(r=>r.np))*100:100, _L2:L2.map(r=>r.q), _L4:L4.map(r=>r.q), _L6:L6.map(r=>r.q), _s2:s2.map(r=>r.q), _pg:irPg};
+}
+function dyParams(){
+  const A=dyAsmGet(), au=dyAuto(A), P={...A};
+  Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null&&au[k]!=null) P[k]=+(+au[k]).toFixed(k==="aO"?2:k==="aD"||k==="fx"?0:k==="cny"?1:2); });
+  P._auto=au; return P;
+}
+/* QQ 유료 구독자(만) ↔ 로열티(십억) */
+const dyQQRev=(P,sub,cny)=>sub*1e4*P.qqP*3*P.qqR/100*cny/1e9;
+const dyQQSub=(P,rev,cny)=>rev*1e9/(P.qqP*3*P.qqR/100*cny)/1e4;
+
+function dyBuild(P){
+  const qs=dyActQs(), act=new Set(qs), lastAct=qs[qs.length-1], Q={};
+  const qn=q=>+q.slice(0,4)*4+ +q.slice(-1);
+  const N=qn("2027Q4")-qn(lastAct);
+  let prev=null, lastS=null;
+  for(let q="2024Q1"; q<="2027Q4"; q=c2QAdd(q,1)){
+    let o;
+    if(act.has(q)){
+      o=dyActRow(q,P);
+      if(o.cn!=null&&q>=DY_QQ_FROM&&o.cnyq){ const r=Math.max(0,o.cn-P.lic0); o.qq=r; o.qqSub=dyQQSub(P,r/(DY_QQ_N[q]||1),o.cnyq); }
+      else if(o.cn!=null){ o.qq=0; }
+      const ir=DY_IR[q]||{}; o.pg=ir.pg!=null?ir.pg:null;
+    } else {
+      const n=qn(q)-qn(lastAct), y=+q.slice(0,4), gD=y>=2027?P.gD27:P.gD26, gO=y>=2027?P.gO27:P.gO26, gC=y>=2027?P.gC27:P.gC26;
+      o={q, act:false};
+      const pb=prev.dom!=null?prev:lastS;                       // 직전 실적에 구독 문장이 없으면 그 앞 분기에서
+      o.dom=pb.dom*(1+gD/100); o.ovs=pb.ovs*(1+gO/100); o.n=o.dom+o.ovs; o.ovp=o.ovs/o.n*100;
+      o.fxq=dyFxQ(P,q,"USD"); o.cnyq=dyFxQ(P,q,"CNY");
+      // 해외 ARPU(원) = 기준(달러 ARPU × 기준 분기 환율) × [1 + 연동 β × (이 분기 환율 ÷ 기준 환율 − 1)] — β 100% 면 달러 ARPU × 환율 그대로
+      const fx0=P._auto._fx0||o.fxq; o.aO=P.aO*fx0*(1+P.fxB/100*(o.fxq/fx0-1)); o.aOu=o.aO/o.fxq; o.aD=P.aD;
+      o.bd=o.dom*o.aD/1e5; o.bo=o.ovs*o.aO/1e5; o.bub=o.bd+o.bo;
+      o.jp=(prev.jp!=null?prev.jp:0)*(1+P.gJ/100);
+      o.qqSub=(prev.qqSub!=null?prev.qqSub:0)*(1+gC/100); o.qq=dyQQRev(P,o.qqSub,o.cnyq); o.cn=P.lic0+o.qq;
+      o.od=P.od; o.oo=o.jp+o.cn; o.lic=o.oo+o.od;
+      o.rev=o.bub+o.lic;
+      o.pg=P.pg0+(P.pgT-P.pg0)*Math.min(1,n/Math.max(1,N));
+      o.fr=P.fr0-P.pgK*(o.pg-P.pg0); o.fee=o.fr/100*o.bub;
+      o.lab=P.lab*Math.pow(1+P.gLab/100,n/4); o.dep=P.dep; o.oth=P.oth; o.us=P.us;
+      o.opex=o.fee+o.lab+o.dep+o.oth+o.us; o.op=o.rev-o.opex;
+      o.nonop=P.nonop; o.pbt=o.op+o.nonop; o.tax=Math.max(0,o.pbt)*P.tax/100; o.np=o.pbt-o.tax;
+      o.npp=o.np*P.share/100; o.minor=o.np-o.npp;
+      o.why={bd:`국내 구독 ${fmt(o.dom,1)}만 × ARPU ${fmt0(o.aD)}원/분기`,
+        bo:`해외 구독 ${fmt(o.ovs,1)}만 × ARPU ${fmt0(o.aO)}원/분기 = 기준 $${fmt(P.aO,2)} × ${fmt0(fx0)}원 × [1 + 연동 ${P.fxB}% × (원/달러 ${fmt0(o.fxq)} ÷ ${fmt0(fx0)} − 1)]`,
+        cn:`QQ 유료 구독 ${fmt(o.qqSub,1)}만 × ${P.qqP}위안 × 3개월 × 로열티 ${P.qqR}% × 원/위안 ${fmt(o.cnyq,1)} = ${fmt(o.qq,2)} + 그 밖 라이선스 ${fmt(P.lic0,2)}`,
+        jp:`직전 분기 × (1+${P.gJ}%)`, od:`최근 4분기 평균 ${P.od}`,
+        fee:`버블 매출 ${fmt(o.bub,1)} × 지급수수료율 ${fmt(o.fr,1)}% (기준 ${P.fr0}% − PG 전환 ${fmt(o.pg-P.pg0,1)}%p × ${P.pgK})`,
+        lab:`직전 실적 ${P.lab} × 연 ${P.gLab}% 증가`, dep:`직전 실적 ${P.dep} — 2Q26 부터 오프라인 매장 임차(사용권자산상각) 반영`, oth:`최근 2분기 평균 ${P.oth}(광고선전비 포함)`,
+        us:"미국 신사업(IP·커머스) 추가 비용 — 가정 · 기본 0", nonop:`최근 6분기 (세전 − 영업이익) 중앙값 ${P.nonop} — 이자수익·외환손익. 2Q25 손상(−14.1) 같은 일회성도 표본에 있다`,
+        tax:`세전이익 × ${P.tax}% (적자면 0)`, npp:`당기순이익 × 지배주주 몫 ${fmt(P.share,0)}%`,
+        n:`국내 ${fmt(o.dom,1)} × (1${gD>=0?"+":"−"}${fmt(Math.abs(gD),1)}%) 계열 + 해외 ${fmt(o.ovs,1)} (1${gO>=0?"+":"−"}${fmt(Math.abs(gO),1)}%/분기)`};
+    }
+    o.opm=o.rev?o.op/o.rev:null;
+    Q[q]=o; prev=o; if(o.dom!=null) lastS=o;
+  }
+  const Y={}, K=["rev","bub","bd","bo","lic","oo","od","fee","lab","dep","oth","us","opex","op","nonop","pbt","tax","np","npp","minor"], KN=["jp","cn","qq"];
+  ["2024","2025","2026","2027"].forEach(y=>{
+    const qq=[1,2,3,4].map(k=>Q[`${y}Q${k}`]); const o={q:y, yr:1, act:qq.every(x=>x.act)};
+    K.forEach(k=>o[k]=qq.reduce((s,x)=>s+(x[k]||0),0));
+    KN.forEach(k=>o[k]=qq.every(x=>x[k]!=null)?qq.reduce((s,x)=>s+x[k],0):null);
+    const ns=qq.filter(x=>x.n!=null); o.n=ns.length===4?ns.reduce((s,x)=>s+x.n,0)/4:null;
+    o.opm=o.rev?o.op/o.rev:null; o.fr=o.bub?o.fee/o.bub*100:null; Y[y]=o;
+  });
+  return {Q, Y, lastAct};
+}
+
+/* 구독수 막대(국내/해외 누적) + 해외 ARPU(달러) 선 — 실적은 진하게, 추정은 옅게 */
+function dyChart(B){
+  const qs=[]; for(let q="2024Q1"; q<="2027Q4"; q=c2QAdd(q,1)) if(B.Q[q].n!=null) qs.push(q);
+  const W=760, H=210, pad={l:34,r:40,t:18,b:24}, n=qs.length, Q=B.Q;
+  const ymax=Math.ceil(Math.max(...qs.map(q=>Q[q].n))/50)*50||250;
+  const au=qs.map(q=>Q[q].aOu).filter(v=>v!=null), amin=Math.floor(Math.min(...au)-0.5), amax=Math.ceil(Math.max(...au)+0.5);
+  const cw=(W-pad.l-pad.r)/n, sx=k=>pad.l+cw*(k+0.5), sy=v=>pad.t+(1-v/ymax)*(H-pad.t-pad.b), sa=v=>pad.t+(1-(v-amin)/((amax-amin)||1))*(H-pad.t-pad.b);
+  const bw=Math.min(26,cw*0.62);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="디어유 버블 구독수와 해외 ARPU">`;
+  for(let v=0; v<=ymax; v+=50) s+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}" stroke="var(--line)" stroke-opacity=".45"/>`
+    +`<text x="${pad.l-5}" y="${(sy(v)+3.5).toFixed(1)}" font-size="10" fill="var(--muted2)" text-anchor="end">${v}</text>`;
+  for(let v=amin; v<=amax; v+=1) s+=`<text x="${W-pad.r+5}" y="${(sa(v)+3.5).toFixed(1)}" font-size="10" fill="var(--muted2)">$${v}</text>`;
+  qs.forEach((q,k)=>{ const o=Q[q], op=o.act?0.92:0.42, x=sx(k)-bw/2;
+    s+=`<rect x="${x.toFixed(1)}" y="${sy(o.n).toFixed(1)}" width="${bw.toFixed(1)}" height="${(sy(0)-sy(o.ovs)).toFixed(1)}" fill="var(--accent)" opacity="${op}"/>`
+      +`<rect x="${x.toFixed(1)}" y="${sy(o.dom).toFixed(1)}" width="${bw.toFixed(1)}" height="${(sy(0)-sy(o.dom)).toFixed(1)}" fill="#6fa8dc" opacity="${op}"/>`
+      +(q.endsWith("Q1")||k===0?`<text x="${sx(k).toFixed(1)}" y="${H-7}" font-size="10" fill="var(--muted2)" text-anchor="middle">${c2QLab(q)}</text>`:"");
+    if(q===B.lastAct) s+=`<line x1="${(sx(k)+cw/2).toFixed(1)}" x2="${(sx(k)+cw/2).toFixed(1)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--muted2)" stroke-dasharray="2 3"/>`
+      +`<text x="${(sx(k)+cw/2+4).toFixed(1)}" y="${pad.t+9}" font-size="10" fill="var(--muted2)">추정 →</text>`; });
+  const pts=qs.map((q,k)=>Q[q].aOu!=null?[sx(k),sa(Q[q].aOu),Q[q].act]:null);
+  const seg=f=>pts.map((p,k)=>p&&f(p,k)?p:null);
+  const path=a=>{ let d="", on=false; a.forEach(p=>{ if(!p){ on=false; return; } d+=(on?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1); on=true; }); return d; };
+  const li=pts.reduce((m,p,k)=>p&&p[2]?k:m,-1);
+  s+=`<path d="${path(seg((p,k)=>p[2]))}" fill="none" stroke="var(--text)" stroke-width="1.8"/>`
+    +`<path d="${path(seg((p,k)=>k>=li))}" fill="none" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="4 3" opacity=".7"/>`;
+  pts.forEach(p=>{ if(p) s+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.4" fill="var(--text)" opacity="${p[2]?1:.6}"/>`; });
+  s+=`<text x="${pad.l}" y="11" font-size="10" fill="var(--muted2)">만 건(분기 평균 구독수) · <tspan fill="#6fa8dc">■ 국내</tspan> <tspan fill="var(--accent)">■ 해외</tspan> · ─ 해외 ARPU(달러/분기, 오른쪽 축)</text></svg>`;
+  return {svg:s, qs, W, H, pad, sx, sy, sa};
+}
+
+function dyRankBox(){
+  const R=(DYMODEL.rk)||{}, days=Object.keys(R.d||{}).sort(), apps=R.apps||[];
+  if(!days.length) return "";
+  const last=days[days.length-1], ago=k=>{ const t=c2DAdd(last,-k); return days.filter(d=>d<=t).pop()||null; };
+  const d7=ago(7), d28=ago(28);
+  const parse=s=>(s||"").split(",").filter(Boolean).map(x=>{ const [i,r]=x.split(":"); return {i:+i, r:+r}; });
+  const score=(d,k)=>{ const v=(R.d[d]||{})[k]; return v==null?null:parse(v).reduce((s,x)=>s+101-x.r,0); };
+  const short=nm=>String(nm||"").replace(/^bubble (for|with) /i,"").replace(/^리슨 /,"").replace(/Ent\.?$/,"").trim();
+  const KEYS=[["i_kr","앱스토어","한국"],["a_kr","구글플레이","한국"],["i_cn","앱스토어","중국"],["i_jp","앱스토어","일본"],["a_jp","구글플레이","일본"],
+    ["i_tw","앱스토어","대만"],["a_tw","구글플레이","대만"],["i_th","앱스토어","태국"],["i_us","앱스토어","미국"],["a_us","구글플레이","미국"]];
+  const dc=(a,b)=>(a==null||b==null)?"—":`<span class="${cls(a-b)}">${a-b>0?"▲":a-b<0?"▼":""}${Math.abs(a-b)||"—"}</span>`;
+  const rows=KEYS.filter(([k])=>(R.d[last]||{})[k]!=null).map(([k,mk,cc])=>{ const L=parse(R.d[last][k]), sc=score(last,k);
+    return `<tr><td style="text-align:left"><b>${cc}</b> <span class="g" style="font-size:11px">${mk}</span></td>
+      <td style="text-align:left;font-size:11.5px">${L.length?L.map(x=>`${attr(short((apps[x.i]||[])[1]))} <b>${x.r}</b>`).join(" · "):`<span class="g">100위 밖</span>`}</td>
+      <td>${L.length}</td><td><b>${sc}</b></td><td>${d7?dc(sc,score(d7,k)):"—"}</td><td>${d28?dc(sc,score(d28,k)):"—"}</td></tr>`; }).join("");
+  return `<div class="sub-h" style="margin:22px 0 8px">버블 앱 매출순위 — 나라별 '소셜 네트워킹' 매출 100 <span class="th-sub" style="display:inline;margin-left:6px">${+last.slice(5,7)}/${+last.slice(8)} 기준 · 매일 05시 · 구독수의 선행 신호(실적 발표 전에 방향을 본다)</span></div>
+    <div class="tbl-wrap"><table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">나라 · 마켓</th><th style="text-align:left">100위 안 버블 앱 — 순위</th><th>앱 수</th><th>점수</th><th>7일 전 대비</th><th>28일 전 대비</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note" style="margin-top:6px">점수 = 100위 안에 든 디어유 앱들의 (101 − 순위) 합 — 앱이 많이, 높이 있을수록 크다. <b>나라끼리 점수를 견주지 말 것</b>(시장 크기가 다르다).
+      버블은 소속사별 앱(리슨=SM · JYPnation · STARSHIP · with STARS=여러 소속사 …)으로 나뉘어 있어 앱 하나의 순위보다 합이 구독수에 가깝다.
+      <b>중국은 애플만</b>(구글이 없다) — 중국 팬은 전체 구독의 31%(1Q26 IR)라 중국 앱스토어 순위가 중국 구독의 유일한 매일 창이다.
+      기록은 ${days[0].slice(5).replace("-","/")}부터 쌓인다(7·28일 전 대비는 그만큼 지나야 뜬다). 트렌드 탭 '버블 앱 매출 점수'에 나라별 선으로도 그린다.</p>`;
+}
+
+function renderDyModel(){
+  const sec=document.getElementById("dySec"), box=document.getElementById("dyBox");
+  if(!sec||!box) return;
+  const inSp=!!sec.closest("#spModel");
+  if(typeof DYMODEL==="undefined"||!dyActQs().length||(!inSp&&trendStock!==DYMODEL.stock)){ sec.style.display="none"; return; }
+  sec.style.display="";
+  const A=dyAsmGet(), P=dyParams(), B=dyBuild(P), Q=B.Q, Y=B.Y, lq=Q[B.lastAct];
+  const f1=v=>(v==null||!isFinite(v))?"—":fmt(v,1), f2=v=>(v==null||!isFinite(v))?"—":fmt(v,2);
+  const pct=(v,d=1)=>(v==null||!isFinite(v))?"—":v>3?`<span class="up">×${fmt(v+1,1)}</span>`
+    :Math.abs(v*100)<0.5*Math.pow(10,-d)?`<span class="flat">${fmt(0,d)}%</span>`:`<span class="${cls(v)}">${sign(v*100,d)}%</span>`;
+  const chg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return pct(c/b-1); return c>0?`<span class="up">흑전</span>`:(b<0?`<span class="g">적지</span>`:"—"); };
+  const opChg=(c,b)=>{ if(c==null||b==null) return "—"; if(b>0) return c>0?pct(c/b-1):`<span class="down">적전</span>`;
+    return c>0?`<span class="up">흑전</span>`:`<span class="g">적지</span>`; };
+  const LS=(typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[DYMODEL.stock])||{}, cn=LS.cons||{}, cons={};
+  ((cn.quarter||{}).series||[]).forEach(x=>{ if(x.e) cons[c2QOf(`${x.k.slice(0,4)}-${x.k.slice(4,6)}-01`)]=x; });
+  ((cn.year||{}).series||[]).forEach(x=>{ if(x.e) cons[x.k.slice(0,4)]=x; });
+
+  // ── 머리 카드 ─────────────────────────────────────────────────────
+  const card=(t,v,sub,acc)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line-soft);
+    border-radius:var(--radius);padding:12px 14px"><div style="font-size:11.5px;color:var(--muted);font-weight:700">${t}</div>
+    <div style="font-size:20px;font-weight:800;margin-top:3px${acc?";color:var(--accent)":""}">${v}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.45">${sub||""}</div></div>`;
+  const vsC=(o,k)=>{ const c=cons[k]; if(!c) return "컨센 없음";
+    return `컨센 ${f1(c.rev)} / ${f1(c.op)} → 괴리 ${pct(o.rev/c.rev-1)} / ${c.op>0?pct(o.op/c.op-1):"—"}`; };
+  const nq=Object.keys(Q).find(q=>!Q[q].act), q3=Q[nq], y6=Y["2026"], y7=Y["2027"], fxNow=P.fx, fxL=lq.fxq;
+  const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    ${card(`${c2QLab(lq.q)} 구독수 (분기 평균)`, `${fmt(lq.n,0)}만`, `국내 ${fmt(lq.dom,1)} · 해외 ${fmt(lq.ovs,1)}(${fmt(lq.ovp,0)}%) · 전분기 ${chg(lq.n,Q[c2QAdd(lq.q,-1)].n)} · 전년 ${chg(lq.n,Q[c2QAdd(lq.q,-4)].n)}<br>ARPU 국내 ${fmt0(lq.aD)}원 · 해외 $${f2(lq.aOu)} /분기`, true)}
+    ${card(`${c2QLab(nq)}E 매출 / 영업이익`, `${f1(q3.rev)} / ${f1(q3.op)}`, `십억원 · 원/달러 ${fmt0(q3.fxq)}(${c2QLab(lq.q)} ${fmt0(fxL)} 대비 ${pct(q3.fxq/fxL-1)})<br>${vsC(q3,nq)}`)}
+    ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, `십억원 · OPM ${fmt(y6.opm*100,1)}%<br>${vsC(y6,"2026")}`)}
+    ${card("2027E 매출 / 영업이익", `${f1(y7.rev)} / ${f1(y7.op)}`, `십억원 · 중국 QQ ${f1(y7.qq)} · OPM ${fmt(y7.opm*100,1)}%<br>${vsC(y7,"2027")}`)}
+  </div>`;
+
+  // ── 분기 손익표 ───────────────────────────────────────────────────
+  const qCols=(A.show25?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
+  const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
+  const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
+  const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
+  const ir=o=>(!o.yr&&DY_IR[o.q])||{};
+  const actTip=(o,k)=>{ if(!o.act||o.yr) return "";
+    return ({bd:"DART '매출 실적' 표 · DearU bubble 내수(누적 → 분기 차분)", bo:"DART '매출 실적' 표 · DearU bubble 수출",
+      lic:"DART '매출 실적' 표 · 기타(수출+내수) — 라이선스·해외 로열티", jp:"DART 주석 '특수관계자 거래' · 관계기업 Dear U plus(일본 JV · 버블 포 재팬) 영업수익(누적 → 분기)",
+      cn:`기타 수출 ${fmt(o.oo,2)} − 일본 JV ${fmt(o.jp,2)}${o.q>=DY_QQ_FROM?` — QQ뮤직·JOOX 로열티 + 그 밖 라이선스(QQ 전 2025 1~3Q 평균 ${fmt(P.lic0,2)})`:" — QQ 로열티 인식 전(그 밖 라이선스)"}${DY_QQ_N[o.q]?" · 4Q25 는 3Q+4Q 두 분기치":""}`,
+      od:"DART '매출 실적' 표 · 기타 내수", fee:"DART 주석 '영업비용' · 지급수수료(앱마켓 결제수수료 + PG + 서버 등 · 소속사 몫은 순액이라 없다)"})[k]||""; };
+  const ROWS=[
+    {k:"rev", t:"매출액 (영업수익 · 순액)", em:1, tg:"rev"},
+    {k:"rev", t:"YoY", r:"yoy"},
+    {k:"rev", t:"QoQ", r:"qoq"},
+    {k:"bub", t:"버블 구독 (앱·웹 결제)", i:1, b:1, g:"rev"},
+    {k:"bd", t:"국내", i:2, g:"rev"},
+    {k:"bo", t:"해외 — 중국·일본·미국·동남아 팬 (달러 가격)", i:2, g:"rev"},
+    {k:"lic", t:"해외 로열티·라이선스 ('기타' 매출)", i:1, b:1, g:"rev"},
+    {k:"cn", t:"중국 QQ뮤직·JOOX 등 (기타 수출 − 일본 JV)", i:2, z:1, g:"rev"},
+    {k:"jp", t:"일본 JV — 버블 포 재팬 (Dear U plus)", i:2, g:"rev"},
+    {k:"od", t:"국내 라이선스 등", i:2, g:"rev"},
+    {t:"구독 · ARPU", m:"hdr", tg:"kpi", top:1},
+    {k:"n", t:"구독수 (만, 분기 평균)", i:1, m:"n", g:"kpi"},
+    {k:"dom", t:"국내 / 해외 (만)", i:1, m:"dovs", g:"kpi"},
+    {k:"ovp", t:"해외 이용 비중 (%)", i:1, m:"ovp", g:"kpi"},
+    {k:"aD", t:"국내 ARPU (원/분기 · 버블 국내 ÷ 국내 구독)", i:1, m:"won", g:"kpi"},
+    {k:"aO", t:"해외 ARPU (원/분기)", i:1, m:"won", g:"kpi"},
+    {k:"aOu", t:"해외 ARPU (달러/분기 · ÷ 분기 평균 원/달러)", i:1, m:"usd", g:"kpi"},
+    {k:"fxq", t:"원/달러 (분기 평균)", i:1, m:"fx", g:"kpi"},
+    {k:"qqSub", t:"QQ뮤직 유료 구독 역산 (만)", i:1, m:"qq", g:"kpi"},
+    {k:"cty", t:"참고: 중국 구독 (IR 국가 비중)", i:1, m:"cty", g:"kpi", sm:1},
+    {k:"bfj", t:"참고: 버블 포 재팬 구독 (IR · 분기말 만)", i:1, m:"bfj", g:"kpi", sm:1},
+    {k:"qqC", t:"참고: QQ뮤직 입점 C-pop 아티스트 (IR)", i:1, m:"qqC", g:"kpi", sm:1},
+    {k:"gross", t:"참고: 결제액 (IR 총매출) / 매출 비중", i:1, m:"gross", g:"kpi", sm:1},
+    {k:"opex", t:"영업비용", b:1, tg:"cost", top:1},
+    {k:"fee", t:"지급수수료 (앱마켓·PG·서버)", i:1, g:"cost"},
+    {k:"fr", t:"버블 매출 대비 (%)", i:2, m:"fr", g:"cost"},
+    {k:"pg", t:"PG 결제 전환율 (%, IR · 가정)", i:2, m:"pg", g:"cost"},
+    {k:"lab", t:"인건비 (급여·퇴직·복리)", i:1, g:"cost"},
+    {k:"dep", t:"상각비 (유형·사용권·무형)", i:1, g:"cost"},
+    {k:"oth", t:"기타 (광고선전비 포함)", i:1, g:"cost"},
+    {k:"us", t:"미국 신사업 추가비 (가정)", i:1, g:"cost"},
+    {k:"op", t:"영업이익", em:1, hl:1, tg:"op"},
+    {k:"opm", t:"영업이익률", r:"opm"},
+    {k:"op", t:"YoY", r:"opyoy"},
+    {k:"nonop", t:"영업외손익", tg:"ni", top:1},
+    {k:"pbt", t:"세전이익", i:1, g:"ni"},
+    {k:"tax", t:"법인세", i:1, g:"ni"},
+    {k:"np", t:"당기순이익", i:1, g:"ni"},
+    {k:"minor", t:"비지배 몫", i:1, g:"ni"},
+    {k:"npp", t:"지배주주 순이익", em:1},
+    {k:"npp", t:"PER (배)", m:"per"},
+  ];
+  const TGS=[...new Set(ROWS.filter(r=>r.tg).map(r=>r.tg))], OPEN=dyOpenGet();
+  const mcap=LS.mktcapEok?LS.mktcapEok/10:null;
+  const nextQ=cols.findIndex(o=>!o.yr&&!o.act), firstY=qCols.length;
+  const yrEdge=k=>k===firstY||(k>0&&k<firstY&&cols[k].q.slice(0,4)!==cols[k-1].q.slice(0,4));
+  const SHADE="color-mix(in srgb, var(--accent) 13%, transparent)", EM="1.5px solid var(--muted2)";
+  const thS=(o,k)=>{ let st="text-align:right;white-space:nowrap;padding:6px 9px;";
+    if(k===nextQ) st+=`background:${SHADE};`; if(yrEdge(k)) st+="border-left:2px solid var(--muted2);"; return st; };
+  const cell=(row,o,k)=>{
+    let v="", tip="";
+    const why=(o.why||{})[row.k];
+    if(row.r==="yoy"){ const p=prevOf(o); v=p?chg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="qoq"){ v=o.yr?"":chg(o[row.k],(Q[c2QAdd(o.q,-1)]||{})[row.k]); }
+    else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o[row.k],p[row.k]):"—"; }
+    else if(row.r==="opm"){ v=o.opm==null?"—":fmt(o.opm*100,1)+"%"; }
+    else if(row.m==="hdr"){ v=""; }
+    else if(row.m==="n"){ v=o.n==null?"—":fmt(o.n,o.act?0:1); if(o.act&&!o.yr) tip=`DART 원문 '${o.q.slice(-1)}분기 평균 ${fmt(o.n,0)}만의 구독수'`; else if(why) tip=why; if(o.yr&&o.n!=null) tip="네 분기 평균"; }
+    else if(row.m==="dovs"){ v=o.yr||o.dom==null?"":`${fmt(o.dom,1)} / ${fmt(o.ovs,1)}`; }
+    else if(row.m==="ovp"){ v=o.yr||o.ovp==null?"":fmt(o.ovp,o.act?0:1); if(o.act&&!o.yr) tip="DART 원문 '해외 이용 비중'(분기말 · 정수 %)"; }
+    else if(row.m==="won"){ v=o.yr||o[row.k]==null?"":fmt0(o[row.k]); }
+    else if(row.m==="usd"){ v=o.yr||o[row.k]==null?"":"$"+fmt(o[row.k],2); }
+    else if(row.m==="fx"){ v=o.yr||o.fxq==null?"":fmt0(o.fxq); if(!o.yr){ const F=((DYMODEL.fx||{}).USD||{})[o.q], nn=((DYMODEL.fx||{}).USD_n||{})[o.q];
+        tip=o.act?"네이버 원/달러 일별의 분기 평균":F!=null&&o.q===c2QOf(TODAY)?`관측 ${nn}일 평균 ${fmt0(F)} + 남은 날은 가정 ${fmt0(P.fx)}`:F!=null?`실측 분기 평균 ${fmt0(F)}`:`가정 ${fmt0(P.fx)}(기본 = 오늘 환율)`; } }
+    else if(row.m==="qq"){ v=o.yr||o.qqSub==null?"":fmt(o.qqSub,1);
+      if(!o.yr&&o.qqSub!=null) tip=`로열티 ${fmt(o.qq,2)}${DY_QQ_N[o.q]?" ÷ 2분기":""} ÷ (${P.qqP}위안 × 3개월 × ${P.qqR}% × 원/위안 ${fmt(o.cnyq,1)}) — 단가·로열티율은 가정(메모 28위안·10%, 증권사 '총매출의 8~10%')`; }
+    else if(row.m==="cty"){ const c=ir(o).cty; v=c&&o.n!=null?`${fmt(o.n*c.cn/100,0)}만 (${c.cn}%)`:""; if(c) tip=`IR 국가별 구독 비중: 한국 ${c.kr} · 중국 ${c.cn} · 일본 ${c.jp} · 미국 ${c.us} · 동남아 ${c.sea} · 유럽 ${c.eu} · 기타 ${c.etc}% (삼성증권 5/14 인용)`; }
+    else if(row.m==="bfj"){ const x=ir(o).bfj; v=x!=null?fmt(x,1):""; }
+    else if(row.m==="qqC"){ const x=ir(o); v=x.qqC!=null?`${x.qqC}명${x.qqK!=null?` <span class="g" style="font-size:10.5px">(K ${x.qqK})</span>`:""}`:""; }
+    else if(row.m==="gross"){ const x=ir(o).gross; v=x!=null?`${fmt(x,1)} / ${fmt(o.rev/x*100,0)}%`:""; if(x!=null) tip="IR 총매출(결제액) — 매출 비중 = 영업수익 ÷ 결제액. 나머지가 소속사 몫(순액으로 빠진다)"; }
+    else if(row.m==="fr"){ v=o.fr==null?"—":fmt(o.fr,1)+"%"; if(!o.act&&why) tip=(o.why||{}).fee; }
+    else if(row.m==="pg"){ v=o.yr||o.pg==null?"":fmt(o.pg,o.act?0:1)+"%"; tip=o.act?"IR — PG(웹·카카오 선물하기) 결제 비중(키움·iM 인용)":o.yr?"":`지금 ${P.pg0}% → 4Q27 ${P.pgT}% 직선`; }
+    else if(row.m==="per"){ v=(o.yr&&mcap)?(o.npp>0?`<b>${fmt(mcap/o.npp,1)}</b>`:`<span class="down">적자</span>`):"";
+      if(o.yr&&mcap&&o.npp>0) tip=`${lab(o)} 현재 시총 ${fmt0(mcap*10)}억 ÷ 지배주주 순이익 ${fmt(o.npp*10,0)}억`; }
+    else { const x=o[row.k]; v=(row.k==="us"&&!x)?"—":(row.k==="jp"||row.k==="cn"||row.k==="od")?f2(x):f1(x); tip=actTip(o,row.k)||why||""; }
+    let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
+      +(row.r?"font-size:11px;color:var(--muted);":"")+(row.sm||row.m==="fr"||row.m==="pg"||row.m==="fx"?"font-size:11.5px;color:var(--muted);":"")
+      +(row.z?"color:var(--accent);font-weight:700;":"")+(row.m==="per"?"font-weight:700;":"");
+    if(row.hl) st+=`background:${k===nextQ?"color-mix(in srgb, var(--accent) 24%, transparent)":"color-mix(in srgb, var(--accent) 7%, transparent)"};`;
+    return `<td style="${st}"${tip?` title="${attr(tip)}"`:""}>${v}</td>`;
+  };
+  const rowHtml=row=>{
+    if(row.g&&!OPEN[row.g]) return "";
+    const lst="text-align:left;white-space:nowrap;padding:6px 10px;position:sticky;left:0;z-index:1;"
+      +`background:${row.hl?"color-mix(in srgb, var(--accent) 7%, var(--panel))":"var(--panel)"};`
+      +`padding-left:${22+(row.i||0)*14+(row.r?14:0)}px;`+(row.r?"font-size:11px;color:var(--muted);":"")
+      +(row.m==="hdr"?"font-weight:700;color:var(--muted);font-size:11.5px;":"")+(row.sm||row.m==="fr"||row.m==="pg"?"font-size:11.5px;color:var(--muted);":"")
+      +(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")+(row.z?"color:var(--accent);font-weight:700;":"")+(row.tg?"cursor:pointer;":"");
+    const tr=(row.em?`border-top:${EM};border-bottom:${EM};`:"")+(row.top===2?"border-top:2px solid var(--line);":row.top?"border-top:1px solid var(--line);":"");
+    const caret=row.tg?`<span style="display:inline-block;width:15px;margin-left:-15px;color:var(--accent);font-size:12px;line-height:1">${OPEN[row.tg]?"▾":"▸"}</span>`:"";
+    const lbl=row.m==="per"?`PER (배) <span style="font-size:10.5px;font-weight:600;color:var(--muted2);margin-left:4px">현재 시총 ${mcap?fmt0(mcap*10)+"억":"— (시세 수집 전)"}</span>`:row.t;
+    return `<tr style="${tr}"${row.tg?` data-dytg="${row.tg}" title="눌러서 ${OPEN[row.tg]?"접기":"세부 펼치기"}"`:""}><td style="${lst}">${caret}${lbl}</td>${cols.map((o,k)=>cell(row,o,k)).join("")}</tr>`; };
+  const cmp=(t,f,rs)=>`<tr style="${rs||""}"><td style="text-align:left;white-space:nowrap;padding:6px 10px 6px 22px;position:sticky;left:0;background:var(--panel);font-size:11px;color:var(--muted)">${t}</td>`
+    +cols.map((o,k)=>`<td style="${thS(o,k)}font-size:11px;color:var(--muted)">${f(o)}</td>`).join("")+`</tr>`;
+  const allOpen=TGS.every(k=>OPEN[k]);
+  const yrs=[]; qCols.forEach(q=>{ const y=q.slice(0,4); if(!yrs.length||yrs[yrs.length-1].y!==y) yrs.push({y,n:0}); yrs[yrs.length-1].n++; });
+  const hd="position:sticky;left:0;background:var(--panel2);z-index:3;text-align:left;padding:6px 10px 6px 22px;cursor:default";
+  const h1="text-align:center;padding:6px 9px 2px;font-size:11.5px;color:var(--text);cursor:default;border-bottom:1px solid var(--line-soft);";
+  const head1=`<tr><th style="${hd};border-bottom:none"></th>${yrs.map((g,j)=>`<th colspan="${g.n}" style="${h1}${j?"border-left:2px solid var(--muted2);":""}">${g.y}</th>`).join("")}<th colspan="3" style="${h1}border-left:2px solid var(--muted2)">연간</th></tr>`;
+  const head2=`<tr><th style="${hd}">(십억원)</th>${cols.map((o,k)=>`<th style="${thS(o,k)}cursor:default;font-size:12px;padding-top:4px;${k===nextQ?"background:color-mix(in srgb, var(--accent) 24%, var(--panel2));color:var(--text);":""}">${lab(o)}</th>`).join("")}</tr>`;
+  const hasCons=cols.some(o=>cons[o.q]);
+  const tbl=`<div class="sub-h" style="margin:16px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결 · 칸에 마우스를 올리면 계산식</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+      <button class="theme-btn" id="dyOpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
+      <button class="theme-btn" id="dyShow25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+    <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
+    <thead>${head1}${head2}</thead>
+    <tbody>${ROWS.map(rowHtml).join("")}
+    ${hasCons?cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[o.q]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")
+      +cmp("모델 ÷ 컨센 − 1 (매출 / 영업이익)",o=>{ const c=cons[o.q]; return c?`${pct(o.rev/c.rev-1,0)} / ${c.op>0?pct(o.op/c.op-1,0):"—"}`:""; }):""}
+    </tbody></table></div>
+    <p class="note" style="margin-top:6px"><b style="color:var(--accent)">▸</b> 줄을 누르면 세부가 펼쳐집니다(매출 → 국내·해외·로열티 · 구독·ARPU · 영업비용 → 항목별 · 영업외 → 세전·세금).
+      <span style="background:${SHADE};padding:0 5px;border-radius:3px">음영 칸</span>이 다음 발표 분기(${nextQ>=0?c2QLab(cols[nextQ].q):"—"}), E 는 추정입니다.
+      실적 칸은 <b>전부 DART</b>(${attr(DYMODEL.asOf||"")} 수집) — 연결 손익 · '매출 실적' 표(버블 수출/내수·기타) · 구독수·해외 비중(사업의 내용 문장) · 일본 JV(특수관계자 거래) · 비용 항목(주석 '영업비용', 3개월).
+      '참고' 줄은 회사 IR 지표(증권사 리포트 인용 · 수기)라 실적 계산엔 안 쓴다. PER = 현재 시가총액 ÷ 그 해 지배주주 순이익.</p>`;
+
+  // ── 구독 차트 ─────────────────────────────────────────────────────
+  const CH=dyChart(B);
+  const chartBox=`<div class="sub-h" style="margin:18px 0 8px">버블 구독수 · 해외 ARPU <span class="th-sub" style="display:inline;margin-left:6px">막대 = 분기 평균 구독수(진한 = 실적, 옅은 = 가정) · 선 = 해외 구독 1건이 분기에 내는 달러 매출</span></div>
+    <div class="chart-box" id="dyChartBox" style="padding:12px 14px">${CH.svg}</div>`;
+
+  // ── 가정 패널 ────────────────────────────────────────────────────
+  const au=P._auto, isAuto=k=>A[k]==null&&au[k]!=null;
+  const inp=(k,label,unit,step,w)=>`<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">${label}
+      <input data-dy="${k}" type="number" value="${P[k]}" step="${step||0.1}" class="theme-btn" style="width:${w||66}px;padding:4px 7px;font-weight:700;font-size:12.5px">${unit||""}${isAuto(k)?`<span style="font-size:10px;color:var(--accent);font-weight:800">자동</span>`:""}</label>`;
+  const grp=(t,body)=>`<div style="flex:1;min-width:260px;border:1px solid var(--line-soft);border-radius:12px;padding:10px 12px">
+    <div style="font-size:12px;font-weight:800;margin-bottom:7px">${t}</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px">${body}</div></div>`;
+  const scnKeys=["gD26","gO26","gD27","gO27","gC26","gC27","pgT"];
+  const scn=Object.keys(DY_SCN).find(k=>scnKeys.every(x=>(DY_SCN[k][x]==null?A[x]==null:A[x]===DY_SCN[k][x])));
+  const asm=`<details class="fold" data-fold="dyasm"${(()=>{ try{ return localStorage.getItem("fold_dyasm")==="1"?" open":""; }catch(e){ return ""; } })()}>
+    <summary>가정 바꾸기 <span class="sub">구독수 · ARPU · 환율 · QQ뮤직 · PG 전환 · 비용 — 바꾸면 표가 바로 다시 계산됩니다(브라우저에 기억)</span></summary>
+    <div class="fold-b">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <b style="font-size:12.5px">시나리오</b>
+      ${Object.keys(DY_SCN).map(k=>`<button class="theme-btn${scn===k?" active":""}" data-dyscn="${k}" style="padding:3px 10px;font-size:12px${scn===k?";background:var(--accent);color:var(--onacc);border-color:var(--accent)":""}">${k}</button>`).join("")}
+      <span style="font-size:11px;color:var(--muted2)">구독수 증감 · QQ 구독 증가 · 4Q27 PG 전환율만 바꿉니다. 기준 = 2H26 은 직전 분기 실측 증감을 잇고 2027 은 보합, QQ +15%/분기.</span></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${grp("구독수 (분기 증감)", inp("gD26","국내 26하반기","%/분기",0.5)+inp("gO26","해외 26하반기","%/분기",0.5)+inp("gD27","국내 2027","%/분기",0.5)+inp("gO27","해외 2027","%/분기",0.5))}
+      ${grp("ARPU · 환율", inp("aD","국내 ARPU","원/분기",50,74)+inp("aO","해외 ARPU","$/분기",0.05)+inp("fx","원/달러(앞으로)","원",5,72)+inp("fxB","환율 연동","%",10)+inp("cny","원/위안(앞으로)","원",0.5))}
+      ${grp("중국 QQ뮤직 · 일본 JV", inp("qqP","QQ 월 단가","위안",1)+inp("qqR","로열티율","%",1)+inp("gC26","QQ 구독 26하반기","%/분기",1)+inp("gC27","QQ 구독 2027","%/분기",1)
+        +inp("lic0","그 밖 라이선스","십억/분기",0.01)+inp("gJ","일본 JV","%/분기",1)+inp("od","국내 라이선스","십억/분기",0.01))}
+      ${grp("지급수수료 · PG 전환", inp("fr0","기준 지급수수료율","%",0.5)+inp("pg0","PG 전환율 지금","%",1)+inp("pgT","4Q27 PG 전환율","%",1)+inp("pgK","PG 1%p당 수수료율","−%p",0.05))}
+      ${grp("고정비 · 영업외", inp("lab","인건비 분기","십억",0.1)+inp("gLab","인건비 증가","%/년",1)+inp("dep","상각비 분기","십억",0.1)+inp("oth","기타 분기","십억",0.1)
+        +inp("us","미국 신사업 추가비","십억/분기",0.5)+inp("nonop","영업외 분기","십억",0.5)+inp("tax","세율","%",1)+inp("share","지배주주 몫","%",1))}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="dyReset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
+      <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(DART)에서 계산 — 구독 증감 = ${au._s2.map(c2QLab).join("→")}, ARPU = ${au._s2.map(c2QLab).join("·")} 평균,
+      환율 = 오늘(시세 수집), 지급수수료율·인건비·상각 = ${c2QLab(B.lastAct)}, 기타 = 최근 2분기 평균, 국내 라이선스 = 최근 4분기 평균, 영업외 = ${au._L6.map(c2QLab).join("·")} 중앙값,
+      그 밖 라이선스 = QQ 전 2025 1~3Q 의 (기타 수출 − 일본 JV) 평균, PG 전환율 = IR ${au._pg?c2QLab(au._pg):""}. 입력하면 그 값으로 고정.</span></div>
+    </div></details>`;
+
+  box.innerHTML=head+tbl+chartBox+asm+dyRankBox();
+  const cb=document.getElementById("dyChartBox");
+  if(cb) attachChartTip(cb,{W:CH.W,H:CH.H,pad:CH.pad,n:CH.qs.length,xOf:CH.sx, xLab:i=>c2QLab(CH.qs[i])+(Q[CH.qs[i]].act?"":"E"),
+    pts:i=>{ const o=Q[CH.qs[i]]; return [{y:CH.sy(o.n),c:"var(--accent)"},{y:CH.sy(o.dom),c:"#6fa8dc"},o.aOu!=null?{y:CH.sa(o.aOu),c:"var(--text)"}:null]; },
+    html:i=>{ const o=Q[CH.qs[i]];
+      return `<b>${c2QLab(o.q)}${o.act?" 실적":"E"}</b><br>구독 ${fmt(o.n,o.act?0:1)}만 = 국내 ${fmt(o.dom,1)} + 해외 ${fmt(o.ovs,1)}<br>ARPU 국내 ${fmt0(o.aD)}원 · 해외 ${fmt0(o.aO)}원($${fmt(o.aOu,2)})<br>원/달러 ${fmt0(o.fxq)}`; }});
+  const q3a=Q["2026Q3"], q2a=Q["2026Q2"];
+  document.getElementById("dyNote").innerHTML=
+    `<b>읽는 법</b>: 매출의 97% 가 버블 구독이다 — <b>구독수 × ARPU</b>. DART 가 국내/해외 매출과 분기 평균 구독수·해외 비중을 다 주므로 ARPU 가 실적에서 바로 나온다
+     (${c2QLab(lq.q)} 국내 ${fmt0(lq.aD)}원 · 해외 ${fmt0(lq.aO)}원/분기 — 메모의 '국내 8,000원'은 이 분기 ARPU 와 같다).
+     해외 ARPU 는 달러로 되돌리면 가격 인상(2025-07) 뒤 $${f2((Q["2025Q4"]||{}).aOu)} → $${f2((Q["2026Q1"]||{}).aOu)} → $${f2((Q["2026Q2"]||{}).aOu)}로 평평하다 — 원화 매출을 움직인 건 환율이다.
+     그래서 앞으로의 해외 매출은 <b>달러 ARPU × 원/달러</b>로 센다: ${c2QLab("2026Q3")} 평균 ${fmt0(q3a.fxq)}원은 ${c2QLab("2026Q2")} ${fmt0(q2a.fxq)}원보다 ${pct(q3a.fxq/q2a.fxq-1)} —
+     구독수가 그대로여도 해외 버블 매출이 그만큼 준다(가정 칸 '환율 연동' ${P.fxB}%).
+     검증(2026-10-20): 분기 수준으로는 달러 ARPU 의 흔들림(1Q24~2Q25 2.1% · 4Q25~2Q26 2.2%)이 원화(3.5% · 3.3%)보다 작아 달러 연동이 맞아 보이지만,
+     분기 변화율끼리 회귀하면(가격 인상 분기 빼고 7점) 연동이 0.25 로 약하다 — 해외 비중이 정수 %라 분기마다 ±1.4% 잡음이 섞인다. 판단이 갈리는 값이라 칸으로 열어 둔다.
+     <br>중국은 두 갈래다 — ① 버블 앱을 직접 쓰는 중국 팬(전체 구독의 31% · 1Q26 IR, '해외' 줄 안) ② QQ뮤직 안의 버블(TME 가 팔고 디어유는 로열티만 '기타'로 받는다).
+     ②의 유료 구독자는 TME 가 밝히지 않는다 — 로열티 ÷ (월 ${P.qqP}위안 × 3 × ${P.qqR}% × 원/위안)으로 역산하면 ${c2QLab(lq.q)} <b>${f1(lq.qqSub)}만</b>.
+     메모의 '4Q 70만 명'과 차이가 크다 — 단가·로열티율 가정이 다르거나(로열티가 결제액이 아니라 TME 순매출 기준이면 더 많다) 실제가 적은 것. 3Q26 실적의 기타 매출로 다시 볼 것.
+     <br>⚠ 4Q25 로열티는 3Q+4Q 두 분기치가 같이 잡혔고 2026 부터는 그 분기에 바로 잡힌다(메모의 '한 분기 이연'은 없어졌다).
+     ⚠ 해외 비중은 정수 %라 국내/해외 구독수가 ±1%p 흔들린다. ⚠ PG 전환 효과(1%p 당 −${P.pgK}%p)는 앱마켓 수수료 약 24%·PG 약 3%·매출/결제액 약 70% 에서 낸 어림값이다.
+     <br><b>출처</b>: DART 분기·반기·사업보고서 · 네이버 환율 일별 · 애플 앱스토어·구글 플레이 '소셜 네트워킹' 매출 100(매일) · '참고' 줄 = 회사 IR(키움 5/11 · 삼성 5/14 · DS·iM 8/5 리포트 인용).`;
+}
+function dyBind(){
+  const sec=document.getElementById("dySec"); if(!sec||sec.dataset.bound) return; sec.dataset.bound="1";
+  sec.addEventListener("change",e=>{ const i=e.target.closest("[data-dy]"); if(!i) return;
+    const v=parseFloat(i.value), A=dyAsmGet(), k=i.dataset.dy;
+    A[k]=isFinite(v)?v:null; dyAsmSave(); renderDyModel(); });
+  sec.addEventListener("click",e=>{
+    const s=e.target.closest("[data-dyscn]");
+    if(s){ const A=dyAsmGet(), S=DY_SCN[s.dataset.dyscn]; Object.keys(S).forEach(k=>A[k]=S[k]); dyAsmSave(); renderDyModel(); return; }
+    if(e.target.closest("#dyReset")){ dyAsm={...DY_ASM0, show25:dyAsmGet().show25}; dyAsmSave(); renderDyModel(); return; }
+    if(e.target.closest("#dyShow25")){ const A=dyAsmGet(); A.show25=A.show25?0:1; dyAsmSave(); renderDyModel(); return; }
+    const tg=e.target.closest("[data-dytg]");
+    if(tg){ const O=dyOpenGet(), k=tg.dataset.dytg; O[k]=O[k]?0:1; dyOpenSave(); renderDyModel(); return; }
+    if(e.target.closest("#dyOpenAll")){ const O=dyOpenGet(), ks=[...new Set([...document.querySelectorAll("#dyBox [data-dytg]")].map(x=>x.dataset.dytg))],
+      all=ks.every(k=>O[k]); ks.forEach(k=>O[k]=all?0:1); dyOpenSave(); renderDyModel(); }
+  });
+}
+
 /* ══════════ 지금 화제 (BUZZ) ═══════════════════════════════════════════════
    트렌드 탭의 나머지는 전부 '종목 → 주제' 다 — 우리가 이미 보기로 정한 것만 보인다.
    여기만 반대다: 한국 인터넷 전체에서 지금 뜨는 것을 먼저 늘어놓고, 그 중 커버리지가
@@ -8220,6 +8683,7 @@ renderBuzz(); renderTrendSegs(); renderShop(); renderTrendHighlights(); renderGa
 ["box","asp","attach","pre","alpha","fx"].forEach(id=>{
   const el=document.getElementById("ge_"+id); if(el) el.addEventListener("input",renderGameEst); });
 kgBind();          // 카카오게임즈 손익 모델 — 가정 입력·시나리오
+dyBind();          // 디어유 손익 모델 — 가정 입력·시나리오
 c2Bind();          // 컴투스 손익 모델 — 가정 입력·시나리오·2025 펼치기(위임, change 이벤트)
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
@@ -8800,7 +9264,7 @@ function gotoTrend(name){
   if(!topicsOf(name).length) return;
   trendStock=name; trendGroup=topicsOf(name)[0]||"";
   const tb=document.querySelector('nav.tabs button[data-k="trends"]'); if(tb) tb.click();
-  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderMovie(); renderOliveYoung(); renderJobs();
+  renderTrendSegs(); drawTrend(); renderShop(); renderGameEst(); renderC2Model(); renderKgModel(); renderDyModel(); renderMovie(); renderOliveYoung(); renderJobs();
   closeDrawer();
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -9033,7 +9497,7 @@ document.addEventListener("click",e=>{ const b=e.target.closest("#uniSeg [data-u
   uniFilter=b.dataset.uf; try{ localStorage.setItem("uniFilter",uniFilter); }catch(_){} renderUniBoard(); });
 
 /* ── 종목 페이지 ───────────────────────────────────────────────── */
-const SP_MODEL={"컴투스":"c2Sec","카카오게임즈":"kgSec","대원미디어":"dwSec","펄어비스":"geSec"};
+const SP_MODEL={"컴투스":"c2Sec","카카오게임즈":"kgSec","대원미디어":"dwSec","펄어비스":"geSec","디어유":"dySec"};
 const SP_DEEP={"대원미디어":[["boxoffice","🎬 영화 흥행 탭"]],"탑코미디어":[["toptoon","💬 탑툰챗 탭"]],
   "에이피알":[["amazon","🛒 아마존 Top100"]],"달바글로벌":[["amazon","🛒 아마존 Top100"]],"아모레퍼시픽":[["amazon","🛒 아마존 Top100"]],
   "LG생활건강":[["amazon","🛒 아마존 Top100"]],"TS트릴리온":[["amazon","🛒 아마존 Top100"]],"아로마티카":[["amazon","🛒 아마존 Top100"]]};
@@ -9045,7 +9509,9 @@ function spBorrow(id, host){
   return el;
 }
 function spReturnAll(){ Object.keys(spHome).forEach(id=>{ const el=document.getElementById(id), ph=spHome[id];
-  if(el&&ph.parentNode&&el.previousSibling!==ph) ph.parentNode.insertBefore(el, ph.nextSibling); }); }
+  if(el&&ph.parentNode&&el.previousSibling!==ph) ph.parentNode.insertBefore(el, ph.nextSibling);
+  // 디어유는 종목 페이지에서 trendStock 을 바꾸지 않는다(트렌드 주제가 아직 없을 수 있어서) — 집(트렌드 탭)에 돌아가면 다른 종목일 때 숨긴다
+  if(id==="dySec"&&el&&!(typeof DYMODEL!=="undefined"&&trendStock===DYMODEL.stock)) el.style.display="none"; }); }
 let spTab="is", spFrom="overview";
 try{ spTab=localStorage.getItem("spTab")||"is"; }catch(e){}
 function openStockPage(name){ if(!byName[name]) return;
@@ -9152,7 +9618,7 @@ function renderStockTab(name){
         if(mid==="c2Sec"||mid==="kgSec"||mid==="geSec"){ trendStock=name; trendGroup=topicsOf(name)[0]||trendGroup; }
         // 대원미디어 손익은 영화 흥행 모델(boxM)을 쓴다 — 영화 탭을 아직 안 열었으면 한 번 계산해 둔다(그 탭이 다시 그린다)
         if(mid==="dwSec"&&!boxM&&typeof renderBoxTab==="function"){ try{ renderBoxTab(); }catch(err){ console.error("흥행 모델", err); } }
-        try{ if(mid==="c2Sec") renderC2Model(); else if(mid==="kgSec") renderKgModel(); else if(mid==="geSec") renderGameEst(); else renderDwModel(); }
+        try{ if(mid==="c2Sec") renderC2Model(); else if(mid==="kgSec") renderKgModel(); else if(mid==="dySec") renderDyModel(); else if(mid==="geSec") renderGameEst(); else renderDwModel(); }
         catch(err){ console.error("종목 페이지 모델", err); }
         el.style.display="";
       }

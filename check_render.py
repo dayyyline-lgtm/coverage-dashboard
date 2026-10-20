@@ -42,7 +42,7 @@ from urllib.parse import quote
 
 ROOT = "public"
 # 종목 페이지 점검 대상 — 분기 모델 섹션을 빌려 오는 종목(컴투스·대원미디어·카카오게임즈)과 아마존 바로가기가 붙는 화장품 하나
-STOCKS = ["컴투스", "대원미디어", "카카오게임즈", "에이피알"]
+STOCKS = ["컴투스", "대원미디어", "카카오게임즈", "에이피알", "디어유"]
 TABS = ["overview", "coverage", "valuation", "preview", "calendar", "news",
         "reports", "trends", "toptoon", "boxoffice", "altdata", "amazon"]   # 2026-09-26 boxoffice 되살림(영화 흥행)
 
