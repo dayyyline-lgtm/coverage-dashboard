@@ -233,6 +233,15 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python runstep.py "디어유 모델" fetch_dymodel.py
 
+      # K뷰티 채널 모델 — ECB 월평균 환율(원/USD·GBP·EUR·JPY·CAD) → KBCH 블록 다시 넣기.
+      # Keepa·FastMoss 판매 데이터는 크롬 세션이 주 1회 넣는다(kbeauty/RUNBOOK.md) — 여기는 환율만.
+      - name: K뷰티 채널 모델 환율
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          python runstep.py "K뷰티 환율" kbeauty/fx.py
+          python kbeauty/ingest.py --inject || true
+
       # 수출입(관세청) — 10~26일에 매일 확인, fetch_trade 가 새 월/현행화 있을 때만 파일 변경.
       # 9/15~9/23 은 30분 컷에 잘려 한 번도 못 돌았다 — 그래서 앞으로 당겼다.
       - name: 월간 수출 갱신 (10~26일)
@@ -286,7 +295,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
-          git add public/index.html spotify_debug.json archive health.json watchdog_state.json 2>/dev/null || true
+          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else

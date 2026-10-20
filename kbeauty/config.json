@@ -1,0 +1,528 @@
+{
+ "v": 1,
+ "note": "K뷰티 채널 모델 설정 (2026-10-20). 회사 → 브랜드 → Keepa 브랜드 문자열(나라별 Product Finder) · FastMoss 샵. 브랜드 키(k)는 바꾸지 말 것 — 데이터 파일이 이 키로 쌓인다. 새 브랜드는 맨 뒤에.",
+ "domains": {
+  "1": [
+   "US",
+   "USD",
+   "미국"
+  ],
+  "2": [
+   "UK",
+   "GBP",
+   "영국"
+  ],
+  "3": [
+   "DE",
+   "EUR",
+   "독일"
+  ],
+  "4": [
+   "FR",
+   "EUR",
+   "프랑스"
+  ],
+  "5": [
+   "JP",
+   "JPY",
+   "일본"
+  ],
+  "6": [
+   "CA",
+   "CAD",
+   "캐나다"
+  ],
+  "8": [
+   "IT",
+   "EUR",
+   "이탈리아"
+  ],
+  "9": [
+   "ES",
+   "EUR",
+   "스페인"
+  ]
+ },
+ "all": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  8,
+  9
+ ],
+ "few": [
+  1,
+  2,
+  5
+ ],
+ "companies": {
+  "에이피알": {
+   "type": "brand",
+   "region": {
+    "북미": [
+     "US",
+     "CA",
+     "TT:US"
+    ],
+    "유럽": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES",
+     "TT:GB",
+     "TT:ES",
+     "TT:DE",
+     "TT:FR",
+     "TT:IT"
+    ],
+    "아시아": [
+     "JP",
+     "TT:JP",
+     "TT:ID",
+     "TT:MY",
+     "TT:TH",
+     "TT:VN",
+     "TT:PH",
+     "TT:SG"
+    ]
+   }
+  },
+  "달바글로벌": {
+   "type": "brand",
+   "region": {
+    "북미": [
+     "US",
+     "CA",
+     "TT:US"
+    ],
+    "유럽": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES",
+     "TT:GB"
+    ],
+    "일본": [
+     "JP",
+     "TT:JP"
+    ]
+   }
+  },
+  "에이블씨엔씨": {
+   "type": "brand",
+   "region": {
+    "미국 법인": [
+     "US",
+     "TT:US"
+    ],
+    "일본": [
+     "JP"
+    ],
+    "유럽": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES"
+    ]
+   }
+  },
+  "아모레퍼시픽": {
+   "type": "brand",
+   "region": {
+    "미주": [
+     "US",
+     "CA",
+     "TT:US"
+    ],
+    "EMEA": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES",
+     "TT:GB"
+    ],
+    "기타아시아": [
+     "JP"
+    ]
+   }
+  },
+  "LG생활건강": {
+   "type": "brand",
+   "region": {
+    "북미": [
+     "US",
+     "CA",
+     "TT:US"
+    ],
+    "일본": [
+     "JP"
+    ],
+    "유럽": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES"
+    ]
+   }
+  },
+  "아로마티카": {
+   "type": "brand",
+   "region": {
+    "미국": [
+     "US",
+     "TT:US"
+    ]
+   }
+  },
+  "TS트릴리온": {
+   "type": "brand",
+   "region": {
+    "미국": [
+     "US"
+    ]
+   }
+  },
+  "파마리서치": {
+   "type": "brand",
+   "region": {
+    "해외 화장품": [
+     "US",
+     "UK",
+     "JP",
+     "TT:US"
+    ]
+   }
+  },
+  "제닉": {
+   "type": "supplier",
+   "note": "최대 고객사 뷰티셀렉션(바이오던스) 마스크 — 사용자와 확인(2026-10-20 대화 · ImportYeti B/L)",
+   "region": {
+    "고객사 바이오던스": [
+     "US",
+     "UK",
+     "DE",
+     "FR",
+     "JP",
+     "TT:US"
+    ]
+   }
+  }
+ },
+ "brands": [
+  {
+   "k": "medicube",
+   "co": "에이피알",
+   "ko": "메디큐브",
+   "kp": [
+    "medicube"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "aprilskin",
+   "co": "에이피알",
+   "ko": "에이프릴스킨",
+   "kp": [
+    "aprilskin"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "forment",
+   "co": "에이피알",
+   "ko": "포맨트",
+   "kp": [
+    "forment"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "dalba",
+   "co": "달바글로벌",
+   "ko": "달바",
+   "kp": [
+    "d'alba piedmont",
+    "d'alba"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "missha",
+   "co": "에이블씨엔씨",
+   "ko": "미샤",
+   "kp": [
+    "missha"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "apieu",
+   "co": "에이블씨엔씨",
+   "ko": "어퓨",
+   "kp": [
+    "a'pieu"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "cosrx",
+   "co": "아모레퍼시픽",
+   "ko": "코스알엑스",
+   "kp": [
+    "cosrx"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "laneige",
+   "co": "아모레퍼시픽",
+   "ko": "라네즈",
+   "kp": [
+    "laneige"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "sulwhasoo",
+   "co": "아모레퍼시픽",
+   "ko": "설화수",
+   "kp": [
+    "sulwhasoo"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "illiyoon",
+   "co": "아모레퍼시픽",
+   "ko": "일리윤",
+   "kp": [
+    "illiyoon"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "aestura",
+   "co": "아모레퍼시픽",
+   "ko": "에스트라",
+   "kp": [
+    "aestura"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "mamonde",
+   "co": "아모레퍼시픽",
+   "ko": "마몽드",
+   "kp": [
+    "mamonde"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "hanyul",
+   "co": "아모레퍼시픽",
+   "ko": "한율",
+   "kp": [
+    "hanyul"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "mise",
+   "co": "아모레퍼시픽",
+   "ko": "미쟝센",
+   "kp": [
+    "mise en scene"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "iope",
+   "co": "아모레퍼시픽",
+   "ko": "아이오페",
+   "kp": [
+    "iope"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "belif",
+   "co": "LG생활건강",
+   "ko": "빌리프",
+   "kp": [
+    "belif"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "tfs",
+   "co": "LG생활건강",
+   "ko": "더페이스샵",
+   "kp": [
+    "the face shop"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "cnp",
+   "co": "LG생활건강",
+   "ko": "CNP",
+   "kp": [
+    "cnp",
+    "cnp laboratory"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "vdl",
+   "co": "LG생활건강",
+   "ko": "VDL",
+   "kp": [
+    "vdl"
+   ],
+   "d": "few",
+   "tf": "primer|cushion|foundation|lip|makeup|cosmetic|skin|serum|cream|tone|beauty|concealer|powder|palette|mask|clean|blush|shadow|liner|setting|fixer|base|sun",
+   "note": "미국 아마존의 VDL 은 전기자전거 브랜드가 섞인다(10/20 실측 상위 2개가 자전거) — 제목 조건(tf)으로 거른다"
+  },
+  {
+   "k": "hince",
+   "co": "LG생활건강",
+   "ko": "힌스",
+   "kp": [
+    "hince"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "ohui",
+   "co": "LG생활건강",
+   "ko": "오휘",
+   "kp": [
+    "o hui",
+    "ohui"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "whoo",
+   "co": "LG생활건강",
+   "ko": "후",
+   "kp": [
+    "whoo",
+    "the history of whoo"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "sum37",
+   "co": "LG생활건강",
+   "ko": "숨37",
+   "kp": [
+    "su:m37",
+    "sum37"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "cremeshop",
+   "co": "LG생활건강",
+   "ko": "더크렘샵",
+   "kp": [
+    "the creme shop",
+    "the crème shop"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "physiogel",
+   "co": "LG생활건강",
+   "ko": "피지오겔",
+   "kp": [
+    "physiogel"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "drgroot",
+   "co": "LG생활건강",
+   "ko": "닥터그루트",
+   "kp": [
+    "dr.groot",
+    "dr. groot"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "aromatica",
+   "co": "아로마티카",
+   "ko": "아로마티카",
+   "kp": [
+    "aromatica"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "ts",
+   "co": "TS트릴리온",
+   "ko": "TS샴푸",
+   "kp": [
+    "ts",
+    "ts shampoo"
+   ],
+   "tf": "shampoo|scalp|hair|treatment|GD",
+   "d": [
+    1
+   ]
+  },
+  {
+   "k": "rejuran",
+   "co": "파마리서치",
+   "ko": "리쥬란",
+   "kp": [
+    "rejuran"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "biodance",
+   "co": "제닉",
+   "ko": "바이오던스(고객사)",
+   "kp": [
+    "biodance"
+   ],
+   "d": "all"
+  }
+ ],
+ "tt": [
+  {
+   "s": "7495514739648989419",
+   "r": "US",
+   "k": "medicube",
+   "n": "medicube US Store",
+   "note": "APR US INC 운영 · 2024-05 개설"
+  },
+  {
+   "s": "7495893985193397130",
+   "r": "US",
+   "k": "medicube",
+   "n": "MEDICUBE USA",
+   "note": "APR US INC 운영 · 판매 미미"
+  },
+  {
+   "s": "7495350836452493777",
+   "r": "US",
+   "k": "missha",
+   "n": "missha.official",
+   "note": "Able C&C US 운영 · 2024-07 개설"
+  }
+ ],
+ "tt_note": "틱톡샵 샵 목록 — FastMoss seller_id. 새 샵은 FastMoss 스토어 검색(지역·브랜드)으로 찾아 '공식'(운영사가 회사 법인)만 넣는다. 리셀러·병행 샵은 넣지 않는다."
+}
