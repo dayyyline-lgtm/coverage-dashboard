@@ -12,6 +12,7 @@
   jp    일본 JV(Dear U plus · 관계기업) 영업수익 — 주석 '특수관계자 거래' 당기 누적. 새 양식(엔터티가 열인 표 · 2025 사업보고서~)만 읽는다.
   cost  영업비용 항목 — 주석 '영업비용'(연결) · 3개월 칸. 사업보고서는 연간이라 4Q = 연간 − 1~3Q
         fee 지급수수료(앱마켓 결제수수료 + PG + 서버 등 · 소속사 몫은 매출에서 순액으로 빠져 여기 없다) · lab 인건비 · dep 상각 · oth 기타(광고선전비 포함)
+  bs    마지막 보고서 연결 재무상태표 — 현금·단기금융상품·금융자산·차입금·리스부채(순현금 = 적정 시총의 재료)
   fx    분기 평균 환율(원/달러 · 원/위안) — 네이버 환율 일별(해외 ARPU 를 달러로 되돌리는 재료)
   rk    버블 앱 매출순위 — 애플 '소셜 네트워킹'(6005) 매출 100 · 구글 플레이 'SOCIAL' 매출 100, 나라별. 하루 1점(05시).
         Dear U 가 낸 앱(리슨·bubble with STARS·JYPnation·STARSHIP…)만 담는다. {"apps":[[id, 이름]], "d":{날짜:{"i_kr":"앱번호:순위,…"}}}
@@ -286,6 +287,40 @@ def japan(t):
     return None
 
 
+# 재무상태표(마지막 보고서 · 연결) — 순현금. 적정 시총 = 영업가치 + 순현금 으로 잡는 재료.
+BS_ACC = {
+    "cash": ("현금및현금성자산",),
+    "stf":  ("단기금융상품",),
+    "ofa":  ("기타유동금융자산",),
+    "fvpl": ("당기손익-공정가치금융자산", "당기손익-공정가치측정금융자산"),
+    "fvoci": ("기타포괄손익-공정가치 측정 비유동금융자산", "기타포괄손익-공정가치측정금융자산"),
+    "debt": ("단기차입금", "장기차입금", "유동성장기차입금", "사채"),
+    "lease": ("유동리스부채", "비유동리스부채"),
+    "eq":   ("지배기업의 소유지분", "지배기업 소유주지분"),
+}
+
+
+def balance(per):
+    """'2026-06' → {계정 묶음: 십억} (연결 BS 당기말). 없으면 None."""
+    y, mm = per.split("-")
+    rc = {"03": "11013", "06": "11012", "09": "11014", "12": "11011"}[mm]
+    rows = C2._fs(y, rc, "CFS", CORP)
+    if not rows:
+        return None
+    out = {}
+    for k, names in BS_ACC.items():
+        v = 0.0
+        for r in rows:
+            if r.get("sj_div") == "BS" and (r.get("account_nm") or "").strip() in names:
+                try:
+                    v += float((r.get("thstrm_amount") or "0").replace(",", "")) / 1e9
+                except ValueError:
+                    pass
+        out[k] = round(v, 2)
+    out["per"] = per
+    return out
+
+
 # ── 환율 · 앱 순위 ────────────────────────────────────────────────────────
 def fx_quarters():
     """분기 평균 {"USD": {"2026Q2": 1502.8}, "CNY": {...}} — 네이버 환율 일별(60개씩 페이지)."""
@@ -532,6 +567,14 @@ def main():
         if rv and abs(s - rv) > max(0.2, rv * 0.01):
             warn.append(f"{q} 매출 실적 합 {s:.1f} ≠ 연결 매출 {rv:.1f}")
 
+    bs = old.get("bs")
+    last_per = max(reps) if reps else None
+    if last_per and (not bs or bs.get("per") != last_per or src.get(last_per) != (old.get("src") or {}).get(last_per)):
+        try:
+            bs = balance(last_per) or bs
+        except Exception as e:
+            warn.append(f"재무상태표 {str(e)[:30]}")
+
     try:
         fx = fx_quarters()
     except Exception as e:
@@ -555,7 +598,7 @@ def main():
 
     out = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "stock": "디어유",
            "fin": fin, "seg": dict(sorted(seg.items())), "sub": dict(sorted(sub.items())), "jp": dict(sorted(jpq.items())),
-           "cost": dict(sorted(cost.items())), "fx": fx, "src": src, "raw": raw, "rk": rk}
+           "cost": dict(sorted(cost.items())), "fx": fx, "bs": bs, "src": src, "raw": raw, "rk": rk}
     for q in sorted(fin)[-10:]:
         print(f"  {q} 연결 {fin[q]} · 매출 {seg.get(q)} · 구독 {sub.get(q)} · 일본 {jpq.get(q)} · 비용 {cost.get(q)}")
     for k, v in got.items():
@@ -565,7 +608,7 @@ def main():
         print("  경고: " + " · ".join(warn))
     if "--dry-run" in sys.argv:
         return
-    if old and all(old.get(k) == out.get(k) for k in ("fin", "seg", "sub", "jp", "cost", "fx", "rk")):
+    if old and all(old.get(k) == out.get(k) for k in ("fin", "seg", "sub", "jp", "cost", "fx", "bs", "rk")):
         print("변동 없음 — index.html 그대로 둠")
         return
     open(HTML, "w", encoding="utf-8", newline="").write(C2._put(html, "DYMODEL", out))

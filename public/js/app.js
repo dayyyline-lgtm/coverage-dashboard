@@ -7951,7 +7951,7 @@ const DY_ASM0={gD26:null, gO26:null, gD27:0, gO27:0,          // 구독수 분�
   gJ:5, od:null,                                                // 일본 JV 분기 증가 % · 국내 라이선스 등(분기)
   pg0:null, pgT:23, pgK:0.3, fr0:null,                          // PG 전환율(지금 · 4Q27) · PG 1%p 당 지급수수료율 −%p · 기준 지급수수료율
   lab:null, gLab:10, dep:null, oth:null, us:0,                  // 인건비 · 연 증가 % · 상각 · 기타 · 미국 신사업 추가비(분기)
-  nonop:null, tax:22, share:null, show25:0};
+  nonop:null, tax:22, share:null, vM:20, show25:0};             // vM = 영업가치 배수(12M 선행 세후 영업이익 × 배)
 const DY_V=1;
 let dyAsm=null, dyOpen=null;
 function dyAsmGet(){ if(dyAsm) return dyAsm; let s={};
@@ -8007,6 +8007,17 @@ function dyParams(){
   Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null&&au[k]!=null) P[k]=+(+au[k]).toFixed(k==="aO"?2:k==="aD"||k==="fx"?0:k==="cny"?1:2); });
   P._auto=au; return P;
 }
+/* 적정 시총(당사) = 12개월 선행 영업이익 × (1 − 세율) × 배수 + 순현금 (2026-10-20 · 사용자 '적정 시총은 네가').
+   순현금 = 현금 + 단기금융상품 + 기타유동금융자산 − 차입금 − 리스부채(DART 마지막 재무상태표 · DYMODEL.bs).
+   리스부채를 빼는 건 IFRS16 영업이익이 임차료(사용권상각)만 담고 이자는 영업외로 보내기 때문이다. 공정가치 금융자산(약 9.5)은 보수적으로 뺐다.
+   이자수익은 순현금으로 따로 셌으니 영업외손익을 배수에 또 넣지 않는다. 12개월 = 오늘부터 365일, 분기와 겹치는 날수로 가중. */
+function dyFwd(B, key){
+  const t0=TODAY, t1=c2DAdd(TODAY,365); let s=0;
+  for(let q=c2QOf(t0); q<=c2QOf(t1); q=c2QAdd(q,1)){ const a=c2QStart(q), b=c2QStart(c2QAdd(q,1));
+    const lo=a>t0?a:t0, hi=b<t1?b:t1, w=Math.max(0,c2DDiff(lo,hi))/c2DDiff(a,b); if(B.Q[q]) s+=(B.Q[q][key]||0)*w; }
+  return s;
+}
+function dyNetCash(){ const b=DYMODEL.bs||{}; return b.cash==null?null:(b.cash+(b.stf||0)+(b.ofa||0)-(b.debt||0)-(b.lease||0)); }
 /* QQ 유료 구독자(만) ↔ 로열티(십억) */
 const dyQQRev=(P,sub,cny)=>sub*1e4*P.qqP*3*P.qqR/100*cny/1e9;
 const dyQQSub=(P,rev,cny)=>rev*1e9/(P.qqP*3*P.qqR/100*cny)/1e4;
@@ -8118,6 +8129,74 @@ function dyRankBox(){
       기록은 ${days[0].slice(5).replace("-","/")}부터 쌓인다(7·28일 전 대비는 그만큼 지나야 뜬다). 트렌드 탭 '버블 앱 매출 점수'에 나라별 선으로도 그린다.</p>`;
 }
 
+// 버블 앱(소속사별) — DART 2026 반기보고서 '서비스 현황' 표(앱 · 소속사 · 출시연도). k = 순위 목록에서 앱을 찾는 이름 조각.
+const DY_APPS=[["Lysn (리슨)","에스엠엔터테인먼트",2020,"lysn"],["bubble for JYPnation","제이와이피엔터테인먼트",2020,"jypnation"],
+  ["bubble for JELLYFISH","젤리피쉬엔터테인먼트",2020,"jellyfish"],["bubble with STARS","미스틱스토리 외 다수 소속사",2021,"with stars"],
+  ["bubble for TOP","티오피미디어",2021,"for top"],["bubble for SPORTS","스포츠 선수 소속사",2022,"sports"],["bubble for ACTORS","배우 소속사 다수",2022,"actors"],
+  ["bubble for STARSHIP","스타쉽엔터테인먼트",2023,"starship"],["bubble for CUBE","큐브엔터테인먼트",2023,"cube"],["bubble for BPM","빅플래닛메이드엔터테인먼트",2023,"bpm"],
+  ["bubble for INB100","아이앤비100",2024,"inb100"],["bubble for GML","골드메달리스트",2024,"gml"],["bubble for BH","BH엔터테인먼트",2024,"bhent"],
+  ["bubble for Lloud","라우드 컴퍼니",2024,"lloud"],["bubble for YH","YH엔터테인먼트",2026,"for yh"],
+  ["bubble for JAPAN","일본향 · Dear U plus(JV) — 로열티",2024,"for japan"],["the bubble","북미향 · DEAR U Intl.",2024,"the bubble"],["QQ Music bubble","중국향 · TME QQ뮤직 안 — 로열티",2025,null]];
+// 국내 버블에서 공시·리포트로 확인된 변화(아티스트 명단은 회사가 한 번에 공개하지 않는다 — 확인된 것만)
+const DY_BUB_NEWS=[["2026 2Q","NCT 마크·루카스 등 IP 서비스 종료 · 기존 IP 구독 축소 → 구독 −2% QoQ","DS 8/5"],
+  ["2026-03","bubble for YH 출시(YH엔터테인먼트)","DART · 앱스토어"],
+  ["2026 1Q","NCT 재현 등 대형 IP 신규 입점이 2Q 구독 반등을 이끌 것(전망 — 입점 확정은 확인 못 함)","키움 5/11"],
+  ["2025","버블 폰트(아티스트 손글씨) — 블랙핑크 리사·aespa·이동욱·혜리·LUCY·NOWZ·ITZY (2024 트와이스·플레이브)","DART"],
+  ["2025-05","잔망루피 버블(캐릭터) · 2025-02 AI 펫 버블 · 반다이남코 다마고치 이모티콘","DART"]];
+// QQ뮤직 버블 입점 수 — 리포트 인용(TME·회사). C = C-pop(중국·홍콩), K = K-pop
+const DY_QQ_CNT=[["2025-06-30","K-pop 1차 입점(SM) · 7/24 2차 — 2Q25 K 285 · C 0","DS 8/5 · 삼성 5/14"],["2025-11","C 15","iM 2/5"],["2026-02","C 35 · 그때 K 341 · 홍콩 39","iM 2/5"],
+  ["2026-03 말","C 98 (홍콩 39 포함)","삼성 5/14"],["2026-04 말","C 108 (홍콩 39 포함)","iM 5/7"],["2026-06 말","C 129 · K 351 — 연초 이후 C 60명 추가","DS·iM 8/5"]];
+// QQ뮤직 버블 C-pop 입점 명단(홍콩 제외) — iM 5/7 표3(QQ뮤직·웨이보) · [입점일, 이름, 구분, 인원, 웨이보 팔로워 만, QQ 팔로워 만]
+const DY_QQ_ART=[["2025-08-19","胡夏 Hu Xia","남자 솔로",1,812,243],["2025-08-19","R.E.D","걸그룹",7,60,10],["2025-08-19","NexT1DE","보이그룹",7,25,1],
+  ["2025-11-03","门尼MONEY","남자 솔로",1,31,13],["2025-11-11","银河快递 Galaxy Express","밴드",5,9,21],["2025-11-20","Yamy 郭颖","여자 솔로",1,699,8],
+  ["2025-11-22","邓见超","남자 솔로",1,125,5],["2025-11-23","王铮亮","남자 솔로",1,721,52],["2025-12-02","亚森","남자 솔로",1,39,5],["2025-12-03","力丸 Rikimaru","남자 솔로",1,354,9],
+  ["2025-12-19","江屿","버추얼",1,null,0],["2025-12-25","卡皮巴拉小黄豚","캐릭터",1,38,0],["2025-12-25","袁一琦","여자 솔로",1,822,17],["2025-12-26","陈天润","남자 솔로",1,29,20],
+  ["2025-12-31","ROS共和少年","보이그룹",5,19,0],["2026-01-16","俞灏明","남자 솔로",1,1648,32],["2026-01-21","陆柯燃","여자 솔로",1,1041,7],["2026-01-29","乃万 Nineone","여자 솔로",1,532,83],
+  ["2026-02-14","王敬轩","남자 솔로",1,260,22],["2026-02-14","王允宸","여자 솔로",1,230,3],["2026-03-15","TSH48","걸그룹",18,140,1],["2026-03-21","苏芮琪","여자 솔로",1,400,3],
+  ["2026-04-03","姚晓棠","여자 솔로",1,200,22],["2026-04-30","TSH48 8기생","걸그룹",9,null,null]];
+// 그 뒤 — QQ뮤직 버블 공식 웨이보(@QQ音乐bubble, 팔로워 3.5만) 입점 공지(2026-10-20 확인 · 원문 표기 그대로 · 구분은 확실한 것만)
+const DY_QQ_NEW=[["2026-07-22","小九99雪碧","","正式入驻"],["2026-08-06","李艺彤","C","即将登陆 · 8/8 개인 채팅방"],["2026-08-12","AEN","",""],["2026-08-15","江语晨 Jessie Chiang","C","正式入驻"],
+  ["2026-08-25","LEE WON JUNG","",""],["2026-08-26","JUNGHOON","","개인 채팅방"],["2026-09-08","BLACK ON","",""],["2026-09-21","奔赴少年CIIU","C","正式入驻 · 그룹"],
+  ["2026-09-21","陆宇鹏 LUK","C","正式入驻"],["2026-09-22","李紫婷 Mimi","C","正式入驻"],["2026-09-22","李真率 LEE JIN SOL","K","이진솔"],["2026-10-01","李光洙","K","이광수 · 正式入驻"],["2026-10-01","金旻奎 KIM MIN KYU","K","김민규 · 正式入驻"]];
+
+function dyRosterBox(){
+  const R=(DYMODEL.rk)||{}, days=Object.keys(R.d||{}).sort(), last=days[days.length-1], apps=R.apps||[];
+  const parse=s=>(s||"").split(",").filter(Boolean).map(x=>{ const [i,r]=x.split(":"); return {nm:String((apps[+i]||[])[1]||"").toLowerCase(), r:+r}; });
+  const rkOf=(k,key)=>{ if(!k||!last) return null; const L=parse((R.d[last]||{})[key]); const h=L.find(x=>x.nm.includes(k)); return h?h.r:null; };
+  const CC=[["i_cn","중국"],["i_tw","대만"],["a_tw","대만(구글)"],["i_jp","일본"],["a_jp","일본(구글)"],["i_th","태국"],["i_us","미국"],["a_us","미국(구글)"]];
+  const appRows=DY_APPS.map(([nm,ag,y,k])=>{ const kr=rkOf(k,"i_kr"), ka=rkOf(k,"a_kr");
+    const abroad=CC.map(([key,c])=>{ const r=rkOf(k,key); return r?`${c} ${r}`:null; }).filter(Boolean).join(" · ");
+    return `<tr><td style="text-align:left"><b>${attr(nm)}</b></td><td style="text-align:left;font-size:11.5px;color:var(--muted)">${attr(ag)}</td><td>${y}</td>
+      <td>${kr?`<b>${kr}</b>`:"—"} / ${ka?`<b>${ka}</b>`:"—"}</td><td style="text-align:left;font-size:11.5px">${abroad||'<span class="g">—</span>'}</td></tr>`; }).join("");
+  const qqBig=DY_QQ_ART.filter(a=>a[4]!=null).sort((a,b)=>b[4]-a[4]).slice(0,6).map(a=>`${a[1].split(" ")[0]} ${fmt0(a[4])}만`).join(" · ");
+  const qqMembers=DY_QQ_ART.reduce((s,a)=>s+a[3],0);
+  const fold=k=>{ try{ return localStorage.getItem("fold_"+k)==="1"?" open":""; }catch(e){ return ""; } };
+  return `<div class="sub-h" style="margin:22px 0 8px">입점 현황 — 누가 들어와 있나 <span class="th-sub" style="display:inline;margin-left:6px">국내 버블 = 소속사별 앱 ${DY_APPS.length-3}개 · 200개사 720명+ IP(2026 반기보고서) · QQ뮤직 버블 = 2Q26 말 C-pop 129 · K-pop 351</span></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+    <div style="flex:1 1 560px;min-width:0"><div class="tbl-wrap"><table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">버블 앱</th><th style="text-align:left">소속사</th><th>출시</th><th>한국 순위 애플 / 구글</th><th style="text-align:left">해외 순위 (애플 · 구글 표시)</th></tr></thead><tbody>${appRows}</tbody></table></div>
+      <p class="note" style="margin-top:6px">순위 = 그 나라 '소셜 네트워킹' 매출 100${last?`(${+last.slice(5,7)}/${+last.slice(8)})`:""} · — = 100위 밖. 앱 안의 아티스트 명단은 회사가 한 번에 공개하지 않아 <b>확인된 변화만</b> 적었다(아래).</p>
+      <div class="tbl-wrap"><table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">시점</th><th style="text-align:left">국내 버블 — 확인된 입점·이탈</th><th style="text-align:left">출처</th></tr></thead><tbody>`
+    +DY_BUB_NEWS.map(r=>`<tr><td style="text-align:left;white-space:nowrap">${r[0]}</td><td style="text-align:left">${attr(r[1])}</td><td style="text-align:left;font-size:11px;color:var(--muted)">${r[2]}</td></tr>`).join("")
+    +`</tbody></table></div></div>
+    <div style="flex:1 1 560px;min-width:0"><div class="tbl-wrap"><table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">QQ뮤직 버블 입점 수</th><th style="text-align:left">출처</th></tr></thead><tbody>`
+    +DY_QQ_CNT.map(r=>`<tr><td style="text-align:left"><b>${r[0]}</b> ${attr(r[1])}</td><td style="text-align:left;font-size:11px;color:var(--muted)">${r[2]}</td></tr>`).join("")
+    +`</tbody></table></div>
+      <p class="note" style="margin-top:6px">QQ뮤직 안의 버블은 앱이 하나다(아티스트별 앱이 아니라 'Bubble' 채널 안에서 고른다 · 월 28위안). K-pop 은 국내 버블 IP 가 그대로 들어간다.
+        C-pop 대형(웨이보 팔로워): ${qqBig}.</p></div></div>
+    <details class="fold" data-fold="dyqq"${fold("dyqq")}>
+      <summary>QQ뮤직 버블 C-pop 입점 명단 <span class="sub">${DY_QQ_ART.length}팀 ${qqMembers}명(~4/30 · 홍콩 39명 제외) + 7/22~10/1 공식 웨이보 공지 ${DY_QQ_NEW.length}건</span></summary>
+      <div class="fold-b" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+      <div style="flex:1 1 560px;min-width:0"><div class="tbl-wrap"><table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">입점</th><th style="text-align:left">아티스트</th><th style="text-align:left">구분</th><th>인원</th><th>웨이보 팔로워(만)</th><th>QQ 팔로워(만)</th></tr></thead><tbody>`
+    +DY_QQ_ART.slice().reverse().map(a=>`<tr><td style="text-align:left;white-space:nowrap">${a[0].slice(2).replace(/-/g,".")}</td><td style="text-align:left"><b>${attr(a[1])}</b></td><td style="text-align:left;font-size:11.5px;color:var(--muted)">${a[2]}</td><td>${a[3]}</td>
+        <td>${a[4]==null?"—":(a[4]>=500?`<b>${fmt0(a[4])}</b>`:fmt0(a[4]))}</td><td>${a[5]==null?"—":fmt0(a[5])}</td></tr>`).join("")
+    +`</tbody></table></div><p class="note" style="margin-top:6px">출처: iM증권 5/7 표3(QQ뮤직·웨이보 집계) · 삼성증권 5/14 표2. 웨이보 500만 이상은 굵게.</p></div>
+      <div style="flex:1 1 560px;min-width:0"><div class="tbl-wrap"><table class="buzz-t" style="font-size:12px"><thead><tr><th style="text-align:left">공지</th><th style="text-align:left">아티스트(원문)</th><th>구분</th><th style="text-align:left">비고</th></tr></thead><tbody>`
+    +DY_QQ_NEW.slice().reverse().map(a=>`<tr><td style="text-align:left;white-space:nowrap">${a[0].slice(5).replace("-","/")}</td><td style="text-align:left"><b>${attr(a[1])}</b></td><td>${a[2]||'<span class="g">—</span>'}</td><td style="text-align:left;font-size:11.5px;color:var(--muted)">${attr(a[3])}</td></tr>`).join("")
+    +`</tbody></table></div><p class="note" style="margin-top:6px">QQ뮤직 버블 공식 웨이보(@QQ音乐bubble · 팔로워 3.5만) 피드 — 2026-10-20 확인(5~7월 초 공지는 피드에 없다).
+        구분 K = 한국(국내 버블 IP), C = 중국어권. 확실하지 않은 건 비웠다. 한국 배우(이광수·김민규)까지 들어오는 걸 보면 K 쪽 IP 도 넓히는 중이다.</p></div>
+      </div></details>`;
+}
+
 function renderDyModel(){
   const sec=document.getElementById("dySec"), box=document.getElementById("dyBox");
   if(!sec||!box) return;
@@ -8143,11 +8222,17 @@ function renderDyModel(){
   const vsC=(o,k)=>{ const c=cons[k]; if(!c) return "컨센 없음";
     return `컨센 ${f1(c.rev)} / ${f1(c.op)} → 괴리 ${pct(o.rev/c.rev-1)} / ${c.op>0?pct(o.op/c.op-1):"—"}`; };
   const nq=Object.keys(Q).find(q=>!Q[q].act), q3=Q[nq], y6=Y["2026"], y7=Y["2027"], fxNow=P.fx, fxL=lq.fxq;
+  // 적정 시총 — 모델 지금 값(가정을 바꾸면 따라 바뀐다)과 DATA 에 적어 둔 값(판단 · 고정)을 같이 보인다
+  const fOp=dyFwd(B,"op"), nc=dyNetCash(), fv=nc==null?null:fOp*(1-P.tax/100)*P.vM+nc, mcNow=LS.mktcapEok?LS.mktcapEok/10:null;
+  const fvData=(byName[DYMODEL.stock]||{}).fairMktcap, bsP=(DYMODEL.bs||{}).per;
+  const valCard=fv==null?"":card("적정 시총(당사)", `${fmt0((fvData||fv)*10)}억`,
+    `${fvData?`DATA 값(10/20 판단)${mcNow?` · 지금 ${fmt0(mcNow*10)}억 대비 ${pct(fvData/mcNow-1)}`:""}<br>`:""}모델 지금 ${fmt0(fv*10)}억 = 12M 선행 영업이익 ${f1(fOp)} × (1−${P.tax}%) × ${P.vM}배 + 순현금 ${f1(nc)}${bsP?`(${bsP.slice(2).replace("-",".")}말)`:""}`, !!fvData);
   const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
     ${card(`${c2QLab(lq.q)} 구독수 (분기 평균)`, `${fmt(lq.n,0)}만`, `국내 ${fmt(lq.dom,1)} · 해외 ${fmt(lq.ovs,1)}(${fmt(lq.ovp,0)}%) · 전분기 ${chg(lq.n,Q[c2QAdd(lq.q,-1)].n)} · 전년 ${chg(lq.n,Q[c2QAdd(lq.q,-4)].n)}<br>ARPU 국내 ${fmt0(lq.aD)}원 · 해외 $${f2(lq.aOu)} /분기`, true)}
     ${card(`${c2QLab(nq)}E 매출 / 영업이익`, `${f1(q3.rev)} / ${f1(q3.op)}`, `십억원 · 원/달러 ${fmt0(q3.fxq)}(${c2QLab(lq.q)} ${fmt0(fxL)} 대비 ${pct(q3.fxq/fxL-1)})<br>${vsC(q3,nq)}`)}
     ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, `십억원 · OPM ${fmt(y6.opm*100,1)}%<br>${vsC(y6,"2026")}`)}
     ${card("2027E 매출 / 영업이익", `${f1(y7.rev)} / ${f1(y7.op)}`, `십억원 · 중국 QQ ${f1(y7.qq)} · OPM ${fmt(y7.opm*100,1)}%<br>${vsC(y7,"2027")}`)}
+    ${valCard}
   </div>`;
 
   // ── 분기 손익표 ───────────────────────────────────────────────────
@@ -8306,6 +8391,7 @@ function renderDyModel(){
       ${grp("지급수수료 · PG 전환", inp("fr0","기준 지급수수료율","%",0.5)+inp("pg0","PG 전환율 지금","%",1)+inp("pgT","4Q27 PG 전환율","%",1)+inp("pgK","PG 1%p당 수수료율","−%p",0.05))}
       ${grp("고정비 · 영업외", inp("lab","인건비 분기","십억",0.1)+inp("gLab","인건비 증가","%/년",1)+inp("dep","상각비 분기","십억",0.1)+inp("oth","기타 분기","십억",0.1)
         +inp("us","미국 신사업 추가비","십억/분기",0.5)+inp("nonop","영업외 분기","십억",0.5)+inp("tax","세율","%",1)+inp("share","지배주주 몫","%",1))}
+      ${grp("적정 시총", inp("vM","영업가치 배수","배(12M 선행 세후 영업이익)",1)+`<span style="font-size:11px;color:var(--muted2)">+ 순현금 ${f1(dyNetCash())}(현금·단기금융 − 리스부채) — 결과는 맨 위 카드</span>`)}
     </div>
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="theme-btn" id="dyReset" style="padding:5px 12px;font-size:12px">전부 기본값으로</button>
       <span style="font-size:11px;color:var(--muted2)"><b style="color:var(--accent)">자동</b> = 최근 실적(DART)에서 계산 — 구독 증감 = ${au._s2.map(c2QLab).join("→")}, ARPU = ${au._s2.map(c2QLab).join("·")} 평균,
@@ -8313,7 +8399,7 @@ function renderDyModel(){
       그 밖 라이선스 = QQ 전 2025 1~3Q 의 (기타 수출 − 일본 JV) 평균, PG 전환율 = IR ${au._pg?c2QLab(au._pg):""}. 입력하면 그 값으로 고정.</span></div>
     </div></details>`;
 
-  box.innerHTML=head+tbl+chartBox+asm+dyRankBox();
+  box.innerHTML=head+tbl+chartBox+dyRosterBox()+asm+dyRankBox();
   const cb=document.getElementById("dyChartBox");
   if(cb) attachChartTip(cb,{W:CH.W,H:CH.H,pad:CH.pad,n:CH.qs.length,xOf:CH.sx, xLab:i=>c2QLab(CH.qs[i])+(Q[CH.qs[i]].act?"":"E"),
     pts:i=>{ const o=Q[CH.qs[i]]; return [{y:CH.sy(o.n),c:"var(--accent)"},{y:CH.sy(o.dom),c:"#6fa8dc"},o.aOu!=null?{y:CH.sa(o.aOu),c:"var(--text)"}:null]; },
