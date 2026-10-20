@@ -44,6 +44,10 @@ BRAND_STOCK = {
     # 2026-09-23 US 실측: GD 청소년 샴푸 리뷰 222·월 200개+·샴푸 1,010위 · TS 샴푸 플러스 리뷰 319.
     "TS":               {"stock": "TS트릴리온",   "owner": "TS트릴리온",   "listed": True,
                          "memo": "TS샴푸 · 청소년 샴푸 GD — 9/22 미국 미니소 200곳 입점"},
+    # 에이블씨엔씨 — 078520 코스피 · 최대주주 리프앤바인(IMM PE) 61.9%. 미국 매출의 중심은 BB크림 2종
+    # (M Perfect Cover 빨간비비 · Serum BB 보라비비)이고 PDRN·NAD+ 3종이 차기 후보(2026-10-20 편입).
+    "MISSHA":           {"stock": "에이블씨엔씨", "owner": "에이블씨엔씨", "listed": True,
+                         "memo": "BB크림 · 2026-10 편입(추적 전용)"},
     "Anua":             {"stock": None, "owner": "더파운더즈",   "listed": False,
                          "memo": "IPO 준비"},
     "BIODANCE":         {"stock": None, "owner": "바이오던스",   "listed": False},
