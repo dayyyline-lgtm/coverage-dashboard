@@ -48,7 +48,7 @@ PART_CUT = 0.97     # 성공 카테고리 비율이 이 밑이면 부분 회차
 SKU_H = 30          # 블록의 SKU 별 일별 최고순위 이력 — 최근 30회차(긴 이력은 월별 CSV 에 다 있다)
 CO_DAYS = 120       # 블록의 회사별 일별 집계 — 최근 120회차
 TITLE_N = 56        # 블록에 싣는 제목 길이(마스터는 64자 그대로)
-SHOW_ST = ("L", "P")  # 블록에 SKU·회사 줄을 싣는 상태 — 상장(L) · 상장 준비(P)
+SHOW_ST = ("L", "P")  # 블록에 회사 줄을 싣는 상태 — 상장(L) · 상장 준비(P). SKU·브랜드 줄은 한국 브랜드 전부(2026-10-20 · 비상장 N · 해외 소유 F 포함)
 
 # 블록 모양 (app.js renderAmzSub 가 읽는다 — 바꾸면 거기도 같이)
 #   asOf 마지막 회차가 끝난 시각(KST) · latest 그 날짜 · date 기준 회차(마지막 완전한 회차 — 표·카드·SKU 의 r 이 이 날) · days/ok/tot/part 회차별(최근 CO_DAYS)
@@ -56,7 +56,9 @@ SHOW_ST = ("L", "P")  # 블록에 SKU·회사 줄을 싣는 상태 — 상장(L)
 #   cos [{n 회사, st L/P, chk 확인 필요, memo, br [[브랜드, 마지막 회차 SKU 수]], s SKU 수, a 노출 자리, t Top10 자리, q Top30 자리, w 1위 자리,
 #         b 뷰티 전체 Top100 안 SKU, o 뷰티 전체 최고 순위(0 = 밖)}]  ← 배열은 days 와 같은 길이
 #   k {s,a,t,q,w,b,r} 한국 브랜드 전체 · hd SKU 이력의 날짜(최근 SKU_H)
-#   bs [{c 회사 번호(cos), s SKU 수, a 노출 자리, t Top10 자리, w 1위 자리, r 하루 추정 매출(USD · 부분 회차 null)}] — bl 과 같은 순서 · 배열은 days 길이(2026-10-20)
+#   bs [{c 회사 번호(cos · -1 = 비상장·해외 소유), s SKU 수, a 노출 자리, t Top10 자리, w 1위 자리(t·w 는 내내 0 이면 없음), r 하루 추정 매출(USD · 부분 회차 null),
+#        o 운영사 · st 상태(c 가 -1 일 때만), ko 한글 이름}] — bl 과 같은 순서 · 배열은 days 길이(2026-10-20)
+#   skus 의 회사 번호가 -1 이면 비상장·해외 소유 브랜드 SKU — 세부 카테고리 회사 표·SKU 표(renderAmzSub)는 회사 번호로 걸러 안 보이고, '브랜드별 상세'만 쓴다
 #   skus [[asin, 브랜드 번호, 회사 번호(cos), 제목, 처음 본 회차(days 번호 · -1 = 창 밖), [[카테고리 번호, 순위]](마지막 회차), h]]
 #        h = hd 날마다 최고 순위를 36진수 두 자리로 이은 문자열('00' = 그날 없음) — 배열보다 1/3 작다
 #   unk [[asin, 카테고리 번호, 순위, 제목]] 마지막 회차의 새 브랜드 후보
@@ -491,9 +493,9 @@ def build_block(cfg, master):
                 if cat == "beauty":
                     g[4].add(a)
                     g[5] = r if not g[5] else min(g[5], r)
-                bs = bser.setdefault(br, {"s": [set() for _ in dates], "a": [0] * len(dates), "t": [0] * len(dates),
-                                          "w": [0] * len(dates), "r": [0.0] * len(dates)})
-                bs["s"][di].add(a); bs["a"][di] += 1; bs["t"][di] += r <= 10; bs["w"][di] += r == 1
+            bs = bser.setdefault(br, {"s": [set() for _ in dates], "a": [0] * len(dates), "t": [0] * len(dates),
+                                      "w": [0] * len(dates), "r": [0.0] * len(dates)})
+            bs["s"][di].add(a); bs["a"][di] += 1; bs["t"][di] += r <= 10; bs["w"][di] += r == 1
         for n in names:
             g = agg[n]
             for key, v in zip("satwboq", (len(g[0]), g[1], g[2], g[3], len(g[4]), g[5], g[6])):
@@ -513,8 +515,8 @@ def build_block(cfg, master):
                 kr += x[2]
                 if co in rv:
                     rv[co] += x[2]
-                    if br in bser:
-                        bser[br]["r"][di] += x[2]
+                if br in bser:
+                    bser[br]["r"][di] += x[2]
         for n in names:
             ser[n]["r"].append(round(rv[n]) if ed and not part[-1] else None)
         ksr["r"].append(round(kr) if ed and not part[-1] else None)
@@ -540,7 +542,7 @@ def build_block(cfg, master):
     cos.sort(key=lambda c: (-c["a"][li], -c["s"][li], c["n"]))
     co_i = {c["n"]: i for i, c in enumerate(cos)}
 
-    # SKU 줄 — 최근 SKU_H 회차에 한 번이라도 나온 상장·상장 준비 브랜드 SKU
+    # SKU 줄 — 최근 SKU_H 회차에 한 번이라도 나온 한국 브랜드 SKU(2026-10-20 부터 비상장·해외 소유까지 — 회사 번호 -1)
     hd = dates[-SKU_H:]
     day_i = {dt: i for i, dt in enumerate(dates)}
     best = {}                                   # asin → {날짜: 최고 순위}
@@ -548,7 +550,7 @@ def build_block(cfg, master):
     for dt in hd:
         for cat, r, a in hist[dt]:
             br, co, st = co_of(a)
-            if st not in SHOW_ST or co not in co_i:
+            if br is None:
                 continue
             bd = best.setdefault(a, {})
             bd[dt] = min(bd.get(dt, 999), r)
@@ -567,7 +569,7 @@ def build_block(cfg, master):
         h = "".join(b36(bd[dt]).rjust(2, "0") if dt in bd else "00" for dt in hd)
         x = est.get(last, {}).get(a)
         ex = [round(x[1] * 100), round(x[0]), round(x[2]), x[3]] if x else [0, 0, 0, ""]
-        skus.append([a, bl_i[br], co_i[co], row[2][:TITLE_N].rstrip(), day_i.get(first, -1), r, h] + ex)
+        skus.append([a, bl_i[br], co_i.get(co, -1), row[2][:TITLE_N].rstrip(), day_i.get(first, -1), r, h] + ex)
     skus.sort(key=lambda s: (s[5][0][1] if s[5] else 999, -len(s[5]), s[0]))
 
     # 브랜드별 일별 집계(2026-10-20 · 화면 '브랜드별 상세') — bl 순서(= SKU 의 브랜드 번호) · 배열은 days 와 같은 길이.
@@ -575,12 +577,23 @@ def build_block(cfg, master):
     bl_co = {}
     for s_ in skus:
         bl_co.setdefault(s_[1], s_[2])
+    # 회사 번호 -1(비상장·해외 소유)은 o 운영사 · st 상태를 같이 싣는다. ko = 사전 패턴의 한글 이름. t·w 가 내내 0 이면 뺀다(블록 크기 — 화면이 0 으로 채운다).
+    bmeta = {b[0]: (b[2], b[3] or comps.get(b[2], {}).get("st", ""), max([p for p in b[1] if re.search("[가-힣]", p)] or [""], key=len)) for b in brands}
     zero = {"s": [set() for _ in dates], "a": [0] * len(dates), "t": [0] * len(dates), "w": [0] * len(dates), "r": [0.0] * len(dates)}
     bs_out = []
     for i, br in enumerate(bl):
         x = bser.get(br, zero)
-        bs_out.append({"c": bl_co.get(i, -1), "s": [len(v) for v in x["s"]], "a": x["a"], "t": x["t"], "w": x["w"],
-                       "r": [round(v) if rok[j] else None for j, v in enumerate(x["r"])]})
+        bco, bst, bko = bmeta.get(br, ("", "", ""))
+        e = {"c": bl_co.get(i, -1), "s": [len(v) for v in x["s"]], "a": x["a"]}
+        for k in ("t", "w"):
+            if any(x[k]):
+                e[k] = x[k]
+        e["r"] = [round(v) if rok[j] else None for j, v in enumerate(x["r"])]
+        if e["c"] < 0:
+            e["o"], e["st"] = bco, bst
+        if bko:
+            e["ko"] = bko
+        bs_out.append(e)
 
     mt = dmeta.get(dates[-1])                   # asOf 는 마지막 회차(부분이어도) — 신선도 판정은 '돌았는가'를 본다
     unk = []

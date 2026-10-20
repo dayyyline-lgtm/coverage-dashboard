@@ -10423,7 +10423,10 @@ function renderAmzSub(){
 let amzBrSel={co:"", b:""};
 try{ const s=JSON.parse(localStorage.getItem("amzBrand")||"{}"); if(s.co!=null) amzBrSel={co:String(s.co), b:String(s.b||"")}; }catch(e){}
 // 이름 맞추기 — 세 출처의 표기가 다르다(VT ↔ VT Cosmetics · Laneige ↔ LANEIGE · Innisfree ↔ innisfree · Mise en scène)
-const amzBrNorm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9가-힣]/g,"").replace(/cosmetics$/,"");
+// 별칭 — 한투 채널·트래커가 줄여 쓰는 이름(Melaxin = Dr.Melaxin · Cellimax = celimax)
+const AMZBR_ALIAS={melaxin:"drmelaxin", cellimax:"celimax"};
+const amzBrNorm=s=>{ const k=String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9가-힣]/g,"").replace(/cosmetics$/,""); return AMZBR_ALIAS[k]||k; };
+let amzBrMore=false;                                        // 비상장처럼 브랜드가 많은 묶음 — 앞 24개만 보이다 '더 보기'로 전부
 const AMZBR_KO=(()=>{ const o={}; Object.entries(AMZT_KO).forEach(([k,v])=>{ o[amzBrNorm(k)]=v; });
   Object.entries({Illiyoon:"일리윤",Centellian24:"센텔리안24","Mise en scène":"미장센",CNP:"차앤박",Aprilskin:"에이프릴스킨","Dr.Groot":"닥터그루트",
     "Amos Professional":"아모스",Etude:"에뛰드",TIRTIR:"티르티르",CLIO:"클리오",MISSHA:"미샤",LAKA:"라카",Espoir:"에스쁘아",Peripera:"페리페라",
@@ -10440,12 +10443,22 @@ function amzBrGroups(){
   const li=S?Math.max(0,S.days.indexOf(S.date)):0;
   const tBy={}; T.brands.forEach(o=>{ tBy[amzBrNorm(o.key)]=o; });
   const groups=[], seen=new Set();
+  // t·w 는 내내 0 이면 블록에서 빠진다(ingest — 크기) → 0 으로 채운다. 한글 이름은 화면 사전(AMZBR_KO)이 먼저, 없으면 config 의 한글 패턴(bs.ko)
+  const fx=x=>{ if(!x||(x.t&&x.w)) return x; const z=S.days.map(()=>0); return {...x, t:x.t||z, w:x.w||z}; };
+  if(S) S.bl.forEach((n,i)=>{ const x=S.bs[i], k=amzBrNorm(n); if(x&&x.ko&&!AMZBR_KO[k]) AMZBR_KO[k]=x.ko; });
+  const sortB=bs=>bs.sort((a,b)=>(b.x.s[li]||0)-(a.x.s[li]||0)||(b.x.a[li]||0)-(a.x.a[li]||0)||a.n.localeCompare(b.n));
   if(S) S.cos.forEach((c,ci)=>{
-    const bs=S.bl.map((n,i)=>({n, i, nm:amzBrNorm(n), x:S.bs[i]})).filter(b=>b.x&&b.x.c===ci);
+    const bs=S.bl.map((n,i)=>({n, i, nm:amzBrNorm(n), x:fx(S.bs[i])})).filter(b=>b.x&&b.x.c===ci);
     if(!bs.length) return;
-    bs.sort((a,b)=>(b.x.s[li]||0)-(a.x.s[li]||0)||(b.x.a[li]||0)-(a.x.a[li]||0)||a.n.localeCompare(b.n));
-    bs.forEach(b=>{ seen.add(b.nm); b.t=tBy[b.nm]||null; });
+    sortB(bs).forEach(b=>{ seen.add(b.nm); b.t=tBy[b.nm]||null; });
     groups.push({key:c.n, n:c.n, c, ci, brands:bs});
+  });
+  // 비상장·해외 소유(2026-10-20 사용자 "아누아·바이오던스 같은 비상장도") — 회사 번호 -1 인 브랜드. 운영사(o)는 config 의 회사 칸
+  if(S) [["_u","비상장",st=>st!=="F"],["_f","해외 소유",st=>st==="F"]].forEach(([key,n,ok])=>{
+    const bs=S.bl.map((nm_,i)=>({n:nm_, i, nm:amzBrNorm(nm_), x:fx(S.bs[i])})).filter(b=>b.x&&b.x.c<0&&ok(b.x.st||""));
+    if(!bs.length) return;
+    sortB(bs).forEach(b=>{ seen.add(b.nm); b.t=tBy[b.nm]||null; });
+    groups.push({key, n, c:null, ci:-1, brands:bs, sku:bs.reduce((t,b)=>t+(b.x.s[li]||0),0)});
   });
   // 최근 60일 안에 5개국 어디든 Top100 에 든 적이 있는 브랜드만(사전에만 있고 내내 0 인 브랜드는 고를 것이 없다)
   const rest=T.brands.filter(o=>!seen.has(amzBrNorm(o.key))&&T.dates.slice(-60).some(d=>AMZT_MK.some(m=>(amztVal(o,d,m,"t100")||amztVal(o,d,m,"t50")||0)>0)))
@@ -10478,20 +10491,31 @@ function renderAmzBrand(){
   if(stamp) stamp.textContent=S?`미국 세부 카테고리 ${md(S.date)} · 뷰티 전체 Top100 ${T.dates.length?md(T.dates[T.dates.length-1]):"—"}`:"";
 
   /* ---- 고르기 ---- */
-  const coBtns=groups.map(x=>btn("bco",x.key,x.c?`${esc(x.n)} <span class="g">${amzNum(x.c.s[li])}</span>`:`그 밖 <span class="g">${x.brands.length}</span>`,x===g,
-    x.c?`${x.n} — 미국 세부 카테고리 Top100 SKU ${x.c.s[li]}개 · 브랜드 ${x.brands.length}개${x.c.st==="P"?" · 상장 준비":""}`:"세부 카테고리 SKU 를 싣지 않는 브랜드(비상장 등) — 뷰티 전체 Top100 나라별만"
+  const coBtns=groups.map(x=>btn("bco",x.key,x.c?`${esc(x.n)} <span class="g">${amzNum(x.c.s[li])}</span>`
+      :x.sku!=null?`${esc(x.n)} <span class="g">${amzNum(x.sku)}</span>`:`그 밖 <span class="g">${x.brands.length}</span>`,x===g,
+    x.c?`${x.n} — 미국 세부 카테고리 Top100 SKU ${x.c.s[li]}개 · 브랜드 ${x.brands.length}개${x.c.st==="P"?" · 상장 준비":""}`
+      :x.sku!=null?`${x.n} 브랜드 ${x.brands.length}개 — 미국 세부 카테고리 Top100 SKU ${x.sku}개`
+      :"미국 세부 카테고리엔 최근 30회 SKU 가 없고 뷰티 전체 Top100 기록만 있는 브랜드"
   )).join("");
+  // 브랜드가 많은 묶음(비상장 70여 개)은 앞 24개(SKU 순)만 — 고른 브랜드는 늘 보인다
+  const BLIM=24; let bView=g.brands, bHid=0;
+  if(!amzBrMore&&bView.length>BLIM+4){ bView=bView.slice(0,BLIM); if(sel&&!bView.includes(sel)) bView.push(sel); bHid=g.brands.length-bView.length; }
   const brBtns=(g.c&&g.brands.length>1?btn("bbr","",`회사 전체 <span class="g">${amzNum(g.c.s[li])}</span>`,!sel):"")
-    +g.brands.map(x=>btn("bbr",x.nm,`${esc(amzBrKo(x.n)||x.n)}${x.x?` <span class="g">${amzNum(x.x.s[li])}</span>`:""}`,x===sel,x.x?`${x.n} — SKU ${x.x.s[li]}개 · 노출 ${x.x.a[li]}자리`:x.n)).join("");
+    +bView.map(x=>btn("bbr",x.nm,`${esc(amzBrKo(x.n)||x.n)}${x.x?` <span class="g">${amzNum(x.x.s[li])}</span>`:""}`,x===sel,x.x?`${x.n} — SKU ${x.x.s[li]}개 · 노출 ${x.x.a[li]}자리`:x.n)).join("")
+    +(bHid?btn("bmore","1",`+${bHid}개 더`,false,"SKU 가 적은 브랜드까지 전부"):amzBrMore&&g.brands.length>BLIM+4?btn("bmore","0","접기",false):"");
   let h=`<p class="note" style="margin:-2px 0 10px">한 브랜드(또는 회사)만 골라 <b>그 브랜드 자기 축</b>으로 봅니다 — 회사끼리 겹친 차트에선 SKU 가 적은 브랜드가 바닥에 묻혀서요.
-      버튼 옆 숫자 = 미국 세부 카테고리 Top100 SKU 수(${S?md(S.date):"—"}). 탭 어디서든 브랜드 이름을 누르면 여기로 옵니다.</p>
+      버튼 옆 숫자 = 미국 세부 카테고리 Top100 SKU 수(${S?md(S.date):"—"}). 상장사 다음에 <b>비상장</b>(아누아·바이오던스 등)·<b>해외 소유</b>(닥터자르트 등) 브랜드도 있습니다.
+      탭 어디서든 브랜드 이름을 누르면 여기로 옵니다.</p>
     <div class="seg" style="margin-bottom:6px">${coBtns}</div>
     ${g.brands.length>1||!g.c?`<div class="seg">${brBtns}</div>`:""}`;
 
   /* ---- 머리 ---- */
-  const owner=g.c?g.c.n:((sel&&sel.t&&(sel.t.owner||sel.t.stock))||"");
+  const owner=g.c?g.c.n:((sel&&sel.x&&sel.x.o)||(sel&&sel.t&&(sel.t.owner||sel.t.stock))||"");
   const ownerHtml=owner?(cov(owner)?`<span class="clickable" data-stock="${esc(owner)}" style="font-weight:700">${esc(owner)}</span>`:`<span style="color:var(--muted)">${esc(owner)}</span>`):"";
-  const tags=(g.c&&g.c.st==="P"?` <span class="pill" style="font-size:10px">상장 준비</span>`:"")+(!g.c&&owner&&!cov(owner)?` <span class="pill" style="font-size:10px">비상장</span>`:"");
+  // '그 밖'은 커버리지 밖 상장사(코리아나 등)도 있다 — 트래커·크롬 수집이 상장으로 표시한 브랜드(t.stock)는 비상장으로 적지 않는다
+  const stTag=g.c?(g.c.st==="P"?"상장 준비":""):(sel&&sel.x&&sel.x.st==="F")?"해외 소유"
+    :(owner&&(cov(owner)||(sel&&sel.t&&sel.t.stock)))?(cov(owner)?"":"상장 · 커버리지 밖"):"비상장";
+  const tags=stTag?` <span class="pill" style="font-size:10px">${stTag}</span>`:"";
   const titleTxt=sel?`${brandLogo(sel.t?sel.t.key:sel.n)}<span style="font-size:17px;font-weight:800">${lab(sel)}</span>`
     :`${typeof stockLogo==="function"?stockLogo(g.n):""}<span style="font-size:17px;font-weight:800">${esc(g.n)} 전체</span>`;
   const brList=!sel&&g.c?`<span style="color:var(--muted);font-size:12px">${g.brands.map(x=>`<span class="clickable" data-amzb="${esc(x.n)}">${esc(amzBrKo(x.n)||x.n)}</span> ${x.x.s[li]}`).join(" · ")}</span>`:"";
@@ -10665,6 +10689,7 @@ function renderAmzBrand(){
   box.innerHTML=h;
   charts.forEach(c=>{ const el=document.getElementById(c.id); if(el) c.draw(el); });
   box.querySelectorAll(".seg button").forEach(bt=>bt.onclick=()=>{
+    if(bt.dataset.bmore!==undefined) amzBrMore=bt.dataset.bmore==="1";
     if(bt.dataset.bco!==undefined){ amzBrSel={co:bt.dataset.bco, b:""}; }
     if(bt.dataset.bbr!==undefined){ amzBrSel={co:g.key, b:bt.dataset.bbr}; }
     try{ localStorage.setItem("amzBrand",JSON.stringify(amzBrSel)); }catch(e){}
