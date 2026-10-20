@@ -19,12 +19,12 @@
 */
 (function () {
   'use strict';
-  const V = 1;
+  const V = 2;
   const KEY = 'fmx_buf';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
   const crc32 = str => { const b = new TextEncoder().encode(str); let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return ((c ^ 0xFFFFFFFF) >>> 0).toString(36); };
-  const clean = (s, n) => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '')
+  const clean = (s, n) => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]/g, '')
     .replace(/[|\r\n\t=&?;,]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 40).trim();
   const b36 = n => (n == null || !(n > 0)) ? '' : Math.round(n).toString(36);
   const F = window.__FMX = window.__FMX && window.__FMX.v === V ? window.__FMX : {v: V, cap: []};
@@ -50,9 +50,12 @@
   F.grab = async (sid, region, key) => {
     const buf = load(); buf.shops = buf.shops || {}; buf.err = buf.err || {};
     if (!location.pathname.includes('/detail/' + sid)) { buf.err[sid] = 'not-on-page'; save(buf); return 'not on page ' + sid; }
-    F.cap = F.cap.filter(c => !/recentData/.test(c.u));
-    const radio = [...document.querySelectorAll('label, span, div, button')].find(e => e.childElementCount <= 1 && /^\s*최근\s*180일\s*$/.test(e.textContent || ''));
+    const btn = re => [...document.querySelectorAll('label, span, div, button')].find(e => e.childElementCount <= 1 && re.test(e.textContent || ''));
+    const radio = btn(/^\s*최근\s*180일\s*$/), r7 = btn(/^\s*최근\s*7일\s*$/);
     if (!radio) { buf.err[sid] = 'no-180'; save(buf); return 'no 180 button'; }
+    // 이미 180일이 골라져 있으면 다시 눌러도 화면이 안 부른다 — 7일을 먼저 눌렀다가 180일(요청 2건 · 둘 다 화면이 만든다)
+    if (r7) { r7.click(); await sleep(1800); }
+    F.cap = F.cap.filter(c => !/recentData/.test(c.u));
     radio.click();
     let hit = null;
     for (let i = 0; i < 40 && !hit; i++) { await sleep(300); hit = F.cap.find(c => /recentData/.test(c.u) && c.u.includes(sid) && /d_type\W*180/.test(c.u)); }
@@ -85,6 +88,16 @@
     return L.map(s => [s.seller_id, clean(s.shop_info && s.shop_info.name, 30), s.region, 'd7 ' + Math.round((s.day7_sale_amount || 0) / 1e3) + 'k', 'tot ' + Math.round((s.sale_amount || 0) / 1e6) + 'M', 'type ' + s.shop_type].join(' ')).join(' / ');
   };
 
+  // 검색 화면 — 그려진 결과에서 샵 상세 링크와 줄 글자를 읽는다(훅을 걸기 전에 화면이 이미 검색했을 때)
+  F.findDom = () => {
+    const seen = {}, out = [];
+    document.querySelectorAll('a[href*="/shop-marketing/detail/"]').forEach(a => {
+      const m = /detail\/(\d+)/.exec(a.getAttribute('href') || ''); if (!m || seen[m[1]]) return; seen[m[1]] = 1;
+      let row = a; for (let i = 0; i < 8 && row.parentElement && (row.innerText || '').length < 60; i++) row = row.parentElement;
+      out.push(m[1] + ' ' + clean((row.innerText || '').replace(/\s+/g, ' '), 110));
+    });
+    return out.length ? out.join(' / ') : 'no shop links';
+  };
   F.reset = () => { localStorage.removeItem(KEY); return 'cleared'; };
   F.lines = () => {
     const buf = load(), L = [], push = a => { const s = a.join('|'); L.push(s + '|' + crc32(s)); };
