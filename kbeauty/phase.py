@@ -103,7 +103,11 @@ def build_tt(keys):
     nw = min(TT_MAXW, ((end - start).days + 1) // 7)
     first = end - dt.timedelta(days=7 * nw - 1)
     # 달 — 처음부터 끝까지 받은 달만 완결(첫 달은 1일부터 있어야) · 끝 달이 말일까지 안 찼으면 partial
-    m0 = dt.date(start.year, start.month, 1) if start.day == 1 else (dt.date(start.year + (start.month == 12), start.month % 12 + 1, 1))
+    # 첫 달이 1일부터가 아니면(4/24~) 그 달 앞부분은 샵마다 '관측 첫 14일 평균 × 빠진 날수'로 채우고 mest 에 적는다(2026-10-21 · 잣대 통일 —
+    # 3개월 비교(7~9월 ÷ 4~6월)에 4월이 필요하다. KBCH 의 kbShopQ 와 같은 채움). 그 달이 3개월 창에서 빠지면(11월~) 추정도 사라진다.
+    m0 = dt.date(start.year, start.month, 1)
+    gap = (start - m0).days
+    mest = [m0.isoformat()[:7]] if gap > 0 else []
     months, m = [], m0
     while m <= end:
         months.append(m.isoformat()[:7])
@@ -133,6 +137,11 @@ def build_tt(keys):
                 fixed.append(i)
         wu, wv = [0] * nw, [0] * nw
         mu, mv = [0] * len(months), [0] * len(months)
+        if gap > 0 and ds and ds[0] == start:
+            n14 = min(14, len(U))
+            mu0, mv0 = sum(U[:n14]) / n14 * gap, sum(V[:n14]) / n14 * gap
+        else:
+            mu0 = mv0 = 0
         for t, u, v in zip(ds, U, V):
             if first <= t <= end:
                 w = (t - first).days // 7
@@ -143,6 +152,8 @@ def build_tt(keys):
                 j = months.index(ym)
                 mu[j] += u
                 mv[j] += v
+        mu[0] += round(mu0)
+        mv[0] += round(mv0)
         o = b.setdefault(k, {"n": [], "u": [0] * nw, "v": [0] * nw, "mu": [0] * len(months), "mv": [0] * len(months), "fx": 0})
         o["n"].append(S[sid]["name"])
         o["u"] = [a + c for a, c in zip(o["u"], wu)]
@@ -151,7 +162,7 @@ def build_tt(keys):
         o["mv"] = [a + c for a, c in zip(o["mv"], mv)]
         o["fx"] += len(fixed)
     weeks = [(first + dt.timedelta(days=7 * w + 6)).isoformat() for w in range(nw)]   # 주 끝날
-    return {"asOf": fhs[-1], "end": end.isoformat(), "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial,
+    return {"asOf": fhs[-1], "end": end.isoformat(), "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
             "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)),
             "src": f"FastMoss 틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · 덤프 {len(files)}개 이어 붙임)", "b": b}
 

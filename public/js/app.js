@@ -10795,54 +10795,50 @@ function renderKbOverview(){
       최근 30일엔 10월 빅딜데이가 들어 있어 9월보다 크게 나온다. 틱톡샵 = FastMoss 공식 샵 판매액(같은 달). 방법·한계는 종목 페이지 '채널 모델' 아래 접힘.</p>`;
 }
 
-/* 아마존 Top100 탭 — 접힘 'K뷰티 브랜드 국면 지도'(2026-10-21 · KBPH · kbeauty/phase.py)
-   K뷰티 브랜드(비상장 경쟁사 포함)의 판매량을 한 바구니로 보고, 각 브랜드 몫(점유율)이
-   ① 평소보다 높은가(가로) ② 직전 기간보다 늘었나(세로)로 네 칸에 나눈다. 채널 둘 — 아마존 미국(Keepa · 월) · 틱톡샵 미국(FastMoss · 주).
-   두 채널은 기간·바구니가 달라 같은 축이 아니다(아마존 = 최근 3개월 ÷ 지난 1년 · 틱톡 = 최근 8주 ÷ 받은 주 전부(최대 52주)).
-   파생값은 전부 여기서 계산한다(블록은 원재료만). 10월 같은 진행 중인 달은 칸 계산에 안 쓴다. */
+/* K뷰티 브랜드 국면 — 잣대 하나(2026-10-21 · 사용자 "기준이 들쑥날쑥 — 어떤 건 1년 평균, 어떤 건 직전 3개월")
+   모든 비교 = **같은 달력 구간에서 바로 앞 같은 길이 기간의 몫(점유율)** 과 견준다. 길이는 둘 — 3개월(판정) · 1개월(조짐).
+   아마존(Keepa · 월)과 틱톡샵(FastMoss 일별을 달로 묶음)이 **같은 마지막 완결 달**을 쓴다(kbPhEnd). 몫 = 바구니 판매량 중 비율이라
+   프라임데이·블프처럼 바구니 전체가 같이 겪는 계절은 지워진다. 판매량 증감(g)은 보조 숫자.
+   칸: 3개월 몫↑·1개월↑ = 성장 가속 · 3개월↑·1개월↓ = 성장 둔화 · 3개월↓·1개월↑ = 반등 중 · 둘 다↓ = 하락 지속.
+   옛 '평소比(지난 1년 평균 대비)' 축과 틱톡샵 8주·4주 창은 없앴다. 틱톡샵 첫 달(4월)은 4/24부터라 앞부분을 채운 추정(KBPH.tt.mest) — 3개월 창에서 빠지면 사라진다. */
 const KBPH_Q={"성장 가속":"var(--good)","성장 둔화":"var(--accent)","반등 중":"#6fa8dc","하락 지속":"var(--warn)"};
-const KBPH_QD={"성장 가속":"평소보다 높고 직전보다도 늘었다","성장 둔화":"평소보다 높지만 직전보다는 줄었다","반등 중":"평소보다 낮지만 직전보다는 늘었다","하락 지속":"평소보다 낮고 직전보다도 줄었다"};
+const KBPH_QD={"성장 가속":"3개월 몫도 늘고 최근 1개월도 늘었다","성장 둔화":"3개월 몫은 늘었지만 최근 1개월은 줄었다","반등 중":"3개월 몫은 줄었지만 최근 1개월은 늘었다","하락 지속":"3개월 몫도 줄고 최근 1개월도 줄었다"};
 const KBPH_ORD=["성장 가속","성장 둔화","반등 중","하락 지속"];
-let kbPhW=(()=>{ try{ return +localStorage.getItem("kbPhW")||3; }catch(e){ return 3; } })();
-let kbPhSmall=(()=>{ try{ return localStorage.getItem("kbPhSmall")==="1"; }catch(e){ return false; } })();
-let kbPhSel=(()=>{ try{ return localStorage.getItem("kbPhSel")||""; }catch(e){ return ""; } })();
+let kbPhW=(()=>{ try{ return +localStorage.getItem("kbPhW")||3; }catch(e){ return 3; } })();   // 아마존 × 틱톡샵 보기의 길이(3 · 1)
 const kbPhQn=(x,y)=>x>=100?(y>=100?"성장 가속":"성장 둔화"):(y>=100?"반등 중":"하락 지속");
-const kbPhAv=(a,s,e)=>{ let t=0,n=0; for(let j=s;j<=e;j++){ if(j>=0&&a[j]!=null){ t+=a[j]; n++; } } return n?t/n:null; };
 const kbPhSum=(a,s,e)=>{ let t=0; for(let j=s;j<=e;j++) t+=(a[j]||0); return t; };
-
-function kbPhCalc(){
-  const P=KBPH, M=P.months, keys=Object.keys(P.b);
-  const L=(P.partial&&M[M.length-1]===P.partial)?M.length-2:M.length-1;   // 마지막 완결 월
-  const tot=M.map((_,j)=>keys.reduce((s,k)=>s+(P.b[k].u[j]||0),0));
-  const sh={}; keys.forEach(k=>{ sh[k]=M.map((_,j)=>tot[j]?(P.b[k].u[j]||0)/tot[j]:0); });
-  const win=(k,w,e)=>{ const s=sh[k], cur=kbPhAv(s,e-w+1,e), y12=kbPhAv(s,e-11,e), prev=kbPhAv(s,e-2*w+1,e-w);
-    const x=y12?100*cur/y12:null, y=prev?100*cur/prev:null; return {cur,y12,prev,x,y,q:(x!=null&&y!=null)?kbPhQn(x,y):null}; };
-  const sum=kbPhSum;
-  const rows=keys.map(k=>{ const b=P.b[k], w3=win(k,3,L), w1=win(k,1,L);
-    const u3=sum(b.u,L-2,L), u3y=sum(b.u,L-14,L-12), T3=sum(tot,L-2,L), T3y=sum(tot,L-14,L-12);
-    const s3=T3?u3/T3:0, s3y=T3y?u3y/T3y:0;
-    const sig=[["점유율↑", s3>s3y, "7~9월 점유율이 1년 전 같은 기간보다 높다"],
-      ["히트 SKU↑", b.n1k[L]>=Math.max(b.n1k[L-12]*1.2,b.n1k[L-12]+2), `월 1천 개 이상 팔린 SKU ${b.n1k[L]}개 (1년 전 ${b.n1k[L-12]}개) — 20% 이상·2개 이상 늘면 통과`],
-      ["신제품 25%↑", u3?sum(b.nw,L-2,L)/u3>=0.25:false, `판매량 중 배지가 처음 붙은 지 12개월 안 된 SKU 비중 ${u3?Math.round(sum(b.nw,L-2,L)/u3*100):0}%`],
-      ["할인 의존↓", b.pi>=0.95, `현재 판매가 ÷ 1년 평균가 ${b.pi!=null?b.pi.toFixed(2):"—"} (0.95 이상이면 통과)`],
-      ["1위 SKU 편중↓", b.top1&&b.u[L]?b.top1.u/b.u[L]<0.4:false, b.top1&&b.u[L]?`1위 SKU 비중 ${Math.round(b.top1.u/b.u[L]*100)}% (40% 미만이면 통과)`:"—"]];
-    return {k, ko:b.ko, co:b.co, w3, w1, s3, chg:(s3-s3y)*100, yoy:u3y?u3/u3y-1:null, u3, sig, ok:sig.filter(x=>x[1]).length}; });
-  return {L, tot, sh, rows, win, M, B:P.b, avgN:12, n0:Math.max(0,L-14), big:3};
+// 두 채널 공통 마지막 완결 달(YYYY-MM)
+function kbPhEnd(){
+  const P=KBPH, la=P.months[(P.partial&&P.months[P.months.length-1]===P.partial)?P.months.length-2:P.months.length-1];
+  const T=P.tt; if(!T||!T.months) return la;
+  const lt=T.months[(T.partial&&T.months[T.months.length-1]===T.partial)?T.months.length-2:T.months.length-1];
+  return la<lt?la:lt;
 }
-
-// 틱톡샵 — KBPH.tt.weeks = 주 끝날(25개 · 7일씩) · b[브랜드].u = 주별 판매량 · v = 판매액(USD · 단가 오류 고친 값)
+// 한 채널(달 단위) — U[k] = 브랜드별 월 판매량 · win(k,w,e) = 끝 달 e 기준 최근 w개월 vs 바로 앞 w개월
+function kbPhChan(M, U, est){
+  const keys=Object.keys(U), L=M.indexOf(kbPhEnd());
+  const tot=M.map((_,j)=>keys.reduce((s,k)=>s+(U[k][j]||0),0));
+  const sh={}; keys.forEach(k=>{ sh[k]=M.map((_,j)=>tot[j]?(U[k][j]||0)/tot[j]:0); });
+  const win=(k,w,e)=>{ if(e==null) e=L; if(e-2*w+1<0) return {y:null,g:null,gb:null};
+    const u=U[k], c=kbPhSum(u,e-w+1,e), p=kbPhSum(u,e-2*w+1,e-w), tc=kbPhSum(tot,e-w+1,e), tp=kbPhSum(tot,e-2*w+1,e-w);
+    const sc=tc?c/tc:0, sp=tp?p/tp:0, est_=(est||[]).some(m=>{ const i=M.indexOf(m); return i>=e-2*w+1&&i<=e; });
+    return {sc, sp, y:sp>0&&sc>0?100*sc/sp:null, g:p>0?c/p-1:null, gb:tp>0?tc/tp-1:null, est:est_}; };
+  const lab=(w,e)=>{ if(e==null) e=L; const m=i=>`${+M[i].slice(5)}월`, r=(a,b)=>a===b?m(a):`${m(a).replace("월","")}~${m(b)}`; return {cur:r(e-w+1,e), prev:r(e-2*w+1,e-w)}; };
+  const rows=keys.map(k=>{ const m3=win(k,3), m1=win(k,1);
+    return {k, s3:m3.sc||0, m3, m1, q:(m3.y!=null&&m1.y!=null)?kbPhQn(m3.y,m1.y):null}; });
+  return {M, L, tot, sh, U, win, lab, rows, est:est||[]};
+}
+function kbPhCalc(){ const P=KBPH, U={}; Object.keys(P.b).forEach(k=>{ U[k]=P.b[k].u; }); const C=kbPhChan(P.months, U, []); C.B=P.b; return C; }
+// 틱톡샵 — 달 단위(mu) · 카드 차트용 주별 몫(shW · weeks)도 같이
 function kbPhCalcTT(){
-  const T=KBPH.tt, M=T.weeks, keys=Object.keys(T.b), L=M.length-1, N=M.length;
-  const tot=M.map((_,j)=>keys.reduce((s,k)=>s+(T.b[k].u[j]||0),0));
-  const sh={}; keys.forEach(k=>{ sh[k]=M.map((_,j)=>tot[j]?(T.b[k].u[j]||0)/tot[j]:0); });
-  const win=(k,w,e)=>{ const s=sh[k], cur=kbPhAv(s,e-w+1,e), y12=kbPhAv(s,0,e), prev=kbPhAv(s,e-2*w+1,e-w);
-    const x=y12?100*cur/y12:null, y=prev?100*cur/prev:null; return {cur,y12,prev,x,y,q:(x!=null&&y!=null&&cur>0)?kbPhQn(x,y):null}; };
-  // 판정 = 최근 8주 · 조짐 = 최근 4주(2026-10-21 사용자 "8주랑 4주로") — 평소 = 받은 주 전부(최대 52주 · 덤프가 쌓이면 늘어난다)
-  const rows=keys.map(k=>{ const b=T.b[k], a=KBPH.b[k]||{}, w3=win(k,8,L), w1=win(k,4,L);
-    const u4=kbPhSum(b.u,L-7,L), u4p=kbPhSum(b.u,L-15,L-8), T4=kbPhSum(tot,L-7,L), T4p=kbPhSum(tot,L-15,L-8);
-    const s3=T4?u4/T4:0, s3p=T4p?u4p/T4p:0;
-    return {k, ko:a.ko||k, co:a.co||"", shop:b.n.join(" · "), w3, w1, s3, chg:(s3-s3p)*100, g4:u4p?u4/u4p-1:null, u4, v4:kbPhSum(b.v,L-7,L), fx:b.fx||0}; });
-  return {L, tot, sh, rows, win, M, B:T.b, avgN:N, n0:0, big:8, small:4};
+  const T=KBPH.tt; if(!T||!T.months) return null;
+  const U={}; Object.keys(T.b).forEach(k=>{ U[k]=T.b[k].mu; });
+  const C=kbPhChan(T.months, U, T.mest||[]); C.B=T.b;
+  const W=T.weeks, wk=Object.keys(T.b), wt=W.map((_,j)=>wk.reduce((s,k)=>s+(T.b[k].u[j]||0),0));
+  C.weeks=W; C.shW={}; wk.forEach(k=>{ C.shW[k]=W.map((_,j)=>wt[j]?(T.b[k].u[j]||0)/wt[j]:0); });
+  C.rows.forEach(r=>{ const b=T.b[r.k]; r.shop=b.n.join(" · "); r.fx=b.fx||0;
+    const i=C.L, v=b.mv?kbPhSum(b.mv,i-2,i):0; r.v3=v; });
+  return C;
 }
 
 /* ══ 화장품 트렌드 분석 탭 — '한눈에' 브랜드 × 채널 신호판 (2026-10-21 · 사용자 "아마존 데이터 둘 + Keepa + 틱톡 버무려 종합 · 간결하게") ══
@@ -10884,7 +10880,7 @@ function cosBoardRows(){
     if(o){ const ds=Object.keys(o.d).sort(), dv=ds.filter(d=>amztVal(o,d,"sum","t100")!==undefined);
       if(dv.length){ const dL=dv[dv.length-1], dn=d=>Date.parse(d+"T00:00:00Z")/864e5, d4=[...dv].reverse().find(d=>dn(dL)-dn(d)>=28);
         top={v:amztVal(o,dL,"sum","t100"), p:d4?amztVal(o,d4,"sum","t100"):null, d:dL, d4}; } }
-    const sig=[["아마존 몫", a&&a.w3.y!=null?a.w3.y>=100:null], ["틱톡샵 몫", t&&t.w3.q?t.w3.y>=100:null],
+    const sig=[["아마존 몫", a&&a.m3.y!=null?a.m3.y>=100:null], ["틱톡샵 몫", t&&t.m3.y!=null?t.m3.y>=100:null],
       ["미국 추정 매출", sub&&sub.r!=null&&sub.rw?sub.r>sub.rw:null], ["Top100 개수", top&&top.p!=null&&(top.v||top.p)?top.v>top.p:null]];
     const known=sig.filter(z=>z[1]!=null);
     return {k, ko:KBPH.b[k].ko, co:KBPH.b[k].co, sup:KBPH.b[k].sup||"", pick:si!=null?S.bl[si]:(o?o.key:k), a, t, sub, top, sig, up:known.filter(z=>z[1]).length, n:known.length,
@@ -10934,20 +10930,14 @@ function cosRenderPane(t){
 function cosPhaseData(){
   if(typeof KBPH==="undefined"||!KBPH.b) return null;
   const CA=kbPhCalc(), CT=KBPH.tt&&KBPH.tt.b?kbPhCalcTT():null, D=cosBoardRows();
-  const mLab=m=>`${+m.slice(5)}월`, wLab=d=>d.slice(5).replace("-","/");
-  const monthEnd=m=>{ const y=+m.slice(0,4), mo=+m.slice(5); return new Date(Date.UTC(y,mo,0)).toISOString().slice(0,10); };
+  const mLab=m=>`${+m.slice(5)}월`;
   const B={};
+  // 꼬리 = 끝 달을 한 달씩 당겨 같은 식(3개월·1개월 몫 변화)을 다시 푼 자리 — 최근 6개월 중 계산되는 달만
+  const tr=(C,k)=>{ const o=[]; for(let e=C.L-5;e<=C.L;e++){ const a=C.win(k,3,e), b=C.win(k,1,e); if(a.y!=null&&b.y!=null) o.push({x:a.y,y:b.y,q:kbPhQn(a.y,b.y),lab:mLab(C.M[e])}); } return o; };
   D.rows.forEach(r=>{ const k=r.k;
-    const aT=w=>{ const o=[]; for(let e=CA.L-5;e<=CA.L;e++){ const v=CA.win(k,w,e); if(v.q) o.push({x:v.x,y:v.y,q:v.q,lab:mLab(CA.M[e])}); } return o; };
-    // 틱톡샵 꼬리 — 판정(8주)은 2주 간격 5점 · 조짐(4주)은 1주 간격 6점. 창 둘(최근·직전)이 다 들어가는 주부터
-    const tT=w=>{ if(!CT||!CT.B[k]) return []; const stp=w>=8?2:1, span=w>=8?8:5, o=[];
-      for(let e=CT.L-span;e<=CT.L;e+=stp){ if(e<2*w-1) continue; const v=CT.win(k,w,e); if(v.q) o.push({x:v.x,y:v.y,q:v.q,lab:wLab(CT.M[e])}); } return o; };
-    let xT=[];
-    if(CT&&CT.B[k]){
-      for(let e=CA.L-3;e<=CA.L;e++){ const me=monthEnd(CA.M[e]); let j=-1; CT.M.forEach((d,i)=>{ if(d<=me) j=i; });
-        if(j<15) continue; const a=CA.win(k,3,e), t=CT.win(k,8,j); if(a.y==null||!t.q) continue; xT.push({x:a.y,y:t.y,lab:mLab(CA.M[e])}); }
-      const a=CA.win(k,3,CA.L), t=CT.win(k,8,CT.L); if(a.y!=null&&t.q) xT.push({x:a.y,y:t.y,lab:wLab(CT.M[CT.L])});
-    }
+    const aT=()=>tr(CA,k), tT=()=>CT&&CT.U[k]?tr(CT,k):[];
+    const xT=w=>{ if(!CT||!CT.U[k]) return []; const o=[]; for(let e=CA.L-5;e<=CA.L;e++){ const et=CT.M.indexOf(CA.M[e]); if(et<0) continue;
+      const a=CA.win(k,w,e), t=CT.win(k,w,et); if(a.y!=null&&t.y!=null) o.push({x:a.y,y:t.y,lab:mLab(CA.M[e])}); } return o; };
     B[k]={...r, aT, tT, xT};
   });
   return {CA, CT, B, D};
@@ -10960,12 +10950,9 @@ function renderCosPhase(){
   const P=cosPhaseData(); if(!P){ box.innerHTML=`<p class="note">아직 데이터가 없습니다.</p>`; return; }
   const {CA, CT, B, D}=P, fx=D.fx;
   if(!CT&&cosMode!=="amz") cosMode="amz";
-  const mode=cosMode, big=mode==="tt"?8:3, sm=mode==="tt"?4:1, w=kbPhW===1?sm:big, wk=w===big?"w3":"w1";
-  const lab=m=>`${+m.slice(5)}월`;
-  const aWin=(mode==="amz"&&w===1)?lab(CA.M[CA.L]):`${lab(CA.M[CA.L-2]).replace("월","")}~${lab(CA.M[CA.L])}`;
-  const tS=j=>{ const d=new Date(CT.M[j]+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-6); return d.toISOString().slice(5,10).replace("-","/"); };
-  const nA=mode==="amz"?w:3, nT=mode==="tt"?w:8;
-  const tw=mode==="tt"?w:8, tWin=CT?`${tS(CT.L-tw+1)}~${CT.M[CT.L].slice(5).replace("-","/")}`:"";
+  const mode=cosMode, xw=kbPhW===1?1:3;   // 교차 보기만 길이를 고른다(3 · 1) · 한 채널 보기는 가로 3개월 · 세로 1개월
+  const L3=CA.lab(3), L1=CA.lab(1), Lx=CA.lab(xw);
+  const tEst=CT&&CT.win("medicube",3).est;   // 틱톡샵 3개월 창에 4월 추정이 들어가나
   // 비상장 소형 켜고 끄기(2026-10-21 사용자 "하루하루원더 같은 비상장 스몰캡 끄고 켜기") — 상장사 없음 + 두 채널 몫 모두 2% 미만.
   //   끄면 지도·목록·증가율·표에서만 뺀다. 바구니(몫의 분모)는 그대로라 남은 브랜드의 몫·평소比·직전比는 안 바뀐다. 상장사는 몫이 작아도 늘 보인다.
   const smallUn=cosLs("cosSmallUn","0")==="1";
@@ -10975,14 +10962,15 @@ function renderCosPhase(){
   // 보기마다 점 = {k, x, y, s(원 크기 몫), q(칸 번호 또는 이름), T(꼬리)}
   const pts=[];
   Object.values(B).forEach(r=>{
-    if(mode==="amz"){ if(!r.a||!r.a[wk].q) return; const o=r.a[wk]; pts.push({r, x:o.x, y:o.y, s:r.a.s3, q:o.q, T:r.aT(w)}); }
-    else if(mode==="tt"){ if(!r.t||!r.t[wk].q) return; const o=r.t[wk]; pts.push({r, x:o.x, y:o.y, s:r.t.s3, q:o.q, T:r.tT(w)}); }
-    else { if(!r.a||!r.t||!r.t.w3.q||r.a.w3.y==null) return; pts.push({r, x:r.a.w3.y, y:r.t.w3.y, s:Math.max(r.a.s3,r.t.s3), q:COS_X[cosXq(r.a.w3.y,r.t.w3.y)][0], T:r.xT}); }
+    if(mode==="amz"){ if(!r.a||!r.a.q) return; pts.push({r, x:r.a.m3.y, y:r.a.m1.y, s:r.a.s3, q:r.a.q, T:r.aT()}); }
+    else if(mode==="tt"){ if(!r.t||!r.t.q) return; pts.push({r, x:r.t.m3.y, y:r.t.m1.y, s:r.t.s3, q:r.t.q, T:r.tT()}); }
+    else { const a=r.a&&CA.win(r.k,xw), t=r.t&&CT.win(r.k,xw); if(!a||!t||a.y==null||t.y==null) return;
+      pts.push({r, x:a.y, y:t.y, s:Math.max(r.a.s3,r.t.s3), q:COS_X[cosXq(a.y,t.y)][0], T:r.xT(xw)}); }
   });
   const vis=pts.filter(p=>keep(p.r));
   if(!vis.some(p=>p.r.k===cosSel)) cosSel=(vis.slice().sort((a,b)=>b.s-a.s)[0]||{r:{}}).r.k||"";
   const QN=mode==="x"?COS_X.map(x=>x[0]):KBPH_ORD, QC=q=>mode==="x"?(COS_X.find(x=>x[0]===q)||[0,"var(--muted)"])[1]:KBPH_Q[q];
-  const QD=mode==="x"?{"두 채널 다 늘었다":"아마존·틱톡샵 둘 다 직전보다 몫이 늘었다","틱톡샵만 늘었다":"틱톡샵 몫은 늘고 아마존 몫은 줄었다","아마존만 늘었다":"아마존 몫은 늘고 틱톡샵 몫은 줄었다","두 채널 다 줄었다":"둘 다 직전보다 몫이 줄었다"}:KBPH_QD;
+  const QD=mode==="x"?{"두 채널 다 늘었다":`아마존·틱톡샵 둘 다 ${Lx.prev}보다 ${Lx.cur} 몫이 늘었다`,"틱톡샵만 늘었다":"틱톡샵 몫은 늘고 아마존 몫은 줄었다","아마존만 늘었다":"아마존 몫은 늘고 틱톡샵 몫은 줄었다","두 채널 다 줄었다":`둘 다 ${Lx.prev}보다 몫이 줄었다`}:KBPH_QD;
   // 축 — 점 + 보이는 점들의 꼬리까지 담는다(260 위·10 밑은 끝에 붙인다)
   const CL=v=>Math.max(10,Math.min(260,v));
   // 축 범위 = 지금 점들 + 고른 브랜드의 꼬리(다른 브랜드 꼬리가 범위 밖이면 가장자리에 붙인다 — 커서를 옮길 때마다 축이 바뀌지 않게)
@@ -10995,8 +10983,9 @@ function renderCosPhase(){
   const mxS=Math.max(...vis.map(p=>p.s)), rr=s=>3+Math.sqrt(s/mxS)*(nar?14:20);
   const tick=(lo,hi)=>{ const st=(hi-lo)>160?40:(hi-lo)>80?20:10, a=[]; for(let v=Math.ceil(lo/st)*st; v<=hi; v+=st) a.push(v); return a; };
   // 축 글씨 = 쉬운 말(사용자 "그래프가 헷갈린다") — 숫자 기준은 괄호로만
-  const xCap=mode==="x"?"아마존에서 몫이 늘었다 → (직전 3개월 대비)":mode==="amz"?"평소보다 잘 팔린다 → (지난 1년 평균 대비)":`평소보다 잘 팔린다 → (지난 ${CT?CT.avgN:25}주 평균 대비)`;
-  const yCap=mode==="x"?"↑ 틱톡샵에서 몫이 늘었다 (직전 8주 대비)":`↑ 직전보다 늘었다 (직전 ${w}${mode==="amz"?"개월":"주"} 대비)`;
+  // 축 글씨 = 쉬운 말 · 기준은 늘 '바로 앞 같은 길이'(괄호에 실제 달)
+  const xCap=mode==="x"?`아마존에서 몫이 늘었다 → (${Lx.cur} ÷ ${Lx.prev})`:`3개월 몫이 늘었다 → (${L3.cur} ÷ ${L3.prev})`;
+  const yCap=mode==="x"?`↑ 틱톡샵에서 몫이 늘었다 (${Lx.cur} ÷ ${Lx.prev}${xw===3&&tEst?" · 4월 앞부분 추정":""})`:`↑ 최근 1개월 몫이 늘었다 (${L1.cur} ÷ ${L1.prev})`;
   let svg=`<svg id="cpSvg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:${W}px;touch-action:manipulation">`;
   tick(x0,x1).forEach(v=>{ svg+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--line-soft)"/><text x="${sx(v)}" y="${H-pad.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${v}</text>`; });
   tick(y0,y1).forEach(v=>{ svg+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line-soft)"/><text x="${pad.l-6}" y="${sy(v)+3.5}" text-anchor="end" font-size="10.5" fill="var(--muted2)">${v}</text>`; });
@@ -11032,16 +11021,17 @@ function renderCosPhase(){
     const kv=(k,v,sub)=>`<div class="cp-kv"><div class="cp-k">${k}</div><div class="cp-v">${v}</div>${sub?`<div class="cp-s">${sub}</div>`:""}</div>`;
     const eokS=v=>{ const e=v*fx/1e8; return e>=10?e.toFixed(0)+"억":e>=1?e.toFixed(1)+"억":e.toFixed(2)+"억"; };
     const pc=(v,ref)=>v==null||!ref?"":`${v/ref-1>=0?"+":""}${Math.round((v/ref-1)*100)}%`;
+    const chgS=m=>m&&m.y!=null?`<b style="color:${m.y>=100?"var(--up)":"var(--down)"}">${m.y>=100?"+":""}${Math.round(m.y-100)}%</b>${m.g!=null?` <span class="g">(판매 ${m.g>=0?"+":""}${Math.round(m.g*100)}%)</span>`:""}`:"—";
     selH=`<div class="cp-sel"><div class="cp-selh"><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}</span>
         <button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button></div>
       <div class="cp-kvs">
-        ${kv("아마존 (Keepa · 3개월)", a?`${pillQ(a.w3.q,KBPH_Q[a.w3.q])} 몫 ${(a.s3*100).toFixed(1)}%`:"—", a?`평소比 ${a.w3.x.toFixed(0)} · 직전比 ${a.w3.y.toFixed(0)}`:"")}
-        ${CT?kv("틱톡샵 (최근 8주)", t&&t.w3.q?`${pillQ(t.w3.q,KBPH_Q[t.w3.q])} 몫 ${(t.s3*100).toFixed(1)}%`:'<span class="g">미국 공식 샵 없음</span>', t&&t.w3.q?`평소比 ${t.w3.x.toFixed(0)} · 직전比 ${t.w3.y.toFixed(0)} · 판매액 $${t.v4>=1e6?(t.v4/1e6).toFixed(1)+"M":Math.round(t.v4/1e3)+"K"}`:""):""}
+        ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 몫 ${(a.s3*100).toFixed(1)}%`:"—", a&&a.q?`몫 3개월 ${chgS(a.m3)} · 1개월 ${chgS(a.m1)}`:"")}
+        ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 몫 ${(t.s3*100).toFixed(1)}%`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?`몫 3개월 ${chgS(t.m3)} · 1개월 ${chgS(t.m1)} · 3개월 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
         ${kv("미국 세부 카테고리", s&&s.s?`SKU ${s.s} · 하루 ${s.r?eokS(s.r):"—"}`:'<span class="g">—</span>', s&&s.rw?`1주 전 대비 ${pc(s.r,s.rw)}`:"")}
         ${kv("뷰티 Top100 · 5개국", tp?`${tp.v}개`:'<span class="g">—</span>', tp&&tp.p!=null?`4주 전 ${tp.p}개`:"")}
       </div>
-      <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">아마존 몫(비중) · 월별<span class="sub">Keepa · ${Object.keys(KBPH.b).length}개 브랜드 판매량 중 · 점선 = 지난 1년 평균</span></div><div id="cpSA"></div></div>
-        ${CT?`<div class="chart-box"><div class="asd-h">틱톡샵 몫(비중) · 주별<span class="sub">FastMoss · ${Object.keys(KBPH.tt.b).length}개 공식 샵 판매량 중 · 점선 = 지난 ${CT.avgN}주 평균</span></div><div id="cpST"></div></div>`:""}</div>
+      <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">아마존 몫(비중) · 월별<span class="sub">Keepa · ${Object.keys(KBPH.b).length}개 브랜드 판매량 중 · 점선 = ${L3.prev} · ${L3.cur} 평균 몫</span></div><div id="cpSA"></div></div>
+        ${CT?`<div class="chart-box"><div class="asd-h">틱톡샵 몫(비중) · 주별<span class="sub">FastMoss · ${Object.keys(KBPH.tt.b).length}개 공식 샵 판매량 중 · 주별 선 · 점선 = ${L3.prev} · ${L3.cur} 평균 몫(달 기준)</span></div><div id="cpST"></div></div>`:""}</div>
       <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">아마존 판매량(절대값) · 같은 달 3개년<span class="sub">Keepa · 전 상품(배지 하한 · 개) · 막대 위 % = 전년 같은 달 대비</span></div><div id="cpA"></div></div>
         ${CT?`<div class="chart-box"><div class="asd-h">틱톡샵 판매량(절대값) · 월별<span class="sub">FastMoss · ${KBPH.tt.start.slice(5).replace("-","/")}부터라 전년비 없음 · % = 전월 대비</span></div><div id="cpT"></div></div>`:""}</div></div>`;
   }
@@ -11049,59 +11039,65 @@ function renderCosPhase(){
   // ── 표 ──
   const QS={"성장 가속":"가속","성장 둔화":"둔화","반등 중":"반등","하락 지속":"하락"};
   const pill=q=>q?`<span class="cos-q" style="background:color-mix(in srgb, ${KBPH_Q[q]} 24%, transparent)" title="${attr(q+" — "+KBPH_QD[q])}">${QS[q]}</span>`:`<span class="g">—</span>`;
-  const xq=r=>r.a&&r.t&&r.t.w3.q&&r.a.w3.y!=null?COS_X[cosXq(r.a.w3.y,r.t.w3.y)]:null;
+  const xq=r=>{ if(!r.a||!r.t) return null; const a=CA.win(r.k,xw), t=CT.win(r.k,xw); return a.y!=null&&t.y!=null?COS_X[cosXq(a.y,t.y)]:null; };
   const eokS=v=>{ const e=v*fx/1e8; return e>=10?e.toFixed(0)+"억":e>=1?e.toFixed(1)+"억":e>=0.01?e.toFixed(2)+"억":"0"; };
   const pct=(v,ref)=>{ if(v==null||!ref) return `<span class="g">—</span>`; const d=v/ref-1; return `<span style="color:${Math.abs(d)<0.005?"var(--muted)":d>0?"var(--up)":"var(--down)"}">${d>=0?"+":""}${Math.round(d*100)}%</span>`; };
   const rows=Object.values(B).filter(keep);
-  const ord=r=>mode==="amz"?(r.a&&r.a[wk].q?KBPH_ORD.indexOf(r.a[wk].q):9):mode==="tt"?(r.t&&r.t[wk].q?KBPH_ORD.indexOf(r.t[wk].q):9):(xq(r)?COS_X.indexOf(xq(r)):9);
+  const ord=r=>mode==="amz"?(r.a&&r.a.q?KBPH_ORD.indexOf(r.a.q):9):mode==="tt"?(r.t&&r.t.q?KBPH_ORD.indexOf(r.t.q):9):(xq(r)?COS_X.indexOf(xq(r)):9);
   rows.sort((a,b)=>ord(a)-ord(b)||Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
   const tbl=`<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l">브랜드</th><th class="l">상장사</th>
-      <th class="l" title="Keepa 아마존 전 상품 판매량 몫 — ${aWin}">아마존 칸</th><th title="아마존 몫(${Object.keys(KBPH.b).length}개 브랜드 중)">몫</th>
+      <th class="l" title="Keepa 아마존 — 3개월 몫(${L3.cur} ÷ ${L3.prev}) × 1개월 몫(${L1.cur} ÷ ${L1.prev})">아마존 칸</th><th title="아마존 몫(${Object.keys(KBPH.b).length}개 브랜드 중)">몫</th>
       ${CT?`<th class="l" title="FastMoss 틱톡샵 공식 샵 판매량 몫 — 최근 8주">틱톡샵 칸</th><th title="틱톡샵 몫">몫</th><th class="l">두 채널</th>`:""}
       <th title="미국 세부 카테고리 Top100 · 추정 하루 매출">美 하루 매출</th><th title="1주 전 수집 대비">1주比</th><th title="미·영·독·프·스 뷰티 Top100 안 제품 수">Top100</th><th title="4주 전 대비">4주比</th></tr></thead><tbody>`
     +rows.map(r=>{ const x=xq(r), s=r.sub, tp=r.top;
       return `<tr class="cp-tr${r.k===cosSel?" on":""}" data-k="${attr(r.k)}" style="cursor:pointer"><td class="l"><b>${attr(r.ko)}</b></td><td class="l">${r.co?attr(r.co):'<span class="g">비상장</span>'}${r.sup?` <span class="g" title="${attr(r.sup)} 가 만든다(ODM) — 브랜드 주인은 비상장">· ${attr(r.sup)} ODM</span>`:""}</td>
-        <td class="l">${r.a?pill(r.a[mode==="amz"?wk:"w3"].q):"—"}</td><td>${r.a?(r.a.s3*100).toFixed(1)+"%":"—"}</td>
-        ${CT?`<td class="l">${r.t&&r.t.w3.q?pill(r.t[mode==="tt"?wk:"w3"].q):'<span class="g">샵 없음</span>'}</td><td>${r.t&&r.t.w3.q?(r.t.s3*100).toFixed(1)+"%":'<span class="g">—</span>'}</td>
+        <td class="l">${r.a?pill(r.a.q):"—"}</td><td>${r.a?(r.a.s3*100).toFixed(1)+"%":"—"}</td>
+        ${CT?`<td class="l">${r.t&&r.t.q?pill(r.t.q):'<span class="g">샵 없음</span>'}</td><td>${r.t&&r.t.q?(r.t.s3*100).toFixed(1)+"%":'<span class="g">—</span>'}</td>
           <td class="l">${x?`<span class="cos-dot" style="background:${x[1]}"></span>${x[0]}`:'<span class="g">—</span>'}</td>`:""}
         <td>${s&&s.r?eokS(s.r):'<span class="g">—</span>'}</td><td>${s?pct(s.r,s.rw):'<span class="g">—</span>'}</td>
         <td>${tp?tp.v:'<span class="g">—</span>'}</td><td>${tp&&tp.p!=null?(tp.v===tp.p?'<span class="g">0</span>':`<span style="color:${tp.v>tp.p?"var(--up)":"var(--down)"}">${tp.v>tp.p?"▲":"▼"}${Math.abs(tp.v-tp.p)}</span>`):'<span class="g">—</span>'}</td></tr>`; }).join("")
     +`</tbody></table></div>`;
 
   const modeBtn=(k,t)=>`<button data-cpm="${k}" class="${mode===k?"active":""}">${t}</button>`;
-  const un=mode==="amz"?"개월":"주";
-  const perBtns=mode==="x"?"":`<div class="seg">${[[3,`${big}${un} · 판정`],[1,`${sm}${un} · 조짐`]].map(([v,t])=>`<button data-cpw="${v}" class="${(w===big?3:1)===v?"active":""}">${t}</button>`).join("")}</div>`;
-  const what=mode==="x"?`아마존 ${aWin}(Keepa) 몫 ÷ 직전 3개월 · 틱톡샵 ${tWin} 몫 ÷ 직전 8주`
-    :mode==="amz"?`아마존(Keepa · 전 상품 판매량) ${aWin} · ${Object.keys(KBPH.b).length}개 브랜드 바구니`:`틱톡샵(FastMoss · 미국 공식 샵) ${tWin} · ${Object.keys(KBPH.tt.b).length}개 브랜드 바구니`;
+  const perBtns=mode!=="x"?"":`<div class="seg">${[[3,"3개월 · 판정"],[1,"1개월 · 조짐"]].map(([v,t])=>`<button data-cpw="${v}" class="${xw===v?"active":""}">${t}</button>`).join("")}</div>`;
+  const what=`잣대 하나 — 몫(바구니 판매량 중 비율)을 <b>바로 앞 같은 길이</b>와 견준다 · `+(mode==="x"?`두 채널 다 ${Lx.cur} ÷ ${Lx.prev}`
+    :mode==="amz"?`아마존(Keepa) ${Object.keys(KBPH.b).length}개 브랜드 · 가로 3개월(${L3.cur} ÷ ${L3.prev}) · 세로 1개월(${L1.cur} ÷ ${L1.prev})`
+    :`틱톡샵(FastMoss 미국 공식 샵) ${Object.keys(KBPH.tt.b).length}개 브랜드 · 가로 3개월(${L3.cur} ÷ ${L3.prev}${tEst?" · 4월 앞부분 추정":""}) · 세로 1개월(${L1.cur} ÷ ${L1.prev})`);
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
       <label class="g" style="font-size:12px;margin-left:auto" title="${attr("상장사가 없고 아마존·틱톡샵 몫이 둘 다 2% 미만인 브랜드 — "+smList.map(r=>r.ko).join(" · ")+" · 꺼도 몫의 분모(바구니)는 그대로")}"><input type="checkbox" id="cpSmall"${smallUn?" checked":""}> 비상장 소형 ${smList.length}개 보기</label></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
-    <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(${mode==="x"?"8·9월 → 지금":mode==="amz"?"최근 6개월":w===big?"최근 8주 · 2주 간격":"최근 5주"})가 꼬리로 · 누르면 고정. 원 크기 = 몫 · 점선 100 = ${mode==="x"?"직전과 같음":"평소·직전과 같음"}.</p>
+    <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달)가 꼬리로 · 누르면 고정. 원 크기 = 3개월 몫 · 점선 100 = 바로 앞과 같음.</p>
     ${lists}${selH}
     <div class="sub-h" style="margin-top:18px">몫 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${mode==="x"&&CT?"":" one"}" style="margin-top:6px">${mode!=="tt"?`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 몫</span></div><div id="cpStA"></div></div>`:""}${mode!=="amz"&&CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 몫</span></div><div id="cpStT"></div></div>`:""}</div>
-    <div class="sub-h" style="margin-top:18px">판매량 증가율 · 브랜드별 <span class="th-sub" style="display:inline">네 기간을 네 칸에 · 칸마다 큰 순 · 금색 줄 = 고른 브랜드 · 점선 = 바구니 전체 · 누르면 그 브랜드 · 굵은 이름 = 상장사</span></div>
+    <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">바로 앞 같은 길이 대비 · 칸마다 큰 순 · 점선 = 바구니 전체 → 막대가 점선 위면 몫이 늘었다 · 금색 줄 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
     <div class="cp-gr4" id="cpGr4"></div>
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
     <details class="fold" data-fold="cpM"${foldOpen("cpM")} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
       <b>몫</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(미국 · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 하한) ${Object.keys(KBPH.b).length}개 브랜드 ·
       틱톡샵 = FastMoss 샵 상세 일별 판매량(미국 공식 샵 · 7일씩 · 매주 받은 덤프를 이어 붙여 최대 52주) — 설화수·페리페라·구달·메디필은 미국 공식 샵이 없어 틱톡 칸이 비고, 클리오 계열은 한 샵에 섞여 못 가른다.<br>
-      <b>평소比</b> = 최근 기간 몫 ÷ 평소(아마존 지난 1년 · 틱톡샵 받은 주 전부, 최대 52주 — FastMoss 가 한 번에 180일만 준다) × 100 · <b>직전比</b> = 최근 기간 몫 ÷ 바로 앞 같은 길이 × 100.
-      판정 창은 아마존 3개월 · 틱톡샵 8주, 조짐 창은 1개월 · 4주. 두 채널은 기간이 달라(3개월 · 8주) <b>칸끼리 같은 방향인지만</b> 볼 것. 메디큐브가 틱톡샵 판매량의 약 60%라 메디큐브가 움직이면 나머지 몫이 반대로 움직인다.<br>
-      꼬리 = 그 시점까지의 자료로 같은 식을 다시 푼 자리(아마존 월말 · 틱톡샵 주 끝날 · 교차 보기는 그 달 말에 가장 가까운 틱톡샵 주). 美 하루 매출 = 미국 세부 카테고리 순위 → 판매량 → × 가격 추정(환율 ${Math.round(fx).toLocaleString("ko-KR")}원).
+      <b>잣대는 하나</b>(2026-10-21) — 몫을 <b>같은 달력 구간에서 바로 앞 같은 길이</b>와 견준다(× 100). 3개월(${L3.cur} ÷ ${L3.prev}) = 판정 · 1개월(${L1.cur} ÷ ${L1.prev}) = 조짐. 두 채널 다 같은 달.
+      몫으로 보는 이유: 프라임데이·블프 같은 계절은 바구니 전체가 같이 겪어 몫에선 지워진다. 판매량 증감은 보조 숫자(증가율 칸의 막대 · 점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 몫이 늘었다).
+      틱톡샵은 일별을 달로 묶었고, 첫 달 4월은 4/24부터라 4/1~23 을 샵마다 '관측 첫 14일 평균'으로 채운 추정이다(3개월 창에 4월이 들어갈 때만 · 11월부터 사라짐). 메디큐브가 틱톡샵 판매량의 약 60%라 메디큐브가 움직이면 나머지 몫이 반대로 움직인다.<br>
+      전년비는 고른 브랜드 카드의 '같은 달 3개년' 막대에만 쓴다(계절 확인용). 꼬리 = 끝 달을 한 달씩 당겨 같은 식을 다시 푼 자리. 美 하루 매출 = 미국 세부 카테고리 순위 → 판매량 → × 가격 추정(환율 ${Math.round(fx).toLocaleString("ko-KR")}원).
       갱신 — 아마존 Keepa 월 1회(<code>kbeauty/phase_keepa.js</code>) · 틱톡샵 주 1회(<code>kbeauty/fastmoss.js</code> → <code>kbeauty/data/phase/fm/</code>) → <code>kbeauty/phase.py</code>.</div></details>`;
 
   // 고른 브랜드 월별 판매량 · 몫 쌓기 · 증가율
   const nm=k=>(KBPH.b[k]||{}).ko||k;
-  if(R){ cosShareChart(document.getElementById("cpSA"),{lab:CA.M.map(m=>m.slice(2).replace("-",".")), s:CA.sh[R.k], n0:Math.max(0,CA.L-14), L:CA.L, part:CA.L<CA.M.length-1, base:R.a?R.a.w3.y12:null, avgN:12, unit:"월"});
-    if(CT&&CT.sh[R.k]) cosShareChart(document.getElementById("cpST"),{lab:CT.M.map(d=>d.slice(5).replace("-","/")), s:CT.sh[R.k], n0:0, L:CT.L, part:false, base:R.t?R.t.w3.y12:null, avgN:CT.M.length, unit:"주"});
+  if(R){ const n0=Math.max(0,CA.L-14), a3=CA.win(R.k,3);
+    cosShareChart(document.getElementById("cpSA"),{lab:CA.M.map(m=>m.slice(2).replace("-",".")), s:CA.sh[R.k], n0, L:CA.L, part:CA.L<CA.M.length-1, unit:"월",
+      segs:[{a:CA.L-5-n0,b:CA.L-3-n0,v:a3.sp,lab:L3.prev},{a:CA.L-2-n0,b:CA.L-n0,v:a3.sc,lab:L3.cur}]});
+    if(CT&&CT.shW[R.k]){ const t3=CT.win(R.k,3), Wk=CT.weeks, inM=(ms)=>{ const ix=Wk.map((d,i)=>ms.includes(d.slice(0,7))?i:-1).filter(i=>i>=0); return ix.length?[ix[0],ix[ix.length-1]]:[-1,-1]; };
+      const mp=CT.M.slice(CT.L-5,CT.L-2), mc=CT.M.slice(CT.L-2,CT.L+1), [pa,pb]=inM(mp), [ca,cb]=inM(mc);
+      cosShareChart(document.getElementById("cpST"),{lab:Wk.map(d=>d.slice(5).replace("-","/")), s:CT.shW[R.k], n0:0, L:Wk.length-1, part:false, unit:"주",
+        segs:[{a:pa,b:pb,v:t3.sp,lab:L3.prev},{a:ca,b:cb,v:t3.sc,lab:L3.cur}]}); }
     else if(document.getElementById("cpST")) document.getElementById("cpST").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
   if(R){ const Ab=KBPH.b[R.k]; cosYoYBars(document.getElementById("cpA"),{months:CA.M, u:Ab.u, partial:KBPH.partial});
     const T=KBPH.tt, Tb=CT&&T.b[R.k];
-    if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:Tb.mu, v:Tb.mv, pi:T.months.indexOf(T.partial), note:`${T.partial?`${+T.partial.slice(5)}월은 ${T.end.slice(5).replace("-","/")}까지`:""}`});
+    if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:Tb.mu, v:Tb.mv, pi:T.months.indexOf(T.partial), note:`${T.partial?`${+T.partial.slice(5)}월은 ${T.end.slice(5).replace("-","/")}까지`:""}${(T.mest||[]).length?` · ${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}부터라 앞부분 추정`:""}`});
     else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
   const stackRows=(keys,shOf,last)=>{ const top=keys.slice().sort((a,b)=>shOf(b,last)-shOf(a,last)).slice(0,7); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
     const rows=top.map((k,i)=>({name:nm(k), col:AMZT_PAL[i%AMZT_PAL.length], sel:k===cosSel, k}));
@@ -11120,16 +11116,11 @@ function renderCosPhase(){
     rows.push({name:"그 밖", col:"color-mix(in srgb, var(--muted) 35%, var(--panel))", v:T.months.map((_,j)=>1-top.reduce((t,k)=>t+S[k][j],0))});
     cosStack(document.getElementById("cpStT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), rows, pi,
       note:`${keys.length}개 공식 샵 · 메디큐브가 절반 넘게 가져간다`}); }
-  // 증가율 네 개를 한 표에(2026-10-21 사용자 "하나 누르면 다른 하나 뜨는 게 별로 — 4개 다 띄우고 선택한 종목 강조")
-  //   아마존 3개월·1개월 = 작년 같은 기간 대비 · 틱톡샵 8주·4주 = 직전 같은 길이 대비. 보기(아마존×틱톡 등)·기간 버튼과 무관하게 늘 넷 다.
-  const grA=(k,n)=>{ const u=(KBPH.b[k]||{}).u; if(!u) return null; const L=CA.L, c=kbPhSum(u,L-n+1,L), p=L-n+1-12>=0?kbPhSum(u,L-n+1-12,L-12):0; return p>0?c/p-1:null; };
-  const grT=(k,n)=>{ const b=CT&&CT.B[k]; if(!b) return null; const L=CT.L; if(L-2*n+1<0) return null; const c=kbPhSum(b.u,L-n+1,L), p=kbPhSum(b.u,L-2*n+1,L-n); return p>0&&c>0?c/p-1:null; };   // 판매가 끊긴 샵(하루하루원더)은 −100% 로 축을 짓누르므로 뺀다
-  const baseA=n=>{ const ks=Object.keys(KBPH.b), L=CA.L, c=ks.reduce((t,k)=>t+kbPhSum(KBPH.b[k].u,L-n+1,L),0), p=ks.reduce((t,k)=>t+kbPhSum(KBPH.b[k].u,L-n+1-12,L-12),0); return p>0?c/p-1:null; };
-  const baseT=n=>{ if(!CT) return null; const L=CT.L, c=kbPhSum(CT.tot,L-n+1,L), p=kbPhSum(CT.tot,L-2*n+1,L-n); return p>0?c/p-1:null; };
-  const tLab=n=>CT?`${tS(CT.L-n+1)}~${CT.M[CT.L].slice(5).replace("-","/")}`:"";
-  const aLab=n=>n===1?lab(CA.M[CA.L]):`${lab(CA.M[CA.L-n+1]).replace("월","")}~${lab(CA.M[CA.L])}`;
-  const cols=[{id:"a3", t:"아마존 3개월", s:`${aLab(3)} · 전년비`, base:baseA(3), f:k=>grA(k,3)}, {id:"a1", t:"아마존 1개월", s:`${aLab(1)} · 전년비`, base:baseA(1), f:k=>grA(k,1)}]
-    .concat(CT?[{id:"t8", t:"틱톡샵 8주", s:`${tLab(8)} · 직전比`, base:baseT(8), f:k=>grT(k,8)}, {id:"t4", t:"틱톡샵 4주", s:`${tLab(4)} · 직전比`, base:baseT(4), f:k=>grT(k,4)}]:[]);
+  // 증가율 2×2 — 잣대 통일(2026-10-21): 아마존·틱톡샵 × 3개월·1개월, 전부 '바로 앞 같은 길이' 대비 판매량 증감.
+  //   점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 몫이 늘었다(지도와 같은 판정). 판매가 끊긴 샵(하루하루원더)의 −100% 는 뺀다.
+  const gr=(C,k,n)=>{ if(!C||!C.U[k]) return null; const w=C.win(k,n); return w.g!=null&&w.sc>0?w.g:null; };
+  const cols=[{id:"a3", t:"아마존 3개월", s:`${L3.cur} ÷ ${L3.prev}`, base:CA.win(Object.keys(CA.U)[0],3).gb, f:k=>gr(CA,k,3)}, {id:"a1", t:"아마존 1개월", s:`${L1.cur} ÷ ${L1.prev}`, base:CA.win(Object.keys(CA.U)[0],1).gb, f:k=>gr(CA,k,1)}]
+    .concat(CT?[{id:"t3", t:"틱톡샵 3개월", s:`${L3.cur} ÷ ${L3.prev}${tEst?" · 4월 앞부분 추정":""}`, base:CT.win(Object.keys(CT.U)[0],3).gb, f:k=>gr(CT,k,3)}, {id:"t1", t:"틱톡샵 1개월", s:`${L1.cur} ÷ ${L1.prev}`, base:CT.win(Object.keys(CT.U)[0],1).gb, f:k=>gr(CT,k,1)}]:[]);
   const grRows=Object.values(B).filter(keep).map(r=>({k:r.k, name:r.ko, co:r.co, v:cols.map(c=>c.f(r.k))}));
   // 4분할(2026-10-21 사용자 "나란히 말고 4분할 창문처럼") — 칸마다 자기 값으로 큰 순 · 고른 브랜드는 네 칸 모두에서 금색 줄
   const g4=document.getElementById("cpGr4");
@@ -11177,14 +11168,17 @@ function cosShareChart(el, o){
   const s=o.s.map(v=>v*100), idx=[]; for(let j=o.n0;j<=o.L;j++) idx.push(j);
   const W=Math.max(300,Math.min(560,el.clientWidth||480)), H=200, p={l:40,r:66,t:10,b:24};
   const n=idx.length+(o.part?1:0), xOf=i=>p.l+i/Math.max(1,n-1)*(W-p.l-p.r);
-  const vals=idx.map(j=>s[j]).concat(o.part?[s[s.length-1]]:[]), base=o.base!=null?o.base*100:null;
-  const hi=Math.max(...vals,base||0)*1.15||1, yOf=v=>H-p.b-v/hi*(H-p.t-p.b);
+  const vals=idx.map(j=>s[j]).concat(o.part?[s[s.length-1]]:[]), base=o.base!=null?o.base*100:null, segs=(o.segs||[]).filter(g=>g.v!=null&&g.b>=0);
+  const hi=Math.max(...vals,base||0,...segs.map(g=>g.v*100))*1.15||1, yOf=v=>H-p.b-v/hi*(H-p.t-p.b);
   const step=hi>40?10:hi>20?5:hi>8?2:hi>4?1:hi>2?0.5:hi>0.8?0.2:0.1;
   let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
   for(let v=0; v<=hi; v+=step) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${+v.toFixed(1)}%</text>`;
   const ev=Math.ceil(idx.length/6);
   idx.forEach((j,i)=>{ if((idx.length-1-i)%ev===0) g+=`<text x="${xOf(i)}" y="${H-7}" text-anchor="middle" font-size="10" fill="var(--muted2)">${o.lab[j]}</text>`; });
   if(base!=null){ const a=Math.max(0,idx.length-o.avgN); g+=`<line x1="${xOf(a)}" x2="${xOf(idx.length-1)}" y1="${yOf(base)}" y2="${yOf(base)}" stroke="var(--muted)" stroke-dasharray="5 4" stroke-width="1.3"/><text x="${W-p.r+4}" y="${yOf(base)+3.5}" font-size="10" fill="var(--muted)">평균 ${base.toFixed(1)}%</text>`; }
+  // 견주는 두 구간(바로 앞 · 최근)의 평균 몫 — 잣대 통일(2026-10-21): 점선 둘의 높이 차 = 몫 변화
+  segs.forEach((sg,si)=>{ const a=Math.max(0,sg.a), b=sg.b, v=sg.v*100, c=si===segs.length-1?"var(--text)":"var(--muted)";
+    g+=`<line x1="${xOf(a)}" x2="${xOf(b)}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="${c}" stroke-dasharray="5 4" stroke-width="1.6"/><text x="${(xOf(a)+xOf(b))/2}" y="${yOf(v)-5}" text-anchor="middle" font-size="10" fill="${c}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${sg.lab} ${v.toFixed(1)}%</text>`; });
   g+=`<polyline points="${idx.map((j,i)=>`${xOf(i).toFixed(1)},${yOf(s[j]).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
   const iL=idx.length-1;
   g+=`<text x="${W-p.r+4}" y="${yOf(s[o.L])+(base!=null&&Math.abs(s[o.L]-base)/hi*(H-p.t-p.b)<11?(s[o.L]>=base?-6:13):3.5)}" font-size="10.5" font-weight="700" fill="var(--accent)">${s[o.L].toFixed(1)}%</text>`;
