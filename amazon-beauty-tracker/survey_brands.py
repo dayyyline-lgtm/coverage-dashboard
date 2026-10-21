@@ -35,7 +35,7 @@ CATS = {
 BRANDS = {
     # --- 상장 브랜드사 ---
     "medicube": "에이피알 278470", "AGE-R": "에이피알 278470", "APRILSKIN": "에이피알 278470",
-    "LANEIGE": "아모레퍼시픽 090430", "innisfree": "아모레퍼시픽 090430",
+    "LANEIGE": "아모레퍼시픽 090430", "innisfree": "아모레퍼시픽홀딩스 002790",
     "COSRX": "아모레퍼시픽 090430", "Sulwhasoo": "아모레퍼시픽 090430",
     "illiyoon": "아모레퍼시픽 090430", "Mamonde": "아모레퍼시픽 090430",
     "ETUDE": "아모레퍼시픽 090430", "HERA": "아모레퍼시픽 090430",
@@ -70,7 +70,7 @@ BRANDS = {
     "Benton": "벤톤", "Etude House": "아모레퍼시픽 090430", "banila co": "바닐라코",
     "hince": "힌스", "dasique": "데이지크", "BBIA": "삐아", "Dr.G": "고운세상코스메틱",
     "Sungboon": "성분에디터", "MEDIPEEL": "메디필", "Medi-Peel": "메디필",
-    "ONE THING": "원씽", "Aromatica": "아로마티카", "Innisfree": "아모레퍼시픽 090430",
+    "ONE THING": "원씽", "Aromatica": "아로마티카", "Innisfree": "아모레퍼시픽홀딩스 002790",
 }
 
 
