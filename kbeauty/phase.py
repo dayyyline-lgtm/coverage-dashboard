@@ -62,7 +62,7 @@ def build(path):
 #   D|나라|날짜|첫 달|행 수 · 브랜드 줄 k|SKU 수|u 36개(36진수)|v 36개(현지 통화 · 36진수) · H|검산값
 #   v = 판매량 × 그달 가격(바이박스 → 신품 최저가 → 아마존가 · 미국과 같은 식) — 파운드·유로. 달러·원화 환산은 화면(kbFx · ECB 월평균)에서.
 #   한글 이름·회사·ODM(ko·co·sup)은 미국 바구니(d["b"])에서 가져온다 — 나라마다 바구니는 그 나라에 든 브랜드만.
-MK_CUR = {"uk": "GBP", "de": "EUR", "fr": "EUR", "it": "EUR", "es": "EUR"}
+MK_CUR = {"uk": "GBP", "de": "EUR", "fr": "EUR", "it": "EUR", "es": "EUR", "jp": "JPY", "ca": "CAD"}
 
 
 def _eu_hash(b):
@@ -76,11 +76,17 @@ def _eu_hash(b):
 
 
 def build_mk(d):
-    files = sorted((SRC / "eu").glob("20??-??-??.txt"))
+    files = sorted((SRC / "eu").glob("20??-??-??*.txt"))
     if not files:
         return None
+    # 같은 날 파일이 여럿이면(유럽 · 일본·캐나다 따로 받은 날) 다 읽는다 — 나라가 겹치면 뒤 파일이 이긴다
+    last = files[-1].name[:10]
     out, cur = {}, None
-    for ln in files[-1].read_text(encoding="utf-8").splitlines():
+    lines = []
+    for f in files:
+        if f.name[:10] == last:
+            lines += f.read_text(encoding="utf-8").splitlines()
+    for ln in lines:
         p = ln.strip().split("|")
         if not p or not p[0]:
             continue
@@ -99,6 +105,11 @@ def build_mk(d):
             if len(u) != len(d["months"]) or len(v) != len(d["months"]):
                 raise SystemExit(f"유럽 {p[0]} 길이 {len(u)}/{len(v)}")
             cur["b"][p[0]] = {"u": u, "v": v, "n": int(p[1])}
+    # 덤프의 v 는 Keepa 가격(최소 단위)을 100 으로 나눈 값 — 엔화는 최소 단위가 1엔이라 다시 100 을 곱한다
+    for m, c in out.items():
+        if c["cur"] == "JPY":
+            for x in c["b"].values():
+                x["v"] = [y * 100 for y in x["v"]]
     for m, c in out.items():
         miss = [k for k in c["b"] if k not in d["b"]]
         if miss:

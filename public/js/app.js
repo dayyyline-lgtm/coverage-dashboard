@@ -10960,7 +10960,7 @@ let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id,
 // 아마존 시장 고르기(2026-10-21 사용자 "유럽도 아마존 좀 해 주라") — 국면 칸 전부가 KBB() 를 바탕으로 쓴다(KBV 모아보기도 그 위에서).
 //   미국 = KBPH 그대로(틱톡샵 포함) · 유럽 = KBPH.mk 의 나라(영·독·프·이·스 · 유럽 5개국 = 다섯 나라 합) — 틱톡샵은 미국만이라 없다(아마존 보기만).
 //   유럽 v(파운드·유로)는 그달 ECB 평균으로 달러로 바꿔 둔다(= 미국과 같은 단위 · 분기 판매액 칸이 그대로 쓴다). 한글 이름·회사·ODM 은 미국 바구니에서.
-const COS_MK=[["us","미국"],["eu","유럽 5개국"],["uk","영국"],["de","독일"],["fr","프랑스"],["it","이탈리아"],["es","스페인"]];
+const COS_MK=[["us","미국"],["eu","유럽 5개국"],["uk","영국"],["de","독일"],["fr","프랑스"],["it","이탈리아"],["es","스페인"],["jp","일본"],["ca","캐나다"]], COS_EU=["uk","de","fr","it","es"];
 let cosMk=cosLs("cosMk","us");
 const cosMkLab=()=>(COS_MK.find(x=>x[0]===cosMk)||COS_MK[0])[1];
 function KBB(){
@@ -10969,7 +10969,7 @@ function KBB(){
   if(cosMk!=="us"&&cosMk!=="eu"&&!M[cosMk]) cosMk="us";
   if(cosMk==="us"||!Object.keys(M).length) return KBPH;
   if(KBB.c&&KBB.c.src===KBPH&&KBB.c.mk===cosMk) return KBB.c.v;
-  const ms=cosMk==="eu"?Object.keys(M):[cosMk], n=KBPH.months.length, b={};
+  const ms=cosMk==="eu"?COS_EU.filter(m=>M[m]):[cosMk], n=KBPH.months.length, b={};
   Object.keys(KBPH.b).forEach(k=>{
     const have=ms.filter(m=>M[m].b[k]); if(!have.length) return;
     const u=Array(n).fill(0), v=Array(n).fill(0); let nsku=0;
@@ -11132,7 +11132,8 @@ function renderCosPhase(){
     const pillQ=(q,c)=>q?`<span class="cos-q" style="background:color-mix(in srgb, ${c} 26%, transparent)">${q}</span>`:'<span class="g">—</span>';
     const a=R.a, t=R.t, s=R.sub, tp=R.top;
     // 비중·판매 증감 미니 표 — 열 = YoY/QoQ/MoM, 행 = 비중 · 판매
-    const mt=cs=>{ const c=(m,f)=>m&&m[f]!=null?(v=>`<b style="color:${v>=0?"var(--up)":"var(--down)"}">${v>=0?"+":""}${Math.round(v)}%</b>`)(f==="y"?m.y-100:m.g*100):'<span class="g">—</span>';
+    // 기저 작음(2026-10-21 정합성 점검) — 비교 기간 비중이 0.3% 밑이면 % 가 수백~수천으로 커진다 → 회색 + * 로 낮춰 보인다
+    const mt=cs=>{ const c=(m,f)=>m&&m[f]!=null?(v=>m.sp!=null&&m.sp<0.003?`<span class="g" title="${attr(`비교 기간 비중 ${(m.sp*100).toFixed(2)}% — 기저가 작아 % 가 크게 나온다`)}">${v>=0?"+":""}${Math.round(v)}%*</span>`:`<b style="color:${v>=0?"var(--up)":"var(--down)"}">${v>=0?"+":""}${Math.round(v)}%</b>`)(f==="y"?m.y-100:m.g*100):'<span class="g">—</span>';
       return `<table class="cp-mt"><tr><th></th>${cs.map(x=>`<th title="${attr(x[2]||"")}">${x[0]}</th>`).join("")}</tr><tr><td>비중</td>${cs.map(x=>`<td>${c(x[1],"y")}</td>`).join("")}</tr><tr><td>판매</td>${cs.map(x=>`<td>${c(x[1],"g")}</td>`).join("")}</tr></table>`; };
     const kv=(k,v,sub)=>`<div class="cp-kv"><div class="cp-k">${k}</div><div class="cp-v">${v}</div>${sub?`<div class="cp-s">${sub}</div>`:""}</div>`;
     const eokS=v=>{ const e=v*fx/1e8; return e>=10?e.toFixed(0)+"억":e>=1?e.toFixed(1)+"억":e.toFixed(2)+"억"; };
@@ -11184,7 +11185,7 @@ function renderCosPhase(){
   const what=mode==="x"?`K뷰티 내 비중 <b>${SQ(xw)}</b> — 아마존 × 틱톡샵 (${vs(Lx)})`
     :mode==="amz"?`아마존 ${MKL} ${Object.keys(KBB().b).length}개 브랜드 · 가로 비중 <b>YoY</b> (${vs(Yx)}) · 세로 비중 <b>${SQ(xw)}</b> (${vs(Dx)}${exS(Dx)})`
     :`틱톡샵 미국 공식 샵 ${Object.keys(KBB().tt.b).length}개 · 가로 비중 <b>QoQ</b> (${vs(L3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>MoM</b> (${vs(L1)}) · 4/24~ 라 YoY 없음`;
-  const mks=["us"].concat(Object.keys(KBPH.mk||{}).length?["eu"]:[], Object.keys(KBPH.mk||{}));
+  const mks=["us"].concat(COS_EU.some(m=>(KBPH.mk||{})[m])?["eu"]:[], COS_MK.map(x=>x[0]).filter(m=>(KBPH.mk||{})[m]));
   const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0">아마존</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 하한)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
   box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg">${CT?modeBtn("x","아마존 × 틱톡샵"):""}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
       <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
@@ -11214,6 +11215,12 @@ function renderCosPhase(){
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
     <details class="fold" data-fold="cpM"${foldOpen("cpM")} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
+      <b>정합성 점검(10/21)</b> — ① 같은 브랜드를 이 화면(배지식)과 회사 채널 모델(곡선식 · 순위→판매량 곡선, 배지 없는 상품까지 채움)으로 재면 배지식의 성장 배수가 중앙 1.2배 크다(미국 1.28 · 유럽 1.15~1.26 · 일본 0.98 · 캐나다 1.21).
+      배지식은 50개 문턱을 새로 넘는 SKU 가 잡혀 위로, 곡선식은 지금 곡선을 작년에 대서 아래로 치우친다 — 실제는 둘 사이. 비중은 분자·분모를 같은 식으로 재서 이 치우침이 대부분 상쇄된다.
+      ② 공시 대조: 에이피알 미국 계수(공시 ÷ 관측)가 4Q24 뒤 1.8~2.6 — 관측이 회사보다 빨리 크지 않는다. 유럽은 2Q25 14 → 2Q26 4.3(아마존 몫이 커진 것 + 공시에 B2B 섞임) — 유럽 YoY 를 회사 유럽 매출 성장으로 읽지 말 것.
+      ③ 바구니 합계 YoY 는 시장이 아니다 — 지금 잘 팔리는 브랜드를 골라 넣어 위로 치우친다(3Q26 미국 +53% vs 관세청 대미 화장품 수출 +35% · 일본 +17% vs +19% · 유럽 5개국 +258% vs 유럽 9개국 수출 +117%).
+      ④ 분기 평균 단가가 고르다(미 $18.6→20.4 · 영 £14~15 · 유로 €17~21 · 일 ¥2,400 · 캐 C$28) → 금액 환산 왜곡 없음. ⑤ 일본은 'コースアールエックス(cosrx)'·'ラネージュ(laneige)' 같은 가타카나 표기를 Keepa 자동완성으로 찾아 넣었다(미·영·캐는 놓친 표기 없음).
+      ⑥ % 옆 * = 비교 기간 비중 0.3% 미만(기저가 작다).<br>
       <b>비중</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(${MKL} · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 하한) ${Object.keys(KBB().b).length}개 브랜드 ·
       틱톡샵 = FastMoss 샵 상세 일별 판매량(미국 공식 샵 · 7일씩 · 매주 받은 덤프를 이어 붙여 최대 52주) — 설화수·페리페라·구달·메디필은 미국 공식 샵이 없어 틱톡 칸이 비고, 클리오 계열은 한 샵에 섞여 못 가른다.<br>
       <b>아마존</b> — 가로 = 비중 YoY(${vs(Y3)}) · 세로 = 비중 QoQ(${vs(D3)}${exS(D3)}) · 1개월 보기면 MoM. 둘 다 K뷰티 내 비중(바구니 판매량 중 비율)끼리 나눈 값이다.

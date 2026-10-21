@@ -9,6 +9,7 @@
      3) 이 파일을 javascript_tool 로 붙여 넣고 KBPH.run() → KBPH.status() 를 done:true 까지(45초 넘는 호출은 끊기니 시작과 확인을 나눈다)
      4) KBPH.save('uk') → sessionStorage 'kbeu_uk' · 다섯 나라 다 받으면 본문 <pre> 에 띄워 get_page_text
      5) kbeauty/data/phase/eu/<날짜>.txt 로 옮겨 적고 python3 kbeauty/phase.py (나라마다 H 검산이 틀리면 멈춘다)
+   일본(data-domain 5)·캐나다(6)도 같은 수집기 — 일본은 브랜드 표기에 가타카나가 붙어 쿼리에 그 표기를 더하고 K.collect 에서 라틴 키로 바꾼다(CLAUDE.md '일본·캐나다').
    결과 표가 늦게 차서 페이지 수보다 행이 적게 오는 일이 있다(10/21 이·스 2% 모자람) — 다시 받아도 같으면 그대로 둔다. */
 window.KBPH={};
 (function(K){
