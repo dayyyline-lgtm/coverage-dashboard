@@ -10802,12 +10802,12 @@ function renderKbOverview(){
    칸: 3개월 몫↑·1개월↑ = 성장 가속 · 3개월↑·1개월↓ = 성장 둔화 · 3개월↓·1개월↑ = 반등 중 · 둘 다↓ = 하락 지속.
    옛 '평소比(지난 1년 평균 대비)' 축과 틱톡샵 8주·4주 창은 없앴다. 틱톡샵 첫 달(4월)은 4/24부터라 앞부분을 채운 추정(KBPH.tt.mest) — 3개월 창에서 빠지면 사라진다.
    ★ 아마존은 전년 기준(2026-10-21 4차 · 사용자 "1년 평균이나 yoy 안 해도 되나" → 승인) — 몫의 직전比만 보면 브랜드마다 다른 계절(라네즈 7월 프라임데이 ·
-     스킨1004 여름 선크림)이 '가속·둔화'로 읽혔다. 그래서 아마존은 가로 = 몫 전년比(7~9월 ÷ 작년 7~9월) · 세로 = 계절 뺀 직전比
+     스킨1004 여름 선크림)이 '가속·둔화'로 읽혔다. 그래서 아마존은 가로 = 몫 전년比(7~9월 ÷ 작년 7~9월) · 세로 = 전년比 변화
      = (7~9 ÷ 4~6) ÷ (작년 7~9 ÷ 작년 4~6) = 몫 전년比가 커지고 있나. 1개월 = 9월 ÷ 작년 9월 · (9월 ÷ 8월) ÷ (작년 9월 ÷ 작년 8월).
-     틱톡샵은 2026-04 부터라 전년이 없다 → 직전比 그대로(계절 미보정 · 2027-04 부터 바꿀 수 있다). 교차 보기 = 아마존 계절 뺀 직전比 × 틱톡샵 직전比. */
+     틱톡샵은 2026-04 부터라 전년이 없다 → 직전比 그대로(계절 미보정 · 2027-04 부터 바꿀 수 있다). 교차 보기 = 아마존 전년比 변화 × 틱톡샵 직전比. */
 const KBPH_Q={"성장 가속":"var(--good)","성장 둔화":"var(--accent)","반등 중":"#6fa8dc","하락 지속":"var(--warn)"};
 const KBPH_QD={"성장 가속":"3개월 몫도 늘고 최근 1개월도 늘었다","성장 둔화":"3개월 몫은 늘었지만 최근 1개월은 줄었다","반등 중":"3개월 몫은 줄었지만 최근 1개월은 늘었다","하락 지속":"3개월 몫도 줄고 최근 1개월도 줄었다"};
-const KBPH_QDA={"성장 가속":"작년 같은 때보다 몫이 크고, 계절을 빼도 직전보다 늘고 있다","성장 둔화":"작년보다 몫은 크지만, 계절을 빼면 직전보다 줄고 있다","반등 중":"작년보다 몫은 작지만, 계절을 빼면 직전보다 늘고 있다","하락 지속":"작년보다 몫이 작고, 계절을 빼도 직전보다 줄고 있다"};
+const KBPH_QDA={"성장 가속":"작년보다 몫이 크고, 전년比도 직전 기간보다 좋아졌다","성장 둔화":"작년보다 몫은 크지만, 전년比는 직전 기간보다 나빠졌다","반등 중":"작년보다 몫은 작지만, 전년比는 직전 기간보다 좋아졌다","하락 지속":"작년보다 몫이 작고, 전년比도 직전 기간보다 나빠졌다"};
 const KBPH_ORD=["성장 가속","성장 둔화","반등 중","하락 지속"];
 let kbPhW=(()=>{ try{ return +localStorage.getItem("kbPhW")||3; }catch(e){ return 3; } })();   // 아마존 × 틱톡샵 보기의 길이(3 · 1)
 const kbPhQn=(x,y)=>x>=100?(y>=100?"성장 가속":"성장 둔화"):(y>=100?"반등 중":"하락 지속");
@@ -10820,7 +10820,7 @@ function kbPhEnd(){
   return la<lt?la:lt;
 }
 // 한 채널(달 단위) — U[k] = 브랜드별 월 판매량 · win(k,w,e) = 끝 달 e 기준 최근 w개월 vs 바로 앞 w개월
-//   yoy=true(아마존) — win = 최근 w개월 vs 작년 같은 w개월 · dir = 계절 뺀 직전比(직전比 ÷ 작년 같은 때의 직전比) · q = 몫 전년比 × dir
+//   yoy=true(아마존) — win = 최근 w개월 vs 작년 같은 w개월 · dir = 전년比 변화(최근 YoY ÷ 바로 앞 YoY = 직전比 ÷ 작년 같은 때의 직전比) · q = 몫 전년比 × dir
 function kbPhChan(M, U, est, yoy){
   const keys=Object.keys(U), L=M.indexOf(kbPhEnd());
   const tot=M.map((_,j)=>keys.reduce((s,k)=>s+(U[k][j]||0),0));
@@ -10906,7 +10906,7 @@ function cosBoardRows(){
    페이지 안 탭(COS_TABS) — 한 번에 하나만 보인다. 숨은 칸은 폭이 0 이라 탭을 바꿀 때 그 칸만 다시 그린다(cosRenderPane).
    '국면' = 지도 하나 + 보기 셋:
      x   = 아마존 × 틱톡샵 — 가로 아마존 몫 직전比(3개월) · 세로 틱톡샵 몫 직전比(8주). 네 칸 = 둘 다 늘었다 / 틱톡샵만 / 아마존만 / 둘 다 줄었다
-     amz = 아마존(Keepa) 국면 — 가로 몫 전년比 · 세로 계절 뺀 직전比 · 3개월/1개월(버튼)
+     amz = 아마존(Keepa) 국면 — 가로 몫 전년比 · 세로 전년比 변화 · 3개월/1개월(버튼)
      tt  = 틱톡샵(FastMoss) 국면 — 가로 3개월 몫 직전比 · 세로 1개월 몫 직전比(계절 미보정)
    점에 커서(손가락) = 지나온 자리를 꼬리선으로(아마존 최근 6개월 · 틱톡샵 최근 8주를 2주 간격 · 교차는 8·9월 + 지금 — 틱톡 이력이 쌓이면 길어진다) · 나머지 점은 흐리게 — 커서가 없으면 아무것도 강조 안 함. 누르면 아래 카드만 그 브랜드(cosSel).
    계산은 kbPhCalc / kbPhCalcTT(국면 지도) 그대로 — 꼬리 한 점 = 그 시점 기준으로 같은 식을 다시 푼 값. */
@@ -10947,7 +10947,7 @@ function cosPhaseData(){
   const mLab=m=>`${+m.slice(5)}월`;
   const B={};
   // 꼬리 = 끝 달을 한 달씩 당겨 같은 식(3개월·1개월 몫 변화)을 다시 푼 자리 — 최근 6개월 중 계산되는 달만
-  //   아마존(전년 기준)은 길이 w 하나로 가로 = 몫 전년比 · 세로 = 계절 뺀 직전比
+  //   아마존(전년 기준)은 길이 w 하나로 가로 = 몫 전년比 · 세로 = 전년比 변화
   const tr=(C,k,w)=>{ const o=[]; for(let e=C.L-5;e<=C.L;e++){ const a=C.yoy?C.win(k,w,e):C.win(k,3,e), b=C.yoy?C.dir(k,w,e):C.win(k,1,e); if(a.y!=null&&b.y!=null) o.push({x:a.y,y:b.y,q:kbPhQn(a.y,b.y),lab:mLab(C.M[e])}); } return o; };
   D.rows.forEach(r=>{ const k=r.k;
     const aT=w=>tr(CA,k,w||3), tT=()=>CT&&CT.U[k]?tr(CT,k,3):[];
@@ -10966,7 +10966,7 @@ function renderCosPhase(){
   const {CA, CT, B, D}=P, fx=D.fx;
   if(!CT&&cosMode!=="amz") cosMode="amz";
   const mode=cosMode, xw=kbPhW===1?1:3;   // 아마존·교차 보기는 길이를 고른다(3 · 1) · 틱톡샵 보기는 가로 3개월 · 세로 1개월
-  const L3=CA.labS(3), L1=CA.labS(1), Lx=CA.labS(xw);   // 직전比 달(틱톡샵 · 아마존 계절 뺀 직전比)
+  const L3=CA.labS(3), L1=CA.labS(1), Lx=CA.labS(xw);   // 직전比 달(틱톡샵 · 아마존 전년比 변화)
   const Y3=CA.labY(3), Y1=CA.labY(1), Yx=CA.labY(xw);   // 아마존 전년比 달
   const aW=r=>r.a?{m:xw===3?r.a.m3:r.a.m1, d:xw===3?r.a.d3:r.a.d1, q:xw===3?r.a.q:r.a.q1}:null;   // 아마존 — 고른 길이
   const tEst=CT&&CT.win("medicube",3).est;   // 틱톡샵 3개월 창에 4월 추정이 들어가나
@@ -10990,7 +10990,7 @@ function renderCosPhase(){
   const vis=pts.filter(p=>keep(p.r));
   if(!vis.some(p=>p.r.k===cosSel)) cosSel=(vis.slice().sort((a,b)=>b.s-a.s)[0]||{r:{}}).r.k||"";
   const QN=mode==="x"?COS_X.map(x=>x[0]):KBPH_ORD, QC=q=>mode==="x"?(COS_X.find(x=>x[0]===q)||[0,"var(--muted)"])[1]:KBPH_Q[q];
-  const QD=mode==="x"?{"두 채널 다 늘었다":`아마존·틱톡샵 둘 다 ${Lx.prev}보다 ${Lx.cur} 몫이 늘었다(아마존은 계절 뺌)`,"틱톡샵만 늘었다":"틱톡샵 몫은 늘고 아마존 몫은 줄었다","아마존만 늘었다":"아마존 몫은 늘고 틱톡샵 몫은 줄었다","두 채널 다 줄었다":`둘 다 ${Lx.prev}보다 몫이 줄었다`}:mode==="amz"?KBPH_QDA:KBPH_QD;
+  const QD=mode==="x"?{"두 채널 다 늘었다":`둘 다 좋아졌다 — 아마존은 전년比가 ${Lx.prev}보다 ${Lx.cur} 에 좋아졌고, 틱톡샵은 몫이 ${Lx.prev}보다 늘었다`,"틱톡샵만 늘었다":"틱톡샵 몫은 늘고 아마존 몫은 줄었다","아마존만 늘었다":"아마존 몫은 늘고 틱톡샵 몫은 줄었다","두 채널 다 줄었다":`둘 다 ${Lx.prev}보다 몫이 줄었다`}:mode==="amz"?KBPH_QDA:KBPH_QD;
   // 축 — 점 + 보이는 점들의 꼬리까지 담는다(260 위·10 밑은 끝에 붙인다)
   const CL=v=>Math.max(10,Math.min(260,v));
   // 축 범위 = 지금 점들 + 고른 브랜드의 꼬리(다른 브랜드 꼬리가 범위 밖이면 가장자리에 붙인다 — 커서를 옮길 때마다 축이 바뀌지 않게)
@@ -11004,8 +11004,8 @@ function renderCosPhase(){
   const tick=(lo,hi)=>{ const st=(hi-lo)>160?40:(hi-lo)>80?20:10, a=[]; for(let v=Math.ceil(lo/st)*st; v<=hi; v+=st) a.push(v); return a; };
   // 축 글씨 = 쉬운 말(사용자 "그래프가 헷갈린다") — 숫자 기준은 괄호로만
   // 축 글씨 = 쉬운 말 · 기준은 늘 '바로 앞 같은 길이'(괄호에 실제 달)
-  const xCap=mode==="x"?`아마존에서 몫이 늘었다(계절 뺌) → (${Lx.cur} ÷ ${Lx.prev})`:mode==="amz"?`작년 같은 때보다 몫이 크다 → (${Yx.cur} ÷ ${Yx.prev})`:`3개월 몫이 늘었다 → (${L3.cur} ÷ ${L3.prev})`;
-  const yCap=mode==="x"?`↑ 틱톡샵에서 몫이 늘었다 (${Lx.cur} ÷ ${Lx.prev} · 계절 미보정${xw===3&&tEst?" · 4월 앞부분 추정":""})`:mode==="amz"?`↑ 계절 빼고 직전보다 늘었다 (${Lx.cur} ÷ ${Lx.prev}, 작년 같은 변화로 나눔)`:`↑ 최근 1개월 몫이 늘었다 (${L1.cur} ÷ ${L1.prev} · 계절 미보정)`;
+  const xCap=mode==="x"?`아마존 전년比가 좋아졌다 → (${Lx.cur} YoY ÷ ${Lx.prev} YoY)`:mode==="amz"?`작년 같은 때보다 몫이 크다 → (${Yx.cur} ÷ ${Yx.prev})`:`3개월 몫이 늘었다 → (${L3.cur} ÷ ${L3.prev})`;
+  const yCap=mode==="x"?`↑ 틱톡샵에서 몫이 늘었다 (${Lx.cur} ÷ ${Lx.prev} · 계절 미보정${xw===3&&tEst?" · 4월 앞부분 추정":""})`:mode==="amz"?`↑ 전년比가 좋아졌다 — 전년比 변화 (${Lx.cur} YoY ÷ ${Lx.prev} YoY)`:`↑ 최근 1개월 몫이 늘었다 (${L1.cur} ÷ ${L1.prev} · 계절 미보정)`;
   let svg=`<svg id="cpSvg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:${W}px;touch-action:manipulation">`;
   tick(x0,x1).forEach(v=>{ svg+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--line-soft)"/><text x="${sx(v)}" y="${H-pad.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${v}</text>`; });
   tick(y0,y1).forEach(v=>{ svg+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line-soft)"/><text x="${pad.l-6}" y="${sy(v)+3.5}" text-anchor="end" font-size="10.5" fill="var(--muted2)">${v}</text>`; });
@@ -11046,7 +11046,7 @@ function renderCosPhase(){
     selH=`<div class="cp-sel"><div class="cp-selh"><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}</span>
         <button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button></div>
       <div class="cp-kvs">
-        ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 몫 ${(a.s3*100).toFixed(1)}%`:"—", a&&a.q?`<span title="${attr(`몫 전년比 = ${Y3.cur} ÷ ${Y3.prev} · 괄호 = 판매량 전년비`)}">몫 전년比 3개월 ${chgS(a.m3)} · 1개월 ${chgS(a.m1)}</span><br><span title="${attr(`(${L3.cur} ÷ ${L3.prev}) ÷ 작년 같은 변화 − 100 · 0 위 = 계절보다 더 늘었다`)}">계절 뺀 직전比 3개월 ${chgD(a.d3)} · 1개월 ${chgD(a.d1)}</span>`:"")}
+        ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 몫 ${(a.s3*100).toFixed(1)}%`:"—", a&&a.q?`<span title="${attr(`몫 전년比 = ${Y3.cur} ÷ ${Y3.prev} · 괄호 = 판매량 전년비`)}">몫 전년比 3개월 ${chgS(a.m3)} · 1개월 ${chgS(a.m1)}</span><br><span title="${attr(`${L3.cur} 몫 전년比 ÷ ${L3.prev} 몫 전년比 − 100 · 0 위 = 전년比가 좋아졌다`)}">전년比 변화 3개월 ${chgD(a.d3)} · 1개월 ${chgD(a.d1)}</span>`:"")}
         ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 몫 ${(t.s3*100).toFixed(1)}%`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?`몫 3개월 ${chgS(t.m3)} · 1개월 ${chgS(t.m1)} · 3개월 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
         ${kv("미국 세부 카테고리", s&&s.s?`SKU ${s.s} · 하루 ${s.r?eokS(s.r):"—"}`:'<span class="g">—</span>', s&&s.rw?`1주 전 대비 ${pc(s.r,s.rw)}`:"")}
         ${kv("뷰티 Top100 · 5개국", tp?`${tp.v}개`:'<span class="g">—</span>', tp&&tp.p!=null?`4주 전 ${tp.p}개`:"")}
@@ -11067,7 +11067,7 @@ function renderCosPhase(){
   const ord=r=>mode==="amz"?(aW(r)&&aW(r).q?KBPH_ORD.indexOf(aW(r).q):9):mode==="tt"?(r.t&&r.t.q?KBPH_ORD.indexOf(r.t.q):9):(xq(r)?COS_X.indexOf(xq(r)):9);
   rows.sort((a,b)=>ord(a)-ord(b)||Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
   const tbl=`<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l">브랜드</th><th class="l">상장사</th>
-      <th class="l" title="Keepa 아마존 — 몫 전년比(${Yx.cur} ÷ ${Yx.prev}) × 계절 뺀 직전比(${Lx.cur} ÷ ${Lx.prev})">아마존 칸${xw===1?" · 1개월":""}</th><th title="아마존 몫(${Object.keys(KBPH.b).length}개 브랜드 중)">몫</th>
+      <th class="l" title="Keepa 아마존 — 몫 전년比(${Yx.cur} ÷ ${Yx.prev}) × 전년比 변화(${Lx.cur} YoY ÷ ${Lx.prev} YoY)">아마존 칸${xw===1?" · 1개월":""}</th><th title="아마존 몫(${Object.keys(KBPH.b).length}개 브랜드 중)">몫</th>
       ${CT?`<th class="l" title="FastMoss 틱톡샵 공식 샵 판매량 몫 — 3개월(${L3.cur} ÷ ${L3.prev}) × 1개월(${L1.cur} ÷ ${L1.prev}) · 계절 미보정">틱톡샵 칸</th><th title="틱톡샵 몫">몫</th><th class="l">두 채널</th>`:""}
       <th title="미국 세부 카테고리 Top100 · 추정 하루 매출">美 하루 매출</th><th title="1주 전 수집 대비">1주比</th><th title="미·영·독·프·스 뷰티 Top100 안 제품 수">Top100</th><th title="4주 전 대비">4주比</th></tr></thead><tbody>`
     +rows.map(r=>{ const x=xq(r), s=r.sub, tp=r.top;
@@ -11082,7 +11082,7 @@ function renderCosPhase(){
   const modeBtn=(k,t)=>`<button data-cpm="${k}" class="${mode===k?"active":""}">${t}</button>`;
   const perBtns=mode==="tt"?"":`<div class="seg">${[[3,"3개월 · 판정"],[1,"1개월 · 조짐"]].map(([v,t])=>`<button data-cpw="${v}" class="${xw===v?"active":""}">${t}</button>`).join("")}</div>`;
   const what=mode==="x"?`두 채널 다 몫이 <b>직전보다</b> 늘었나 — ${Lx.cur} ÷ ${Lx.prev} · 아마존은 작년 같은 때의 변화로 나눠 계절을 뺐고, 틱톡샵은 2026-04 부터라 계절 미보정`
-    :mode==="amz"?`아마존(Keepa) ${Object.keys(KBPH.b).length}개 브랜드 · <b>전년 기준</b> — 가로 = 몫이 작년 같은 때보다 큰가(${Yx.cur} ÷ ${Yx.prev}) · 세로 = 계절 빼고 직전보다 늘었나((${Lx.cur} ÷ ${Lx.prev}) ÷ 작년 같은 변화 = 전년比가 커지고 있나)`
+    :mode==="amz"?`아마존(Keepa) ${Object.keys(KBPH.b).length}개 브랜드 · <b>전년 기준</b> — 가로 = 몫이 작년 같은 때보다 큰가(${Yx.cur} ÷ ${Yx.prev}) · 세로 = 전년比 변화(${Lx.cur} YoY ÷ ${Lx.prev} YoY) — 전년比가 직전 기간보다 좋아졌나`
     :`틱톡샵(FastMoss 미국 공식 샵) ${Object.keys(KBPH.tt.b).length}개 브랜드 · 몫을 <b>바로 앞 같은 길이</b>와 — 가로 3개월(${L3.cur} ÷ ${L3.prev}${tEst?" · 4월 앞부분 추정":""}) · 세로 1개월(${L1.cur} ÷ ${L1.prev}) · 2026-04 부터라 전년이 없어 계절 미보정`;
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
       <div class="seg" style="margin-left:auto" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 몫의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"몫이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
@@ -11100,7 +11100,8 @@ function renderCosPhase(){
     <details class="fold" data-fold="cpM"${foldOpen("cpM")} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
       <b>몫</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(미국 · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 하한) ${Object.keys(KBPH.b).length}개 브랜드 ·
       틱톡샵 = FastMoss 샵 상세 일별 판매량(미국 공식 샵 · 7일씩 · 매주 받은 덤프를 이어 붙여 최대 52주) — 설화수·페리페라·구달·메디필은 미국 공식 샵이 없어 틱톡 칸이 비고, 클리오 계열은 한 샵에 섞여 못 가른다.<br>
-      <b>아마존 = 전년 기준</b>(2026-10-21) — 가로 = 몫 전년比(${Y3.cur} ÷ ${Y3.prev}) · 세로 = 계절 뺀 직전比 = (${L3.cur} ÷ ${L3.prev}) ÷ (작년 같은 두 기간의 비) = 전년比가 직전보다 커지고 있나.
+      <b>아마존 = 전년 기준</b>(2026-10-21) — 가로 = 몫 전년比(${Y3.cur} ÷ ${Y3.prev}) · 세로 = 전년比 변화 = ${L3.cur} 몫 전년比 ÷ ${L3.prev} 몫 전년比(= 올해 직전比 ÷ 작년 같은 때 직전比, 같은 값).
+      ⚠ 작년 같은 때 몫이 아주 작다가 막 늘기 시작한 브랜드(센텔리안24)는 전년比 분모가 커지는 기저 효과로 몫이 늘어도 세로가 100 밑으로 내려간다.
       몫의 직전比만 보면 브랜드마다 다른 계절(라네즈 7월 프라임데이 · 스킨1004 여름 선크림)이 가속·둔화로 읽혀서 바꿨다. 3개월 = 판정 · 1개월 = 조짐(버튼).
       <b>틱톡샵 = 직전比</b> — 몫을 바로 앞 같은 길이와(3개월 ${L3.cur} ÷ ${L3.prev} · 1개월 ${L1.cur} ÷ ${L1.prev}). 2026-04 부터라 전년이 없어 계절 미보정이다(2027-04 부터 전년 기준으로 바꿀 수 있다). 두 채널 다 같은 마지막 달.
       몫으로 보는 이유: 프라임데이·블프 같은 계절은 바구니 전체가 같이 겪어 몫에선 지워진다. 판매량 증감은 보조 숫자(증가율 칸의 막대 · 점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 몫이 늘었다).
@@ -11169,7 +11170,7 @@ function renderCosPhase(){
           +(!showLab?"":`<text x="${(cx+5).toFixed(1)}" y="${(cy-5).toFixed(1)}" font-size="10" fill="var(--text)" opacity="${(op+0.1).toFixed(2)}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${z.lab}</text>`); }); }
     g.innerHTML=h;
     const qq=z=>mode==="x"?COS_X[cosXq(z.x,z.y)][0]:z.q;
-    info.innerHTML=`<b>${attr(p.r.ko)}</b> <span class="g">${p.r.co?attr(p.r.co):"비상장"}</span> · <b style="color:${QC(p.q)}">${p.q}</b> · ${mode==="x"?`아마존(계절 뺌) ${p.x.toFixed(0)} · 틱톡샵 ${p.y.toFixed(0)}`:mode==="amz"?`몫 전년比 ${p.x.toFixed(0)} · 계절 뺀 직전比 ${p.y.toFixed(0)}`:`3개월 ${p.x.toFixed(0)} · 1개월 ${p.y.toFixed(0)}`}`
+    info.innerHTML=`<b>${attr(p.r.ko)}</b> <span class="g">${p.r.co?attr(p.r.co):"비상장"}</span> · <b style="color:${QC(p.q)}">${p.q}</b> · ${mode==="x"?`아마존 전년比 변화 ${p.x.toFixed(0)} · 틱톡샵 ${p.y.toFixed(0)}`:mode==="amz"?`몫 전년比 ${p.x.toFixed(0)} · 전년比 변화 ${p.y.toFixed(0)}`:`3개월 ${p.x.toFixed(0)} · 1개월 ${p.y.toFixed(0)}`}`
       +(p.T.length>1?` <span class="g">— 지나온 칸: ${p.T.map(z=>`${z.lab} ${qq(z).replace("성장 ","").replace(" 중","").replace(" 지속","")}`).join(" → ")}</span>`:"")+(k===cosPin?` <span class="cp-pin">고정 · 다시 누르면 풀림</span>`:""); };
   // 커서가 없을 땐 전부 그대로(흐리게·꼬리 없음 — 2026-10-21 사용자 "손도 안 올렸는데 한 브랜드만 강조된다"). 고른 브랜드는 아래 카드만 바꾼다.
   // 손가락으로 누른 직후(다시 그린 뒤)만 그 브랜드 꼬리를 보인다 — 휴대폰엔 호버가 없어서
