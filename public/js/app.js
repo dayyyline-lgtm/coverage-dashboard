@@ -10887,7 +10887,7 @@ function cosBoardRows(){
     const sig=[["아마존 몫", a&&a.w3.y!=null?a.w3.y>=100:null], ["틱톡샵 몫", t&&t.w3.q?t.w3.y>=100:null],
       ["미국 추정 매출", sub&&sub.r!=null&&sub.rw?sub.r>sub.rw:null], ["Top100 개수", top&&top.p!=null&&(top.v||top.p)?top.v>top.p:null]];
     const known=sig.filter(z=>z[1]!=null);
-    return {k, ko:KBPH.b[k].ko, co:KBPH.b[k].co, pick:si!=null?S.bl[si]:(o?o.key:k), a, t, sub, top, sig, up:known.filter(z=>z[1]).length, n:known.length,
+    return {k, ko:KBPH.b[k].ko, co:KBPH.b[k].co, sup:KBPH.b[k].sup||"", pick:si!=null?S.bl[si]:(o?o.key:k), a, t, sub, top, sig, up:known.filter(z=>z[1]).length, n:known.length,
       w:Math.max(a?a.s3:0, t?t.s3:0), fx}; });
   return {rows, CA, CT, S, li, W, fx};
 }
@@ -10969,7 +10969,7 @@ function renderCosPhase(){
   // 비상장 소형 켜고 끄기(2026-10-21 사용자 "하루하루원더 같은 비상장 스몰캡 끄고 켜기") — 상장사 없음 + 두 채널 몫 모두 2% 미만.
   //   끄면 지도·목록·증가율·표에서만 뺀다. 바구니(몫의 분모)는 그대로라 남은 브랜드의 몫·평소比·직전比는 안 바뀐다. 상장사는 몫이 작아도 늘 보인다.
   const smallUn=cosLs("cosSmallUn","0")==="1";
-  const isSmUn=r=>!r.co&&Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)<0.02;
+  const isSmUn=r=>!r.co&&!r.sup&&Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)<0.02;
   const keep=r=>smallUn||!isSmUn(r);
   const smList=Object.values(B).filter(isSmUn).sort((a,b)=>Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
   // 보기마다 점 = {k, x, y, s(원 크기 몫), q(칸 번호 또는 이름), T(꼬리)}
@@ -11032,7 +11032,7 @@ function renderCosPhase(){
     const kv=(k,v,sub)=>`<div class="cp-kv"><div class="cp-k">${k}</div><div class="cp-v">${v}</div>${sub?`<div class="cp-s">${sub}</div>`:""}</div>`;
     const eokS=v=>{ const e=v*fx/1e8; return e>=10?e.toFixed(0)+"억":e>=1?e.toFixed(1)+"억":e.toFixed(2)+"억"; };
     const pc=(v,ref)=>v==null||!ref?"":`${v/ref-1>=0?"+":""}${Math.round((v/ref-1)*100)}%`;
-    selH=`<div class="cp-sel"><div class="cp-selh"><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.co?attr(R.co):"비상장"}</span>
+    selH=`<div class="cp-sel"><div class="cp-selh"><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}</span>
         <button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button></div>
       <div class="cp-kvs">
         ${kv("아마존 (Keepa · 3개월)", a?`${pillQ(a.w3.q,KBPH_Q[a.w3.q])} 몫 ${(a.s3*100).toFixed(1)}%`:"—", a?`평소比 ${a.w3.x.toFixed(0)} · 직전比 ${a.w3.y.toFixed(0)}`:"")}
@@ -11056,11 +11056,11 @@ function renderCosPhase(){
   const ord=r=>mode==="amz"?(r.a&&r.a[wk].q?KBPH_ORD.indexOf(r.a[wk].q):9):mode==="tt"?(r.t&&r.t[wk].q?KBPH_ORD.indexOf(r.t[wk].q):9):(xq(r)?COS_X.indexOf(xq(r)):9);
   rows.sort((a,b)=>ord(a)-ord(b)||Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
   const tbl=`<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l">브랜드</th><th class="l">상장사</th>
-      <th class="l" title="Keepa 아마존 전 상품 판매량 몫 — ${aWin}">아마존 칸</th><th title="아마존 몫(32개 브랜드 중)">몫</th>
+      <th class="l" title="Keepa 아마존 전 상품 판매량 몫 — ${aWin}">아마존 칸</th><th title="아마존 몫(${Object.keys(KBPH.b).length}개 브랜드 중)">몫</th>
       ${CT?`<th class="l" title="FastMoss 틱톡샵 공식 샵 판매량 몫 — 최근 8주">틱톡샵 칸</th><th title="틱톡샵 몫">몫</th><th class="l">두 채널</th>`:""}
       <th title="미국 세부 카테고리 Top100 · 추정 하루 매출">美 하루 매출</th><th title="1주 전 수집 대비">1주比</th><th title="미·영·독·프·스 뷰티 Top100 안 제품 수">Top100</th><th title="4주 전 대비">4주比</th></tr></thead><tbody>`
     +rows.map(r=>{ const x=xq(r), s=r.sub, tp=r.top;
-      return `<tr class="cp-tr${r.k===cosSel?" on":""}" data-k="${attr(r.k)}" style="cursor:pointer"><td class="l"><b>${attr(r.ko)}</b></td><td class="l">${r.co?attr(r.co):'<span class="g">비상장</span>'}</td>
+      return `<tr class="cp-tr${r.k===cosSel?" on":""}" data-k="${attr(r.k)}" style="cursor:pointer"><td class="l"><b>${attr(r.ko)}</b></td><td class="l">${r.co?attr(r.co):'<span class="g">비상장</span>'}${r.sup?` <span class="g" title="${attr(r.sup)} 가 만든다(ODM) — 브랜드 주인은 비상장">· ${attr(r.sup)} ODM</span>`:""}</td>
         <td class="l">${r.a?pill(r.a[mode==="amz"?wk:"w3"].q):"—"}</td><td>${r.a?(r.a.s3*100).toFixed(1)+"%":"—"}</td>
         ${CT?`<td class="l">${r.t&&r.t.w3.q?pill(r.t[mode==="tt"?wk:"w3"].q):'<span class="g">샵 없음</span>'}</td><td>${r.t&&r.t.w3.q?(r.t.s3*100).toFixed(1)+"%":'<span class="g">—</span>'}</td>
           <td class="l">${x?`<span class="cos-dot" style="background:${x[1]}"></span>${x[0]}`:'<span class="g">—</span>'}</td>`:""}
@@ -11072,7 +11072,7 @@ function renderCosPhase(){
   const un=mode==="amz"?"개월":"주";
   const perBtns=mode==="x"?"":`<div class="seg">${[[3,`${big}${un} · 판정`],[1,`${sm}${un} · 조짐`]].map(([v,t])=>`<button data-cpw="${v}" class="${(w===big?3:1)===v?"active":""}">${t}</button>`).join("")}</div>`;
   const what=mode==="x"?`아마존 ${aWin}(Keepa) 몫 ÷ 직전 3개월 · 틱톡샵 ${tWin} 몫 ÷ 직전 8주`
-    :mode==="amz"?`아마존(Keepa · 전 상품 판매량) ${aWin} · 32개 브랜드 바구니`:`틱톡샵(FastMoss · 미국 공식 샵) ${tWin} · ${Object.keys(KBPH.tt.b).length}개 브랜드 바구니`;
+    :mode==="amz"?`아마존(Keepa · 전 상품 판매량) ${aWin} · ${Object.keys(KBPH.b).length}개 브랜드 바구니`:`틱톡샵(FastMoss · 미국 공식 샵) ${tWin} · ${Object.keys(KBPH.tt.b).length}개 브랜드 바구니`;
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
       <label class="g" style="font-size:12px;margin-left:auto" title="${attr("상장사가 없고 아마존·틱톡샵 몫이 둘 다 2% 미만인 브랜드 — "+smList.map(r=>r.ko).join(" · ")+" · 꺼도 몫의 분모(바구니)는 그대로")}"><input type="checkbox" id="cpSmall"${smallUn?" checked":""}> 비상장 소형 ${smList.length}개 보기</label></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
@@ -11087,7 +11087,7 @@ function renderCosPhase(){
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
     <details class="fold" data-fold="cpM"${foldOpen("cpM")} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
-      <b>몫</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(미국 · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 하한) 32개 브랜드 ·
+      <b>몫</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(미국 · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 하한) ${Object.keys(KBPH.b).length}개 브랜드 ·
       틱톡샵 = FastMoss 샵 상세 일별 판매량(미국 공식 샵 · 7일씩 · 매주 받은 덤프를 이어 붙여 최대 52주) — 설화수·페리페라·구달·메디필은 미국 공식 샵이 없어 틱톡 칸이 비고, 클리오 계열은 한 샵에 섞여 못 가른다.<br>
       <b>평소比</b> = 최근 기간 몫 ÷ 평소(아마존 지난 1년 · 틱톡샵 받은 주 전부, 최대 52주 — FastMoss 가 한 번에 180일만 준다) × 100 · <b>직전比</b> = 최근 기간 몫 ÷ 바로 앞 같은 길이 × 100.
       판정 창은 아마존 3개월 · 틱톡샵 8주, 조짐 창은 1개월 · 4주. 두 채널은 기간이 달라(3개월 · 8주) <b>칸끼리 같은 방향인지만</b> 볼 것. 메디큐브가 틱톡샵 판매량의 약 60%라 메디큐브가 움직이면 나머지 몫이 반대로 움직인다.<br>

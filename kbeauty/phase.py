@@ -62,7 +62,7 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "abib": "abib", "mixsoon": "mixsoon", "somebymi": "some by mi", "haruharu": "haruharu", "manyo": "ma:nyo", "axisy": "axis-y",
           "isntree": "isntree", "tonymoly": "tonymoly", "innisfree": "innisfree", "romand": "rom&nd", "medicube": "medicube",
           "missha": "missha", "dalba": "d'alba piedmont", "cosrx": "cosrx", "laneige": "laneige", "belif": "belif", "rejuran": "rejuran",
-          "biodance": "biodance"}
+          "biodance": "biodance", "equalberry": "eqqualberry"}
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
 

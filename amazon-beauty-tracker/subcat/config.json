@@ -233,7 +233,7 @@
 ["Mediheal",["mediheal","메디힐"],"엘앤피코스메틱","N"],
 ["Torriden",["torriden","토리든"],"토리든","N"],
 ["Dr.Althea",["dr.althea","dr althea","닥터알떼"],"","N"],
-["celimax",["celimax","셀리맥스"],"","N"],
+["celimax",["celimax","셀리맥스"],"앱솔브랩","N"],
 ["Sungboon Editor",["sungboon editor","sungboon","성분에디터"],"","N"],
 ["Haruharu Wonder",["haruharu","하루하루원더"],"","N"],
 ["Abib",["abib","아비브"],"","N"],
@@ -243,7 +243,7 @@
 ["Klairs",["klairs","dear, klairs","클레어스"],"","N"],
 ["Benton",["benton","벤튼"],"","N"],
 ["Some By Mi",["some by mi","somebymi","썸바이미"],"","N"],
-["eqqualberry",["eqqualberry","이퀄베리"],"","N"],
+["eqqualberry",["eqqualberry","equalberry","이퀄베리"],"부스터스","N"],
 ["ohora",["ohora","오호라"],"글루가","N"],
 ["Jung Saem Mool",["jung saem mool","정샘물"],"","N"],
 ["Dear Dahlia",["dear dahlia"],"","N"],
@@ -323,7 +323,8 @@
 ["AXIS-Y",["axis-y"],"","N"],
 ["iUNIK",["iunik"],"","N"],
 ["Nacific",["nacific"],"","N"],
-["Skin79",["skin79"],"","N"]
+["Skin79",["skin79"],"","N"],
+["Dr.Elsia",["dr.elsia","dr. elsia","닥터엘시아"],"더퓨어랩","N"]
 ],
 "companies":{
 "에이피알":{"st":"L"},
