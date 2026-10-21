@@ -11143,9 +11143,9 @@ function renderCosPhase(){
       cosShareChart(document.getElementById("cpST"),{lab:Wk.map(d=>d.slice(5).replace("-","/")), s:CT.shW[R.k], n0:0, L:Wk.length-1, part:false, unit:"주",
         segs:[{a:pa,b:pb,v:t3.sp,lab:L3.prev},{a:ca,b:cb,v:t3.sc,lab:L3.cur}]}); }
     else if(document.getElementById("cpST")) document.getElementById("cpST").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
-  if(R){ const Ab=KBPH.b[R.k]; cosYoYBars(document.getElementById("cpA"),{months:CA.M, u:Ab.u, partial:KBPH.partial});
+  if(R){ const Ab=KBPH.b[R.k]; cosYoYBars(document.getElementById("cpA"),{months:CA.M, u:Ab.u, partial:KBPH.partial, asOf:KBPH.asOf});
     const T=KBPH.tt, Tb=CT&&T.b[R.k];
-    if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:Tb.mu, v:Tb.mv, pi:T.months.indexOf(T.partial), note:`${T.partial?`${+T.partial.slice(5)}월은 ${T.end.slice(5).replace("-","/")}까지`:""}${(T.mest||[]).length?` · ${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}부터라 앞부분 추정`:""}`});
+    if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:Tb.mu, v:Tb.mv, pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), note:`${T.partial?`${+T.partial.slice(5)}월은 ${T.end.slice(5).replace("-","/")}까지`:""}${(T.mest||[]).length?` · ${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}부터라 앞부분 추정`:""}`});
     else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
   const stackRows=(keys,shOf,last)=>{ const top=keys.slice().sort((a,b)=>shOf(b,last)-shOf(a,last)).slice(0,7); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
     const rows=top.map((k,i)=>({name:nm(k), col:AMZT_PAL[i%AMZT_PAL.length], sel:k===cosSel, k}));
@@ -11264,33 +11264,47 @@ function cosYoYBars(el, o){
       const part=ym===P, x=xOf(mi,yi), h=Math.max(0,yOf(0)-yOf(v));
       g+=`<rect x="${x.toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${(bw-1.5).toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="${part?"url(#cpHatchA)":shade(yi)}"${part?' stroke="var(--accent)" stroke-width="1"':""}/>`;
       if(yi===ys.length-1){ const pv=byYM[`${y-1}-${String(mi+1).padStart(2,"0")}`];
-        if(part) g+=`<text x="${(x+bw/2).toFixed(1)}" y="${(yOf(v)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="var(--muted)">진행 중</text>`;
+        if(part){ const d=pv>0?v/pv-1:null; g+=`<text x="${(x+bw/2).toFixed(1)}" y="${(yOf(v)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${d==null?"var(--muted)":d>=0?"var(--up)":"var(--down)"}">${d==null?"예측":`≈${d>=0?"+":""}${Math.round(d*100)}%`}</text>`; }
         else if(pv>0&&!nar){ const d=v/pv-1; g+=`<text x="${(x+bw/2).toFixed(1)}" y="${(yOf(v)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${d>=0?"var(--up)":"var(--down)"}">${d>=0?"+":""}${Math.round(d*100)}%</text>`; } } });
   }
   g+=`</svg>`;
   el.innerHTML=g+`<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin-top:2px">${ys.map((y,yi)=>`<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${shade(yi)};vertical-align:-1px"></span> ${y}</span>`).join("")}
-    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:color-mix(in srgb, var(--accent) 30%, transparent);border:1px solid var(--accent);vertical-align:-1px"></span> 진행 중인 달(전년비 안 붙임)</span><span>막대 위 % = ${yNow} ÷ ${yNow-1} 같은 달</span></div>`;
+    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:color-mix(in srgb, var(--accent) 30%, transparent);border:1px solid var(--accent);vertical-align:-1px"></span> ${P?`${+P.slice(5)}월 예측`:"진행 중인 달"}</span><span>막대 위 % = ${yNow} ÷ ${yNow-1} 같은 달 · ≈ = 예측 전년비</span></div>`
+    +(P?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${+P.slice(5)}월 예측 = ${+P.slice(5)}/1~${o.asOf?`${+o.asOf.slice(5,7)}/${+o.asOf.slice(8)}`:"지금"} 배지('지난 30일 N개 구매') 평균. 배지가 이미 한 달치라 일할로 늘리지 않고 그대로 월 판매량으로 본다 — 지난 30일을 보는 값이라 9월 말 판매가 조금 섞인다.</div>`:"");
   attachChartTip(el,{W,H,pad:p,n:12,xOf:i=>p.l+i*gW+gW/2,xLab:i=>`${i+1}월`,pts:()=>[],
     html:i=>{ const mm=String(i+1).padStart(2,"0"); return `<div class="tt-h">${i+1}월 판매량</div>`+ys.map(y=>{ const v=byYM[`${y}-${mm}`], pv=byYM[`${y-1}-${mm}`], part=`${y}-${mm}`===P;
-      return v==null?"":`<div class="tt-r"><span class="k">${y}${part?" (진행 중)":""}</span><span class="v">${Math.round(v).toLocaleString("ko-KR")}개${pv>0&&!part?` <span style="color:${v>=pv?"var(--up)":"var(--down)"}">${v>=pv?"+":""}${Math.round((v/pv-1)*100)}%</span>`:""}</span></div>`; }).join(""); }});
+      return v==null?"":`<div class="tt-r"><span class="k">${y}${part?" (예측)":""}</span><span class="v">${part?"≈":""}${Math.round(v).toLocaleString("ko-KR")}개${pv>0?` <span style="color:${v>=pv?"var(--up)":"var(--down)"}">${part?"≈":""}${v>=pv?"+":""}${Math.round((v/pv-1)*100)}%</span>`:""}</span></div>`; }).join(""); }});
+}
+// 진행 중인 달 일할 환산 — 합계(틱톡샵 일별 합)용. 달 첫날~end 를 관측일로 본다. 아마존 배지 평균은 이미 월치라 쓰지 않는다.
+function cosProRate(ym, end){
+  if(!ym||!end||end.slice(0,7)!==ym) return null;
+  const obs=+end.slice(8), dim=new Date(Date.UTC(+ym.slice(0,4),+ym.slice(5),0)).getUTCDate();
+  return obs>0&&obs<dim?{f:dim/obs,obs,dim,lab:`${+ym.slice(5)}/1~${obs}`}:null;
 }
 function cosMonthBars(el, o){
   if(!el) return;
   const W=Math.max(300,Math.min(980,el.clientWidth||480)), H=200, p={l:44,r:10,t:22,b:30};
-  const n=o.labs.length, gW=(W-p.l-p.r)/n, bw=Math.min(34,gW*0.6), hi=Math.max(...o.u)*1.18||1;
+  const E=o.est&&o.pi>=0?o.est:null, eu=i=>i===o.pi&&E?o.u[i]*E.f:o.u[i];
+  const n=o.labs.length, gW=(W-p.l-p.r)/n, bw=Math.min(34,gW*0.6), hi=Math.max(...o.u.map((v,i)=>eu(i)))*1.18||1;
   const yOf=v=>H-p.b-v/hi*(H-p.t-p.b), cx=i=>p.l+i*gW+gW/2;
   const st=(()=>{ const r=hi/4, mg=Math.pow(10,Math.floor(Math.log10(r))); return [1,2,2.5,5,10].map(x=>x*mg).find(x=>x>=r)||r; })();
   let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${cosHatch("cpHatchT")}`;
   for(let v=0; v<=hi; v+=st) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${cosNum(v)}</text>`;
-  o.u.forEach((v,i)=>{ const part=i===o.pi, x=cx(i)-bw/2;
-    g+=`<rect x="${x.toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v)).toFixed(1)}" rx="2" fill="${part?"url(#cpHatchT)":"var(--accent)"}"${part?' stroke="var(--accent)" stroke-width="1"':""}/>`
-      +`<text x="${cx(i)}" y="${H-p.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${o.labs[i]}</text>`;
+  o.u.forEach((v0,i)=>{ const part=i===o.pi, v=eu(i), x=cx(i)-bw/2;
+    if(part&&E) g+=`<rect x="${x.toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v)).toFixed(1)}" rx="2" fill="url(#cpHatchT)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 2"/>`
+      +`<rect x="${x.toFixed(1)}" y="${yOf(v0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v0)).toFixed(1)}" rx="2" fill="var(--accent)" opacity="0.55"/>`;
+    else g+=`<rect x="${x.toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v)).toFixed(1)}" rx="2" fill="${part?"url(#cpHatchT)":"var(--accent)"}"${part?' stroke="var(--accent)" stroke-width="1"':""}/>`;
+    g+=`<text x="${cx(i)}" y="${H-p.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${o.labs[i]}</text>`;
     const pv=i>0?o.u[i-1]:null;
-    g+=`<text x="${cx(i)}" y="${(yOf(v)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" ${part?'fill="var(--muted)">진행 중':pv>0&&i-1!==o.pi?`font-weight="700" fill="${v>=pv?"var(--up)":"var(--down)"}">${v>=pv?"+":""}${Math.round((v/pv-1)*100)}%`:'fill="var(--muted)">'}</text>`; });
+    g+=`<text x="${cx(i)}" y="${(yOf(v)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" ${part?(E&&pv>0?`font-weight="700" fill="${v>=pv?"var(--up)":"var(--down)"}">≈${v>=pv?"+":""}${Math.round((v/pv-1)*100)}%`:'fill="var(--muted)">진행 중'):pv>0&&i-1!==o.pi?`font-weight="700" fill="${v>=pv?"var(--up)":"var(--down)"}">${v>=pv?"+":""}${Math.round((v/pv-1)*100)}%`:'fill="var(--muted)">'}</text>`; });
   g+=`</svg>`;
-  el.innerHTML=g+`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">막대 위 % = 전월 대비(진행 중인 달은 빗금 · % 없음) · ${o.note||""}</div>`;
+  el.innerHTML=g+`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">막대 위 % = 전월 대비${E?` · ${o.labs[o.pi]} = 진한 칸이 ${E.lab} 실제, 빗금까지가 일할 환산 예측(× ${E.dim}/${E.obs}일) · ≈ = 예측 전월비`:"(진행 중인 달은 빗금 · % 없음)"} · ${o.note||""}</div>`;
   attachChartTip(el,{W,H,pad:p,n,xOf:cx,xLab:i=>o.labs[i],pts:()=>[],
-    html:i=>`<div class="tt-h">${o.full[i]}${i===o.pi?" (진행 중)":""}</div><div class="tt-r"><span class="k">판매량</span><span class="v">${Math.round(o.u[i]).toLocaleString("ko-KR")}개</span></div>${o.v?`<div class="tt-r"><span class="k">판매액</span><span class="v">$${o.v[i]>=1e6?(o.v[i]/1e6).toFixed(1)+"M":Math.round(o.v[i]/1e3)+"K"}</span></div>`:""}`});
+    html:i=>{ const $=x=>`$${x>=1e6?(x/1e6).toFixed(1)+"M":Math.round(x/1e3)+"K"}`, pe=i===o.pi&&E, pv=i>0?eu(i-1):0;
+      return `<div class="tt-h">${o.full[i]}${i===o.pi?(E?" (진행 중 · 예측)":" (진행 중)"):""}</div>`
+        +(pe?`<div class="tt-r"><span class="k">예측(일할)</span><span class="v">≈${Math.round(eu(i)).toLocaleString("ko-KR")}개${pv>0?` <span style="color:${eu(i)>=pv?"var(--up)":"var(--down)"}">≈${eu(i)>=pv?"+":""}${Math.round((eu(i)/pv-1)*100)}%</span>`:""}</span></div>`:"")
+        +`<div class="tt-r"><span class="k">${pe?`실제 ${E.lab}`:"판매량"}</span><span class="v">${Math.round(o.u[i]).toLocaleString("ko-KR")}개</span></div>`
+        +(o.v?`<div class="tt-r"><span class="k">판매액${pe?` ${E.lab}`:""}</span><span class="v">${$(o.v[i])}${pe?` · 예측 ≈${$(o.v[i]*E.f)}`:""}</span></div>`:""); }});
 }
 function cosStack(el, o){
   if(!el) return;
