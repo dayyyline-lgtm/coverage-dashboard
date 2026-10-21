@@ -11117,9 +11117,11 @@ function renderCosPhase(){
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
     <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달)가 꼬리로 · 누르면 고정. 원 크기 = 3개월 비중 · 점선 100 = 견주는 기간과 같음.</p>
     ${lists}${selH}
-    <div class="cp-all"><div class="cp-selh"><span class="cp-tag all">K뷰티 전체</span><span style="font-size:16px;font-weight:800">바구니 전 브랜드 합 판매량 · 월별</span> <span class="g">아마존 ${Object.keys(KBPH.b).length}개 브랜드 · 틱톡샵 ${CT?Object.keys(KBPH.tt.b).length:0}개 공식 샵 · 비상장 숨김·고른 브랜드와 무관 · 진행 중인 달은 빗금 예측</span></div>
-    <div class="asd-duo${CT?"":" one"}" style="margin-top:10px"><div class="chart-box"><div class="asd-h">K뷰티 전체 · 아마존 판매량 · 같은 달 3개년<span class="sub">Keepa · 전 상품(배지 하한 · 개) · 막대 위 % = 전년 같은 달 대비</span></div><div id="cpKA"></div></div>
-      ${CT?`<div class="chart-box"><div class="asd-h">K뷰티 전체 · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBPH.tt.start.slice(5).replace("-","/")}부터라 전년비 없음 · % = 전월 대비</span></div><div id="cpKT"></div></div>`:""}</div></div>
+    <div class="cp-all"><div class="cp-selh"><span class="cp-tag all">추적 브랜드 합계</span><span style="font-size:16px;font-weight:800">우리가 추적하는 K뷰티 브랜드 합계 · 월별 판매량</span></div>
+    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBPH.b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBPH.tt.b).map(k=>(KBPH.b[k]||{}).ko||k).join(" · "):""))}">아마존 미국 <b>${Object.keys(KBPH.b).length}개</b> · 틱톡샵 미국 공식 샵 <b>${CT?Object.keys(KBPH.tt.b).length:0}개</b> 브랜드를 더한 값 · <b>비상장 포함</b> · 위 버튼과 무관 (마우스 = 브랜드 목록)<br>
+      K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 배지 하한이라 실제보다 작게 잡힌다</div>
+    <div class="asd-duo${CT?"":" one"}" style="margin-top:10px"><div class="chart-box"><div class="asd-h">합계 · 아마존 판매량 · 같은 달 3개년<span class="sub">Keepa · 전 상품(배지 하한 · 개) · 막대 위 % = 전년 같은 달 대비</span></div><div id="cpKA"></div></div>
+      ${CT?`<div class="chart-box"><div class="asd-h">합계 · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBPH.tt.start.slice(5).replace("-","/")}부터라 전년비 없음 · % = 전월 대비</span></div><div id="cpKT"></div></div>`:""}</div></div>
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 = 작년 같은 달 대비 · 틱톡샵 = 바로 앞 같은 길이 대비 · 칸마다 큰 순 · 점선 = 바구니 전체 → 막대가 점선 위면 비중이 늘었다 · 금색 줄 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
