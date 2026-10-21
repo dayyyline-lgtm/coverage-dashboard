@@ -11117,8 +11117,8 @@ function renderCosPhase(){
     selH=`<div class="cp-sel"><div class="cp-selh"><span class="cp-tag">선택 브랜드</span><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.mem?`${(COS_GRP.find(g=>g.k===R.k)||{what:""}).what} ${R.mem.map(m=>attr((KBPH.b[m]||{}).ko||m)).join(" + ")} 합`:`${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}`}</span>
         ${R.mem?"":`<button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button>`}</div>
       <div class="cp-kvs">
-        ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${(a.s3*100).toFixed(1)}%`:"—", a&&a.q?mt([["YoY 3M",a.m3,vs(Y3)],["YoY 1M",a.m1,vs(Y1)],["QoQ",a.d3,vs(D3)],["MoM",a.d1,vs(D1)]]):"")}
-        ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${(t.s3*100).toFixed(1)}%`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?mt([["QoQ",t.m3,vs(L3)],["MoM",t.m1,vs(L1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
+        ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${cosPf(a.s3*100)}`:"—", a&&a.q?mt([["YoY 3M",a.m3,vs(Y3)],["YoY 1M",a.m1,vs(Y1)],["QoQ",a.d3,vs(D3)],["MoM",a.d1,vs(D1)]]):"")}
+        ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?mt([["QoQ",t.m3,vs(L3)],["MoM",t.m1,vs(L1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
         ${kv("미국 세부 카테고리", s&&s.s?`SKU ${s.s} · 하루 ${s.r?eokS(s.r):"—"}`:'<span class="g">—</span>', s&&s.rw?`1주 전 대비 ${pc(s.r,s.rw)}`:"")}
         ${kv("뷰티 Top100 · 5개국", tp?`${tp.v}개`:'<span class="g">—</span>', tp&&tp.p!=null?`4주 전 ${tp.p}개`:"")}
       </div>
@@ -11143,8 +11143,8 @@ function renderCosPhase(){
       <th title="미국 세부 카테고리 Top100 · 추정 하루 매출">美 하루 매출</th><th title="1주 전 수집 대비">WoW</th><th title="미·영·독·프·스 뷰티 Top100 안 제품 수">Top100</th><th title="4주 전 대비">4주 전 대비</th></tr></thead><tbody>`
     +rows.map(r=>{ const x=xq(r), s=r.sub, tp=r.top;
       return `<tr class="cp-tr${r.k===cosSel?" on":""}" data-k="${attr(r.k)}" style="cursor:pointer"><td class="l"><b>${attr(r.ko)}</b></td><td class="l">${r.co?attr(r.co):'<span class="g">비상장</span>'}${r.sup?` <span class="g" title="${attr(r.sup)} 가 만든다(ODM) — 브랜드 주인은 비상장">· ${attr(r.sup)} ODM</span>`:""}</td>
-        <td class="l">${r.a?pill(aW(r).q,QDAw):"—"}</td><td>${r.a?(r.a.s3*100).toFixed(1)+"%":"—"}</td>
-        ${CT?`<td class="l">${r.t&&r.t.q?pill(r.t.q):'<span class="g">샵 없음</span>'}</td><td>${r.t&&r.t.q?(r.t.s3*100).toFixed(1)+"%":'<span class="g">—</span>'}</td>
+        <td class="l">${r.a?pill(aW(r).q,QDAw):"—"}</td><td>${r.a?cosPf(r.a.s3*100):"—"}</td>
+        ${CT?`<td class="l">${r.t&&r.t.q?pill(r.t.q):'<span class="g">샵 없음</span>'}</td><td>${r.t&&r.t.q?cosPf(r.t.s3*100):'<span class="g">—</span>'}</td>
           <td class="l">${x?`<span class="cos-dot" style="background:${x[1]}"></span>${x[0]}`:'<span class="g">—</span>'}</td>`:""}
         <td>${s&&s.r?eokS(s.r):'<span class="g">—</span>'}</td><td>${s?pct(s.r,s.rw):'<span class="g">—</span>'}</td>
         <td>${tp?tp.v:'<span class="g">—</span>'}</td><td>${tp&&tp.p!=null?(tp.v===tp.p?'<span class="g">0</span>':`<span style="color:${tp.v>tp.p?"var(--up)":"var(--down)"}">${tp.v>tp.p?"▲":"▼"}${Math.abs(tp.v-tp.p)}</span>`):'<span class="g">—</span>'}</td></tr>`; }).join("")
@@ -11279,6 +11279,8 @@ function renderCosPhase(){
 }
 
 /* 고른 브랜드 점유율 한 채널 — 선(완결 구간) + 지난 평균 점선 + 진행 중 달 따로(점선) · 점은 최고점에만 · 십자선 */
+/* 비중 % 자릿수 — 1% 밑은 둘째 자리, 0.1% 밑은 셋째 자리(클리오 틱톡샵 0.02% 가 '0.0%'로 찍혔다 · 2026-10-21) */
+const cosPf=v=>v==null||!isFinite(v)?"—":(v>=1?v.toFixed(1):v>=0.1?v.toFixed(2):v>0?v.toFixed(3):"0")+"%";
 function cosShareChart(el, o){
   if(!el) return;
   const s=o.s.map(v=>v*100), idx=[]; for(let j=o.n0;j<=o.L;j++) idx.push(j);
@@ -11286,25 +11288,25 @@ function cosShareChart(el, o){
   const n=idx.length+(o.part?1:0), xOf=i=>p.l+i/Math.max(1,n-1)*(W-p.l-p.r);
   const vals=idx.map(j=>s[j]).concat(o.part?[s[s.length-1]]:[]), base=o.base!=null?o.base*100:null, segs=(o.segs||[]).filter(g=>g.v!=null&&g.b>=0);
   const hi=Math.max(...vals,base||0,...segs.map(g=>g.v*100))*1.15||1, yOf=v=>H-p.b-v/hi*(H-p.t-p.b);
-  const step=hi>40?10:hi>20?5:hi>8?2:hi>4?1:hi>2?0.5:hi>0.8?0.2:0.1;
+  const step=hi>40?10:hi>20?5:hi>8?2:hi>4?1:hi>2?0.5:hi>0.8?0.2:hi>0.4?0.1:hi>0.2?0.05:hi>0.08?0.02:hi>0.04?0.01:hi>0.02?0.005:0.002;
   let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
-  for(let v=0; v<=hi; v+=step) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${+v.toFixed(1)}%</text>`;
+  for(let v=0; v<=hi; v+=step) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${+v.toFixed(3)}%</text>`;
   const ev=Math.ceil(idx.length/6);
   idx.forEach((j,i)=>{ if((idx.length-1-i)%ev===0) g+=`<text x="${xOf(i)}" y="${H-7}" text-anchor="middle" font-size="10" fill="var(--muted2)">${o.lab[j]}</text>`; });
-  if(base!=null){ const a=Math.max(0,idx.length-o.avgN); g+=`<line x1="${xOf(a)}" x2="${xOf(idx.length-1)}" y1="${yOf(base)}" y2="${yOf(base)}" stroke="var(--muted)" stroke-dasharray="5 4" stroke-width="1.3"/><text x="${W-p.r+4}" y="${yOf(base)+3.5}" font-size="10" fill="var(--muted)">평균 ${base.toFixed(1)}%</text>`; }
+  if(base!=null){ const a=Math.max(0,idx.length-o.avgN); g+=`<line x1="${xOf(a)}" x2="${xOf(idx.length-1)}" y1="${yOf(base)}" y2="${yOf(base)}" stroke="var(--muted)" stroke-dasharray="5 4" stroke-width="1.3"/><text x="${W-p.r+4}" y="${yOf(base)+3.5}" font-size="10" fill="var(--muted)">평균 ${cosPf(base)}</text>`; }
   // 견주는 두 구간(바로 앞 · 최근)의 평균 비중 — 잣대 통일(2026-10-21): 점선 둘의 높이 차 = 비중 변화
   segs.forEach((sg,si)=>{ const a=Math.max(0,sg.a), b=sg.b, v=sg.v*100, c=si===segs.length-1?"var(--text)":"var(--muted)";
-    g+=`<line x1="${xOf(a)}" x2="${xOf(b)}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="${c}" stroke-dasharray="5 4" stroke-width="1.6"/><text x="${(xOf(a)+xOf(b))/2}" y="${yOf(v)-5}" text-anchor="middle" font-size="10" fill="${c}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${sg.lab} ${v.toFixed(1)}%</text>`; });
+    g+=`<line x1="${xOf(a)}" x2="${xOf(b)}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="${c}" stroke-dasharray="5 4" stroke-width="1.6"/><text x="${(xOf(a)+xOf(b))/2}" y="${yOf(v)-5}" text-anchor="middle" font-size="10" fill="${c}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${sg.lab} ${cosPf(v)}</text>`; });
   g+=`<polyline points="${idx.map((j,i)=>`${xOf(i).toFixed(1)},${yOf(s[j]).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
   const iL=idx.length-1;
-  g+=`<text x="${W-p.r+4}" y="${yOf(s[o.L])+(base!=null&&Math.abs(s[o.L]-base)/hi*(H-p.t-p.b)<11?(s[o.L]>=base?-6:13):3.5)}" font-size="10.5" font-weight="700" fill="var(--accent)">${s[o.L].toFixed(1)}%</text>`;
+  g+=`<text x="${W-p.r+4}" y="${yOf(s[o.L])+(base!=null&&Math.abs(s[o.L]-base)/hi*(H-p.t-p.b)<11?(s[o.L]>=base?-6:13):3.5)}" font-size="10.5" font-weight="700" fill="var(--accent)">${cosPf(s[o.L])}</text>`;
   if(o.part) g+=`<line x1="${xOf(iL)}" x2="${xOf(iL+1)}" y1="${yOf(s[o.L])}" y2="${yOf(s[s.length-1])}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="${xOf(iL+1)}" cy="${yOf(s[s.length-1])}" r="3" fill="none" stroke="var(--muted)"/>`;
   const ipk=idx.reduce((a,j,i)=>s[j]>s[idx[a]]?i:a,0);
   g+=`<circle cx="${xOf(ipk)}" cy="${yOf(s[idx[ipk]])}" r="3.5" fill="var(--accent)" stroke="var(--panel)" stroke-width="1.5"/></svg>`;
   el.innerHTML=g;
   const at=i=>i<idx.length?idx[i]:s.length-1;
   attachChartTip(el,{W,H,pad:p,n,xOf,xLab:i=>o.lab[at(i)],pts:i=>[{y:yOf(s[at(i)]),c:"var(--accent)"}],
-    html:i=>`<div class="tt-h">${o.lab[at(i)]}${o.part&&i===idx.length?" · 진행 중":""}${o.unit==="주"?" (끝날 · 7일)":""}</div><div class="tt-r"><span class="k">비중</span><span class="v">${s[at(i)].toFixed(2)}%</span></div>`});
+    html:i=>`<div class="tt-h">${o.lab[at(i)]}${o.part&&i===idx.length?" · 진행 중":""}${o.unit==="주"?" (끝날 · 7일)":""}</div><div class="tt-r"><span class="k">비중</span><span class="v">${cosPf(s[at(i)])}</span></div>`});
 }
 
 /* ── 화장품 트렌드 국면 칸 아래 그래프 넷(2026-10-21 3차 · 사용자 "전년비 성장률·그래프는 안 뜨나 · 월별로 쌓거나 하면 이해에 도움") ──
