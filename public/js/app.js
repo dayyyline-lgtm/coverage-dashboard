@@ -12161,7 +12161,7 @@ const AMZBR_KO=(()=>{ const o={}; Object.entries(AMZT_KO).forEach(([k,v])=>{ o[a
     "the SAEM":"더샘",HERA:"헤라","AGE20's":"에이지투웨니스",SKINFOOD:"스킨푸드","rom&nd":"롬앤",hince:"힌스",AMUSE:"어뮤즈","ma:nyo":"마녀공장",
     "The Face Shop":"더페이스샵",Sulwhasoo:"설화수","Round Lab":"라운드랩",Aestura:"에스트라",belif:"빌리프",TONYMOLY:"토니모리",Rejuran:"리쥬란",
     Goodal:"구달",Atopalm:"아토팜","A'PIEU":"어퓨",Ryo:"려",Primera:"프리메라",Physiogel:"피지오겔",Hanyul:"한율","The Creme Shop":"더크렘샵",
-    "Dr.Althea":"닥터알떼아",Abib:"아비브",Meditherapy:"메디테라피",Mizon:"미즈온",Mediheal:"메디힐"}).forEach(([k,v])=>{ o[amzBrNorm(k)]=v; });
+    "Dr.Althea":"닥터엘시아",Abib:"아비브",Meditherapy:"메디테라피",Mizon:"미즈온",Mediheal:"메디힐"}).forEach(([k,v])=>{ o[amzBrNorm(k)]=v; });
   return o; })();
 const amzBrKo=n=>AMZBR_KO[amzBrNorm(n)]||"";
 
