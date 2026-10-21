@@ -113,9 +113,11 @@ def build(d):
         res["tt"] = Chan(TM, {k: b["mu"] for k, b in tt["b"].items()}, et)
         ai = [M.index(m) if m in M else -1 for m in TM]
         keys = set(B) | set(tt["b"])
+        mkb = [x["b"] for x in (d.get("mk") or {}).values()]   # 전 지역(2026-10-22 사용자 "합산은 모든 지역 합산") — 아마존 미국 + 유럽5·일본·캐나다 + 틱톡샵 미국
+        amz = lambda k, i: (B[k]["u"][i] or 0 if k in B else 0) + sum((mb[k]["u"][i] or 0) for mb in mkb if k in mb)
         S = {}
         for k in keys:
-            S[k] = [((B[k]["u"][ai[j]] or 0) if k in B and ai[j] >= 0 else 0) + ((tt["b"][k]["mu"][j] or 0) if k in tt["b"] else 0) for j in range(len(TM))]
+            S[k] = [(amz(k, ai[j]) if ai[j] >= 0 else 0) + ((tt["b"][k]["mu"][j] or 0) if k in tt["b"] else 0) for j in range(len(TM))]
         res["sum"] = Chan(TM, S, et)
         res["mest"] = tt.get("mest") or []
         res["ttEnd"] = tt.get("end")
@@ -240,24 +242,26 @@ def message(d, R, prev):
     f = "x"   # 합산: QoQ · 아마존만: YoY
     up, dn = movers(d, S, f)
     L += ["", "<b>📌 요약</b>"]
-    L.append(f"• 바구니 판매  아마존 YoY {pctg(R['us'].base(True))}" + (f" · 합산 QoQ {pctg(R['sum'].base(False))}" if has_t else ""))
+    L.append(f"• 바구니 판매  아마존 미국 YoY {pctg(R['us'].base(True))}" + (f" · 전 지역 합산 QoQ {pctg(R['sum'].base(False))}" if has_t else ""))
+    lab = " (전 지역)" if has_t else ""
     if up:
-        L.append(f"• 비중↑  " + ", ".join(up))
+        L.append(f"• 비중↑{lab}  " + ", ".join(up))
     if dn:
-        L.append(f"• 비중↓  " + ", ".join(dn))
+        L.append(f"• 비중↓{lab}  " + ", ".join(dn))
     allch = []
     if has_t:
         tt = R["tt"].rows(False)
         st["tt"] = {k: r["q"] for k, r in tt.items()}
         st["sum"] = {k: r["q"] for k, r in S.items()}
-        allch = changes(d, S, pq.get("sum"))
+        st["sumdef"] = "all"   # 합산 정의(2026-10-22 미국만 → 전 지역) — 정의가 다른 지난 칸과는 견주지 않는다
+        allch = changes(d, S, pq.get("sum") if pq.get("sumdef") == "all" else None)
     else:
         allch = changes(d, us, pq.get("us"))
     if allch:
         L.append("• 칸 바뀜  " + ", ".join(allch[:6]))
     if has_t:
-        L += ["", "<b>🏢 상장사</b> <i>(합산 비중 · QoQ)</i>"] + companies(d, R["sum"])
-        L += ["", "<b>➕ 합산</b> <i>아마존+틱톡샵 · QoQ×MoM</i>"] + quads(d, S)
+        L += ["", "<b>🏢 상장사</b> <i>(전 지역 합산 비중 · QoQ)</i>"] + companies(d, R["sum"])
+        L += ["", "<b>🌐 전 지역 합산</b> <i>아마존 미·유럽5·일·캐 + 틱톡샵 미국 · QoQ×MoM</i>"] + quads(d, S)
     L += ["", "<b>🇺🇸 아마존 미국</b> <i>YoY×QoQ</i>"] + quads(d, us)
     a_up, a_dn = movers(d, us, "y", n=2)
     if a_up or a_dn:
