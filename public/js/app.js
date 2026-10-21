@@ -11074,8 +11074,8 @@ function renderCosPhase(){
     ${lists}${selH}
     <div class="sub-h" style="margin-top:18px">몫 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${mode==="x"&&CT?"":" one"}" style="margin-top:6px">${mode!=="tt"?`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 몫</span></div><div id="cpStA"></div></div>`:""}${mode!=="amz"&&CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 몫</span></div><div id="cpStT"></div></div>`:""}</div>
-    <div class="sub-h" style="margin-top:18px">판매량 증가율 · 브랜드별 <span class="th-sub" style="display:inline">몫 0.5% 이상 · 이름·막대를 누르면 그 브랜드 · 굵은 이름 = 상장사</span></div>
-    <div class="asd-duo${mode==="x"&&CT?"":" one"}" style="margin-top:6px">${mode!=="tt"?`<div class="chart-box"><div class="asd-h">아마존 · 전년 대비<span class="sub">${aWin} vs 작년 같은 ${nA===1?"달":nA+"개월"}</span></div><div id="cpGrA"></div></div>`:""}${mode!=="amz"&&CT?`<div class="chart-box"><div class="asd-h">틱톡샵 · 직전 ${nT}주 대비<span class="sub">전년비는 내년 4월부터 · ${tWin}</span></div><div id="cpGrT"></div></div>`:""}</div>
+    <div class="sub-h" style="margin-top:18px">판매량 증가율 · 브랜드별 <span class="th-sub" style="display:inline">네 기간을 한 줄에 · 머리글을 누르면 그 기간으로 정렬 · 줄을 누르면 그 브랜드 · 굵은 이름 = 상장사</span></div>
+    <div class="chart-box" style="margin-top:6px"><div id="cpGr4"></div></div>
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
     <details class="fold" data-fold="cpM"${foldOpen("cpM")} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
@@ -11112,16 +11112,18 @@ function renderCosPhase(){
     rows.push({name:"그 밖", col:"color-mix(in srgb, var(--muted) 35%, var(--panel))", v:T.months.map((_,j)=>1-top.reduce((t,k)=>t+S[k][j],0))});
     cosStack(document.getElementById("cpStT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), rows, pi,
       note:`${keys.length}개 공식 샵 · 메디큐브가 절반 넘게 가져간다`}); }
-  const grItems=(get)=>Object.values(B).filter(r=>Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)>=0.005||small).map(r=>({k:r.k, name:r.ko, co:r.co, sel:r.k===cosSel, v:get(r)}));
-  // 증가율은 지금 고른 기간을 따른다(2026-10-21 사용자 "1개월을 보든 3개월을 보든 숫자가 똑같다" — 7~9월 전년비·8주 고정이었다)
-  //   아마존 = 최근 nA개월 판매량 ÷ 작년 같은 nA개월 − 1 · 틱톡샵 = 최근 nT주 ÷ 직전 nT주 − 1
-  const grA=k=>{ const u=(KBPH.b[k]||{}).u; if(!u) return null; const L=CA.L, c=kbPhSum(u,L-nA+1,L), p=L-nA+1-12>=0?kbPhSum(u,L-nA+1-12,L-12):0; return p>0?c/p-1:null; };
-  const grT=k=>{ const b=CT&&CT.B[k]; if(!b) return null; const L=CT.L; if(L-2*nT+1<0) return null; const c=kbPhSum(b.u,L-nT+1,L), p=kbPhSum(b.u,L-2*nT+1,L-nT); return p>0&&c>0?c/p-1:null; };   // 판매가 끊긴 샵(하루하루원더)은 −100% 로 축을 짓누르므로 뺀다
-  const baseA=(()=>{ const ks=Object.keys(KBPH.b), L=CA.L, c=ks.reduce((t,k)=>t+kbPhSum(KBPH.b[k].u,L-nA+1,L),0), p=ks.reduce((t,k)=>t+kbPhSum(KBPH.b[k].u,L-nA+1-12,L-12),0); return p>0?c/p-1:null; })();
-  const gPct=v=>v==null?"—":`${v>=0?"+":""}${Math.round(v*100)}%`;
-  cosGrowth(document.getElementById("cpGrA"),{items:grItems(r=>grA(r.k)), note:`Keepa 판매량(배지 하한) · ${Object.keys(KBPH.b).length}개 브랜드 바구니 전체 ${gPct(baseA)} — 바구니가 커서 대부분 + · 몫이 늘었나는 위 지도로`});
-  if(CT) cosGrowth(document.getElementById("cpGrT"),{items:grItems(r=>grT(r.k)), note:`FastMoss 판매량 · 최근 ${nT}주 ÷ 직전 ${nT}주`});
-  box.querySelectorAll("#cpGrA [data-k], #cpGrT [data-k]").forEach(el=>el.addEventListener("click",()=>{ cosSel=el.dataset.k; cosSv("cosSel",cosSel); renderCosPhase(); }));
+  // 증가율 네 개를 한 표에(2026-10-21 사용자 "하나 누르면 다른 하나 뜨는 게 별로 — 4개 다 띄우고 선택한 종목 강조")
+  //   아마존 3개월·1개월 = 작년 같은 기간 대비 · 틱톡샵 8주·4주 = 직전 같은 길이 대비. 보기(아마존×틱톡 등)·기간 버튼과 무관하게 늘 넷 다.
+  const grA=(k,n)=>{ const u=(KBPH.b[k]||{}).u; if(!u) return null; const L=CA.L, c=kbPhSum(u,L-n+1,L), p=L-n+1-12>=0?kbPhSum(u,L-n+1-12,L-12):0; return p>0?c/p-1:null; };
+  const grT=(k,n)=>{ const b=CT&&CT.B[k]; if(!b) return null; const L=CT.L; if(L-2*n+1<0) return null; const c=kbPhSum(b.u,L-n+1,L), p=kbPhSum(b.u,L-2*n+1,L-n); return p>0&&c>0?c/p-1:null; };   // 판매가 끊긴 샵(하루하루원더)은 −100% 로 축을 짓누르므로 뺀다
+  const baseA=n=>{ const ks=Object.keys(KBPH.b), L=CA.L, c=ks.reduce((t,k)=>t+kbPhSum(KBPH.b[k].u,L-n+1,L),0), p=ks.reduce((t,k)=>t+kbPhSum(KBPH.b[k].u,L-n+1-12,L-12),0); return p>0?c/p-1:null; };
+  const baseT=n=>{ if(!CT) return null; const L=CT.L, c=kbPhSum(CT.tot,L-n+1,L), p=kbPhSum(CT.tot,L-2*n+1,L-n); return p>0?c/p-1:null; };
+  const tLab=n=>CT?`${tS(CT.L-n+1)}~${CT.M[CT.L].slice(5).replace("-","/")}`:"";
+  const aLab=n=>n===1?lab(CA.M[CA.L]):`${lab(CA.M[CA.L-n+1]).replace("월","")}~${lab(CA.M[CA.L])}`;
+  const cols=[{id:"a3", t:"아마존 3개월", s:`${aLab(3)} · 전년비`, base:baseA(3), f:k=>grA(k,3)}, {id:"a1", t:"아마존 1개월", s:`${aLab(1)} · 전년비`, base:baseA(1), f:k=>grA(k,1)}]
+    .concat(CT?[{id:"t8", t:"틱톡샵 8주", s:`${tLab(8)} · 직전比`, base:baseT(8), f:k=>grT(k,8)}, {id:"t4", t:"틱톡샵 4주", s:`${tLab(4)} · 직전比`, base:baseT(4), f:k=>grT(k,4)}]:[]);
+  const grRows=Object.values(B).filter(r=>Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)>=0.005||small).map(r=>({k:r.k, name:r.ko, co:r.co, v:cols.map(c=>c.f(r.k))}));
+  cosGrowth4(document.getElementById("cpGr4"),{cols, rows:grRows, sel:cosSel, onPick:k=>{ cosSel=k; cosSv("cosSel",k); renderCosPhase(); }});
 
   // ── 꼬리 · 상호작용 ──
   const NS="http://www.w3.org/2000/svg", g=document.getElementById("cpTrail"), svgEl=document.getElementById("cpSvg"), info=document.getElementById("cpInfo");
@@ -11272,6 +11274,47 @@ function cosGrowth(el, o){
       +`<rect data-k="${attr(x.k)}" x="${Math.min(a,b).toFixed(1)}" y="${y+3}" width="${Math.max(1,Math.abs(b-a)).toFixed(1)}" height="${rowH-6}" rx="2" fill="${col}" fill-opacity="${x.sel?1:0.7}"${x.sel?' stroke="var(--text)" stroke-width="1"':""} style="cursor:pointer"/>`
       +`<text x="${(x.v>=0?b+4:a+4).toFixed(1)}" y="${y+12}" text-anchor="start" font-size="10" fill="${col}">${x.v>=0?"+":""}${Math.round(x.v*100)}%${x.v>3?"▶":""}</text>`; });
   el.innerHTML=g+`</svg>`+(o.note?`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">${o.note}</div>`:"");
+}
+
+/* 판매량 증가율 네 기간 한 표 — 줄 = 브랜드(이름 한 번) · 칸 = 기간(각자 축 · 0선) · 고른 브랜드 줄 강조 · 머리글 눌러 정렬(localStorage.cosGrSort) · 좁으면 두 칸씩 두 줄 */
+function cosGrowth4(el, o){
+  if(!el) return;
+  const cols=o.cols; let sk=cosLs("cosGrSort","a3"); if(!cols.some(c=>c.id===sk)) sk=cols[0].id;
+  const si=cols.findIndex(c=>c.id===sk);
+  const rows=o.rows.filter(r=>r.v.some(v=>v!=null)).sort((a,b)=>(b.v[si]==null?-1e9:b.v[si])-(a.v[si]==null?-1e9:a.v[si]));
+  const Wall=Math.max(300,el.clientWidth||900), per=Wall<640?2:cols.length;
+  const pct=v=>`${v>=0?"+":""}${Math.round(v*100)}%`;
+  let html="";
+  for(let g=0; g<cols.length; g+=per){
+    const cs=cols.slice(g,g+per), W=Wall, nameW=Wall<640?76:84, rowH=19, headH=38, H=headH+rows.length*rowH+18, cw=(W-nameW)/cs.length, pad=8;
+    let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+    const selIdx=rows.findIndex(r=>r.k===o.sel);
+    if(selIdx>=0) svg+=`<rect x="0" y="${headH+selIdx*rowH}" width="${W}" height="${rowH}" fill="color-mix(in srgb, var(--accent) 16%, transparent)"/>`;
+    cs.forEach((c,ci)=>{ const x0=nameW+ci*cw, ix=cols.indexOf(c), vs=rows.map(r=>r.v[ix]).filter(v=>v!=null);
+      const lo=Math.min(-0.1,...vs.map(v=>Math.max(v,-1))), hi=Math.max(0.1,...vs.map(v=>Math.min(v,3)));
+      const L=x0+pad, R=x0+cw-pad-34, xOf=v=>L+(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(R-L), z=xOf(0), on=c.id===sk;
+      svg+=`<g data-gs="${c.id}" style="cursor:pointer"><rect x="${x0}" y="0" width="${cw}" height="${headH-4}" fill="transparent"/>`
+        +`<text x="${x0+pad}" y="14" font-size="12" font-weight="700" fill="${on?"var(--accent)":"var(--text)"}">${c.t}${on?" ▼":""}</text>`
+        +`<text x="${x0+pad}" y="29" font-size="10" fill="var(--muted2)">${Wall<640?c.s.split(" · ")[0]:`${c.s}${c.base!=null?` · 전체 ${pct(c.base)}`:""}`}</text></g>`;
+      if(ci>0) svg+=`<line x1="${x0}" x2="${x0}" y1="4" y2="${H-14}" stroke="var(--line-soft)"/>`;
+      svg+=`<line x1="${z}" x2="${z}" y1="${headH-2}" y2="${headH+rows.length*rowH}" stroke="var(--muted)" stroke-width="1"/>`;
+      if(c.base!=null){ const bx=xOf(c.base); svg+=`<line x1="${bx}" x2="${bx}" y1="${headH-2}" y2="${headH+rows.length*rowH}" stroke="var(--muted2)" stroke-dasharray="3 3"/>`; }
+      rows.forEach((r,i)=>{ const v=r.v[ix], y=headH+i*rowH, sel=r.k===o.sel;
+        if(v==null){ svg+=`<text x="${z+4}" y="${y+13}" font-size="10" fill="var(--muted2)">—</text>`; return; }
+        const b=xOf(v), col=v>=0?"var(--up)":"var(--down)";
+        svg+=`<rect x="${Math.min(z,b).toFixed(1)}" y="${y+4}" width="${Math.max(1,Math.abs(b-z)).toFixed(1)}" height="${rowH-8}" rx="2" fill="${col}" fill-opacity="${sel?1:0.62}"${sel?' stroke="var(--text)" stroke-width="1"':""}/>`
+          +`<text x="${(v>=0?b+3:z+3).toFixed(1)}" y="${y+13}" font-size="10" fill="${col}"${sel?' font-weight="700"':""}>${pct(v)}${v>3?"▶":""}</text>`; });
+    });
+    rows.forEach((r,i)=>{ const y=headH+i*rowH, sel=r.k===o.sel;
+      svg+=`<g data-gk="${attr(r.k)}" style="cursor:pointer"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>`
+        +`<text x="${nameW-6}" y="${y+13}" text-anchor="end" font-size="${Wall<640?10:11}" fill="${sel?"var(--accent)":"var(--text)"}"${r.co||sel?' font-weight="700"':""}>${attr(r.name)}</text></g>`; });
+    svg+=`</svg>`;
+    html+=svg;
+  }
+  el.innerHTML=html+`<div style="font-size:11.5px;color:var(--muted);margin-top:4px">아마존 = Keepa 판매량(배지 하한) · 틱톡샵 = FastMoss 미국 공식 샵 판매량 · 점선 = 바구니 전체(${cols.map(c=>c.t.replace("아마존 ","아마존").replace("틱톡샵 ","틱톡")+" "+(c.base!=null?pct(c.base):"—")).join(" · ")}) — 점선보다 오른쪽이면 바구니보다 빨리 늘었다(= 몫이 늘었다) · 칸마다 축이 다르다 · 틱톡샵 전년비는 내년 4월부터</div>`;
+  // 줄 눌러 고르기 · 머리글 눌러 정렬 — 줄 클릭이 머리글 위로 덮이지 않게 머리글을 뒤에 그렸다
+  el.querySelectorAll("[data-gs]").forEach(g=>g.addEventListener("click",e=>{ e.stopPropagation(); cosSv("cosGrSort",g.dataset.gs); cosGrowth4(el,o); }));
+  el.querySelectorAll("[data-gk]").forEach(g=>g.addEventListener("click",()=>o.onPick(g.dataset.gk)));
 }
 
 function renderAmazon(){
