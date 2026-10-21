@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""K뷰티 브랜드 국면 지도(아마존 미국 · 32개 브랜드) → public/index.html 의 `const KBPH` 한 줄 (2026-10-21).
+"""K뷰티 브랜드 국면 지도(아마존 미국 · 37개 브랜드 + 유럽 5개국 `mk`) → public/index.html 의 `const KBPH` 한 줄 (2026-10-21).
 
 KBCH(회사 채널 모델)는 상장사 브랜드만 본다. 국면 지도는 '피어 안에서 몫이 늘고 있나'를 보려는 것이라
 비상장 경쟁사(아누아·스킨1004·조선미녀·셀리맥스·닥터엘시아(Dr.Althea)·토리든 …)까지 같은 바구니에 넣는다.
@@ -52,6 +52,57 @@ def build(path):
     tt = build_tt(set(d["b"]))
     if tt:
         out["tt"] = tt
+    mk = build_mk(d)
+    if mk:
+        out["mk"] = mk
+    return out
+
+
+# ── 유럽 아마존(영·독·프·이·스) — Keepa Product Finder 를 나라마다 같은 조건으로(phase_keepa_eu.js 덤프 · data/phase/eu/<날짜>.txt · 2026-10-21) ──
+#   D|나라|날짜|첫 달|행 수 · 브랜드 줄 k|SKU 수|u 36개(36진수)|v 36개(현지 통화 · 36진수) · H|검산값
+#   v = 판매량 × 그달 가격(바이박스 → 신품 최저가 → 아마존가 · 미국과 같은 식) — 파운드·유로. 달러·원화 환산은 화면(kbFx · ECB 월평균)에서.
+#   한글 이름·회사·ODM(ko·co·sup)은 미국 바구니(d["b"])에서 가져온다 — 나라마다 바구니는 그 나라에 든 브랜드만.
+MK_CUR = {"uk": "GBP", "de": "EUR", "fr": "EUR", "it": "EUR", "es": "EUR"}
+
+
+def _eu_hash(b):
+    h = 0
+    for k in sorted(b):
+        for i, x in enumerate(b[k]["u"]):
+            h = (h + x * (i + 1)) % 1000003
+        for i, x in enumerate(b[k]["v"]):
+            h = (h + x * (i + 7)) % 1000003
+    return h
+
+
+def build_mk(d):
+    files = sorted((SRC / "eu").glob("20??-??-??.txt"))
+    if not files:
+        return None
+    out, cur = {}, None
+    for ln in files[-1].read_text(encoding="utf-8").splitlines():
+        p = ln.strip().split("|")
+        if not p or not p[0]:
+            continue
+        if p[0] == "D":
+            if p[3] != d["months"][0]:
+                raise SystemExit(f"유럽 {p[1]} 첫 달 {p[3]} ≠ 미국 {d['months'][0]}")
+            cur = {"cur": MK_CUR[p[1]], "asOf": p[2], "rows": int(p[4]), "b": {}}
+            out[p[1]] = cur
+        elif p[0] == "H":
+            h = _eu_hash(cur["b"])
+            if h != int(p[1]):
+                raise SystemExit(f"유럽 덤프 검산 틀림: {h} ≠ {p[1]}")
+        else:
+            u = [int(x, 36) for x in p[2].split(",")]
+            v = [int(x, 36) for x in p[3].split(",")]
+            if len(u) != len(d["months"]) or len(v) != len(d["months"]):
+                raise SystemExit(f"유럽 {p[0]} 길이 {len(u)}/{len(v)}")
+            cur["b"][p[0]] = {"u": u, "v": v, "n": int(p[1])}
+    for m, c in out.items():
+        miss = [k for k in c["b"] if k not in d["b"]]
+        if miss:
+            raise SystemExit(f"유럽 {m}: 미국 바구니에 없는 브랜드 {miss}")
     return out
 
 
@@ -194,7 +245,7 @@ def main():
     p = latest()
     block = build(p)
     if a.dry:
-        print(f"[KBPH] {p.name} · 브랜드 {len(block['b'])} · {len(json.dumps(block, ensure_ascii=False)) // 1024}KB")
+        print(f"[KBPH] {p.name} · 브랜드 {len(block['b'])} · 유럽 {', '.join(f'{m} {len(c["b"])}' for m, c in (block.get('mk') or {}).items())} · {len(json.dumps(block, ensure_ascii=False)) // 1024}KB")
         return
     ch, size = inject(block)
     print(f"[KBPH] {'갱신' if ch else '변동 없음'} · {size // 1024}KB · {block['asOf']} · 브랜드 {len(block['b'])}")
