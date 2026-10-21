@@ -91,3 +91,4 @@ python3 kbeauty/push.py                                              # 배포 �
 | 새 회사·지역 | `config.json` `companies` — 지역 이름은 `ir.json` 의 공시 줄 이름과 같아야 계수가 붙는다 |
 | 공시 지역 매출 | `ir.json` — 분기 실적이 나오면 한 칸(출처 URL 같이). 반기만 나오면 '1H26', 연간이면 'FY25' 키 |
 | 틱톡샵 샵 | `config.json` `tt` |
+| 새 브랜드를 정기 회차 전에 바로 | 'add' 회차 — 새 과제만 `__KBK.start(과제, {mode:'full', add:1, curves:{d:[a,b1,b2]…}})`(곡선 = `data/keepa_curves.csv` 마지막 회차) → 평소처럼 dump → `ingest.py`. 마지막 회차 날짜로 끼워 넣고 meta 는 안 바꾼다(2026-10-21 네오팜·클리오·동국제약·브이티·엔에프씨) |

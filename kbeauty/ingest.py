@@ -124,9 +124,18 @@ def parse_keepa(lines):
 def save_keepa(res, raw_text):
     DATA.mkdir(parents=True, exist_ok=True)
     (DATA / "keepa").mkdir(exist_ok=True)
-    (DATA / "keepa" / f"{res['date']}.txt").write_text(raw_text, encoding="utf-8", newline="\n")
+    mp = DATA / "keepa_meta.json"
+    om = json.loads(mp.read_text(encoding="utf-8")) if mp.exists() else {}
+    # 'add' 회차(2026-10-21) = 새 브랜드만 36개월로 받아 마지막 회차에 끼워 넣는다 — 곡선은 그 회차 것을 받아 썼고(opt.curves),
+    #   최근 30일·상위 묶음도 그 회차 날짜로 적는다(블록이 '마지막 회차' 한 날짜만 읽으므로). meta(다음 모드 판정)는 안 바꾼다.
+    add = res["mode"] == "add"
+    if add:
+        (DATA / "keepa" / f"{res['date']}-add.txt").write_text(raw_text, encoding="utf-8", newline="\n")
+        res = dict(res, date=om.get("date") or res["date"])
+    else:
+        (DATA / "keepa" / f"{res['date']}.txt").write_text(raw_text, encoding="utf-8", newline="\n")
     MS, MC = res["MS"], res["MC"]
-    full = res["mode"] == "full"
+    full = res["mode"] in ("full", "add")
     first = MS if full else MC - 2
     # 완결 월
     path = DATA / "keepa_month.csv"
@@ -156,7 +165,7 @@ def save_keepa(res, raw_text):
     rec = []
     if rp.exists():
         with open(rp, encoding="utf-8", newline="") as f:
-            rec = [r for r in csv.DictReader(f) if r["asof"] != res["date"]]
+            rec = [r for r in csv.DictReader(f) if r["asof"] != res["date"] or (add and (int(r["d"]), r["k"]) not in got)]
     for a in res["A"]:
         u, v = a["U"][-1] if a["U"] else 0, a["V"][-1] if a["V"] else 0
         rec.append({"asof": res["date"], "d": a["d"], "k": a["k"], "u": u, "v": v})
@@ -166,11 +175,21 @@ def save_keepa(res, raw_text):
         w.writeheader()
         w.writerows(rec)
     # 상위 묶음 · 곡선
+    keep_top = []
+    if add and (DATA / "keepa_top.csv").exists():
+        with open(DATA / "keepa_top.csv", encoding="utf-8", newline="") as f:
+            keep_top = [r for r in csv.reader(f)][1:]
+        keep_top = [r for r in keep_top if (int(r[1]), r[2]) not in got]
     with open(DATA / "keepa_top.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(["asof", "d", "k", "i", "g", "n", "t", "p", "u13", "v13"])
+        w.writerows(keep_top)
         for t in res["T"]:
             w.writerow([res["date"], t["d"], t["k"], t["i"], t["g"], t["n"], t["t"], t["p"], " ".join(map(str, t["u"])), " ".join(map(str, t["v"]))])
+    if add:
+        om.setdefault("add", []).append(f"{dt.date.today().isoformat()}:{len(got)}")
+        mp.write_text(json.dumps(om, ensure_ascii=False, indent=1), encoding="utf-8")
+        return len(new)
     cp = DATA / "keepa_curves.csv"
     cur = []
     if cp.exists():
@@ -182,8 +201,6 @@ def save_keepa(res, raw_text):
         w = csv.DictWriter(f, fieldnames=["asof", "d", "n", "bins", "a", "b1", "b2", "tag"])
         w.writeheader()
         w.writerows(cur)
-    mp = DATA / "keepa_meta.json"
-    om = json.loads(mp.read_text(encoding="utf-8")) if mp.exists() else {}
     # full = 마지막 전체(36개월) 회차 · sig = 그때 과제 목록 — --due 가 다음 모드를 정한다
     meta = {"date": res["date"], "MS": MS, "MC": MC, "mode": res["mode"], "tasks": res["tasks"],
             "full": res["date"] if full else om.get("full", ""), "sig": tasks_sig() if full else om.get("sig", ""),

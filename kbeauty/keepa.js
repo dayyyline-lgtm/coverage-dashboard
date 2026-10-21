@@ -28,7 +28,7 @@
 */
 (function () {
   'use strict';
-  const V = 7;
+  const V = 8;
   if (window.__KBK && window.__KBK.v === V && window.__KBK.state === 'run') return 'already running';
   const K = window.__KBK = {v: V, state: 'idle', tasks: [], i: 0, raw: [], log: [], err: '', t0: 0, t1: 0, L: null, opt: {}};
   // 탭이 뒤로 가면 크롬이 setTimeout 을 1분 단위로 묶는다(집중 제한) — 워커 타이머는 그 제한을 안 받는다. 워커가 막히면(CSP) 그냥 setTimeout.
@@ -217,7 +217,7 @@
   K.build = () => {
     const L = [], push = a => { const s = a.join('|'); L.push(s + '|' + crc32(s)); };
     const dt = new Date(NOW).toISOString().slice(0, 10);
-    push(['H', V, dt, MS, MC, K.tasks.length, K.opt.mode || 'full']);
+    push(['H', V, dt, MS, MC, K.tasks.length, K.opt.add ? 'add' : (K.opt.mode || 'full')]);
     // 나라별 곡선
     const byD = {};
     for (const R of K.raw) if (R.ps) (byD[R.t.d] = byD[R.t.d] || []).push(...R.ps);
@@ -235,9 +235,11 @@
       curves[d] = fitCurve(pairs);
       if (curves[d]) curves[d].pairs = pairs.length;
     }
+    // 곡선을 받아 쓰는 회차(opt.curves · 새 브랜드만 더하는 'add' 회차 — 브랜드가 적어 자기 곡선을 못 맞춘다 · 2026-10-21)
+    if (K.opt.curves) for (const d in K.opt.curves) { const q = K.opt.curves[d]; curves[d] = {a: q[0], b1: q[1], b2: q[2], n: q[3] || 0, bins: 0, given: 1}; }
     const us = curves[1];
     for (const d in byD) {
-      let c = curves[d], tag = 'own';
+      let c = curves[d], tag = c && c.given ? 'given' : 'own';
       if (!c) { c = us; tag = 'us'; curves[d] = us ? Object.assign({}, us, {borrowed: 1}) : null; }
       push(['F', d, c ? (c.pairs || c.n) : 0, c ? c.bins : 0, c ? c.a.toFixed(4) : '', c ? c.b1.toFixed(4) : '', c ? c.b2.toFixed(4) : '', tag]);
     }

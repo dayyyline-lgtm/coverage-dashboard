@@ -215,6 +215,79 @@
      "TT:GB"
     ]
    }
+  },
+  "클리오": {
+   "type": "brand",
+   "region": {
+    "북미": [
+     "US",
+     "CA"
+    ],
+    "일본": [
+     "JP"
+    ],
+    "유럽": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES"
+    ]
+   }
+  },
+  "네오팜": {
+   "type": "brand",
+   "region": {
+    "미국": [
+     "US"
+    ],
+    "일본·영국": [
+     "JP",
+     "UK"
+    ]
+   }
+  },
+  "동국제약": {
+   "type": "brand",
+   "region": {
+    "미국": [
+     "US"
+    ],
+    "일본·영국": [
+     "JP",
+     "UK"
+    ]
+   }
+  },
+  "브이티": {
+   "type": "brand",
+   "region": {
+    "일본": [
+     "JP"
+    ],
+    "북미": [
+     "US",
+     "CA"
+    ],
+    "유럽": [
+     "UK",
+     "DE",
+     "FR",
+     "IT",
+     "ES"
+    ]
+   }
+  },
+  "엔에프씨": {
+   "type": "supplier",
+   "note": "ODM 고객사(이퀄베리·셀리맥스·닥터엘시아) — 엔에프씨가 만드는 건 그중 일부 품목이다(이퀄베리 세럼 · 닥터엘시아 클렌징 밤 · 2026-10-21 KBPH 절)",
+   "region": {
+    "고객사 3곳": [
+     "US",
+     "UK",
+     "JP"
+    ]
+   }
   }
  },
  "brands": [
@@ -500,6 +573,110 @@
     "biodance"
    ],
    "d": "all"
+  },
+  {
+   "k": "clio",
+   "co": "클리오",
+   "ko": "클리오",
+   "kp": [
+    "clio",
+    "clio professional"
+   ],
+   "d": "all",
+   "tf": "^(?:\\[[^\\]]*\\]\\s*)?\\W*clio\\b(?!.*(yogurt|fishing|shower|kayak|grab bar|tarp|foot rest|rod |hot chocolate|renault))",
+   "note": "'clio' 브랜드엔 요거트바·낚싯대 거치대·샤워 발판이 섞인다 — 제목이 CLIO(앞의 [Bundle] 같은 꼬리표는 허용)로 시작하고 그 단어들이 없는 것만(2026-10-21) · 본 상품은 'CLIO PROFESSIONAL'"
+  },
+  {
+   "k": "peripera",
+   "co": "클리오",
+   "ko": "페리페라",
+   "kp": [
+    "peripera"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "goodal",
+   "co": "클리오",
+   "ko": "구달",
+   "kp": [
+    "goodal"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "atopalm",
+   "co": "네오팜",
+   "ko": "아토팜",
+   "kp": [
+    "atopalm"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "zeroid",
+   "co": "네오팜",
+   "ko": "제로이드",
+   "kp": [
+    "zeroid"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "realbarrier",
+   "co": "네오팜",
+   "ko": "리얼베리어",
+   "kp": [
+    "real barrier"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "centellian24",
+   "co": "동국제약",
+   "ko": "센텔리안24",
+   "kp": [
+    "centellian 24",
+    "centellian24"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "vt",
+   "co": "브이티",
+   "ko": "VT",
+   "kp": [
+    "vt cosmetics"
+   ],
+   "d": "all"
+  },
+  {
+   "k": "eqqualberry",
+   "co": "엔에프씨",
+   "ko": "이퀄베리",
+   "kp": [
+    "eqqualberry",
+    "equalberry"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "celimax",
+   "co": "엔에프씨",
+   "ko": "셀리맥스",
+   "kp": [
+    "celimax"
+   ],
+   "d": "few"
+  },
+  {
+   "k": "dralthea",
+   "co": "엔에프씨",
+   "ko": "닥터엘시아",
+   "kp": [
+    "dr.althea"
+   ],
+   "d": "few"
   }
  ],
  "tt": [
