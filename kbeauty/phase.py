@@ -63,7 +63,7 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "isntree": "isntree", "tonymoly": "tonymoly", "innisfree": "innisfree", "romand": "rom&nd", "medicube": "medicube",
           "missha": "missha", "dalba": "d'alba piedmont", "cosrx": "cosrx", "laneige": "laneige", "belif": "belif", "rejuran": "rejuran",
           "biodance": "biodance"}
-TT_WEEKS = 25          # 180일 = 25주 + 5일 — 앞 자투리는 버리고 끝에서부터 7일씩
+TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
 
 def _b36(s):
@@ -71,31 +71,54 @@ def _b36(s):
 
 
 def build_tt(keys):
+    """FastMoss 덤프를 **전부** 이어 붙인다(같은 샵·같은 날은 나중 덤프가 이긴다 · 덤프마다 받은 날과 그 뒤는 진행 중이라 버린다).
+    FastMoss 는 180일만 주므로 매주 받은 덤프를 버리지 않고 이어야 '평소'·꼬리가 길어진다(2026-10-21)."""
     files = sorted((SRC / "fm").glob("20??-??-??.txt"))
     if not files:
         return None
-    path = files[-1]
-    S, D, fh = {}, {}, None
-    for l in path.read_text(encoding="utf-8").splitlines():
-        f = l.split("|")
-        if f[0] == "FH":
-            fh = f[2]
-        elif f[0] == "S":
-            S[f[1]] = {"k": f[3], "name": f[5]}
-        elif f[0] == "D":
-            D[f[1]] = {"d0": f[2], "u": [_b36(x) for x in f[3].split(",")], "v": [_b36(x) for x in f[4].split(",")]}
-    if not fh or not D:
+    S, day, fhs = {}, {}, []
+    for path in files:
+        fh = None
+        for l in path.read_text(encoding="utf-8").splitlines():
+            f = l.split("|")
+            if f[0] == "FH":
+                fh = f[2]
+            elif f[0] == "S":
+                S[f[1]] = {"k": f[3], "name": f[5]}
+            elif f[0] == "D" and fh:
+                d0 = dt.date.fromisoformat(f[2])
+                U, V = [_b36(x) for x in f[3].split(",")], [_b36(x) for x in f[4].split(",")]
+                cut = dt.date.fromisoformat(fh)
+                dd = day.setdefault(f[1], {})
+                for i, (u, v) in enumerate(zip(U, V)):
+                    t = d0 + dt.timedelta(days=i)
+                    if t < cut:
+                        dd[t] = (u, v)
+        if fh:
+            fhs.append(fh)
+    if not day:
         return None
-    end = dt.date.fromisoformat(fh) - dt.timedelta(days=1)       # 받은 날(UTC)은 진행 중 — 그 전날까지
-    first = end - dt.timedelta(days=7 * TT_WEEKS - 1)
+    end = max(max(dd) for dd in day.values() if dd)
+    start = min(min(dd) for dd in day.values() if dd)
+    nw = min(TT_MAXW, ((end - start).days + 1) // 7)
+    first = end - dt.timedelta(days=7 * nw - 1)
+    # 달 — 처음부터 끝까지 받은 달만 완결(첫 달은 1일부터 있어야) · 끝 달이 말일까지 안 찼으면 partial
+    m0 = dt.date(start.year, start.month, 1) if start.day == 1 else (dt.date(start.year + (start.month == 12), start.month % 12 + 1, 1))
+    months, m = [], m0
+    while m <= end:
+        months.append(m.isoformat()[:7])
+        m = dt.date(m.year + (m.month == 12), m.month % 12 + 1, 1)
+    nxt = end + dt.timedelta(days=1)
+    partial = months[-1] if months and nxt.month == end.month else None
     b, miss = {}, []
-    for sid, d in D.items():
-        k = TT_MAP.get(S[sid]["k"])
+    for sid, dd in day.items():
+        k = TT_MAP.get(S.get(sid, {}).get("k"))
         if not k or k not in keys:
-            miss.append(S[sid]["k"])
+            miss.append(S.get(sid, {}).get("k", sid))
             continue
-        d0 = dt.date.fromisoformat(d["d0"])
-        U, V = d["u"], list(d["v"])
+        ds = sorted(dd)
+        U = [dd[t][0] for t in ds]
+        V = [dd[t][1] for t in ds]
         # 판매액 단가 오류 고침 — ingest.build_block 과 같은 규칙(위로 튄 날만 · 직전 28일 중앙 단가의 2.5배 초과 → 판매량 × 중앙 단가)
         fixed = []
         for i in range(len(U)):
@@ -108,22 +131,29 @@ def build_tt(keys):
             if med > 0 and V[i] / U[i] > 2.5 * med:
                 V[i] = round(U[i] * med)
                 fixed.append(i)
-        wu, wv = [0] * TT_WEEKS, [0] * TT_WEEKS
-        for i in range(len(U)):
-            day = d0 + dt.timedelta(days=i)
-            if day < first or day > end:
-                continue
-            w = (day - first).days // 7
-            wu[w] += U[i]
-            wv[w] += V[i]
-        o = b.setdefault(k, {"n": [], "u": [0] * TT_WEEKS, "v": [0] * TT_WEEKS, "fx": 0})
+        wu, wv = [0] * nw, [0] * nw
+        mu, mv = [0] * len(months), [0] * len(months)
+        for t, u, v in zip(ds, U, V):
+            if first <= t <= end:
+                w = (t - first).days // 7
+                wu[w] += u
+                wv[w] += v
+            ym = t.isoformat()[:7]
+            if ym in months:
+                j = months.index(ym)
+                mu[j] += u
+                mv[j] += v
+        o = b.setdefault(k, {"n": [], "u": [0] * nw, "v": [0] * nw, "mu": [0] * len(months), "mv": [0] * len(months), "fx": 0})
         o["n"].append(S[sid]["name"])
         o["u"] = [a + c for a, c in zip(o["u"], wu)]
         o["v"] = [a + c for a, c in zip(o["v"], wv)]
+        o["mu"] = [a + c for a, c in zip(o["mu"], mu)]
+        o["mv"] = [a + c for a, c in zip(o["mv"], mv)]
         o["fx"] += len(fixed)
-    weeks = [(first + dt.timedelta(days=7 * w + 6)).isoformat() for w in range(TT_WEEKS)]   # 주 끝날
-    return {"asOf": fh, "end": end.isoformat(), "weeks": weeks, "nShop": len(D), "miss": sorted(set(miss)),
-            "src": f"FastMoss 틱톡샵 미국 공식 샵 {len(D)}곳 · 샵 상세 '최근 180일' 일별 판매량 ({path.name[:10]} 수집)", "b": b}
+    weeks = [(first + dt.timedelta(days=7 * w + 6)).isoformat() for w in range(nw)]   # 주 끝날
+    return {"asOf": fhs[-1], "end": end.isoformat(), "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial,
+            "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)),
+            "src": f"FastMoss 틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · 덤프 {len(files)}개 이어 붙임)", "b": b}
 
 
 def inject(block):
