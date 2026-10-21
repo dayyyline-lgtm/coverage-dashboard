@@ -113,11 +113,14 @@ def build(d):
         res["tt"] = Chan(TM, {k: b["mu"] for k, b in tt["b"].items()}, et)
         ai = [M.index(m) if m in M else -1 for m in TM]
         keys = set(B) | set(tt["b"])
-        mkb = [x["b"] for x in (d.get("mk") or {}).values()]   # 전 지역(2026-10-22 사용자 "합산은 모든 지역 합산") — 아마존 미국 + 유럽5·일본·캐나다 + 틱톡샵 미국
-        amz = lambda k, i: (B[k]["u"][i] or 0 if k in B else 0) + sum((mb[k]["u"][i] or 0) for mb in mkb if k in mb)
-        S = {}
-        for k in keys:
-            S[k] = [(amz(k, ai[j]) if ai[j] >= 0 else 0) + ((tt["b"][k]["mu"][j] or 0) if k in tt["b"] else 0) for j in range(len(TM))]
+        mkb = [x["b"] for x in (d.get("mk") or {}).values()]
+        amzUS = lambda k, i: (B[k]["u"][i] or 0) if k in B else 0
+        amzAll = lambda k, i: amzUS(k, i) + sum((mb[k]["u"][i] or 0) for mb in mkb if k in mb)
+        tq = lambda k, j: (tt["b"][k]["mu"][j] or 0) if k in tt["b"] else 0
+        S = {k: [(amzUS(k, ai[j]) if ai[j] >= 0 else 0) + tq(k, j) for j in range(len(TM))] for k in keys}        # 미국 합산(아마존 미국 + 틱톡샵)
+        SA = {k: [(amzAll(k, ai[j]) if ai[j] >= 0 else 0) + tq(k, j) for j in range(len(TM))] for k in keys}      # 전 지역 합산(2026-10-22 · 아마존 8개국 + 틱톡샵)
+        if mkb:
+            res["all"] = Chan(TM, SA, et)
         res["sum"] = Chan(TM, S, et)
         res["mest"] = tt.get("mest") or []
         res["ttEnd"] = tt.get("end")
@@ -238,11 +241,13 @@ def message(d, R, prev):
          f"{c3} 기준 (vs {p3}) · 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))} 수집"]
     # 요약 — 합산이 있으면 합산 기준
     has_t = "tt" in R
-    S = R["sum"].rows(False) if has_t else us
+    SU = R["sum"].rows(False) if has_t else None            # 미국 합산(아마존 미국 + 틱톡샵)
+    SAc = R.get("all") or R.get("sum")
+    S = SAc.rows(False) if has_t else us                    # 전 지역 합산(아마존 8개국 + 틱톡샵) — 요약·상장사 기준
     f = "x"   # 합산: QoQ · 아마존만: YoY
     up, dn = movers(d, S, f)
     L += ["", "<b>📌 요약</b>"]
-    L.append(f"• 바구니 판매  아마존 미국 YoY {pctg(R['us'].base(True))}" + (f" · 전 지역 합산 QoQ {pctg(R['sum'].base(False))}" if has_t else ""))
+    L.append(f"• 바구니 판매  아마존 미국 YoY {pctg(R['us'].base(True))}" + (f" · 미국 합산 QoQ {pctg(R['sum'].base(False))} · 전 지역 합산 QoQ {pctg(SAc.base(False))}" if has_t else ""))
     lab = " (전 지역)" if has_t else ""
     if up:
         L.append(f"• 비중↑{lab}  " + ", ".join(up))
@@ -252,16 +257,21 @@ def message(d, R, prev):
     if has_t:
         tt = R["tt"].rows(False)
         st["tt"] = {k: r["q"] for k, r in tt.items()}
-        st["sum"] = {k: r["q"] for k, r in S.items()}
-        st["sumdef"] = "all"   # 합산 정의(2026-10-22 미국만 → 전 지역) — 정의가 다른 지난 칸과는 견주지 않는다
-        allch = changes(d, S, pq.get("sum") if pq.get("sumdef") == "all" else None)
+        st["sumall"] = {k: r["q"] for k, r in S.items()}     # 전 지역 합산 칸
+        st["sumus"] = {k: r["q"] for k, r in SU.items()}     # 미국 합산 칸
+        prev_all = pq.get("sumall") or (pq.get("sum") if pq.get("sumdef") == "all" else None)   # 10/22 한때 'sum' 키에 전 지역을 적었다
+        allch = changes(d, S, prev_all)
     else:
         allch = changes(d, us, pq.get("us"))
     if allch:
         L.append("• 칸 바뀜  " + ", ".join(allch[:6]))
     if has_t:
-        L += ["", "<b>🏢 상장사</b> <i>(전 지역 합산 비중 · QoQ)</i>"] + companies(d, R["sum"])
+        L += ["", "<b>🏢 상장사</b> <i>(전 지역 합산 비중 · QoQ)</i>"] + companies(d, SAc)
         L += ["", "<b>🌐 전 지역 합산</b> <i>아마존 미·유럽5·일·캐 + 틱톡샵 미국 · QoQ×MoM</i>"] + quads(d, S)
+        L += ["", "<b>➕ 미국 합산</b> <i>아마존 미국 + 틱톡샵 · QoQ×MoM</i>"] + quads(d, SU)
+        uch = changes(d, SU, pq.get("sumus"))
+        if uch:
+            L.append("칸 바뀜: " + ", ".join(uch[:5]))
     L += ["", "<b>🇺🇸 아마존 미국</b> <i>YoY×QoQ</i>"] + quads(d, us)
     a_up, a_dn = movers(d, us, "y", n=2)
     if a_up or a_dn:
