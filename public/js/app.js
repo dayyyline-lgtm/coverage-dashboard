@@ -10955,10 +10955,13 @@ function renderCosPhase(){
   const tEst=CT&&CT.win("medicube",3).est;   // 틱톡샵 3개월 창에 4월 추정이 들어가나
   // 비상장 소형 켜고 끄기(2026-10-21 사용자 "하루하루원더 같은 비상장 스몰캡 끄고 켜기") — 상장사 없음 + 두 채널 몫 모두 2% 미만.
   //   끄면 지도·목록·증가율·표에서만 뺀다. 바구니(몫의 분모)는 그대로라 남은 브랜드의 몫·평소比·직전比는 안 바뀐다. 상장사는 몫이 작아도 늘 보인다.
-  const smallUn=cosLs("cosSmallUn","0")==="1";
+  //   2026-10-21 사용자 "비상장 보고 안 보고 버튼" → 버튼 셋: 전부 · 비상장 소형 숨김(기본) · 비상장 숨김(상장사 + 엔에프씨 ODM 고객사만).
+  let unl=cosLs("cosUnl",""); if(!["all","small","listed"].includes(unl)) unl=cosLs("cosSmallUn","0")==="1"?"all":"small";
   const isSmUn=r=>!r.co&&!r.sup&&Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)<0.02;
-  const keep=r=>smallUn||!isSmUn(r);
-  const smList=Object.values(B).filter(isSmUn).sort((a,b)=>Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
+  const isUn=r=>!r.co&&!r.sup;
+  const keep=r=>unl==="all"||(unl==="small"?!isSmUn(r):!isUn(r));
+  const byMx=(a,b)=>Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0);
+  const smList=Object.values(B).filter(isSmUn).sort(byMx), unList=Object.values(B).filter(isUn).sort(byMx);
   // 보기마다 점 = {k, x, y, s(원 크기 몫), q(칸 번호 또는 이름), T(꼬리)}
   const pts=[];
   Object.values(B).forEach(r=>{
@@ -11064,7 +11067,7 @@ function renderCosPhase(){
     :mode==="amz"?`아마존(Keepa) ${Object.keys(KBPH.b).length}개 브랜드 · 가로 3개월(${L3.cur} ÷ ${L3.prev}) · 세로 1개월(${L1.cur} ÷ ${L1.prev})`
     :`틱톡샵(FastMoss 미국 공식 샵) ${Object.keys(KBPH.tt.b).length}개 브랜드 · 가로 3개월(${L3.cur} ÷ ${L3.prev}${tEst?" · 4월 앞부분 추정":""}) · 세로 1개월(${L1.cur} ÷ ${L1.prev})`);
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
-      <label class="g" style="font-size:12px;margin-left:auto" title="${attr("상장사가 없고 아마존·틱톡샵 몫이 둘 다 2% 미만인 브랜드 — "+smList.map(r=>r.ko).join(" · ")+" · 꺼도 몫의 분모(바구니)는 그대로")}"><input type="checkbox" id="cpSmall"${smallUn?" checked":""}> 비상장 소형 ${smList.length}개 보기</label></div>
+      <div class="seg" style="margin-left:auto" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 몫의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"몫이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
@@ -11158,7 +11161,7 @@ function renderCosPhase(){
   box.querySelectorAll("circle[data-k], .cp-b[data-k], tr.cp-tr").forEach(el=>el.addEventListener("click",()=>cosPick(el.dataset.k)));
   box.querySelectorAll("[data-cpm]").forEach(b=>b.addEventListener("click",()=>{ cosMode=b.dataset.cpm; cosSv("cosMode",cosMode); renderCosPhase(); }));
   box.querySelectorAll("[data-cpw]").forEach(b=>b.addEventListener("click",()=>{ kbPhW=+b.dataset.cpw; cosSv("kbPhW",kbPhW); renderCosPhase(); }));
-  const cb=document.getElementById("cpSmall"); if(cb) cb.addEventListener("change",()=>{ cosSv("cosSmallUn",cb.checked?"1":"0"); renderCosPhase(); });
+  box.querySelectorAll("[data-cpu]").forEach(b=>b.addEventListener("click",()=>{ cosSv("cosUnl",b.dataset.cpu); renderCosPhase(); }));
   const go=box.querySelector("[data-cosgo]"); if(go) go.addEventListener("click",()=>{ cosSetTab("brand"); amzBrPick(go.dataset.cosgo); });
 }
 
