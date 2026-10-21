@@ -11188,15 +11188,18 @@ function renderCosPhase(){
         <td>${tp?tp.v:'<span class="g">—</span>'}</td><td>${tp&&tp.p!=null?(tp.v===tp.p?'<span class="g">0</span>':`<span style="color:${tp.v>tp.p?"var(--up)":"var(--down)"}">${tp.v>tp.p?"▲":"▼"}${Math.abs(tp.v-tp.p)}</span>`):'<span class="g">—</span>'}</td></tr>`; }).join("")
     +`</tbody></table></div>`;
 
-  const modeBtn=(k,t)=>`<button data-cpm="${k}" class="${mode===k?"active":""}">${t}</button>`;
+  // 두 층(2026-10-22 사용자 "채널 레이어 · 지역 레이어 두 개를 다 채워 달라") — 지역 줄(전 지역·미국·유럽5·나라별) × 채널 줄(아마존×틱톡샵·아마존·틱톡샵·합산).
+  //   채널 버튼 넷은 늘 보인다. 틱톡샵이 없는 지역(유럽·일본·캐나다 단독 — FastMoss 구독이 미국만)에서는 틱톡샵이 드는 셋을 흐리게 막고 이유를 단다.
+  const NOTT="틱톡샵은 미국 공식 샵만 받는다(FastMoss 구독이 미국만) — '미국'·'전 지역'에서 보인다";
+  const modeBtn=(k,t,need)=>need&&!CT?`<button class="cp-dis" disabled title="${attr(NOTT)}" style="opacity:.4;cursor:not-allowed">${t}</button>`:`<button data-cpm="${k}" class="${mode===k?"active":""}">${t}</button>`;
   const perBtns=mode==="tt"||mode==="sum"?"":`<div class="seg">${[[3,"3개월 · 판정"],[1,"1개월 · 조짐"]].map(([v,t])=>[v,mode==="amz"?t:`${SQ(v)} · ${t.split(" · ")[1]}`]).map(([v,t])=>`<button data-cpw="${v}" class="${xw===v?"active":""}">${t}</button>`).join("")}</div>`;
-  const what=mode==="x"?`K뷰티 내 비중 <b>${SQ(xw)}</b> — 아마존 × 틱톡샵 (${vs(Lx)})`
+  const what=mode==="x"?`K뷰티 내 비중 <b>${SQ(xw)}</b> — 아마존 ${MKL} × 틱톡샵 미국 (${vs(Lx)})`
     :mode==="amz"?`아마존 ${MKL} ${Object.keys(KBB().b).length}개 브랜드 · 가로 비중 <b>YoY</b> (${vs(Yx)}) · 세로 비중 <b>${SQ(xw)}</b> (${vs(Dx)}${exS(Dx)})`
     :mode==="sum"?`<b>${cosMk==="all"?"전 지역 합산":"미국 합산"}</b> — 아마존 ${(KBB().mks||["us"]).map(m=>(COS_MK.find(x=>x[0]===m)||[0,m])[1]).join("·")} + 틱톡샵 미국 판매량을 브랜드마다 더한 K뷰티 내 비중 · 가로 <b>QoQ</b> (${vs(L3)}${sEst?" · 4월 틱톡샵 앞부분 추정":""}) · 세로 <b>MoM</b> (${vs(L1)}) · 틱톡샵이 4/24~ 라 YoY 없음 · 아마존은 배지 하한 · 틱톡샵은 주문 수량`
     :`틱톡샵 미국 공식 샵 ${Object.keys(KBB().tt.b).length}개 · 가로 비중 <b>QoQ</b> (${vs(L3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>MoM</b> (${vs(L1)}) · 4/24~ 라 YoY 없음`;
   const mks=(Object.keys(KBPH.mk||{}).length?["all"]:[]).concat(["us"], COS_EU.some(m=>(KBPH.mk||{})[m])?["eu"]:[], COS_MK.map(x=>x[0]).filter(m=>(KBPH.mk||{})[m]));
-  const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0">아마존</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 하한)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
-  box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg">${CT?modeBtn("x","아마존 × 틱톡샵"):""}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵")+modeBtn("sum","아마존+틱톡샵 합산"):""}</div>${perBtns}
+  const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 하한)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
+  box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("x","아마존 × 틱톡샵",1)}${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
       <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
       <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
