@@ -10946,7 +10946,8 @@ const COS_X=[["두 채널 다 늘었다","var(--good)"],["틱톡샵만 늘었다
 const cosLs=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v; }catch(e){ return d; } };
 const cosSv=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
 function cosPick(k){ if(cosPin===k){ cosPin=""; } else { cosPin=k; cosSel=k; cosSv("cosSel",k); } cosSv("cosPin",cosPin); renderCosPhase(); }
-let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube"), cosPin=cosLs("cosPin","");
+let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","sum"), cosSel=cosLs("cosSel","medicube"), cosPin=cosLs("cosPin","");
+if(cosMode==="x") cosMode="sum";   // 아마존 × 틱톡샵 교차 보기는 2026-10-22 뺐다(사용자 "합산이 있으니 의미 없다") — 채널 갈림은 표의 아마존 칸·틱톡샵 칸으로 본다
 // 모아보기(2026-10-21) — 여러 브랜드를 한 줄로 더한 보기. 바구니(비중의 분모)는 그대로다(멤버를 빼고 합 하나를 넣으니 전체 합이 같다).
 //   국면 칸 함수는 전부 KBPH 대신 KBV() 를 읽는다.
 //   · 엔에프씨 — 사용자 "엔에프씨 버튼을 누르면 고객사가 다 합쳐지게 · 스킨1004 빼고"(sup:"엔에프씨" = 셀리맥스·이퀄베리·닥터엘시아 · 조선미녀는 클렌징 밤뿐이라 10/21 뺐다)
@@ -11199,7 +11200,7 @@ function renderCosPhase(){
     :`틱톡샵 미국 공식 샵 ${Object.keys(KBB().tt.b).length}개 · 가로 비중 <b>QoQ</b> (${vs(L3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>MoM</b> (${vs(L1)}) · 4/24~ 라 YoY 없음`;
   const mks=(Object.keys(KBPH.mk||{}).length?["all"]:[]).concat(["us"], COS_EU.some(m=>(KBPH.mk||{})[m])?["eu"]:[], COS_MK.map(x=>x[0]).filter(m=>(KBPH.mk||{})[m]));
   const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 하한)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
-  box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("x","아마존 × 틱톡샵",1)}${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
+  box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
       <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
       <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
