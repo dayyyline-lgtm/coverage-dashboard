@@ -11262,11 +11262,27 @@ function renderCosPhase(){
   // ── 꼬리 · 상호작용 ──
   const NS="http://www.w3.org/2000/svg", g=document.getElementById("cpTrail"), svgEl=document.getElementById("cpSvg"), info=document.getElementById("cpInfo");
   const byK={}; vis.forEach(p=>{ byK[p.r.k]=p; });
+  // 커서를 올린 브랜드 값은 커서 옆 상자로(2026-10-21 사용자 "위 글씨가 바뀌지 말고 메시지 상자로 — 다른 데처럼") · 위 줄은 안내·고정만
+  let tipB=document.getElementById("cpTipBox");
+  if(!tipB){ tipB=document.createElement("div"); tipB.id="cpTipBox"; tipB.className="fast-tip cp-tipbox"; document.body.appendChild(tipB); }
+  const tipAt=(x,y)=>{ const w=tipB.offsetWidth, h=tipB.offsetHeight; let L=x+14, T=y+18;
+    if(L+w>innerWidth-6) L=Math.max(6,x-w-12); if(T+h>innerHeight-6) T=Math.max(6,y-h-12); tipB.style.left=L+"px"; tipB.style.top=T+"px"; };
+  const tipOff=()=>{ tipB.style.display="none"; };
+  const qq=z=>mode==="x"?COS_X[cosXq(z.x,z.y)][0]:z.q;
+  const desc=p=>`<b>${attr(p.r.ko)}</b> <span class="g">${p.r.co?attr(p.r.co):"비상장"}</span><br>`
+    +`<b style="color:${QC(p.q)}">${p.q}</b><br>`
+    +(mode==="x"?`비중 ${SQ(xw)} · 아마존 <b>${pcx(p.x)}</b> · 틱톡샵 <b>${pcx(p.y)}</b>`
+      :mode==="amz"?`비중 YoY <b>${pcx(p.x)}</b> · 비중 ${SQ(xw)} <b>${pcx(p.y)}</b>`:`비중 QoQ <b>${pcx(p.x)}</b> · MoM <b>${pcx(p.y)}</b>`)
+    +(p.T.length>1?`<br><span class="g">지나온 칸: ${p.T.map(z=>`${z.lab} ${qq(z).replace("성장 ","").replace(" 중","").replace(" 지속","")}`).join(" → ")}</span>`:"")
+    +(p.r.k===cosPin?`<br><span class="cp-pin">고정 · 다시 누르면 풀림</span>`:"");
+  const hint=()=>{ info.innerHTML=cosPin&&!byK[cosPin]?`<span class="g">고정한 <b>${attr((KBV().b[cosPin]||{}).ko||cosPin)}</b>는 이 보기에 점이 없다(채널 자료 없음) · 다른 보기로 가면 다시 강조된다</span>`
+      :cosPin&&byK[cosPin]?`<span class="cp-pin">고정: ${attr(byK[cosPin].r.ko)}</span> <span class="g">· 다시 누르면 풀림 · 점에 커서를 올리면 값이 상자로 뜬다</span>`
+      :`<span class="g">점에 커서를 올리면 값과 지나온 자리(꼬리)가 보인다 · 누르면 그 브랜드를 고정(보기를 바꿔도 유지) · 다시 누르면 풀림</span>`; };
   const show=k=>{ const p=byK[k]; if(!g) return; g.innerHTML="";
     svgEl.classList.toggle("cp-hl",!!p);
     svgEl.querySelectorAll("#cpDots circle").forEach(c=>c.classList.toggle("on",c.dataset.k===k));
     svgEl.querySelectorAll("#cpLabs text").forEach(t=>t.classList.toggle("on",t.dataset.lk===k));
-    if(!p){ info.innerHTML=cosPin&&!byK[cosPin]?`<span class="g">고정한 <b>${attr((KBV().b[cosPin]||{}).ko||cosPin)}</b>는 이 보기에 점이 없다(채널 자료 없음) · 다른 보기로 가면 다시 강조된다</span>`:`<span class="g">점에 커서를 올리면 그 브랜드가 지나온 자리가 꼬리로 보인다 · 누르면 그 브랜드를 고정(보기를 바꿔도 유지) · 다시 누르면 풀림</span>`; return; }
+    hint(); if(!p) return;
     const T=p.T.slice(0,-1).concat([{x:p.x,y:p.y,lab:"지금"}]);   // 꼬리 끝 = 지금 자리(점)
     let h="";
     if(T.length>1){ h+=`<polyline points="${T.map(z=>sx(z.x).toFixed(1)+","+sy(z.y).toFixed(1)).join(" ")}" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-opacity="0.75" stroke-linejoin="round"/>`;
@@ -11274,15 +11290,13 @@ function renderCosPhase(){
         const showLab=T.length<=6||(T.length-2-i)%2===0||i===0;
         h+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3.5" fill="var(--panel)" stroke="var(--text)" stroke-width="1.4" opacity="${op.toFixed(2)}"/>`
           +(!showLab?"":`<text x="${(cx+5).toFixed(1)}" y="${(cy-5).toFixed(1)}" font-size="10" fill="var(--text)" opacity="${(op+0.1).toFixed(2)}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${z.lab}</text>`); }); }
-    g.innerHTML=h;
-    const qq=z=>mode==="x"?COS_X[cosXq(z.x,z.y)][0]:z.q;
-    info.innerHTML=`<b>${attr(p.r.ko)}</b> <span class="g">${p.r.co?attr(p.r.co):"비상장"}</span> · <b style="color:${QC(p.q)}">${p.q}</b> · ${mode==="x"?`비중 ${SQ(xw)} 아마존 ${pcx(p.x)} · 틱톡샵 ${pcx(p.y)}`:mode==="amz"?`비중 YoY ${pcx(p.x)} · ${SQ(xw)} ${pcx(p.y)}`:`비중 QoQ ${pcx(p.x)} · MoM ${pcx(p.y)}`}`
-      +(p.T.length>1?` <span class="g">— 지나온 칸: ${p.T.map(z=>`${z.lab} ${qq(z).replace("성장 ","").replace(" 중","").replace(" 지속","")}`).join(" → ")}</span>`:"")+(k===cosPin?` <span class="cp-pin">고정 · 다시 누르면 풀림</span>`:""); };
-  // 커서가 없을 땐 전부 그대로(흐리게·꼬리 없음 — 2026-10-21 사용자 "손도 안 올렸는데 한 브랜드만 강조된다"). 고른 브랜드는 아래 카드만 바꾼다.
-  // 손가락으로 누른 직후(다시 그린 뒤)만 그 브랜드 꼬리를 보인다 — 휴대폰엔 호버가 없어서
-  const rest=()=>show(cosPin&&byK[cosPin]?cosPin:null);   // 커서가 떠나면 고정한 브랜드로(없으면 아무것도 안 강조)
+    g.innerHTML=h; };
+  // 커서가 없을 땐 전부 그대로(흐리게·꼬리 없음 — 2026-10-21 사용자 "손도 안 올렸는데 한 브랜드만 강조된다").
+  const rest=()=>{ tipOff(); show(cosPin&&byK[cosPin]?cosPin:null); };   // 커서가 떠나면 고정한 브랜드로(없으면 아무것도 안 강조)
   rest();
-  svgEl.addEventListener("mouseover",e=>{ const c=e.target.closest("circle[data-k]"); if(c) show(c.dataset.k); });
+  svgEl.addEventListener("mouseover",e=>{ const c=e.target.closest("circle[data-k]"); if(!c) return; show(c.dataset.k);
+    const p=byK[c.dataset.k]; if(p){ tipB.innerHTML=desc(p); tipB.style.display="block"; tipAt(e.clientX,e.clientY); } });
+  svgEl.addEventListener("mousemove",e=>{ if(tipB.style.display==="block"&&e.target.closest("circle[data-k]")) tipAt(e.clientX,e.clientY); });
   svgEl.addEventListener("mouseout",e=>{ if(e.target.closest("circle[data-k]")&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest("circle[data-k]"))) rest(); });
   svgEl.addEventListener("mouseleave",rest);
   box.querySelectorAll("circle[data-k], .cp-b[data-k], tr.cp-tr").forEach(el=>el.addEventListener("click",()=>cosPick(el.dataset.k)));
