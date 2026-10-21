@@ -11074,8 +11074,8 @@ function renderCosPhase(){
     ${lists}${selH}
     <div class="sub-h" style="margin-top:18px">몫 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${mode==="x"&&CT?"":" one"}" style="margin-top:6px">${mode!=="tt"?`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 몫</span></div><div id="cpStA"></div></div>`:""}${mode!=="amz"&&CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 몫</span></div><div id="cpStT"></div></div>`:""}</div>
-    <div class="sub-h" style="margin-top:18px">판매량 증가율 · 브랜드별 <span class="th-sub" style="display:inline">네 기간을 한 줄에 · 머리글을 누르면 그 기간으로 정렬 · 줄을 누르면 그 브랜드 · 굵은 이름 = 상장사</span></div>
-    <div class="chart-box" style="margin-top:6px"><div id="cpGr4"></div></div>
+    <div class="sub-h" style="margin-top:18px">판매량 증가율 · 브랜드별 <span class="th-sub" style="display:inline">네 기간을 네 칸에 · 칸마다 큰 순 · 금색 줄 = 고른 브랜드 · 점선 = 바구니 전체 · 누르면 그 브랜드 · 굵은 이름 = 상장사</span></div>
+    <div class="cp-gr4" id="cpGr4"></div>
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
     <details class="fold" data-fold="cpM"${foldOpen("cpM")} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
@@ -11123,7 +11123,12 @@ function renderCosPhase(){
   const cols=[{id:"a3", t:"아마존 3개월", s:`${aLab(3)} · 전년비`, base:baseA(3), f:k=>grA(k,3)}, {id:"a1", t:"아마존 1개월", s:`${aLab(1)} · 전년비`, base:baseA(1), f:k=>grA(k,1)}]
     .concat(CT?[{id:"t8", t:"틱톡샵 8주", s:`${tLab(8)} · 직전比`, base:baseT(8), f:k=>grT(k,8)}, {id:"t4", t:"틱톡샵 4주", s:`${tLab(4)} · 직전比`, base:baseT(4), f:k=>grT(k,4)}]:[]);
   const grRows=Object.values(B).filter(r=>Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)>=0.005||small).map(r=>({k:r.k, name:r.ko, co:r.co, v:cols.map(c=>c.f(r.k))}));
-  cosGrowth4(document.getElementById("cpGr4"),{cols, rows:grRows, sel:cosSel, onPick:k=>{ cosSel=k; cosSv("cosSel",k); renderCosPhase(); }});
+  // 4분할(2026-10-21 사용자 "나란히 말고 4분할 창문처럼") — 칸마다 자기 값으로 큰 순 · 고른 브랜드는 네 칸 모두에서 금색 줄
+  const g4=document.getElementById("cpGr4");
+  if(g4){ const gp=v=>v==null?"—":`${v>=0?"+":""}${Math.round(v*100)}%`;
+    g4.innerHTML=cols.map((c,i)=>`<div class="chart-box"><div class="asd-h">${c.t}<span class="sub">${c.s} · 바구니 전체 ${gp(c.base)}</span></div><div id="cpGr_${c.id}"></div></div>`).join("");
+    cols.forEach((c,i)=>cosGrowth(document.getElementById("cpGr_"+c.id),{items:grRows.map(r=>({k:r.k, name:r.name, co:r.co, sel:r.k===cosSel, v:r.v[i]})), base:c.base}));
+    g4.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("click",()=>{ cosSel=el.dataset.k; cosSv("cosSel",cosSel); renderCosPhase(); })); }
 
   // ── 꼬리 · 상호작용 ──
   const NS="http://www.w3.org/2000/svg", g=document.getElementById("cpTrail"), svgEl=document.getElementById("cpSvg"), info=document.getElementById("cpInfo");
@@ -11263,59 +11268,23 @@ function cosGrowth(el, o){
   if(!el) return;
   const it=o.items.filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
   if(!it.length){ el.innerHTML=`<p class="note">자료 없음</p>`; return; }
-  const W=Math.max(300,Math.min(520,el.clientWidth||480)), rowH=17, p={l:78,r:44,t:6,b:18}, H=p.t+p.b+it.length*rowH;
-  const lo=Math.min(-0.2,...it.map(x=>x.v)), hi=Math.max(0.2,...it.map(x=>Math.min(x.v,3)));
+  const W=Math.max(300,Math.min(620,el.clientWidth||480)), rowH=18, p={l:84,r:46,t:4,b:18}, H=p.t+p.b+it.length*rowH;
+  const lo=Math.min(-0.1,...it.map(x=>Math.max(x.v,-1))), hi=Math.max(0.1,...it.map(x=>Math.min(x.v,3)));
   const xOf=v=>p.l+(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(W-p.l-p.r);
   let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  const si=it.findIndex(x=>x.sel);
+  if(si>=0) g+=`<rect x="0" y="${p.t+si*rowH}" width="${W}" height="${rowH}" rx="3" fill="color-mix(in srgb, var(--accent) 18%, transparent)"/>`;
   [lo,0,hi].filter(v=>v===0||Math.abs(xOf(v)-xOf(0))>34).forEach(v=>{ g+=`<text x="${xOf(v)}" y="${H-4}" text-anchor="middle" font-size="9.5" fill="var(--muted2)">${v>=0?"+":""}${Math.round(v*100)}%</text>`; });
   g+=`<line x1="${xOf(0)}" x2="${xOf(0)}" y1="${p.t}" y2="${H-p.b}" stroke="var(--muted)"/>`;
+  if(o.base!=null) g+=`<line x1="${xOf(o.base)}" x2="${xOf(o.base)}" y1="${p.t}" y2="${H-p.b}" stroke="var(--muted2)" stroke-dasharray="3 3"/>`;
   it.forEach((x,i)=>{ const y=p.t+i*rowH, a=xOf(0), b=xOf(x.v), col=x.v>=0?"var(--up)":"var(--down)";
-    g+=`<text data-k="${attr(x.k)}" x="${p.l-6}" y="${y+12}" text-anchor="end" font-size="11" fill="var(--text)"${x.co?' font-weight="700"':""} style="cursor:pointer">${attr(x.name)}</text>`
-      +`<rect data-k="${attr(x.k)}" x="${Math.min(a,b).toFixed(1)}" y="${y+3}" width="${Math.max(1,Math.abs(b-a)).toFixed(1)}" height="${rowH-6}" rx="2" fill="${col}" fill-opacity="${x.sel?1:0.7}"${x.sel?' stroke="var(--text)" stroke-width="1"':""} style="cursor:pointer"/>`
-      +`<text x="${(x.v>=0?b+4:a+4).toFixed(1)}" y="${y+12}" text-anchor="start" font-size="10" fill="${col}">${x.v>=0?"+":""}${Math.round(x.v*100)}%${x.v>3?"▶":""}</text>`; });
+    g+=`<g data-k="${attr(x.k)}" style="cursor:pointer"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>`
+      +`<text x="${p.l-6}" y="${y+12.5}" text-anchor="end" font-size="11" fill="${x.sel?"var(--accent)":"var(--text)"}"${x.co||x.sel?' font-weight="700"':""}>${attr(x.name)}</text>`
+      +`<rect x="${Math.min(a,b).toFixed(1)}" y="${y+3}" width="${Math.max(1,Math.abs(b-a)).toFixed(1)}" height="${rowH-6}" rx="2" fill="${col}" fill-opacity="${x.sel?1:0.62}"${x.sel?' stroke="var(--text)" stroke-width="1"':""}/>`
+      +`<text x="${(x.v>=0?b+4:a+4).toFixed(1)}" y="${y+12.5}" font-size="10" fill="${col}"${x.sel?' font-weight="700"':""}>${x.v>=0?"+":""}${Math.round(x.v*100)}%${x.v>3?"▶":""}</text></g>`; });
   el.innerHTML=g+`</svg>`+(o.note?`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">${o.note}</div>`:"");
 }
 
-/* 판매량 증가율 네 기간 한 표 — 줄 = 브랜드(이름 한 번) · 칸 = 기간(각자 축 · 0선) · 고른 브랜드 줄 강조 · 머리글 눌러 정렬(localStorage.cosGrSort) · 좁으면 두 칸씩 두 줄 */
-function cosGrowth4(el, o){
-  if(!el) return;
-  const cols=o.cols; let sk=cosLs("cosGrSort","a3"); if(!cols.some(c=>c.id===sk)) sk=cols[0].id;
-  const si=cols.findIndex(c=>c.id===sk);
-  const rows=o.rows.filter(r=>r.v.some(v=>v!=null)).sort((a,b)=>(b.v[si]==null?-1e9:b.v[si])-(a.v[si]==null?-1e9:a.v[si]));
-  const Wall=Math.max(300,el.clientWidth||900), per=Wall<640?2:cols.length;
-  const pct=v=>`${v>=0?"+":""}${Math.round(v*100)}%`;
-  let html="";
-  for(let g=0; g<cols.length; g+=per){
-    const cs=cols.slice(g,g+per), W=Wall, nameW=Wall<640?76:84, rowH=19, headH=38, H=headH+rows.length*rowH+18, cw=(W-nameW)/cs.length, pad=8;
-    let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
-    const selIdx=rows.findIndex(r=>r.k===o.sel);
-    if(selIdx>=0) svg+=`<rect x="0" y="${headH+selIdx*rowH}" width="${W}" height="${rowH}" fill="color-mix(in srgb, var(--accent) 16%, transparent)"/>`;
-    cs.forEach((c,ci)=>{ const x0=nameW+ci*cw, ix=cols.indexOf(c), vs=rows.map(r=>r.v[ix]).filter(v=>v!=null);
-      const lo=Math.min(-0.1,...vs.map(v=>Math.max(v,-1))), hi=Math.max(0.1,...vs.map(v=>Math.min(v,3)));
-      const L=x0+pad, R=x0+cw-pad-34, xOf=v=>L+(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(R-L), z=xOf(0), on=c.id===sk;
-      svg+=`<g data-gs="${c.id}" style="cursor:pointer"><rect x="${x0}" y="0" width="${cw}" height="${headH-4}" fill="transparent"/>`
-        +`<text x="${x0+pad}" y="14" font-size="12" font-weight="700" fill="${on?"var(--accent)":"var(--text)"}">${c.t}${on?" ▼":""}</text>`
-        +`<text x="${x0+pad}" y="29" font-size="10" fill="var(--muted2)">${Wall<640?c.s.split(" · ")[0]:`${c.s}${c.base!=null?` · 전체 ${pct(c.base)}`:""}`}</text></g>`;
-      if(ci>0) svg+=`<line x1="${x0}" x2="${x0}" y1="4" y2="${H-14}" stroke="var(--line-soft)"/>`;
-      svg+=`<line x1="${z}" x2="${z}" y1="${headH-2}" y2="${headH+rows.length*rowH}" stroke="var(--muted)" stroke-width="1"/>`;
-      if(c.base!=null){ const bx=xOf(c.base); svg+=`<line x1="${bx}" x2="${bx}" y1="${headH-2}" y2="${headH+rows.length*rowH}" stroke="var(--muted2)" stroke-dasharray="3 3"/>`; }
-      rows.forEach((r,i)=>{ const v=r.v[ix], y=headH+i*rowH, sel=r.k===o.sel;
-        if(v==null){ svg+=`<text x="${z+4}" y="${y+13}" font-size="10" fill="var(--muted2)">—</text>`; return; }
-        const b=xOf(v), col=v>=0?"var(--up)":"var(--down)";
-        svg+=`<rect x="${Math.min(z,b).toFixed(1)}" y="${y+4}" width="${Math.max(1,Math.abs(b-z)).toFixed(1)}" height="${rowH-8}" rx="2" fill="${col}" fill-opacity="${sel?1:0.62}"${sel?' stroke="var(--text)" stroke-width="1"':""}/>`
-          +`<text x="${(v>=0?b+3:z+3).toFixed(1)}" y="${y+13}" font-size="10" fill="${col}"${sel?' font-weight="700"':""}>${pct(v)}${v>3?"▶":""}</text>`; });
-    });
-    rows.forEach((r,i)=>{ const y=headH+i*rowH, sel=r.k===o.sel;
-      svg+=`<g data-gk="${attr(r.k)}" style="cursor:pointer"><rect x="0" y="${y}" width="${W}" height="${rowH}" fill="transparent"/>`
-        +`<text x="${nameW-6}" y="${y+13}" text-anchor="end" font-size="${Wall<640?10:11}" fill="${sel?"var(--accent)":"var(--text)"}"${r.co||sel?' font-weight="700"':""}>${attr(r.name)}</text></g>`; });
-    svg+=`</svg>`;
-    html+=svg;
-  }
-  el.innerHTML=html+`<div style="font-size:11.5px;color:var(--muted);margin-top:4px">아마존 = Keepa 판매량(배지 하한) · 틱톡샵 = FastMoss 미국 공식 샵 판매량 · 점선 = 바구니 전체(${cols.map(c=>c.t.replace("아마존 ","아마존").replace("틱톡샵 ","틱톡")+" "+(c.base!=null?pct(c.base):"—")).join(" · ")}) — 점선보다 오른쪽이면 바구니보다 빨리 늘었다(= 몫이 늘었다) · 칸마다 축이 다르다 · 틱톡샵 전년비는 내년 4월부터</div>`;
-  // 줄 눌러 고르기 · 머리글 눌러 정렬 — 줄 클릭이 머리글 위로 덮이지 않게 머리글을 뒤에 그렸다
-  el.querySelectorAll("[data-gs]").forEach(g=>g.addEventListener("click",e=>{ e.stopPropagation(); cosSv("cosGrSort",g.dataset.gs); cosGrowth4(el,o); }));
-  el.querySelectorAll("[data-gk]").forEach(g=>g.addEventListener("click",()=>o.onPick(g.dataset.gk)));
-}
 
 function renderAmazon(){
   // 탭 본문은 한투 채널(renderKmj · renderAmzTrend) — 트래커 블록이 비어도 그린다. 아래는 맨 아래 접힌 '우리 아마존 트래커'.
