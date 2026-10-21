@@ -11115,6 +11115,9 @@ function renderCosPhase(){
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
     <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달)가 꼬리로 · 누르면 고정. 원 크기 = 3개월 비중 · 점선 100 = 견주는 기간과 같음.</p>
     ${lists}${selH}
+    <div class="sub-h" style="margin-top:18px">K뷰티 전체 판매량 · 월별 <span class="th-sub" style="display:inline">바구니 전 브랜드 합(비상장 숨김과 무관) · 아마존 ${Object.keys(KBPH.b).length}개 브랜드 · 틱톡샵 ${CT?Object.keys(KBPH.tt.b).length:0}개 공식 샵 · 진행 중인 달은 빗금 예측</span></div>
+    <div class="asd-duo${CT?"":" one"}" style="margin-top:6px"><div class="chart-box"><div class="asd-h">아마존 · 같은 달 3개년<span class="sub">Keepa · 전 상품(배지 하한 · 개) · 막대 위 % = 전년 같은 달 대비</span></div><div id="cpKA"></div></div>
+      ${CT?`<div class="chart-box"><div class="asd-h">틱톡샵 · 월별<span class="sub">FastMoss · ${KBPH.tt.start.slice(5).replace("-","/")}부터라 전년비 없음 · % = 전월 대비</span></div><div id="cpKT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${mode==="x"&&CT?"":" one"}" style="margin-top:6px">${mode!=="tt"?`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`:""}${mode!=="amz"&&CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 = 작년 같은 달 대비 · 틱톡샵 = 바로 앞 같은 길이 대비 · 칸마다 큰 순 · 점선 = 바구니 전체 → 막대가 점선 위면 비중이 늘었다 · 금색 줄 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
@@ -11147,6 +11150,11 @@ function renderCosPhase(){
     const T=KBPH.tt, Tb=CT&&T.b[R.k];
     if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:Tb.mu, v:Tb.mv, pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), note:`${T.partial?`${+T.partial.slice(5)}월은 ${T.end.slice(5).replace("-","/")}까지`:""}${(T.mest||[]).length?` · ${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}부터라 앞부분 추정`:""}`});
     else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
+  // K뷰티 전체(바구니) 판매량 — 아마존 같은 달 3개년 · 틱톡샵 월별
+  { const ks=Object.keys(KBPH.b), uA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+(KBPH.b[k].u[j]||0),0));
+    cosYoYBars(document.getElementById("cpKA"),{months:CA.M, u:uA, partial:KBPH.partial, asOf:KBPH.asOf});
+    const T=KBPH.tt; if(CT&&T.months&&document.getElementById("cpKT")){ const kt=Object.keys(T.b), sm=f=>T.months.map((_,j)=>kt.reduce((t,k)=>t+((T.b[k][f]||[])[j]||0),0));
+      cosMonthBars(document.getElementById("cpKT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:sm("mu"), v:sm("mv"), pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), note:`${T.partial?`${+T.partial.slice(5)}월은 ${T.end.slice(5).replace("-","/")}까지`:""}${(T.mest||[]).length?` · ${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}부터라 앞부분 추정`:""}`}); } }
   const stackRows=(keys,shOf,last)=>{ const top=keys.slice().sort((a,b)=>shOf(b,last)-shOf(a,last)).slice(0,7); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
     const rows=top.map((k,i)=>({name:nm(k), col:AMZT_PAL[i%AMZT_PAL.length], sel:k===cosSel, k}));
     return {top, rows}; };
