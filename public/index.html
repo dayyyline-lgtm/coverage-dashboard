@@ -222,6 +222,25 @@
   .cos-tbl th.cos-g{text-align:center;font-size:11.5px;color:var(--muted);border-left:1px solid var(--line-soft)}
   .cos-tbl .cos-g0{border-left:1px solid var(--line-soft)}
   .cos-tbl td,.cos-tbl th{white-space:nowrap}
+  .cos-tabs{margin:0 0 14px;flex-wrap:wrap}
+  .cp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .cp-info{min-height:20px;font-size:12.5px;line-height:1.5;margin:2px 0}
+  #cpSvg.cp-hl #cpDots circle:not(.on){opacity:.22}
+  #cpSvg.cp-hl #cpLabs text:not(.on){opacity:.3}
+  #cpSvg #cpDots circle,#cpSvg #cpLabs text{transition:opacity .12s}
+  .cp-q{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+  @media (max-width:900px){ .cp-q{grid-template-columns:1fr 1fr} }
+  .cp-qc{border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--panel);padding:9px 11px}
+  .cp-qh{font-size:12.5px;margin-bottom:4px}
+  .cp-ql{font-size:12.5px;line-height:1.75}
+  .cp-b{cursor:pointer;padding:0 2px;border-radius:3px;white-space:nowrap}
+  .cp-b:hover,.cp-b.on{background:color-mix(in srgb, var(--accent) 22%, transparent)}
+  .cp-qd{font-size:11px;margin-top:4px}
+  .cp-sel{margin-top:14px;border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--panel);padding:12px 14px}
+  .cp-selh{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .cp-kvs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 16px;margin-top:8px}
+  .cp-k{font-size:11.5px;color:var(--muted)} .cp-v{font-size:13.5px;font-weight:700;margin-top:2px} .cp-s{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .cos-tbl tr.cp-tr.on td{background:color-mix(in srgb, var(--accent) 12%, transparent)}
   .amzb-strip{display:inline-flex;gap:1px;vertical-align:middle}
   .amzb-strip i{display:block;width:6px;height:13px;border-radius:1.5px;background:color-mix(in srgb, var(--muted) 16%, transparent)}
   .amzb-strip i.on{background:color-mix(in srgb, var(--accent) 50%, var(--panel))}
@@ -1186,45 +1205,40 @@
   <!-- 아마존 Top100 (2026-09-29 개편 · 옛 이름 '아마존') — 한투 김명주 채널이 본문, 우리 트래커는 맨 아래 접힘.
        사용자: "김명주 위원 데이터로 채우고, 우리 아마존 수집은 완전치 않으니 일단 아래로 밀어 두자". 탭 키(#amazon)는 그대로. -->
   <section class="view" data-view="amazon">
-    <!-- 화장품 트렌드 분석(2026-10-21 개편 · 옛 '아마존 Top100') — 사용자 "아마존 데이터 둘을 섞고 Keepa·틱톡도 같이 버무려 종합 · SKU 나열은 접고 간결하게".
-         위에서부터: 종합(브랜드 × 채널 신호판) → 국면 지도(아마존·틱톡샵) → 아마존 뷰티 Top100 → 브랜드별 상세 → 미국 세부 카테고리 → 회사 채널 모델 → 원자료(접힘).
-         SKU·제품 목록은 전부 접힘 안이다. 탭 키(#amazon)는 그대로 — 옛 링크가 산다. -->
+    <!-- 화장품 트렌드 분석(2026-10-21 · 옛 '아마존 Top100' · 2차: 페이지 안 탭) — 사용자 "너무 산만 · 아마존×틱톡, 아마존만, 틱톡만 · 시간에 따라 위치 변화(커서)".
+         페이지 안 탭(#cosTabs · renderCosPhase 등) — 한 번에 하나만 보인다. 탭 키(#amazon)는 그대로. -->
     <h2 class="sec">화장품 트렌드 분석</h2>
-    <p class="sec-desc">K뷰티 브랜드가 해외에서 <b>어디서 · 얼마나 · 어느 쪽으로</b> 팔리는지 다섯 출처를 한 화면에 모았습니다 —
-      아마존 뷰티 Top100(한투 김명주 위원 채널 + 우리 크롬 수집 · 미·영·독·프·스) · 미국 세부 카테고리 155곳 Top100(우리 수집 · 추정 매출) ·
-      Keepa 아마존 전 상품 판매량 · FastMoss 틱톡샵 미국 공식 샵 · Qoo10 일본.</p>
-    <div id="cosSrc" style="margin:-4px 0 14px"></div>
+    <p class="sec-desc">K뷰티 브랜드가 해외에서 <b>어느 채널에서 몫을 늘리고 있나</b> — 아마존(Keepa · 한투 Top100 · 미국 세부 카테고리) · 틱톡샵(FastMoss) · Qoo10 일본.</p>
+    <div id="cosSrc" style="margin:-4px 0 12px"></div>
+    <div class="seg cos-tabs" id="cosTabs"></div>
 
-    <div class="sub-h">한눈에 — 브랜드 × 채널 <span class="seed" id="cosBoardAsOf"></span></div>
-    <div id="cosBoard"></div>
+    <div data-cosp="phase"><div id="cosPhase"></div></div>
 
-    <!-- K뷰티 브랜드 국면 지도(2026-10-21 · KBPH · renderKbPhase) — 아마존 미국(Keepa · 월) · 틱톡샵 미국(FastMoss · 주) 판매량 몫이
-         평소보다 높은가 × 직전 기간보다 늘었나로 네 칸. 원재료 kbeauty/data/phase/ → kbeauty/phase.py -->
-    <details class="fold side-fold" data-fold="kbPh" style="margin-top:16px">
-      <summary><span class="sf-t">국면 지도 · 아마존 미국 · 틱톡샵 미국</span><span class="sf-s" id="kbPhSum"></span></summary>
-      <div class="fold-b"><div id="kbPhase"></div></div>
-    </details>
+    <div data-cosp="top">
+      <div class="sub-h">아마존 뷰티 Top100 · 5개국 <span class="seed" id="kmjAsOf"></span></div>
+      <p class="note" style="margin:-2px 0 10px">한투 김명주 위원 텔레그램이 평일 아침 올리는 주요 국가 아마존 뷰티 Top 100(5/28~)을 매일 모으고, 글이 없는 날(주말·연휴)은 우리 크롬 수집으로 잇습니다.</p>
+      <div id="kmjCards"></div>
+      <div class="sub-h" style="margin-top:16px">브랜드별 추이 <span class="seed" id="amzTrendAsOf"></span></div>
+      <div id="amzTrend"></div>
+      <details class="fold side-fold" data-fold="kmjMx" style="margin-top:10px">
+        <summary><span class="sf-t">브랜드 × 국가 표</span><span class="sf-s">나라별 Top100 안 제품 수 · 4주 전 대비</span></summary>
+        <div class="fold-b"><div id="kmjMatrix"></div></div>
+      </details>
+    </div>
 
-    <div class="sub-h" style="margin-top:26px">아마존 뷰티 Top100 · 5개국 <span class="seed" id="kmjAsOf"></span></div>
-    <p class="note" style="margin:-2px 0 10px">한투 김명주 위원 텔레그램이 평일 아침 올리는 주요 국가 아마존 뷰티 Top 100(5/28~)을 매일 모으고, 글이 없는 날(주말·연휴)은 우리 크롬 수집으로 잇습니다.</p>
-    <div id="kmjCards"></div>
-    <div class="sub-h" style="margin-top:16px">브랜드별 추이 <span class="seed" id="amzTrendAsOf"></span></div>
-    <div id="amzTrend"></div>
-    <details class="fold side-fold" data-fold="kmjMx" style="margin-top:10px">
-      <summary><span class="sf-t">브랜드 × 국가 표</span><span class="sf-s">나라별 Top100 안 제품 수 · 4주 전 대비</span></summary>
-      <div class="fold-b"><div id="kmjMatrix"></div></div>
-    </details>
-
-    <!-- 브랜드별 상세 (2026-10-20 · renderAmzBrand) — 회사·브랜드 하나만 골라 그 브랜드 자기 축으로. 탭 어디서든 브랜드 이름을 누르면 여기로 -->
-    <div class="sub-h" style="margin-top:26px">브랜드별 상세 <span class="seed" id="amzBrandAsOf"></span></div>
-    <div id="amzBrand"></div>
+    <!-- 브랜드별 상세 (2026-10-20 · renderAmzBrand) — 탭 어디서든 [data-amzb] 를 누르면 이 칸으로 넘어온다 -->
+    <div data-cosp="brand">
+      <div class="sub-h">브랜드별 상세 <span class="seed" id="amzBrandAsOf"></span></div>
+      <div id="amzBrand"></div>
+    </div>
 
     <!-- 미국 세부 카테고리 Top100 · 상장사 (2026-10-09 · AMZSUB · renderAmzSub) — SKU 표는 안쪽 접힘 -->
-    <div class="sub-h" style="margin-top:26px">미국 세부 카테고리 Top100 · 상장사 <span class="seed" id="amzSubAsOf"></span></div>
-    <div id="amzSub"></div>
+    <div data-cosp="sub">
+      <div class="sub-h">미국 세부 카테고리 Top100 · 상장사 <span class="seed" id="amzSubAsOf"></span></div>
+      <div id="amzSub"></div>
+    </div>
 
-    <!-- K뷰티 채널 모델(2026-10-20 · KBCH · renderKbOverview) — Keepa 로 아마존 전 상품 판매액(8개국 · 주 1회) → 회사·공시 지역 매출 추정. -->
-    <div class="sub-h" style="margin-top:26px">원자료 · 모델 <span class="th-sub" style="display:inline">펼쳐서 보는 것</span></div>
+    <div data-cosp="raw">
     <details class="fold side-fold" data-fold="kbCh" style="margin-top:6px">
       <summary><span class="sf-t">회사 채널 모델 · 아마존 전 상품 판매액(Keepa)</span><span class="sf-s" id="kbOvSum"></span></summary>
       <div class="fold-b"><div id="kbOverview"></div></div>
@@ -1288,6 +1302,7 @@
     <div id="amzTop"></div>
       </div>
     </details>
+    </div>
   </section>
 
 </main>
