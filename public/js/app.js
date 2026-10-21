@@ -11252,7 +11252,10 @@ function renderCosPhase(){
   // 증가율 2×2 — 잣대 통일(2026-10-21): 아마존·틱톡샵 × 3개월·1개월, 전부 '바로 앞 같은 길이' 대비 판매량 증감.
   //   점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 비중이 늘었다(지도와 같은 판정). 판매가 끊긴 샵(하루하루원더)의 −100% 는 뺀다.
   const gr=(C,k,n)=>{ if(!C||!C.U[k]) return null; const w=C.win(k,n); return w.g!=null&&w.sc>0?w.g:null; };
-  const cols=[{id:"a3", t:"아마존 · 3M YoY", s:vs(Y3), base:CA.win(Object.keys(CA.U)[0],3).gb, f:k=>gr(CA,k,3)}, {id:"a1", t:"아마존 · 1M YoY", s:vs(Y1), base:CA.win(Object.keys(CA.U)[0],1).gb, f:k=>gr(CA,k,1)}]
+  // 아마존 QoQ·MoM 칸(2026-10-21 사용자 "아마존 3개월 qoq 도 여기에 똑같이") — 달력 그대로 직전 같은 길이 대비(CA.dir) · 칸이 짝이 되게 MoM 도
+  const grD=(k,n)=>{ if(!CA.U[k]) return null; const w=CA.dir(k,n); return w.g!=null&&w.sc>0?w.g:null; }, k0=Object.keys(CA.U)[0];
+  const cols=[{id:"a3", t:"아마존 · 3M YoY", s:vs(Y3), base:CA.win(k0,3).gb, f:k=>gr(CA,k,3)}, {id:"a1", t:"아마존 · 1M YoY", s:vs(Y1), base:CA.win(k0,1).gb, f:k=>gr(CA,k,1)},
+    {id:"aq", t:"아마존 · QoQ", s:vs(D3), base:CA.dir(k0,3).gb, f:k=>grD(k,3)}, {id:"am", t:"아마존 · MoM", s:vs(D1), base:CA.dir(k0,1).gb, f:k=>grD(k,1)}]
     .concat(CT?[{id:"t3", t:"틱톡샵 · QoQ", s:`${vs(L3)}${tEst?" · 4월 앞부분 추정":""}`, base:CT.win(Object.keys(CT.U)[0],3).gb, f:k=>gr(CT,k,3)}, {id:"t1", t:"틱톡샵 · MoM", s:vs(L1), base:CT.win(Object.keys(CT.U)[0],1).gb, f:k=>gr(CT,k,1)}]:[]);
   const grRows=Object.values(B).filter(keep).map(r=>({k:r.k, name:r.ko, co:r.co, v:cols.map(c=>c.f(r.k))}));
   // 4분할(2026-10-21 사용자 "나란히 말고 4분할 창문처럼") — 칸마다 자기 값으로 큰 순 · 고른 브랜드는 네 칸 모두에서 금색 줄
