@@ -11223,7 +11223,7 @@ function renderCosPhase(){
     <div id="cpQT" style="margin-top:8px"></div>`:""}
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
-    <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 · 틱톡샵 · 합산(아마존+틱톡샵) · 점선 = 합계 증감 → 막대가 점선 위면 비중↑ · 금색 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
+    <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 · 틱톡샵 · 합산(아마존+틱톡샵) · 위 지역 버튼을 따라간다(전 지역 = 아마존 8개국) · 틱톡샵·합산 YoY 는 2027-04 부터(틱톡샵 자료가 2026-04-24 부터) · 점선 = 합계 증감 → 막대가 점선 위면 비중↑ · 금색 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
     <div class="cp-gr4" id="cpGr4"></div>
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":mode==="sum"?"합산 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
@@ -11349,9 +11349,9 @@ function renderCosPhase(){
   const gr=(C,k,n)=>{ if(!C||!C.U[k]) return null; const w=C.win(k,n); return w.g!=null&&w.sc>0?w.g:null; };
   // 아마존 QoQ·MoM 칸(2026-10-21 사용자 "아마존 3개월 qoq 도 여기에 똑같이") — 달력 그대로 직전 같은 길이 대비(CA.dir) · 칸이 짝이 되게 MoM 도
   const grD=(k,n)=>{ if(!CA.U[k]) return null; const w=CA.dir(k,n); return w.g!=null&&w.sc>0?w.g:null; }, k0=Object.keys(CA.U)[0];
-  const cols=[{id:"a3", t:"아마존 · 3M YoY", s:vs(Y3), base:CA.win(k0,3).gb, f:k=>gr(CA,k,3)}, {id:"a1", t:"아마존 · 1M YoY", s:vs(Y1), base:CA.win(k0,1).gb, f:k=>gr(CA,k,1)},
-    {id:"aq", t:"아마존 · QoQ", s:vs(D3), base:CA.dir(k0,3).gb, f:k=>grD(k,3)}, {id:"am", t:"아마존 · MoM", s:vs(D1), base:CA.dir(k0,1).gb, f:k=>grD(k,1)}]
-    .concat(CT?[{id:"t3", t:"틱톡샵 · QoQ", s:`${vs(L3)}${tEst?" · 4월 앞부분 추정":""}`, base:CT.win(Object.keys(CT.U)[0],3).gb, f:k=>gr(CT,k,3)}, {id:"t1", t:"틱톡샵 · MoM", s:vs(L1), base:CT.win(Object.keys(CT.U)[0],1).gb, f:k=>gr(CT,k,1)}]:[])
+  const cols=[{id:"a3", t:`아마존 ${MKL} · 3M YoY (분기)`, s:vs(Y3), base:CA.win(k0,3).gb, f:k=>gr(CA,k,3)}, {id:"a1", t:`아마존 ${MKL} · 1M YoY (월)`, s:vs(Y1), base:CA.win(k0,1).gb, f:k=>gr(CA,k,1)},
+    {id:"aq", t:`아마존 ${MKL} · QoQ`, s:vs(D3), base:CA.dir(k0,3).gb, f:k=>grD(k,3)}, {id:"am", t:`아마존 ${MKL} · MoM`, s:vs(D1), base:CA.dir(k0,1).gb, f:k=>grD(k,1)}]
+    .concat(CT?[{id:"t3", t:"틱톡샵 미국 · QoQ", s:`${vs(L3)}${tEst?" · 4월 앞부분 추정":""}`, base:CT.win(Object.keys(CT.U)[0],3).gb, f:k=>gr(CT,k,3)}, {id:"t1", t:"틱톡샵 미국 · MoM", s:vs(L1), base:CT.win(Object.keys(CT.U)[0],1).gb, f:k=>gr(CT,k,1)}]:[])
     // 합산 칸 둘(2026-10-22 사용자 "이런 것도 총합으로") — 지역이 '미국'이면 아마존 미국 + 틱톡샵 · '전 지역'이면 아마존 8개국 + 틱톡샵
     .concat(CS?(()=>{ const SN=cosMk==="all"?"전 지역 합산":"미국 합산", k1=Object.keys(CS.U)[0];
       return [{id:"s3", t:`${SN} · QoQ`, s:`${vs(L3)}${sEst?" · 4월 틱톡샵 앞부분 추정":""}`, base:CS.win(k1,3).gb, f:k=>gr(CS,k,3)},
