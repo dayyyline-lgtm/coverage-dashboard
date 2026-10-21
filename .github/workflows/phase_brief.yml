@@ -1,0 +1,82 @@
+name: K뷰티 국면 주간 브리핑
+
+# 월요일 아침 국면 수집(크롬 세션 · kbeauty/push.py --phase)이 KBPH 원재료를 올리면 텔레그램 한 통 (2026-10-22 신설).
+# 같은 KBPH asOf 는 한 번만(kbeauty/data/phase/brief_state.json). 규칙은 kbeauty/phase_brief.py 맨 위.
+# schedule = 백업 — push 로 안 깨어난 주(배포 생략 표시 커밋 등)에 월요일 09시·12시 KST 에 한 번 더 본다. 새 자료가 없으면 안 보낸다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kbeauty/data/phase/**"
+      - "!kbeauty/data/phase/brief_state.json"
+  schedule:
+    - cron: "7 0,3 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "같은 자료라도 다시 보내기"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase-brief
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sent: ${{ steps.s.outputs.sent }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 브리핑 보내기
+        id: s
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python kbeauty/phase.py
+          python kbeauty/phase_brief.py --send ${{ inputs.force && '--force' || '' }}
+          if git status --porcelain kbeauty/data/phase/brief_state.json | grep -q .; then
+            echo "sent=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.s.outputs.sent == '1'
+        with:
+          name: brief-state
+          path: kbeauty/data/phase/brief_state.json
+          retention-days: 2
+
+  record:
+    needs: send
+    if: needs.send.outputs.sent == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: repo-write
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: brief-state
+          path: kbeauty/data/phase/
+      - name: 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kbeauty/data/phase/brief_state.json
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git commit -q -m "K뷰티 국면 브리핑 발송기록 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST [CI Skip]"
+          for i in 1 2 3 4; do
+            git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0
+            sleep 7
+          done
+          echo "발송기록 push 실패 — 다음 회차에 같은 자료를 다시 보낼 수 있다"; exit 1

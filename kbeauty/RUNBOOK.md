@@ -81,6 +81,22 @@ python3 kbeauty/push.py                                              # 배포 �
 - 환율(`data/fx_month.csv`)은 러너가 매일 아침(events.yml · `kbeauty/fx.py` · ECB 월평균)에 갱신하고 블록을 다시 만든다 — 크롬 세션은 손대지 않는다.
 - 보고 한 줄: `[KEEPA] 저장 … · 실패 …` + `[KBCH] …` + 거짓 0 을 rerun 했으면 그 목록.
 
+## 1-d. 국면 지도 주간 회차 (KBPH · 월요일 · 2026-10-22)
+
+사용자: "주간으로 업데이트 + 텔레 브리핑". 차례 판정 = `python3 kbeauty/phase_brief.py --due`(이번 주 월요일 KST 뒤 `data/phase/<날짜>.json` 이 없으면 0).
+매일 받지 않는 이유: Keepa 판매량이 '지난 30일 구매' 배지라 한 달 단위이고 판정(3개월·1개월)은 완결 달이 늘 때만 바뀐다 · FastMoss 는 180일을 한 번에 준다.
+
+1. **Keepa 미국** — keepa.com 탭(도메인 미국 · `button.knav-mk[data-domain="1"]`) → `kbeauty/phase_keepa.js` 를 붙여 넣는다(맨 위 주석대로) →
+   `location.hash='#!finder/'+encodeURIComponent(JSON.stringify(KBPH_QUERY))` → 표가 차면 `KBPH.run()` → `KBPH.status()` done → `KBPH.dump()` → get_page_text →
+   `kbeauty/data/phase/<오늘>.json`(ko·co·sup 는 직전 파일에서 옮긴다 — 화면이 쓰는 한글 이름·상장사).
+2. **유럽 5개국 · 일본 · 캐나다** — 같은 탭에서 `kbeauty/phase_keepa_eu.js`(맨 위 주석대로 · 나라 버튼 2·3·4·8·9 → `<오늘>.txt` · 일본 5·캐나다 6 → `<오늘>-jpca.txt`, 일본은 가타카나 표기 쿼리).
+   시간이 모자라면 미국만 올리고 나머지는 지난 회차 값이 남는다(`phase.py` 는 eu 폴더의 마지막 날짜 파일을 쓴다).
+3. **FastMoss 미국 공식 샵** — 로그인돼 있을 때만(1-c-2 의 '로그인 여부'). `python3 kbeauty/phase.py --shops` 가 돌 샵(30곳)과 grab 호출을 찍는다.
+   `__FMX.reset()` → 샵마다 상세 navigate → 4초 → 불러오기 → grab(5~10초 간격) → `plan()`·`dump(a,b)` → get_page_text → `kbeauty/data/phase/fm/<오늘>.txt`(줄마다 CRC · END 확인).
+   ⚠ 캡차가 뜨면 풀지 말고 멈춘다 — 받은 데까지만. 로그인 안 돼 있으면 건너뛴다(틱톡샵 칸은 지난 덤프 값으로 남는다).
+4. `python3 kbeauty/phase.py` → `[KBPH] 갱신 …` 확인 → `python3 kbeauty/phase_brief.py`(미리보기 — 숫자가 이상하면 올리지 말고 멈춘다) → `python3 kbeauty/push.py --phase`.
+5. 올라가면 `phase_brief.yml` 이 텔레그램을 보낸다. 같은 asOf 는 한 번만(`data/phase/brief_state.json` — 지난번 칸과 견줘 '칸 바뀜'을 낸다 · 지우지 말 것).
+
 ## 사람이 고칠 것
 
 | 일 | 어디 |

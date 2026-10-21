@@ -42,7 +42,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--deploy", action="store_true")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--phase", action="store_true", help="국면 주간 회차(KBPH) — 바로 배포하고 주간 브리핑 워크플로를 깨운다")
     a = ap.parse_args()
+    if a.phase:
+        a.deploy = True
     try:
         import json
         meta = json.loads((HERE / "data" / "keepa_meta.json").read_text(encoding="utf-8"))
@@ -50,7 +53,15 @@ def main():
     except Exception:
         tag = "K뷰티 채널"
     for attempt in range(4):
-        msg = f"K뷰티 채널 모델 {tag}" + ("" if a.deploy else " " + SKIP)
+        if a.phase:
+            try:
+                import re as _re
+                asof = _re.search(r'^const KBPH = \{"asOf":"([0-9-]+)"', (REPO / "public" / "index.html").read_text(encoding="utf-8"), _re.M).group(1)
+            except Exception:
+                asof = ""
+            msg = f"K뷰티 국면 주간 {asof}"
+        else:
+            msg = f"K뷰티 채널 모델 {tag}" + ("" if a.deploy else " " + SKIP)
         git("add", "-A", "--", *PATHS)
         if not staged():
             print("변경 없음 — 커밋하지 않는다")
@@ -86,11 +97,12 @@ def main():
             elif src.exists():
                 shutil.copy2(src, dst)
         shutil.rmtree(tmp, ignore_errors=True)
-        r = subprocess.run([sys.executable, str(HERE / "ingest.py"), "--inject"], cwd=REPO, capture_output=True, text=True)
-        print(r.stdout.strip())
-        if r.returncode:
-            print(r.stderr.strip()[-600:])
-            return 4
+        for sc in (["ingest.py", "--inject"], ["phase.py"]):   # KBCH · KBPH 둘 다 원격 최신 위에 다시 넣는다
+            r = subprocess.run([sys.executable, str(HERE / sc[0]), *sc[1:]], cwd=REPO, capture_output=True, text=True)
+            print(r.stdout.strip())
+            if r.returncode:
+                print(r.stderr.strip()[-600:])
+                return 4
     print("4번 다 거절 — 다음 회차에 다시")
     return 5
 

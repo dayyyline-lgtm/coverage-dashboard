@@ -252,7 +252,19 @@ def inject(block):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--shops", action="store_true", help="주간 FastMoss 회차에 돌 샵 목록(마지막 덤프의 S 줄) — grab 호출로 찍는다")
     a = ap.parse_args()
+    if a.shops:
+        fm = sorted((SRC / "fm").glob("20??-??-??.txt"))
+        seen = {}
+        for l in fm[-1].read_text(encoding="utf-8").splitlines() if fm else []:
+            f = l.split("|")
+            if f[0] == "S" and f[2] == "US":
+                seen[f[1]] = (f[3], f[5])
+        for sid, (k, nm) in seen.items():
+            print(f"{sid}\tawait window.__FMX.grab('{sid}','US','{k}')\t# {nm}")
+        print(f"# {len(seen)}곳 · 새 샵은 TT_MAP 에도 넣을 것")
+        return
     p = latest()
     block = build(p)
     if a.dry:
