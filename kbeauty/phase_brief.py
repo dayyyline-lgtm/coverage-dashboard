@@ -165,88 +165,125 @@ def mlab(M, e, w):
     return r(e - w + 1, e), r(e - 2 * w + 1, e - w)
 
 
-def section(d, title, rows, prev, xl, yl, mover="x", minshare=0.005, lim=4):
-    """칸별 목록(비중 0.5% 이상) + 칸 바뀜 + 비중 크게 움직인 브랜드."""
-    out = [title]
+def esc(t):
+    return str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def nm(d, k):
+    """상장사 브랜드는 굵게(텔레그램 HTML)."""
+    b = d["b"].get(k) or {}
+    t = esc(b.get("ko") or k)
+    return f"<b>{t}</b>" if b.get("co") else t
+
+
+QI = {"성장 가속": "🟢 가속", "성장 둔화": "🟡 둔화", "반등 중": "🔵 반등", "하락 지속": "🔴 하락"}
+
+
+def quads(d, rows, minshare=0.005, cap=6):
+    """칸마다 한 줄 — 비중 0.5% 이상 · 큰 순 · 6개 넘으면 '외 N'."""
+    out = []
     big = {k: r for k, r in rows.items() if r["s"] >= minshare}
     for q in ORD:
         ks = sorted([k for k, r in big.items() if r["q"] == q], key=lambda k: -big[k]["s"])
         if ks:
-            out.append(f" {QS[q]} {len(ks)}: " + " · ".join(name(d, k) + tag(d, k) for k in ks))
-    if prev:
-        ch = [(k, prev[k], r["q"]) for k, r in rows.items() if k in prev and prev[k] != r["q"] and r["s"] >= minshare]
-        ch.sort(key=lambda z: -rows[z[0]]["s"])
-        if ch:
-            out.append(" 칸 바뀜: " + " · ".join(f"{name(d, k)} {QS[a]}→{QS[b]}" for k, a, b in ch[:8]))
-    v = sorted([(k, r) for k, r in big.items() if r["sp"] >= 0.003], key=lambda z: -(z[1][mover]))
-    up = [f"{name(d, k)}{tag(d, k)} {pct(r[mover])}({shp(r['s'])})" for k, r in v[:lim] if r[mover] >= 105]
-    dn = [f"{name(d, k)}{tag(d, k)} {pct(r[mover])}({shp(r['s'])})" for k, r in v[::-1][:lim] if r[mover] <= 95]
-    lab = xl if mover == "x" else yl
-    if up:
-        out.append(f" 비중↑ {lab}: " + " · ".join(up))
-    if dn:
-        out.append(f" 비중↓ {lab}: " + " · ".join(dn))
+            more = f" 외 {len(ks) - cap}" if len(ks) > cap else ""
+            out.append(f"{QI[q]}  " + ", ".join(nm(d, k) for k in ks[:cap]) + more)
     return out
 
 
-def companies(d, C):
-    """상장사로 묶은 아마존 미국 + 틱톡샵 합산 비중(3개월)과 QoQ."""
+def movers(d, rows, f, n=3, minshare=0.005):
+    v = sorted([(k, r) for k, r in rows.items() if r["s"] >= minshare and r["sp"] >= 0.003], key=lambda z: -z[1][f])
+    up = [f"{nm(d, k)} {pct(r[f])}" for k, r in v[:n] if r[f] >= 105]
+    dn = [f"{nm(d, k)} {pct(r[f])}" for k, r in v[::-1][:n] if r[f] <= 95]
+    return up, dn
+
+
+def changes(d, rows, prev, minshare=0.005):
+    if not prev:
+        return []
+    ch = [(k, prev[k], r["q"]) for k, r in rows.items() if k in prev and prev[k] != r["q"] and r["s"] >= minshare]
+    ch.sort(key=lambda z: -rows[z[0]]["s"])
+    return [f"{nm(d, k)} {QS[a]}→{QS[b]}" for k, a, b in ch]
+
+
+def companies(d, C, n=8):
+    """상장사로 묶은 합산 비중(최근 3개월)과 QoQ — 한 줄에 하나."""
     by = {}
     for k, b in d["b"].items():
-        co = b.get("co")
-        if co:
-            by.setdefault(co, []).append(k)
-    out = []
+        if b.get("co"):
+            by.setdefault(b["co"], []).append(k)
+    e, out = C.e, []
+    tc, tp = ssum(C.tot, e - 2, e), ssum(C.tot, e - 5, e - 3)
     for co, ks in by.items():
-        U = C.U
-        e = C.e
-        c = sum(ssum(U[k], e - 2, e) for k in ks if k in U)
-        p = sum(ssum(U[k], e - 5, e - 3) for k in ks if k in U)
-        tc, tp = ssum(C.tot, e - 2, e), ssum(C.tot, e - 5, e - 3)
-        if not c or not p or not tc or not tp:
-            continue
-        out.append((co, c / tc, 100 * (c / tc) / (p / tp)))
+        c = sum(ssum(C.U[k], e - 2, e) for k in ks if k in C.U)
+        p = sum(ssum(C.U[k], e - 5, e - 3) for k in ks if k in C.U)
+        if c and p and tc and tp:
+            out.append((co, c / tc, 100 * (c / tc) / (p / tp)))
     out.sort(key=lambda z: -z[1])
-    return " · ".join(f"{co} {shp(s)}({pct(y)})" for co, s, y in out if s >= 0.002)
+    return [f"{esc(co)}  {shp(s)}  <i>{pct(y)}</i>" for co, s, y in out[:n]]
 
 
 def message(d, R, prev):
     M, end = R["M"], R["end"]
     e = M.index(end)
     c3, p3 = mlab(M, e, 3)
-    L = [f"💄 K뷰티 국면 주간 — 완결 {int(end[5:])}월까지 · 아마존 {d['asOf'][5:].replace('-', '/')} · 틱톡샵 {(R.get('ttEnd') or '')[5:].replace('-', '/')}까지",
-         f"비중 = 추적 브랜드(비상장 포함) 판매량 중 몫 · * = 상장사 · 칸은 0.5% 이상만"]
+    md = lambda x: f"{int(x[5:7])}/{int(x[8:10])}" if x else "—"
     pq = (prev or {}).get("q") or {}
+    st = {}
     us = R["us"].rows(True)
-    L += [""] + section(d, f"[아마존 미국] YoY({c3} vs 작년) × QoQ({c3} vs {p3}) · 바구니 판매 YoY {pctg(R['us'].base(True))}",
-                        us, pq.get("us"), "YoY", "QoQ", mover="y")
-    st = {"us": {k: r["q"] for k, r in us.items()}}
-    if "tt" in R:
-        t1c, t1p = mlab(R["tt"].M, R["tt"].e, 1)
-        est = " · 4월 앞부분 추정" if R.get("mest") and R["mest"][0] in R["tt"].M[R["tt"].e - 5:R["tt"].e + 1] else ""
+    st["us"] = {k: r["q"] for k, r in us.items()}
+    L = [f"<b>💄 K뷰티 국면 주간</b>",
+         f"{c3} 기준 (vs {p3}) · 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))} 수집"]
+    # 요약 — 합산이 있으면 합산 기준
+    has_t = "tt" in R
+    S = R["sum"].rows(False) if has_t else us
+    f = "x"   # 합산: QoQ · 아마존만: YoY
+    up, dn = movers(d, S, f)
+    L += ["", "<b>📌 요약</b>"]
+    L.append(f"• 바구니 판매  아마존 YoY {pctg(R['us'].base(True))}" + (f" · 합산 QoQ {pctg(R['sum'].base(False))}" if has_t else ""))
+    if up:
+        L.append(f"• 비중↑  " + ", ".join(up))
+    if dn:
+        L.append(f"• 비중↓  " + ", ".join(dn))
+    allch = []
+    if has_t:
         tt = R["tt"].rows(False)
-        L += [""] + section(d, f"[틱톡샵 미국] QoQ({c3} vs {p3}{est}) × MoM({t1c} vs {t1p})", tt, pq.get("tt"), "QoQ", "MoM")
-        sm = R["sum"].rows(False)
-        L += [""] + section(d, f"[합산 아마존+틱톡샵] QoQ × MoM · 바구니 판매 QoQ {pctg(R['sum'].base(False))}", sm, pq.get("sum"), "QoQ", "MoM")
         st["tt"] = {k: r["q"] for k, r in tt.items()}
-        st["sum"] = {k: r["q"] for k, r in sm.items()}
-        L += ["", "[상장사 · 합산 비중(QoQ)] " + companies(d, R["sum"])]
-    # 다른 시장 — 칸 바뀜 + 비중 YoY 큰 브랜드만 짧게
-    extra = []
-    for code, lab in [("eu", "유럽 5개국"), ("jp", "일본"), ("ca", "캐나다")]:
+        st["sum"] = {k: r["q"] for k, r in S.items()}
+        allch = changes(d, S, pq.get("sum"))
+    else:
+        allch = changes(d, us, pq.get("us"))
+    if allch:
+        L.append("• 칸 바뀜  " + ", ".join(allch[:6]))
+    if has_t:
+        L += ["", "<b>🏢 상장사</b> <i>(합산 비중 · QoQ)</i>"] + companies(d, R["sum"])
+        L += ["", "<b>➕ 합산</b> <i>아마존+틱톡샵 · QoQ×MoM</i>"] + quads(d, S)
+    L += ["", "<b>🇺🇸 아마존 미국</b> <i>YoY×QoQ</i>"] + quads(d, us)
+    a_up, a_dn = movers(d, us, "y", n=2)
+    if a_up or a_dn:
+        L.append("↕ " + ", ".join(a_up + a_dn))
+    if has_t:
+        est = " · 4월 일부 추정" if R.get("mest") and R["mest"][0] in R["tt"].M[R["tt"].e - 5:R["tt"].e + 1] else ""
+        L += ["", f"<b>🎵 틱톡샵 미국</b> <i>QoQ×MoM{est}</i>"] + quads(d, tt)
+        t_up, t_dn = movers(d, tt, "x", n=2)
+        if t_up or t_dn:
+            L.append("↕ " + ", ".join(t_up + t_dn))
+    ex = []
+    for code, lab in [("eu", "유럽5"), ("jp", "일본"), ("ca", "캐나다")]:
         if code not in R:
             continue
         rows = R[code].rows(True)
         st[code] = {k: r["q"] for k, r in rows.items()}
-        big = sorted([(k, r) for k, r in rows.items() if r["s"] >= 0.01], key=lambda z: -z[1]["s"])[:5]
-        top = " · ".join(f"{name(d, k)}{tag(d, k)} {shp(r['s'])} {QS[r['q']]}" for k, r in big)
-        ch = [f"{name(d, k)} {QS[a]}→{QS[r['q']]}" for k, r in rows.items() if k in (pq.get(code) or {}) and (a := pq[code][k]) != r["q"] and r["s"] >= 0.01]
-        extra.append(f"[아마존 {lab}] 바구니 판매 YoY {pctg(R[code].base(True))} · 큰 순 {top}" + (f" · 칸 바뀜 {' · '.join(ch[:5])}" if ch else ""))
-    if extra:
-        L += [""] + extra
+        big = sorted([(k, r) for k, r in rows.items() if r["s"] >= 0.01], key=lambda z: -z[1]["s"])[:3]
+        ch = changes(d, rows, pq.get(code), 0.01)
+        ex.append(f"<b>{lab}</b> 판매 YoY {pctg(R[code].base(True))}\n  " + ", ".join(f"{nm(d, k)} {shp(r['s'])} {QS[r['q']]}" for k, r in big)
+                  + (f"\n  칸 바뀜: {', '.join(ch[:4])}" if ch else ""))
+    if ex:
+        L += ["", "<b>🌍 아마존 다른 시장</b> <i>비중 상위 3</i>"] + ex
+    L += ["", "<i>가속=비중↑·최근에도↑ · 둔화=↑인데 최근↓ · 반등=↓인데 최근↑ · 하락=둘 다↓ · 굵게=상장사 · 비중 0.5% 이상만</i>"]
     if not pq:
-        L += ["", "(첫 브리핑 — 다음 주부터 '칸 바뀜'이 붙는다)"]
-    L += ["", SITE]
+        L.append("<i>첫 회 — 다음 주부터 '칸 바뀜'이 붙는다</i>")
+    L.append(f'<a href="{SITE}">대시보드 열기</a>')
     return "\n".join(L), st
 
 
@@ -265,7 +302,7 @@ def send(text):
         cur += line + "\n"
     parts.append(cur)
     for p in parts:
-        data = urllib.parse.urlencode({"chat_id": chat, "text": p.rstrip(), "disable_web_page_preview": "true"}).encode()
+        data = urllib.parse.urlencode({"chat_id": chat, "text": p.rstrip(), "parse_mode": "HTML", "disable_web_page_preview": "true"}).encode()
         with urllib.request.urlopen(urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=data), timeout=30) as r:
             ok = ok and r.status == 200
     return ok
