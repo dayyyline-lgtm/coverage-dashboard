@@ -11121,6 +11121,9 @@ function renderCosPhase(){
       <div class="cp-kvs">
         ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${cosPf(a.s3*100)}`:"—", a&&a.q?mt([["YoY 3M",a.m3,vs(Y3)],["YoY 1M",a.m1,vs(Y1)],["QoQ",a.d3,vs(D3)],["MoM",a.d1,vs(D1)]]):"")}
         ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?mt([["QoQ",t.m3,vs(L3)],["MoM",t.m1,vs(L1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
+        ${CT?(()=>{ const sm=cosSumStat(R.k);   // 합산(2026-10-21 사용자 "각각 남기고 합산도") — 아마존+틱톡샵 판매량을 더한 비중·판매 증감
+          return kv(`합산 (아마존 + 틱톡샵 · ${L3.cur})`, sm?`비중 ${cosPf(sm.s3*100)}`:'<span class="g">—</span>',
+            sm?mt([["QoQ",sm.m3,vs(L3)+(sm.est?" · 4월 틱톡샵 앞부분 추정":"")],["MoM",sm.m1,vs(L1)]])+`3M 판매량 ${cosNum(sm.u3)}개 <span class="g">(틱톡 ${Math.round(sm.tf*100)}%)</span>`:""); })():""}
         ${kv("미국 세부 카테고리", s&&s.s?`SKU ${s.s} · 하루 ${s.r?eokS(s.r):"—"}`:'<span class="g">—</span>', s&&s.rw?`1주 전 대비 ${pc(s.r,s.rw)}`:"")}
         ${kv("뷰티 Top100 · 5개국", tp?`${tp.v}개`:'<span class="g">—</span>', tp&&tp.p!=null?`4주 전 ${tp.p}개`:"")}
       </div>
@@ -11420,6 +11423,19 @@ function cosMonthBars(el, o){
 }
 // 아마존 + 틱톡샵 합산 재료 — 틱톡샵 달(T.months)에 맞춘다. A·T·S = 브랜드별 아마존·틱톡샵·합계(진행 달은 틱톡샵만 일할 환산).
 let cosCmb=(()=>{ try{ return localStorage.getItem("cosCmb")||"abs"; }catch(e){ return "abs"; } })();
+// 합산 비중·판매 증감 — 아마존+틱톡샵 판매량(cosComb)으로 kbPhChan 의 win 과 같은 꼴(y = 비중 변화 × 100, g = 판매 증감)
+function cosSumStat(k){
+  const C=cosComb(); if(!C||!C.S[k]) return null;
+  const e=C.M.indexOf(kbPhEnd()); if(e<0) return null;
+  const tot=C.M.map((_,j)=>Object.keys(C.S).reduce((t,x)=>t+(C.S[x][j]||0),0));
+  const sum=(a,i0,i1)=>{ let t=0; for(let j=i0;j<=i1;j++) t+=a[j]||0; return t; };
+  const win=w=>{ const c0=e-w+1, p0=e-2*w+1; if(p0<0) return null;
+    const uc=sum(C.S[k],c0,e), up=sum(C.S[k],p0,c0-1), tc=sum(tot,c0,e), tp=sum(tot,p0,c0-1);
+    if(!tc||!tp||!up) return null; return {y:(uc/tc)/(up/tp)*100, g:uc/up-1}; };
+  const u3=sum(C.S[k],e-2,e), t3=sum(C.T[k],e-2,e), tc=sum(tot,e-2,e);
+  const mest=(KBV().tt||{}).mest||[];
+  return {s3:tc?u3/tc:0, u3, tf:u3?t3/u3:0, m3:win(3), m1:win(1), est:mest.some(m=>C.M.indexOf(m)>=e-5)};
+}
 function cosComb(){
   const V=KBV(), T=V.tt; if(!T||!T.months) return null;
   const M=T.months, pi=M.indexOf(T.partial), E=pi>=0?cosProRate(T.partial,T.end):null, ai=M.map(m=>V.months.indexOf(m));
