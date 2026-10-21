@@ -56,13 +56,14 @@ def build(path):
 
 
 # ── 틱톡샵(미국) — FastMoss 샵 상세 '최근 180일' 일별(kbeauty/fastmoss.js 덤프 · data/phase/fm/<받은 날>.txt) ──
-# 덤프의 브랜드키(grab 셋째 인자) → 위 아마존 바구니의 브랜드 키. 미국 공식 샵을 못 찾은 브랜드: 설화수·페리페라·구달·메디필(2026-10-21 검색 · 클리오 3개는 'Clio Official USA' 한 샵에 섞여 못 가른다)
+# 덤프의 브랜드키(grab 셋째 인자) → 위 아마존 바구니의 브랜드 키. 미국 공식 샵을 못 찾은 브랜드: 설화수·메디필 · 페리페라·구달은 'Clio Official USA' 한 샵에 클리오와 섞여 있어 'clio' 로 통째로 넣는다(2026-10-21)
 TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "celimax": "celimax", "dralthea": "dr.althea",
           "torriden": "torriden", "numbuzin": "numbuzin", "roundlab": "round lab", "vt": "vt cosmetics", "centellian": "centellian 24",
           "abib": "abib", "mixsoon": "mixsoon", "somebymi": "some by mi", "haruharu": "haruharu", "manyo": "ma:nyo", "axisy": "axis-y",
           "isntree": "isntree", "tonymoly": "tonymoly", "innisfree": "innisfree", "romand": "rom&nd", "medicube": "medicube",
           "missha": "missha", "dalba": "d'alba piedmont", "cosrx": "cosrx", "laneige": "laneige", "belif": "belif", "rejuran": "rejuran",
-          "biodance": "biodance", "equalberry": "eqqualberry"}
+          "biodance": "biodance", "equalberry": "eqqualberry",
+          "clio": "clio"}   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
 

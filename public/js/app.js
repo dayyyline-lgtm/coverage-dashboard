@@ -806,7 +806,7 @@ const NEWS_ALIAS={
   "실리콘투":["실리콘투"], "코스맥스":["코스맥스"], "제닉":["제닉"],
   "TS트릴리온":["TS트릴리온","티에스트릴리온","TS샴푸","GD샴푸"],
   "에이블씨엔씨":["에이블씨엔씨","미샤","어퓨"],
-  "동국제약":["동국제약","센텔리안24","마데카"], "브이티":["브이티","VT코스메틱","리들샷"], "엔에프씨":["엔에프씨"],
+  "동국제약":["동국제약","센텔리안24","마데카"], "브이티":["브이티","VT코스메틱","리들샷"], "엔에프씨":["엔에프씨"], "클리오":["클리오","페리페라","구달"],
   "제이투케이바이오":["제이투케이바이오","제이투케이","J2K","J2KBIO"],
   "신세계":["신세계"], "롯데쇼핑":["롯데쇼핑","롯데백화점","롯데마트"], "현대백화점":["현대백화점"],
   "파마리서치":["파마리서치","리쥬란","콘쥬란"],
@@ -9590,7 +9590,7 @@ const SP_MODEL={"컴투스":"c2Sec","카카오게임즈":"kgSec","대원미디�
 const SP_DEEP={"대원미디어":[["boxoffice","🎬 영화 흥행 탭"]],"탑코미디어":[["toptoon","💬 탑툰챗 탭"]],
   "에이피알":[["amazon","💄 화장품 트렌드"]],"달바글로벌":[["amazon","💄 화장품 트렌드"]],"아모레퍼시픽":[["amazon","💄 화장품 트렌드"]],
   "LG생활건강":[["amazon","💄 화장품 트렌드"]],"TS트릴리온":[["amazon","💄 화장품 트렌드"]],"아로마티카":[["amazon","💄 화장품 트렌드"]],"에이블씨엔씨":[["amazon","💄 화장품 트렌드"]],
-  "동국제약":[["amazon","💄 화장품 트렌드"]],"브이티":[["amazon","💄 화장품 트렌드"]],"엔에프씨":[["amazon","💄 화장품 트렌드"]]};
+  "동국제약":[["amazon","💄 화장품 트렌드"]],"브이티":[["amazon","💄 화장품 트렌드"]],"엔에프씨":[["amazon","💄 화장품 트렌드"]],"클리오":[["amazon","💄 화장품 트렌드"]]};
 const spHome={};
 function spBorrow(id, host){
   const el=document.getElementById(id); if(!el||!host) return null;
@@ -10862,10 +10862,10 @@ function kbPhChan(M, U, est, yoy){
     return {k, s3:m3.sc||0, m3, m1, d3, d1, q:qq(m3,d3), q1:yoy?qq(m1,d1):null}; });
   return {M, L, tot, sh, U, win, dir, cmp, lab, labS, labY, labD, ev, rows, est:est||[], yoy:!!yoy};
 }
-function kbPhCalc(){ const P=KBPH, U={}; Object.keys(P.b).forEach(k=>{ U[k]=P.b[k].u; }); const C=kbPhChan(P.months, U, [], true); C.B=P.b; return C; }
+function kbPhCalc(){ const P=KBV(), U={}; Object.keys(P.b).forEach(k=>{ U[k]=P.b[k].u; }); const C=kbPhChan(P.months, U, [], true); C.B=P.b; return C; }
 // 틱톡샵 — 달 단위(mu) · 카드 차트용 주별 비중(shW · weeks)도 같이
 function kbPhCalcTT(){
-  const T=KBPH.tt; if(!T||!T.months) return null;
+  const T=KBV().tt; if(!T||!T.months) return null;
   const U={}; Object.keys(T.b).forEach(k=>{ U[k]=T.b[k].mu; });
   const C=kbPhChan(T.months, U, T.mest||[]); C.B=T.b;
   const W=T.weeks, wk=Object.keys(T.b), wt=W.map((_,j)=>wk.reduce((s,k)=>s+(T.b[k].u[j]||0),0));
@@ -10890,34 +10890,41 @@ function cosSrcChips(){
     (typeof KMJAMZ!=="undefined")&&["한투 아마존 Top100","KMJAMZ",KMJAMZ.fetched||KMJAMZ.asOf,`마지막 글 ${md(KMJAMZ.asOf)}`],
     (typeof AMZL!=="undefined")&&["크롬 7개국 Top100","AMZL",AMZL.asOf,md(AMZL.asOf)],
     (typeof AMZSUB!=="undefined")&&["미국 세부 카테고리","AMZSUB",AMZSUB.asOf,md(AMZSUB.date)],
-    (typeof KBPH!=="undefined")&&["Keepa 국면","KBPH",KBPH.asOf,`${md(KBPH.asOf)} · 월`],
+    (typeof KBPH!=="undefined")&&["Keepa 국면","KBPH",KBV().asOf,`${md(KBV().asOf)} · 월`],
     (typeof KBCH!=="undefined")&&["Keepa 채널 모델","KBCH",KBCH.asOf,`${md(KBCH.asOf)} · 주`],
-    (typeof KBPH!=="undefined")&&KBPH.tt&&["틱톡샵(FastMoss)",null,KBPH.tt.asOf,`${md(KBPH.tt.end)}까지`],
+    (typeof KBPH!=="undefined")&&KBV().tt&&["틱톡샵(FastMoss)",null,KBV().tt.asOf,`${md(KBV().tt.end)}까지`],
     (typeof QOO10!=="undefined")&&["Qoo10 일본","QOO10",QOO10.asOf,md(QOO10.asOf)]].filter(Boolean);
   el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${items.map(([t,k,a,txt])=>{ const st=k?staleNote(k,a):"";
     return `<span class="pill" style="font-size:11px;${st?"color:var(--warn);border-color:var(--warn)":""}" title="${attr(t+" — "+(st||"제때 갱신"))}">${t} <b>${txt}</b>${st?" · "+st:""}</span>`; }).join("")}</div>`;
 }
 function cosBoardRows(){
-  if(typeof KBPH==="undefined"||!KBPH.b) return null;
-  const CA=kbPhCalc(), CT=KBPH.tt&&KBPH.tt.b?kbPhCalcTT():null;
+  if(typeof KBPH==="undefined"||!KBV().b) return null;
+  const CA=kbPhCalc(), CT=KBV().tt&&KBV().tt.b?kbPhCalcTT():null;
   const S=(typeof AMZSUB!=="undefined"&&AMZSUB.bs&&AMZSUB.bl&&AMZSUB.days&&AMZSUB.days.length)?AMZSUB:null;
   const li=S?Math.max(0,S.days.indexOf(S.date)):-1;
   let W=-1; if(S){ const dn=d=>Date.parse(d+"T00:00:00Z")/864e5; for(let j=li-1;j>=0;j--) if(!S.part[j]&&dn(S.date)-dn(S.days[j])>=7){ W=j; break; } }
   const sIdx={}; if(S) S.bl.forEach((n,i)=>{ sIdx[amzBrNorm(n)]=i; });
   const T=amztBuild(), tIdx={}; T.brands.forEach(o=>{ tIdx[amzBrNorm(o.key)]=o; });
   const fx=amzFx();
-  const rows=Object.keys(KBPH.b).map(k=>{
-    const nk=COS_NORM[k]||amzBrNorm(k), a=CA.rows.find(r=>r.k===k), t=CT?CT.rows.find(r=>r.k===k):null;
-    const si=sIdx[nk], x=S&&si!=null?S.bs[si]:null;
-    const sub=x?{s:x.s[li]||0, r:x.r?x.r[li]:null, rw:x.r&&W>=0?x.r[W]:null}:null;
-    const o=tIdx[nk]; let top=null;
-    if(o){ const ds=Object.keys(o.d).sort(), dv=ds.filter(d=>amztVal(o,d,"sum","t100")!==undefined);
-      if(dv.length){ const dL=dv[dv.length-1], dn=d=>Date.parse(d+"T00:00:00Z")/864e5, d4=[...dv].reverse().find(d=>dn(dL)-dn(d)>=28);
-        top={v:amztVal(o,dL,"sum","t100"), p:d4?amztVal(o,d4,"sum","t100"):null, d:dL, d4}; } }
+  const subOf=nk=>{ const si=sIdx[nk], x=S&&si!=null?S.bs[si]:null; return x?{s:x.s[li]||0, r:x.r?x.r[li]:null, rw:x.r&&W>=0?x.r[W]:null}:null; };
+  const topOf=nk=>{ const o=tIdx[nk]; if(!o) return null; const ds=Object.keys(o.d).sort(), dv=ds.filter(d=>amztVal(o,d,"sum","t100")!==undefined);
+    if(!dv.length) return null; const dL=dv[dv.length-1], dn=d=>Date.parse(d+"T00:00:00Z")/864e5, d4=[...dv].reverse().find(d=>dn(dL)-dn(d)>=28);
+    return {v:amztVal(o,dL,"sum","t100"), p:d4?amztVal(o,d4,"sum","t100"):null, d:dL, d4}; };
+  const nkOf=k=>COS_NORM[k]||amzBrNorm(k);
+  const rows=Object.keys(KBV().b).map(k=>{
+    const mem=KBV().b[k].mem, a=CA.rows.find(r=>r.k===k), t=CT?CT.rows.find(r=>r.k===k):null;
+    const si=mem?null:sIdx[nkOf(k)], o=mem?null:tIdx[nkOf(k)];
+    let sub, top;
+    if(mem){ // 엔에프씨 합 — 고객사 셋의 美 세부 카테고리 · Top100 을 더한다
+      const ss=mem.map(m=>subOf(nkOf(m))).filter(Boolean), sm=f=>ss.reduce((x,z)=>x+(z[f]||0),0);
+      sub=ss.length?{s:sm("s"), r:ss.some(z=>z.r!=null)?sm("r"):null, rw:ss.every(z=>z.rw!=null)?sm("rw"):null}:null;
+      const ts=mem.map(m=>topOf(nkOf(m))).filter(z=>z&&z.v!=null);
+      top=ts.length?{v:ts.reduce((x,z)=>x+z.v,0), p:ts.every(z=>z.p!=null)?ts.reduce((x,z)=>x+z.p,0):null, d:ts.map(z=>z.d).sort().pop()}:null;
+    } else { sub=subOf(nkOf(k)); top=topOf(nkOf(k)); }
     const sig=[["아마존 비중", a&&a.m3.y!=null?a.m3.y>=100:null], ["틱톡샵 비중", t&&t.m3.y!=null?t.m3.y>=100:null],
       ["미국 추정 매출", sub&&sub.r!=null&&sub.rw?sub.r>sub.rw:null], ["Top100 개수", top&&top.p!=null&&(top.v||top.p)?top.v>top.p:null]];
     const known=sig.filter(z=>z[1]!=null);
-    return {k, ko:KBPH.b[k].ko, co:KBPH.b[k].co, sup:KBPH.b[k].sup||"", pick:si!=null?S.bl[si]:(o?o.key:k), a, t, sub, top, sig, up:known.filter(z=>z[1]).length, n:known.length,
+    return {k, ko:KBV().b[k].ko, co:KBV().b[k].co, sup:KBV().b[k].sup||"", mem:mem||null, pick:si!=null?S.bl[si]:(o?o.key:k), a, t, sub, top, sig, up:known.filter(z=>z[1]).length, n:known.length,
       w:Math.max(a?a.s3:0, t?t.s3:0), fx}; });
   return {rows, CA, CT, S, li, W, fx};
 }
@@ -10936,6 +10943,33 @@ const cosLs=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v; }
 const cosSv=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
 function cosPick(k){ if(cosPin===k){ cosPin=""; } else { cosPin=k; cosSel=k; cosSv("cosSel",k); } cosSv("cosPin",cosPin); renderCosPhase(); }
 let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube"), cosPin=cosLs("cosPin","");
+// 모아보기(2026-10-21) — 여러 브랜드를 한 줄로 더한 보기. 바구니(비중의 분모)는 그대로다(멤버를 빼고 합 하나를 넣으니 전체 합이 같다).
+//   국면 칸 함수는 전부 KBPH 대신 KBV() 를 읽는다.
+//   · 엔에프씨 — 사용자 "엔에프씨 버튼을 누르면 고객사가 다 합쳐지게 · 스킨1004 빼고"(sup:"엔에프씨" = 조선미녀·셀리맥스·이퀄베리)
+//   · 클리오 — 클리오·페리페라·구달(co:"클리오"). 틱톡샵은 'Clio Official USA' 한 샵에 셋이 섞여 있어 합쳐 봐야 두 채널이 같은 범위가 된다.
+const COS_GRP=[
+  {id:"nfc", k:"엔에프씨 고객사", co:"엔에프씨", lab:"엔에프씨 고객사 합치기", t:b=>b.sup==="엔에프씨", what:"엔에프씨(ODM)가 만드는"},
+  {id:"clio", k:"클리오 3브랜드", co:"클리오", lab:"클리오 합치기", t:b=>b.co==="클리오", what:"클리오의"}];
+let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id, g.id==="nfc"?cosLs("cosNfc","0"):"0")==="1"; }); return o; })();
+const cosGrpMem=g=>Object.keys(KBPH.b).filter(k=>g.t(KBPH.b[k]));
+function KBV(){
+  if(typeof KBPH==="undefined"||!KBPH.b) return KBPH;
+  const on=COS_GRP.filter(g=>cosGrp[g.id]&&cosGrpMem(g).length>=2);
+  if(!on.length) return KBPH;
+  const sig=on.map(g=>g.id).join(",");
+  if(KBV.c&&KBV.c.src===KBPH&&KBV.c.sig===sig) return KBV.c.v;
+  const P=KBPH;
+  const add=as=>{ const L=Math.max(0,...as.map(a=>a?a.length:0)); return Array.from({length:L},(_,j)=>{ let t=0, any=false; as.forEach(a=>{ if(a&&a[j]!=null){ t+=a[j]; any=true; } }); return any?t:null; }); };
+  const merge=(src,ks,key,mk)=>{ const o={}; let put=false; Object.keys(src).forEach(k=>{ if(!ks.includes(k)){ o[k]=src[k]; return; } if(!put){ o[key]=mk(); put=true; } }); return o; };
+  let b=P.b, tb=P.tt&&P.tt.b?P.tt.b:null;
+  on.forEach(g=>{ const mem=cosGrpMem(g);
+    b=merge(b, mem, g.k, ()=>({ko:g.k, co:g.co, sup:"", mem, grp:g.id, u:add(mem.map(k=>P.b[k].u))}));
+    if(tb){ const tm=mem.filter(k=>tb[k]);
+      if(tm.length) tb=merge(tb, tm, g.k, ()=>{ const B=tm.map(k=>P.tt.b[k]);
+        return {n:[].concat(...B.map(x=>x.n||[])), u:add(B.map(x=>x.u)), v:add(B.map(x=>x.v)), mu:add(B.map(x=>x.mu)), mv:add(B.map(x=>x.mv)), fx:B.reduce((t,x)=>t+(+x.fx||0),0), mem:tm}; }); } });
+  KBV.c={src:KBPH, sig, v:{...P, b, tt:tb?{...P.tt, b:tb}:P.tt}};
+  return KBV.c.v;
+}
 // cosPin = 눌러서 고정한 브랜드(2026-10-21 사용자 "클릭하면 아마존·틱톡 보기로 넘어가도 걔만 강조 · 다시 누르기 전까지 안 풀리게").
 //   커서만 올렸을 땐 잠깐 강조, 누르면 고정(보기·기간을 바꿔도 유지), 같은 브랜드를 다시 누르면 풀린다. 고정이 없으면 아무것도 흐리게 하지 않는다.
 function cosSetTab(t){
@@ -10962,8 +10996,8 @@ function cosRenderPane(t){
 
 /* 국면 자료 — 브랜드마다 지금 자리 + 꼬리(보기·기간별) */
 function cosPhaseData(){
-  if(typeof KBPH==="undefined"||!KBPH.b) return null;
-  const CA=kbPhCalc(), CT=KBPH.tt&&KBPH.tt.b?kbPhCalcTT():null, D=cosBoardRows();
+  if(typeof KBPH==="undefined"||!KBV().b) return null;
+  const CA=kbPhCalc(), CT=KBV().tt&&KBV().tt.b?kbPhCalcTT():null, D=cosBoardRows();
   const mLab=m=>`${+m.slice(5)}월`;
   const B={};
   // 꼬리 = 끝 달을 한 달씩 당겨 같은 식(3개월·1개월 비중 변화)을 다시 푼 자리 — 최근 6개월 중 계산되는 달만
@@ -11076,8 +11110,8 @@ function renderCosPhase(){
     const pc=(v,ref)=>v==null||!ref?"":`${v/ref-1>=0?"+":""}${Math.round((v/ref-1)*100)}%`;
     const chgD=m=>m&&m.y!=null?`<b style="color:${m.y>=100?"var(--up)":"var(--down)"}">${m.y>=100?"+":""}${Math.round(m.y-100)}</b>`:"—";
     const chgS=m=>m&&m.y!=null?`<b style="color:${m.y>=100?"var(--up)":"var(--down)"}">${m.y>=100?"+":""}${Math.round(m.y-100)}%</b>${m.g!=null?` <span class="g">(판매 ${m.g>=0?"+":""}${Math.round(m.g*100)}%)</span>`:""}`:"—";
-    selH=`<div class="cp-sel"><div class="cp-selh"><span class="cp-tag">선택 브랜드</span><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}</span>
-        <button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button></div>
+    selH=`<div class="cp-sel"><div class="cp-selh"><span class="cp-tag">선택 브랜드</span><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.mem?`${(COS_GRP.find(g=>g.k===R.k)||{what:""}).what} ${R.mem.map(m=>attr((KBPH.b[m]||{}).ko||m)).join(" + ")} 합`:`${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}`}</span>
+        ${R.mem?"":`<button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button>`}</div>
       <div class="cp-kvs">
         ${kv(`아마존 (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${(a.s3*100).toFixed(1)}%`:"—", a&&a.q?mt([["YoY 3M",a.m3,vs(Y3)],["YoY 1M",a.m1,vs(Y1)],["QoQ",a.d3,vs(D3)],["MoM",a.d1,vs(D1)]]):"")}
         ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${(t.s3*100).toFixed(1)}%`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?mt([["QoQ",t.m3,vs(L3)],["MoM",t.m1,vs(L1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
@@ -11087,7 +11121,7 @@ function renderCosPhase(){
       <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 K뷰티 내 비중 · 월별<span class="sub">Keepa · ${Object.keys(KBPH.b).length}개 브랜드 판매량 중 · 점선 = ${Y3.prev} · ${Y3.cur} 평균</span></div><div id="cpSA"></div></div>
         ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 K뷰티 내 비중 · 주별<span class="sub">FastMoss · ${Object.keys(KBPH.tt.b).length}개 공식 샵 판매량 중 · 점선 = ${L3.prev} · ${L3.cur} 평균</span></div><div id="cpST"></div></div>`:""}</div>
       <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 판매량 · 같은 달 3개년<span class="sub">Keepa · 판매량(배지 하한) · % = YoY</span></div><div id="cpA"></div></div>
-        ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBPH.tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpT"></div></div>`:""}</div></div>`;
+        ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpT"></div></div>`:""}</div></div>`;
   }
 
   // ── 표 ──
@@ -11118,17 +11152,18 @@ function renderCosPhase(){
     :mode==="amz"?`아마존 ${Object.keys(KBPH.b).length}개 브랜드 · 가로 비중 <b>YoY</b> (${vs(Yx)}) · 세로 비중 <b>${SQ(xw)}</b> (${vs(Dx)}${exS(Dx)})`
     :`틱톡샵 미국 공식 샵 ${Object.keys(KBPH.tt.b).length}개 · 가로 비중 <b>QoQ</b> (${vs(L3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>MoM</b> (${vs(L1)}) · 4/24~ 라 YoY 없음`;
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
-      <div class="seg" style="margin-left:auto" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
+      <div class="seg" style="margin-left:auto">${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBPH.b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
+      <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
     <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달)가 꼬리로 · 누르면 고정. 원 크기 = 3개월 비중 · 점선 0 = 변화 없음.</p>
     ${lists}${selH}
     <div class="cp-all"><div class="cp-selh"><span class="cp-tag all">추적 브랜드 합계</span><span style="font-size:16px;font-weight:800">우리가 추적하는 K뷰티 브랜드 합계 · 월별 판매량</span></div>
-    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBPH.b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBPH.tt.b).map(k=>(KBPH.b[k]||{}).ko||k).join(" · "):""))}">아마존 미국 <b>${Object.keys(KBPH.b).length}개</b> · 틱톡샵 미국 공식 샵 <b>${CT?Object.keys(KBPH.tt.b).length:0}개</b> 브랜드를 더한 값 · <b>비상장 포함</b> · 위 버튼과 무관 (마우스 = 브랜드 목록)<br>
+    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBV().b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBV().tt.b).map(k=>(KBV().b[k]||{}).ko||k).join(" · "):""))}">아마존 미국 <b>${Object.keys(KBPH.b).length}개</b> · 틱톡샵 미국 공식 샵 <b>${CT?Object.keys(KBV().tt.b).length:0}개</b> 브랜드를 더한 값 · <b>비상장 포함</b> · 위 버튼과 무관 (마우스 = 브랜드 목록)<br>
       K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 배지 하한이라 실제보다 작게 잡힌다</div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:10px"><div class="chart-box"><div class="asd-h">합계 · 아마존 판매량 · 같은 달 3개년<span class="sub">Keepa · 판매량(배지 하한) · % = YoY</span></div><div id="cpKA"></div></div>
-      ${CT?`<div class="chart-box"><div class="asd-h">합계 · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBPH.tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpKT"></div></div>`:""}</div></div>
+      ${CT?`<div class="chart-box"><div class="asd-h">합계 · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpKT"></div></div>`:""}</div></div>
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">점선 = 합계 증감 → 막대가 점선 위면 비중↑ · 금색 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
@@ -11148,7 +11183,7 @@ function renderCosPhase(){
       갱신 — 아마존 Keepa 월 1회(<code>kbeauty/phase_keepa.js</code>) · 틱톡샵 주 1회(<code>kbeauty/fastmoss.js</code> → <code>kbeauty/data/phase/fm/</code>) → <code>kbeauty/phase.py</code>.</div></details>`;
 
   // 고른 브랜드 월별 판매량 · 비중 쌓기 · 증가율
-  const nm=k=>(KBPH.b[k]||{}).ko||k;
+  const nm=k=>(KBV().b[k]||{}).ko||k;
   if(R){ const n0=Math.max(0,CA.L-14), a3=CA.win(R.k,3);
     cosShareChart(document.getElementById("cpSA"),{lab:CA.M.map(m=>m.slice(2).replace("-",".")), s:CA.sh[R.k], n0, L:CA.L, part:CA.L<CA.M.length-1, unit:"월",
       segs:[{a:CA.L-14-n0,b:CA.L-12-n0,v:a3.sp,lab:Y3.prev},{a:CA.L-2-n0,b:CA.L-n0,v:a3.sc,lab:Y3.cur}]});
@@ -11157,14 +11192,14 @@ function renderCosPhase(){
       cosShareChart(document.getElementById("cpST"),{lab:Wk.map(d=>d.slice(5).replace("-","/")), s:CT.shW[R.k], n0:0, L:Wk.length-1, part:false, unit:"주",
         segs:[{a:pa,b:pb,v:t3.sp,lab:L3.prev},{a:ca,b:cb,v:t3.sc,lab:L3.cur}]}); }
     else if(document.getElementById("cpST")) document.getElementById("cpST").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
-  if(R){ const Ab=KBPH.b[R.k]; cosYoYBars(document.getElementById("cpA"),{months:CA.M, u:Ab.u, partial:KBPH.partial, asOf:KBPH.asOf});
-    const T=KBPH.tt, Tb=CT&&T.b[R.k];
+  if(R){ const Ab=KBV().b[R.k]; cosYoYBars(document.getElementById("cpA"),{months:CA.M, u:Ab.u, partial:KBV().partial, asOf:KBV().asOf});
+    const T=KBV().tt, Tb=CT&&T.b[R.k];
     if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:Tb.mu, v:Tb.mv, pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), note:`${(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:""}`});
     else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
   // K뷰티 전체(바구니) 판매량 — 아마존 같은 달 3개년 · 틱톡샵 월별
-  { const ks=Object.keys(KBPH.b), uA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+(KBPH.b[k].u[j]||0),0));
-    cosYoYBars(document.getElementById("cpKA"),{col:"var(--accent2)", months:CA.M, u:uA, partial:KBPH.partial, asOf:KBPH.asOf});
-    const T=KBPH.tt; if(CT&&T.months&&document.getElementById("cpKT")){ const kt=Object.keys(T.b), sm=f=>T.months.map((_,j)=>kt.reduce((t,k)=>t+((T.b[k][f]||[])[j]||0),0));
+  { const ks=Object.keys(KBV().b), uA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+(KBV().b[k].u[j]||0),0));
+    cosYoYBars(document.getElementById("cpKA"),{col:"var(--accent2)", months:CA.M, u:uA, partial:KBV().partial, asOf:KBV().asOf});
+    const T=KBV().tt; if(CT&&T.months&&document.getElementById("cpKT")){ const kt=Object.keys(T.b), sm=f=>T.months.map((_,j)=>kt.reduce((t,k)=>t+((T.b[k][f]||[])[j]||0),0));
       cosMonthBars(document.getElementById("cpKT"),{col:"var(--accent2)", labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:sm("mu"), v:sm("mv"), pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), note:`${(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:""}`}); } }
   const stackRows=(keys,shOf,last)=>{ const top=keys.slice().sort((a,b)=>shOf(b,last)-shOf(a,last)).slice(0,7); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
     const rows=top.map((k,i)=>({name:nm(k), col:AMZT_PAL[i%AMZT_PAL.length], sel:k===cosSel, k}));
@@ -11175,7 +11210,7 @@ function renderCosPhase(){
     rows.push({name:"그 밖", col:"color-mix(in srgb, var(--muted) 35%, var(--panel))", v:idx.map(j=>1-top.reduce((t,k)=>t+CA.sh[k][j],0))});
     cosStack(document.getElementById("cpStA"),{labs:idx.map(j=>CA.M[j].slice(2).replace("-",".")), full:idx.map(j=>`${CA.M[j].slice(0,4)}년 ${+CA.M[j].slice(5)}월`), rows:rows.slice().reverse().reverse(), pi:CA.L<CA.M.length-1?idx.length-1:-1,
       note:`${Object.keys(KBPH.b).length}개 브랜드 · 위에서부터 비중 큰 순(마지막 완결 달 기준)`}); }
-  if(document.getElementById("cpStT")&&CT&&KBPH.tt.months){ const T=KBPH.tt, keys=Object.keys(T.b), tot=T.months.map((_,j)=>keys.reduce((t,k)=>t+(T.b[k].mu[j]||0),0));
+  if(document.getElementById("cpStT")&&CT&&KBV().tt.months){ const T=KBV().tt, keys=Object.keys(T.b), tot=T.months.map((_,j)=>keys.reduce((t,k)=>t+(T.b[k].mu[j]||0),0));
     const sh=k=>T.months.map((_,j)=>tot[j]?(T.b[k].mu[j]||0)/tot[j]:0), S={}; keys.forEach(k=>{ S[k]=sh(k); });
     const pi=T.months.indexOf(T.partial), last=pi===T.months.length-1?T.months.length-2:T.months.length-1;
     const {top,rows}=stackRows(keys,(k,j)=>S[k][j],last);
@@ -11203,7 +11238,7 @@ function renderCosPhase(){
     svgEl.classList.toggle("cp-hl",!!p);
     svgEl.querySelectorAll("#cpDots circle").forEach(c=>c.classList.toggle("on",c.dataset.k===k));
     svgEl.querySelectorAll("#cpLabs text").forEach(t=>t.classList.toggle("on",t.dataset.lk===k));
-    if(!p){ info.innerHTML=cosPin&&!byK[cosPin]?`<span class="g">고정한 <b>${attr((KBPH.b[cosPin]||{}).ko||cosPin)}</b>는 이 보기에 점이 없다(채널 자료 없음) · 다른 보기로 가면 다시 강조된다</span>`:`<span class="g">점에 커서를 올리면 그 브랜드가 지나온 자리가 꼬리로 보인다 · 누르면 그 브랜드를 고정(보기를 바꿔도 유지) · 다시 누르면 풀림</span>`; return; }
+    if(!p){ info.innerHTML=cosPin&&!byK[cosPin]?`<span class="g">고정한 <b>${attr((KBV().b[cosPin]||{}).ko||cosPin)}</b>는 이 보기에 점이 없다(채널 자료 없음) · 다른 보기로 가면 다시 강조된다</span>`:`<span class="g">점에 커서를 올리면 그 브랜드가 지나온 자리가 꼬리로 보인다 · 누르면 그 브랜드를 고정(보기를 바꿔도 유지) · 다시 누르면 풀림</span>`; return; }
     const T=p.T.slice(0,-1).concat([{x:p.x,y:p.y,lab:"지금"}]);   // 꼬리 끝 = 지금 자리(점)
     let h="";
     if(T.length>1){ h+=`<polyline points="${T.map(z=>sx(z.x).toFixed(1)+","+sy(z.y).toFixed(1)).join(" ")}" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-opacity="0.75" stroke-linejoin="round"/>`;
@@ -11226,6 +11261,14 @@ function renderCosPhase(){
   box.querySelectorAll("[data-cpm]").forEach(b=>b.addEventListener("click",()=>{ cosMode=b.dataset.cpm; cosSv("cosMode",cosMode); renderCosPhase(); }));
   box.querySelectorAll("[data-cpw]").forEach(b=>b.addEventListener("click",()=>{ kbPhW=+b.dataset.cpw; cosSv("kbPhW",kbPhW); renderCosPhase(); }));
   box.querySelectorAll("[data-cpu]").forEach(b=>b.addEventListener("click",()=>{ cosSv("cosUnl",b.dataset.cpu); renderCosPhase(); }));
+  box.querySelectorAll("[data-cpg]").forEach(b=>b.addEventListener("click",()=>{ const g=COS_GRP.find(x=>x.id===b.dataset.cpg); if(!g) return;
+    cosGrp[g.id]=!cosGrp[g.id]; cosSv("cosGrp_"+g.id,cosGrp[g.id]?"1":"0"); KBV.c=null;
+    const mem=cosGrpMem(g), big=mem.slice().sort((x,y)=>kbPhSum(KBPH.b[y].u,0,KBPH.months.length-1)-kbPhSum(KBPH.b[x].u,0,KBPH.months.length-1))[0];
+    // 고른·고정한 브랜드가 멤버였으면 합으로 · 풀면 합 → 멤버 중 가장 큰 브랜드로 · 켤 때 고정이 없으면 합을 고른다
+    const to=k=>cosGrp[g.id]?(mem.includes(k)?g.k:k):(k===g.k?big:k);
+    cosSel=to(cosSel); if(cosPin){ cosPin=to(cosPin); cosSv("cosPin",cosPin); }
+    if(cosGrp[g.id]&&!cosPin) cosSel=g.k;
+    cosSv("cosSel",cosSel); renderCosPhase(); }));
   const go=box.querySelector("[data-cosgo]"); if(go) go.addEventListener("click",()=>{ cosSetTab("brand"); amzBrPick(go.dataset.cosgo); });
 }
 

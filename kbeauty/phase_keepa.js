@@ -8,10 +8,10 @@
    2) KBPH.dump() → 본문 맨 앞 <article id="__dump"> 에 브랜드 × 월 집계 JSON 을 띄운다 → get_page_text 로 읽어
       kbeauty/data/phase/<날짜>.json 에 저장(형식은 2026-10-20.json) → python3 kbeauty/phase.py
    ⚠ javascript_tool 반환은 1천 자 남짓에서 잘리고 '= & ? ;' 가 든 반환은 가려진다 — 덤프는 꼭 get_page_text 로.
-   ⚠ CLIO 는 동명 식품 브랜드(요거트바)가 섞인다 — 브랜드 목록에서 뺐다. 이름이 겹치는 브랜드를 새로 넣으면 cat(salesRankReference)로 거를 것.
+   ⚠ CLIO 는 동명 브랜드(요거트바·낚싯대 거치대·방수포 집게·샤워 발판)가 섞이고 카테고리(salesRankReference)로도 안 갈린다 — 제목이 'CLIO'로 시작하는 화장품만 남긴다(2026-10-21 · 110개 중 17개).
    ⚠ 행의 monthlySoldHistory 는 '바뀐 날만' 찍힌 계단 이력이다(마지막 값이 오늘까지 이어진다). historicalSalesRankAverages 는 36칸 순환 버퍼
      (인덱스 20 = 이번 달) — 화면에선 '최고 순위'를 안 쓰므로(CLAUDE.md) 지금은 집계하지 않는다. */
-var BRANDS=["abib","anua","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics"];
+var BRANDS=["abib","anua","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics"];
 var KBPH_QUERY={f:{productType:{values:["0"],filterType:"set"},brand:{filterType:"autocomplete",filter:BRANDS.join("###"),type:"isOneOf"},monthlySoldPeak:{filterType:"number",type:"greaterThanOrEqual",filter:50,filterTo:null}},s:[{colId:"monthlySold",sort:"desc"}],t:"g"};
 window.KBPH=window.KBPH||{};
 (function(K){
@@ -31,7 +31,7 @@ window.KBPH=window.KBPH||{};
     for(let j=35;j>=0;j--){ const d=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth()-j,1)); months.push([d.getTime(),Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)]); ML.push(d.toISOString().slice(0,7)); }
     const ms=h=>{ const pts=[]; for(let i=0;i<h.length;i+=2) pts.push([KM(h[i]),h[i+1]]);
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; let a=0; for(let i=0;i<pts.length;i++){ const x=Math.max(pts[i][0],s), y=Math.min(i+1<pts.length?pts[i+1][0]:now,e); if(y>x) a+=(y-x)*Math.max(pts[i][1],0); } return Math.round(a/(e-s)); }); };
-    const B={}, rows=Object.values(K.rows).filter(r=>!(r.b==='clio'&&r.cat!=3760911));
+    const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.m=ms(r.msh); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } });
     rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
       const f=r.first?((new Date(r.first).getUTCFullYear()*12+new Date(r.first).getUTCMonth())-(new Date(months[0][0]).getUTCFullYear()*12+new Date(months[0][0]).getUTCMonth())):99;
