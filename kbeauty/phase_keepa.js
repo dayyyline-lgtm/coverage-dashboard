@@ -20,12 +20,22 @@ window.KBPH=window.KBPH||{};
   K.rows={}; K.done=false; K.log=[];
   K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
     K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':b)((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
-      bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],cat:d.salesRankReference||0}; }); };
+      bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0}; }); };
+  // 가격(센트) — 바이박스 → 신품 최저 → 아마존가 · 30·90·180·365일 평균을 구간으로 풀어 달 나이에 맞춘다(kbeauty/keepa.js 와 같은 식 · 2026-10-21 금액 환산)
+  K.prices=function(st){ const w=k=>{ if(!st||!st[k]) return -1; for(const i of [18,1,0]){ const v=st[k][i]; if(v>0) return v; } return -1; };
+    const p30=w('avg30'),p90=w('avg90'),p180=w('avg180'),p365=w('avg365'),cur=w('current'), ok=(x,r)=>x>0&&r>0&&x<r*3&&x>r/3, a=p30>0?p30:cur;
+    let s2=(p90>0&&p30>0)?(90*p90-30*p30)/60:p90; if(!ok(s2,p90)) s2=p90>0?p90:a;
+    let s3=(p180>0&&p90>0)?(180*p180-90*p90)/90:p180; if(!ok(s3,p180)) s3=p180>0?p180:s2;
+    let s4=(p365>0&&p180>0)?(365*p365-180*p180)/185:p365; if(!ok(s4,p365)) s4=p365>0?p365:s3;
+    return [a,s2,s3,s4]; };
   K.run=function(){ (async()=>{ const sl=ms=>new Promise(r=>setTimeout(r,ms)); K.collect(); const tp=api().paginationGetTotalPages();
     for(let p=1;p<tp;p++){ const b=Object.keys(K.rows).length; api().paginationGoToPage(p);
       for(let w=0;w<40;w++){ await sl(500); K.collect(); if(Object.keys(K.rows).length>b+60) break; }
       await sl(1000); K.collect(); K.log.push(p+':'+Object.keys(K.rows).length); }
     K.done=true; })(); return 'started'; };
+  // 그달 가격(센트) — 달 가운데가 오늘에서 며칠 전인가로 구간을 고른다 · 1년 넘은 달은 185~365일 전 평균(그 앞 가격 이력은 Finder 행에 없다) · 가격을 모르면 0
+  K.px=function(r,j,months){ const p=r.pr||[]; if(!(p[0]>0)) return 0; const age=(Date.now()-(months[j][0]+14*86400000))/86400000;
+    const v=j===35||age<=45?p[0]:age<=105?p[1]:age<=195?p[2]:p[3]; return v>0?v:p[0]; };
   K.status=()=>JSON.stringify({n:Object.keys(K.rows).length,done:K.done,last:K.log.slice(-2)});
   K.dump=function(){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];
@@ -34,13 +44,13 @@ window.KBPH=window.KBPH||{};
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; let a=0; for(let i=0;i<pts.length;i++){ const x=Math.max(pts[i][0],s), y=Math.min(i+1<pts.length?pts[i+1][0]:now,e); if(y>x) a+=(y-x)*Math.max(pts[i][1],0); } return Math.round(a/(e-s)); }); };
     const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.m=ms(r.msh); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } });
-    rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
+    rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),up:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
       const f=r.first?((new Date(r.first).getUTCFullYear()*12+new Date(r.first).getUTCMonth())-(new Date(months[0][0]).getUTCFullYear()*12+new Date(months[0][0]).getUTCMonth())):99;
-      for(let j=0;j<36;j++){ const u=r.m[j]; o.u[j]+=u; if(u>=1000) o.n1k[j]++; if(f<=j&&f>=j-11) o.nw[j]+=u; }
+      for(let j=0;j<36;j++){ const u=r.m[j]; o.u[j]+=u; const px=K.px(r,j,months); o.v[j]+=u*px; if(px>0) o.up[j]+=u; if(u>=1000) o.n1k[j]++; if(f<=j&&f>=j-11) o.nw[j]+=u; }
       const w=r.m[33]+r.m[34]; if(r.bb[0]>0&&r.bb[2]>0){ o.pw[0]+=w*r.bb[0]; o.pw[1]+=w*r.bb[2]; }
       const q=r.m[32]+r.m[33]+r.m[34]; if(!o.top||q>o.top.q) o.top={asin:r.a,t:r.t.slice(0,42),u:r.m[34],q}; });
     const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],b:{}};
-    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null}; }
+    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null}; }
     let el=document.getElementById('__dump'); if(!el){ el=document.createElement('article'); el.id='__dump'; el.style.cssText='position:fixed;top:0;left:0;width:10px;height:10px;overflow:hidden;opacity:0.01;z-index:-1'; document.body.appendChild(el); }
     el.textContent='DUMPSTART'+JSON.stringify(out)+'DUMPEND'; return el.textContent.length; };
 })(window.KBPH);

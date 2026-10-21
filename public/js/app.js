@@ -10969,7 +10969,7 @@ function KBV(){
   const merge=(src,ks,key,mk)=>{ const o={}; let put=false; Object.keys(src).forEach(k=>{ if(!ks.includes(k)){ o[k]=src[k]; return; } if(!put){ o[key]=mk(); put=true; } }); return o; };
   let b=P.b, tb=P.tt&&P.tt.b?P.tt.b:null;
   on.forEach(g=>{ const mem=cosGrpMem(g).filter(k=>k in b); if(mem.length<2) return;   // 앞 모아보기가 이미 가져간 멤버는 빼고(겹쳐 두 번 더하지 않게)
-    b=merge(b, mem, g.k, ()=>({ko:g.k, co:g.co, sup:"", mem, grp:g.id, u:add(mem.map(k=>P.b[k].u))}));
+    b=merge(b, mem, g.k, ()=>({ko:g.k, co:g.co, sup:"", mem, grp:g.id, u:add(mem.map(k=>P.b[k].u)), v:mem.every(k=>P.b[k].v)?add(mem.map(k=>P.b[k].v)):undefined}));
     if(tb){ const tm=mem.filter(k=>tb[k]);
       if(tm.length) tb=merge(tb, tm, g.k, ()=>{ const B=tm.map(k=>P.tt.b[k]);
         return {n:[].concat(...B.map(x=>x.n||[])), u:add(B.map(x=>x.u)), v:add(B.map(x=>x.v)), mu:add(B.map(x=>x.mu)), mv:add(B.map(x=>x.mv)), fx:B.reduce((t,x)=>t+(+x.fx||0),0), mem:tm}; }); } });
@@ -11177,6 +11177,11 @@ function renderCosPhase(){
     ${CT?`<div class="sub-h" style="margin-top:18px">아마존 + 틱톡샵 합산 · 월별 · 전 브랜드 <span class="th-sub" style="display:inline">두 채널 판매량을 브랜드마다 더해 쌓았다 · 틱톡샵 자료가 있는 ${KBV().tt.start.slice(5).replace("-","/")}~ 만 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="cp-bar" style="margin-top:6px"><div class="seg">${[["abs","판매량"],["sh","비중"]].map(([v,t])=>`<button data-cpc="${v}" class="${cosCmb===v?"active":""}">${t}</button>`).join("")}</div></div>
     <div class="chart-box" style="margin-top:6px"><div id="cpCAll"></div></div>`:""}
+    ${cosQuarterVal()?`<div class="sub-h" style="margin-top:18px">분기 판매액 · 금액 환산 <span class="th-sub" style="display:inline">판매량 × 그달 가격 · 미국 · 원화는 그달 평균 환율 · 표를 누르면 위에서 그 브랜드</span></div>
+    <div class="cp-bar" style="margin-top:6px"><div class="seg">${(CT?[["sum","합산"],["amz","아마존"],["tt","틱톡샵"]]:[["amz","아마존"]]).map(([v,t])=>`<button data-cqc="${v}" class="${cosQC===v?"active":""}">${t}</button>`).join("")}</div>
+      <div class="seg">${[["krw","억원"],["usd","$M"]].map(([v,t])=>`<button data-cqu="${v}" class="${cosQU===v?"active":""}">${t}</button>`).join("")}</div></div>
+    <div class="chart-box" style="margin-top:6px"><div id="cpQV"></div></div>
+    <div id="cpQT" style="margin-top:8px"></div>`:""}
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">점선 = 합계 증감 → 막대가 점선 위면 비중↑ · 금색 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
@@ -11248,6 +11253,50 @@ function renderCosPhase(){
       note:`${keys.length}개 브랜드 · 두 채널 합친 판매량 중 비중 · ${CB.note}`});
     else cosStackAbs(el,{labs:CB.labs, full:CB.full, pi:CB.pi, E:CB.E, rows, chan:CB, note:`${keys.length}개 브랜드 · 위에서부터 마지막 완결 달 큰 순 · ${CB.note}`}); }
   box.querySelectorAll("[data-cpc]").forEach(b=>b.addEventListener("click",()=>{ cosCmb=b.dataset.cpc; cosSv("cosCmb",cosCmb); renderCosPhase(); }));
+  // 분기 판매액(금액 환산) — 쌓기 막대 + 브랜드 × 분기 표
+  const QV=cosQuarterVal();
+  if(QV&&document.getElementById("cpQV")){
+    const ch=CT?cosQC:"amz", usd=cosQU==="usd", AA=usd?QV.AU:QV.A, TA=usd?QV.TU:QV.T;
+    const tFrom=QV.tFirst?QV.Q.indexOf(QV.tFirst):QV.Q.length;
+    const qi=ch==="tt"?QV.Q.map((q,i)=>i).filter(i=>i>=tFrom):QV.Q.map((q,i)=>i);   // 틱톡샵 보기는 틱톡샵이 있는 분기만
+    const val=(k,i)=>{ const a=(AA[k]||[])[i]||0, t=TA[k]?TA[k][i]:null; return ch==="amz"?a:ch==="tt"?(t||0):a+(t||0); };
+    const valP=k=>{ const a=(AA[k]||{}).p||0, t=TA[k]?TA[k].p||0:0; return ch==="amz"?a:ch==="tt"?t:a+t; };
+    const F=usd?(v=>v==null?"—":"$"+(v>=100?Math.round(v).toLocaleString("en-US"):v>=10?v.toFixed(1):v.toFixed(2))+"M"):(v=>v==null?"—":(v>=100?Math.round(v).toLocaleString("ko-KR"):v>=10?v.toFixed(1):v.toFixed(2))+"억");
+    const keys=QV.keys.filter(k=>{ const r=B[k]; return !r||keep(r); }), li=qi[qi.length-1];
+    const top=keys.slice().sort((a,b)=>val(b,li)-val(a,li)).slice(0,9); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
+    const labs=qi.map(i=>QV.Q[i]), totQ=qi.map(i=>QV.keys.reduce((t,k)=>t+val(k,i),0));
+    const rows=top.map((k,j)=>({name:nm(k), col:AMZT_PAL[j%AMZT_PAL.length], sel:k===cosSel, k, v:qi.map(i=>val(k,i)),
+      a:ch==="sum"?qi.map(i=>(AA[k]||[])[i]||0):null, t:ch==="sum"?qi.map(i=>TA[k]?TA[k][i]||0:0):null}));
+    rows.push({name:"그 밖", col:"color-mix(in srgb, var(--muted) 35%, var(--panel))", v:qi.map((i,j)=>totQ[j]-top.reduce((t,k)=>t+val(k,i),0))});
+    const chan=ch==="sum"?{A:Object.fromEntries(QV.keys.map(k=>[k,qi.map(i=>(AA[k]||[])[i]||0)])), T:Object.fromEntries(QV.keys.map(k=>[k,qi.map(i=>TA[k]?TA[k][i]||0:0)]))}:null;
+    const tNote=ch!=="amz"&&QV.tEst?`${QV.tEst} 틱톡샵은 4월 앞부분 추정`:"", aNote=ch==="sum"&&tFrom>0?`${QV.Q[tFrom]} 앞은 아마존만(틱톡샵 자료 ${KBV().tt.start.slice(5).replace("-","/")}~)`:"";
+    const brk={}; if(ch==="sum"&&tFrom>0&&qi.includes(tFrom)) brk[qi.indexOf(tFrom)]="+틱톡샵";
+    cosStackAbs(document.getElementById("cpQV"),{labs, full:labs, pi:-1, rows, chan, fmt:F, unit:"", pctLab:"합계 QoQ", brk,
+      note:[`${QV.keys.length}개 브랜드 · 위에서부터 ${QV.Q[li]} 큰 순`, aNote, tNote, "아마존은 판매량이 배지 하한이라 금액도 하한 쪽"].filter(Boolean).join(" · ")});
+    // 표 — 최근 6분기 + 진행 분기 + QoQ · YoY(합산은 아마존끼리) · 틱톡 몫
+    const show=qi.slice(-6), pl=QV.pmon.map(m=>+m.slice(5)+"월").join("·");
+    const gq=(a,b)=>a>0&&b>0?a/b-1:null, pc=v=>v==null?`<td class="g">—</td>`:`<td style="color:${v>=0?"var(--up)":"var(--down)"}">${v>=0?"+":""}${Math.round(v*100)}%</td>`;
+    const yoyOf=k=>{ const i=li, j=li-4; if(j<0) return null; return ch==="tt"?null:gq((AA[k]||[])[i]||0,(AA[k]||[])[j]||0); };
+    const list=keys.filter(k=>val(k,li)>0||valP(k)>0).sort((a,b)=>val(b,li)-val(a,li));
+    const totRow=k=>({v:i=>QV.keys.reduce((t,x)=>t+val(x,i),0), p:QV.keys.reduce((t,x)=>t+valP(x),0),
+      y:ch==="tt"||li<4?null:gq(QV.keys.reduce((t,x)=>t+((AA[x]||[])[li]||0),0),QV.keys.reduce((t,x)=>t+((AA[x]||[])[li-4]||0),0)),
+      tf:ch==="sum"?QV.keys.reduce((t,x)=>t+(TA[x]?TA[x][li]||0:0),0)/(QV.keys.reduce((t,x)=>t+val(x,li),0)||1):null});
+    const T0=totRow();
+    const tr=(name,co,vf,p,y,tf,k)=>`<tr${k?` data-k="${attr(k)}" style="cursor:pointer${k===cosSel?";background:color-mix(in srgb, var(--accent) 16%, transparent)":""}"`:` style="font-weight:700"`}><td class="l">${name}</td><td class="l g">${co}</td>`
+      +show.map(i=>`<td${ch==="sum"&&i<tFrom?' class="g"':""}>${F(vf(i))}</td>`).join("")
+      +pc(gq(vf(li),vf(li-1)))+pc(y)+(ch==="sum"?`<td class="g">${tf==null?"—":Math.round(tf*100)+"%"}</td>`:"")+`<td class="g" style="font-style:italic">${F(p)}</td></tr>`;
+    document.getElementById("cpQT").innerHTML=`<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l">브랜드</th><th class="l">상장사</th>
+      ${show.map(i=>`<th${ch==="sum"&&i<tFrom?' title="아마존만(틱톡샵 자료 전)"':""}>${QV.Q[i]}${ch==="sum"&&i<tFrom?"<sup>A</sup>":""}</th>`).join("")}
+      <th title="${QV.Q[li]} vs ${QV.Q[li-1]||""}">QoQ</th><th title="${QV.Q[li]} vs ${QV.Q[li-4]||""}${ch==="sum"?" · 아마존끼리(틱톡샵은 전년 자료가 없다)":""}">YoY${ch==="sum"?"(아마존)":""}</th>
+      ${ch==="sum"?`<th title="${QV.Q[li]} 합산 중 틱톡샵 몫">틱톡 몫</th>`:""}<th title="진행 중인 분기 — ${pl}만(한 달치 · 분기 합계 아님)">${QV.pq} 진행<br><span class="g" style="font-weight:400">${pl}만</span></th></tr></thead><tbody>`
+      +tr("추적 바구니 합계","",T0.v,T0.p,T0.y,T0.tf,null)
+      +list.map(k=>{ const r=B[k]||{}; const tfk=ch==="sum"&&val(k,li)>0?(TA[k]?TA[k][li]||0:0)/val(k,li):null;
+        return tr(attr(nm(k)), attr(r.co||(r.sup?r.sup+" ODM":"비상장")), i=>val(k,i), valP(k), yoyOf(k), tfk, k); }).join("")
+      +`</tbody></table></div><p class="note" style="margin:4px 0 0">${usd?"$M = 백만 달러":"억원 = 그달 ECB 평균 환율로 바꿔 석 달을 더한 값"} · 아마존 = Keepa 월 판매량(배지 하한) × 그달 가격(바이박스 → 신품 최저가 · 30·90·180·365일 평균을 달 나이에 맞춤 — 1년 넘은 달은 185~365일 전 평균가라 YoY 의 가격 효과는 근사) · 틱톡샵 = FastMoss 일별 판매액(공식 샵 · 단가 오류 고침) · 진행 칸은 한 달치라 분기와 견주지 말 것 · ${tNote||""}</p>`;
+    box.querySelectorAll("#cpQT [data-k]").forEach(el=>el.addEventListener("click",()=>cosPick(el.dataset.k)));
+  }
+  box.querySelectorAll("[data-cqc]").forEach(b=>b.addEventListener("click",()=>{ cosQC=b.dataset.cqc; cosSv("cosQC",cosQC); renderCosPhase(); }));
+  box.querySelectorAll("[data-cqu]").forEach(b=>b.addEventListener("click",()=>{ cosQU=b.dataset.cqu; cosSv("cosQU",cosQU); renderCosPhase(); }));
 
   // 증가율 2×2 — 잣대 통일(2026-10-21): 아마존·틱톡샵 × 3개월·1개월, 전부 '바로 앞 같은 길이' 대비 판매량 증감.
   //   점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 비중이 늘었다(지도와 같은 판정). 판매가 끊긴 샵(하루하루원더)의 −100% 는 뺀다.
@@ -11426,6 +11475,8 @@ function cosMonthBars(el, o){
 }
 // 아마존 + 틱톡샵 합산 재료 — 틱톡샵 달(T.months)에 맞춘다. A·T·S = 브랜드별 아마존·틱톡샵·합계(진행 달은 틱톡샵만 일할 환산).
 let cosCmb=(()=>{ try{ return localStorage.getItem("cosCmb")||"abs"; }catch(e){ return "abs"; } })();
+let cosQC=(()=>{ try{ return localStorage.getItem("cosQC")||"sum"; }catch(e){ return "sum"; } })();   // 분기 판매액 채널(합산·아마존·틱톡샵)
+let cosQU=(()=>{ try{ return localStorage.getItem("cosQU")||"krw"; }catch(e){ return "krw"; } })();   // 분기 판매액 단위(억원·$M)
 // 합산 비중·판매 증감 — 아마존+틱톡샵 판매량(cosComb)으로 kbPhChan 의 win 과 같은 꼴(y = 비중 변화 × 100, g = 판매 증감)
 function cosSumStat(k){
   const C=cosComb(); if(!C||!C.S[k]) return null;
@@ -11452,34 +11503,60 @@ function cosComb(){
     "아마존은 배지 하한 · 틱톡샵은 주문 수량이라 정의가 조금 다르다"].filter(Boolean).join(" · ");
   return {M, labs:M.map(m=>`${+m.slice(5)}월`), full:M.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), pi, E, A, T:TT, S, note};
 }
+// 분기 판매액 — 금액 환산(2026-10-21 사용자 "판매량 말고 금액으로도 · 분기별로 활용할 수 있게").
+//   아마존 = Keepa 월 판매량 × 그달 가격(바이박스 → 신품 최저 → 아마존가의 30·90·180·365일 평균을 달 나이에 맞춘 값 · phase_keepa.js) — 달러.
+//   틱톡샵 = FastMoss 일별 판매액(단가 오류 고침)을 달로 묶은 mv — 달러. 원화는 그달 ECB 월평균(kbFx).
+//   분기 = 석 달이 다 있는 분기만. 진행 중인 분기는 '진행' 한 칸으로 따로(아마존 = 최근 30일 배지 · 틱톡샵 = 관측일 일할 환산 → 그달 한 달치).
+function cosQuarterVal(){
+  const V=KBV(), T=V.tt&&V.tt.months?V.tt:null;
+  if(!V||!V.b||!Object.values(V.b).some(b=>b.v)) return null;
+  const qOf=m=>`${Math.floor((+m.slice(5)-1)/3)+1}Q${m.slice(2,4)}`, M=V.months, last=M[M.length-1];
+  const fx=m=>kbFx("USD",m)||1400, E=T?cosProRate(T.partial,T.end):null;
+  const Q=[]; const qm={};
+  M.forEach(m=>{ const q=qOf(m); (qm[q]=qm[q]||[]).push(m); if(!Q.includes(q)) Q.push(q); });
+  const full=Q.filter(q=>qm[q].length===3&&!qm[q].includes(last)), pq=qOf(last), pmon=qm[pq]||[];
+  const keys=[...new Set(Object.keys(V.b).concat(T?Object.keys(T.b):[]))];
+  const aM=(k,m)=>{ const b=V.b[k], i=M.indexOf(m); return b&&b.v&&i>=0?(b.v[i]||0):0; };
+  const tM=(k,m)=>{ if(!T) return 0; const b=T.b[k], i=T.months.indexOf(m); if(!b||i<0) return 0; return (b.mv[i]||0)*(m===T.partial&&E?E.f:1); };
+  const tq=q=>T&&qm[q].every(m=>T.months.includes(m));   // 틱톡샵 석 달이 다 있는 분기
+  const A={}, TT={}, AU={}, TU={};
+  keys.forEach(k=>{
+    A[k]=full.map(q=>qm[q].reduce((t,m)=>t+aM(k,m)*fx(m),0)/1e8); AU[k]=full.map(q=>qm[q].reduce((t,m)=>t+aM(k,m),0)/1e6);
+    TT[k]=full.map(q=>tq(q)?qm[q].reduce((t,m)=>t+tM(k,m)*fx(m),0)/1e8:null); TU[k]=full.map(q=>tq(q)?qm[q].reduce((t,m)=>t+tM(k,m),0)/1e6:null);
+    A[k].p=pmon.reduce((t,m)=>t+aM(k,m)*fx(m),0)/1e8; AU[k].p=pmon.reduce((t,m)=>t+aM(k,m),0)/1e6;
+    TT[k].p=T?pmon.reduce((t,m)=>t+tM(k,m)*fx(m),0)/1e8:null; TU[k].p=T?pmon.reduce((t,m)=>t+tM(k,m),0)/1e6:null; });
+  const tEst=T&&(T.mest||[]).length?qOf(T.mest[0]):"";
+  return {Q:full, pq, pmon, A, T:TT, AU, TU, keys, tFirst:full.find(q=>tq(q))||null, tEst, E, last};
+}
 // 절대값 쌓기 막대 — 위 숫자 = 합계 MoM(진행 달은 ≈ 예측 · 옅게). chan 이 있으면 툴팁에 채널 나눔.
 function cosStackAbs(el, o){
   if(!el) return;
+  const F=o.fmt||cosNum, U=o.unit==null?"개":o.unit, PL=o.pctLab||"합계 MoM";   // 금액 환산(2026-10-21)은 fmt·unit·pctLab 로 바꿔 쓴다
   const W=Math.max(320,Math.min(980,el.clientWidth||760)), nar=W<560, H=250, side=o.legend?10:(nar?8:132), p={l:46,r:side,t:22,b:28};
   const n=o.labs.length, tot=Array.from({length:n},(_,i)=>o.rows.reduce((t,r)=>t+(r.v[i]||0),0)), hi=Math.max(...tot)*1.15||1;
   const gW=(W-p.l-p.r)/n, bw=Math.min(46,gW*0.62), yOf=v=>H-p.b-v/hi*(H-p.t-p.b), cx=i=>p.l+i*gW+gW/2;
   const st=(()=>{ const r=hi/4, mg=Math.pow(10,Math.floor(Math.log10(r))); return [1,2,2.5,5,10].map(x=>x*mg).find(x=>x>=r)||r; })();
   let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
-  for(let v=0; v<=hi; v+=st) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${cosNum(v)}</text>`;
+  for(let v=0; v<=hi; v+=st) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${F(v)}</text>`;
   for(let i=0;i<n;i++){ let acc=0; const part=i===o.pi;
     o.rows.forEach(r=>{ const v=r.v[i]||0; if(v<=0) return; const y1=yOf(acc), y0=yOf(acc+v);
       g+=`<rect x="${(cx(i)-bw/2).toFixed(1)}" y="${y0.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,y1-y0).toFixed(1)}" fill="${r.col}" fill-opacity="${part?0.4:(r.sel?1:0.85)}"${r.sel?' stroke="var(--text)" stroke-width="1.2"':part?' stroke="var(--muted)" stroke-width="0.6" stroke-dasharray="3 2"':""}/>`; acc+=v; });
-    const pv=i>0?tot[i-1]:0, d=pv>0?tot[i]/pv-1:null;
-    g+=`<text x="${cx(i)}" y="${(yOf(tot[i])-5).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${d==null?"var(--muted)":d>=0?"var(--up)":"var(--down)"}">${d==null?"":`${part?"≈":""}${d>=0?"+":""}${Math.round(d*100)}%`}</text>`;
+    const pv=i>0?tot[i-1]:0, brk=o.brk&&o.brk[i], d=pv>0&&!brk?tot[i]/pv-1:null;   // brk = 그 칸부터 범위가 바뀐다(예: 틱톡샵 합류) → % 대신 글
+    g+=`<text x="${cx(i)}" y="${(yOf(tot[i])-5).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${d==null?"var(--muted)":d>=0?"var(--up)":"var(--down)"}">${brk?attr(brk):d==null?"":`${part?"≈":""}${d>=0?"+":""}${Math.round(d*100)}%`}</text>`;
     g+=`<text x="${cx(i)}" y="${H-p.b+14}" text-anchor="middle" font-size="10.5" fill="${part?"var(--muted)":"var(--muted2)"}">${o.labs[i]}${part?"*":""}</text>`; }
   if(!o.legend&&!nar){ const li=o.pi===n-1?n-2:n-1; let acc=0; const pos=[];
     o.rows.forEach(r=>{ const v=r.v[li]||0; pos.push({r, y:yOf(acc+v/2)}); acc+=v; });
     let last=-99; pos.slice().sort((a,b)=>a.y-b.y).forEach(q=>{ const y=Math.max(q.y,last+11); last=y;
-      g+=`<text x="${W-p.r+6}" y="${(y+3.5).toFixed(1)}" font-size="10.5" fill="${q.r.sel?"var(--text)":"var(--muted)"}"${q.r.sel?' font-weight="700"':""}><tspan fill="${q.r.col}">■</tspan> ${attr(q.r.name)} ${cosNum(q.r.v[li]||0)}</text>`; }); }
+      g+=`<text x="${W-p.r+6}" y="${(y+3.5).toFixed(1)}" font-size="10.5" fill="${q.r.sel?"var(--text)":"var(--muted)"}"${q.r.sel?' font-weight="700"':""}><tspan fill="${q.r.col}">■</tspan> ${attr(q.r.name)} ${F(q.r.v[li]||0)}</text>`; }); }
   g+=`</svg>`;
   el.innerHTML=g+((o.legend||nar)?`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--muted);margin-top:2px">${o.rows.slice().reverse().map(r=>`<span${r.sel?' style="color:var(--text);font-weight:700"':""}><span style="color:${r.col}">■</span> ${attr(r.name)}</span>`).join("")}</div>`:"")
-    +`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">% = 합계 MoM${o.pi>=0?" · * = 진행 중인 달(옅게 · 예측)":""}${o.note?` · ${o.note}`:""}</div>`;
-  const N=x=>Math.round(x).toLocaleString("ko-KR");
+    +`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">% = ${PL}${o.pi>=0?" · * = 진행 중인 달(옅게 · 예측)":""}${o.note?` · ${o.note}`:""}</div>`;
+  const N=o.fmt?(x=>F(x)):(x=>Math.round(x).toLocaleString("ko-KR"));
   attachChartTip(el,{W,H,pad:p,n,xOf:cx,xLab:i=>o.labs[i],pts:()=>[],
     html:i=>{ const pe=i===o.pi, C=o.chan, at=C?o.rows.reduce((t,r)=>t+(r.a?r.a[i]:0),0):0;
-      return `<div class="tt-h">${o.full[i]}${pe?" (진행 중 · 예측)":""}</div><div class="tt-r"><span class="k"><b>합계</b></span><span class="v"><b>${pe?"≈":""}${N(tot[i])}개</b>${i>0&&tot[i-1]>0?` <span style="color:${tot[i]>=tot[i-1]?"var(--up)":"var(--down)"}">${tot[i]>=tot[i-1]?"+":""}${Math.round((tot[i]/tot[i-1]-1)*100)}%</span>`:""}</span></div>`
-        +(C?(()=>{ const ta=Object.keys(C.A).reduce((t,k)=>t+C.A[k][i],0), tt=Object.keys(C.T).reduce((t,k)=>t+C.T[k][i],0); return `<div class="tt-r"><span class="k">└ 아마존 · 틱톡샵</span><span class="v">${N(ta)} · ${N(tt)} (틱톡 ${Math.round(tt/(ta+tt||1)*100)}%)</span></div>`; })():"")
-        +o.rows.slice().reverse().map(r=>`<div class="tt-r"><span class="k"><span style="color:${r.col}">■</span> ${attr(r.name)}</span><span class="v">${N(r.v[i]||0)}${r.a&&r.t?` <span class="g">(아 ${cosNum(r.a[i])} · 틱 ${cosNum(r.t[i])})</span>`:""}</span></div>`).join(""); }});
+      return `<div class="tt-h">${o.full[i]}${pe?" (진행 중 · 예측)":""}</div><div class="tt-r"><span class="k"><b>합계</b></span><span class="v"><b>${pe?"≈":""}${N(tot[i])}${U}</b>${i>0&&tot[i-1]>0?` <span style="color:${tot[i]>=tot[i-1]?"var(--up)":"var(--down)"}">${tot[i]>=tot[i-1]?"+":""}${Math.round((tot[i]/tot[i-1]-1)*100)}%</span>`:""}</span></div>`
+        +(C?(()=>{ const ta=Object.keys(C.A).reduce((t,k)=>t+C.A[k][i],0), tt=Object.keys(C.T).reduce((t,k)=>t+C.T[k][i],0); return `<div class="tt-r"><span class="k">└ 아마존 · 틱톡샵</span><span class="v">${N(ta)} · ${N(tt)}${U} (틱톡 ${Math.round(tt/(ta+tt||1)*100)}%)</span></div>`; })():"")
+        +o.rows.slice().reverse().map(r=>`<div class="tt-r"><span class="k"><span style="color:${r.col}">■</span> ${attr(r.name)}</span><span class="v">${N(r.v[i]||0)}${U}${r.a&&r.t?` <span class="g">(아 ${F(r.a[i])} · 틱 ${F(r.t[i])})</span>`:""}</span></div>`).join(""); }});
 }
 function cosStack(el, o){
   if(!el) return;
