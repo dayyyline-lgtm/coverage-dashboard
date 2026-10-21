@@ -10898,13 +10898,13 @@ function cosBoardRows(){
      x   = 아마존 × 틱톡샵 — 가로 아마존 몫 직전比(3개월) · 세로 틱톡샵 몫 직전比(8주). 네 칸 = 둘 다 늘었다 / 틱톡샵만 / 아마존만 / 둘 다 줄었다
      amz = 아마존(Keepa) 국면 — 가로 평소比(1년) · 세로 직전比 · 3개월/1개월
      tt  = 틱톡샵(FastMoss) 국면 — 가로 평소比(받은 주 전부 · 최대 52주) · 세로 직전比 · 8주(판정)/4주(조짐)
-   점에 커서(손가락) = 지나온 자리를 꼬리선으로(아마존 최근 6개월 · 틱톡샵 최근 8주를 2주 간격 · 교차는 8·9월 + 지금 — 틱톡 이력이 쌓이면 길어진다) · 나머지 점은 흐리게. 누르면 고정(cosSel).
+   점에 커서(손가락) = 지나온 자리를 꼬리선으로(아마존 최근 6개월 · 틱톡샵 최근 8주를 2주 간격 · 교차는 8·9월 + 지금 — 틱톡 이력이 쌓이면 길어진다) · 나머지 점은 흐리게 — 커서가 없으면 아무것도 강조 안 함. 누르면 아래 카드만 그 브랜드(cosSel).
    계산은 kbPhCalc / kbPhCalcTT(국면 지도) 그대로 — 꼬리 한 점 = 그 시점 기준으로 같은 식을 다시 푼 값. */
 const COS_TABS=[["phase","국면"],["top","아마존 Top100"],["brand","브랜드별 상세"],["sub","미국 세부 카테고리"],["raw","원자료"]];
 const COS_X=[["두 채널 다 늘었다","var(--good)"],["틱톡샵만 늘었다","#6fa8dc"],["아마존만 늘었다","var(--accent)"],["두 채널 다 줄었다","var(--warn)"]];
 const cosLs=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v; }catch(e){ return d; } };
 const cosSv=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
-let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube");
+let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube"), cosTapK=null;
 function cosSetTab(t){
   if(!COS_TABS.some(x=>x[0]===t)) t="phase";
   cosTab=t; cosSv("cosTab",t);
@@ -10996,7 +10996,7 @@ function renderCosPhase(){
   svg+=`<g id="cpTrail"></g><g id="cpDots">`;
   const placed=[]; let labs="";
   vis.slice().sort((a,b)=>b.s-a.s).forEach(p=>{ const cx=sx(p.x), cy=sy(p.y), rad=rr(p.s), sel=p.r.k===cosSel;
-    svg+=`<circle data-k="${attr(p.r.k)}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad.toFixed(1)}" fill="${QC(p.q)}" fill-opacity="0.78" stroke="${sel?"var(--text)":"var(--panel)"}" stroke-width="${sel?2:1.5}" style="cursor:pointer"/>`;
+    svg+=`<circle data-k="${attr(p.r.k)}" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad.toFixed(1)}" fill="${QC(p.q)}" fill-opacity="0.78" stroke="var(--panel)" stroke-width="1.5" style="cursor:pointer"/>`;
     if(nar&&p.s<0.02&&!sel) return;
     const lft=cx+rad+3+58>W-pad.r, lx=lft?cx-rad-3:cx+rad+3, bx=lft?lx-58:lx; let ly=cy+4, n=0;
     while(placed.some(q=>Math.abs(q[0]-bx)<58&&Math.abs(q[1]-ly)<12)&&n<4){ ly+=12; n++; } placed.push([bx,ly]);
@@ -11123,7 +11123,7 @@ function renderCosPhase(){
     svgEl.classList.toggle("cp-hl",!!p);
     svgEl.querySelectorAll("#cpDots circle").forEach(c=>c.classList.toggle("on",c.dataset.k===k));
     svgEl.querySelectorAll("#cpLabs text").forEach(t=>t.classList.toggle("on",t.dataset.lk===k));
-    if(!p){ info.innerHTML=""; return; }
+    if(!p){ info.innerHTML=`<span class="g">점에 커서를 올리면 그 브랜드가 지나온 자리가 꼬리로 보인다 · 누르면 아래 카드가 그 브랜드로 바뀐다</span>`; return; }
     const T=p.T.slice(0,-1).concat([{x:p.x,y:p.y,lab:"지금"}]);   // 꼬리 끝 = 지금 자리(점)
     let h="";
     if(T.length>1){ h+=`<polyline points="${T.map(z=>sx(z.x).toFixed(1)+","+sy(z.y).toFixed(1)).join(" ")}" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-opacity="0.75" stroke-linejoin="round"/>`;
@@ -11135,10 +11135,13 @@ function renderCosPhase(){
     const qq=z=>mode==="x"?COS_X[cosXq(z.x,z.y)][0]:z.q;
     info.innerHTML=`<b>${attr(p.r.ko)}</b> <span class="g">${p.r.co?attr(p.r.co):"비상장"}</span> · <b style="color:${QC(p.q)}">${p.q}</b> · ${mode==="x"?"아마존":"평소"}比 ${p.x.toFixed(0)} · ${mode==="x"?"틱톡샵":"직전"}比 ${p.y.toFixed(0)}`
       +(p.T.length>1?` <span class="g">— 지나온 칸: ${p.T.map(z=>`${z.lab} ${qq(z).replace("성장 ","").replace(" 중","").replace(" 지속","")}`).join(" → ")}</span>`:""); };
-  show(cosSel);
+  // 커서가 없을 땐 전부 그대로(흐리게·꼬리 없음 — 2026-10-21 사용자 "손도 안 올렸는데 한 브랜드만 강조된다"). 고른 브랜드는 아래 카드만 바꾼다.
+  // 손가락으로 누른 직후(다시 그린 뒤)만 그 브랜드 꼬리를 보인다 — 휴대폰엔 호버가 없어서
+  show(cosTapK); cosTapK=null;
   svgEl.addEventListener("mouseover",e=>{ const c=e.target.closest("circle[data-k]"); if(c) show(c.dataset.k); });
-  svgEl.addEventListener("mouseleave",()=>show(cosSel));
-  const pick=k=>{ cosSel=k; cosSv("cosSel",k); renderCosPhase(); };
+  svgEl.addEventListener("mouseout",e=>{ if(e.target.closest("circle[data-k]")&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest("circle[data-k]"))) show(null); });
+  svgEl.addEventListener("mouseleave",()=>show(null));
+  const pick=k=>{ cosSel=k; cosSv("cosSel",k); cosTapK=k; renderCosPhase(); };
   box.querySelectorAll("circle[data-k], .cp-b[data-k], tr.cp-tr").forEach(el=>el.addEventListener("click",()=>pick(el.dataset.k)));
   box.querySelectorAll("[data-cpm]").forEach(b=>b.addEventListener("click",()=>{ cosMode=b.dataset.cpm; cosSv("cosMode",cosMode); renderCosPhase(); }));
   box.querySelectorAll("[data-cpw]").forEach(b=>b.addEventListener("click",()=>{ kbPhW=+b.dataset.cpw; cosSv("kbPhW",kbPhW); renderCosPhase(); }));
