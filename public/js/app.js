@@ -807,7 +807,7 @@ const NEWS_ALIAS={
   "실리콘투":["실리콘투"], "코스맥스":["코스맥스"], "제닉":["제닉"],
   "TS트릴리온":["TS트릴리온","티에스트릴리온","TS샴푸","GD샴푸"],
   "에이블씨엔씨":["에이블씨엔씨","미샤","어퓨"],
-  "동국제약":["동국제약","센텔리안24","마데카"], "브이티":["브이티","VT코스메틱","리들샷"], "엔에프씨":["엔에프씨"], "클리오":["클리오","페리페라","구달"],
+  "동국제약":["동국제약","센텔리안24","마데카"], "브이티":["브이티","VT코스메틱","리들샷"], "엔에프씨":["엔에프씨"], "클리오":["클리오","페리페라","구달"], "네오팜":["네오팜","아토팜","리얼베리어","제로이드"],
   "제이투케이바이오":["제이투케이바이오","제이투케이","J2K","J2KBIO"],
   "신세계":["신세계"], "롯데쇼핑":["롯데쇼핑","롯데백화점","롯데마트"], "현대백화점":["현대백화점"],
   "파마리서치":["파마리서치","리쥬란","콘쥬란"],
@@ -9591,7 +9591,7 @@ const SP_MODEL={"컴투스":"c2Sec","카카오게임즈":"kgSec","대원미디�
 const SP_DEEP={"대원미디어":[["boxoffice","🎬 영화 흥행 탭"]],"탑코미디어":[["toptoon","💬 탑툰챗 탭"]],
   "에이피알":[["amazon","💄 화장품 트렌드"]],"달바글로벌":[["amazon","💄 화장품 트렌드"]],"아모레퍼시픽":[["amazon","💄 화장품 트렌드"]],
   "LG생활건강":[["amazon","💄 화장품 트렌드"]],"TS트릴리온":[["amazon","💄 화장품 트렌드"]],"아로마티카":[["amazon","💄 화장품 트렌드"]],"에이블씨엔씨":[["amazon","💄 화장품 트렌드"]],
-  "동국제약":[["amazon","💄 화장품 트렌드"]],"브이티":[["amazon","💄 화장품 트렌드"]],"엔에프씨":[["amazon","💄 화장품 트렌드"]],"클리오":[["amazon","💄 화장품 트렌드"]]};
+  "동국제약":[["amazon","💄 화장품 트렌드"]],"브이티":[["amazon","💄 화장품 트렌드"]],"엔에프씨":[["amazon","💄 화장품 트렌드"]],"클리오":[["amazon","💄 화장품 트렌드"]],"네오팜":[["amazon","💄 화장품 트렌드"]]};
 const spHome={};
 function spBorrow(id, host){
   const el=document.getElementById(id); if(!el||!host) return null;
@@ -10954,6 +10954,7 @@ const COS_GRP=[
   // 2026-10-21 사용자 "아모레퍼시픽도 모으기 · 구다이글로벌도 모으기" — 아모레 = 아모레퍼시픽(090430) 브랜드만(이니스프리는 홀딩스라 빠진다)
   {id:"amore", k:"아모레퍼시픽 브랜드", co:"아모레퍼시픽", lab:"아모레퍼시픽", t:b=>b.co==="아모레퍼시픽", what:"아모레퍼시픽의"},
   //   구다이글로벌(상장 준비) — 바구니엔 조선미녀·스킨1004·라운드랩(티르티르·스킨푸드·라카는 바구니 밖). (10/21 조선미녀를 엔에프씨에서 뺀 뒤로 엔에프씨와 같이 켤 수 있다)
+  {id:"neo", k:"네오팜 브랜드", co:"네오팜", lab:"네오팜", t:b=>b.co==="네오팜", what:"네오팜의"},
   {id:"goodai", k:"구다이글로벌 브랜드", co:"구다이글로벌", lab:"구다이글로벌", t:(b,k)=>["beauty of joseon","skin1004","round lab"].includes(k), what:"구다이글로벌(상장 준비)의"}];
 let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id, g.id==="nfc"?cosLs("cosNfc","0"):"0")==="1"; }); return o; })();
 const cosGrpMem=g=>Object.keys(KBPH.b).filter(k=>g.t(KBPH.b[k],k));
@@ -11126,7 +11127,8 @@ function renderCosPhase(){
       <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 K뷰티 내 비중 · 월별<span class="sub">Keepa · ${Object.keys(KBPH.b).length}개 브랜드 판매량 중 · 점선 = ${Y3.prev} · ${Y3.cur} 평균</span></div><div id="cpSA"></div></div>
         ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 K뷰티 내 비중 · 주별<span class="sub">FastMoss · ${Object.keys(KBPH.tt.b).length}개 공식 샵 판매량 중 · 점선 = ${L3.prev} · ${L3.cur} 평균</span></div><div id="cpST"></div></div>`:""}</div>
       <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 판매량 · 같은 달 3개년<span class="sub">Keepa · 판매량(배지 하한) · % = YoY</span></div><div id="cpA"></div></div>
-        ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpT"></div></div>`:""}</div></div>`;
+        ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpT"></div></div>`:""}</div>
+      ${CT?`<div class="chart-box" style="margin-top:10px"><div class="asd-h">${attr(R.ko)} · 아마존 + 틱톡샵 합산 · 월별<span class="sub">판매량을 그대로 더함 · 위 숫자 = 합계 MoM · 마우스 = 채널별</span></div><div id="cpC"></div></div>`:""}</div>`;
   }
 
   // ── 표 ──
@@ -11169,6 +11171,9 @@ function renderCosPhase(){
       K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 배지 하한이라 실제보다 작게 잡힌다</div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:10px"><div class="chart-box"><div class="asd-h">합계 · 아마존 판매량 · 같은 달 3개년<span class="sub">Keepa · 판매량(배지 하한) · % = YoY</span></div><div id="cpKA"></div></div>
       ${CT?`<div class="chart-box"><div class="asd-h">합계 · 틱톡샵 판매량 · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpKT"></div></div>`:""}</div></div>
+    ${CT?`<div class="sub-h" style="margin-top:18px">아마존 + 틱톡샵 합산 · 월별 · 전 브랜드 <span class="th-sub" style="display:inline">두 채널 판매량을 브랜드마다 더해 쌓았다 · 틱톡샵 자료가 있는 ${KBV().tt.start.slice(5).replace("-","/")}~ 만 · 굵은 테두리 = 고른 브랜드</span></div>
+    <div class="cp-bar" style="margin-top:6px"><div class="seg">${[["abs","판매량"],["sh","비중"]].map(([v,t])=>`<button data-cpc="${v}" class="${cosCmb===v?"active":""}">${t}</button>`).join("")}</div></div>
+    <div class="chart-box" style="margin-top:6px"><div id="cpCAll"></div></div>`:""}
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">점선 = 합계 증감 → 막대가 점선 위면 비중↑ · 금색 = 고른 브랜드 · 굵은 이름 = 상장사</span></div>
@@ -11223,6 +11228,24 @@ function renderCosPhase(){
     rows.push({name:"그 밖", col:"color-mix(in srgb, var(--muted) 35%, var(--panel))", v:T.months.map((_,j)=>1-top.reduce((t,k)=>t+S[k][j],0))});
     cosStack(document.getElementById("cpStT"),{labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), rows, pi,
       note:`${keys.length}개 공식 샵 · 메디큐브가 절반 넘게 가져간다`}); }
+  // 아마존 + 틱톡샵 합산(2026-10-21 사용자 "모든 애들 아마존이랑 틱톡샵 합친 그래프 · 월단위로 짧게") — 틱톡샵 달(4/24~)만.
+  //   아마존 진행 달은 배지 30일 평균이라 이미 월치 · 틱톡샵 진행 달은 일할 환산 → 합친 진행 달은 예측(옅게). 4월 틱톡샵은 앞부분 추정.
+  const CB=CT?cosComb():null;
+  if(CB&&R&&document.getElementById("cpC")){ const k=R.k;
+    cosStackAbs(document.getElementById("cpC"),{labs:CB.labs, full:CB.full, pi:CB.pi, E:CB.E, note:CB.note, legend:true,
+      rows:[{name:"아마존", col:"var(--accent)", v:CB.A[k]||CB.M.map(()=>0)},{name:"틱톡샵", col:"color-mix(in srgb, var(--accent) 45%, var(--panel))", v:CB.T[k]||CB.M.map(()=>0)}]}); }
+  if(CB&&document.getElementById("cpCAll")){ const keys=Object.keys(CB.S), li=CB.pi===CB.M.length-1?CB.M.length-2:CB.M.length-1;
+    const tot=CB.M.map((_,j)=>keys.reduce((t,k)=>t+CB.S[k][j],0));
+    const top=keys.slice().sort((a,b)=>CB.S[b][li]-CB.S[a][li]).slice(0,9); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
+    const rows=top.map((k,i)=>({name:nm(k), col:AMZT_PAL[i%AMZT_PAL.length], sel:k===cosSel, k, v:CB.S[k], a:CB.A[k], t:CB.T[k]}));
+    const rest=CB.M.map((_,j)=>tot[j]-top.reduce((t,k)=>t+CB.S[k][j],0));
+    rows.push({name:"그 밖", col:"color-mix(in srgb, var(--muted) 35%, var(--panel))", v:rest});
+    const el=document.getElementById("cpCAll");
+    if(cosCmb==="sh") cosStack(el,{labs:CB.labs, full:CB.full, pi:CB.pi, rows:rows.map(r=>({...r, v:r.v.map((x,j)=>tot[j]?x/tot[j]:0)})),
+      note:`${keys.length}개 브랜드 · 두 채널 합친 판매량 중 비중 · ${CB.note}`});
+    else cosStackAbs(el,{labs:CB.labs, full:CB.full, pi:CB.pi, E:CB.E, rows, chan:CB, note:`${keys.length}개 브랜드 · 위에서부터 마지막 완결 달 큰 순 · ${CB.note}`}); }
+  box.querySelectorAll("[data-cpc]").forEach(b=>b.addEventListener("click",()=>{ cosCmb=b.dataset.cpc; cosSv("cosCmb",cosCmb); renderCosPhase(); }));
+
   // 증가율 2×2 — 잣대 통일(2026-10-21): 아마존·틱톡샵 × 3개월·1개월, 전부 '바로 앞 같은 길이' 대비 판매량 증감.
   //   점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 비중이 늘었다(지도와 같은 판정). 판매가 끊긴 샵(하루하루원더)의 −100% 는 뺀다.
   const gr=(C,k,n)=>{ if(!C||!C.U[k]) return null; const w=C.win(k,n); return w.g!=null&&w.sc>0?w.g:null; };
@@ -11380,6 +11403,50 @@ function cosMonthBars(el, o){
         +(pe?`<div class="tt-r"><span class="k">예측(일할)</span><span class="v">≈${Math.round(eu(i)).toLocaleString("ko-KR")}개${pv>0?` <span style="color:${eu(i)>=pv?"var(--up)":"var(--down)"}">≈${eu(i)>=pv?"+":""}${Math.round((eu(i)/pv-1)*100)}%</span>`:""}</span></div>`:"")
         +`<div class="tt-r"><span class="k">${pe?`실제 ${E.lab}`:"판매량"}</span><span class="v">${Math.round(o.u[i]).toLocaleString("ko-KR")}개</span></div>`
         +(o.v?`<div class="tt-r"><span class="k">판매액${pe?` ${E.lab}`:""}</span><span class="v">${$(o.v[i])}${pe?` · 예측 ≈${$(o.v[i]*E.f)}`:""}</span></div>`:""); }});
+}
+// 아마존 + 틱톡샵 합산 재료 — 틱톡샵 달(T.months)에 맞춘다. A·T·S = 브랜드별 아마존·틱톡샵·합계(진행 달은 틱톡샵만 일할 환산).
+let cosCmb=(()=>{ try{ return localStorage.getItem("cosCmb")||"abs"; }catch(e){ return "abs"; } })();
+function cosComb(){
+  const V=KBV(), T=V.tt; if(!T||!T.months) return null;
+  const M=T.months, pi=M.indexOf(T.partial), E=pi>=0?cosProRate(T.partial,T.end):null, ai=M.map(m=>V.months.indexOf(m));
+  const keys=[...new Set(Object.keys(V.b).concat(Object.keys(T.b)))], A={}, TT={}, S={};
+  keys.forEach(k=>{ const ab=V.b[k], tb=T.b[k];
+    A[k]=M.map((_,j)=>ab&&ai[j]>=0?(ab.u[ai[j]]||0):0);
+    TT[k]=M.map((_,j)=>tb?((tb.mu[j]||0)*(j===pi&&E?E.f:1)):0);
+    S[k]=M.map((_,j)=>A[k][j]+TT[k][j]); });
+  const note=[(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")} 틱톡샵은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:"",
+    pi>=0?`${+M[pi].slice(5)}월 = 예측(아마존 배지 30일 평균 + 틱톡샵 ${E?`${E.lab} ×${E.dim}/${E.obs}`:"진행 중"})`:"",
+    "아마존은 배지 하한 · 틱톡샵은 주문 수량이라 정의가 조금 다르다"].filter(Boolean).join(" · ");
+  return {M, labs:M.map(m=>`${+m.slice(5)}월`), full:M.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), pi, E, A, T:TT, S, note};
+}
+// 절대값 쌓기 막대 — 위 숫자 = 합계 MoM(진행 달은 ≈ 예측 · 옅게). chan 이 있으면 툴팁에 채널 나눔.
+function cosStackAbs(el, o){
+  if(!el) return;
+  const W=Math.max(320,Math.min(980,el.clientWidth||760)), nar=W<560, H=250, side=o.legend?10:(nar?8:132), p={l:46,r:side,t:22,b:28};
+  const n=o.labs.length, tot=Array.from({length:n},(_,i)=>o.rows.reduce((t,r)=>t+(r.v[i]||0),0)), hi=Math.max(...tot)*1.15||1;
+  const gW=(W-p.l-p.r)/n, bw=Math.min(46,gW*0.62), yOf=v=>H-p.b-v/hi*(H-p.t-p.b), cx=i=>p.l+i*gW+gW/2;
+  const st=(()=>{ const r=hi/4, mg=Math.pow(10,Math.floor(Math.log10(r))); return [1,2,2.5,5,10].map(x=>x*mg).find(x=>x>=r)||r; })();
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  for(let v=0; v<=hi; v+=st) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${cosNum(v)}</text>`;
+  for(let i=0;i<n;i++){ let acc=0; const part=i===o.pi;
+    o.rows.forEach(r=>{ const v=r.v[i]||0; if(v<=0) return; const y1=yOf(acc), y0=yOf(acc+v);
+      g+=`<rect x="${(cx(i)-bw/2).toFixed(1)}" y="${y0.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,y1-y0).toFixed(1)}" fill="${r.col}" fill-opacity="${part?0.4:(r.sel?1:0.85)}"${r.sel?' stroke="var(--text)" stroke-width="1.2"':part?' stroke="var(--muted)" stroke-width="0.6" stroke-dasharray="3 2"':""}/>`; acc+=v; });
+    const pv=i>0?tot[i-1]:0, d=pv>0?tot[i]/pv-1:null;
+    g+=`<text x="${cx(i)}" y="${(yOf(tot[i])-5).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${d==null?"var(--muted)":d>=0?"var(--up)":"var(--down)"}">${d==null?"":`${part?"≈":""}${d>=0?"+":""}${Math.round(d*100)}%`}</text>`;
+    g+=`<text x="${cx(i)}" y="${H-p.b+14}" text-anchor="middle" font-size="10.5" fill="${part?"var(--muted)":"var(--muted2)"}">${o.labs[i]}${part?"*":""}</text>`; }
+  if(!o.legend&&!nar){ const li=o.pi===n-1?n-2:n-1; let acc=0; const pos=[];
+    o.rows.forEach(r=>{ const v=r.v[li]||0; pos.push({r, y:yOf(acc+v/2)}); acc+=v; });
+    let last=-99; pos.slice().sort((a,b)=>a.y-b.y).forEach(q=>{ const y=Math.max(q.y,last+11); last=y;
+      g+=`<text x="${W-p.r+6}" y="${(y+3.5).toFixed(1)}" font-size="10.5" fill="${q.r.sel?"var(--text)":"var(--muted)"}"${q.r.sel?' font-weight="700"':""}><tspan fill="${q.r.col}">■</tspan> ${attr(q.r.name)} ${cosNum(q.r.v[li]||0)}</text>`; }); }
+  g+=`</svg>`;
+  el.innerHTML=g+((o.legend||nar)?`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--muted);margin-top:2px">${o.rows.slice().reverse().map(r=>`<span${r.sel?' style="color:var(--text);font-weight:700"':""}><span style="color:${r.col}">■</span> ${attr(r.name)}</span>`).join("")}</div>`:"")
+    +`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">% = 합계 MoM${o.pi>=0?" · * = 진행 중인 달(옅게 · 예측)":""}${o.note?` · ${o.note}`:""}</div>`;
+  const N=x=>Math.round(x).toLocaleString("ko-KR");
+  attachChartTip(el,{W,H,pad:p,n,xOf:cx,xLab:i=>o.labs[i],pts:()=>[],
+    html:i=>{ const pe=i===o.pi, C=o.chan, at=C?o.rows.reduce((t,r)=>t+(r.a?r.a[i]:0),0):0;
+      return `<div class="tt-h">${o.full[i]}${pe?" (진행 중 · 예측)":""}</div><div class="tt-r"><span class="k"><b>합계</b></span><span class="v"><b>${pe?"≈":""}${N(tot[i])}개</b>${i>0&&tot[i-1]>0?` <span style="color:${tot[i]>=tot[i-1]?"var(--up)":"var(--down)"}">${tot[i]>=tot[i-1]?"+":""}${Math.round((tot[i]/tot[i-1]-1)*100)}%</span>`:""}</span></div>`
+        +(C?(()=>{ const ta=Object.keys(C.A).reduce((t,k)=>t+C.A[k][i],0), tt=Object.keys(C.T).reduce((t,k)=>t+C.T[k][i],0); return `<div class="tt-r"><span class="k">└ 아마존 · 틱톡샵</span><span class="v">${N(ta)} · ${N(tt)} (틱톡 ${Math.round(tt/(ta+tt||1)*100)}%)</span></div>`; })():"")
+        +o.rows.slice().reverse().map(r=>`<div class="tt-r"><span class="k"><span style="color:${r.col}">■</span> ${attr(r.name)}</span><span class="v">${N(r.v[i]||0)}${r.a&&r.t?` <span class="g">(아 ${cosNum(r.a[i])} · 틱 ${cosNum(r.t[i])})</span>`:""}</span></div>`).join(""); }});
 }
 function cosStack(el, o){
   if(!el) return;
@@ -12169,7 +12236,7 @@ const AMZBR_KO=(()=>{ const o={}; Object.entries(AMZT_KO).forEach(([k,v])=>{ o[a
     "Amos Professional":"아모스",Etude:"에뛰드",TIRTIR:"티르티르",CLIO:"클리오",MISSHA:"미샤",LAKA:"라카",Espoir:"에스쁘아",Peripera:"페리페라",
     "the SAEM":"더샘",HERA:"헤라","AGE20's":"에이지투웨니스",SKINFOOD:"스킨푸드","rom&nd":"롬앤",hince:"힌스",AMUSE:"어뮤즈","ma:nyo":"마녀공장",
     "The Face Shop":"더페이스샵",Sulwhasoo:"설화수","Round Lab":"라운드랩",Aestura:"에스트라",belif:"빌리프",TONYMOLY:"토니모리",Rejuran:"리쥬란",
-    Goodal:"구달",Atopalm:"아토팜","A'PIEU":"어퓨",Ryo:"려",Primera:"프리메라",Physiogel:"피지오겔",Hanyul:"한율","The Creme Shop":"더크렘샵",
+    Goodal:"구달",Atopalm:"아토팜",ATOPALM:"아토팜",Zeroid:"제로이드",ZEROID:"제로이드","Real Barrier":"리얼베리어","A'PIEU":"어퓨",Ryo:"려",Primera:"프리메라",Physiogel:"피지오겔",Hanyul:"한율","The Creme Shop":"더크렘샵",
     "Dr.Althea":"닥터엘시아",Abib:"아비브",Meditherapy:"메디테라피",Mizon:"미즈온",Mediheal:"메디힐"}).forEach(([k,v])=>{ o[amzBrNorm(k)]=v; });
   return o; })();
 const amzBrKo=n=>AMZBR_KO[amzBrNorm(n)]||"";
