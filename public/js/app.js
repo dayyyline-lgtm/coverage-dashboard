@@ -257,7 +257,7 @@ function fmtUpd(a){const m=String(a||"").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2
    새 데이터 블록을 넣을 때는 watchdog.LIMITS 와 여기를 같이 고칠 것. */
 // MOVIE 는 2026-09-21 수집을 멈춰 뺐다 — 두면 그날부터 영영 "N일째 갱신 없음"(고장 신호)이
 // 붙는다. 멈춘 건 고장이 아니라 결정이라, 섹션 제목에 "수집 중단"으로 따로 적는다.
-const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48, KBCH:192};
+const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48, KBCH:192, KBPH:840};
 /* 신선도 보드 (2026-09-24 · 개편계획.md Phase 1) — 블록마다 마지막 갱신 시각과 한도.
    값은 watchdog.py 의 LIMITS 와 같아야 한다(시간). 새 블록을 넣으면 두 곳을 같이 고칠 것.
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
@@ -269,7 +269,7 @@ const FRESH_LIMITS = [
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
   ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
-  ["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],
+  ["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 월 1회)",840],
 ];
 
 function ageHours(a){
@@ -10794,10 +10794,157 @@ function renderKbOverview(){
       최근 30일엔 10월 빅딜데이가 들어 있어 9월보다 크게 나온다. 틱톡샵 = FastMoss 공식 샵 판매액(같은 달). 방법·한계는 종목 페이지 '채널 모델' 아래 접힘.</p>`;
 }
 
+/* 아마존 Top100 탭 — 접힘 'K뷰티 브랜드 국면 지도'(2026-10-21 · KBPH · kbeauty/phase.py)
+   32개 브랜드(비상장 경쟁사 포함)의 아마존 미국 판매량을 한 바구니로 보고, 각 브랜드 몫(점유율)이
+   ① 평소(지난 1년 평균)보다 높은가(가로) ② 직전 기간보다 늘었나(세로)로 네 칸에 나눈다.
+   파생값은 전부 여기서 계산한다(블록은 원재료만). 10월 같은 진행 중인 달은 칸 계산에 안 쓴다. */
+const KBPH_Q={"성장 가속":"var(--good)","성장 둔화":"var(--accent)","반등 중":"#6fa8dc","하락 지속":"var(--warn)"};
+const KBPH_QD={"성장 가속":"평소보다 높고 직전보다도 늘었다","성장 둔화":"평소보다 높지만 직전보다는 줄었다","반등 중":"평소보다 낮지만 직전보다는 늘었다","하락 지속":"평소보다 낮고 직전보다도 줄었다"};
+const KBPH_ORD=["성장 가속","성장 둔화","반등 중","하락 지속"];
+let kbPhW=(()=>{ try{ return +localStorage.getItem("kbPhW")||3; }catch(e){ return 3; } })();
+let kbPhSmall=(()=>{ try{ return localStorage.getItem("kbPhSmall")==="1"; }catch(e){ return false; } })();
+let kbPhSel=(()=>{ try{ return localStorage.getItem("kbPhSel")||""; }catch(e){ return ""; } })();
+
+function kbPhCalc(){
+  const P=KBPH, M=P.months, keys=Object.keys(P.b);
+  const L=(P.partial&&M[M.length-1]===P.partial)?M.length-2:M.length-1;   // 마지막 완결 월
+  const tot=M.map((_,j)=>keys.reduce((s,k)=>s+(P.b[k].u[j]||0),0));
+  const sh={}; keys.forEach(k=>{ sh[k]=M.map((_,j)=>tot[j]?(P.b[k].u[j]||0)/tot[j]:0); });
+  const av=(a,s,e)=>{ let t=0,n=0; for(let j=s;j<=e;j++){ if(j>=0&&a[j]!=null){ t+=a[j]; n++; } } return n?t/n:null; };
+  const qn=(x,y)=>x>=100?(y>=100?"성장 가속":"성장 둔화"):(y>=100?"반등 중":"하락 지속");
+  const win=(k,w,e)=>{ const s=sh[k], cur=av(s,e-w+1,e), y12=av(s,e-11,e), prev=av(s,e-2*w+1,e-w);
+    const x=y12?100*cur/y12:null, y=prev?100*cur/prev:null; return {cur,y12,prev,x,y,q:(x!=null&&y!=null)?qn(x,y):null}; };
+  const sum=(a,s,e)=>{ let t=0; for(let j=s;j<=e;j++) t+=(a[j]||0); return t; };
+  const rows=keys.map(k=>{ const b=P.b[k], w3=win(k,3,L), w1=win(k,1,L);
+    const u3=sum(b.u,L-2,L), u3y=sum(b.u,L-14,L-12), T3=sum(tot,L-2,L), T3y=sum(tot,L-14,L-12);
+    const s3=T3?u3/T3:0, s3y=T3y?u3y/T3y:0;
+    const sig=[["점유율↑", s3>s3y, "7~9월 점유율이 1년 전 같은 기간보다 높다"],
+      ["히트 SKU↑", b.n1k[L]>=Math.max(b.n1k[L-12]*1.2,b.n1k[L-12]+2), `월 1천 개 이상 팔린 SKU ${b.n1k[L]}개 (1년 전 ${b.n1k[L-12]}개) — 20% 이상·2개 이상 늘면 통과`],
+      ["신제품 25%↑", u3?sum(b.nw,L-2,L)/u3>=0.25:false, `판매량 중 배지가 처음 붙은 지 12개월 안 된 SKU 비중 ${u3?Math.round(sum(b.nw,L-2,L)/u3*100):0}%`],
+      ["할인 의존↓", b.pi>=0.95, `현재 판매가 ÷ 1년 평균가 ${b.pi!=null?b.pi.toFixed(2):"—"} (0.95 이상이면 통과)`],
+      ["1위 SKU 편중↓", b.top1&&b.u[L]?b.top1.u/b.u[L]<0.4:false, b.top1&&b.u[L]?`1위 SKU 비중 ${Math.round(b.top1.u/b.u[L]*100)}% (40% 미만이면 통과)`:"—"]];
+    return {k, ko:b.ko, co:b.co, w3, w1, s3, chg:(s3-s3y)*100, yoy:u3y?u3/u3y-1:null, u3, sig, ok:sig.filter(x=>x[1]).length}; });
+  return {L, tot, sh, rows, win, M};
+}
+
+function renderKbPhase(){
+  const box=document.getElementById("kbPhase"); if(!box) return;
+  const fd=box.closest("details"); if(fd&&!fd.dataset.init){ fd.dataset.init="1"; try{ if(localStorage.getItem("fold_kbPh")==="1") fd.open=true; }catch(e){}
+    fd.addEventListener("toggle",()=>{ if(fd.open) renderKbPhase(); }); }
+  if(typeof KBPH==="undefined"||!KBPH.b){ box.innerHTML=`<p class="note">아직 데이터가 없습니다.</p>`; return; }
+  const C=kbPhCalc(), M=C.M, L=C.L, w=kbPhW, wk=w===3?"w3":"w1";
+  const lab=m=>m.slice(2).replace("-",".");
+  const winTxt=w===3?`${lab(M[L-2])}~${lab(M[L])}`:lab(M[L]), prevTxt=w===3?`${lab(M[L-5])}~${lab(M[L-3])}`:lab(M[L-1]);
+  const all=C.rows.filter(r=>r[wk].q), rows=all.filter(r=>kbPhSmall||r.s3>=0.005);
+  const cnt=q=>all.filter(r=>r.w3.q===q).length;
+  const sumEl=document.getElementById("kbPhSum");
+  if(sumEl) sumEl.innerHTML=`${KBPH.asOf.slice(5).replace("-","/")} Keepa · 7~9월 기준 `+KBPH_ORD.map(q=>`${q} ${cnt(q)}`).join(" · ")
+    +(staleNote("KBPH",KBPH.asOf)?` · <span style="color:var(--warn)">${staleNote("KBPH",KBPH.asOf)}</span>`:"");
+  if(!kbPhSel||!KBPH.b[kbPhSel]) kbPhSel=(rows.slice().sort((a,b)=>b.s3-a.s3).find(r=>r.w3.q==="성장 가속")||rows[0]||{}).k||"";
+  // ── 지도 ──
+  const W=Math.max(320,Math.min(980,box.clientWidth||760)), H=Math.round(Math.min(460,Math.max(330,W*0.52))), pad={l:44,r:16,t:16,b:40};
+  const xs=rows.map(r=>r[wk].x), ys=rows.map(r=>r[wk].y);
+  const xr=Math.max(20,...xs.map(v=>Math.abs(v-100)))+6, yr=Math.max(20,...ys.map(v=>Math.abs(v-100)))+6;
+  const sx=v=>pad.l+(v-(100-xr))/(2*xr)*(W-pad.l-pad.r), sy=v=>H-pad.b-(v-(100-yr))/(2*yr)*(H-pad.t-pad.b);
+  const mxS=Math.max(...rows.map(r=>r.s3)), rr=s=>3+Math.sqrt(s/mxS)*20;
+  const tick=(lo,hi)=>{ const st=(hi-lo)>80?20:10, a=[]; for(let v=Math.ceil(lo/st)*st; v<=hi; v+=st) a.push(v); return a; };
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:${W}px">`;
+  tick(100-xr,100+xr).forEach(v=>{ svg+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--line-soft)"/><text x="${sx(v)}" y="${H-pad.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${v}</text>`; });
+  tick(100-yr,100+yr).forEach(v=>{ svg+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line-soft)"/><text x="${pad.l-6}" y="${sy(v)+3.5}" text-anchor="end" font-size="10.5" fill="var(--muted2)">${v}</text>`; });
+  svg+=`<line x1="${sx(100)}" x2="${sx(100)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--muted)" stroke-dasharray="4 4"/><line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(100)}" y2="${sy(100)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+  [["성장 가속",W-pad.r-6,pad.t+14,"end"],["성장 둔화",W-pad.r-6,H-pad.b-8,"end"],["하락 지속",pad.l+6,H-pad.b-8,"start"],["반등 중",pad.l+6,pad.t+14,"start"]]
+    .forEach(([q,x,y,a])=>{ svg+=`<text x="${x}" y="${y}" text-anchor="${a}" font-size="12.5" font-weight="700" fill="${KBPH_Q[q]}">${q}</text>`; });
+  svg+=`<text x="${W-pad.r}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--muted)">평소(지난 1년 평균)보다 점유율 높음 →</text>`
+    +`<text x="${pad.l+4}" y="${pad.t+30}" font-size="11" fill="var(--muted)">↑ 직전 기간보다 늘어남</text>`;
+  const placed=[]; let labs="";
+  rows.slice().sort((a,b)=>b.s3-a.s3).forEach(r=>{ const o=r[wk], cx=sx(o.x), cy=sy(o.y), rad=rr(r.s3), sel=r.k===kbPhSel;
+    svg+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad.toFixed(1)}" fill="${KBPH_Q[o.q]}" fill-opacity="${sel?0.95:0.72}" stroke="${sel?"var(--text)":"var(--panel)"}" stroke-width="${sel?2:1.5}" data-kbph="${attr(r.k)}" style="cursor:pointer">`
+      +`<title>${attr(r.ko)}${r.co?" · "+attr(r.co):""} — ${o.q}\n평소 대비 ${o.x.toFixed(1)} · 직전 대비 ${o.y.toFixed(1)}\n7~9월 점유율 ${(r.s3*100).toFixed(1)}% · 판매 전년비 ${r.yoy!=null?(r.yoy>=0?"+":"")+Math.round(r.yoy*100)+"%":"—"}\n누르면 아래 시계열</title></circle>`;
+    if(r.s3>=0.01||sel){ let lx=cx+rad+3, ly=cy+4, n=0; while(placed.some(p=>Math.abs(p[0]-lx)<58&&Math.abs(p[1]-ly)<12)&&n<4){ ly+=12; n++; } placed.push([lx,ly]);
+      labs+=`<text x="${Math.min(lx,W-64).toFixed(1)}" y="${ly.toFixed(1)}" font-size="11" fill="var(--text)"${sel?' font-weight="700"':""} style="pointer-events:none;paint-order:stroke;stroke:var(--panel);stroke-width:3px">${attr(r.ko)}</text>`; } });
+  svg+=labs+`</svg>`;
+  // ── 표 ──
+  const qOf=r=>r[wk].q, pc=v=>v==null?"—":`${v>=0?"+":""}${Math.round(v*100)}%`;
+  const tr=rows.slice().sort((a,b)=>KBPH_ORD.indexOf(qOf(a))-KBPH_ORD.indexOf(qOf(b))||b.s3-a.s3);
+  const other=w===3?"w1":"w3";
+  const pill=q=>q?`<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;background:color-mix(in srgb, ${KBPH_Q[q]} 22%, transparent);color:var(--text)">${q}</span>`:"—";
+  const tbl=`<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">브랜드</th><th class="l">상장사</th><th class="l">칸 (${w}개월)</th><th class="l">${w===3?"1개월":"3개월"} 칸</th>`
+    +`<th title="최근 ${w}개월 평균 점유율 ÷ 지난 1년 평균 점유율 × 100">평소 대비</th><th title="최근 ${w}개월 평균 점유율 ÷ 직전 ${w}개월 평균 × 100">직전 대비</th>`
+    +`<th>7~9월 점유율</th><th>전년비 %p</th><th>판매 전년비</th><th class="l" title="신호 5개 중 통과한 것 — 마우스를 올리면 근거">질 체크</th></tr></thead><tbody>`
+    +tr.map(r=>{ const o=r[wk];
+      return `<tr data-kbph="${attr(r.k)}" style="cursor:pointer${r.k===kbPhSel?";outline:1px solid var(--accent)":""}"><td class="l"><b>${attr(r.ko)}</b></td><td class="l">${r.co?`<a href="#" data-stock="${attr(r.co)}">${attr(r.co)}</a>`:'<span class="g">비상장</span>'}</td>`
+        +`<td class="l">${pill(o.q)}</td><td class="l">${pill(r[other].q)}</td><td>${o.x.toFixed(1)}</td><td>${o.y.toFixed(1)}</td>`
+        +`<td>${(r.s3*100).toFixed(1)}%</td><td style="color:${Math.abs(r.chg)<0.05?"var(--muted)":r.chg>0?"var(--up)":"var(--down)"}">${Math.abs(r.chg)<0.05?"0.0":(r.chg>0?"+":"")+r.chg.toFixed(1)}</td><td>${pc(r.yoy)}</td>`
+        +`<td class="l"><b>${r.ok}/5</b> ${r.sig.filter(x=>x[1]).map(x=>`<span class="g" title="${attr(x[2])}">${x[0]}</span>`).join(" · ")}</td></tr>`; }).join("")
+    +`</tbody></table></div>`;
+  // ── 고른 브랜드 시계열 ──
+  const sel=C.rows.find(r=>r.k===kbPhSel);
+  let det="";
+  if(sel){ const s=C.sh[sel.k].map(v=>v*100), o=sel[wk], n0=Math.max(0,L-14), idx=[]; for(let j=n0;j<=L;j++) idx.push(j);
+    const hasP=L<M.length-1;
+    const W2=Math.max(320,Math.min(980,box.clientWidth||760)), H2=240, p2={l:44,r:70,t:14,b:26};
+    const n=idx.length+(hasP?1:0), xOf=i=>p2.l+i/(n-1)*(W2-p2.l-p2.r);
+    const vals=idx.map(j=>s[j]).concat(hasP?[s[M.length-1]]:[]), hi=Math.max(...vals,o.y12*100,o.cur*100)*1.12;
+    const yOf=v=>H2-p2.b-v/hi*(H2-p2.t-p2.b);
+    const step=hi>20?5:hi>8?2:hi>4?1:0.5;
+    let g=`<svg viewBox="0 0 ${W2} ${H2}" width="100%" style="display:block;max-width:${W2}px">`;
+    for(let v=0; v<=hi; v+=step) g+=`<line x1="${p2.l}" x2="${W2-p2.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p2.l-6}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10.5" fill="var(--muted2)">${+v.toFixed(1)}%</text>`;
+    idx.forEach((j,i)=>{ if(i%2===0||i===idx.length-1) g+=`<text x="${xOf(i)}" y="${H2-8}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${lab(M[j])}</text>`; });
+    const seg=(a,b,v,c,dash)=>`<line x1="${xOf(a)}" x2="${xOf(b)}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="${c}" stroke-width="${dash?1.5:3}"${dash?' stroke-dasharray="5 4"':""}/>`;
+    const iCur=idx.length-1;
+    g+=seg(iCur-11,iCur,o.y12*100,"var(--muted)",true)
+      +seg(iCur-2*w+1,iCur-w,o.prev*100,"#6fa8dc",false)+seg(iCur-w+1,iCur,o.cur*100,"var(--accent)",false);
+    g+=`<text x="${W2-p2.r+4}" y="${yOf(o.y12*100)+3.5}" font-size="10.5" fill="var(--muted)">1년 ${(o.y12*100).toFixed(1)}%</text>`
+      +`<text x="${W2-p2.r+4}" y="${yOf(o.cur*100)+3.5}" font-size="10.5" fill="var(--accent)">최근 ${(o.cur*100).toFixed(1)}%</text>`;
+    g+=`<polyline points="${idx.map((j,i)=>`${xOf(i).toFixed(1)},${yOf(s[j]).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--text)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(hasP) g+=`<line x1="${xOf(iCur)}" x2="${xOf(iCur+1)}" y1="${yOf(s[L])}" y2="${yOf(s[M.length-1])}" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="3 3"/><circle cx="${xOf(iCur+1)}" cy="${yOf(s[M.length-1])}" r="3.5" fill="none" stroke="var(--muted)" stroke-width="1.5"/><text x="${xOf(iCur+1)}" y="${H2-8}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${lab(M[M.length-1])}*</text>`;
+    const ipk=idx.reduce((a,j,i)=>s[j]>s[idx[a]]?i:a,0);
+    g+=`<circle cx="${xOf(ipk)}" cy="${yOf(s[idx[ipk]])}" r="4" fill="var(--text)" stroke="var(--panel)" stroke-width="2"/></svg>`;
+    det=`<div class="sub-h" style="margin-top:14px">${attr(sel.ko)} — 점유율 월별 <span class="th-sub" style="display:inline">${sel.co?attr(sel.co)+" · ":""}32개 브랜드 판매량 중 몫 · 점 = 최고점 · ${lab(M[M.length-1])}* = 진행 중(완결 월과 분리)</span></div>`
+      +`<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin:2px 0 4px">`
+      +`<span><span style="display:inline-block;width:14px;border-top:2px dashed var(--muted);vertical-align:middle"></span> 지난 1년 평균 — 가로축 기준</span>`
+      +`<span><span style="display:inline-block;width:14px;height:3px;background:#6fa8dc;vertical-align:middle"></span> 직전 ${w}개월(${prevTxt}) — 세로축 기준</span>`
+      +`<span><span style="display:inline-block;width:14px;height:3px;background:var(--accent);vertical-align:middle"></span> 최근 ${w}개월(${winTxt}) — 지금 값</span></div>`
+      +`<div id="kbPhChart">${g}</div>`
+      +`<p class="note" style="margin:4px 0 0">평소 대비 = ${(o.cur*100).toFixed(1)}% ÷ ${(o.y12*100).toFixed(1)}% × 100 = <b>${o.x.toFixed(1)}</b> · 직전 대비 = ${(o.cur*100).toFixed(1)}% ÷ ${(o.prev*100).toFixed(1)}% × 100 = <b>${o.y.toFixed(1)}</b> → <b style="color:${KBPH_Q[o.q]}">${o.q}</b>(${KBPH_QD[o.q]})</p>`;
+    det={html:det, s, idx, hasP, xOf, yOf, W2, H2, p2, iCur};
+  }
+  box.innerHTML=`<p class="note" style="margin:4px 0 10px">아마존 미국에서 K뷰티 32개 브랜드(비상장 경쟁사 포함)가 파는 양을 한 바구니로 보고, 각 브랜드 몫(점유율)이 어떻게 움직이는지로 네 칸에 나눕니다.
+      <b>가로 = 평소보다 잘 팔리나</b>(최근 ${w}개월 점유율 ÷ 지난 1년 평균 · 100 넘으면 평소보다 큰 몫) · <b>세로 = 직전보다 나아졌나</b>(최근 ${w}개월 ÷ 직전 ${w}개월 · 100 넘으면 몫이 늘었다).
+      두 축 모두 같은 점유율 시계열에서 기준만 다르게 잡은 것 — 원 크기 = 7~9월 점유율, 칸을 정하는 데는 안 쓴다.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px">
+      <span class="g" style="font-size:12px">기간</span>
+      <button class="chip${w===3?" on":""}" data-kbphw="3">3개월 (${winTxt} vs ${w===3?prevTxt:`${lab(M[L-5])}~${lab(M[L-3])}`})</button>
+      <button class="chip${w===1?" on":""}" data-kbphw="1">1개월 (${lab(M[L])} vs ${lab(M[L-1])})</button>
+      <label style="font-size:12px;color:var(--muted);margin-left:8px"><input type="checkbox" id="kbPhSmall"${kbPhSmall?" checked":""}> 점유율 0.5% 미만 브랜드도</label>
+      <span class="g" style="font-size:11.5px;margin-left:auto">판정은 3개월 · 1개월은 다음 분기에 칸이 바뀔 조짐</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:12px;margin:0 0 4px">${KBPH_ORD.map(q=>`<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${KBPH_Q[q]};vertical-align:-1px"></span> <b>${q}</b> <span class="g">${KBPH_QD[q]} · ${rows.filter(r=>qOf(r)===q).length}</span></span>`).join("")}</div>
+    ${svg}${det&&det.html||""}
+    <div class="sub-h" style="margin-top:14px">브랜드별 <span class="th-sub" style="display:inline">칸 순 · 행을 누르면 위 시계열 · 질 체크는 늘어난 판매가 어떤 구조인지(마우스를 올리면 근거)</span></div>
+    ${tbl}
+    <details class="fold" data-fold="kbPhM"${(()=>{ try{ return localStorage.getItem("fold_kbPhM")==="1"?" open":""; }catch(e){ return ""; } })()} style="margin-top:8px"><summary>방법 · 한계</summary><div class="fold-b note" style="line-height:1.7">
+      ${attr(KBPH.src)}. 판매량 = 아마존 '지난달 N개 이상 구매' 배지의 계단 이력을 달마다 일수 가중 평균 — <b>배지 구간의 아랫값이라 하한</b>이고 10만 개 이상은 위가 막혀 최상위 SKU(메디큐브 토너패드 등)는 작게 잡힙니다.
+      재판매 셀러 리스팅도 브랜드 이름이 같으면 들어갑니다(아마존 안 브랜드 총 소화량). 동명 식품 브랜드가 섞이는 CLIO 는 뺐습니다.<br>
+      위 '아마존 전 상품 판매액 · 회사 채널 모델'(KBCH)은 상장사 브랜드만 보지만 배지 없는 상품까지 순위로 판매량을 채워 금액을 냅니다 — 이 지도는 경쟁사까지 같은 잣대로 <b>몫의 방향</b>을 보려는 것이라 두 숫자의 크기를 서로 견주지 마세요.<br>
+      점유율은 32개 합계 대비라 프라임데이(7월)·블프 같은 공통 계절성이 상당 부분 상쇄되지만, 행사 의존이 큰 브랜드(라네즈 등)는 7월에 튀어 3개월 값이 끌려 올라갈 수 있습니다 — 시계열로 확인하세요.<br>
+      질 체크 5개: 점유율 전년비↑ · 히트 SKU(월 1천 개 이상) 1년 전보다 20%·2개 이상↑ · 판매량 중 신제품(배지 첫 등장 12개월 이내) 25% 이상 · 현재 판매가 ÷ 1년 평균가 0.95 이상 · 1위 SKU 비중 40% 미만.
+      갱신은 Keepa 웹(Product Finder) 수집 → <code>kbeauty/data/phase/</code> → <code>kbeauty/phase.py</code>.</div></details>`;
+  box.querySelectorAll("[data-kbph]").forEach(el=>el.addEventListener("click",e=>{ if(e.target.closest("[data-stock]")) return; e.preventDefault(); kbPhSel=el.dataset.kbph; try{ localStorage.setItem("kbPhSel",kbPhSel); }catch(_){} renderKbPhase(); }));
+  box.querySelectorAll("[data-kbphw]").forEach(el=>el.addEventListener("click",()=>{ kbPhW=+el.dataset.kbphw; try{ localStorage.setItem("kbPhW",kbPhW); }catch(_){} renderKbPhase(); }));
+  const cb=document.getElementById("kbPhSmall"); if(cb) cb.addEventListener("change",()=>{ kbPhSmall=cb.checked; try{ localStorage.setItem("kbPhSmall",kbPhSmall?"1":"0"); }catch(_){} renderKbPhase(); });
+  // 시계열 십자선
+  const cbox=document.getElementById("kbPhChart");
+  if(cbox&&det&&det.idx){ const D=det, n=D.idx.length+(D.hasP?1:0), at=i=>i<D.idx.length?D.idx[i]:M.length-1;
+    attachChartTip(cbox,{W:D.W2,H:D.H2,pad:D.p2,n,xOf:D.xOf,xLab:i=>lab(M[at(i)]),
+      pts:i=>[{y:D.yOf(D.s[at(i)]),c:"var(--text)"}],
+      html:i=>{ const j=at(i); return `<div class="tt-h">${M[j].replace("-",".")}${j===M.length-1&&D.hasP?" · 진행 중":""}</div><div class="tt-r"><span class="k">${attr(sel.ko)} 점유율</span><span class="v">${D.s[j].toFixed(2)}%</span></div><div class="tt-r"><span class="k">판매량(하한)</span><span class="v">${Math.round(KBPH.b[sel.k].u[j]).toLocaleString("ko-KR")}개</span></div>`; }}); }
+}
+
 function renderAmazon(){
   // 탭 본문은 한투 채널(renderKmj · renderAmzTrend) — 트래커 블록이 비어도 그린다. 아래는 맨 아래 접힌 '우리 아마존 트래커'.
   renderKmj(); renderAmzBrand(); renderAmzTrend(); renderAmzSub();
   try{ renderKbOverview(); }catch(err){ console.error("K뷰티 채널 모델", err); }
+  try{ renderKbPhase(); }catch(err){ console.error("K뷰티 국면 지도", err); }
   if(typeof AMAZON==="undefined" || !AMAZON.brands || !AMAZON.brands.length) return;
   const asOf=document.getElementById("amzAsOf");   // 접힘 요약줄 — 접힌 채로도 기준일·상태가 읽히게
   if(asOf){ const st=staleNote("AMAZON", AMAZON.asOf);
