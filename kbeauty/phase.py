@@ -268,7 +268,8 @@ def main():
     p = latest()
     block = build(p)
     if a.dry:
-        print(f"[KBPH] {p.name} · 브랜드 {len(block['b'])} · 유럽 {', '.join(f'{m} {len(c["b"])}' for m, c in (block.get('mk') or {}).items())} · {len(json.dumps(block, ensure_ascii=False)) // 1024}KB")
+        eu = ", ".join(f"{m} {len(c['b'])}" for m, c in (block.get("mk") or {}).items())
+        print(f"[KBPH] {p.name} · 브랜드 {len(block['b'])} · 유럽 {eu} · {len(json.dumps(block, ensure_ascii=False)) // 1024}KB")
         return
     ch, size = inject(block)
     print(f"[KBPH] {'갱신' if ch else '변동 없음'} · {size // 1024}KB · {block['asOf']} · 브랜드 {len(block['b'])}")
