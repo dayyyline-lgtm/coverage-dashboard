@@ -10904,7 +10904,10 @@ const COS_TABS=[["phase","국면"],["top","아마존 Top100"],["brand","브랜�
 const COS_X=[["두 채널 다 늘었다","var(--good)"],["틱톡샵만 늘었다","#6fa8dc"],["아마존만 늘었다","var(--accent)"],["두 채널 다 줄었다","var(--warn)"]];
 const cosLs=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v; }catch(e){ return d; } };
 const cosSv=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
-let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube"), cosTapK=null;
+function cosPick(k){ if(cosPin===k){ cosPin=""; } else { cosPin=k; cosSel=k; cosSv("cosSel",k); } cosSv("cosPin",cosPin); renderCosPhase(); }
+let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube"), cosPin=cosLs("cosPin","");
+// cosPin = 눌러서 고정한 브랜드(2026-10-21 사용자 "클릭하면 아마존·틱톡 보기로 넘어가도 걔만 강조 · 다시 누르기 전까지 안 풀리게").
+//   커서만 올렸을 땐 잠깐 강조, 누르면 고정(보기·기간을 바꿔도 유지), 같은 브랜드를 다시 누르면 풀린다. 고정이 없으면 아무것도 흐리게 하지 않는다.
 function cosSetTab(t){
   if(!COS_TABS.some(x=>x[0]===t)) t="phase";
   cosTab=t; cosSv("cosTab",t);
@@ -10963,7 +10966,12 @@ function renderCosPhase(){
   const tS=j=>{ const d=new Date(CT.M[j]+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-6); return d.toISOString().slice(5,10).replace("-","/"); };
   const nA=mode==="amz"?w:3, nT=mode==="tt"?w:8;
   const tw=mode==="tt"?w:8, tWin=CT?`${tS(CT.L-tw+1)}~${CT.M[CT.L].slice(5).replace("-","/")}`:"";
-  const small=cosLs("cosSmall","0")==="1";
+  // 비상장 소형 켜고 끄기(2026-10-21 사용자 "하루하루원더 같은 비상장 스몰캡 끄고 켜기") — 상장사 없음 + 두 채널 몫 모두 2% 미만.
+  //   끄면 지도·목록·증가율·표에서만 뺀다. 바구니(몫의 분모)는 그대로라 남은 브랜드의 몫·평소比·직전比는 안 바뀐다. 상장사는 몫이 작아도 늘 보인다.
+  const smallUn=cosLs("cosSmallUn","0")==="1";
+  const isSmUn=r=>!r.co&&Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)<0.02;
+  const keep=r=>smallUn||!isSmUn(r);
+  const smList=Object.values(B).filter(isSmUn).sort((a,b)=>Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
   // 보기마다 점 = {k, x, y, s(원 크기 몫), q(칸 번호 또는 이름), T(꼬리)}
   const pts=[];
   Object.values(B).forEach(r=>{
@@ -10971,7 +10979,7 @@ function renderCosPhase(){
     else if(mode==="tt"){ if(!r.t||!r.t[wk].q) return; const o=r.t[wk]; pts.push({r, x:o.x, y:o.y, s:r.t.s3, q:o.q, T:r.tT(w)}); }
     else { if(!r.a||!r.t||!r.t.w3.q||r.a.w3.y==null) return; pts.push({r, x:r.a.w3.y, y:r.t.w3.y, s:Math.max(r.a.s3,r.t.s3), q:COS_X[cosXq(r.a.w3.y,r.t.w3.y)][0], T:r.xT}); }
   });
-  const vis=pts.filter(p=>small||p.s>=0.005);
+  const vis=pts.filter(p=>keep(p.r));
   if(!vis.some(p=>p.r.k===cosSel)) cosSel=(vis.slice().sort((a,b)=>b.s-a.s)[0]||{r:{}}).r.k||"";
   const QN=mode==="x"?COS_X.map(x=>x[0]):KBPH_ORD, QC=q=>mode==="x"?(COS_X.find(x=>x[0]===q)||[0,"var(--muted)"])[1]:KBPH_Q[q];
   const QD=mode==="x"?{"두 채널 다 늘었다":"아마존·틱톡샵 둘 다 직전보다 몫이 늘었다","틱톡샵만 늘었다":"틱톡샵 몫은 늘고 아마존 몫은 줄었다","아마존만 늘었다":"아마존 몫은 늘고 틱톡샵 몫은 줄었다","두 채널 다 줄었다":"둘 다 직전보다 몫이 줄었다"}:KBPH_QD;
@@ -11044,7 +11052,7 @@ function renderCosPhase(){
   const xq=r=>r.a&&r.t&&r.t.w3.q&&r.a.w3.y!=null?COS_X[cosXq(r.a.w3.y,r.t.w3.y)]:null;
   const eokS=v=>{ const e=v*fx/1e8; return e>=10?e.toFixed(0)+"억":e>=1?e.toFixed(1)+"억":e>=0.01?e.toFixed(2)+"억":"0"; };
   const pct=(v,ref)=>{ if(v==null||!ref) return `<span class="g">—</span>`; const d=v/ref-1; return `<span style="color:${Math.abs(d)<0.005?"var(--muted)":d>0?"var(--up)":"var(--down)"}">${d>=0?"+":""}${Math.round(d*100)}%</span>`; };
-  const rows=Object.values(B).filter(r=>small||Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)>=0.005);
+  const rows=Object.values(B).filter(keep);
   const ord=r=>mode==="amz"?(r.a&&r.a[wk].q?KBPH_ORD.indexOf(r.a[wk].q):9):mode==="tt"?(r.t&&r.t[wk].q?KBPH_ORD.indexOf(r.t[wk].q):9):(xq(r)?COS_X.indexOf(xq(r)):9);
   rows.sort((a,b)=>ord(a)-ord(b)||Math.max(b.a?b.a.s3:0,b.t?b.t.s3:0)-Math.max(a.a?a.a.s3:0,a.t?a.t.s3:0));
   const tbl=`<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l">브랜드</th><th class="l">상장사</th>
@@ -11066,7 +11074,7 @@ function renderCosPhase(){
   const what=mode==="x"?`아마존 ${aWin}(Keepa) 몫 ÷ 직전 3개월 · 틱톡샵 ${tWin} 몫 ÷ 직전 8주`
     :mode==="amz"?`아마존(Keepa · 전 상품 판매량) ${aWin} · 32개 브랜드 바구니`:`틱톡샵(FastMoss · 미국 공식 샵) ${tWin} · ${Object.keys(KBPH.tt.b).length}개 브랜드 바구니`;
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
-      <label class="g" style="font-size:12px;margin-left:auto"><input type="checkbox" id="cpSmall"${small?" checked":""}> 몫 0.5% 미만도</label></div>
+      <label class="g" style="font-size:12px;margin-left:auto" title="${attr("상장사가 없고 아마존·틱톡샵 몫이 둘 다 2% 미만인 브랜드 — "+smList.map(r=>r.ko).join(" · ")+" · 꺼도 몫의 분모(바구니)는 그대로")}"><input type="checkbox" id="cpSmall"${smallUn?" checked":""}> 비상장 소형 ${smList.length}개 보기</label></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
@@ -11122,13 +11130,13 @@ function renderCosPhase(){
   const aLab=n=>n===1?lab(CA.M[CA.L]):`${lab(CA.M[CA.L-n+1]).replace("월","")}~${lab(CA.M[CA.L])}`;
   const cols=[{id:"a3", t:"아마존 3개월", s:`${aLab(3)} · 전년비`, base:baseA(3), f:k=>grA(k,3)}, {id:"a1", t:"아마존 1개월", s:`${aLab(1)} · 전년비`, base:baseA(1), f:k=>grA(k,1)}]
     .concat(CT?[{id:"t8", t:"틱톡샵 8주", s:`${tLab(8)} · 직전比`, base:baseT(8), f:k=>grT(k,8)}, {id:"t4", t:"틱톡샵 4주", s:`${tLab(4)} · 직전比`, base:baseT(4), f:k=>grT(k,4)}]:[]);
-  const grRows=Object.values(B).filter(r=>Math.max(r.a?r.a.s3:0,r.t?r.t.s3:0)>=0.005||small).map(r=>({k:r.k, name:r.ko, co:r.co, v:cols.map(c=>c.f(r.k))}));
+  const grRows=Object.values(B).filter(keep).map(r=>({k:r.k, name:r.ko, co:r.co, v:cols.map(c=>c.f(r.k))}));
   // 4분할(2026-10-21 사용자 "나란히 말고 4분할 창문처럼") — 칸마다 자기 값으로 큰 순 · 고른 브랜드는 네 칸 모두에서 금색 줄
   const g4=document.getElementById("cpGr4");
   if(g4){ const gp=v=>v==null?"—":`${v>=0?"+":""}${Math.round(v*100)}%`;
     g4.innerHTML=cols.map((c,i)=>`<div class="chart-box"><div class="asd-h">${c.t}<span class="sub">${c.s} · 바구니 전체 ${gp(c.base)}</span></div><div id="cpGr_${c.id}"></div></div>`).join("");
     cols.forEach((c,i)=>cosGrowth(document.getElementById("cpGr_"+c.id),{items:grRows.map(r=>({k:r.k, name:r.name, co:r.co, sel:r.k===cosSel, v:r.v[i]})), base:c.base}));
-    g4.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("click",()=>{ cosSel=el.dataset.k; cosSv("cosSel",cosSel); renderCosPhase(); })); }
+    g4.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("click",()=>cosPick(el.dataset.k))); }
 
   // ── 꼬리 · 상호작용 ──
   const NS="http://www.w3.org/2000/svg", g=document.getElementById("cpTrail"), svgEl=document.getElementById("cpSvg"), info=document.getElementById("cpInfo");
@@ -11137,7 +11145,7 @@ function renderCosPhase(){
     svgEl.classList.toggle("cp-hl",!!p);
     svgEl.querySelectorAll("#cpDots circle").forEach(c=>c.classList.toggle("on",c.dataset.k===k));
     svgEl.querySelectorAll("#cpLabs text").forEach(t=>t.classList.toggle("on",t.dataset.lk===k));
-    if(!p){ info.innerHTML=`<span class="g">점에 커서를 올리면 그 브랜드가 지나온 자리가 꼬리로 보인다 · 누르면 아래 카드가 그 브랜드로 바뀐다</span>`; return; }
+    if(!p){ info.innerHTML=cosPin&&!byK[cosPin]?`<span class="g">고정한 <b>${attr((KBPH.b[cosPin]||{}).ko||cosPin)}</b>는 이 보기에 점이 없다(채널 자료 없음) · 다른 보기로 가면 다시 강조된다</span>`:`<span class="g">점에 커서를 올리면 그 브랜드가 지나온 자리가 꼬리로 보인다 · 누르면 그 브랜드를 고정(보기를 바꿔도 유지) · 다시 누르면 풀림</span>`; return; }
     const T=p.T.slice(0,-1).concat([{x:p.x,y:p.y,lab:"지금"}]);   // 꼬리 끝 = 지금 자리(점)
     let h="";
     if(T.length>1){ h+=`<polyline points="${T.map(z=>sx(z.x).toFixed(1)+","+sy(z.y).toFixed(1)).join(" ")}" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-opacity="0.75" stroke-linejoin="round"/>`;
@@ -11148,18 +11156,18 @@ function renderCosPhase(){
     g.innerHTML=h;
     const qq=z=>mode==="x"?COS_X[cosXq(z.x,z.y)][0]:z.q;
     info.innerHTML=`<b>${attr(p.r.ko)}</b> <span class="g">${p.r.co?attr(p.r.co):"비상장"}</span> · <b style="color:${QC(p.q)}">${p.q}</b> · ${mode==="x"?"아마존":"평소"}比 ${p.x.toFixed(0)} · ${mode==="x"?"틱톡샵":"직전"}比 ${p.y.toFixed(0)}`
-      +(p.T.length>1?` <span class="g">— 지나온 칸: ${p.T.map(z=>`${z.lab} ${qq(z).replace("성장 ","").replace(" 중","").replace(" 지속","")}`).join(" → ")}</span>`:""); };
+      +(p.T.length>1?` <span class="g">— 지나온 칸: ${p.T.map(z=>`${z.lab} ${qq(z).replace("성장 ","").replace(" 중","").replace(" 지속","")}`).join(" → ")}</span>`:"")+(k===cosPin?` <span class="cp-pin">고정 · 다시 누르면 풀림</span>`:""); };
   // 커서가 없을 땐 전부 그대로(흐리게·꼬리 없음 — 2026-10-21 사용자 "손도 안 올렸는데 한 브랜드만 강조된다"). 고른 브랜드는 아래 카드만 바꾼다.
   // 손가락으로 누른 직후(다시 그린 뒤)만 그 브랜드 꼬리를 보인다 — 휴대폰엔 호버가 없어서
-  show(cosTapK); cosTapK=null;
+  const rest=()=>show(cosPin&&byK[cosPin]?cosPin:null);   // 커서가 떠나면 고정한 브랜드로(없으면 아무것도 안 강조)
+  rest();
   svgEl.addEventListener("mouseover",e=>{ const c=e.target.closest("circle[data-k]"); if(c) show(c.dataset.k); });
-  svgEl.addEventListener("mouseout",e=>{ if(e.target.closest("circle[data-k]")&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest("circle[data-k]"))) show(null); });
-  svgEl.addEventListener("mouseleave",()=>show(null));
-  const pick=k=>{ cosSel=k; cosSv("cosSel",k); cosTapK=k; renderCosPhase(); };
-  box.querySelectorAll("circle[data-k], .cp-b[data-k], tr.cp-tr").forEach(el=>el.addEventListener("click",()=>pick(el.dataset.k)));
+  svgEl.addEventListener("mouseout",e=>{ if(e.target.closest("circle[data-k]")&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest("circle[data-k]"))) rest(); });
+  svgEl.addEventListener("mouseleave",rest);
+  box.querySelectorAll("circle[data-k], .cp-b[data-k], tr.cp-tr").forEach(el=>el.addEventListener("click",()=>cosPick(el.dataset.k)));
   box.querySelectorAll("[data-cpm]").forEach(b=>b.addEventListener("click",()=>{ cosMode=b.dataset.cpm; cosSv("cosMode",cosMode); renderCosPhase(); }));
   box.querySelectorAll("[data-cpw]").forEach(b=>b.addEventListener("click",()=>{ kbPhW=+b.dataset.cpw; cosSv("kbPhW",kbPhW); renderCosPhase(); }));
-  const cb=document.getElementById("cpSmall"); if(cb) cb.addEventListener("change",()=>{ cosSv("cosSmall",cb.checked?"1":"0"); renderCosPhase(); });
+  const cb=document.getElementById("cpSmall"); if(cb) cb.addEventListener("change",()=>{ cosSv("cosSmallUn",cb.checked?"1":"0"); renderCosPhase(); });
   const go=box.querySelector("[data-cosgo]"); if(go) go.addEventListener("click",()=>{ cosSetTab("brand"); amzBrPick(go.dataset.cosgo); });
 }
 
