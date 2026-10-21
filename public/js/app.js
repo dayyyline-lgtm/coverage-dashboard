@@ -10948,10 +10948,14 @@ let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("
 //   · 엔에프씨 — 사용자 "엔에프씨 버튼을 누르면 고객사가 다 합쳐지게 · 스킨1004 빼고"(sup:"엔에프씨" = 조선미녀·셀리맥스·이퀄베리)
 //   · 클리오 — 클리오·페리페라·구달(co:"클리오"). 틱톡샵은 'Clio Official USA' 한 샵에 셋이 섞여 있어 합쳐 봐야 두 채널이 같은 범위가 된다.
 const COS_GRP=[
-  {id:"nfc", k:"엔에프씨 고객사", co:"엔에프씨", lab:"엔에프씨 고객사 합치기", t:b=>b.sup==="엔에프씨", what:"엔에프씨(ODM)가 만드는"},
-  {id:"clio", k:"클리오 3브랜드", co:"클리오", lab:"클리오 합치기", t:b=>b.co==="클리오", what:"클리오의"}];
+  {id:"nfc", k:"엔에프씨 고객사", co:"엔에프씨", lab:"엔에프씨 고객사", t:b=>b.sup==="엔에프씨", what:"엔에프씨(ODM)가 만드는"},
+  {id:"clio", k:"클리오 3브랜드", co:"클리오", lab:"클리오", t:b=>b.co==="클리오", what:"클리오의"},
+  // 2026-10-21 사용자 "아모레퍼시픽도 모으기 · 구다이글로벌도 모으기" — 아모레 = 아모레퍼시픽(090430) 브랜드만(이니스프리는 홀딩스라 빠진다)
+  {id:"amore", k:"아모레퍼시픽 브랜드", co:"아모레퍼시픽", lab:"아모레퍼시픽", t:b=>b.co==="아모레퍼시픽", what:"아모레퍼시픽의"},
+  //   구다이글로벌(상장 준비) — 바구니엔 조선미녀·스킨1004·라운드랩(티르티르·스킨푸드·라카는 바구니 밖). 조선미녀는 엔에프씨 고객사이기도 해서 둘은 동시에 못 켠다(켜면 다른 쪽이 꺼진다)
+  {id:"goodai", k:"구다이글로벌 브랜드", co:"구다이글로벌", lab:"구다이글로벌", t:(b,k)=>["beauty of joseon","skin1004","round lab"].includes(k), what:"구다이글로벌(상장 준비)의"}];
 let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id, g.id==="nfc"?cosLs("cosNfc","0"):"0")==="1"; }); return o; })();
-const cosGrpMem=g=>Object.keys(KBPH.b).filter(k=>g.t(KBPH.b[k]));
+const cosGrpMem=g=>Object.keys(KBPH.b).filter(k=>g.t(KBPH.b[k],k));
 function KBV(){
   if(typeof KBPH==="undefined"||!KBPH.b) return KBPH;
   const on=COS_GRP.filter(g=>cosGrp[g.id]&&cosGrpMem(g).length>=2);
@@ -10962,7 +10966,7 @@ function KBV(){
   const add=as=>{ const L=Math.max(0,...as.map(a=>a?a.length:0)); return Array.from({length:L},(_,j)=>{ let t=0, any=false; as.forEach(a=>{ if(a&&a[j]!=null){ t+=a[j]; any=true; } }); return any?t:null; }); };
   const merge=(src,ks,key,mk)=>{ const o={}; let put=false; Object.keys(src).forEach(k=>{ if(!ks.includes(k)){ o[k]=src[k]; return; } if(!put){ o[key]=mk(); put=true; } }); return o; };
   let b=P.b, tb=P.tt&&P.tt.b?P.tt.b:null;
-  on.forEach(g=>{ const mem=cosGrpMem(g);
+  on.forEach(g=>{ const mem=cosGrpMem(g).filter(k=>k in b); if(mem.length<2) return;   // 앞 모아보기가 이미 가져간 멤버는 빼고(겹쳐 두 번 더하지 않게)
     b=merge(b, mem, g.k, ()=>({ko:g.k, co:g.co, sup:"", mem, grp:g.id, u:add(mem.map(k=>P.b[k].u))}));
     if(tb){ const tm=mem.filter(k=>tb[k]);
       if(tm.length) tb=merge(tb, tm, g.k, ()=>{ const B=tm.map(k=>P.tt.b[k]);
@@ -11152,7 +11156,7 @@ function renderCosPhase(){
     :mode==="amz"?`아마존 ${Object.keys(KBPH.b).length}개 브랜드 · 가로 비중 <b>YoY</b> (${vs(Yx)}) · 세로 비중 <b>${SQ(xw)}</b> (${vs(Dx)}${exS(Dx)})`
     :`틱톡샵 미국 공식 샵 ${Object.keys(KBPH.tt.b).length}개 · 가로 비중 <b>QoQ</b> (${vs(L3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>MoM</b> (${vs(L1)}) · 4/24~ 라 YoY 없음`;
   box.innerHTML=`<div class="cp-bar"><div class="seg">${modeBtn("x","아마존 × 틱톡샵")}${modeBtn("amz","아마존")}${CT?modeBtn("tt","틱톡샵"):""}</div>${perBtns}
-      <div class="seg" style="margin-left:auto">${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBPH.b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
+      <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBPH.b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
       <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>
@@ -11263,6 +11267,8 @@ function renderCosPhase(){
   box.querySelectorAll("[data-cpu]").forEach(b=>b.addEventListener("click",()=>{ cosSv("cosUnl",b.dataset.cpu); renderCosPhase(); }));
   box.querySelectorAll("[data-cpg]").forEach(b=>b.addEventListener("click",()=>{ const g=COS_GRP.find(x=>x.id===b.dataset.cpg); if(!g) return;
     cosGrp[g.id]=!cosGrp[g.id]; cosSv("cosGrp_"+g.id,cosGrp[g.id]?"1":"0"); KBV.c=null;
+    if(cosGrp[g.id]) COS_GRP.forEach(o=>{ if(o.id!==g.id&&cosGrp[o.id]&&cosGrpMem(o).some(k=>cosGrpMem(g).includes(k))){ cosGrp[o.id]=false; cosSv("cosGrp_"+o.id,"0");
+      if(cosSel===o.k) cosSel=g.k; if(cosPin===o.k){ cosPin=""; cosSv("cosPin",""); } } });   // 멤버가 겹치는 모아보기(엔에프씨 ↔ 구다이글로벌 · 조선미녀)는 하나만
     const mem=cosGrpMem(g), big=mem.slice().sort((x,y)=>kbPhSum(KBPH.b[y].u,0,KBPH.months.length-1)-kbPhSum(KBPH.b[x].u,0,KBPH.months.length-1))[0];
     // 고른·고정한 브랜드가 멤버였으면 합으로 · 풀면 합 → 멤버 중 가장 큰 브랜드로 · 켤 때 고정이 없으면 합을 고른다
     const to=k=>cosGrp[g.id]?(mem.includes(k)?g.k:k):(k===g.k?big:k);
