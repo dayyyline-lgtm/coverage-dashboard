@@ -408,6 +408,7 @@ themeBtn.addEventListener("click",()=>{
   const cur=document.documentElement.getAttribute("data-theme");
   const next=cur==="light"?"":"light";
   document.documentElement.setAttribute("data-theme",next);
+  try{ localStorage.setItem("theme", next==="light"?"light":"dark"); }catch(e){}
   if(document.querySelector('section[data-view="valuation"]').classList.contains("active")) drawScatter();
 });
 
