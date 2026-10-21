@@ -10945,14 +10945,14 @@ function cosPick(k){ if(cosPin===k){ cosPin=""; } else { cosPin=k; cosSel=k; cos
 let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","x"), cosSel=cosLs("cosSel","medicube"), cosPin=cosLs("cosPin","");
 // 모아보기(2026-10-21) — 여러 브랜드를 한 줄로 더한 보기. 바구니(비중의 분모)는 그대로다(멤버를 빼고 합 하나를 넣으니 전체 합이 같다).
 //   국면 칸 함수는 전부 KBPH 대신 KBV() 를 읽는다.
-//   · 엔에프씨 — 사용자 "엔에프씨 버튼을 누르면 고객사가 다 합쳐지게 · 스킨1004 빼고"(sup:"엔에프씨" = 조선미녀·셀리맥스·이퀄베리)
+//   · 엔에프씨 — 사용자 "엔에프씨 버튼을 누르면 고객사가 다 합쳐지게 · 스킨1004 빼고"(sup:"엔에프씨" = 셀리맥스·이퀄베리·닥터엘시아 · 조선미녀는 클렌징 밤뿐이라 10/21 뺐다)
 //   · 클리오 — 클리오·페리페라·구달(co:"클리오"). 틱톡샵은 'Clio Official USA' 한 샵에 셋이 섞여 있어 합쳐 봐야 두 채널이 같은 범위가 된다.
 const COS_GRP=[
   {id:"nfc", k:"엔에프씨 고객사", co:"엔에프씨", lab:"엔에프씨 고객사", t:b=>b.sup==="엔에프씨", what:"엔에프씨(ODM)가 만드는"},
   {id:"clio", k:"클리오 3브랜드", co:"클리오", lab:"클리오", t:b=>b.co==="클리오", what:"클리오의"},
   // 2026-10-21 사용자 "아모레퍼시픽도 모으기 · 구다이글로벌도 모으기" — 아모레 = 아모레퍼시픽(090430) 브랜드만(이니스프리는 홀딩스라 빠진다)
   {id:"amore", k:"아모레퍼시픽 브랜드", co:"아모레퍼시픽", lab:"아모레퍼시픽", t:b=>b.co==="아모레퍼시픽", what:"아모레퍼시픽의"},
-  //   구다이글로벌(상장 준비) — 바구니엔 조선미녀·스킨1004·라운드랩(티르티르·스킨푸드·라카는 바구니 밖). 조선미녀는 엔에프씨 고객사이기도 해서 둘은 동시에 못 켠다(켜면 다른 쪽이 꺼진다)
+  //   구다이글로벌(상장 준비) — 바구니엔 조선미녀·스킨1004·라운드랩(티르티르·스킨푸드·라카는 바구니 밖). (10/21 조선미녀를 엔에프씨에서 뺀 뒤로 엔에프씨와 같이 켤 수 있다)
   {id:"goodai", k:"구다이글로벌 브랜드", co:"구다이글로벌", lab:"구다이글로벌", t:(b,k)=>["beauty of joseon","skin1004","round lab"].includes(k), what:"구다이글로벌(상장 준비)의"}];
 let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id, g.id==="nfc"?cosLs("cosNfc","0"):"0")==="1"; }); return o; })();
 const cosGrpMem=g=>Object.keys(KBPH.b).filter(k=>g.t(KBPH.b[k],k));
@@ -11268,7 +11268,7 @@ function renderCosPhase(){
   box.querySelectorAll("[data-cpg]").forEach(b=>b.addEventListener("click",()=>{ const g=COS_GRP.find(x=>x.id===b.dataset.cpg); if(!g) return;
     cosGrp[g.id]=!cosGrp[g.id]; cosSv("cosGrp_"+g.id,cosGrp[g.id]?"1":"0"); KBV.c=null;
     if(cosGrp[g.id]) COS_GRP.forEach(o=>{ if(o.id!==g.id&&cosGrp[o.id]&&cosGrpMem(o).some(k=>cosGrpMem(g).includes(k))){ cosGrp[o.id]=false; cosSv("cosGrp_"+o.id,"0");
-      if(cosSel===o.k) cosSel=g.k; if(cosPin===o.k){ cosPin=""; cosSv("cosPin",""); } } });   // 멤버가 겹치는 모아보기(엔에프씨 ↔ 구다이글로벌 · 조선미녀)는 하나만
+      if(cosSel===o.k) cosSel=g.k; if(cosPin===o.k){ cosPin=""; cosSv("cosPin",""); } } });   // 멤버가 겹치는 모아보기는 하나만(지금은 겹치는 쌍 없음)
     const mem=cosGrpMem(g), big=mem.slice().sort((x,y)=>kbPhSum(KBPH.b[y].u,0,KBPH.months.length-1)-kbPhSum(KBPH.b[x].u,0,KBPH.months.length-1))[0];
     // 고른·고정한 브랜드가 멤버였으면 합으로 · 풀면 합 → 멤버 중 가장 큰 브랜드로 · 켤 때 고정이 없으면 합을 고른다
     const to=k=>cosGrp[g.id]?(mem.includes(k)?g.k:k):(k===g.k?big:k);
