@@ -5,6 +5,7 @@
         location.hash = '#!finder/' + encodeURIComponent(JSON.stringify(KBPH_QUERY))
       (KBPH_QUERY 는 아래. BSR 로 거르지 않는다 — 지금 순위로 거르면 '예전엔 팔렸지만 지금 죽은 SKU'가 빠져 과거가 과소계상된다)
    1) 표가 차면 KBPH.run() → 33페이지 안팎을 백그라운드로 넘기며 행(상품 객체)을 모은다. KBPH.status() 로 진행 확인.
+   1-b) 끝나면 location.hash = '#!finder/' + encodeURIComponent(JSON.stringify(KBPH_QUERY_NB)) → 표가 차면 KBPH.runNB() — 배지가 한 번도 없는 세트·번들(아래 설명). 이미 받은 ASIN 은 건너뛴다.
    2) KBPH.dump() → 본문 맨 앞 <article id="__dump"> 에 브랜드 × 월 집계 JSON 을 띄운다 → get_page_text 로 읽어
       kbeauty/data/phase/<날짜>.json 에 저장(형식은 2026-10-20.json) → python3 kbeauty/phase.py
    ⚠ javascript_tool 반환은 1천 자 남짓에서 잘리고 '= & ? ;' 가 든 반환은 가려진다 — 덤프는 꼭 get_page_text 로.
@@ -15,12 +16,19 @@
      10/22 확인: 배지가 바뀐 달에 순위가 같은 방향으로 움직인 비율이 이 칸 매칭이면 84%, 한 칸 어긋나면 47%) — 화면에선 '최고 순위'를 안 쓰므로(CLAUDE.md) 지금은 집계하지 않는다. */
 var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"];
 var KBPH_QUERY={f:{productType:{values:["0"],filterType:"set"},brand:{filterType:"autocomplete",filter:BRANDS.join("###"),type:"isOneOf"},monthlySoldPeak:{filterType:"number",type:"greaterThanOrEqual",filter:50,filterTo:null}},s:[{colId:"monthlySold",sort:"desc"}],t:"g"};
+// 배지 없는 상품(세트·듀오·번들) 두 번째 질의(2026-10-23 · 사용자 "Keepa 번들 놓치는 거 개선 안 됨?") — 아마존이 세트 상품엔 '지난달 N개 구매' 배지를 안 붙여서
+//   위 질의(역대 배지 피크 ≥ 50)에 아예 안 걸린다. 10/22 확인: 세부 카테고리 Top100 에 든 바구니 브랜드 SKU 488개 중 68개(14%)가 바구니 밖이었고 거의 다 세트·번들
+//   (AMZSUB 추정 매출로 메디큐브 Top100 물량의 9% · 셀리맥스 20% · 아누아 5%). 지금 순위 15만 위 안쪽만 받는다(곡선상 월 50개 안팎 — 그 밖은 0 에 가깝다).
+//   순서: 위 질의로 KBPH.run() 이 끝나면 → location.hash 를 이 질의로 → 표가 차면 KBPH.runNB() → 끝나면 dump(). 이미 받은 ASIN 은 건너뛴다.
+//   ⚠ 'SALES_current' 필터 키가 안 먹으면(표가 브랜드 전 상품으로 뜨면) 정렬만 남기고 15만 위를 넘는 페이지에서 멈춘다(runNB 가 순위를 보고 스스로 멈춘다).
+var KBPH_QUERY_NB={f:{productType:{values:["0"],filterType:"set"},brand:{filterType:"autocomplete",filter:BRANDS.join("###"),type:"isOneOf"},SALES_current:{filterType:"number",type:"inRange",filter:1,filterTo:150000}},s:[{colId:"SALES_current",sort:"asc"}],t:"g"};
 window.KBPH=window.KBPH||{};
 (function(K){
   const api=()=>document.querySelector('.ag-root-wrapper').__agComponent.gridApi;
-  K.rows={}; K.done=false; K.log=[];
+  K.rows={}; K.done=false; K.log=[]; K.nbq=false; K.nbMax=0; K.sn=new Set();
   K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin||d.domainId!==1) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
-    K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':b)((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
+    if(K.nbq){ const rc=(s.current&&s.current[3])||-1; if(rc>K.nbMax) K.nbMax=rc; K.sn.add(d.asin); if(K.rows[d.asin]) return; }
+    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':b)((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
       bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0,hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1,
       bx:(h=>({s:h.length?String(h[h.length-1]):'',t:h.length>1?+h[h.length-2]:0}))(d.buyBoxSellerIdHistory||[]),no:d.COUNT_NEW_current==null?-1:d.COUNT_NEW_current}; }); };
   // 가격(센트) — 바이박스 → 신품 최저 → 아마존가 · 30·90·180·365일 평균을 구간으로 풀어 달 나이에 맞춘다(kbeauty/keepa.js 와 같은 식 · 2026-10-21 금액 환산)
@@ -31,10 +39,13 @@ window.KBPH=window.KBPH||{};
     let s4=(p365>0&&p180>0)?(365*p365-180*p180)/185:p365; if(!ok(s4,p365)) s4=p365>0?p365:s3;
     return [a,s2,s3,s4]; };
   K.run=function(){ (async()=>{ const sl=ms=>new Promise(r=>setTimeout(r,ms)); K.collect(); const tp=api().paginationGetTotalPages();
-    for(let p=1;p<tp;p++){ const b=Object.keys(K.rows).length; api().paginationGoToPage(p);
-      for(let w=0;w<40;w++){ await sl(500); K.collect(); if(Object.keys(K.rows).length>b+60) break; }
-      await sl(1000); K.collect(); K.log.push(p+':'+Object.keys(K.rows).length); }
+    const cnt=()=>Object.keys(K.rows).length+K.sn.size;
+    for(let p=1;p<tp;p++){ const b=cnt(); api().paginationGoToPage(p);
+      for(let w=0;w<40;w++){ await sl(500); K.collect(); if(cnt()>b+60) break; }
+      await sl(1000); K.collect(); K.log.push(p+':'+Object.keys(K.rows).length);
+      if(K.nbq&&K.nbMax>150000) break; }
     K.done=true; })(); return 'started'; };
+  K.runNB=function(){ K.nbq=true; K.nbMax=0; K.sn=new Set(); K.done=false; return K.run(); };
   // 그달 가격(센트) — 달 가운데가 오늘에서 며칠 전인가로 구간을 고른다 · 1년 넘은 달은 185~365일 전 평균(그 앞 가격 이력은 Finder 행에 없다) · 가격을 모르면 0
   K.px=function(r,j,months){ const p=r.pr||[]; if(!(p[0]>0)) return 0; const age=(Date.now()-(months[j][0]+14*86400000))/86400000;
     const v=j===35||age<=45?p[0]:age<=105?p[1]:age<=195?p[2]:p[3]; return v>0?v:p[0]; };
@@ -50,7 +61,7 @@ window.KBPH=window.KBPH||{};
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
         a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
     const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
-    rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } });
+    rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } r.nb=r.nbq&&!r.first?1:0; });
     // ── 배지 구간 안의 위치를 순위로 정한다(2026-10-22 · 사용자 "구간이 거칠다 — 20~30% 변화가 안 보인다") ──
     //   배지 = 구간 아랫값(50·100·200…900·1천·2천…9천·1만·2만…·10만+). 구간 안 어디쯤인지는 그달 평균 판매 순위(historicalSalesRankAverages · 이번 달 = 30일 평균)로 정한다:
     //   ① 순위 → 판매량 곡선(꺾은 멱함수 · 20~3만 위 · 최근 12개 완결 달 · 구간 가운데값에 맞춤) ② 상품(부모)마다 수준 보정(그 상품의 '가운데값 ÷ 곡선' 중앙값 —
@@ -76,13 +87,19 @@ window.KBPH=window.KBPH||{};
         // 배지 없는 달 채우기(2026-10-22 · 사용자 '월판매량 추정 방식에 문제 있는 거 아니냐' — 네오팜) — 순위는 있는데 그 묶음에 배지가 하나도 없는 달(= 옵션마다 50개 미만)은
         //   0 이 아니라 곡선값(상품 수준 보정 포함) · 단 순위 있는 옵션당 49개 상한(KBCH keepa.js 와 같은 규칙). 0 으로 두면 작은 SKU 가 50개를 넘는 순간 '성장'으로 잡혔다 —
         //   KBCH 곡선식 대비 3Q26 전년비: 제로이드 +223% vs +138% · 리얼베리어 +16% vs −27% · 셀리맥스 +275% vs +201%(큰 브랜드는 ±5%p).
-        { let nF=0; for(let j=0;j<36;j++){ const P={}; rows.forEach(r=>{ const rk=r.rk[j]; if(!(rk>0)) return; const k=r.p+'|'+Math.round(rk); const o=P[k]=P[k]||{p:r.p,rk,bad:0,kids:[]}; if(r.mf[j]>0) o.bad=1; o.kids.push(r); });
+        { let nF=0; for(let j=0;j<36;j++){ const P={}; rows.forEach(r=>{ const rk=r.rk[j]; if(!(rk>0)||r.nb) return; const k=r.p+'|'+Math.round(rk); const o=P[k]=P[k]||{p:r.p,rk,bad:0,kids:[]}; if(r.mf[j]>0) o.bad=1; o.kids.push(r); });
           Object.values(P).forEach(g=>{ if(g.bad) return; const e=Math.min(Math.exp(ko[g.p]||0)*cur(g.rk),49*g.kids.length); if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nF++; }); } K.nFill=nF; }
-        K.fit={a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill}; }
+        // 배지가 한 번도 없는 상품(세트·번들 · 두 번째 질의로 받은 것) — 49개 상한 없이 곡선값. 수준 보정은 같은 브랜드 배지 상품들의 보정값 중앙값(자기 배지가 없어서).
+        //   ⚠ 배지로 확인할 길이 없는 추정이라 브랜드 블록에 따로 ub 로 싣는다(화면이 비중을 적는다).
+        { const pb={}; rows.forEach(r=>{ if(!r.nb&&ko[r.p]!=null) pb[r.b]=pb[r.b]||{}, pb[r.b][r.p]=ko[r.p]; });
+          const kb={}; for(const b in pb){ const a=Object.values(pb[b]).sort((x,y)=>x-y); kb[b]=a.length?a[a.length>>1]:0; }
+          let nN=0; for(let j=0;j<36;j++){ const P={}; rows.forEach(r=>{ if(!r.nb) return; const rk=r.rk[j]; if(!(rk>0)) return; const k=r.p+'|'+Math.round(rk); (P[k]=P[k]||{rk,b:r.b,kids:[]}).kids.push(r); });
+            Object.values(P).forEach(g=>{ const e=Math.exp(kb[g.b]||0)*cur(g.rk); if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nN++; }); } K.nNB=nN; }
+        K.fit={a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill,nb:K.nNB||0,nbSku:rows.filter(r=>r.nb).length}; }
     }
-    rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),uf:Array(36).fill(0),v:Array(36).fill(0),up:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
+    rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),uf:Array(36).fill(0),ub:Array(36).fill(0),v:Array(36).fill(0),up:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
       const f=r.first?((new Date(r.first).getUTCFullYear()*12+new Date(r.first).getUTCMonth())-(new Date(months[0][0]).getUTCFullYear()*12+new Date(months[0][0]).getUTCMonth())):99;
-      for(let j=0;j<36;j++){ const u=r.m[j]; o.u[j]+=u; o.uf[j]+=r.mf[j]; const px=K.px(r,j,months); o.v[j]+=u*px; if(px>0) o.up[j]+=u; if(u>=1000) o.n1k[j]++; if(f<=j&&f>=j-11) o.nw[j]+=u; }
+      for(let j=0;j<36;j++){ const u=r.m[j]; o.u[j]+=u; o.uf[j]+=r.mf[j]; if(r.nb) o.ub[j]+=u; const px=K.px(r,j,months); o.v[j]+=u*px; if(px>0) o.up[j]+=u; if(u>=1000) o.n1k[j]++; if(f<=j&&f>=j-11) o.nw[j]+=u; }
       const w=r.m[33]+r.m[34]; if(r.bb[0]>0&&r.bb[2]>0){ o.pw[0]+=w*r.bb[0]; o.pw[1]+=w*r.bb[2]; }
       const q=r.m[32]+r.m[33]+r.m[34]; if(!o.top||q>o.top.q) o.top={asin:r.a,t:r.t.slice(0,42),u:r.m[34],q}; });
     // 바이박스 없음·품절(2026-10-22 · 사용자 '센텔리안24 판매량 40% 가 바이박스 없음 — 무슨 이슈냐') — 최근 30일 판매량(r.m[35]) 기준으로 센다.
@@ -91,7 +108,7 @@ window.KBPH=window.KBPH||{};
     const BX={}; rows.forEach(r=>{ const u=r.m[35]; if(!(u>0)||!r.bx) return; const sup=(r.bx.s==='-1'||r.bx.s==='-2')&&r.no>0&&r.bx.t&&(now-KM(r.bx.t))>=3*86400000, oos=r.no===0; if(!sup&&!oos) return;  // 억제는 3일 넘게 이어진 것만(2026-10-22 — 센텔리안24 마데카 크림이 하루 억제됐다 돌아온 걸 '판매가 꺾인다'로 경고했다 · Keepa 30일 바이박스 통계로 억제·품절 4%뿐)
       const o=BX[r.b]=BX[r.b]||{s:0,o:0,top:null}; if(oos) o.o+=u; else o.s+=u; if(!o.top||u>o.top.u) o.top={asin:r.a,t:r.t.slice(0,42),u,k:oos?'o':'s',since:r.bx.t?new Date(KM(r.bx.t)).toISOString().slice(0,10):'',n:r.no}; });
     const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],fit:K.fit||null,b:{}};
-    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,uf:o.uf,v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null}; }
+    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,uf:o.uf,...(o.ub.some(x=>x>0)?{ub:o.ub}:{}),v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null}; }
     let el=document.getElementById('__dump'); if(!el){ el=document.createElement('article'); el.id='__dump'; el.style.cssText='position:fixed;top:0;left:0;width:10px;height:10px;overflow:hidden;opacity:0.01;z-index:-1'; document.body.appendChild(el); }
     el.textContent='DUMPSTART'+JSON.stringify(out)+'DUMPEND'; return el.textContent.length; };
 })(window.KBPH);

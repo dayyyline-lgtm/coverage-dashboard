@@ -14,7 +14,7 @@
    · 순위 = 그달 뷰티 전체 순위 평균(historicalSalesRankAverages · 36개월). 옵션들이 순위를 공유하면(부모 단위 순위) 묶음 하나로 센다.
    · 순위 → 판매량 곡선은 나라마다 이 회차 데이터로 맞춘다: log 판매 = a + b1·min(x, ln1000) + b2·max(0, x − ln1000), x = ln 순위.
      맞추는 점 = 배지가 있고(100K+ 아님) 순위가 하나인 묶음의 (그달 평균 순위, 그달 배지 가운데값 합) · 20~3만 위.
-     3만 위 밖(배지 없는 꼬리)은 기울기 −1.4 로 꺾는다(v6 · 미국 실측 1만→7.7만 위 −1.38). 배지 없는 묶음은 옵션당 49개를 넘지 않는다.
+     3만 위 밖(배지 없는 꼬리)은 기울기 −1.4 로 꺾는다(v6 · 미국 실측 1만→7.7만 위 −1.38). 배지 없는 묶음은 옵션당 49개를 넘지 않는다 — 단 36개월 내내 배지가 한 번도 없는 묶음(세트·번들 · 아마존이 배지를 안 붙인다)은 상한 없이 곡선값(2026-10-23).
    · 가격 = 바이박스(없으면 신품 최저가 → 아마존가) 30·90·180·365일 평균을 구간으로 풀어 그달 나이에 맞는 값.
    · 판매액(현지 통화) = Σ 묶음[판매량 × 가격]. 이번 달(MC)은 '최근 30일'(배지 = 지난 30일, 순위 = 30일 평균)이다 — 달력 월이 아니다.
 
@@ -255,6 +255,8 @@
       const gs = [];
       for (const g in G) {
         const kids = G[g], gu = new Array(N()).fill(0), gv = new Array(N()).fill(0);
+        // 배지가 한 번도 없는 묶음(세트·듀오·번들 — 아마존이 배지를 안 붙인다 · 2026-10-23) 은 '배지 없음 = 50개 미만'이 아니므로 49개 상한을 걸지 않는다.
+        const nb = kids.every(k => !k.ms.some(v => v > 0));
         for (let j = 0; j < N(); j++) {
           const ps = kids.map(k => k.pc[j]).filter(p => p > 0).sort((a, b) => a - b), pm = ps.length ? ps[Math.floor(ps.length / 2)] : 0;
           let bs = 0, bv = 0, cap = false;
@@ -264,7 +266,7 @@
           if (c) { if (r > 0) ru = units(c, r); else if (r === -1) for (const k of kids) ru += units(c, k.rk[j]); }
           let u = 0, v = 0;
           if (bs > 0) { if (cap && ru > bs) { u = ru; v = (bv > 0 ? bv / bs : pm) * ru; fromRank += ru - bs; } else { u = bs; v = bv > 0 ? bv : bs * pm; } }
-          else if (ru > 0) { const nk = kids.filter(k => k.rk[j] > 0).length || 1; u = Math.min(ru, 49 * nk); v = u * pm; fromRank += u; }
+          else if (ru > 0) { const nk = kids.filter(k => k.rk[j] > 0).length || 1; u = nb ? ru : Math.min(ru, 49 * nk); v = u * pm; fromRank += u; }
           gu[j] = u; gv[j] = v; U[j] += u; Vv[j] += v; tot += u;
         }
         const best = kids.slice().sort((a, b) => (b.ms[N() - 2] || 0) - (a.ms[N() - 2] || 0) || ((a.rk[N() - 2] || 9e9) - (b.rk[N() - 2] || 9e9)))[0];
