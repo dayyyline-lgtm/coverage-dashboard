@@ -228,6 +228,23 @@ def companies(d, C, n=8):
     return [f"{esc(co)}  {shp(s)}  <i>{pct(y)}</i>" for co, s, y in out[:n]]
 
 
+def bx_lines(d, cut=0.1):
+    """바이박스 억제·품절 상품이 브랜드 최근 30일 판매량의 cut 이상인 브랜드 (KBPH.b[k].bx · phase_keepa.js · 2026-10-22)."""
+    out = []
+    for k, b in d["b"].items():
+        x, u = b.get("bx"), b.get("u") or []
+        if not x or not x.get("top") or not u or not u[-1]:
+            continue
+        r = ((x.get("s") or 0) + (x.get("o") or 0)) / u[-1]
+        if r < cut:
+            continue
+        t = x["top"]
+        kind = "품절" if t.get("k") == "o" else "억제(재고 있음)"
+        since = f" · {int(t['since'][5:7])}/{int(t['since'][8:10])}부터" if t.get("since") else ""
+        out.append((r, f"• {nm(d, k)} {round(r * 100)}% — {esc(t.get('t', '').strip())}… {kind}{since}"))
+    return [z[1] for z in sorted(out, key=lambda z: -z[0])]
+
+
 def message(d, R, prev):
     M, end = R["M"], R["end"]
     e = M.index(end)
@@ -265,6 +282,9 @@ def message(d, R, prev):
         allch = changes(d, us, pq.get("us"))
     if allch:
         L.append("• 칸 바뀜  " + ", ".join(allch[:6]))
+    bx = bx_lines(d)
+    if bx:
+        L += ["", "<b>⚠ 아마존 미국 바이박스 없음</b> <i>(최근 30일 판매량 중 · 장바구니 버튼이 사라져 다음 달 판매가 꺾인다 — 수요 아님)</i>"] + bx
     if has_t:
         L += ["", "<b>🏢 상장사</b> <i>(전 지역 합산 비중 · QoQ)</i>"] + companies(d, SAc)
         L += ["", "<b>🌐 전 지역 합산</b> <i>아마존 미·유럽5·일·캐 + 틱톡샵 미국 · QoQ×MoM</i>"] + quads(d, S)

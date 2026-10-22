@@ -20,7 +20,8 @@ window.KBPH=window.KBPH||{};
   K.rows={}; K.done=false; K.log=[];
   K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
     K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':b)((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
-      bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0}; }); };
+      bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0,
+      bx:(h=>({s:h.length?String(h[h.length-1]):'',t:h.length>1?+h[h.length-2]:0}))(d.buyBoxSellerIdHistory||[]),no:d.COUNT_NEW_current==null?-1:d.COUNT_NEW_current}; }); };
   // 가격(센트) — 바이박스 → 신품 최저 → 아마존가 · 30·90·180·365일 평균을 구간으로 풀어 달 나이에 맞춘다(kbeauty/keepa.js 와 같은 식 · 2026-10-21 금액 환산)
   K.prices=function(st){ const w=k=>{ if(!st||!st[k]) return -1; for(const i of [18,1,0]){ const v=st[k][i]; if(v>0) return v; } return -1; };
     const p30=w('avg30'),p90=w('avg90'),p180=w('avg180'),p365=w('avg365'),cur=w('current'), ok=(x,r)=>x>0&&r>0&&x<r*3&&x>r/3, a=p30>0?p30:cur;
@@ -40,8 +41,13 @@ window.KBPH=window.KBPH||{};
   K.dump=function(){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];
     for(let j=35;j>=0;j--){ const d=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth()-j,1)); months.push([d.getTime(),Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)]); ML.push(d.toISOString().slice(0,7)); }
+    // 그달 판매량 = 그달 마지막 7일 배지의 중앙값(2026-10-22) — 배지는 '지난 30일 구매'라 월말 값이 곧 그달 한 달치다(kbeauty/keepa.js 와 같은 식).
+    //   예전엔 그달 동안의 배지를 시간 평균했는데, 그러면 반 달 밀려 6월 하순 프라임데이가 7월로 넘어갔다(라네즈 2026-06 14.6만 → 7월 38.7만 · 월말식 42.1만 → 12.0만).
+    //   진행 중인 달 = 지금까지 마지막 7일(= 최근 30일 한 달치).
     const ms=h=>{ const pts=[]; for(let i=0;i<h.length;i+=2) pts.push([KM(h[i]),h[i+1]]);
-      return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; let a=0; for(let i=0;i<pts.length;i++){ const x=Math.max(pts[i][0],s), y=Math.min(i+1<pts.length?pts[i+1][0]:now,e); if(y>x) a+=(y-x)*Math.max(pts[i][1],0); } return Math.round(a/(e-s)); }); };
+      const at=t=>{ let v=0; for(let i=0;i<pts.length&&pts[i][0]<=t;i++) v=Math.max(pts[i][1],0); return v; };
+      return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
+        a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
     const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.m=ms(r.msh); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } });
     rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),up:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
@@ -49,8 +55,13 @@ window.KBPH=window.KBPH||{};
       for(let j=0;j<36;j++){ const u=r.m[j]; o.u[j]+=u; const px=K.px(r,j,months); o.v[j]+=u*px; if(px>0) o.up[j]+=u; if(u>=1000) o.n1k[j]++; if(f<=j&&f>=j-11) o.nw[j]+=u; }
       const w=r.m[33]+r.m[34]; if(r.bb[0]>0&&r.bb[2]>0){ o.pw[0]+=w*r.bb[0]; o.pw[1]+=w*r.bb[2]; }
       const q=r.m[32]+r.m[33]+r.m[34]; if(!o.top||q>o.top.q) o.top={asin:r.a,t:r.t.slice(0,42),u:r.m[34],q}; });
+    // 바이박스 없음·품절(2026-10-22 · 사용자 '센텔리안24 판매량 40% 가 바이박스 없음 — 무슨 이슈냐') — 최근 30일 판매량(r.m[35]) 기준으로 센다.
+    //   품절 = 신품 판매자 0 · 바이박스 없음 = 판매자는 있는데 바이박스가 비어 있다(-1·-2 · 아마존이 '장바구니'를 내린 상태 — 가격 비교 등으로 억제).
+    //   둘 다 장바구니 버튼이 없어 판매가 줄어든다. 행이 수집 시점 상태라 한 번의 스냅샷이다.
+    const BX={}; rows.forEach(r=>{ const u=r.m[35]; if(!(u>0)||!r.bx) return; const sup=(r.bx.s==='-1'||r.bx.s==='-2')&&r.no>0, oos=r.no===0; if(!sup&&!oos) return;
+      const o=BX[r.b]=BX[r.b]||{s:0,o:0,top:null}; if(oos) o.o+=u; else o.s+=u; if(!o.top||u>o.top.u) o.top={asin:r.a,t:r.t.slice(0,42),u,k:oos?'o':'s',since:r.bx.t?new Date(KM(r.bx.t)).toISOString().slice(0,10):'',n:r.no}; });
     const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],b:{}};
-    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null}; }
+    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null}; }
     let el=document.getElementById('__dump'); if(!el){ el=document.createElement('article'); el.id='__dump'; el.style.cssText='position:fixed;top:0;left:0;width:10px;height:10px;overflow:hidden;opacity:0.01;z-index:-1'; document.body.appendChild(el); }
     el.textContent='DUMPSTART'+JSON.stringify(out)+'DUMPEND'; return el.textContent.length; };
 })(window.KBPH);

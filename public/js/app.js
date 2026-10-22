@@ -11049,6 +11049,20 @@ function cosPhaseData(){
 }
 const cosXq=(x,y)=>x>=100?(y>=100?0:2):(y>=100?1:3);
 
+// 아마존 미국 바이박스 경고(2026-10-22 · KBPH.b[k].bx · phase_keepa.js) — 지금 바이박스가 없는 상품(억제 = 재고는 있는데 아마존이 '구매 옵션 보기'로 숨김 ·
+// 품절 = 신품 재고 0)이 브랜드 최근 30일 판매량의 10% 이상이면 한 줄. 바이박스가 없으면 '장바구니 담기'가 사라져 그 상품 판매가 다음 달에 꺾인다 —
+// 수요가 식은 게 아니라 판매 경로 문제라 국면 판정과 따로 읽어야 한다(센텔리안24 마데카 크림 10/21~).
+function cosBxNote(k){
+  if(!k||!(cosMk==="us"||cosMk==="all")) return "";
+  const b=(typeof KBPH!=="undefined"&&KBPH.b&&KBPH.b[k])||null, x=b&&b.bx;
+  if(!x||!x.top||!b.u||!b.u.length) return "";
+  const tot=b.u[b.u.length-1]||0, aff=(x.s||0)+(x.o||0);
+  if(!tot||aff/tot<0.1) return "";
+  const t=x.top, kind=t.k==="o"?"품절":"바이박스 억제(재고 있음 · '구매 옵션 보기'만)";
+  return `<div class="cp-bx" style="margin:6px 0 2px;padding:6px 10px;border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);font-size:12px">⚠ 아마존 미국 — 바이박스 없는 상품이 최근 30일 판매량의 <b>${Math.round(aff/tot*100)}%</b>
+    · 가장 큰 것 <a href="https://www.amazon.com/dp/${attr(t.asin)}" target="_blank" rel="noopener">${attr(t.t.trim())}…</a> ${kind}${t.since?` · ${attr(t.since.slice(5).replace("-","/"))}부터`:""}${t.n?` · 판매자 ${t.n}곳`:""}
+    <span class="g">— 장바구니 버튼이 사라져 이 상품 판매가 꺾인다. 수요가 아니라 판매 경로 문제라 다음 달 비중 하락을 국면으로 읽지 말 것(${attr(KBPH.asOf)} 기준)</span></div>`;
+}
 function renderCosPhase(){
   cosSrcChips();
   const box=document.getElementById("cosPhase"); if(!box) return;
@@ -11150,6 +11164,7 @@ function renderCosPhase(){
     const chgS=m=>m&&m.y!=null?`<b style="color:${m.y>=100?"var(--up)":"var(--down)"}">${m.y>=100?"+":""}${Math.round(m.y-100)}%</b>${m.g!=null?` <span class="g">(판매 ${m.g>=0?"+":""}${Math.round(m.g*100)}%)</span>`:""}`:"—";
     selH=`<div class="cp-sel"><div class="cp-selh"><span class="cp-tag">선택 브랜드</span><span style="font-size:16px;font-weight:800">${attr(R.ko)}</span> <span class="g">${R.mem?`${(COS_GRP.find(g=>g.k===R.k)||{what:""}).what} ${R.mem.map(m=>attr((KBB().b[m]||{}).ko||m)).join(" + ")} 합`:`${R.co?attr(R.co):"비상장"}${R.sup?` · 생산 ${attr(R.sup)}(ODM)`:""}`}</span>
         ${R.mem?"":`<button class="theme-btn" data-cosgo="${attr(R.pick)}" style="margin-left:auto;padding:3px 10px;font-size:11.5px">브랜드별 상세 →</button>`}</div>
+      ${cosBxNote(R.mem?null:R.k)}
       <div class="cp-kvs">
         ${kv(`아마존 ${MKL} (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${cosPf(a.s3*100)}`:"—", a&&a.q?mt([["YoY 3M",a.m3,vs(Y3)],["YoY 1M",a.m1,vs(Y1)],["QoQ",a.d3,vs(D3)],["MoM",a.d1,vs(D1)]]):"")}
         ${CT?kv(`틱톡샵 (FastMoss · ${L3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?mt([["QoQ",t.m3,vs(L3)],["MoM",t.m1,vs(L1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}

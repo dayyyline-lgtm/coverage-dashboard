@@ -23,7 +23,9 @@ window.KBPH={};
     let s4=(p365>0&&p180>0)?(365*p365-180*p180)/185:p365; if(!ok(s4,p365)) s4=p365>0?p365:s3;
     return [a,s2,s3,s4]; };
   K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}; const rb=(d.brand||'').toLowerCase();
-    K.rows[d.asin]={a:d.asin,rb,b:MAP[rb]||rb,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s)}; }); };
+    // 일본 표기 'コースアールエックス(cosrx)' 처럼 괄호 안 라틴 이름이 있으면 그걸 키로 · センテリアン24 는 괄호가 없다(2026-10-22)
+    const pm=rb.match(/\(([^)]+)\)\s*$/), key=/センテリアン/.test(rb)?'centellian 24':pm?(MAP[pm[1]]||pm[1]):(MAP[rb]||rb);
+    K.rows[d.asin]={a:d.asin,rb,b:key,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s)}; }); };
   K.run=function(){ (async()=>{ const sl=ms=>new Promise(r=>setTimeout(r,ms)); K.collect(); const tp=api().paginationGetTotalPages(); K.tp=tp;
     for(let p=1;p<tp;p++){ const b=Object.keys(K.rows).length; api().paginationGoToPage(p);
       for(let w=0;w<40;w++){ await sl(500); K.collect(); if(Object.keys(K.rows).length>b+60) break; }
@@ -36,8 +38,13 @@ window.KBPH={};
   K.save=function(d){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];
     for(let j=35;j>=0;j--){ const x=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth()-j,1)); months.push([x.getTime(),Date.UTC(x.getUTCFullYear(),x.getUTCMonth()+1,1)]); ML.push(x.toISOString().slice(0,7)); }
+    // 그달 판매량 = 그달 마지막 7일 배지의 중앙값(2026-10-22) — 배지는 '지난 30일 구매'라 월말 값이 곧 그달 한 달치다(kbeauty/keepa.js 와 같은 식).
+    //   예전엔 그달 동안의 배지를 시간 평균했는데, 그러면 반 달 밀려 6월 하순 프라임데이가 7월로 넘어갔다(라네즈 2026-06 14.6만 → 7월 38.7만 · 월말식 42.1만 → 12.0만).
+    //   진행 중인 달 = 지금까지 마지막 7일(= 최근 30일 한 달치).
     const ms=h=>{ const pts=[]; for(let i=0;i<h.length;i+=2) pts.push([KM(h[i]),h[i+1]]);
-      return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; let a=0; for(let i=0;i<pts.length;i++){ const x=Math.max(pts[i][0],s), y=Math.min(i+1<pts.length?pts[i+1][0]:now,e); if(y>x) a+=(y-x)*Math.max(pts[i][1],0); } return Math.round(a/(e-s)); }); };
+      const at=t=>{ let v=0; for(let i=0;i<pts.length&&pts[i][0]<=t;i++) v=Math.max(pts[i][1],0); return v; };
+      return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
+        a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
     const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ const m=ms(r.msh), o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),n:0}; o.n++;
       for(let j=0;j<36;j++){ o.u[j]+=m[j]; o.v[j]+=m[j]*K.px(r,j,months); } });
