@@ -114,18 +114,24 @@ python3 amazon-beauty-tracker/subcat/ingest.py --check /tmp/amzsub/part_*.txt
 ```
 python3 amazon-beauty-tracker/subcat/ingest.py /tmp/amzsub/part_*.txt [/tmp/amzsub/fix_*.txt]
 # → 1-b(7개국)를 돌리고 lists.py 까지 넣은 뒤
+python3 amazon-beauty-tracker/subcat/unknown_check.py /tmp/amzsub/part_*.txt /tmp/amzl/*.txt   # 사전 밖 브랜드 규모 점검
 python3 amazon-beauty-tracker/subcat/push.py
 ```
 - ingest 가 가격 줄(P)을 `data/subcat/prices.csv` 에 적고(값이 바뀐 날만), 블록을 만들 때 추정 매출(model.py)을 다시 계산한다.
 - push.py 는 데이터 파일(세부 카테고리 · 7개국 · config) + index.html 만 커밋한다. 배포는 push.py 가 정한다 — 평소엔 배포 생략 표시(봇의 다음 배포가 싣는다),
   아침(05~07시)엔 아침 봇 배포(이벤트/수출 갱신 · 데일리 레터)가 이미 지나갔으면 직접 배포한다. 출력의 `배포: …` 줄이 이유다.
   거절되면 원격 최신 위에 블록만 다시 주입해 최대 4번 올린다(합치지 않는다).
+- `unknown_check.py` 는 그날 U 줄(제목에 Korean 이 있는데 사전에 없는 상품)을 `data/subcat/unknown_daily.csv` 에 쌓고, 사전 밖 브랜드가
+  규모 기준(① 7개국 중 한 곳이라도 뷰티 전체 Top100 · ② 미국 세부 카테고리 SKU 3개 이상 · ③ 세부 카테고리 Top10 최근 7일 중 4일)을 넘으면
+  `[새 브랜드 확인] …` 줄을 찍는다(2026-10-23 사용자 "사전에 없는 브랜드 일정 규모 이상 되면 나한테 물어봐"). 한 번 물은 브랜드는 `unknown_asked.json` 에 적혀 다시 안 묻는다.
+  사용자가 답하면: 넣기 → config.json `brands` 맨 뒤 한 줄 · 무시 → `unknown_check.py --decide "이름=무시"`.
 - 끝나면 만든 탭을 닫는다(`tabs_close_mcp`).
 
 ## 4. 보고 (한 줄)
 
 `ingest.py` 출력의 `[AMZSUB] …` 줄 + `상장사 상위` 줄 + 상장사 새 SKU(`NEW` 줄)가 있으면 그것까지 + `lists.py` 의 `[AMZL]` 7줄을
 '7개국 ok 7 · 한국 자리 미15 영12 …' 처럼 한 줄로. 실패면 어디서 멈췄는지.
+`unknown_check.py` 가 `[새 브랜드 확인]` 줄을 냈으면 보고에 그대로 붙이고 사용자에게 사전에 넣을지(회사·상장 상태) 묻는다 + 휴대폰 알림(PushNotification).
 
 ## 사람이 고칠 것
 
@@ -134,7 +140,7 @@ python3 amazon-beauty-tracker/subcat/push.py
 | 새 한국 브랜드 | `config.json` 의 `brands` **맨 뒤에** `["표시명",["패턴",…],"회사","L/P/F/N"]` 한 줄. 순서를 바꾸거나 중간에 끼우면 과거 덤프 번호가 틀어진다 |
 | 브랜드의 회사·상장 상태가 바뀜(인수·상장) | 그 줄의 3·4번째 칸, `companies` 의 `st` — 과거 데이터도 새 회사로 다시 묶인다(블록은 매번 마스터+사전으로 다시 만든다) |
 | 새 카테고리 | `cats` **맨 뒤에** `["카테고리 id",""]` — 이름은 다음 수집이 채운다 |
-| 새 브랜드 후보 확인 | `data/subcat/unknown.csv`(제목에 Korean·K-beauty 가 들어갔는데 사전에 없는 상품) |
+| 새 브랜드 후보 확인 | `data/subcat/unknown.csv`(처음 본 날) · `unknown_daily.csv`(날마다) — 규모가 넘으면 `unknown_check.py` 가 아침 보고로 묻는다 · 물은 기록 `unknown_asked.json` |
 
 ## 덤프 형식
 
@@ -146,8 +152,8 @@ python3 amazon-beauty-tracker/subcat/push.py
 [아마존 세부 카테고리 — 아침 수집] 매일 아침 이 세션이 ① AMZSUB(아마존 미국 뷰티 세부 카테고리 155개 Top100 · 한국 브랜드 SKU)와 ② AMZL(아마존 7개국 뷰티 Top100 — 2026-10-18 부터 순위표·아침 메시지를 맡는다)을 수집한다. 예약 작업으로 새로 뜨는 세션엔 크롬 도구가 안 붙어서(10/10 점검 두 번으로 확인) 크롬 도구가 붙어 있는 이 세션이 맡는다. 사용자는 자고 있다 — 묻지 말고 끝까지. 절차 원본: 저장소 amazon-beauty-tracker/subcat/RUNBOOK.md 의 '아침 수집 — 이 세션' 절과 1·2·1-b·3단계.
 0) 사슬 유지(맨 먼저): list_triggers 로 이름이 '아마존 세부 카테고리 아침 수집 (' 로 시작하는 예약을 본다. 내일·모레 05:30(KST) 회차가 없으면 이 메시지와 똑같은 내용으로 send_later 를 건다(at = 그날 05:30 KST, 이름 '아마존 세부 카테고리 아침 수집 (MM/DD 05:30)'). 같은 날짜가 둘이면 하나만 남긴다.
 1) cd /home/claude/coverage-dashboard → git status 가 깨끗하면 git pull -q --ff-only → python3 amazon-beauty-tracker/subcat/ingest.py --today 와 python3 amazon-beauty-tracker/subcat/lists.py --today. 둘 다 종료코드 0 이면 '오늘 이미 수집됨' 한 줄로 끝. 하나만 0 이면 빠진 쪽만 한다.
-2) 윈도우 크롬 기다리기: mcp__claude-in-chrome__list_connected_browsers 에 osPlatform 이 Windows 인 브라우저가 없으면 Bash 로 sleep 240 하고 다시 본다 — 처음 본 때부터 최대 90분(10/10 실측: PC 는 05:15 에 깨는데 크롬 확장은 05:53 에 붙었다). 보이면 select_browser 로 그 브라우저를 고르고 RUNBOOK 순서대로: 미국 세부 카테고리 수집 → 덤프 옮기기 → ingest.py --check → ingest.py → 1-b(같은 탭에서 미국 → 영·독·프·이·스·일 lists.js · 덤프는 get_page_text 로 · block 인 나라는 끝에 한 번만 다시) → lists.py --check → lists.py → push.py(한 번에). 아마존 /dp/ 는 열지 않고, 세부 카테고리가 BLOCKED 면 다시 돌리지 않는다. 배포 여부는 push.py 가 정한다. 사용자가 열어 둔 탭은 건드리지 않고, 만든 탭은 닫는다.
+2) 윈도우 크롬 기다리기: mcp__claude-in-chrome__list_connected_browsers 에 osPlatform 이 Windows 인 브라우저가 없으면 Bash 로 sleep 240 하고 다시 본다 — 처음 본 때부터 최대 90분(10/10 실측: PC 는 05:15 에 깨는데 크롬 확장은 05:53 에 붙었다). 보이면 select_browser 로 그 브라우저를 고르고 RUNBOOK 순서대로: 미국 세부 카테고리 수집 → 덤프 옮기기 → ingest.py --check → ingest.py → 1-b(같은 탭에서 미국 → 영·독·프·이·스·일 lists.js · 덤프는 get_page_text 로 · block 인 나라는 끝에 한 번만 다시) → lists.py --check → lists.py → unknown_check.py(그날 덤프들) → push.py(한 번에). 아마존 /dp/ 는 열지 않고, 세부 카테고리가 BLOCKED 면 다시 돌리지 않는다. 배포 여부는 push.py 가 정한다. 사용자가 열어 둔 탭은 건드리지 않고, 만든 탭은 닫는다.
 3) 90분 안에 안 보이면 수집하지 말고 멈추고, 같은 날 13:20 KST 에 이 메시지와 같은 내용으로 send_later 를 하나 건다(이름 '아마존 세부 카테고리 아침 수집 (MM/DD 13:20)' · 이미 있으면 안 건다 · 지금이 13:20 회차면 더 걸지 않는다).
 3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 · 월요일 주 1회)을 조건대로.
-4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄. 실패면 어디서 왜 멈췄는지.
+4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄 · unknown_check.py 가 낸 [새 브랜드 확인] 줄이 있으면 붙이고 사전에 넣을지 사용자에게 묻는다(PushNotification 도). 실패면 어디서 왜 멈췄는지.
 ```

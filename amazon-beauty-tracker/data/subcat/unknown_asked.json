@@ -1,0 +1,53 @@
+{
+ "erborian": {
+  "name": "Erborian",
+  "asked": "2026-10-23",
+  "why": [
+   "뷰티 전체 Top100(FR)",
+   "세부 카테고리 SKU 5개"
+  ]
+ },
+ "jiyu": {
+  "name": "JIYU",
+  "asked": "2026-10-23",
+  "why": [
+   "뷰티 전체 Top100(US)",
+   "세부 카테고리 SKU 3개"
+  ]
+ },
+ "terez": {
+  "name": "TEREZ",
+  "asked": "2026-10-23",
+  "why": [
+   "세부 카테고리 SKU 3개"
+  ]
+ },
+ "pūrlisse": {
+  "name": "pūrlisse",
+  "asked": "2026-10-23",
+  "why": [
+   "세부 카테고리 SKU 3개"
+  ]
+ },
+ "rael": {
+  "name": "Rael",
+  "asked": "2026-10-23",
+  "why": [
+   "뷰티 전체 Top100(DE)"
+  ]
+ },
+ "fria": {
+  "name": "Fria",
+  "asked": "2026-10-23",
+  "why": [
+   "뷰티 전체 Top100(IT)"
+  ]
+ },
+ "obge": {
+  "name": "OBgE",
+  "asked": "2026-10-23",
+  "why": [
+   "뷰티 전체 Top100(JP)"
+  ]
+ }
+}
