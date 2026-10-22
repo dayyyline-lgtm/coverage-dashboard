@@ -5,7 +5,8 @@
   "why": [
    "뷰티 전체 Top100(FR)",
    "세부 카테고리 SKU 5개"
-  ]
+  ],
+  "decision": "무시(해외 소유)"
  },
  "jiyu": {
   "name": "JIYU",
@@ -13,41 +14,47 @@
   "why": [
    "뷰티 전체 Top100(US)",
    "세부 카테고리 SKU 3개"
-  ]
+  ],
+  "decision": "무시(비상장)"
  },
  "terez": {
   "name": "TEREZ",
   "asked": "2026-10-23",
   "why": [
    "세부 카테고리 SKU 3개"
-  ]
+  ],
+  "decision": "무시(비상장)"
  },
  "pūrlisse": {
   "name": "pūrlisse",
   "asked": "2026-10-23",
   "why": [
    "세부 카테고리 SKU 3개"
-  ]
+  ],
+  "decision": "무시(해외 비상장)"
  },
  "rael": {
   "name": "Rael",
   "asked": "2026-10-23",
   "why": [
    "뷰티 전체 Top100(DE)"
-  ]
+  ],
+  "decision": "무시(비상장)"
  },
  "fria": {
   "name": "Fria",
   "asked": "2026-10-23",
   "why": [
    "뷰티 전체 Top100(IT)"
-  ]
+  ],
+  "decision": "무시(비상장)"
  },
  "obge": {
   "name": "OBgE",
   "asked": "2026-10-23",
   "why": [
    "뷰티 전체 Top100(JP)"
-  ]
+  ],
+  "decision": "무시(비상장 추정)"
  }
 }
