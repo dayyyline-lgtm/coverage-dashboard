@@ -49,7 +49,12 @@ window.KBPH={};
     const off={}; for(let j=0;j<35;j++) G[j].forEach(g=>{ if(g.lo<50) return; (off[g.p]=off[g.p]||[]).push(Math.log(Math.sqrt(g.lo*g.hi)/cur(g.rk))); });
     const ko={}; for(const p in off){ const a=off[p].sort((x,y)=>x-y); ko[p]=a.length>=4?a[a.length>>1]:0; }
     let nIn=0,nAll=0; for(let j=0;j<36;j++) G[j].forEach(g=>{ const e=Math.min(Math.max(Math.exp(ko[g.p]||0)*cur(g.rk),g.lo),g.hi*0.999); nAll++; if(e>g.lo&&e<g.hi*0.999) nIn++; g.kids.forEach(r=>{ r.m[j]=Math.round(e*r.mf[j]/g.lo); }); });
-    return {a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3)}; };
+    // 배지 없는 달 채우기(2026-10-22 · 사용자 '월판매량 추정 방식에 문제 있는 거 아니냐' — 네오팜) — 순위는 있는데 그 묶음에 배지가 하나도 없는 달(= 옵션마다 50개 미만)은
+    //   0 이 아니라 곡선값(상품 수준 보정 포함) · 단 순위 있는 옵션당 49개 상한(KBCH keepa.js 와 같은 규칙). 0 으로 두면 작은 SKU 가 50개를 넘는 순간 '성장'으로 잡혔다 —
+    //   KBCH 곡선식 대비 3Q26 전년비: 제로이드 +223% vs +138% · 리얼베리어 +16% vs −27% · 셀리맥스 +275% vs +201%(큰 브랜드는 ±5%p).
+    { let nF=0; for(let j=0;j<36;j++){ const P={}; rows.forEach(r=>{ const rk=r.rk[j]; if(!(rk>0)) return; const k=r.p+'|'+Math.round(rk); const o=P[k]=P[k]||{p:r.p,rk,bad:0,kids:[]}; if(r.mf[j]>0) o.bad=1; o.kids.push(r); });
+      Object.values(P).forEach(g=>{ if(g.bad) return; const e=Math.min(Math.exp(ko[g.p]||0)*cur(g.rk),49*g.kids.length); if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nF++; }); } K.nFill=nF; }
+    return {a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill}; };
   // 압축 덤프 — 브랜드마다 판매량(u)·판매액(v, 현지 통화 단위)만 · 36진수
   K.save=function(d){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];

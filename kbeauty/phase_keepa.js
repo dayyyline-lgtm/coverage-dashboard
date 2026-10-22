@@ -54,7 +54,7 @@ window.KBPH=window.KBPH||{};
     // ── 배지 구간 안의 위치를 순위로 정한다(2026-10-22 · 사용자 "구간이 거칠다 — 20~30% 변화가 안 보인다") ──
     //   배지 = 구간 아랫값(50·100·200…900·1천·2천…9천·1만·2만…·10만+). 구간 안 어디쯤인지는 그달 평균 판매 순위(historicalSalesRankAverages · 이번 달 = 30일 평균)로 정한다:
     //   ① 순위 → 판매량 곡선(꺾은 멱함수 · 20~3만 위 · 최근 12개 완결 달 · 구간 가운데값에 맞춤) ② 상품(부모)마다 수준 보정(그 상품의 '가운데값 ÷ 곡선' 중앙값 —
-    //   카테고리·옵션 차이를 흡수) ③ 보정한 곡선값을 그달 배지 구간 [아랫값, 윗값) 안으로 자른다. 배지가 없는 달(50개 미만)은 0 그대로.
+    //   카테고리·옵션 차이를 흡수) ③ 보정한 곡선값을 그달 배지 구간 [아랫값, 윗값) 안으로 자른다. 배지가 없는 달(50개 미만)은 아래 '배지 없는 달 채우기'.
     //   옵션(자식 ASIN)이 순위를 같이 쓰면 묶음 단위로 구간을 더해 자르고 아랫값 비율로 나눈다.
     //   검증(10/22 미국 3,544개): 이웃 달을 뺀 보정으로 그달 구간을 맞힌 비율 54%(직전 달 구간을 그대로 쓰면 37%) · 중앙 오차 17%(직전 달 26%) ·
     //   배지가 그대로인데 순위가 15% 넘게 움직인 경우 다음 달 배지가 움직인 방향이 순위 쪽 70%.
@@ -73,7 +73,12 @@ window.KBPH=window.KBPH||{};
         const off={}; for(let j=0;j<35;j++) G[j].forEach(g=>{ if(g.lo<50) return; (off[g.p]=off[g.p]||[]).push(Math.log(Math.sqrt(g.lo*g.hi)/cur(g.rk))); });
         const ko={}; for(const p in off){ const a=off[p].sort((x,y)=>x-y); ko[p]=a.length>=4?a[a.length>>1]:0; }
         let nIn=0,nAll=0; for(let j=0;j<36;j++) G[j].forEach(g=>{ const e=Math.min(Math.max(Math.exp(ko[g.p]||0)*cur(g.rk),g.lo),g.hi*0.999); nAll++; if(e>g.lo&&e<g.hi*0.999) nIn++; g.kids.forEach(r=>{ r.m[j]=Math.round(e*r.mf[j]/g.lo); }); });
-        K.fit={a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3)}; }
+        // 배지 없는 달 채우기(2026-10-22 · 사용자 '월판매량 추정 방식에 문제 있는 거 아니냐' — 네오팜) — 순위는 있는데 그 묶음에 배지가 하나도 없는 달(= 옵션마다 50개 미만)은
+        //   0 이 아니라 곡선값(상품 수준 보정 포함) · 단 순위 있는 옵션당 49개 상한(KBCH keepa.js 와 같은 규칙). 0 으로 두면 작은 SKU 가 50개를 넘는 순간 '성장'으로 잡혔다 —
+        //   KBCH 곡선식 대비 3Q26 전년비: 제로이드 +223% vs +138% · 리얼베리어 +16% vs −27% · 셀리맥스 +275% vs +201%(큰 브랜드는 ±5%p).
+        { let nF=0; for(let j=0;j<36;j++){ const P={}; rows.forEach(r=>{ const rk=r.rk[j]; if(!(rk>0)) return; const k=r.p+'|'+Math.round(rk); const o=P[k]=P[k]||{p:r.p,rk,bad:0,kids:[]}; if(r.mf[j]>0) o.bad=1; o.kids.push(r); });
+          Object.values(P).forEach(g=>{ if(g.bad) return; const e=Math.min(Math.exp(ko[g.p]||0)*cur(g.rk),49*g.kids.length); if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nF++; }); } K.nFill=nF; }
+        K.fit={a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill}; }
     }
     rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),uf:Array(36).fill(0),v:Array(36).fill(0),up:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
       const f=r.first?((new Date(r.first).getUTCFullYear()*12+new Date(r.first).getUTCMonth())-(new Date(months[0][0]).getUTCFullYear()*12+new Date(months[0][0]).getUTCMonth())):99;
