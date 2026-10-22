@@ -11289,6 +11289,7 @@ function renderCosPhase(){
   if(CB&&R&&document.getElementById("cpC")){ const k=R.k;
     cosStackAbs(document.getElementById("cpC"),{labs:CB.labs, full:CB.full, pi:CB.pi, E:CB.E, note:CB.note, legend:true,
       rows:[{name:"아마존", col:"var(--accent)", v:CB.A[k]||CB.M.map(()=>0)},{name:"틱톡샵", col:"color-mix(in srgb, var(--accent) 45%, var(--panel))", v:CB.T[k]||CB.M.map(()=>0)}]}); }
+  if(R) cosMonthValDraw(R.k);
   if(CB&&document.getElementById("cpCAll")){ const keys=Object.keys(CB.S), li=CB.pi===CB.M.length-1?CB.M.length-2:CB.M.length-1;
     const tot=CB.M.map((_,j)=>keys.reduce((t,k)=>t+CB.S[k][j],0));
     const top=keys.slice().sort((a,b)=>CB.S[b][li]-CB.S[a][li]).slice(0,9); if(cosSel&&keys.includes(cosSel)&&!top.includes(cosSel)) top.push(cosSel);
@@ -11547,7 +11548,76 @@ function cosSumStat(k){
 //   아마존 = Keepa 판매량(배지 하한) · 판매액 = SKU 마다 판매량 × 그달 가격을 더한 것 · 단가 = 판매액 ÷ 판매량(브랜드 평균 · 직접 받은 값 아님).
 //   틱톡샵 = FastMoss 공식 샵 일별 주문 수량·판매액(직접 받은 값) · 단가 = 판매액 ÷ 판매량. 원화 = 그달 ECB 평균 원/달러(kbFx).
 //   진행 달: 아마존은 배지 30일 평균이라 이미 한 달치 · 틱톡샵은 관측일 일할 환산(≈).
+// 월별 재료 — 오래된 달 → 최근 13개월. 진행 달: 아마존 = 배지 30일 평균(한 달치) · 틱톡샵 = 일할 환산(f).
+function cosMonthVal(k){
+  const V=KBV(), b=V&&V.b&&V.b[k]; if(!b) return null;
+  const T=V.tt&&V.tt.months?V.tt:null, tb=T&&T.b[k], E=T?cosProRate(T.partial,T.end):null;
+  const M=V.months, last=M[M.length-1], ms=M.slice(-13), hasV=!!b.v;
+  const R=ms.map(m=>{ const i=M.indexOf(m), j=T?T.months.indexOf(m):-1, f=T&&m===T.partial&&E?E.f:1;
+    return {m, part:m===last, f, fx:kbFx("USD",m)||null, au:b.u[i]||0, av:hasV?(b.v[i]||0):null, auy:i>=12?(b.u[i-12]||0):null,
+      tu:tb&&j>=0?(tb.mu[j]||0)*f:null, tv:tb&&j>=0?(tb.mv[j]||0)*f:null}; });
+  return {k, ko:b.ko||k, R, T, E, hasV, mkLab:V.mkLab||"미국"};
+}
+// 고른 브랜드 월별 — 기본은 차트(2026-10-22 사용자 "기본은 그래프로 띄우고 안 되면 표로"). 표는 아래 접힘(차트를 못 그리면 펼친다).
+let cosMV=(()=>{ try{ return localStorage.getItem("cosMV")||"krw"; }catch(e){ return "krw"; } })();
 function cosMonthValHtml(k){
+  const D=cosMonthVal(k); if(!D) return "";
+  const btn=[["krw","판매액 억원"],["usd","판매액 $"],["u","판매량"],["asp","단가"]].filter(x=>D.hasV||x[0]==="u");
+  if(!btn.some(x=>x[0]===cosMV)) cosMV=btn[0][0];
+  let fo=""; try{ fo=localStorage.getItem("fold_cosMVtbl")==="1"?" open":""; }catch(e){}
+  return `<div class="chart-box" style="margin-top:10px"><div class="asd-h">${attr(D.ko)} · 월별 판매량 · 판매액 · 단가<span class="sub">최근 13개월 · 아마존 ${attr(D.mkLab)}${D.T?" · 틱톡샵 미국":""} · 원화 = 그달 평균 환율</span></div>
+    <div class="cp-bar" style="margin-top:2px"><div class="seg">${btn.map(([v,t])=>`<button data-cmv="${v}" class="${cosMV===v?"active":""}">${t}</button>`).join("")}</div></div>
+    <div id="cpMV"></div>
+    <details class="fold" data-fold="cosMVtbl"${fo} style="margin-top:6px"><summary>표로 보기 <span class="g">월 · 판매량 · YoY · 판매액 · 단가 · 원/$ · 원화</span></summary>${cosMonthValTbl(k)}</details></div>`;
+}
+function cosMonthValDraw(k){
+  const el=document.getElementById("cpMV"); if(!el) return;
+  const box=el.closest(".chart-box");
+  box.querySelectorAll("[data-cmv]").forEach(b=>b.onclick=()=>{ cosMV=b.dataset.cmv; cosSv("cosMV",cosMV);
+    box.querySelectorAll("[data-cmv]").forEach(x=>x.classList.toggle("active",x===b)); cosMonthValDraw(k); });
+  try{
+    const D=cosMonthVal(k); if(!D) throw new Error("자료 없음");
+    const R=D.R, n=R.length, pi=R[n-1].part?n-1:-1, labs=R.map(r=>`${r.m.slice(2,4)}.${r.m.slice(5)}`), full=R.map(r=>`${r.m.slice(0,4)}년 ${+r.m.slice(5)}월`);
+    const tIdx=R.findIndex(r=>r.tu!=null), brk=R.map((r,i)=>i===tIdx&&i>0?"+틱톡샵":"");
+    const est=D.E&&pi>=0?` · 틱톡샵 ${D.E.lab} ×${D.E.dim}/${D.E.obs} 일할 환산`:"";
+    const col={a:"var(--accent)", t:"color-mix(in srgb, var(--accent) 45%, var(--panel))"};
+    if(cosMV==="asp"){
+      const A=R.map(r=>r.av!=null&&r.au>0?r.av/r.au:null), Tt=R.map(r=>r.tv!=null&&r.tu>0?r.tv/r.tu:null);
+      cosLines(el,{labs, full, pi, unit:"$", fmt:v=>"$"+v.toFixed(2), series:[{name:"아마존 단가",col:"var(--accent)",v:A},{name:"틱톡샵 단가",col:"var(--accent2)",dash:"5 3",v:Tt}],
+        note:`단가 = 판매액 ÷ 판매량 — 브랜드 평균이라 비싼 SKU 비중이 늘면 오른다(가격 인상이 아닐 수 있다)${est}`});
+      return; }
+    const usd=cosMV==="usd", u=cosMV==="u";
+    const av=R.map(r=>u?r.au:(r.av||0)*(usd?1:(r.fx||0)/1e8)), tv=R.map(r=>u?(r.tu||0):(r.tv||0)*(usd?1:(r.fx||0)/1e8));
+    const F=u?cosNum:usd?(v=>v>=1e6?"$"+(v/1e6).toFixed(v>=1e7?0:1)+"M":"$"+Math.round(v/1e3)+"K"):(v=>(v>=100?Math.round(v):v>=10?v.toFixed(0):v.toFixed(1))+"억");
+    cosStackAbs(el,{labs, full, pi, legend:true, fmt:F, unit:u?"개":"", pctLab:"합계 MoM",
+      brk, rows:[{name:"아마존",col:col.a,v:av},{name:"틱톡샵",col:col.t,v:tv}],
+      note:`${u?"아마존 = 배지 하한 · 틱톡샵 = 주문 수량":"아마존 = SKU 판매량 × 그달 가격 · 틱톡샵 = FastMoss 판매액"}${usd||u?"":" · 원화 = 그달 ECB 평균 원/달러"}${est}`});
+  }catch(err){ console.error("월별 판매 차트", err);
+    el.innerHTML=`<p class="note">차트를 그리지 못해 표로 보여 준다.</p>`;
+    const d=box.querySelector('details[data-fold="cosMVtbl"]'); if(d) d.open=true; }
+}
+// 단순 꺾은선(여러 계열 · 한 축) — 점은 계열 최고점에만. null 은 선을 끊는다.
+function cosLines(el, o){
+  const W=Math.max(300,Math.min(980,el.clientWidth||600)), H=220, p={l:50,r:30,t:16,b:28};
+  const all=o.series.flatMap(s=>s.v).filter(v=>v!=null); if(!all.length) throw new Error("자료 없음");
+  let lo=Math.min(...all), hi=Math.max(...all); const pad=(hi-lo)*0.15||hi*0.1||1; lo=Math.max(0,lo-pad); hi+=pad;
+  const n=o.labs.length, gW=(W-p.l-p.r)/Math.max(1,n-1), cx=i=>p.l+i*gW, yOf=v=>H-p.b-(v-lo)/(hi-lo)*(H-p.t-p.b);
+  const st=(()=>{ const r=(hi-lo)/4, mg=Math.pow(10,Math.floor(Math.log10(r))); return [1,2,2.5,5,10].map(x=>x*mg).find(x=>x>=r)||r; })();
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  for(let v=Math.ceil(lo/st)*st; v<=hi; v+=st) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${o.fmt(v)}</text>`;
+  o.labs.forEach((l,i)=>{ g+=`<text x="${cx(i)}" y="${H-p.b+14}" text-anchor="middle" font-size="10.5" fill="${i===o.pi?"var(--muted)":"var(--muted2)"}">${l}${i===o.pi?"*":""}</text>`; });
+  o.series.forEach(s=>{ let d="", on=false;
+    s.v.forEach((v,i)=>{ if(v==null){ on=false; return; } d+=`${on?"L":"M"}${cx(i).toFixed(1)},${yOf(v).toFixed(1)}`; on=true; });
+    g+=`<path d="${d}" fill="none" stroke="${s.col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${s.dash?` stroke-dasharray="${s.dash}"`:""}/>`;
+    const vs=s.v.map(v=>v==null?-Infinity:v), mi=vs.indexOf(Math.max(...vs));
+    if(mi>=0&&s.v[mi]!=null) g+=`<circle cx="${cx(mi)}" cy="${yOf(s.v[mi])}" r="3.5" fill="${s.col}"/><text x="${cx(mi)}" y="${yOf(s.v[mi])-7}" text-anchor="${cx(mi)>W-p.r-24?"end":"middle"}" font-size="9.5" fill="var(--muted)">${o.fmt(s.v[mi])}</text>`; });
+  g+=`</svg>`;
+  el.innerHTML=g+`<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--muted);margin-top:2px">${o.series.map(s=>`<span><span style="color:${s.col}">${s.dash?"┄":"━"}</span> ${attr(s.name)}</span>`).join("")}</div>`
+    +`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">${o.note||""}${o.pi>=0?" · * = 진행 중인 달":""}</div>`;
+  attachChartTip(el,{W,H,pad:p,n,xOf:cx,xLab:i=>o.labs[i],pts:i=>o.series.filter(s=>s.v[i]!=null).map(s=>({x:cx(i),y:yOf(s.v[i]),c:s.col})),
+    html:i=>`<div class="tt-h">${o.full[i]}${i===o.pi?" (진행 중)":""}</div>`+o.series.map(s=>`<div class="tt-r"><span class="k"><span style="color:${s.col}">■</span> ${attr(s.name)}</span><span class="v">${s.v[i]==null?"—":o.fmt(s.v[i])}</span></div>`).join("")});
+}
+function cosMonthValTbl(k){
   const V=KBV(), b=V&&V.b&&V.b[k]; if(!b) return "";
   const T=V.tt&&V.tt.months?V.tt:null, tb=T&&T.b[k], E=T?cosProRate(T.partial,T.end):null;
   const M=V.months, n=M.length, last=M[n-1], show=M.slice(-13).reverse(), hasV=!!b.v;
@@ -11564,14 +11634,13 @@ function cosMonthValHtml(k){
       ${T?`<td>${tu==null?'<span class="g">—</span>':(f>1?"≈":"")+num(tu)}</td><td>${tv==null?'<span class="g">—</span>':(f>1?"≈":"")+usd(tv)}</td><td>${asp(tv,tu)}</td>`:""}
       <td><b>${hasV||tv!=null?usd(sv):"—"}</b></td><td class="g">${fx?Math.round(fx).toLocaleString("ko-KR"):"—"}</td><td><b>${(hasV||tv!=null)&&fx?eok(sv*fx/1e8):"—"}</b></td></tr>`; }).join("");
   const tStart=T?T.start.slice(5).replace("-","/"):"";
-  return `<div class="chart-box" style="margin-top:10px"><div class="asd-h">${attr(b.ko||k)} · 월별 판매량 · 판매액 · 단가<span class="sub">최근 13개월 · 아마존 ${attr(V.mkLab||"미국")}${T?" · 틱톡샵 미국":""} · 원화 = 그달 평균 환율</span></div>
-    <div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l" rowspan="2">월</th><th colspan="4">아마존 (Keepa)</th>${T?`<th colspan="3">틱톡샵 (FastMoss · ${tStart}~)</th>`:""}<th colspan="3">합계</th></tr>
+  return `<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l" rowspan="2">월</th><th colspan="4">아마존 (Keepa)</th>${T?`<th colspan="3">틱톡샵 (FastMoss · ${tStart}~)</th>`:""}<th colspan="3">합계</th></tr>
       <tr><th title="배지('지난달 N개 이상 구매')의 하한을 달별 일수 가중 평균 · SKU 를 다 더함">판매량</th><th title="판매량 · 작년 같은 달 대비">YoY</th><th title="SKU 마다 판매량 × 그달 가격을 더함">판매액</th><th title="판매액 ÷ 판매량 — 브랜드 평균 단가(직접 받은 값 아님)">단가</th>
       ${T?`<th title="공식 샵 주문 수량">판매량</th><th title="공식 샵 판매액(단가가 직전 28일 중앙의 2.5배를 넘은 날은 판매량 × 중앙 단가로 고침)">판매액</th><th title="판매액 ÷ 판매량">단가</th>`:""}
       <th>판매액</th><th title="그달 ECB 월평균 원/달러">원/$</th><th>원화</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="note" style="margin:4px 0 0;line-height:1.6">* = 진행 중인 달(아마존 = 최근 30일 배지 평균이라 한 달치 그대로${E?` · 틱톡샵 = ${E.lab} 관측 ×${E.dim}/${E.obs} 일할 환산(≈)`:""}).
       아마존 판매액 = SKU 마다 [판매량 × 그달 가격] 을 더한 값 — 가격은 바이박스(없으면 신품 최저가 → 아마존 직판가)의 30·90·180·365일 평균을 구간으로 풀어 그달 나이에 맞춘 값(1년 넘은 달은 185~365일 전 평균가).
-      단가는 그 판매액을 판매량으로 나눈 브랜드 평균이라 비싼 SKU 비중이 늘면 오른다(가격 인상이 아닐 수 있다). 판매량이 배지 하한이라 판매액도 하한 쪽.${cur?` ${cur}.`:""}${T&&(T.mest||[]).length?` ${T.mest.map(m=>+m.slice(5)+"월").join("·")} 틱톡샵은 ${tStart}~ 관측(앞부분 빠짐).`:""}${T?` ${T.months[0].slice(2,4)}.${T.months[0].slice(5)} 앞 합계는 아마존만.`:""}${hasV?"":" 모아보기 멤버 중 가격이 없는 브랜드가 있어 아마존 판매액을 못 낸다."}</p></div>`;
+      단가는 그 판매액을 판매량으로 나눈 브랜드 평균이라 비싼 SKU 비중이 늘면 오른다(가격 인상이 아닐 수 있다). 판매량이 배지 하한이라 판매액도 하한 쪽.${cur?` ${cur}.`:""}${T&&(T.mest||[]).length?` ${T.mest.map(m=>+m.slice(5)+"월").join("·")} 틱톡샵은 ${tStart}~ 관측(앞부분 빠짐).`:""}${T?` ${T.months[0].slice(2,4)}.${T.months[0].slice(5)} 앞 합계는 아마존만.`:""}${hasV?"":" 모아보기 멤버 중 가격이 없는 브랜드가 있어 아마존 판매액을 못 낸다."}</p>`;
 }
 function cosComb(){
   const V=KBV(), T=V.tt; if(!T||!T.months) return null;
