@@ -125,7 +125,8 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "isntree": "isntree", "tonymoly": "tonymoly", "innisfree": "innisfree", "romand": "rom&nd", "medicube": "medicube",
           "missha": "missha", "dalba": "d'alba piedmont", "cosrx": "cosrx", "laneige": "laneige", "belif": "belif", "rejuran": "rejuran",
           "biodance": "biodance", "equalberry": "eqqualberry",
-          "clio": "clio"}   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
+          "clio": "clio",
+          "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
 
@@ -161,7 +162,9 @@ def build_tt(keys):
             fhs.append(fh)
     if not day:
         return None
-    end = max(max(dd) for dd in day.values() if dd)
+    # 끝날 = 지금 받는 샵들이 다 가진 마지막 날 — 한 샵만 하루 늦게 받으면(10/22 ZEROID 를 따로 받음) 나머지가 그날 0 으로 보여 주 칸이 밀린다
+    top = max(max(dd) for dd in day.values() if dd)
+    end = min(max(dd) for dd in day.values() if dd and max(dd) >= top - dt.timedelta(days=10))
     start = min(min(dd) for dd in day.values() if dd)
     nw = min(TT_MAXW, ((end - start).days + 1) // 7)
     first = end - dt.timedelta(days=7 * nw - 1)
@@ -200,12 +203,15 @@ def build_tt(keys):
                 fixed.append(i)
         wu, wv = [0] * nw, [0] * nw
         mu, mv = [0] * len(months), [0] * len(months)
-        if gap > 0 and ds and ds[0] == start:
+        if gap > 0 and ds and (ds[0] - start).days <= 3:            # 하루 이틀 늦게 받은 샵(ZEROID 10/22)도 같은 규칙으로 — 빠진 날수는 샵 자기 첫날 기준
             n14 = min(14, len(U))
-            mu0, mv0 = sum(U[:n14]) / n14 * gap, sum(V[:n14]) / n14 * gap
+            gs = (ds[0] - m0).days
+            mu0, mv0 = sum(U[:n14]) / n14 * gs, sum(V[:n14]) / n14 * gs
         else:
             mu0 = mv0 = 0
         for t, u, v in zip(ds, U, V):
+            if t > end:
+                continue
             if first <= t <= end:
                 w = (t - first).days // 7
                 wu[w] += u
@@ -257,10 +263,11 @@ def main():
     if a.shops:
         fm = sorted((SRC / "fm").glob("20??-??-??.txt"))
         seen = {}
-        for l in fm[-1].read_text(encoding="utf-8").splitlines() if fm else []:
-            f = l.split("|")
-            if f[0] == "S" and f[2] == "US":
-                seen[f[1]] = (f[3], f[5])
+        for path in fm:   # 덤프 전부 — 한 샵만 따로 받은 날(10/22 ZEROID)이 마지막 파일이어도 목록이 줄지 않게
+            for l in path.read_text(encoding="utf-8").splitlines():
+                f = l.split("|")
+                if f[0] == "S" and f[2] == "US" and TT_MAP.get(f[3]):
+                    seen[f[1]] = (f[3], f[5])
         for sid, (k, nm) in seen.items():
             print(f"{sid}\tawait window.__FMX.grab('{sid}','US','{k}')\t# {nm}")
         print(f"# {len(seen)}곳 · 새 샵은 TT_MAP 에도 넣을 것")
