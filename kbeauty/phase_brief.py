@@ -239,6 +239,13 @@ def bx_lines(d, cut=0.1):
         if r < cut:
             continue
         t = x["top"]
+        # 억제는 수집일 기준 3일 넘게 이어진 것만(2026-10-22 — 하루짜리 억제를 경고했다가 다음 날 돌아왔다)
+        if t.get("k") != "o":
+            try:
+                if not t.get("since") or (dt.date.fromisoformat(d["asOf"]) - dt.date.fromisoformat(t["since"])).days < 3:
+                    continue
+            except Exception:
+                continue
         kind = "품절" if t.get("k") == "o" else "억제(재고 있음)"
         since = f" · {int(t['since'][5:7])}/{int(t['since'][8:10])}부터" if t.get("since") else ""
         out.append((r, f"• {nm(d, k)} {round(r * 100)}% — {esc(t.get('t', '').strip())}… {kind}{since}"))

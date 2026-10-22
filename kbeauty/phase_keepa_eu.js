@@ -25,7 +25,7 @@ window.KBPH={};
   K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}; const rb=(d.brand||'').toLowerCase();
     // 일본 표기 'コースアールエックス(cosrx)' 처럼 괄호 안 라틴 이름이 있으면 그걸 키로 · センテリアン24 는 괄호가 없다(2026-10-22)
     const pm=rb.match(/\(([^)]+)\)\s*$/), key=/センテリアン/.test(rb)?'centellian 24':pm?(MAP[pm[1]]||pm[1]):(MAP[rb]||rb);
-    K.rows[d.asin]={a:d.asin,rb,b:key,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s)}; }); };
+    K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb,b:key,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s),hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1}; }); };
   K.run=function(){ (async()=>{ const sl=ms=>new Promise(r=>setTimeout(r,ms)); K.collect(); const tp=api().paginationGetTotalPages(); K.tp=tp;
     for(let p=1;p<tp;p++){ const b=Object.keys(K.rows).length; api().paginationGoToPage(p);
       for(let w=0;w<40;w++){ await sl(500); K.collect(); if(Object.keys(K.rows).length>b+60) break; }
@@ -34,6 +34,22 @@ window.KBPH={};
   K.px=function(r,j,months){ const p=r.pr||[]; if(!(p[0]>0)) return 0; const age=(Date.now()-(months[j][0]+14*86400000))/86400000;
     const v=j===35||age<=45?p[0]:age<=105?p[1]:age<=195?p[2]:p[3]; return v>0?v:p[0]; };
   K.status=()=>JSON.stringify({n:Object.keys(K.rows).length,tp:K.tp,done:K.done,last:K.log.slice(-2)});
+  // 배지 구간 안의 위치를 순위로 정한다(2026-10-22 · 미국판 phase_keepa.js 와 같은 식 — 설명은 그쪽 주석). 나라마다 그 나라 행으로 곡선을 맞춘다.
+  K.refine=function(rows,months){ const hiOf=v=>v<100?100:v<1000?v+100:v<10000?v+1000:v<100000?v+10000:v*2, X0=Math.log(1000), XL=Math.log(20), XH=Math.log(30000);
+    const rkOf=(r,j)=>{ let x; if(j<35){ const d=new Date(months[j][0]); const M=d.getUTCFullYear()*12+d.getUTCMonth(); x=(r.hr||[])[((M%36)+36)%36]; } else x=r.r30>0?r.r30:r.rc; return x>0?x:0; };
+    rows.forEach(r=>{ r.rk=[]; for(let j=0;j<36;j++) r.rk.push(rkOf(r,j)); });
+    const G=[]; for(let j=0;j<36;j++){ const g={}; rows.forEach(r=>{ const rk=r.rk[j]; if(!(rk>0)||!(r.mf[j]>0)) return; const k=r.p+'|'+Math.round(rk); const o=g[k]=g[k]||{p:r.p,rk,lo:0,hi:0,kids:[]}; o.lo+=r.mf[j]; o.hi+=hiOf(r.mf[j]); o.kids.push(r); }); G.push(Object.values(g)); }
+    const bins={}; for(let j=23;j<35;j++) G[j].forEach(g=>{ if(g.lo<50||g.rk<20||g.rk>30000) return; const b=Math.floor(Math.log(g.rk)/0.25); (bins[b]=bins[b]||[]).push(Math.log(Math.sqrt(g.lo*g.hi))); });
+    const pts=[]; for(const b in bins){ const ys=bins[b].sort((p,q)=>p-q); if(ys.length<6) continue; pts.push([(+b+0.5)*0.25,ys[ys.length>>1],Math.sqrt(ys.length)]); }
+    if(pts.length<6) return null;
+    const S=[[0,0,0],[0,0,0],[0,0,0]],T=[0,0,0]; pts.forEach(([x,y,w])=>{ const z=[1,Math.min(x,X0),Math.max(0,x-X0)]; for(let i=0;i<3;i++){ T[i]+=w*z[i]*y; for(let k=0;k<3;k++) S[i][k]+=w*z[i]*z[k]; } });
+    const det3=m=>m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])-m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])+m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+    const D=det3(S); if(Math.abs(D)<1e-9) return null; const C=[0,1,2].map(k=>det3(S.map((row,i)=>row.map((v,q)=>q===k?T[i]:v)))/D);
+    const f=x=>Math.exp(C[0]+C[1]*Math.min(x,X0)+C[2]*Math.max(0,x-X0)), cur=r=>{ const x=Math.log(r); return x<XL?f(XL)*Math.pow(20/r,0.35):x>XH?f(XH)*Math.pow(30000/r,1.4):f(x); };
+    const off={}; for(let j=0;j<35;j++) G[j].forEach(g=>{ if(g.lo<50) return; (off[g.p]=off[g.p]||[]).push(Math.log(Math.sqrt(g.lo*g.hi)/cur(g.rk))); });
+    const ko={}; for(const p in off){ const a=off[p].sort((x,y)=>x-y); ko[p]=a.length>=4?a[a.length>>1]:0; }
+    let nIn=0,nAll=0; for(let j=0;j<36;j++) G[j].forEach(g=>{ const e=Math.min(Math.max(Math.exp(ko[g.p]||0)*cur(g.rk),g.lo),g.hi*0.999); nAll++; if(e>g.lo&&e<g.hi*0.999) nIn++; g.kids.forEach(r=>{ r.m[j]=Math.round(e*r.mf[j]/g.lo); }); });
+    return {a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3)}; };
   // 압축 덤프 — 브랜드마다 판매량(u)·판매액(v, 현지 통화 단위)만 · 36진수
   K.save=function(d){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];
@@ -46,9 +62,11 @@ window.KBPH={};
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
         a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
     const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
-    rows.forEach(r=>{ const m=ms(r.msh), o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),n:0}; o.n++;
+    rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); });
+    K.fit=K.refine(rows,months);
+    rows.forEach(r=>{ const m=r.m, o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),n:0}; o.n++;
       for(let j=0;j<36;j++){ o.u[j]+=m[j]; o.v[j]+=m[j]*K.px(r,j,months); } });
-    const L=['D|'+d+'|'+new Date().toISOString().slice(0,10)+'|'+ML[0]+'|'+rows.length];
+    const L=['D|'+d+'|'+new Date().toISOString().slice(0,10)+'|'+ML[0]+'|'+rows.length+(K.fit?'|r':'')];   // 'r' = 배지 구간을 순위로 보정한 덤프(phase.py 가 보정 안 된 나라만 수준을 맞춘다)
     let h=0;
     Object.keys(B).sort().forEach(k=>{ const o=B[k], v=o.v.map(x=>Math.round(x/100));
       o.u.forEach((x,i)=>{ h=(h+x*(i+1))%1000003; }); v.forEach((x,i)=>{ h=(h+x*(i+7))%1000003; });

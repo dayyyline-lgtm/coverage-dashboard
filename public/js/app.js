@@ -11059,9 +11059,11 @@ function cosBxNote(k){
   const tot=b.u[b.u.length-1]||0, aff=(x.s||0)+(x.o||0);
   if(!tot||aff/tot<0.1) return "";
   const t=x.top, kind=t.k==="o"?"품절":"바이박스 억제(재고 있음 · '구매 옵션 보기'만)";
+  // 억제는 수집일 기준 3일 넘게 이어진 것만 띄운다(2026-10-22 — 하루짜리 억제를 '판매가 꺾인다'로 경고했다가 다음 날 돌아왔다)
+  if(t.k!=="o"&&(!t.since||(Date.parse(KBPH.asOf)-Date.parse(t.since))/864e5<3)) return "";
   return `<div class="cp-bx" style="margin:6px 0 2px;padding:6px 10px;border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent);font-size:12px">⚠ 아마존 미국 — 바이박스 없는 상품이 최근 30일 판매량의 <b>${Math.round(aff/tot*100)}%</b>
     · 가장 큰 것 <a href="https://www.amazon.com/dp/${attr(t.asin)}" target="_blank" rel="noopener">${attr(t.t.trim())}…</a> ${kind}${t.since?` · ${attr(t.since.slice(5).replace("-","/"))}부터`:""}${t.n?` · 판매자 ${t.n}곳`:""}
-    <span class="g">— 장바구니 버튼이 사라져 이 상품 판매가 꺾인다. 수요가 아니라 판매 경로 문제라 다음 달 비중 하락을 국면으로 읽지 말 것(${attr(KBPH.asOf)} 기준)</span></div>`;
+    <span class="g">— 장바구니 버튼이 없는 동안은 이 상품 판매가 준다. 수요가 아니라 판매 경로 문제라, 이게 이어져 다음 달 비중이 빠지면 국면으로 읽지 말 것(${attr(KBPH.asOf)} 수집 시점 상태 · 며칠 안에 돌아오는 일이 많다)</span></div>`;
 }
 function renderCosPhase(){
   cosSrcChips();
@@ -11177,7 +11179,7 @@ function renderCosPhase(){
       <div class="asd-duo" style="margin-top:10px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 K뷰티 내 비중 · 월별<span class="sub">Keepa · ${Object.keys(KBB().b).length}개 브랜드 판매량 중 · 점선 = ${Y3.prev} · ${Y3.cur} 평균</span></div><div id="cpSA"></div></div>
         ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 K뷰티 내 비중 · 주별<span class="sub">FastMoss · ${Object.keys(KBB().tt.b).length}개 공식 샵 판매량 중 · 점선 = ${L3.prev} · ${L3.cur} 평균</span></div><div id="cpST"></div></div>`:""}</div>
       <div class="cp-bar" style="margin-top:8px"><div class="seg">${[["u","판매량"],["krw","판매액(억원)"]].map(([v,t])=>`<button data-cvu="${v}" class="${cosVU===v?"active":""}">${t}</button>`).join("")}</div></div>
-      <div class="asd-duo" style="margin-top:6px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 ${cosVU==="u"?"판매량":"판매액"} · 같은 달 3개년<span class="sub">Keepa · ${cosVU==="u"?"판매량(배지 하한)":"판매량 × 그달 가격 · 원화 = 그달 평균 환율"} · % = YoY</span></div><div id="cpA"></div></div>
+      <div class="asd-duo" style="margin-top:6px"><div class="chart-box"><div class="asd-h">${attr(R.ko)} · 아마존 ${cosVU==="u"?"판매량":"판매액"} · 같은 달 3개년<span class="sub">Keepa · ${cosVU==="u"?"판매량(배지 · 순위로 구간 보정)":"판매량 × 그달 가격 · 원화 = 그달 평균 환율"} · % = YoY</span></div><div id="cpA"></div></div>
         ${CT?`<div class="chart-box"><div class="asd-h">${attr(R.ko)} · 틱톡샵 ${cosVU==="u"?"판매량":"판매액"} · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpT"></div></div>`:""}</div>
       ${cosMonthValHtml(R.k)}</div>`;
   }
@@ -11212,10 +11214,10 @@ function renderCosPhase(){
   const perBtns=mode==="tt"||mode==="sum"?"":`<div class="seg">${[[3,"3개월 · 판정"],[1,"1개월 · 조짐"]].map(([v,t])=>[v,mode==="amz"?t:`${SQ(v)} · ${t.split(" · ")[1]}`]).map(([v,t])=>`<button data-cpw="${v}" class="${xw===v?"active":""}">${t}</button>`).join("")}</div>`;
   const what=mode==="x"?`K뷰티 내 비중 <b>${SQ(xw)}</b> — 아마존 ${MKL} × 틱톡샵 미국 (${vs(Lx)})`
     :mode==="amz"?`아마존 ${MKL} ${Object.keys(KBB().b).length}개 브랜드 · 가로 비중 <b>YoY</b> (${vs(Yx)}) · 세로 비중 <b>${SQ(xw)}</b> (${vs(Dx)}${exS(Dx)})`
-    :mode==="sum"?`<b>${cosMk==="all"?"전 지역 합산":"미국 합산"}</b> — 아마존 ${(KBB().mks||["us"]).map(m=>(COS_MK.find(x=>x[0]===m)||[0,m])[1]).join("·")} + 틱톡샵 미국 판매량을 브랜드마다 더한 K뷰티 내 비중 · 가로 <b>QoQ</b> (${vs(L3)}${sEst?" · 4월 틱톡샵 앞부분 추정":""}) · 세로 <b>MoM</b> (${vs(L1)}) · 틱톡샵이 4/24~ 라 YoY 없음 · 아마존은 배지 하한 · 틱톡샵은 주문 수량`
+    :mode==="sum"?`<b>${cosMk==="all"?"전 지역 합산":"미국 합산"}</b> — 아마존 ${(KBB().mks||["us"]).map(m=>(COS_MK.find(x=>x[0]===m)||[0,m])[1]).join("·")} + 틱톡샵 미국 판매량을 브랜드마다 더한 K뷰티 내 비중 · 가로 <b>QoQ</b> (${vs(L3)}${sEst?" · 4월 틱톡샵 앞부분 추정":""}) · 세로 <b>MoM</b> (${vs(L1)}) · 틱톡샵이 4/24~ 라 YoY 없음 · 아마존은 배지를 순위로 구간 안 보정 · 틱톡샵은 주문 수량`
     :`틱톡샵 미국 공식 샵 ${Object.keys(KBB().tt.b).length}개 · 가로 비중 <b>QoQ</b> (${vs(L3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>MoM</b> (${vs(L1)}) · 4/24~ 라 YoY 없음`;
   const mks=(Object.keys(KBPH.mk||{}).length?["all"]:[]).concat(["us"], COS_EU.some(m=>(KBPH.mk||{})[m])?["eu"]:[], COS_MK.map(x=>x[0]).filter(m=>(KBPH.mk||{})[m]));
-  const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 하한)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
+  const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 · 순위로 구간 보정)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
   box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
       <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
       <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
@@ -11226,9 +11228,9 @@ function renderCosPhase(){
     ${lists}${selH}
     <div class="cp-all"><div class="cp-selh"><span class="cp-tag all">추적 브랜드 합계</span><span style="font-size:16px;font-weight:800">우리가 추적하는 K뷰티 브랜드 합계 · 월별 판매량</span></div>
     <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBV().b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBV().tt.b).map(k=>(KBV().b[k]||{}).ko||k).join(" · "):""))}">아마존 ${MKL} <b>${Object.keys(KBB().b).length}개</b>${CT?` · 틱톡샵 미국 공식 샵 <b>${Object.keys(KBV().tt.b).length}개</b>`:""} 브랜드를 더한 값 · <b>비상장 포함</b> · 위 버튼과 무관 (마우스 = 브랜드 목록)<br>
-      K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 배지 하한이라 실제보다 작게 잡힌다</div>
+      K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 '지난달 N개 구매' 배지(구간 아랫값)를 그달 평균 판매 순위로 구간 안에서 보정한 값 — 배지가 안 붙는 세트·묶음 상품은 빠져 실제보다 작다</div>
     <div class="cp-bar" style="margin-top:8px"><div class="seg">${[["u","판매량"],["krw","판매액(억원)"]].map(([v,t])=>`<button data-cvu="${v}" class="${cosVU===v?"active":""}">${t}</button>`).join("")}</div></div>
-    <div class="asd-duo${CT?"":" one"}" style="margin-top:6px"><div class="chart-box"><div class="asd-h">합계 · 아마존 ${cosVU==="u"?"판매량":"판매액"} · 같은 달 3개년<span class="sub">Keepa · ${cosVU==="u"?"판매량(배지 하한)":"판매량 × 그달 가격 · 원화 = 그달 평균 환율"} · % = YoY</span></div><div id="cpKA"></div></div>
+    <div class="asd-duo${CT?"":" one"}" style="margin-top:6px"><div class="chart-box"><div class="asd-h">합계 · 아마존 ${cosVU==="u"?"판매량":"판매액"} · 같은 달 3개년<span class="sub">Keepa · ${cosVU==="u"?"판매량(배지 · 순위로 구간 보정)":"판매량 × 그달 가격 · 원화 = 그달 평균 환율"} · % = YoY</span></div><div id="cpKA"></div></div>
       ${CT?`<div class="chart-box"><div class="asd-h">합계 · 틱톡샵 ${cosVU==="u"?"판매량":"판매액"} · 월별<span class="sub">FastMoss · ${KBV().tt.start.slice(5).replace("-","/")}~ · % = MoM (YoY 없음)</span></div><div id="cpKT"></div></div>`:""}</div></div>
     ${CT?`<div class="sub-h" style="margin-top:18px">아마존 + 틱톡샵 합산 · 월별 · 전 브랜드 <span class="th-sub" style="display:inline">두 채널 판매량을 브랜드마다 더해 쌓았다 · 틱톡샵 자료가 있는 ${KBV().tt.start.slice(5).replace("-","/")}~ 만 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="cp-bar" style="margin-top:6px"><div class="seg">${[["abs","판매량"],["sh","비중"]].map(([v,t])=>`<button data-cpc="${v}" class="${cosCmb===v?"active":""}">${t}</button>`).join("")}</div></div>
@@ -11251,7 +11253,7 @@ function renderCosPhase(){
       ③ 바구니 합계 YoY 는 시장이 아니다 — 지금 잘 팔리는 브랜드를 골라 넣어 위로 치우친다(3Q26 미국 +53% vs 관세청 대미 화장품 수출 +35% · 일본 +17% vs +19% · 유럽 5개국 +258% vs 유럽 9개국 수출 +117%).
       ④ 분기 평균 단가가 고르다(미 $18.6→20.4 · 영 £14~15 · 유로 €17~21 · 일 ¥2,400 · 캐 C$28) → 금액 환산 왜곡 없음. ⑤ 일본은 'コースアールエックス(cosrx)'·'ラネージュ(laneige)' 같은 가타카나 표기를 Keepa 자동완성으로 찾아 넣었다(미·영·캐는 놓친 표기 없음).
       ⑥ % 옆 * = 비교 기간 비중 0.3% 미만(기저가 작다).<br>
-      <b>비중</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(${MKL} · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 하한) ${Object.keys(KBB().b).length}개 브랜드 ·
+      <b>비중</b> = 바구니 브랜드 판매량 합에서 그 브랜드가 차지하는 비율. 아마존 = Keepa Product Finder(${MKL} · 역대 월판매 피크 50개 이상 SKU · '지난달 N개 구매' 배지 계단 이력 → 그달 마지막 7일 중앙값 → 구간 안 위치를 그달 평균 판매 순위와 상품별 수준으로 보정 · 아랫값보다 평균 +20% 안팎 · 독·프·이·스·캐나다는 10/22 Keepa 한도로 수준만 ×1.2 — 그 나라 안 비중·증감은 아랫값 그대로) ${Object.keys(KBB().b).length}개 브랜드 ·
       틱톡샵 = FastMoss 샵 상세 일별 판매량(미국 공식 샵 · 7일씩 · 매주 받은 덤프를 이어 붙여 최대 52주) — 설화수·페리페라·구달·메디필은 미국 공식 샵이 없어 틱톡 칸이 비고, 클리오 계열은 한 샵에 섞여 못 가른다.<br>
       <b>아마존</b> — 가로 = 비중 YoY(${vs(Y3)}) · 세로 = 비중 QoQ(${vs(D3)}${exS(D3)}) · 1개월 보기면 MoM. 둘 다 K뷰티 내 비중(바구니 판매량 중 비율)끼리 나눈 값이다.
       QoQ·MoM 은 달력 그대로 3개월 ÷ 바로 앞 3개월 · 1개월 ÷ 바로 앞 1개월이다(행사 달도 그대로 넣는다 — 행사 때만 튀는 브랜드(라네즈: 행사 달 6~9% · 평소 2.5~4%)는 7월이 든 창에서 높게 나온다).
@@ -11259,7 +11261,7 @@ function renderCosPhase(){
       <b>틱톡샵</b> — 비중 QoQ(${vs(L3)}) · MoM(${vs(L1)}). 2026-04 부터라 전년이 없어 계절 미보정이다(2027-04 부터 전년 기준으로 바꿀 수 있다). 두 채널 다 같은 마지막 달.
       비중으로 보는 이유: 프라임데이·블프 같은 계절은 바구니 전체가 같이 겪어 비중에선 지워진다. 판매량 증감은 보조 숫자(증가율 칸의 막대 · 점선 = 바구니 전체 판매량 증감 → 막대가 점선 위면 비중이 늘었다).
       틱톡샵은 일별을 달로 묶었고, 첫 달 4월은 4/24부터라 4/1~23 을 샵마다 '관측 첫 14일 평균'으로 채운 추정이다(3개월 창에 4월이 들어갈 때만 · 11월부터 사라짐). 메디큐브가 틱톡샵 판매량의 약 60%라 메디큐브가 움직이면 나머지 비중이 반대로 움직인다.<br>
-      <b>합산</b> — 브랜드마다 아마존 미국 + 틱톡샵 판매량을 더한 뒤 같은 바구니 비중으로 QoQ × MoM(틱톡샵이 4/24~ 라 YoY 없음 · 꼬리는 틱톡 이력이 쌓이면 길어진다). 아마존은 배지 하한, 틱톡샵은 주문 수량이라 정의가 조금 다르다 — 아마존이 판매량의 약 3/4 이라 아마존 쪽으로 기운다.<br>
+      <b>합산</b> — 브랜드마다 아마존 미국 + 틱톡샵 판매량을 더한 뒤 같은 바구니 비중으로 QoQ × MoM(틱톡샵이 4/24~ 라 YoY 없음 · 꼬리는 틱톡 이력이 쌓이면 길어진다). 아마존은 순위로 보정한 배지, 틱톡샵은 주문 수량이라 정의가 조금 다르다 — 아마존이 판매량의 약 3/4 이라 아마존 쪽으로 기운다.<br>
       꼬리 = 끝 달을 한 달씩 당겨 같은 식을 다시 푼 자리. 美 하루 매출 = 미국 세부 카테고리 순위 → 판매량 → × 가격 추정(환율 ${Math.round(fx).toLocaleString("ko-KR")}원).
       갱신 — 주 1회 월요일 아침(아마존 Keepa <code>kbeauty/phase_keepa.js</code> · 유럽·일본·캐나다 <code>phase_keepa_eu.js</code> · 틱톡샵(<code>kbeauty/fastmoss.js</code> → <code>kbeauty/data/phase/fm/</code>) → <code>kbeauty/phase.py</code>.</div></details>`;
 
@@ -11338,7 +11340,7 @@ function renderCosPhase(){
     const tNote=ch!=="amz"&&QV.tEst?`${QV.tEst} 틱톡샵은 4월 앞부분 추정`:"", aNote=ch==="sum"&&tFrom>0?`${QV.Q[tFrom]} 앞은 아마존만(틱톡샵 자료 ${KBV().tt.start.slice(5).replace("-","/")}~)`:"";
     const brk={}; if(ch==="sum"&&tFrom>0&&qi.includes(tFrom)) brk[qi.indexOf(tFrom)]="+틱톡샵";
     cosStackAbs(document.getElementById("cpQV"),{labs, full:labs, pi:-1, rows, chan, fmt:F, unit:"", pctLab:"합계 QoQ", brk,
-      note:[`${QV.keys.length}개 브랜드 · 위에서부터 ${QV.Q[li]} 큰 순`, aNote, tNote, qn?"단위 만 개 · 아마존은 배지 하한 · 틱톡샵은 주문 수량":"아마존은 판매량이 배지 하한이라 금액도 하한 쪽"].filter(Boolean).join(" · ")});
+      note:[`${QV.keys.length}개 브랜드 · 위에서부터 ${QV.Q[li]} 큰 순`, aNote, tNote, qn?"단위 만 개 · 아마존은 배지(순위로 구간 보정) · 틱톡샵은 주문 수량":"아마존은 배지가 안 붙는 세트 상품이 빠져 금액도 낮은 쪽"].filter(Boolean).join(" · ")});
     // 표 — 최근 6분기 + 진행 분기 + QoQ · YoY(합산은 아마존끼리) · 틱톡 몫
     const show=qi.slice(-6), pl=QV.pmon.map(m=>+m.slice(5)+"월").join("·");
     const gq=(a,b)=>a>0&&b>0?a/b-1:null, pc=v=>v==null?`<td class="g">—</td>`:`<td style="color:${v>=0?"var(--up)":"var(--down)"}">${v>=0?"+":""}${Math.round(v*100)}%</td>`;
@@ -11358,7 +11360,7 @@ function renderCosPhase(){
       +tr("추적 바구니 합계","",T0.v,T0.p,T0.y,T0.tf,null)
       +list.map(k=>{ const r=B[k]||{}; const tfk=ch==="sum"&&val(k,li)>0?(TA[k]?TA[k][li]||0:0)/val(k,li):null;
         return tr(attr(nm(k)), attr(r.co||(r.sup?r.sup+" ODM":"비상장")), i=>val(k,i), valP(k), yoyOf(k), tfk, k); }).join("")
-      +`</tbody></table></div><p class="note" style="margin:4px 0 0">${qn?"만 = 만 개 · 석 달 판매량 합(아마존 배지 하한 + 틱톡샵 주문 수량)":usd?"$M = 백만 달러":"억원 = 그달 ECB 평균 환율로 바꿔 석 달을 더한 값"} · 아마존 = Keepa 월 판매량(배지 하한) × 그달 가격(바이박스 → 신품 최저가 · 30·90·180·365일 평균을 달 나이에 맞춤 — 1년 넘은 달은 185~365일 전 평균가라 YoY 의 가격 효과는 근사) · 틱톡샵 = FastMoss 일별 판매액(공식 샵 · 단가 오류 고침) · 진행 칸은 한 달치라 분기와 견주지 말 것 · ${tNote||""}</p>`;
+      +`</tbody></table></div><p class="note" style="margin:4px 0 0">${qn?"만 = 만 개 · 석 달 판매량 합(아마존 배지 보정값 + 틱톡샵 주문 수량)":usd?"$M = 백만 달러":"억원 = 그달 ECB 평균 환율로 바꿔 석 달을 더한 값"} · 아마존 = Keepa 월 판매량(배지 · 순위로 구간 보정) × 그달 가격(바이박스 → 신품 최저가 · 30·90·180·365일 평균을 달 나이에 맞춤 — 1년 넘은 달은 185~365일 전 평균가라 YoY 의 가격 효과는 근사) · 틱톡샵 = FastMoss 일별 판매액(공식 샵 · 단가 오류 고침) · 진행 칸은 한 달치라 분기와 견주지 말 것 · ${tNote||""}</p>`;
     box.querySelectorAll("#cpQT [data-k]").forEach(el=>el.addEventListener("click",()=>cosPick(el.dataset.k)));
   }
   box.querySelectorAll("[data-cqc]").forEach(b=>b.addEventListener("click",()=>{ cosQC=b.dataset.cqc; cosSv("cosQC",cosQC); renderCosPhase(); }));
@@ -11583,7 +11585,7 @@ function cosSumStat(k){
   return {s3:tc?u3/tc:0, u3, tf:u3?t3/u3:0, m3:win(3), m1:win(1), est:mest.some(m=>C.M.indexOf(m)>=e-5)};
 }
 // 고른 브랜드 월별 판매량 · 판매액 · 단가 · 환율(2026-10-22 사용자 "금액이랑 개당 단가 추정이 어떻게 된 거야 · 브랜드별로 판매량·금액을 환율 기준으로 보고 싶다").
-//   아마존 = Keepa 판매량(배지 하한) · 판매액 = SKU 마다 판매량 × 그달 가격을 더한 것 · 단가 = 판매액 ÷ 판매량(브랜드 평균 · 직접 받은 값 아님).
+//   아마존 = Keepa 판매량(배지 · 순위로 구간 보정) · 판매액 = SKU 마다 판매량 × 그달 가격을 더한 것 · 단가 = 판매액 ÷ 판매량(브랜드 평균 · 직접 받은 값 아님).
 //   틱톡샵 = FastMoss 공식 샵 일별 주문 수량·판매액(직접 받은 값) · 단가 = 판매액 ÷ 판매량. 원화 = 그달 ECB 평균 원/달러(kbFx).
 //   진행 달: 아마존은 배지 30일 평균이라 이미 한 달치 · 틱톡샵은 관측일 일할 환산(≈).
 // 월별 재료 — 오래된 달 → 최근 13개월. 진행 달: 아마존 = 배지 30일 평균(한 달치) · 틱톡샵 = 일할 환산(f).
@@ -11632,7 +11634,7 @@ function cosMonthValDraw(k){
     const F=u?cosNum:usd?(v=>v>=1e6?"$"+(v/1e6).toFixed(v>=1e7?0:1)+"M":"$"+Math.round(v/1e3)+"K"):(v=>(v>=100?Math.round(v):v>=10?v.toFixed(0):v.toFixed(1))+"억");
     cosStackAbs(el,{labs, full, pi, legend:true, fmt:F, unit:u?"개":"", pctLab:"합계 MoM",
       brk, rows:[{name:"아마존",col:col.a,v:av,act:avx},{name:"틱톡샵",col:col.t,v:tv,act:tvx}],
-      note:`${u?"아마존 = 배지 하한 · 틱톡샵 = 주문 수량":"아마존 = SKU 판매량 × 그달 가격 · 틱톡샵 = FastMoss 판매액"}${usd||u?"":" · 원화 = 그달 ECB 평균 원/달러"}${est}`});
+      note:`${u?"아마존 = 배지(순위로 구간 보정) · 틱톡샵 = 주문 수량":"아마존 = SKU 판매량 × 그달 가격 · 틱톡샵 = FastMoss 판매액"}${usd||u?"":" · 원화 = 그달 ECB 평균 원/달러"}${est}`});
   }catch(err){ console.error("월별 판매 차트", err);
     el.innerHTML=`<p class="note">차트를 그리지 못해 표로 보여 준다.</p>`;
     const d=box.querySelector('details[data-fold="cosMVtbl"]'); if(d) d.open=true; }
@@ -11676,12 +11678,12 @@ function cosMonthValTbl(k){
       <td><b>${hasV||tv!=null?usd(sv):"—"}</b></td><td class="g">${fx?Math.round(fx).toLocaleString("ko-KR"):"—"}</td><td><b>${(hasV||tv!=null)&&fx?eok(sv*fx/1e8):"—"}</b></td></tr>`; }).join("");
   const tStart=T?T.start.slice(5).replace("-","/"):"";
   return `<div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead><tr><th class="l" rowspan="2">월</th><th colspan="4">아마존 (Keepa)</th>${T?`<th colspan="3">틱톡샵 (FastMoss · ${tStart}~)</th>`:""}<th colspan="3">합계</th></tr>
-      <tr><th title="배지('지난달 N개 이상 구매')의 하한을 달별 일수 가중 평균 · SKU 를 다 더함">판매량</th><th title="판매량 · 작년 같은 달 대비">YoY</th><th title="SKU 마다 판매량 × 그달 가격을 더함">판매액</th><th title="판매액 ÷ 판매량 — 브랜드 평균 단가(직접 받은 값 아님)">단가</th>
+      <tr><th title="배지('지난달 N개 이상 구매') — 그달 마지막 7일 중앙값을 그달 평균 판매 순위로 구간 안에서 보정 · SKU 를 다 더함">판매량</th><th title="판매량 · 작년 같은 달 대비">YoY</th><th title="SKU 마다 판매량 × 그달 가격을 더함">판매액</th><th title="판매액 ÷ 판매량 — 브랜드 평균 단가(직접 받은 값 아님)">단가</th>
       ${T?`<th title="공식 샵 주문 수량">판매량</th><th title="공식 샵 판매액(단가가 직전 28일 중앙의 2.5배를 넘은 날은 판매량 × 중앙 단가로 고침)">판매액</th><th title="판매액 ÷ 판매량">단가</th>`:""}
       <th>판매액</th><th title="그달 ECB 월평균 원/달러">원/$</th><th>원화</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="note" style="margin:4px 0 0;line-height:1.6">* = 진행 중인 달(아마존 = 최근 30일 배지 평균이라 한 달치 그대로${E?` · 틱톡샵 = ${E.lab} 관측 ×${E.dim}/${E.obs} 일할 환산(≈)`:""}).
+    <p class="note" style="margin:4px 0 0;line-height:1.6">* = 진행 중인 달(아마존 = 최근 30일 배지(순위로 구간 보정)라 한 달치 그대로${E?` · 틱톡샵 = ${E.lab} 관측 ×${E.dim}/${E.obs} 일할 환산(≈)`:""}).
       아마존 판매액 = SKU 마다 [판매량 × 그달 가격] 을 더한 값 — 가격은 바이박스(없으면 신품 최저가 → 아마존 직판가)의 30·90·180·365일 평균을 구간으로 풀어 그달 나이에 맞춘 값(1년 넘은 달은 185~365일 전 평균가).
-      단가는 그 판매액을 판매량으로 나눈 브랜드 평균이라 비싼 SKU 비중이 늘면 오른다(가격 인상이 아닐 수 있다). 판매량이 배지 하한이라 판매액도 하한 쪽.${cur?` ${cur}.`:""}${T&&(T.mest||[]).length?` ${T.mest.map(m=>+m.slice(5)+"월").join("·")} 틱톡샵은 ${tStart}~ 관측(앞부분 빠짐).`:""}${T?` ${T.months[0].slice(2,4)}.${T.months[0].slice(5)} 앞 합계는 아마존만.`:""}${hasV?"":" 모아보기 멤버 중 가격이 없는 브랜드가 있어 아마존 판매액을 못 낸다."}</p>`;
+      단가는 그 판매액을 판매량으로 나눈 브랜드 평균이라 비싼 SKU 비중이 늘면 오른다(가격 인상이 아닐 수 있다). 배지가 안 붙는 세트·묶음 상품은 빠져 판매액은 낮은 쪽.${cur?` ${cur}.`:""}${T&&(T.mest||[]).length?` ${T.mest.map(m=>+m.slice(5)+"월").join("·")} 틱톡샵은 ${tStart}~ 관측(앞부분 빠짐).`:""}${T?` ${T.months[0].slice(2,4)}.${T.months[0].slice(5)} 앞 합계는 아마존만.`:""}${hasV?"":" 모아보기 멤버 중 가격이 없는 브랜드가 있어 아마존 판매액을 못 낸다."}</p>`;
 }
 function cosComb(){
   const V=KBV(), T=V.tt; if(!T||!T.months) return null;
@@ -11697,7 +11699,7 @@ function cosComb(){
     Sx[k]=M.map((_,j)=>Ax[k][j]+Tx[k][j]); });
   const note=[(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")} 틱톡샵은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:"",
     pi>=0?`${+M[pi].slice(5)}월 실선 = 지금까지(아마존 ${(()=>{ const a=cosAmzAct(M[pi]); return a?`${a.lab} 배지 일할`:"배지"; })()} + 틱톡샵 ${E?E.lab:""} 관측) · 점선 = 월말까지 추정`:"",
-    "아마존은 배지 하한 · 틱톡샵은 주문 수량이라 정의가 조금 다르다"].filter(Boolean).join(" · ");
+    "아마존은 배지(순위로 구간 보정) · 틱톡샵은 주문 수량이라 정의가 조금 다르다"].filter(Boolean).join(" · ");
   return {M, labs:M.map(m=>`${+m.slice(5)}월`), full:M.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), pi, E, AE, A, T:TT, S, Ax, Tx, Sx, note};
 }
 // 분기 판매액 — 금액 환산(2026-10-21 사용자 "판매량 말고 금액으로도 · 분기별로 활용할 수 있게").

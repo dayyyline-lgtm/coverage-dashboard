@@ -93,7 +93,7 @@ def build_mk(d):
         if p[0] == "D":
             if p[3] != d["months"][0]:
                 raise SystemExit(f"유럽 {p[1]} 첫 달 {p[3]} ≠ 미국 {d['months'][0]}")
-            cur = {"cur": MK_CUR[p[1]], "asOf": p[2], "rows": int(p[4]), "b": {}}
+            cur = {"cur": MK_CUR[p[1]], "asOf": p[2], "rows": int(p[4]), "b": {}, "ref": len(p) > 5 and p[5] == "r"}
             out[p[1]] = cur
         elif p[0] == "H":
             h = _eu_hash(cur["b"])
@@ -110,6 +110,19 @@ def build_mk(d):
         if c["cur"] == "JPY":
             for x in c["b"].values():
                 x["v"] = [y * 100 for y in x["v"]]
+    # 배지 구간 보정(phase_keepa_eu.js · D 줄 끝 'r')을 안 거친 나라는 수준만 맞춘다(2026-10-22 · Keepa 하루 한도로 독·프·이·스·캐나다를 못 다시 받았다).
+    #   보정값 ÷ 아랫값이 시장마다 거의 같다(최근 12개 완결 달 · 미국 1.21 · 영국 1.20 · 일본 1.21) — 브랜드별 미국 배수보다 시장 상수가 영국·일본 브랜드 배수를 더 잘 맞혔다
+    #   (중앙 오차 4~6% vs 7%). 상수라 그 나라 안의 비중·QoQ·YoY 는 안 바뀌고, 전 지역 합산·판매액의 나라 사이 수준만 맞는다. 다음 회차에 'r' 덤프가 오면 저절로 빠진다.
+    ub = d["b"]; L = len(d["months"]) - 1
+    su = sum(sum(b["u"][L - 12:L]) for b in ub.values()); sf = sum(sum(b.get("uf", b["u"])[L - 12:L]) for b in ub.values())
+    k = round(su / sf, 3) if sf else 1.0
+    for m, c in out.items():
+        if c.pop("ref"):
+            continue
+        c["adj"] = k
+        for x in c["b"].values():
+            x["u"] = [round(y * k) for y in x["u"]]
+            x["v"] = [round(y * k) for y in x["v"]]
     for m, c in out.items():
         miss = [k for k in c["b"] if k not in d["b"]]
         if miss:
