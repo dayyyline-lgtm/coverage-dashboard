@@ -175,10 +175,16 @@ def esc(t):
 
 
 def nm(d, k):
-    """상장사 브랜드는 굵게(텔레그램 HTML)."""
+    """브랜드 이름(2026-10-24: 상장사 굵게 → 긍정 항목 굵게로 바꿈 · 굵게는 호출하는 쪽에서 B())."""
     b = d["b"].get(k) or {}
-    t = esc(b.get("ko") or k)
-    return f"<b>{t}</b>" if b.get("co") else t
+    return esc(b.get("ko") or k)
+
+
+def B(t):
+    return f"<b>{t}</b>"
+
+
+GOOD = {"성장 가속": 3, "반등 중": 2, "성장 둔화": 1, "하락 지속": 0}   # 긍정 순서
 
 
 QI = {"성장 가속": "🟢 가속", "성장 둔화": "🟡 둔화", "반등 중": "🔵 반등", "하락 지속": "🔴 하락"}
@@ -192,13 +198,13 @@ def quads(d, rows, minshare=0.005, cap=6):
         ks = sorted([k for k, r in big.items() if r["q"] == q], key=lambda k: -big[k]["s"])
         if ks:
             more = f" 외 {len(ks) - cap}" if len(ks) > cap else ""
-            out.append(f"{QI[q]}  " + ", ".join(nm(d, k) for k in ks[:cap]) + more)
+            out.append(f"{QI[q]}  " + ", ".join(B(nm(d, k)) if q == "성장 가속" else nm(d, k) for k in ks[:cap]) + more)
     return out
 
 
 def movers(d, rows, f, n=3, minshare=0.005):
     v = sorted([(k, r) for k, r in rows.items() if r["s"] >= minshare and r["sp"] >= 0.003], key=lambda z: -z[1][f])
-    up = [f"{nm(d, k)} {pct(r[f])}" for k, r in v[:n] if r[f] >= 105]
+    up = [B(f"{nm(d, k)} {pct(r[f])}") for k, r in v[:n] if r[f] >= 105]
     dn = [f"{nm(d, k)} {pct(r[f])}" for k, r in v[::-1][:n] if r[f] <= 95]
     return up, dn
 
@@ -207,8 +213,8 @@ def changes(d, rows, prev, minshare=0.005):
     if not prev:
         return []
     ch = [(k, prev[k], r["q"]) for k, r in rows.items() if k in prev and prev[k] != r["q"] and r["s"] >= minshare]
-    ch.sort(key=lambda z: -rows[z[0]]["s"])
-    return [f"{nm(d, k)} {QS[a]}→{QS[b]}" for k, a, b in ch]
+    ch.sort(key=lambda z: (-(GOOD[z[2]] - GOOD[z[1]]), -rows[z[0]]["s"]))   # 좋아진 것부터
+    return [(B if GOOD[b] > GOOD[a] else str)(f"{nm(d, k)} {QS[a]}→{QS[b]}") for k, a, b in ch]
 
 
 def companies(d, C, n=8):
@@ -225,7 +231,8 @@ def companies(d, C, n=8):
         if c and p and tc and tp:
             out.append((co, c / tc, 100 * (c / tc) / (p / tp)))
     out.sort(key=lambda z: -z[1])
-    return [f"{esc(co)} {shp(s)} · {pct(y)}" for co, s, y in out[:n]]
+    top = sorted(out[:n], key=lambda z: -z[2])            # 비중 상위 n개를 QoQ 좋은 순으로
+    return [(B if y >= 100 else str)(f"{esc(co)} {shp(s)} · {pct(y)}") for co, s, y in top]
 
 
 def bx_lines(d, cut=0.1):
@@ -292,7 +299,7 @@ def message(d, R, prev):
 
     # 2) 상장사
     if has_t:
-        L += ["", "<b>상장사</b> <i>전 지역 비중 · QoQ</i>"] + companies(d, SAc)
+        L += ["", "<b>상장사</b> <i>전 지역 비중 · QoQ 좋은 순</i>"] + companies(d, SAc)
 
     # 3) 국면 — 전 지역 합산 하나만
     L += ["", "<b>국면</b> <i>" + ("아마존 8개국 + 틱톡샵 미국 합산" if has_t else "아마존 미국") + "</i>"] + quads(d, S)
@@ -312,14 +319,15 @@ def message(d, R, prev):
         rows = R[code].rows(True)
         st[code] = {k: r["q"] for k, r in rows.items()}
         big = sorted([(k, r) for k, r in rows.items() if r["s"] >= 0.01], key=lambda z: -z[1]["s"])[:3]
-        L.append(f"{lab} YoY {pctg(R[code].base(True))}  " + ", ".join(f"{nm(d, k)} {shp(r['s'])}({QS[r['q']]})" for k, r in big))
+        big.sort(key=lambda z: (-GOOD[z[1]["q"]], -z[1]["s"]))   # 가속·반등부터
+        L.append(f"{lab} YoY {pctg(R[code].base(True))}  " + ", ".join((B if r["q"] == "성장 가속" else str)(f"{nm(d, k)} {shp(r['s'])}({QS[r['q']]})") for k, r in big))
 
     # 5) 경고(있을 때만)
     bx = bx_lines(d)
     if bx:
         L += ["", "<b>주의: 아마존 미국 바이박스 없음</b> <i>수요 아님 · 다음 달 판매가 꺾임</i>"] + bx
 
-    L += ["", "<i>가속 비중↑·최근↑ · 둔화 ↑·최근↓ · 반등 ↓·최근↑ · 하락 둘 다↓ · 굵게=상장사</i>"]
+    L += ["", "<i>가속 비중↑·최근↑ · 둔화 ↑·최근↓ · 반등 ↓·최근↑ · 하락 둘 다↓ · 굵게=긍정(비중↑·가속·좋아진 칸)</i>"]
     if not pq:
         L.append("<i>첫 회 — 다음 주부터 '칸 바뀜'이 붙는다</i>")
     L.append(f'<a href="{SITE}">대시보드</a>')
