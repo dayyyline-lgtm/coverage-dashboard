@@ -263,7 +263,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48,
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -9596,13 +9596,10 @@ function ddTip(name, n, lab, r){
   const x=pxDD(name, n); if(!x) return "";
   const yy=TODAY.slice(0,4), dd=d=>!d?"":d.slice(0,4)===yy?`${+d.slice(5,7)}/${+d.slice(8,10)}`:`'${d.slice(2,4)}.${+d.slice(5,7)}.${+d.slice(8,10)}`;
   const pc=v=>`${v>=0?"+":"−"}${Math.abs(v*100).toFixed(1)}%`;
-  const rel=x.now===0?"지금이 기간 고점":x.up===0?`고점 대비 ${pc(x.now)} · 지금이 기간 저점`:`고점 대비 ${pc(x.now)} · 저점 대비 ${pc(x.up)}`;
-  const lines=[`${lab} (종가 기준${x.d0?` · ${dd(x.d0)}~${dd(x.d1)}`:""})`,
-    `지금 ${won(x.cur)}원 — ${rel}`,
-    `고점 ${won(x.hi)}원${x.hiD?` (${dd(x.hiD)})`:""} · 저점 ${won(x.lo)}원${x.loD?` (${dd(x.loD)})`:""}`,
-    x.mdd<0?`최대 낙폭(MDD) ${pc(x.mdd)} — ${won(x.mA)}원${x.mAD?`(${dd(x.mAD)})`:""} → ${won(x.mB)}원${x.mBD?`(${dd(x.mBD)})`:""}`:"최대 낙폭 없음(내내 고점 갱신)",
-    `기간 수익률 ${pc(x.ret)}`];
-  if(r&&r.mdd!=null&&r.w52pos!=null) lines.push(`네이버 장중 고저 기준: 고점 대비 ${pc(r.mdd/100)} · 52주 위치 ${fmt(r.w52pos,0)}%`);
+  // 간결하게(2026-10-24 사용자 "너무 복잡 — 간결하게") — 세 줄: 고점 대비 · 저점 대비 · (지금보다 깊었던) 최대 낙폭
+  const lines=[x.now===0?`${lab} 고점`:`${lab} 고점 대비 ${pc(x.now)} (${x.hiD?dd(x.hiD)+" ":""}${won(x.hi)}원)`,
+    x.up===0?`${lab} 저점`:`저점 대비 ${pc(x.up)} (${x.loD?dd(x.loD)+" ":""}${won(x.lo)}원)`];
+  if(x.mdd<x.now-0.005) lines.push(`최대 낙폭 ${pc(x.mdd)} (${dd(x.mAD)}→${dd(x.mBD)})`);
   return lines.join("\n");
 }
 function sparkSvg(ser, w, h, hiN){
@@ -9652,7 +9649,7 @@ function renderUniBoard(){
           <td class="l uni-nm"><b>${r.name}</b>${r.pick2?` <span class="uni-pk">${r.pick2==="Top pick"?"★":"☆"}</span>`:""}${x.sig.length?`<div class="uni-sig-m">${x.sig.map(s=>s.html).join("")}</div>`:""}</td>
           <td>${won(r.price)}</td><td>${ret(r.chgPct)}</td><td>${ret(r.ret1w)}</td><td>${ret(r.ret1m)}</td><td class="hx">${ret(r.ret3m)}</td>
           <td class="hx" title="${attr(ddTip(r.name,250,"52주",r))}">${pos==null?"—":`<span class="uni-pos"><i style="left:${pos.toFixed(0)}%"></i></span>`}</td>
-          <td class="l hx" title="${attr(x.ps?ddTip(r.name,61,"최근 60거래일"):"")}">${x.ps?sparkSvg(x.ps.ser.slice(-61),96,22,1):""}</td>
+          <td class="l hx" title="${attr(x.ps?ddTip(r.name,61,"60일"):"")}">${x.ps?sparkSvg(x.ps.ser.slice(-61),96,22,1):""}</td>
           <td class="l uni-sig hx">${x.sig.map(s=>s.html).join("")}</td></tr>`; });
     });
   });
@@ -9767,8 +9764,10 @@ function renderStockTab(name){
     const opmOf=a=>(a.opm!=null?a.opm:(a.rev?a.op/a.rev*100:null));
     const pc=v=>v==null?"—":`<span class="${cls(v)}">${sign(v,0)}%</span>`;
     const mid=SP_MODEL[name], kb=!mid&&typeof kbHas==="function"&&kbHas(name);
-    body.innerHTML=(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
-      <div class="sub-h">${mid?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
+    // 공통 분기 손익 모델(ism.js · 2026-10-24) — 전용 모델이 없는 종목
+    const ism=!mid&&typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name];
+    body.innerHTML=(mid?`<div id="spModel"></div>`:"")+(ism?`<div id="spIsm"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+      <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
         <tr class="sub-row"><td class="l">매출 YoY</td>${A.map((a,i)=>`<td>${pc(yoy(A,"rev",i))}</td>`).join("")}</tr>
@@ -9786,6 +9785,7 @@ function renderStockTab(name){
       <div id="qChart"></div>
       <p class="note">실적·컨센은 네이버 금융 재무 API(${fmtUpd(LIVE.asOf)}).${mid?" 위 분기 모델은 이 종목 전용 — 실적은 DART, 추정은 대체 데이터.":""}</p>`;
     drawQuarter(Qs);
+    if(ism){ try{ renderIsm(name, document.getElementById("spIsm")); }catch(err){ console.error("분기 손익 모델", err); } }
     // 화장품 브랜드사 — 아마존(Keepa)·틱톡샵 채널 모델(2026-10-20 · KBCH)
     if(kb){ try{ renderKbModel(name, document.getElementById("spKb")); }catch(err){ console.error("채널 모델", err); } }
     if(mid){
