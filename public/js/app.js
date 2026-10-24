@@ -269,7 +269,7 @@ const FRESH_LIMITS = [
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
   ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
-  ["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],
+  ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],
 ];
 
 function ageHours(a){
@@ -2354,6 +2354,47 @@ const topicsOf0=n=>{
     (TREND_STOCK[it.stock]=TREND_STOCK[it.stock]||[]).push(name);
   });
 })();
+/* 미국 해상 선적(B/L · 2026-10-24 · fetch_bl.py → BL) — 종목마다 한 주제, 계열 = 페이지(미국 법인 수입 · 한국 출하).
+   값은 B/L 총중량(t · 월 = 미국 도착 달). 관세청 수출보다 빠르고(며칠 뒤) 회사 단위다. 해상만이라 항공 화물은 없다.
+   마지막 달은 자료 기준일까지만이라 선에서 빼고 요약에 '10/1~21 n t(월 환산 ≈)'로 적는다 — 넣으면 매달 말 급감처럼 보인다. */
+(function injectBlTrends(){
+  if(typeof BL==="undefined"||!BL.s||!BL.months||!BL.months.length) return;
+  const M=BL.months, mm=m=>`${m.slice(2,4)}.${+m.slice(5,7)}`;
+  const t0=v=>v==null?"—":v>=1e4?`${(v/1e3).toFixed(1)}천t`:`${Math.round(v).toLocaleString()}t`;
+  const pct=(a,b)=>(a!=null&&b>0)?`${a/b-1>=0?"+":""}${((a/b-1)*100).toFixed(0)}%`:null;
+  const by={};
+  BL.s.forEach(s=>{ if((s.w||[]).some(v=>v)) (by[s.st]=by[s.st]||[]).push(s); });
+  Object.keys(by).forEach(stock=>{
+    const ss=by[stock];
+    // 진행 중인 달: 자료 기준일(upd)의 달 — 소스마다 기준일이 같다(사이트 전체 갱신일)
+    const upd=ss.map(s=>s.upd).filter(Boolean).sort().pop()||"";
+    const curM=upd.slice(0,7), dim=curM?new Date(+curM.slice(0,4),+curM.slice(5,7),0).getDate():0, dd=+upd.slice(8,10)||0;
+    const partial=curM&&dd<dim?M.indexOf(curM):-1;
+    let last=M.length-1; if(partial===last) last--;
+    while(last>0&&ss.every(s=>(s.w||[])[last]==null)) last--;
+    const raw=ss.map(s=>(s.w||[]).slice(0,last+1).map(v=>v==null?null:Math.round(v)));
+    const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const notes=ss.map((s,i)=>{
+      const a=raw[i], v=a[last], y=last>=12?a[last-12]:null;
+      const q=a.slice(last-2,last+1), qy=last>=14?a.slice(last-14,last-11):[];
+      const qs=q.every(x=>x!=null)?q.reduce((x,y)=>x+y,0):null, qys=qy.length===3&&qy.every(x=>x!=null)?qy.reduce((x,y)=>x+y,0):null;
+      let n=`${s.label} ${mm(M[last])} ${t0(v)}`+(pct(v,y)?`(전년동월비 ${pct(v,y)})`:"")
+        +(qs!=null?` · 최근 3개월 ${t0(qs)}`+(pct(qs,qys)?`(전년비 ${pct(qs,qys)})`:""):"");
+      if(partial>=0&&(s.w||[])[partial]!=null){ const pv=s.w[partial]; n+=` · ${+curM.slice(5,7)}/1~${dd} ${t0(pv)}(월 환산 ≈${t0(pv*dim/dd)})`; }
+      return n;
+    });
+    const name=`${stock} 미국 해상 선적(B/L)`;
+    TREND.groups[name]={
+      products:ss.map(s=>s.label), productsGoogle:ss.map(s=>s.label),
+      months:M.slice(0,last+1).map(mm), naver:norm, google:norm, rawSer:raw,
+      only:"naver", freq:"month", peak, unit:"t(월 · B/L 총중량)", unitShort:"t",
+      srcName:`${BL.src||"ImportYeti · 미국 세관 해상 수입 B/L"} · 월 = 미국 도착 달 · 해상만(항공 제외) · 자료 기준일 ${upd} · `+ss.map(s=>s.memo).filter(Boolean).join(" / "),
+      reviewNote:notes.join(" · ")
+    };
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+})();
 /* 디시 갤러리 순위(BUZZ.dc) — 글 수(DCGALL)가 '양' 이라면 이쪽은 '전체 마이너갤 대비 상대 온도'다.
    글이 줄어도 순위가 버티면 판 전체가 식은 것이고, 글은 그대로인데 순위가 밀리면 우리만 식은 것이다.
    ⚠ 순위는 작을수록 뜨겁다 — 다른 순위 계열과 같이 (301−순위)/300 으로 뒤집어 그리고 축·표는 실제 순위.
@@ -2649,18 +2690,23 @@ let trendStock="", trendGroup="", trendFreq="week";
    리뷰·검색·DLC 예약…). 버튼을 한 줄에 다 깔면 정작 차트가 안 보인다. 지표 종류로 한 번 거른다.
    ⚠ 순서가 중요하다 — '거래순위' 는 이름에 '순위' 가 들어가지만 게임경제 쪽이라 먼저 걸러야 한다. */
 const KIND_ORDER=["플레이","시청","판매·순위","리뷰","게임경제","커뮤니티","검색","기타"];
-/* 중요도 등급 (2026-09-24 · 사용자 요청 "중요한 것부터, 나머지는 뒤로").
-   1 = 매출에 직결(판매·순위·앨범·수출·동접·채널 순위·브랜드 검색) · 2 = 수요 선행(시청·스트리밍·리뷰·게임경제·커뮤니티 글 양)
-   · 3 = 참고(채용·갤 순위·거래순위·경쟁 챗봇·캐릭터별). 계열이 전부 0/빈 값이면 3으로 내린다.
+/* 중요도 등급 (2026-09-24 · 사용자 요청 "중요한 것부터, 나머지는 뒤로" → 2026-10-24 다시 좁힘).
+   1 = ★ 핵심 — 실제로 팔리고·쓰이는 양을 재는 실측: 동접 · 앱 매출순위 · 스토어 판매순위 · 앨범판매 · 수출(관세청) ·
+       미국 선적(B/L) · 아마존 Top100 · Qoo10 · 올리브영 · 탑툰챗 일별 대화 · 버블 매출순위 · 극장 관객 · 방한 관광객
+   2 = 보조 — 수요의 앞쪽·관심: 시청자 · 스트리밍·조회수 · 리뷰 · 위시리스트·다운로드·예약 순위 · 게임경제 · 디시 글 양 · 브랜드 검색
+   3 = 참고 — 채용 · 갤 순위 · 거래순위 · 경쟁사 · 캐릭터별 · 누적 · 무료순위. 계열이 전부 0/빈 값이면 3으로 내린다.
+   ⚠ 2026-10-24 사용자 "게임 동접자 같은 건 굉장히 중요한데 다른 건 그렇지 않을 수 있다" — 예전엔 검색 트렌드까지 1등급이라
+     1등급이 종목마다 대부분이었고, '주목할 추이'는 등급을 안 봐서 채용·캐릭터별·갤 순위가 맨 위를 차지했다.
+     그래서 검색을 2로 내리고, 주목할 추이는 3등급을 빼고 1등급(★)을 앞에 세운다(trendCands).
    카드·주제 버튼이 이 순서로 서고, 3등급은 접힌다. 종목을 고르면 1등급 첫 주제가 기본이다. */
+const TIER_NAME={1:"핵심",2:"보조",3:"참고"};
 function topicTier(n){
   const G=TREND.groups[n]||{};
   let t;
-  if(/매출순위|판매순위|앨범판매|수출|동접|아마존|올리브영|Qoo10|위시리스트|월간청취자|극장/.test(n)) t=1;
-  else if(/시청|스트림|리뷰|디시 글수|게임머니|거래대금|평균시세|쇼핑/.test(n)) t=2;
-  else if(/채용|갤 순위|거래순위|AI 챗|AI챗|캐릭터별|경쟁/.test(n)) t=3;
-  else if(!G.srcName) t=1;                       // 검색 트렌드(브랜드·IP)
-  else t=2;
+  if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
+  else if(/다운로드순위|유료순위|예약순위|위시리스트|한국발 비중/.test(n)) t=2;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|Qoo10|탑툰챗 대화|극장|관광객/.test(n)) t=1;
+  else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
   const vals=ser.flatMap(s=>(s||[]).filter(v=>v!=null));
@@ -6259,7 +6305,9 @@ function renderTrendCards(){
   const list=topicsOf(trendStock);
   if(list.length<2){ box.innerHTML=""; return; }         // 주제가 하나면 카드가 차트와 같은 말이다
   const W=140,H=34;
-  const main=list.filter(g=>topicTier(g)<3), rest=list.filter(g=>topicTier(g)>=3);
+  const core=list.filter(g=>topicTier(g)===1), aux=list.filter(g=>topicTier(g)===2), rest=list.filter(g=>topicTier(g)>=3);
+  // 등급 줄 머리 — 핵심·보조가 둘 다 있을 때만(한 등급뿐이면 머리가 같은 말이다)
+  const head=(t,n,tip)=>`<div style="grid-column:1/-1;display:flex;align-items:baseline;gap:8px;margin:${t===1?0:4}px 0 -2px;font-size:11.5px;font-weight:800;color:${t===1?'var(--accent)':'var(--muted)'}" title="${attr(tip)}">${t===1?'★ ':''}${TIER_NAME[t]} 지표 <span style="font-weight:600;color:var(--muted2)">${n}개 · ${tip}</span></div>`;
   const card=g=>{
     const S=trendCardStats(g, trendStock); if(!S) return "";
     const n=Math.max(2,...S.rows.map(r=>r.ser.length));
@@ -6271,7 +6319,8 @@ function renderTrendCards(){
     const chg=S.dRank!=null?`<span class="${S.dRank>0?'up':S.dRank<0?'down':''}" style="font-size:11px;font-weight:700">${S.dRank>0?'▲':S.dRank<0?'▼':'—'}${Math.abs(S.dRank)||''}</span>`
       : S.chg==null?`<span style="font-size:11px;color:var(--muted2)">—</span>`:`<span class="${cls(S.chg)}" style="font-size:11px;font-weight:700">${sign(S.chg,0)}%</span>`;
     const chgLab=S.freq==="date"?"최근 7일":S.freq==="week"?"전주":"전월";
-    return `<div data-grp="${attr(g)}" title="${attr(g)} — 클릭하면 이 주제를 크게 봅니다" style="cursor:pointer;background:var(--panel);border:1px solid ${act?'var(--accent)':'var(--line-soft)'};border-radius:12px;padding:8px 10px 6px;box-shadow:${act?'var(--shadow)':'none'}">
+    const isCore=topicTier(g)===1;
+    return `<div data-grp="${attr(g)}" title="${attr(g)} — 클릭하면 이 주제를 크게 봅니다" style="cursor:pointer;background:var(--panel);border:1px solid ${act?'var(--accent)':'var(--line-soft)'};${isCore?'border-top:2px solid color-mix(in srgb, var(--accent) 70%, transparent);':''}border-radius:12px;padding:8px 10px 6px;box-shadow:${act?'var(--shadow)':'none'}">
       <div style="font-size:11px;font-weight:700;color:${act?'var(--text)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${attr(g)}</div>
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin:2px 0"><span style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">${S.valTxt}</span><span style="display:flex;gap:4px;align-items:baseline"><span style="font-size:10px;color:var(--muted2)">${chgLab}</span>${chg}</span></div>
       <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">${paths}</svg>
@@ -6279,7 +6328,9 @@ function renderTrendCards(){
     </div>`;
   };
   const open=box.dataset.open==="1";
-  box.innerHTML=main.map(card).join("")
+  const both=core.length&&aux.length;
+  box.innerHTML=(both?head(1,core.length,"실제 판매·이용량(동접·매출순위·수출·선적·아마존 등)"):"")+core.map(card).join("")
+    +(both?head(2,aux.length,"수요의 앞쪽·관심(시청·리뷰·검색·커뮤니티 등)"):"")+aux.map(card).join("")
     +(rest.length?`<div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <button id="trendCardsMore" style="background:transparent;border:1px solid var(--line-soft);border-radius:8px;color:var(--muted);font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer">${open?"참고 지표 접기":`참고 지표 ${rest.length}개 보기`}</button>
         ${open?"":`<span style="font-size:11px;color:var(--muted2)">${rest.map(g=>attr(g)).join(" · ")}</span>`}</div>`
@@ -6308,7 +6359,7 @@ function renderTrendSegs(){
   if(subs.length>1){
     row.style.display="";
     document.getElementById("trendTopicSeg").innerHTML=subs
-      .map(g=>`<button data-grp="${attr(g)}" class="${g===trendGroup?'active':''}">${g}</button>`).join("");
+      .map(g=>{ const t=topicTier(g); return `<button data-grp="${attr(g)}" class="${g===trendGroup?'active':''}" title="${TIER_NAME[t]} 지표"${t===3?' style="opacity:.7"':''}>${t===1?'★ ':''}${g}</button>`; }).join("");
   }else{
     row.style.display="none";
     document.getElementById("trendTopicSeg").innerHTML="";
@@ -6683,8 +6734,21 @@ function trendCands(){
     });
     flush();
   });
-  cands.sort((a,b)=>b.score-a.score);
-  return cands;
+  // 중요도(2026-10-24) — 참고 지표(3등급)는 주목할 추이에 안 올린다. 핵심(★) 지표는 같은 크기의 움직임이면 앞에 선다.
+  // 개수가 아주 작은 계열(아마존 영국 1개 → 2개 = +133%)은 %가 부풀어서 뺀다 — 최근 값이 3 미만이면 건너뛴다.
+  const out=cands.filter(c=>{
+    const t=topicTier(c.gname); c.tier=t; if(t>=3) return false;
+    const G=TREND.groups[c.gname]||{};
+    if(!c.album&&c.rank==null&&G.rawSer){
+      const pi=(G.products||[]).indexOf(c.prod), raw=pi>=0?(G.rawSer[pi]||[]):[];
+      const tail=raw.filter(v=>v!=null).slice(-7);
+      if(tail.length&&tail.reduce((x,y)=>x+y,0)/tail.length<3) return false;
+    }
+    c.rankScore=c.score*(t===1?1.6:1);
+    return true;
+  });
+  out.sort((a,b)=>b.rankScore-a.rankScore);
+  return out;
 }
 function renderTrendHighlights(){
   const box=document.getElementById("trendHighlights"); if(!box) return;
@@ -6694,7 +6758,7 @@ function renderTrendHighlights(){
   for(const c of cands){ if((per[c.stock]||0)>=2) continue; per[c.stock]=(per[c.stock]||0)+1; top.push(c); if(top.length>=5) break; }
   const shortG=g=>g.replace(/\([^)]*\)/,"").replace(/앨범판매/,"앨범").replace(/월간청취자/,"청취자").trim();
   box.innerHTML= !top.length ? "" :
-    `<span style="align-self:center;font-size:12px;color:var(--muted);font-weight:700">📌 주목할 추이</span>`+
+    `<span style="align-self:center;font-size:12px;color:var(--muted);font-weight:700" title="참고 지표(채용·갤 순위·캐릭터별 등)는 빼고, 같은 크기로 움직였으면 ★ 핵심 지표(동접·매출순위·수출·선적·아마존 등)를 앞에 세웁니다">📌 주목할 추이</span>`+
     top.map(c=>{
       let icon,chg,up;
       if(c.album){ icon="🚀"; up=true; chg="신보 "+(c.fmt?c.fmt(c.val):c.val.toLocaleString()); }
@@ -6707,7 +6771,7 @@ function renderTrendHighlights(){
         const lw=c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
         chg=v==null?(c.wk?"주간 최고":"신고점"):(useWin?lw:lm)+`${v>=0?"+":""}${v.toFixed(0)}%`;
       }
-      return `<button onclick='selectTrend(${JSON.stringify(c.stock)},${JSON.stringify(c.gname)})' style="display:flex;gap:7px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;color:var(--text)"><span>${icon}</span><b>${c.prod}</b><span style="color:${up?'var(--up)':'var(--down)'};font-weight:700">${chg}</span><span style="color:var(--muted);font-size:11px">${c.stock} · ${shortG(c.gname)}</span></button>`;
+      return `<button onclick='selectTrend(${JSON.stringify(c.stock)},${JSON.stringify(c.gname)})' style="display:flex;gap:7px;align-items:center;background:var(--panel2);border:1px solid ${c.tier===1?'color-mix(in srgb, var(--accent) 55%, var(--line))':'var(--line)'};border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;color:var(--text)"><span>${icon}</span>${c.tier===1?'<span style="color:var(--accent);font-size:11px;font-weight:800" title="핵심 지표">★</span>':''}<b>${c.prod}</b><span style="color:${up?'var(--up)':'var(--down)'};font-weight:700">${chg}</span><span style="color:var(--muted);font-size:11px">${c.stock} · ${shortG(c.gname)}</span></button>`;
     }).join("");
   return top;   // 최상위 = 그날 가장 주목할 추이(트렌드 탭 진입 시 기본 표시)
 }

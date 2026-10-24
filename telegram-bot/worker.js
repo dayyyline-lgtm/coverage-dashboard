@@ -15,7 +15,9 @@
  *   3) 웹훅 등록:
  *      https://api.telegram.org/bot<토큰>/setWebhook?url=<워커주소>&secret_token=<WEBHOOK_SECRET>
  */
-const SITE = "https://coverage-dashboard.pages.dev";
+// 데이터는 사이트가 아니라 저장소 원본에서 읽는다 — 사이트는 이메일 로그인(Cloudflare Access) 뒤에 있어
+// 워커가 그대로 부르면 로그인 화면만 받는다(2026-10-24 잠금). 저장소는 공개라 키 없이 열린다.
+const SRC = "https://raw.githubusercontent.com/dayyyline-lgtm/coverage-dashboard/main/public/index.html";
 const TTL = 300;   // 데이터 캐시(초)
 
 export default {
@@ -136,7 +138,7 @@ const fmt = v => (v == null || isNaN(v)) ? "—" : Math.round(v).toLocaleString(
 let _cache = null, _at = 0;
 async function data(env, ctx) {
   if (_cache && Date.now() - _at < TTL * 1000) return _cache;
-  const html = await (await fetch(SITE + "/index.html?ts=" + Date.now())).text();
+  const html = await (await fetch(SRC + "?ts=" + Date.now())).text();
   _cache = {
     LIVE: pick(html, "LIVE", "{"), TREND: pick(html, "TREND", "{"),
     TRADE: pick(html, "TRADE", "{"), DART_EVENTS: pick(html, "DART_EVENTS", "["),
