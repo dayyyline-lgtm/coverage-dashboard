@@ -9589,6 +9589,38 @@ function uniSignals(name){
     out.push({k:"tr", html:sigPill(`${t.icon} ${attr(trendSigName(c))} <b class="${t.up?"up":"down"}">${t.chg}</b>`,"tr",`${c.gname}${tr.length>1?` 외 ${tr.length-1}건`:""} — 누르면 종목 페이지 트렌드`)+(tr.length>1?`<span class="sig-more">+${tr.length-1}</span>`:"")}); }
   return out;
 }
+/* 고점 대비 낙폭 · 최대 낙폭(MDD) — 유니버스 보드 52주·60일 칸, 종목 페이지 52주 칸에 손을 올리면 뜬다
+   (2026-10-24 사용자 "손 올리면 얼마나 MDD 났는지 알려줘야지"). 종가 기준 = pxSig 와 같은 계열(최근 종가 + 지금 가격).
+   ⚠ 52주 위치 막대·밸류에이션 표 '고점대비 낙폭'은 네이버 장중 고저(w52h·w52l)라 몇 % 다를 수 있다 — 툴팁에 둘 다 적는다. */
+function pxSerDates(name){
+  const L=(LIVE.stocks||{})[name]; if(!L||!L.px||L.px.length<21||!L.price) return null;
+  const D=pxDates(L), same=L.pxd===TODAY_C||L.px[L.px.length-1]===L.price;
+  const px=same?L.px.slice(0,-1):L.px.slice(), dt=D?(same?D.slice(0,-1):D.slice()):null;
+  return {ser:px.concat([L.price]), dates:dt?dt.concat([same?D[D.length-1]:TODAY]):null};
+}
+function pxDD(name, n){
+  const S=pxSerDates(name); if(!S) return null;
+  const s=S.ser.slice(-n), d=S.dates?S.dates.slice(-n):null; if(s.length<2) return null;
+  let hiI=0, loI=0; s.forEach((v,i)=>{ if(v>=s[hiI]) hiI=i; if(v<=s[loI]) loI=i; });
+  let pk=0, best=0, a=0, b=0;
+  s.forEach((v,i)=>{ if(v>s[pk]) pk=i; const dd=v/s[pk]-1; if(dd<best){ best=dd; a=pk; b=i; } });
+  const cur=s[s.length-1];
+  return {n:s.length, cur, hi:s[hiI], lo:s[loI], hiD:d&&d[hiI], loD:d&&d[loI], now:cur/s[hiI]-1, up:cur/s[loI]-1,
+    mdd:best, mA:s[a], mB:s[b], mAD:d&&d[a], mBD:d&&d[b], ret:cur/s[0]-1, d0:d&&d[0], d1:d&&d[d.length-1]};
+}
+function ddTip(name, n, lab, r){
+  const x=pxDD(name, n); if(!x) return "";
+  const yy=TODAY.slice(0,4), dd=d=>!d?"":d.slice(0,4)===yy?`${+d.slice(5,7)}/${+d.slice(8,10)}`:`'${d.slice(2,4)}.${+d.slice(5,7)}.${+d.slice(8,10)}`;
+  const pc=v=>`${v>=0?"+":"−"}${Math.abs(v*100).toFixed(1)}%`;
+  const rel=x.now===0?"지금이 기간 고점":x.up===0?`고점 대비 ${pc(x.now)} · 지금이 기간 저점`:`고점 대비 ${pc(x.now)} · 저점 대비 ${pc(x.up)}`;
+  const lines=[`${lab} (종가 기준${x.d0?` · ${dd(x.d0)}~${dd(x.d1)}`:""})`,
+    `지금 ${won(x.cur)}원 — ${rel}`,
+    `고점 ${won(x.hi)}원${x.hiD?` (${dd(x.hiD)})`:""} · 저점 ${won(x.lo)}원${x.loD?` (${dd(x.loD)})`:""}`,
+    x.mdd<0?`최대 낙폭(MDD) ${pc(x.mdd)} — ${won(x.mA)}원${x.mAD?`(${dd(x.mAD)})`:""} → ${won(x.mB)}원${x.mBD?`(${dd(x.mBD)})`:""}`:"최대 낙폭 없음(내내 고점 갱신)",
+    `기간 수익률 ${pc(x.ret)}`];
+  if(r&&r.mdd!=null&&r.w52pos!=null) lines.push(`네이버 장중 고저 기준: 고점 대비 ${pc(r.mdd/100)} · 52주 위치 ${fmt(r.w52pos,0)}%`);
+  return lines.join("\n");
+}
 function sparkSvg(ser, w, h, hiN){
   const s=(ser||[]).filter(v=>v!=null); if(s.length<2) return "";
   const mx=Math.max(...s), mn=Math.min(...s), sx=i=>i/(s.length-1)*w, sy=v=>h-1-((v-mn)/((mx-mn)||1))*(h-2);
@@ -9635,8 +9667,8 @@ function renderUniBoard(){
         h+=`<tr class="uni-r${x.sig.length?" uni-hot":""}" data-stock="${attr(r.name)}">
           <td class="l uni-nm"><b>${r.name}</b>${r.pick2?` <span class="uni-pk">${r.pick2==="Top pick"?"★":"☆"}</span>`:""}${x.sig.length?`<div class="uni-sig-m">${x.sig.map(s=>s.html).join("")}</div>`:""}</td>
           <td>${won(r.price)}</td><td>${ret(r.chgPct)}</td><td>${ret(r.ret1w)}</td><td>${ret(r.ret1m)}</td><td class="hx">${ret(r.ret3m)}</td>
-          <td class="hx">${pos==null?"—":`<span class="uni-pos"><i style="left:${pos.toFixed(0)}%"></i></span>`}</td>
-          <td class="l hx">${x.ps?sparkSvg(x.ps.ser.slice(-61),96,22,1):""}</td>
+          <td class="hx" title="${attr(ddTip(r.name,250,"52주",r))}">${pos==null?"—":`<span class="uni-pos"><i style="left:${pos.toFixed(0)}%"></i></span>`}</td>
+          <td class="l hx" title="${attr(x.ps?ddTip(r.name,61,"최근 60거래일"):"")}">${x.ps?sparkSvg(x.ps.ser.slice(-61),96,22,1):""}</td>
           <td class="l uni-sig hx">${x.sig.map(s=>s.html).join("")}</td></tr>`; });
     });
   });
@@ -9645,7 +9677,8 @@ function renderUniBoard(){
   <p class="note">종목을 누르면 종목 페이지(손익·트렌드·리포트·리비전·뉴스). 신고가·신저가 = <b>종가 기준</b>, 지금 가격이 최근 20·60·250거래일 종가의 최고·최저(긴 창을 먼저 표시).
     트렌드 급변 = 트렌드 탭 '주목할 추이'와 같은 점수(검색·앱순위·동접·시청·아마존 등이 이번 주 지난주보다 크게 움직였거나 기간 최고) ${UNI_TREND_MIN}점 이상 —
     채용·갤 순위 같은 참고 지표와 100위 밖 순위 이동은 뺐다(종목 페이지 트렌드 탭엔 다 있다).
-    ★ 탑픽 · ☆ 2nd pick. 52주 위치 막대의 점 = 저점~고점 사이 지금 가격.</p>`;
+    ★ 탑픽 · ☆ 2nd pick. 52주 위치 막대의 점 = 저점~고점 사이 지금 가격.
+    <b>52주 위치·최근 60일 칸에 손을 올리면</b> 고점 대비 낙폭 · 최대 낙폭(MDD) · 저점 대비 반등이 뜬다(종가 기준).</p>`;
   box.innerHTML=h;
 }
 document.addEventListener("click",e=>{ const b=e.target.closest("#uniSeg [data-uf]"); if(!b) return;
@@ -9707,7 +9740,7 @@ function renderStockPage(name){
       ${kv("적정시총(당사)",r.fairMktcap?`${eok(r.fairMktcap,10)}억`:"—")}${kv("당사 상승여력",r.upsideOwn!=null?sign(r.upsideOwn)+"%":"—",cls(r.upsideOwn))}
       ${kv("PER 26E / 27E",`${r.per26>0?fmt(r.per26)+"x":"—"} / ${r.per27>0?fmt(r.per27)+"x":"—"}`)}
       ${kv("1주 · 1개월",`${ret(r.ret1w)} · ${ret(r.ret1m)}`)}${kv("3개월 · YTD",`${ret(r.ret3m)} · ${ret(r.retYtd)}`)}
-      ${kv("52주 위치",r.w52pos!=null?`${fmt(r.w52pos,0)}% <span class="g" style="font-size:11px">(${won(r.w52l)}~${won(r.w52h)})</span>`:"—")}
+      <div title="${attr(ddTip(name,250,"52주",r))}">${kv("52주 위치",r.w52pos!=null?`${fmt(r.w52pos,0)}% <span class="g" style="font-size:11px">(${won(r.w52l)}~${won(r.w52h)})</span>`:"—")}</div>
       ${kv("외국인",r.foreign>0?fmt(r.foreign)+"%":"—")}
     </div>
     ${L.px?`<div class="sp-chart" id="spChart"></div>`:""}
