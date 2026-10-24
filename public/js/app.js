@@ -8716,17 +8716,18 @@ function renderOliveYoung(){
   const stockOfBrand={}; (O.brands||[]).forEach(g=>{ stockOfBrand[g.brand]=g.stock; });
 
   // 접힌 줄 요약 — 진입 개수가 많은 종목 몇 개 + 인디 비중(실리콘투·콜마·코스맥스 대리지표). 최고 순위는 2026-10-18 지웠다.
-  const sumTxt=rows.filter(r=>r.cnt>0).slice().sort((a,b)=>b.cnt-a.cnt).slice(0,3).map(r=>
+  const COVN=new Set(R.map(r=>r.name)), covRows=rows.filter(r=>COVN.has(r.st));   // 아모레퍼시픽홀딩스(이니스프리·에뛰드)는 커버리지 밖 — 따로 보이되 합계엔 안 넣는다
+  const sumTxt=covRows.filter(r=>r.cnt>0).slice().sort((a,b)=>b.cnt-a.cnt).slice(0,3).map(r=>
     `<b class="${r.st===trendStock?"cov":""}">${attr(r.st)}</b> ${r.cnt}개`).join(" · ");
   sec.innerHTML=sideFold("oy","올리브영 베스트",
-    `커버리지 브랜드 <b>${rows.reduce((a,r)=>a+r.cnt,0)}</b>개 진입${sumTxt?` — ${sumTxt}`:""}${pct==null?"":` · 인디 <b>${pct.toFixed(0)}%</b>`}`,
+    `커버리지 브랜드 <b>${covRows.reduce((a,r)=>a+r.cnt,0)}</b>개 진입${sumTxt?` — ${sumTxt}`:""}${pct==null?"":` · 인디 <b>${pct.toFixed(0)}%</b>`}`,
     `<p class="note" style="margin:0 0 10px">국내 H&amp;B 1위 채널 판매순 ${fmt0(O.n||100)}위 · ${attr(O.d||"")} 기준 · 갱신 ${fmtUpd(B.asOf)||"—"}</p>
     <div class="buzz">
       <div class="buzz-c">
         <div class="buzz-h">커버리지 브랜드<span class="s">브랜드가 100위 안에 몇 개 올려 뒀나</span></div>
         ${rows.length?`<table class="buzz-t"><thead><tr><th>종목</th><th>브랜드</th><th>100위 내</th><th>전일비</th></tr></thead><tbody>`
           +rows.map(r=>`<tr${r.st===trendStock?' style="background:color-mix(in srgb, var(--accent) 10%, transparent)"':''}>
-            <td><b>${attr(r.st)}</b></td>
+            <td><b>${attr(r.st)}</b>${COVN.has(r.st)?"":`<div class="g" style="font-size:10.5px">커버리지 밖</div>`}</td>
             <td class="g">${r.bs.map(x=>attr(x.brand)).join(" · ")}</td>
             <td>${r.cnt}개</td>
             <td>${r.dc==null?`<span class="g">—</span>`:(r.dc?`<span class="d" style="color:var(--${r.dc>0?"up":"down"})">${r.dc>0?"+":""}${r.dc}</span>`:`<span class="g">–</span>`)}</td>
@@ -11981,7 +11982,7 @@ function cosGrowth(el, o){
        확인 = 최근 4주 vs 그 전 4주 — 자료가 짧은 출처는 있는 만큼 반씩(세부 카테고리 10/9~ · 올리브영 10/4~ · 5점 미만이면 —).
    Top100 은 한투 글 날(한투 브랜드) + 크롬 7개국 수집 날(10/18~)만 쓴다 — 그 전 트래커 날은 유럽 50위까지라 섞으면 10/18 에 가짜 증가가 생긴다.
    방향 = ±5% 밖이면 ▲▼ · 개수는 차이 0.5 개 미만이면 = · 둘 다 0.5 개 밑이면 —(그 채널에 없음).
-   행 = 커버리지 상장사(KBPH 의 co) + 엔에프씨(ODM 고객사 셋) + 구다이글로벌(상장 준비). 아모레퍼시픽은 090430 브랜드만(이니스프리·에뛰드는 홀딩스). */
+   행 = 커버리지 상장사(KBPH 의 co) + 엔에프씨(ODM 고객사 셋) + 구다이글로벌(상장 준비). 아모레퍼시픽은 090430 브랜드만(이니스프리·에뛰드는 홀딩스 — 올리브영 사전도 10/24 홀딩스로). */
 function cosStdRows(){
   if(typeof KBPH==="undefined"||!KBPH.b||!KBPH.months) return [];
   const cov=new Set(R.map(r=>r.name)), P=KBPH.b, rows=[];
@@ -12024,7 +12025,6 @@ function cosStdCalc(){
   const Q=(typeof QOO10!=="undefined"&&QOO10.brands)?QOO10:null, qDates=Q?(Q.kr||[]).map(x=>x.d):[];
   const OY=(typeof BEAUTY!=="undefined"&&BEAUTY.oy&&BEAUTY.oy.brands)?BEAUTY.oy:null;
   const oyDates=OY?[...new Set(OY.brands.flatMap(b=>(b.hist||[]).map(h=>h.d)))].sort():[];
-  const HOLD=["이니스프리","에뛰드"];
   // 비중의 분모 = 추적 바구니 전체(비상장 포함) — 행사(빅딜데이·블프)처럼 다 같이 뛰는 효과가 지워진다(국면 탭과 같은 잣대)
   let BA1=0, BA0=0, BT1=0, BT0=0;
   Object.values(A.b).forEach(b=>{ if(b.v){ BA1+=b.v[aNow]||0; BA0+=b.v[aPrev]||0; } });
@@ -12062,7 +12062,7 @@ function cosStdCalc(){
         q10=cosStdWin(qDates.map(d=>mp.reduce((s,m)=>s+(m[d]||0),0)),true); } }
     // 올리브영 베스트 진입 수(국내)
     let oy=null;
-    if(OY){ const ob=OY.brands.filter(b=>(r.ko&&koSet.has(b.brand))||(!r.byName&&b.stock===r.co&&!(r.co==="아모레퍼시픽"&&HOLD.includes(b.brand))));
+    if(OY){ const ob=OY.brands.filter(b=>(r.ko&&koSet.has(b.brand))||(!r.byName&&b.stock===r.co));
       if(ob.length){ const mp=ob.map(b=>Object.fromEntries((b.hist||[]).map(h=>[h.d,h.c])));
         oy=cosStdWin(oyDates.map(d=>mp.reduce((s,m)=>s+(m[d]||0),0)),true); } }
     const chk=[sub,top,q10].filter(c=>c&&(c.dir==="up"||c.dir==="down"));
