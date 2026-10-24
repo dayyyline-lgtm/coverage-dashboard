@@ -263,7 +263,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48,
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["CASINO","카지노 월간 실적",960],["GRANK","게임 매출순위(gamerscroll)",48],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["CASINO","카지노 월간 실적",960],["GRANK","게임 매출순위(gamerscroll)",48],["ECOS","소매판매 지수(ECOS)",1080],["STEAMM","Steam 월별 동접",960],["TOURS","K-pop 투어",720],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],

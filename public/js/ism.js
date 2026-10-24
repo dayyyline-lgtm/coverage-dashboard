@@ -19,6 +19,7 @@ const ismQ=ym=>`${ym.slice(0,4)}Q${Math.floor((+ym.slice(5,7)-1)/3)+1}`;     // 
 const ismMid=q=>[1,2,3].map(i=>`${q.slice(0,4)}-${String((+q.slice(-1)-1)*3+i).padStart(2,"0")}`);   // 분기의 세 달
 
 /* ── 지표 → 분기 합 {q:{v, n(달 수)}} ─────────────────────────────────── */
+function ismFill(o){ const out={}; for(let y=2023;y<=2027;y++) for(let i=1;i<=4;i++){ const q=`${y}Q${i}`; out[q]={v:o[q]||0, n:3}; } return out; }  // 일정형 지표 — 빈 분기 = 0
 function ismAgg(pairs){        // [[ym, 값], …] → 분기 합
   const o={}; pairs.forEach(([ym,v])=>{ if(v==null||!isFinite(v)) return; const q=ismQ(ym); const x=o[q]||(o[q]={v:0,n:0}); x.v+=v; x.n++; });
   return o;
@@ -42,8 +43,9 @@ const ISM_PX={
     return ismAgg(TOURISM.months.map((m,i)=>[`${m.slice(0,4)}-${m.slice(4,6)}`, TOURISM.total[i]==null?null:TOURISM.total[i]/1e4])); },
   // 게임 한국 매출순위(GRANK · gamerscroll) → 컴투스 곡선(c2Rev · 결제액 억/일) ÷ 1.1 → 회사 매출 십억/달.
   //   달마다: 일별이 그 달을 거의 덮으면(빠진 날 3일 이하) 일별 합을 일수로 늘리고, 아니면 월평균 순위 × 일수(볼록성 때문에 조금 낮다).
-  app(slugs){ if(typeof GRANK==="undefined"||typeof c2Rev!=="function") return {};
-    const P=C2_ASM0, yms=new Set();
+  app(slugs, ids){ if(typeof GRANK==="undefined"||typeof c2Rev!=="function") return {};
+    const P=C2_ASM0, yms=new Set(), extra=ISM_PX.appIds(ids||[]);
+    Object.keys(extra).forEach(m=>yms.add(m));
     slugs.forEach(sl=>{ const g=GRANK.g[sl]; if(!g) return; Object.keys(g.d||{}).forEach(d=>yms.add(d.slice(0,7))); Object.keys(g.m||{}).forEach(m=>yms.add(m)); });
     const pairs=[...yms].sort().map(ym=>{ const dim=new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate(); let tot=0, ok=true;
       slugs.forEach(sl=>{ const g=GRANK.g[sl]; if(!g){ return; }
@@ -51,11 +53,55 @@ const ISM_PX={
         if(ds.length>=dim-3){ tot+=ds.reduce((t,d)=>t+c2Rev(P,g.d[d][0],g.d[d][1]),0)*dim/ds.length; }
         else if(g.m&&g.m[ym]){ tot+=c2Rev(P,g.m[ym][0],g.m[ym][1])*dim; }
         else ok=false; });
+      if(extra[ym]!=null){ tot+=extra[ym]; }
       return [ym, ok?tot/(P.vat||1.1)/10:null]; });
     return ismAgg(pairs); },
-  // 카지노 월간 공시(CASINO · fetch_casino.py) — key: c 카지노 · h 호텔 · d 드롭 → 십억원
-  casino(nm, key){ if(typeof CASINO==="undefined"||!CASINO.m||!CASINO.m[nm]) return {}; const M=CASINO.m[nm];
-    return ismAgg(Object.keys(M).map(ym=>[ym, M[ym][key||"c"]])); },
+  // gamerscroll 에 없는 게임(신작) — APPRANK 한국 일별 순위(구글·애플)로 곡선 → 결제액 억/달.
+  //   첫 관측일부터 오늘까지 날마다(빈 날은 7일까지 전날 순위) · 이번 달은 일수로 늘린다.
+  //   구글 관측 전(APPRANK 구글은 9/18~)은 애플 순위 × (겹친 날들의 구글/애플 순위 비 중앙값) — 크럼블은 구글 순위가 애플의 2~4배 아래였다.
+  appIds(ids){ if(!ids.length||typeof APPRANK==="undefined"||!APPRANK.apps) return {}; const P=C2_ASM0, out={};
+    ids.forEach(id=>{ const by={and:{}, ios:{}};
+      Object.values(APPRANK.apps).filter(a=>a.id===id&&a.cc==="KR").forEach(a=>(a.hist||[]).forEach(h=>{ if(h.gr!=null) by[a.mk==="ios"?"ios":"and"][h.d]=h.gr; }));
+      const all=[...Object.keys(by.and), ...Object.keys(by.ios)].sort(); if(!all.length) return;
+      const g0=Object.keys(by.and).sort()[0]||"9999", rr=Object.keys(by.and).filter(k=>by.ios[k]).map(k=>by.and[k]/by.ios[k]), R=ismMed(rr);
+      const d=new Date(all[0]+"T00:00:00"), end=new Date(TODAY+"T00:00:00"); let lg=null, la=null, ng=99, na=99;
+      for(; d<=end; d.setDate(d.getDate()+1)){ const kk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+        if(by.and[kk]!=null){ lg=by.and[kk]; ng=0; } else ng++;
+        if(by.ios[kk]!=null){ la=by.ios[kk]; na=0; } else na++;
+        const a=na<=7?la:null, g=ng<=7?lg:(kk<g0&&a!=null&&R!=null?Math.max(1,Math.round(a*R)):null);
+        if(g==null&&a==null) continue;
+        const ym=kk.slice(0,7); out[ym]=(out[ym]||0)+c2Rev(P,g,a); }
+      });
+    const cur=TODAY.slice(0,7), dim=new Date(+cur.slice(0,4), +cur.slice(5,7), 0).getDate(), el=+TODAY.slice(8,10);
+    if(out[cur]!=null&&el<dim) out[cur]*=dim/el;
+    return out; },
+  // 한국은행 소매업태별 판매액지수(ECOS · 경상지수) — I74B 백화점 · I74F 면세점 · I74J 편의점 · I74IA 체인슈퍼 · I74VB 홈쇼핑 등. 분기 합(지수×달)
+  ecos(code){ if(typeof ECOS==="undefined"||!ECOS.s||!ECOS.s[code]) return {}; const v=ECOS.s[code].v;
+    return ismAgg(Object.keys(v).map(ym=>[ym, v[ym]])); },
+  // 카지노 월간 공시(CASINO · fetch_casino.py) — keys: c 카지노 · h 호텔 · d 드롭(여럿이면 더한다) → 십억원
+  casino(nm, keys){ if(typeof CASINO==="undefined"||!CASINO.m||!CASINO.m[nm]) return {}; const M=CASINO.m[nm], ks=[].concat(keys||"c");
+    return ismAgg(Object.keys(M).map(ym=>[ym, ks.every(k=>M[ym][k]!=null)?ks.reduce((t,k)=>t+M[ym][k],0):null])); },
+  // SteamCharts 월평균 동접(STEAMM · fetch_steamm.py) → 천 명(월평균의 분기 합)
+  steam(appid){ if(typeof STEAMM==="undefined"||!STEAMM.g||!STEAMM.g[appid]) return {}; const m=STEAMM.g[appid].m;
+    return ismAgg(Object.keys(m).map(ym=>[ym, m[ym][0]/1000])); },
+  // K-pop 투어(TOURS · fetch_tours.py) — 그 종목 투어들의 분기 그로스(보고 매출 + 미보고 회차 × 그 투어 회당 평균) × 월 환율 → 원화 십억.
+  //   일정이 없는 분기도 0 으로 채운다(n 3) — 투어가 없으면 기저(a)만 남는다.
+  kpoptour(stock){ if(typeof TOURS==="undefined"||!TOURS.t) return {}; const o={};
+    Object.values(TOURS.t).filter(t=>t.st===stock).forEach(t=>{ const rep=t.s.filter(x=>x[1]); if(!rep.length) return;
+      const avg=rep.reduce((a,x)=>a+x[1],0)/rep.length;
+      t.s.forEach(([d,usd])=>{ const q=ismQ(d.slice(0,7)); o[q]=(o[q]||0)+(usd||avg)*(kbFx("USD",d.slice(0,7))||1400)/1e9; }); });
+    return ismFill(o); },
+  // 게임 판매량(GAMEEST · app.js geUnits — 발표 앵커 + Steam 리뷰 증분) → 분기 판매 증분 × 순ASP → 원화 십억. 미래 분기는 최근 리뷰 페이스 그대로.
+  gameest(title, asp){ if(typeof GAMEEST==="undefined"||typeof geUnits!=="function"||!GAMEEST[title]) return {}; const G=GAMEEST[title], o={};
+    const A=asp||(typeof GE_DEF!=="undefined"?GE_DEF.asp:52000);
+    for(let y=2025;y<=2027;y++) for(let i=1;i<=4;i++){ const a=new Date(y,(i-1)*3,1), b=new Date(y,i*3,1), ds=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`;
+      const U=d=>d<G.launch?0:Math.max(0,geUnits(G,d));                     // 출시 전은 0(geUnits 는 첫 앵커 앞으로 음수 외삽한다)
+      try{ o[`${y}Q${i}`]=Math.max(0,U(ds(b))-U(ds(a)))*A/1e9; }catch(e){} }
+    return ismFill(o); },
+  // 공연 회수(매출 미보고 투어 — 블랙핑크) → 회
+  kpopshows(stock){ if(typeof TOURS==="undefined"||!TOURS.t) return {}; const o={};
+    Object.values(TOURS.t).filter(t=>t.st===stock).forEach(t=>t.s.forEach(([d])=>{ const q=ismQ(d.slice(0,7)); o[q]=(o[q]||0)+1; }));
+    return ismFill(o); },
   // 아마존(Keepa 전 지역) + 틱톡샵 브랜드 판매액(KBPH) → 원화 십억
   kb(keys){ if(typeof KBPH==="undefined"||!KBPH.b) return {};
     const mk0=typeof cosMk!=="undefined"?cosMk:"us"; let A; try{ cosMk="all"; A=KBB(); } finally{ cosMk=mk0; }
@@ -66,6 +112,26 @@ const ISM_PX={
       pairs.push([ym, any?s*(kbFx("USD",ym)||1400)/1e9:null]); });
     return ismAgg(pairs); },
 };
+
+/* 설계(ism_spec.js)의 지표 이름 → 분기 합 · 화면 이름 */
+function ismPxOf(px, name){ const p=px.params||{};
+  switch(px.src){
+    case "trade": case "sgg": return ISM_PX.trade(p.label, p.code);
+    case "kb": return ISM_PX.kb(p.keys||[]);
+    case "ecos": return ISM_PX.ecos(p.item||p.code);
+    case "circle": return ISM_PX.circle(p.stock||name);
+    case "tour": return ISM_PX.tour();
+    case "casino": return ISM_PX.casino(p.name||p.corp||name, p.keys||p.key||"c");
+    case "app": return ISM_PX.app(p.slugs||(p.games||[]).map(g=>g.gs), p.ids);
+    case "steam": return ISM_PX.steam(p.appid);
+    case "kpoptour": return ISM_PX.kpoptour(p.stock||name);
+    case "kpopshows": return ISM_PX.kpopshows(p.stock||name);
+    case "gameest": return ISM_PX.gameest(p.title, p.asp_krw);
+    default: return null; } }
+function ismPxLab(px){ if(!px) return ""; const p=px.params||{};
+  return ({trade:`관세청 ${p.label||""}${p.code?" "+p.code:""} 수출(원화)`, sgg:`관세청 ${p.label||""} 수출(원화)`, kb:`아마존·틱톡샵 판매액(${(p.keys||[]).join("·")})`,
+    ecos:`${p.name||"소매"} 판매지수(ECOS)`, circle:"써클 앨범(만 장)", tour:"방한 관광객(만 명)", casino:"카지노 월 공시 매출", app:"한국 매출순위 곡선(억/일)",
+    steam:`${p.title||"Steam"} 월평균 동접(천 명)`, kpoptour:"투어 그로스(십억원)", kpopshows:"공연 회수", gameest:`${p.title||"게임"} 판매 × ASP(십억원)`})[px.src]||px.src; }
 
 /* ── 엔진 ─────────────────────────────────────────────────────────────── */
 function ismAsmGet(name){ try{ return JSON.parse(localStorage.getItem("ism_"+name)||"{}")||{}; }catch(e){ return {}; } }
@@ -81,42 +147,73 @@ function ismBuild(name){
   const segAct=(q,k)=>{ const g=(D.seg||{})[q]; if(!g) return null; const v=g[k]; return v?v:null; };
   const Q={};
   // 실적 칸
-  act.forEach(q=>{ const d=D.q[q], o={q, act:true, rev:d.rev, op:d.op, pbt:d.pbt, np:d.np, npp:d.npp!=null?d.npp:d.np, seg:{}};
+  act.forEach(q=>{ const d=D.q[q], o={q, act:true, rev:d.rev, op:d.op, pbt:d.pbt, np:d.np, npp:d.npp!=null?d.npp:d.np, seg:{},
+      adj:(S&&S.oneoff&&S.oneoff[q])||0};                                   // 일회성 비용(설계 oneoff) — 이익률·세율·지배 몫을 셀 때 되더한다
     let sum=0, have=0;
-    segsAll.forEach(s=>{ const v=s.of?(Array.isArray(s.of)?s.of.reduce((t,k)=>{ const x=segAct(q,k); return x?[t[0]+(x[0]||0),(t[1]==null||x[1]==null)?null:t[1]+x[1]]:t; },[0,0]):segAct(q,s.of)):null;
+    segsAll.forEach(s=>{ const of=s.of||s.k;
+      const v=Array.isArray(of)?(()=>{ const xs=of.map(k=>segAct(q,k)).filter(x=>x&&x[0]!=null); if(!xs.length) return null;
+        return [xs.reduce((t,x)=>t+x[0],0), xs.every(x=>x[1]!=null)?xs.reduce((t,x)=>t+x[1],0):null]; })():segAct(q,of);
       if(v&&v[0]!=null){ o.seg[s.k]={rev:v[0], op:v[1]}; sum+=v[0]; have++; } });
     if(segsAll.length&&have) o.seg._rest={rev:d.rev-sum, op:null};
     Q[q]=o; });
+  const segStart=act.find(q=>Object.keys(Q[q].seg).some(k=>k!=="_rest"));            // 부문 자료가 처음 있는 분기(그 뒤에 생긴 부문만 '새 부문')
   // 최근 실적 기준값들
-  const lastN=(n)=>act.slice(-n).map(q=>Q[q]);
-  const L4=lastN(4), L6=lastN(6);
-  const opm=L4.reduce((t,x)=>t+(x.op||0),0)/Math.max(1e-9,L4.reduce((t,x)=>t+(x.rev||0),0));
-  const nonop=A.nonop!=null?A.nonop:ismMed(L6.map(x=>(x.pbt!=null&&x.op!=null)?x.pbt-x.op:null))||0;
-  const sPbt=L4.reduce((t,x)=>t+(x.pbt||0),0), sNp=L4.reduce((t,x)=>t+(x.np||0),0);
-  const tax=A.tax!=null?A.tax/100:(sPbt>0?ismClip((sPbt-sNp)/sPbt,0.1,0.3):0.22);
-  const share=A.share!=null?A.share/100:(sNp!==0?ismClip(L4.reduce((t,x)=>t+(x.npp||0),0)/sNp,0,1.2):1);
-  const P={opm:A.opm!=null?A.opm/100:opm, nonop, tax, share, segs:{}};
+  // 일회성 분기(설계 bad — 회사 전체 · 부문별 seg.bad) — 이익률·성장률·계절·지표 계수의 표본과 전년 동기 기준에서 뺀다
+  const badC=new Set((S&&S.bad)||[]), badOf=k=>{ const sg=segsAll.find(x=>x.k===k); return new Set([...badC, ...((sg&&sg.bad)||[])]); };
+  const lastN=(n)=>act.filter(q=>!badC.has(q)).slice(-n).map(q=>Q[q]);
+  const L4=lastN((S&&S.opmWin)||4), L6=lastN(6);
+  const opmAuto=L4.reduce((t,x)=>t+(x.op||0)+x.adj,0)/Math.max(1e-9,L4.reduce((t,x)=>t+(x.rev||0),0));
+  const nonopAuto=ismMed(L6.map(x=>(x.pbt!=null&&x.op!=null)?x.pbt-x.op:null))||0;
+  const sPbt=L4.reduce((t,x)=>t+(x.pbt||0)+x.adj,0), sNp=L4.reduce((t,x)=>t+(x.np||0)+x.adj,0);   // 일회성은 세금 효과 없이 되더한다
+  const taxAuto=sPbt>0?ismClip((sPbt-sNp)/sPbt,0.1,0.3):0.22;
+  const share=A.share!=null?A.share/100:(sNp!==0?ismClip(L4.reduce((t,x)=>t+(x.npp||0)+x.adj,0)/sNp,0,1.2):1);
+  const P={opm:A.opm!=null?A.opm/100:opmAuto, opmAuto, nonop:A.nonop!=null?A.nonop:nonopAuto, nonopAuto, tax:A.tax!=null?A.tax/100:taxAuto, taxAuto, share, segs:{}};
+  // 고정비형(설계 opFit "lin" · 엔터 투어·게임 출시·카지노) — 영업이익 = c + d × 매출(최근 6분기 적합).
+  //   매출이 뛰는 분기에 이익률이 같이 오르는 것을 잡는다. 한계이익률 d 가 0~0.9 이고 R² 0.4 이상일 때만 · 이익률을 직접 넣으면 안 쓴다.
+  if(S&&S.opFit==="lin"&&A.opm==null){ const pr=L6.filter(x=>x.op!=null&&x.rev>0).map(x=>[x.rev, x.op+x.adj]);
+    if(pr.length>=5){ const n=pr.length, mx=pr.reduce((t,x)=>t+x[0],0)/n, my=pr.reduce((t,x)=>t+x[1],0)/n;
+      const sxx=pr.reduce((t,x)=>t+(x[0]-mx)**2,0), sxy=pr.reduce((t,x)=>t+(x[0]-mx)*(x[1]-my),0), syy=pr.reduce((t,x)=>t+(x[1]-my)**2,0);
+      if(sxx>0&&syy>0){ const d=sxy/sxx, r2=sxy*sxy/(sxx*syy); if(d>0&&d<0.9&&r2>=0.4) P.lin={c:my-d*mx, d, r2, n}; } } }
+  // 계절 이익률 — 그 해(1~4분기 실적이 다 있는 해) 안에서 같은 분기의 이익률 − 그 해 평균, 최근 2년 평균 × 0.7 · ±8%p.
+  //   빙그레 3Q 성수기·BGF 1Q 비수기·파라다이스 4Q 성과급처럼 이익률이 분기마다 다른 회사를 연평균으로 누르지 않게.
+  //   (그 분기까지 4분기 평균과 견주면 이익률이 오르는 해엔 최근 분기가 늘 '계절적으로 높게' 읽힌다 — 같은 해 안에서만 견준다)
+  const seasM=(qi, f, bad)=>{ const yrs=[...new Set(act.map(q=>q.slice(0,4)))].filter(y=>[1,2,3,4].every(i=>Q[`${y}Q${i}`]&&Q[`${y}Q${i}`].act&&!bad.has(`${y}Q${i}`)));
+    const xs=yrs.slice(-2).map(y=>{ const r=[1,2,3,4].map(i=>f(Q[`${y}Q${i}`])); if(r.some(v=>!v||v[1]<=0)) return null;
+      const a=r.reduce((t,v)=>t+v[0],0)/r.reduce((t,v)=>t+v[1],0); return r[qi-1][0]/r[qi-1][1]-a; }).filter(v=>v!=null);
+    return xs.length?ismClip(0.7*xs.reduce((t,v)=>t+v,0)/xs.length,-0.08,0.08):0; };
+  P.seas=[1,2,3,4].map(i=>(A.opm!=null||P.lin||(S&&S.opmWin))?0:seasM(i, x=>x.op!=null?[x.op+(x.adj||0), x.rev]:null, badC));
   // 부문 기본값 — 성장률·이익률·지표 계수
   const segRev=(q,k)=>Q[q]&&Q[q].seg[k]?Q[q].seg[k].rev:null;
   // 재분류(옛 분류 그대로인 분기 = D.segBasis[q]==="old") — 재작성된 분기의 새/옛 비율로 옛 분기를 새 분류에 맞춘다
   const OLD=D.segOld||{}, fac={};
   segsAll.forEach(s=>{ let n=0, o=0; Object.keys(OLD).forEach(q=>{ const v=OLD[q][s.k], w=segRev(q,s.k); if(v&&v[0]>0&&w!=null){ n+=w; o+=v[0]; } }); fac[s.k]=o>0?n/o:1; });
+  // 분기 겹침 없이 연간만 재작성된 경우(JYP 2026 — 유튜브 옛 기타 → 새 음반 · MD 분리) — 연간 새/옛 비율
+  const FY=D.segFy||{};
+  segsAll.forEach(s=>{ if(fac[s.k]!==1) return; const ks=[].concat(s.of||s.k); let n=0, o=0;
+    Object.keys(FY).filter(y=>/^\d{4}$/.test(y)).forEach(y=>{ const N=FY[y], O=FY[y]._old||{};
+      const nv=ks.reduce((t,k)=>t+((N[k]||[])[0]||0),0), ov=ks.reduce((t,k)=>t+((O[k]||[])[0]||0),0); if(nv>0&&ov>0){ n+=nv; o+=ov; } });
+    if(o>0) fac[s.k]=n/o; });
   const isOld=q=>(D.segBasis||{})[q]==="old";
   const baseRev=(q,k)=>{ const v=segRev(q,k); return v==null?null:(isOld(q)?v*fac[k]:v); };
   segsAll.forEach(s=>{
-    const ys=act.slice(-2).map(q=>{ const a=baseRev(q,s.k), b=baseRev(c2QAdd(q,-4),s.k); return (a!=null&&b>0)?a/b-1:null; }).filter(v=>v!=null);
-    const gAuto=ys.length?ismClip(ys.reduce((t,v)=>t+v,0)/ys.length,-0.3,0.6):0;
-    const ops=act.slice(-4).map(q=>Q[q].seg[s.k]).filter(x=>x&&x.op!=null&&x.rev>0);
+    const bd=badOf(s.k), ok=q=>!bd.has(q);
+    const l4=act.filter(q=>ok(q)&&ok(c2QAdd(q,-4))).slice(-4), a4=l4.map(q=>baseRev(q,s.k)), b4=l4.map(q=>baseRev(c2QAdd(q,-4),s.k));
+    const ys=l4.slice(-2).map(q=>{ const a=baseRev(q,s.k), b=baseRev(c2QAdd(q,-4),s.k); return (a!=null&&b>0)?a/b-1:null; }).filter(v=>v!=null);
+    const sb=l4.length===4&&b4.every(v=>v!=null&&v>0)&&a4.every(v=>v!=null)?b4.reduce((t,v)=>t+v,0):0;   // 분기 튐에 덜 흔들리게 4분기 합끼리
+    const gAuto=sb>0?ismClip(a4.reduce((t,v)=>t+v,0)/sb-1,-0.4,0.6):(ys.length?ismClip(ys.reduce((t,v)=>t+v,0)/ys.length,-0.4,0.6):0);
+    const ops=act.filter(ok).slice(-(s.mWin||4)).map(q=>Q[q].seg[s.k]).filter(x=>x&&x.op!=null&&x.rev>0);
     const mAuto=ops.length>=2?ops.reduce((t,x)=>t+x.op,0)/ops.reduce((t,x)=>t+x.rev,0):null;
     let px=null, k=null, kN=0, ia=null, ib=null, r2=null;
     if((s.drv==="px"||s.drv==="pxa")&&s.px){ try{ px=s.px(); }catch(e){ px=null; }
-      if(px){ const pr=act.slice(-(s.fit||(s.drv==="pxa"?8:4))).map(q=>{ const a=baseRev(q,s.k), p=px[q]; return (a!=null&&p&&p.n===3&&p.v>0)?[p.v,a]:null; }).filter(Boolean);
+      if(px){ const sk=new Set(s.skip||[]); const pr=act.filter(q=>!sk.has(q)&&ok(q)).slice(-(s.fit||(s.drv==="pxa"?8:4))).map(q=>{ const a=baseRev(q,s.k), p=px[q]; return (a!=null&&p&&p.n===3&&(s.drv==="pxa"?p.v>=0:p.v>0))?[p.v,a]:null; }).filter(Boolean);   // 절편 식은 지표 0 분기(투어 없음·출시 전)도 표본
         if(s.drv==="px"&&pr.length){ k=pr.reduce((t,x)=>t+x[1]/x[0],0)/pr.length; kN=pr.length; }
         if(s.drv==="pxa"&&pr.length>=3){ const n=pr.length, mx=pr.reduce((t,x)=>t+x[0],0)/n, my=pr.reduce((t,x)=>t+x[1],0)/n;
           const sxx=pr.reduce((t,x)=>t+(x[0]-mx)**2,0), sxy=pr.reduce((t,x)=>t+(x[0]-mx)*(x[1]-my),0), syy=pr.reduce((t,x)=>t+(x[1]-my)**2,0);
           if(sxx>0){ ib=sxy/sxx; ia=my-ib*mx; r2=syy>0?(sxy*sxy)/(sxx*syy):null; kN=n; } } } }
     const a=(A.seg||{})[s.k]||{};
-    P.segs[s.k]={g:a.g!=null?a.g/100:(s.g!=null?s.g:gAuto), gAuto, m:a.m!=null?a.m/100:(s.m!=null?s.m:mAuto), mAuto, px, k, kN, ia, ib, r2, fac:fac[s.k]};
+    const mSeas=(a.m==null&&s.m==null&&mAuto!=null&&!s.mWin)?[1,2,3,4].map(i=>seasM(i, x=>x.seg[s.k]&&x.seg[s.k].op!=null?[x.seg[s.k].op, x.seg[s.k].rev]:null, bd)):[0,0,0,0];
+    const g6=a.g!=null?a.g/100:(s.g!=null?s.g:gAuto);                  // 2027 성장률(g7) = 기본 2026 의 절반 — 성장 둔화
+    P.segs[s.k]={bad:bd, g:g6, g7:a.g7!=null?a.g7/100:(s.g7!=null?s.g7:g6*0.5), gAuto, m:a.m!=null?a.m/100:(s.m!=null?s.m:mAuto), mAuto, mSeas, px, k, kN, ia, ib, r2, fac:fac[s.k]};
   });
   // 추정 칸
   const est=S?ISM_COLS.filter(q=>!Q[q]&&q>lastAct):[];                    // 설계가 없으면 추정 칸을 만들지 않는다
@@ -124,24 +221,46 @@ function ismBuild(name){
     const o={q, act:false, seg:{}, why:{}};
     if(segsAll.length){
       let sum=0;
-      segsAll.forEach(s=>{ const p=P.segs[s.k], q4=c2QAdd(q,-4), base=Q[q4]&&Q[q4].seg[s.k]?baseRev(q4,s.k):null;
-        let v=null, why="";
+      segsAll.forEach(s=>{ const p0=P.segs[s.k], p={...p0, g:q>="2027"?p0.g7:p0.g}, q4=c2QAdd(q,-4), base=(Q[q4]&&Q[q4].seg[s.k]&&!p.bad.has(q4))?baseRev(q4,s.k):null;
+        // ① 지표 식(px · pxa)
+        let pv=null, pw="";
         const x=p.px&&p.px[q], xv=x&&x.n>=1?x.v*3/x.n:null, xl=x?(x.n===3?`${s.pxLab||"지표"} ${fmt(x.v,1)}`:`${s.pxLab||"지표"} ${x.n}개월 ${fmt(x.v,1)}×3/${x.n}`):"";
-        if(s.drv==="px"&&p.k!=null&&xv!=null){ v=p.k*xv; why=`${xl} × ${fmt(p.k,3)}(최근 ${p.kN}분기 비율)`; }
-        if(s.drv==="pxa"&&p.ib!=null&&xv!=null){ v=p.ia+p.ib*xv; why=`${fmt(p.ia,1)} + ${fmt(p.ib,3)} × ${xl}(최근 ${p.kN}분기 적합${p.r2!=null?` · R² ${fmt(p.r2,2)}`:""})`; }
-        if(v==null&&s.drv==="seas"){ const pq=Q[c2QAdd(q,-1)]; const prev=pq&&pq.seg[s.k]?pq.seg[s.k].rev:null; const sf=ismSeas(Q,s.k,+q.slice(-1),act);
-          if(prev!=null&&sf){ v=prev*sf*Math.pow(1+p.g,0.25); why=`직전 분기 ${fmt(prev,1)} × 계절 ${fmt(sf,3)} × (1${p.g>=0?"+":""}${fmt(p.g*100,0)}%)^¼`; } }
-        if(v==null&&base!=null){ v=base*(1+p.g); why=(s.drv==="px"||s.drv==="pxa"?"지표 없음 → ":"")+`전년 동기 ${fmt(base,1)}${isOld(q4)&&fac[s.k]!==1?`(옛 분류 × ${fmt(fac[s.k],2)})`:""} × (1${p.g>=0?"+":""}${fmt(p.g*100,0)}%)`; }
-        if(v==null) v=0;
-        const op=p.m!=null?v*p.m:null;
+        if(s.drv==="px"&&p.k!=null&&xv!=null){ pv=p.k*xv; pw=`${xl} × ${fmt(p.k,3)}(최근 ${p.kN}분기 비율)`; }
+        if(s.drv==="pxa"&&p.ib!=null&&xv!=null){ pv=p.ia+p.ib*xv; pw=`${fmt(p.ia,1)} + ${fmt(p.ib,3)} × ${xl}(최근 ${p.kN}분기 적합${p.r2!=null?` · R² ${fmt(p.r2,2)}`:""})`; }
+        // ② 자기 이력 — 전년 동기 × 성장률 과 직전 분기 × 계절 의 평균(한 분기가 튀어도 덜 흔들리게) · 새 부문은 직전 분기
+        const pq0=Q[c2QAdd(q,-1)], prev0=pq0&&pq0.seg[s.k]?pq0.seg[s.k].rev:null, gs=`(1${p.g>=0?"+":""}${fmt(p.g*100,0)}%)`;
+        const sf=s.sf1?1:ismSeas(Q,s.seasOf||s.k,+q.slice(-1),act,p.bad), seasV=(prev0!=null&&prev0>0&&sf)?prev0*sf*Math.pow(1+p.g,0.25):null;
+        const seasW=seasV!=null?`직전 분기 ${fmt(prev0,1)}${s.sf1?"":` × 계절 ${fmt(sf,3)}`} × ${gs}^¼`:"";
+        const born=act.find(x=>Q[x].seg[s.k]&&Q[x].seg[s.k].rev>0.5), young=born&&born>segStart&&born>c2QAdd(q,-6)&&prev0!=null&&(base==null||base<prev0*0.5);
+        let hv=null, hw="";
+        if(s.drv==="seas"&&seasV!=null){ hv=seasV; hw=seasW; }
+        else if(young){ hv=prev0; hw=`새 부문(${c2QLab(born)}~) — 직전 분기 ${fmt(prev0,1)} 유지`; }
+        else if(base!=null){ const yv=base*(1+p.g), yw=`전년 동기 ${fmt(base,1)}${isOld(q4)&&fac[s.k]!==1?`(옛 분류 × ${fmt(fac[s.k],2)})`:""} × ${gs}`;
+          if(seasV!=null&&s.blend!==false&&!s.sf1){ hv=(yv+seasV)/2; hw=`[${yw} = ${fmt(yv,1)}] 와 [${seasW} = ${fmt(seasV,1)}] 의 평균`; }
+          else { hv=yv; hw=yw; } }
+        else if(seasV!=null){ hv=seasV; hw=seasW+(p.bad.has(q4)?` — 전년 동기(${c2QLab(q4)})는 일회성이라 뺌`:""); }
+        else if(prev0!=null){ hv=prev0; hw=`직전 분기 ${fmt(prev0,1)} 유지(전년 동기·계절 기준 없음)`; }
+        // ③ 합치기 — 지표가 약한 부문(설계 pxw)은 지표 식과 자기 이력을 섞는다
+        let v, why;
+        if(pv!=null&&s.pxw!=null&&hv!=null){ v=s.pxw*pv+(1-s.pxw)*hv; why=`지표 ${fmt(s.pxw*100,0)}% [${pw} = ${fmt(pv,1)}] + 이력 ${fmt(100-s.pxw*100,0)}% [${hw} = ${fmt(hv,1)}]`; }
+        else if(pv!=null){ v=pv; why=pw; }
+        else if(hv!=null){ v=hv; why=(s.drv==="px"||s.drv==="pxa"?"지표 없음 → ":"")+hw; }
+        else { v=0; why="기준 없음"; }
+        const b4=Q[q4]&&Q[q4].seg[s.k];
+        const op=(s.mInc!=null&&b4&&b4.op!=null&&b4.rev!=null&&!p.bad.has(q4))?b4.op+(v-b4.rev)*s.mInc     // 고정비형 부문 — 전년 동기 이익 + 매출 증분 × 한계이익률
+          :p.m!=null?v*(p.m+p.mSeas[+q.slice(-1)-1]):null;
         o.seg[s.k]={rev:v, op}; o.why[s.k]=why; sum+=v; });
       // 나머지(부문 밖 · 조정) = 최근 4분기 비중
       const rr=act.slice(-4).map(x=>Q[x].seg._rest&&Q[x].rev?Q[x].seg._rest.rev/Q[x].rev:null).filter(v=>v!=null);
       const rest=rr.length?ismClip(rr.reduce((t,v)=>t+v,0)/rr.length,-0.5,0.5):0;
       o.rev=sum/(1-rest); o.seg._rest={rev:o.rev-sum, op:null};
-      const segOp=segsAll.every(s=>o.seg[s.k].op!=null);
-      o.op=segOp?segsAll.reduce((t,s)=>t+o.seg[s.k].op,0)+(o.seg._rest.rev*P.opm):o.rev*P.opm;
-      o.why.op=segOp?`부문 영업이익 합(부문 이익률 × 매출) + 나머지 × 회사 이익률 ${fmt(P.opm*100,1)}%`:`매출 × 회사 영업이익률 ${fmt(P.opm*100,1)}%(최근 4분기)`;
+      const segOp=segsAll.every(s=>o.seg[s.k].op!=null), sq=P.seas[+q.slice(-1)-1], om=P.opm+sq;
+      const sl=Math.abs(sq)>=0.0005?` ${sq>0?"+":"−"} 계절 ${fmt(Math.abs(sq)*100,1)}%p`:"";
+      o.op=segOp?segsAll.reduce((t,s)=>t+o.seg[s.k].op,0)+(o.seg._rest.rev*P.opm):P.lin?P.lin.c+P.lin.d*o.rev:o.rev*om;
+      const inc=segsAll.filter(s=>s.mInc!=null).map(s=>`${s.t} = 전년 동기 이익 + 매출 증분 × ${fmt(s.mInc*100,0)}%`).join(" · ");
+      o.why.op=(!segOp&&P.lin)?`고정비 ${fmt(-P.lin.c,1)} 을 빼고 매출의 ${fmt(P.lin.d*100,1)}% (최근 ${P.lin.n}분기 적합 · R² ${fmt(P.lin.r2,2)}) — 이익률 ${fmt(o.op/o.rev*100,1)}%`:segOp?`부문 영업이익 합(부문 이익률${segsAll.some(s=>P.segs[s.k].mSeas.some(v=>v))?" + 계절":""} × 매출) + 나머지 × 회사 이익률 ${fmt(P.opm*100,1)}%`
+        :`매출 × 영업이익률 ${fmt(om*100,1)}%(최근 ${(S&&S.opmWin)||4}분기 ${fmt(P.opm*100,1)}%${sl})`;
+      if(segOp&&inc) o.why.op+=` (${inc})`;
     }
     o.pbt=o.op+P.nonop; o.np=o.pbt>0?o.pbt*(1-P.tax):o.pbt; o.npp=o.np*P.share;
     Q[q]=o;
@@ -156,9 +275,17 @@ function ismBuild(name){
     Y[y]=o; });
   return {D, S, A, P, Q, Y, act, lastAct, est};
 }
-function ismSeas(Q, k, qi, act){
-  const r=act.filter(q=>+q.slice(-1)===qi).map(q=>{ const a=Q[q].seg[k], b=Q[c2QAdd(q,-1)]&&Q[c2QAdd(q,-1)].seg[k]; return (a&&b&&b.rev>0)?a.rev/b.rev:null; }).filter(v=>v!=null);
-  return r.length?Math.exp(r.reduce((t,v)=>t+Math.log(v),0)/r.length):null;
+function ismSeas(Q, k, qi, act, bad){
+  // 같은 분기 지수(qi)의 '직전 분기 대비 배수' 기하평균. 네 분기 배수를 다 구하면 곱이 1이 되게 나눈다 —
+  //   빠르게 크는 부문은 배수마다 성장이 섞여(앨엔씨 인체조직 분기 1.2~1.35배) 그대로 쓰면 성장률과 이중으로 붙는다.
+  const st=act.find(q=>Object.keys(Q[q].seg).some(x=>x!=="_rest")), born=act.find(x=>Q[x].seg[k]&&Q[x].seg[k].rev>0.5);
+  const young=q=>born&&born>st&&q<=c2QAdd(born,1);                                    // 출시·인수 직후 두 분기는 계절이 아니다(자료 시작 분기는 제외)
+  const raw=i=>{ const r=act.filter(q=>+q.slice(-1)===i&&!young(q)&&!young(c2QAdd(q,-1))&&!(bad&&(bad.has(q)||bad.has(c2QAdd(q,-1))))).map(q=>{
+      const a=Q[q].seg[k], b=Q[c2QAdd(q,-1)]&&Q[c2QAdd(q,-1)].seg[k]; return (a&&b&&b.rev>0&&a.rev>0)?a.rev/b.rev:null; }).filter(v=>v!=null);
+    return r.length?Math.exp(r.reduce((t,v)=>t+Math.log(v),0)/r.length):null; };
+  const f=[1,2,3,4].map(raw); if(f[qi-1]==null) return null;
+  const nz=f.every(v=>v!=null)?Math.pow(f.reduce((t,v)=>t*v,1),0.25):1;
+  return ismClip(f[qi-1]/nz,0.5,2);
 }
 
 /* ── 화면 ─────────────────────────────────────────────────────────────── */
@@ -201,6 +328,7 @@ function renderIsm(name, host){
     if(r.seg){ const x=o.seg&&o.seg[r.k]; if(!x) return {h:"—"}; const v=r.sop?x.op:x.rev;
       if(o.act&&!o.yr&&(B.D.segBasis||{})[o.q]==="old") return {h:f1(v)+"*", tip:"옛 분류(재분류 전) — 전년비는 새 분류로 맞춰 계산"};
       return {h:f1(v), tip:(!o.act&&o.why&&!r.sop)?o.why[r.k]:""}; }
+    if(r.k==="op"&&o.adj) return {h:f1(o.op)+"*", tip:`일회성 ${fmt(-o.adj,1)}${S.oneoffNote?`(${S.oneoffNote})`:""} 포함 · 빼면 ${fmt(o.op+o.adj,1)}`};
     return {h:f1(o[r.k]), tip:(r.k==="op"&&o.why&&o.why.op)?o.why.op:""};
   };
   const yrEdge=i=>i>0&&(cols[i].yr!==cols[i-1].yr||(!cols[i].yr&&cols[i].q.slice(0,4)!==cols[i-1].q.slice(0,4)));
@@ -231,18 +359,22 @@ function renderIsm(name, host){
   const asm=hasSpec?`<details class="fold" data-fold="ism_asm"${(()=>{ try{ return localStorage.getItem("fold_ism_asm")==="1"?" open":""; }catch(e){ return ""; } })()}><summary>가정 바꾸기 <span class="sub">부문 성장률·이익률 · 영업외·세율 — 이 브라우저에 기억</span></summary><div class="fold-b">
     <div style="display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px">`
     +segs.map(s=>{ const p=P.segs[s.k];
-      return `<label>${attr(s.t)} 성장률(전년비) <input data-ismg="${attr(s.k)}" type="number" step="1" value="${Math.round(p.g*100)}" style="width:62px"> % <span class="g">자동 ${fmt(p.gAuto*100,0)}%</span></label>`
+      return `<label>${attr(s.t)} 성장률(전년비)${(s.drv==="px"||s.drv==="pxa")&&s.px?` <span class="g">지표 없는 분기만</span>`:""} 2026 <input data-ismg="${attr(s.k)}" type="number" step="1" value="${Math.round(p.g*100)}" style="width:56px"> % <span class="g">자동 ${fmt(p.gAuto*100,0)}%</span> · 2027 <input data-ismg7="${attr(s.k)}" type="number" step="1" value="${Math.round(p.g7*100)}" style="width:56px"> %</label>`
         +(p.m!=null?`<label>이익률 <input data-ismm="${attr(s.k)}" type="number" step="0.5" value="${fmt(p.m*100,1).replace(/,/g,"")}" style="width:62px"> % <span class="g">자동 ${p.mAuto!=null?fmt(p.mAuto*100,1)+"%":"—"}</span></label>`:""); }).join("")
-    +`<label>회사 이익률 <input data-isma="opm" type="number" step="0.5" value="${fmt(P.opm*100,1).replace(/,/g,"")}" style="width:62px"> %</label>
+    +`<label>회사 이익률${P.lin?` <span class="g">넣으면 고정비형 대신</span>`:""} <input data-isma="opm" type="number" step="0.5" value="${fmt(P.opm*100,1).replace(/,/g,"")}" style="width:62px"> %</label>
       <label>영업외 <input data-isma="nonop" type="number" step="0.5" value="${fmt(P.nonop,1).replace(/,/g,"")}" style="width:62px"> 십억/분기</label>
       <label>세율 <input data-isma="tax" type="number" step="1" value="${Math.round(P.tax*100)}" style="width:52px"> %</label>
       <button data-ismreset style="font-size:11.5px">기본값으로</button></div></div></details>`:"";
-  const method=hasSpec?`<div class="note" style="margin-top:6px">${segs.map(s=>{ const p=P.segs[s.k];
+  // 식 설명 — 부문마다 한 줄(식만). 조사 메모는 이름에 마우스를 올리면 보인다
+  const method=hasSpec?`<div class="note" style="margin-top:6px;line-height:1.7">${segs.map(s=>{ const p=P.segs[s.k];
       const how=s.drv==="px"?(p.k!=null?`${attr(s.pxLab||"지표")} × ${fmt(p.k,3)}`:"전년 동기 × 성장률(지표 없음)")
         :s.drv==="pxa"?(p.ib!=null?`${fmt(p.ia,1)} + ${fmt(p.ib,3)} × ${attr(s.pxLab||"지표")}${p.r2!=null?` (R² ${fmt(p.r2,2)})`:""}`:"전년 동기 × 성장률(지표 없음)")
-        :s.drv==="seas"?"직전 분기 × 계절":"전년 동기 × 성장률";
-      return `<b>${attr(s.t)}</b> ${how}${s.note?` · ${attr(s.note)}`:""}`; }).join("<br>")}
-      ${S.note?`<br>${S.note}`:""}</div>`
+        :s.drv==="seas"?"직전 분기 × 계절":"전년 동기 × 성장률 · 직전 분기 × 계절 평균";
+      const sch=/kpop/.test(String(s.src))?" · 일정 없는 분기는 기저만":"", w=s.pxw!=null&&(s.drv==="px"||s.drv==="pxa")?` · 지표 ${fmt(s.pxw*100,0)}%만 반영`:"";
+      return `<b${s.note?` title="${attr(s.note)}" style="text-decoration:underline dotted;cursor:help"`:""}>${attr(s.t)}</b> ${how}${w}${sch}`; }).join("<br>")}
+      <br><b${S.note?` title="${attr(S.note)}" style="text-decoration:underline dotted;cursor:help"`:""}>영업이익</b> ${P.lin?`매출 × ${fmt(P.lin.d*100,1)}% − 고정비 ${fmt(-P.lin.c,1)} (R² ${fmt(P.lin.r2,2)})`
+        :segs.length&&segs.every(s=>P.segs[s.k].m!=null)?"부문 이익률 × 매출의 합":`매출 × ${fmt(P.opm*100,1)}%${P.seas.some(v=>v)?" ± 계절":""}`}
+      ${Object.keys(S.oneoff||{}).length?`<br>* 영업이익에 일회성 포함(${Object.entries(S.oneoff).map(([q,v])=>`${c2QLab(q)} ${fmt(-v,1)}`).join(" · ")}${S.oneoffNote?` ${S.oneoffNote}`:""}) — 이익률은 빼고 계산`:""}</div>`
     :`<div class="note" style="margin-top:6px">아직 추정 전 — 실적(DART)과 컨센(C)만.</div>`;
   const D=B.D;
   host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 모델 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · E 우리 추정 · C 컨센 · ▸ 세부</span></div>
@@ -255,10 +387,13 @@ function renderIsm(name, host){
   const upd=()=>{ const a={seg:{}};
     host.querySelectorAll("[data-ismg]").forEach(i=>{ const s=(a.seg[i.dataset.ismg]=a.seg[i.dataset.ismg]||{}); s.g=+i.value; });
     host.querySelectorAll("[data-ismm]").forEach(i=>{ const s=(a.seg[i.dataset.ismm]=a.seg[i.dataset.ismm]||{}); s.m=+i.value; });
+    host.querySelectorAll("[data-ismg7]").forEach(i=>{ const s=(a.seg[i.dataset.ismg7]=a.seg[i.dataset.ismg7]||{}); s.g7=+i.value; });
     // 자동값과 같은 칸은 저장하지 않는다(나중에 자동값이 바뀌면 따라가게)
     Object.keys(a.seg).forEach(k=>{ const p=P.segs[k]; if(!p) return; const s=a.seg[k];
-      if(s.g!=null&&Math.round(p.gAuto*100)===s.g) delete s.g; if(s.m!=null&&p.mAuto!=null&&Math.abs(p.mAuto*100-s.m)<0.05) delete s.m; });
-    host.querySelectorAll("[data-isma]").forEach(i=>{ a[i.dataset.isma]=+i.value; });
+      if(s.g!=null&&Math.round(p.gAuto*100)===s.g) delete s.g;
+      if(s.g7!=null&&Math.round((s.g!=null?s.g/100:p.gAuto)*50)===s.g7) delete s.g7;  if(s.m!=null&&p.mAuto!=null&&Math.abs(p.mAuto*100-s.m)<0.05) delete s.m; });
+    host.querySelectorAll("[data-isma]").forEach(i=>{ const k=i.dataset.isma, v=+i.value, au={opm:P.opmAuto*100, nonop:P.nonopAuto, tax:P.taxAuto*100}[k];
+      if(au==null||Math.abs(au-v)>(k==="tax"?0.5:0.05)) a[k]=v; });
     ismAsmSave(name, a); renderIsm(name, host); };
   host.querySelectorAll("[data-ismg],[data-ismm],[data-isma]").forEach(i=>i.addEventListener("change",upd));
   const rb=host.querySelector("[data-ismreset]"); if(rb) rb.addEventListener("click",()=>{ ismAsmSave(name,{}); renderIsm(name, host); });

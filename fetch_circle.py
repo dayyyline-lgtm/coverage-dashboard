@@ -27,7 +27,7 @@ except Exception:
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 API = "https://circlechart.kr/data/api/chart/album"
-MONTHS_BACK = 12
+MONTHS_BACK = 30          # 2026-10-24 12→30: 종목별 손익 모델(ISM)이 엔터 음반 계수를 6분기 이상으로 맞춘다
 WEEKS_BACK = 13
 PAGE = 100
 PAUSE = 0.3

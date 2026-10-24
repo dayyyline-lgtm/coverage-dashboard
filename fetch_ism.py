@@ -26,6 +26,7 @@ HTML = "public/index.html"
 Y0 = 2023                       # 실적 칸 첫 해(2024 전년비 계산용)
 PERIOD = {"03": 1, "06": 2, "09": 3, "12": 4}
 RC = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
+SEG_FROM = "2025-03"            # 부문 원문은 이 보고서부터(파서는 2025~2026 양식으로 검산 · 그 앞 분기는 ism_seed)
 
 # 전용 모델이 있는 종목은 받지 않는다(그쪽 수집기가 원본)
 SKIP = {"컴투스", "대원미디어", "카카오게임즈", "디어유"}
@@ -76,9 +77,11 @@ def segs_of(nm, rep, getdoc=None):
        (LG생활건강 2026 부문 재분류처럼 — 기준이 다른 누적끼리 빼면 안 된다)."""
     fn = SEG.get(nm)
     if not fn:
-        return {}, None
+        return {}, None, set()
     cum, rest, three = {}, {}, {}
     for ym, rc in sorted(rep.items()):
+        if ym < SEG_FROM:
+            continue
         q = f"{ym[:4]}Q{PERIOD[ym[5:]]}"
         try:
             d, kind = fn((getdoc or doc)(rc), q)
@@ -92,12 +95,14 @@ def segs_of(nm, rep, getdoc=None):
             rest[qadd(q, -4)] = pv
         (cum if kind == "cum" else three)[q] = d
     out = cum_to_q(cum) if cum else {}
+    restq = set()
     if rest:
         for k, v in cum_to_q(rest).items():
             out.setdefault(k, {}).update(v)
+            restq.add(k)
     for k, v in three.items():
         out.setdefault(k, {}).update(v)
-    return {k: out[k] for k in sorted(out)}, (fn.__doc__ or "").strip().splitlines()[0]
+    return {k: out[k] for k in sorted(out)}, (fn.__doc__ or "").strip().splitlines()[0], restq
 
 
 def seed_of(nm):
@@ -112,6 +117,11 @@ def seed_of(nm):
         for q, v in d.items():
             if re.fullmatch(r"\d{4}Q[1-4]", q) and isinstance(v, dict):
                 out.setdefault(q, {}).update(v)
+            elif q == "_q" and isinstance(v, dict):          # 종목 단위로 둔 연결 손익 보정(CJ제일제당 F&C 재분류)
+                for qq, f in v.items():
+                    out.setdefault(qq, {})["_q"] = f
+            elif q == "_fy_overlap" and isinstance(v, dict):  # 연간만 재작성된 분류 변경(JYP) — 새/옛 연간 비율
+                out.setdefault("_fy", {}).update(v)
     return out
 
 
@@ -160,9 +170,10 @@ def main():
                     ofsq.append(k)
             q = {k: q[k] for k in sorted(q)}
         fs = "OFS" if q and len(ofsq) == len(q) else "CFS"
-        seg, how = segs_of(nm, rep)
+        seg, how, restq = segs_of(nm, rep)
         sd = seed_of(nm)
         qfix, basis, old = {}, {}, {}
+        fy = sd.pop("_fy", None)
         for qq, v in sd.items():                          # 시드의 특수 키 — 연결 손익 보정·옛 분류 표시·옛 분류 값
             if "_q" in v:
                 qfix[qq] = v.pop("_q")
@@ -173,7 +184,10 @@ def main():
         if sd:                                            # 시드 위에 파서 값을 덮는다
             for k, v in seg.items():
                 sd.setdefault(k, {}).update(v)
-                basis.pop(k, None)                        # 파서가 새로 읽은 분기는 지금 분류
+                if basis.get(k) == "old" and k in restq and not v.get("_basis"):
+                    basis.pop(k, None)                    # 새 보고서의 재작성 비교치로 덮인 분기만 지금 분류('est' = 조사 추정 표시는 남긴다)
+                    # ⚠ 그 분기 자기 보고서에서 읽은 값은 옛 분류 그대로다(LG생활건강 3Q25·4Q25) — 'old' 를 지우면 전년비가 재분류만큼 틀린다
+                v.pop("_basis", None)
             seg = {k: sd[k] for k in sorted(sd) if sd[k]}
             how = how or "조사 시드(옛 분기)"
         for qq, f in qfix.items():                        # dart_quarters 가 잘못 내는 분기(중단영업 재분류 등)를 시드 값으로
@@ -191,6 +205,8 @@ def main():
             out["s"][nm]["segBasis"] = basis                # "old" = 옛 분류 그대로인 분기
         if old:
             out["s"][nm]["segOld"] = old                    # 재작성 분기의 옛 분류 값(새/옛 비율용)
+        if fy:
+            out["s"][nm]["segFy"] = fy                      # 연간 새/옛 분류 겹침(새/옛 비율용)
         done += 1
         lq = sorted(q)[-1] if q else "-"
         print(f"[ISM] {nm:10} {fs} 분기 {len(q)}개(마지막 {lq} 매출 {q.get(lq, {}).get('rev')}) · 부문 {len(seg)}개 분기")

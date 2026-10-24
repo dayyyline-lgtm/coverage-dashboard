@@ -233,8 +233,6 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python runstep.py "디어유 모델" fetch_dymodel.py
 
-      # 종목별 분기 손익 모델 재료(2026-10-24 · fetch_ism.py → ISM) — 전용 모델 없는 종목 전부의 DART 연결 분기 손익 + 종목별 부문 표.
-      #   평소엔 종목당 목록 1요청(새 정기보고서가 나온 종목만 손익·원문을 받는다).
       # 카지노 월간 영업실적(DART 공정공시 · 파라다이스·롯데관광개발·GKL) — 매달 1~2일 지난달. 최근 4개월 공시만 다시 읽는다.
       - name: 카지노 월간 실적
         continue-on-error: true
@@ -249,6 +247,26 @@ jobs:
         timeout-minutes: 3
         run: python runstep.py "게임 순위(gamerscroll)" fetch_grank.py
 
+      # 한국은행 소매업태별 판매액지수(ECOS 901Y098 · sample 키) — 유통·면세 종목 손익 모델의 동인. 익월 말 공표, 바뀐 달만 쓴다.
+      - name: 소매판매 지수(ECOS)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "ECOS 소매판매" fetch_ecos.py
+
+      # SteamCharts 월별 평균·최고 동접(출시부터 · fetch_steamm.py → STEAMM) — 크래프톤 PC·시프트업·펄어비스 손익 모델의 동인. 달이 바뀔 때만 블록이 바뀐다.
+      - name: Steam 월별 동접
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "SteamCharts 월별" fetch_steamm.py
+
+      # K-pop 투어 공연일·매출(위키백과 Tour dates 표 + TouringData · fetch_tours.py → TOURS) — 하이브·JYP·YG 공연 매출의 동인.
+      - name: K-pop 투어
+        continue-on-error: true
+        timeout-minutes: 5
+        run: python runstep.py "K-pop 투어" fetch_tours.py
+
+      # 종목별 분기 손익 모델 재료(2026-10-24 · fetch_ism.py → ISM) — 전용 모델 없는 종목 전부의 DART 연결 분기 손익 + 종목별 부문 표.
+      #   평소엔 종목당 목록 1요청(새 정기보고서가 나온 종목만 손익·원문을 받는다).
       - name: 종목별 분기 손익 재료
         continue-on-error: true
         timeout-minutes: 15

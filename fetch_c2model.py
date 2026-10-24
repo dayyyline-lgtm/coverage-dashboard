@@ -71,7 +71,7 @@ GAMES = {
 ACC = {
     "rev":  (("ifrs-full_Revenue",), ("영업수익", "매출액", "수익(매출액)")),
     "opex": (("ifrs-full_OperatingExpense",), ("영업비용",)),
-    "op":   (("dart_OperatingIncomeLoss",), ("영업이익", "영업이익(손실)")),
+    "op":   (("dart_OperatingIncomeLoss",), ("영업이익", "영업이익(손실)", "영업손실")),   # 리센스메디컬은 '영업손실'(표준계정코드 미사용) · 2026-10-24
     "pbt":  (("ifrs-full_ProfitLossBeforeTax",), ("법인세비용차감전순이익", "법인세비용차감전순이익(손실)")),
     "np":   (("ifrs-full_ProfitLoss",), ("당기순이익", "당기순이익(손실)")),
     "npp":  (("ifrs-full_ProfitLossAttributableToOwnersOfParent",), ()),
