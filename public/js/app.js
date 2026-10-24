@@ -11955,10 +11955,158 @@ function cosGrowth(el, o){
 }
 
 
+/* ══ 화장품 기준표 (2026-10-24 · 사용자 "화장품 데이터가 잡다 — 서로 검증·보완은 좋은데 기준을 정해 두고 한눈에" → 설계안 승인) ══
+   회사마다 한 줄. **기준 = 해외 판매액**(아마존 Keepa 전 지역 + 틱톡샵 미국 · 배지 하한) — 매출에 가장 가까운 숫자라 이걸 잣대로 삼는다.
+   확인 = 정의·출처가 다른 지표가 **같은 방향인지만** 본다(크기끼리 견주지 말 것):
+     美 세부 카테고리 추정 매출(AMZSUB) · 아마존 뷰티 Top100 개수(5개국 · 한투와 같은 정의 · amztBuild) · Qoo10 일본 톱200 진입 수 ·
+     올리브영 진입 수 — 올리브영은 **국내**라 표엔 두되 '같은 방향' 셈에서는 뺀다.
+   창: 기준 = 아마존 최근 30일(Keepa 배지 · 진행 달 값) vs 지난달 + 틱톡샵 최근 4주 vs 그 전 4주(다 찬 주만).
+       확인 = 최근 4주 vs 그 전 4주 — 자료가 짧은 출처는 있는 만큼 반씩(세부 카테고리 10/9~ · 올리브영 10/4~ · 5점 미만이면 —).
+   Top100 은 한투 글 날(한투 브랜드) + 크롬 7개국 수집 날(10/18~)만 쓴다 — 그 전 트래커 날은 유럽 50위까지라 섞으면 10/18 에 가짜 증가가 생긴다.
+   방향 = ±5% 밖이면 ▲▼ · 개수는 차이 0.5 개 미만이면 = · 둘 다 0.5 개 밑이면 —(그 채널에 없음).
+   행 = 커버리지 상장사(KBPH 의 co) + 엔에프씨(ODM 고객사 셋) + 구다이글로벌(상장 준비). 아모레퍼시픽은 090430 브랜드만(이니스프리·에뛰드는 홀딩스). */
+function cosStdRows(){
+  if(typeof KBPH==="undefined"||!KBPH.b||!KBPH.months) return [];
+  const cov=new Set(R.map(r=>r.name)), P=KBPH.b, rows=[];
+  const ko=k=>(P[k]&&P[k].ko)||k;
+  const byCo={}; Object.entries(P).forEach(([k,b])=>{ if(b.co&&cov.has(b.co)) (byCo[b.co]=byCo[b.co]||[]).push(k); });
+  Object.entries(byCo).forEach(([co,keys])=>rows.push({co, lab:co, keys, byName:false}));
+  const nfc=Object.keys(P).filter(k=>P[k].sup==="엔에프씨");
+  if(nfc.length) rows.push({co:"엔에프씨", lab:"엔에프씨", tag:"ODM 고객사 "+nfc.length, keys:nfc, byName:true,
+    en:nfc.map(amzBrNorm).concat(["cellimax","dralthea"]), ko:nfc.map(ko)});
+  const gd=["beauty of joseon","skin1004","round lab"].filter(k=>P[k]);
+  if(gd.length) rows.push({co:"구다이글로벌", lab:"구다이글로벌", tag:"상장 준비", keys:gd, byName:false,
+    en:gd.map(amzBrNorm).concat(["tirtir","laka"]), ko:gd.map(ko).concat(["티르티르","라카"])});
+  return rows;
+}
+// 날짜순 값 배열 → 최근 w개 평균 vs 그 앞 w개 평균(w = 28 · 자료가 짧으면 있는 만큼 반씩 · 5점 미만은 null)
+function cosStdWin(vals, cnt){
+  const a=vals.filter(v=>v!=null); const w=Math.min(28, Math.floor(a.length/2)); if(w<5) return null;
+  const mean=x=>x.reduce((s,y)=>s+y,0)/x.length, cur=mean(a.slice(-w)), prev=mean(a.slice(-2*w,-w));
+  let dir;
+  if(cnt&&cur<0.5&&prev<0.5) dir="none";
+  else if(cnt&&Math.abs(cur-prev)<0.5) dir="flat";
+  else if(prev<=0) dir=cur>0?"up":"flat";
+  else dir=cur/prev-1>0.05?"up":cur/prev-1<-0.05?"down":"flat";
+  return {cur, prev, w, ch:prev>0?cur/prev-1:null, dir};
+}
+function cosStdCalc(){
+  const rows=cosStdRows(); if(!rows.length) return null;
+  // 아마존 = 전 지역(사용자가 고른 지역과 무관) — KBB() 는 cosMk 를 보므로 잠깐 바꿨다 되돌린다
+  const mk0=cosMk; cosMk="all"; let A; try{ A=KBB(); } finally{ cosMk=mk0; }
+  const M=KBPH.months, Lp=KBPH.partial?M.indexOf(KBPH.partial):-1, aNow=Lp>=1?Lp:M.length-1, aPrev=aNow-1;
+  let qe=M.length-1; while(qe>=0&&(M[qe]===KBPH.partial||+M[qe].slice(5)%3!==0)) qe--;
+  const qM=qe>=2?[qe-2,qe-1,qe]:[], qLab=qe>=0?`${Math.ceil(+M[qe].slice(5)/3)}Q${M[qe].slice(2,4)}`:"";
+  const TT=KBPH.tt&&KBPH.tt.b?KBPH.tt:null;
+  const full=TT?(TT.weeks||[]).map((w,i)=>[w,i]).filter(([w])=>Date.parse(w)+6*864e5<=Date.parse(TT.end)).map(x=>x[1]):[];
+  const t4=full.slice(-4), t4p=full.slice(-8,-4);
+  const sum=(a,ix)=>ix.reduce((s,i)=>s+((a||[])[i]||0),0);
+  // 확인 출처들
+  const S=(typeof AMZSUB!=="undefined"&&AMZSUB.days)?AMZSUB:null;
+  const T=amztBuild(), MK5=["US","UK","DE","FR","ES"], amzlDays=new Set((typeof AMZL!=="undefined"&&AMZL.days)||[]);
+  const Q=(typeof QOO10!=="undefined"&&QOO10.brands)?QOO10:null, qDates=Q?(Q.kr||[]).map(x=>x.d):[];
+  const OY=(typeof BEAUTY!=="undefined"&&BEAUTY.oy&&BEAUTY.oy.brands)?BEAUTY.oy:null;
+  const oyDates=OY?[...new Set(OY.brands.flatMap(b=>(b.hist||[]).map(h=>h.d)))].sort():[];
+  const HOLD=["이니스프리","에뛰드"];
+  // 비중의 분모 = 추적 바구니 전체(비상장 포함) — 행사(빅딜데이·블프)처럼 다 같이 뛰는 효과가 지워진다(국면 탭과 같은 잣대)
+  let BA1=0, BA0=0, BT1=0, BT0=0;
+  Object.values(A.b).forEach(b=>{ if(b.v){ BA1+=b.v[aNow]||0; BA0+=b.v[aPrev]||0; } });
+  if(TT&&t4.length===4&&t4p.length===4) Object.values(TT.b).forEach(t=>{ BT1+=sum(t.v,t4); BT0+=sum(t.v,t4p); });
+  const kR=S&&S.k&&S.k.r?S.k.r.slice(-S.days.length):null;
+  return {qLab, aLab:`${+M[aNow].slice(5)}월(최근 30일) vs ${+M[aPrev].slice(5)}월`, tLab:t4.length===4&&t4p.length===4?"틱톡샵 최근 4주 vs 그 전 4주":"", rows:rows.map(r=>{
+    const enSet=new Set(r.en||[]), koSet=new Set(r.ko||[]);
+    // 기준 — 분기 판매액(원화) · 30일 변화
+    let qv=0, a1=0, a0=0, t1=0, t0=0;
+    r.keys.forEach(k=>{
+      const b=A.b[k]; if(b&&b.v){ qM.forEach(j=>{ qv+=(b.v[j]||0)*(kbFx("USD",M[j])||0); }); a1+=b.v[aNow]||0; a0+=b.v[aPrev]||0; }
+      const t=TT&&TT.b[k]; if(t){ const tm=TT.months||[]; qM.forEach(j=>{ const ti=tm.indexOf(M[j]); if(ti>=0) qv+=((t.mv||[])[ti]||0)*(kbFx("USD",M[j])||0); });
+        if(t4.length===4&&t4p.length===4){ t1+=sum(t.v,t4); t0+=sum(t.v,t4p); } }
+    });
+    const sh1=(BA1+BT1)>0?(a1+t1)/(BA1+BT1):null, sh0=(BA0+BT0)>0?(a0+t0)/(BA0+BT0):null;
+    const base=(sh1!=null&&sh0>0)?sh1/sh0-1:null, bdir=base==null?"none":base>0.05?"up":base<-0.05?"down":"flat";
+    // 美 세부 카테고리 추정 매출(하루 · USD)
+    let sub=null;
+    if(S){ let ser=null;
+      if(!r.byName){ const c=(S.cos||[]).find(c=>c.n===r.co); if(c) ser=c.r||null; }
+      if(!ser&&r.byName&&S.bs){ const ix=(S.bl||[]).map((n,i)=>enSet.has(amzBrNorm(n))?i:-1).filter(i=>i>=0);
+        if(ix.length){ const L=S.days.length; ser=Array.from({length:L},(_,j)=>{ let s=0, any=false; ix.forEach(i=>{ const v=((S.bs[i]||{}).r||[])[j]; if(v!=null){ s+=v; any=true; } }); return any?s:null; }); } }
+      if(ser&&kR){ const x=ser.slice(-S.days.length); sub=cosStdWin(x.map((v,j)=>(v!=null&&kR[j]>0)?v/kR[j]:null), false); } }
+    // 뷰티 Top100 개수(5개국)
+    const tb=T.brands.filter(o=>r.byName?enSet.has(amzBrNorm(o.key)):((o.owner||o.stock)===r.co||(r.en&&enSet.has(amzBrNorm(o.key)))));
+    const topSer=T.dates.map(d=>{ let s=0;
+      for(const o of tb){ const ok=amzlDays.has(d)||(o.kmj&&T.kDays.has(d)&&d>=(o.kmj.since||"")); if(!ok) return null;
+        for(const m of MK5){ const v=amztVal(o,d,m,"t100"); if(v===undefined) return null; s+=v||0; } }
+      return tb.length?s:null; });
+    const top=tb.length?cosStdWin(topSer,true):null;
+    // Qoo10 일본 톱200 진입 수
+    let q10=null;
+    if(Q){ const qb=Q.brands.filter(b=>r.byName||r.en?(enSet.has(amzBrNorm(b.brand))||(!r.byName&&b.stock===r.co)):b.stock===r.co);
+      if(qb.length){ const mp=qb.map(b=>Object.fromEntries((b.hist||[]).map(h=>[h.d,h.c])));
+        q10=cosStdWin(qDates.map(d=>mp.reduce((s,m)=>s+(m[d]||0),0)),true); } }
+    // 올리브영 베스트 진입 수(국내)
+    let oy=null;
+    if(OY){ const ob=OY.brands.filter(b=>(r.ko&&koSet.has(b.brand))||(!r.byName&&b.stock===r.co&&!(r.co==="아모레퍼시픽"&&HOLD.includes(b.brand))));
+      if(ob.length){ const mp=ob.map(b=>Object.fromEntries((b.hist||[]).map(h=>[h.d,h.c])));
+        oy=cosStdWin(oyDates.map(d=>mp.reduce((s,m)=>s+(m[d]||0),0)),true); } }
+    const chk=[sub,top,q10].filter(c=>c&&(c.dir==="up"||c.dir==="down"));
+    const agree=(bdir==="up"||bdir==="down")?chk.filter(c=>c.dir===bdir).length:null;
+    return {...r, qv, base, bdir, sh1, sh0, a1, a0, t1, t0, sub, top, q10, oy, agree, nchk:chk.length};
+  }).sort((a,b)=>b.qv-a.qv)};
+}
+function renderCosStd(){
+  const el=document.getElementById("cosStd"); if(!el) return;
+  const C=cosStdCalc(); if(!C||!C.rows.length){ el.innerHTML=""; return; }
+  const ARW={up:["▲","up"],down:["▼","down"],flat:["=",""],none:["—",""]};
+  const eok=v=>v>=1e10?`${amzNum(Math.round(v/1e8))}억`:v>=1e8?`${(v/1e8).toFixed(0)}억`:v>0?`${(v/1e8).toFixed(1)}억`:"—";
+  const pc=x=>x==null?"":`${x>=0?"+":""}${(x*100).toFixed(0)}%`;
+  const n1=v=>v>=10?Math.round(v):(Math.round(v*10)/10);
+  const cell=(c,kind)=>{
+    if(!c) return `<td class="c" style="color:var(--muted2)" title="자료 없음 또는 짧음(5점 미만)">·</td>`;
+    const [a,cl]=ARW[c.dir], cnt=kind!=="sub";
+    const sh=v=>`${(v*100).toFixed(v>=0.1?0:1)}%`;
+    const lvl=cnt?`${n1(c.cur)}개`:sh(c.cur);
+    const tip=cnt?`최근 ${c.w}일 평균 ${n1(c.cur)}개 vs 그 전 ${c.w}일 ${n1(c.prev)}개${c.ch!=null?` (${pc(c.ch)})`:""}`
+      :`한국 브랜드 추정 매출 중 비중 — 최근 ${c.w}일 ${sh(c.cur)} vs 그 전 ${c.w}일 ${sh(c.prev)}${c.ch!=null?` (${pc(c.ch)})`:""}`;
+    return `<td class="c" title="${attr(tip)}"><span class="${cl}" style="font-weight:800">${a}</span> <span style="color:var(--muted);font-size:11.5px">${c.dir==="none"?"":lvl}</span></td>`;
+  };
+  const agr=r=>{
+    if(r.agree==null||!r.nchk) return `<td class="c" style="color:var(--muted2)">—</td>`;
+    const all=r.agree===r.nchk, most=r.agree*2>r.nchk;
+    const col=all?"var(--good)":most||r.nchk<2?"var(--text)":"var(--warn)";
+    return `<td class="c" title="${attr(`해외 확인 지표 ${r.nchk}개 중 ${r.agree}개가 기준과 같은 방향(= 와 — 는 셈에서 뺌 · 올리브영은 국내라 뺌)`)}"><b style="color:${col}">${r.agree}/${r.nchk}</b>${!all&&r.agree===0&&r.nchk>=2?' <span style="color:var(--warn);font-size:11px">엇갈림</span>':""}</td>`;
+  };
+  el.innerHTML=`<div class="card" style="padding:12px 14px;margin:0 0 12px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:6px">
+      <b style="font-size:14px">기준표</b>
+      <span style="font-size:12px;color:var(--muted)"><b style="color:var(--accent)">기준 = 해외 판매액의 K뷰티 내 비중</b>(아마존 Keepa 전 지역 + 틱톡샵 미국 · 추적 브랜드 전체 대비) · 확인 지표는 <b>같은 방향인지만</b> 봅니다(정의가 달라 크기는 견주지 않음)</span>
+    </div>
+    <div class="tbl-wrap"><table class="mini-tbl cos-tbl"><thead>
+      <tr><th class="l" rowspan="2">회사</th><th colspan="2" class="cos-g" style="color:var(--accent)">기준 · 해외 판매액</th><th colspan="3" class="cos-g">확인 · 해외</th><th class="cos-g">참고 · 국내</th><th rowspan="2" class="cos-g" title="해외 확인 지표 중 기준과 같은 방향인 개수">같은 방향</th></tr>
+      <tr><th class="cos-g0" title="${attr(C.qLab+" 아마존(전 지역) + 틱톡샵(미국) 판매액 합 · 그달 환율")}">${C.qLab}</th><th title="${attr("K뷰티 내 비중 변화 — "+C.aLab+(C.tLab?" + "+C.tLab:"")+" · 비중이라 빅딜데이·블프처럼 바구니 전체가 같이 뛰는 효과는 지워진다")}">K뷰티 내 비중</th>
+        <th class="cos-g0" title="아마존 미국 세부 카테고리 155곳 Top100 의 추정 매출 — 한국 브랜드 전체 중 비중 · 크롬 매일">美 세부 카테고리 매출 비중</th>
+        <th title="아마존 뷰티 전체 Top100 안 제품 수 · 미·영·독·프·스 5개국 합 · 한투와 같은 정의(같은 날짜면 한투 글과 일치)">뷰티 Top100 개수</th>
+        <th title="Qoo10 일본 뷰티 베스트셀러 톱200 안 제품 수">Qoo10 일본</th>
+        <th class="cos-g0" title="올리브영 베스트 100 안 제품 수 — 국내 채널이라 '같은 방향' 셈에서는 뺀다">올리브영</th></tr>
+    </thead><tbody>${C.rows.map(r=>`<tr data-stdco="${attr(r.co)}" style="cursor:pointer" title="${attr(r.lab+" — 누르면 브랜드별 상세")}">
+      <td class="l"><b>${attr(r.lab)}</b>${r.tag?` <span style="font-size:10.5px;color:var(--muted2)">${attr(r.tag)}</span>`:""}<div style="font-size:10.5px;color:var(--muted2)">${r.keys.map(k=>attr((KBPH.b[k]||{}).ko||k)).join(" · ")}</div></td>
+      <td class="cos-g0"><b>${eok(r.qv)}</b></td>
+      <td title="${attr(`K뷰티 내 비중 ${r.sh1!=null?(r.sh1*100).toFixed(1)+"%":"—"} vs ${r.sh0!=null?(r.sh0*100).toFixed(1)+"%":"—"} · 판매액 아마존 ${C.aLab}: $${amzNum(Math.round(r.a1))} vs $${amzNum(Math.round(r.a0))}`+(C.tLab?` · ${C.tLab}: $${amzNum(Math.round(r.t1))} vs $${amzNum(Math.round(r.t0))}`:""))}"><span class="${ARW[r.bdir][1]}" style="font-weight:800">${ARW[r.bdir][0]} ${pc(r.base)}</span> <span style="color:var(--muted);font-size:11.5px">${r.sh1!=null?(r.sh1*100).toFixed(r.sh1>=0.1?0:1)+"%":""}</span></td>
+      ${cell(r.sub,"sub").replace('<td class="c"','<td class="c cos-g0"')}${cell(r.top,"top")}${cell(r.q10,"q10")}${cell(r.oy,"oy").replace('<td class="c"','<td class="c cos-g0"')}${agr(r)}</tr>`).join("")}</tbody></table></div>
+    <div class="note" style="margin-top:6px">비중 = 추적 브랜드(비상장 포함) 전체 중 몫 — 행사처럼 다 같이 움직이는 효과를 지운다(국면 탭과 같은 잣대). 창: 기준 = ${C.aLab}${C.tLab?" · "+C.tLab:""} · 확인 = 최근 4주 vs 그 전 4주(자료가 짧으면 있는 만큼 반씩 — 세부 카테고리 10/9~ · 올리브영 10/4~) · ±5% 안은 = · 칸에 마우스를 올리면 두 기간 값.
+      뷰티 Top100 개수는 <b>한투와 같은 정의</b>(같은 날짜·5개국이면 한투 글과 일치 — 10/19~23 175칸 전부 같음). 화면 다른 곳의 '세부 카테고리 SKU'(155곳 Top100)·Keepa 'SKU'(월 50개 이상 팔린 상품)와는 다른 숫자입니다.</div>
+  </div>`;
+  el.querySelectorAll("tr[data-stdco]").forEach(tr=>tr.addEventListener("click",()=>{
+    const co=tr.dataset.stdco; if(typeof cosTab!=="undefined"&&cosTab!=="brand") cosSetTab("brand");
+    const {groups}=amzBrGroups(), g=groups.find(x=>x.key===co);
+    if(g){ amzBrSel={co, b:g.brands.length===1?g.brands[0].nm:""}; try{ localStorage.setItem("amzBrand",JSON.stringify(amzBrSel)); }catch(e){} renderAmzBrand(); }
+    const h=document.getElementById("amzBrandHead")||document.getElementById("cosTabs"); if(h) h.scrollIntoView({behavior:"smooth", block:"start"});
+  }));
+}
 function renderAmazon(){
   // 탭 본문은 한투 채널(renderKmj · renderAmzTrend) — 트래커 블록이 비어도 그린다. 아래는 맨 아래 접힌 '우리 아마존 트래커'.
   // 화장품 트렌드 분석 — 페이지 안 탭: 지금 탭 칸만 그린다(숨은 칸은 폭이 0 · 탭을 바꿀 때 cosSetTab 이 그린다)
   try{ cosSrcChips(); }catch(err){ console.error("출처 칩", err); }
+  try{ renderCosStd(); }catch(err){ console.error("화장품 기준표", err); }
   cosSetTab(cosTab);
   if(typeof AMAZON==="undefined" || !AMAZON.brands || !AMAZON.brands.length) return;
   const asOf=document.getElementById("amzAsOf");   // 접힘 요약줄 — 접힌 채로도 기준일·상태가 읽히게
@@ -12250,9 +12398,9 @@ function renderAmzTrend(){
     aria:amztView==="stock"?"상장사별 아마존 5개국 베스트셀러 진입 제품 수 추이":amztView!=="mk"?"브랜드별 아마존 5개국 베스트셀러 진입 제품 수 추이":`${cur.label} 아마존 나라별 추이`,
     empty:rank?"이 브랜드는 한투 채널이 다루지 않아 순위 이력이 없습니다":"이 기준으로는 값이 없습니다"});
 
-  const src=`출처 — 한투증권 김명주 텔레그램(5/28~ · 평일 아침 · 5개 브랜드 · 미·영·독·프·스 탑100) + 우리 트래커(8/2~ · 주말 포함 · US 탑100·유럽 탑50).
+  const src=`출처 — 한투증권 김명주 텔레그램(5/28~ · 평일 아침 · 5개 브랜드 · 미·영·독·프·스 탑100) + 우리 트래커(8/2~10/17 · 주말 포함 · US 탑100·유럽 탑50) + 크롬 7개국 수집(10/18~ · 매일 · 각국 탑100).
     같은 날짜는 채널 값을 씁니다 — 겹친 30일 중 91% 가 제품별 순위까지 같았습니다. 점에 마우스를 올리면 나라별 내역·출처가 나옵니다.`;
-  const why=M==="t100"?`<b>탑100</b>은 유럽 51~100위까지 셉니다. 트래커만 있는 날(주로 주말)은 유럽 51~100위를 몰라 ${amztView!=="mk"?"합계에서 빠지고":"유럽 선에서 빠지고"}, 선은 그 날을 건너 잇습니다.`
+  const why=M==="t100"?`<b>탑100</b>은 유럽 51~100위까지 셉니다. 10/17 전 트래커만 있는 날(주로 주말)은 유럽 51~100위를 몰라 ${amztView!=="mk"?"합계에서 빠지고":"유럽 선에서 빠지고"}, 선은 그 날을 건너 잇습니다(10/18 부터는 크롬 수집이 유럽도 100위까지 읽어 빠지지 않습니다).`
     : M==="t50"?`<b>진입 SKU</b>는 맨 아래 '우리 트래커'와 같은 기준(US 탑100 · 유럽 탑50)이라 트래커 브랜드도 나옵니다. 8/2 앞은 채널이 다루는 5개 브랜드뿐입니다.`
     : "";
   const stk=grp?`<b>종목 합산</b> = 상장사가 확인된 브랜드를 더한 것 — ${Object.entries(grp).map(([st,bs])=>`${st} = ${bs.map(o=>o.label+(o.kmj&&o.kmj.since>"2026-05-28"?`(${amztMd(amztDn(o.kmj.since))}~)`:"")).join(" + ")}`).join(" · ")}.
@@ -12330,11 +12478,13 @@ function renderKmj(){
       <div style="font-size:11.5px;margin-bottom:8px">${tie}</div>
       <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
         <span style="font-size:21px;font-weight:800">${v==null?"—":v+"개"}</span>${dl(P?tot(o,L,P):v,P?tot(o,P,L):null,"직전")}${dl(tot(o,L,C4),tot(o,C4,L),"4주 전")}</div>
+      ${trkOn&&KL&&o.kmj?(()=>{ const kd=days.find(x=>x.src==="k"&&x.d===KL.d), kv=kd?tot(o,kd):null; return `<div style="font-size:11px;color:var(--muted2);margin-top:2px" title="같은 날짜·5개국이면 한투 글과 우리 수집이 같다(10/19~23 175칸 전부 일치) — 큰 숫자와의 차이는 날짜 차이">한투 ${md(KL.d)} 글 <b style="color:var(--muted)">${kv==null?"—":kv+"개"}</b> · 큰 숫자는 ${md(L.d)} 우리 수집</div>`; })():""}
       <div style="font-size:11.5px;color:var(--muted);margin-top:5px">${AMZT_MK.map(m=>{ const c=cnt(o,L,m); return `${AMZT_MKNM[m].slice(0,1)} ${c==null?"—":c}`; }).join(" · ")}</div>
       ${spark(o)}
     </div>`; }).join("")}</div>
     <p class="note" style="margin-top:4px">큰 숫자 = ${miss.length?`이날 받은 ${L.mk.map(m=>AMZT_MKNM[m]).join("·")}`:"미·영·독·프·스"} Top100 안 제품 수 합계(<b>${md(L.d)} ${srcTag(L)}</b>).
       화살표는 직전(${P?`${md(P.d)} ${srcTag(P)}`:"—"})·4주 전(${md(C4.d)}) 대비 개수 변화, 아래 선은 최근 40회 흐름.
+      <b>같은 날짜·같은 5개국이면 한투 글과 우리 수집 숫자가 같습니다</b>(10/19~23 브랜드 7 × 나라 5 = 175칸 전부 일치) — 한투와 달라 보이면 날짜(주말·연휴엔 우리 수집)나 나라 수(화면 일부는 이탈리아·일본까지 7개국)가 다른 것입니다.
       ${trkOn?`<br>한투 글이 ${md(KL.d)} 뒤로 없어서 우리 아마존 수집(아침 예약 작업 · 각국 뷰티 Top100)으로 이었습니다.
         ${capTxt?`우리 수집은 <b>${capTxt}</b>만 읽어서, 비교하는 앞 날짜들도 같은 기준으로 다시 세었습니다 — 그래서 한투 글 숫자보다 작게 보입니다.`:""}
         ${miss.length?`이날 ${miss.map(m=>AMZT_MKNM[m]).join("·")}는 수집이 빠져 합계에서 뺐습니다(앞 날짜도 같은 나라만 더함).`:""}

@@ -223,6 +223,7 @@
   .cos-tbl th.cos-g{text-align:center;font-size:11.5px;color:var(--muted);border-left:1px solid var(--line-soft)}
   .cos-tbl .cos-g0{border-left:1px solid var(--line-soft)}
   .cos-tbl td,.cos-tbl th{white-space:nowrap}
+  .cos-tbl td.c{text-align:center}
   .cos-tabs{margin:0 0 14px;flex-wrap:wrap}
   .cp-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .cp-info{min-height:20px;font-size:12.5px;line-height:1.5;margin:2px 0}
@@ -1220,6 +1221,8 @@
     <h2 class="sec">화장품 트렌드 분석</h2>
     <p class="sec-desc">K뷰티 브랜드가 해외에서 <b>어느 채널에서 몫을 늘리고 있나</b> — 아마존(Keepa · 한투 Top100 · 미국 세부 카테고리) · 틱톡샵(FastMoss) · Qoo10 일본.</p>
     <div id="cosSrc" style="margin:-4px 0 12px"></div>
+    <!-- 기준표(2026-10-24 · renderCosStd) — 회사마다 기준 = 해외 판매액의 K뷰티 내 비중 · 확인 지표는 같은 방향인지만. 페이지 안 탭과 무관하게 늘 맨 위 -->
+    <div id="cosStd"></div>
     <div class="seg cos-tabs" id="cosTabs"></div>
 
     <div data-cosp="phase"><div id="cosPhase"></div></div>
