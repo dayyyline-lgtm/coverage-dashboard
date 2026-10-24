@@ -113,6 +113,9 @@ const ISM_PX={
   // 네이버 월별 검색량(ISMSRCH · fetch_ismsrch.py · 검색어 묶음마다 자기 최고 = 100) → 분기 합. 국내 부문(시술·화장품·완구)에만.
   srch(kw){ if(typeof ISMSRCH==="undefined"||!ISMSRCH.s||!ISMSRCH.s[kw]) return {}; const v=ISMSRCH.s[kw].v;
     return ismAgg(ISMSRCH.months.map((ym,i)=>[ym, v[i]])); },
+  // Keepa 브랜드 판매(ISMKP · ism_keepa.py — 지누스 등 화장품 밖 회사) → 그달 ECB 원/달러로 원화 십억. 진행 중인 달 = 최근 30일 한 달치.
+  kp(key){ if(typeof ISMKP==="undefined"||!ISMKP.b||!ISMKP.b[key]) return {}; const o=ISMKP.b[key];
+    return ismAgg(o.months.map((ym,i)=>[ym, o.v[i]!=null?o.v[i]*(kbFx("USD",ym)||1400)/1e9:null])); },
   // 공연 회수(매출 미보고 투어 — 블랙핑크) → 회
   kpopshows(stock, artist){ if(typeof TOURS==="undefined"||!TOURS.t) return {}; const o={};
     Object.values(TOURS.t).filter(t=>t.st===stock&&(!artist||String(t.ar).toLowerCase()===String(artist).toLowerCase())).forEach(t=>t.s.forEach(([d])=>{ const q=ismQ(d.slice(0,7)); o[q]=(o[q]||0)+1; }));
@@ -146,6 +149,7 @@ function ismPxOf(px, name){ const p=px.params||{};
     case "gameest": return ISM_PX.gameest(p.title, p.asp_krw);
     case "kbch": return ISM_PX.kbch(p.co||name, p.codes||["US"]);
     case "srch": return ISM_PX.srch(p.kw);
+    case "kp": return ISM_PX.kp(p.key);
     case "bl": { const ids=[].concat(p.ids||p.id||[]), xs=ids.map(id=>ISM_PX.bl(id)), o={};
       xs.forEach(x=>Object.entries(x).forEach(([q,v])=>{ const y=o[q]||(o[q]={v:0,n:3}); y.v+=v.v; y.n=Math.min(y.n,v.n); })); return o; }
     default: return null; } }
@@ -156,7 +160,7 @@ function ismKbLab(codes){ codes=codes||[]; const eu=["UK","DE","FR","IT","ES"], 
 function ismPxLab(px){ if(!px) return ""; const p=px.params||{};
   return ({trade:`관세청 ${p.label||""}${p.code?" "+p.code:""} 수출(원화)`, sgg:`관세청 ${p.label||""} 수출(원화)`, kb:`아마존${({all:"",us:" 미국",eu:" 유럽5",jp:" 일본",ca:" 캐나다",uk:" 영국"})[p.mk||"all"]??(" "+p.mk)}${(p.tt!==false&&(!p.mk||p.mk==="all"||p.mk==="us"))?"·틱톡샵":""} 판매액(${(p.keys||[]).join("·")})`,
     ecos:`${p.name||"소매"} 판매지수(ECOS)`, circle:"써클 앨범(만 장)", tour:"방한 관광객(만 명)", casino:"카지노 월 공시 매출", app:"한국 매출순위 곡선(억/일)",
-    steam:`${p.title||"Steam"} 월평균 동접(천 명)`, kpoptour:"투어 그로스(십억원)", kpopshows:"공연 회수", gameest:`${p.title||"게임"} 판매 × ASP(십억원)`, kbch:`${ismKbLab(p.codes)} 판매액(십억원)`, bl:"미국 해상 선적(B/L 톤)", srch:`네이버 검색 '${p.kw||""}'(월 합)`})[px.src]||px.src; }
+    steam:`${p.title||"Steam"} 월평균 동접(천 명)`, kpoptour:"투어 그로스(십억원)", kpopshows:"공연 회수", gameest:`${p.title||"게임"} 판매 × ASP(십억원)`, kbch:`${ismKbLab(p.codes)} 판매액(십억원)`, bl:"미국 해상 선적(B/L 톤)", srch:`네이버 검색 '${p.kw||""}'(월 합)`, kp:`아마존 미국 '${p.key||""}' 판매액(십억원)`})[px.src]||px.src; }
 
 /* ── 엔진 ─────────────────────────────────────────────────────────────── */
 function ismAsmGet(name){ try{ return JSON.parse(localStorage.getItem("ism_"+name)||"{}")||{}; }catch(e){ return {}; } }
