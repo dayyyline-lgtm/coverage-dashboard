@@ -56,5 +56,13 @@
    "뷰티 전체 Top100(JP)"
   ],
   "decision": "무시(비상장 추정)"
+ },
+ "nida": {
+  "name": "NIDA",
+  "asked": "2026-10-25",
+  "why": [
+   "뷰티 전체 Top100(US)"
+  ],
+  "decision": "무시(비한국·비상장 — nida.co 미국 라스베이거스/nida.it.com 판매처, 한국 상장사 아님)"
  }
 }
