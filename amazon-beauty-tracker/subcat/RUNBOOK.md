@@ -33,11 +33,11 @@
    `python3 kbeauty/ingest.py --due` 가 종료코드 0 이면 같은 윈도우 크롬에서 `kbeauty/RUNBOOK.md` 1-c-1(Keepa) → 1-c-3(저장·올리기).
    모드(full/recent)는 `--due` 출력대로. FastMoss(1-c-2)는 그 크롬에 FastMoss 가 로그인돼 있을 때만. 세부 카테고리·7개국은 이미 올라가 있으니
    여기서 멈추거나 실패해도 그쪽엔 영향이 없다 — 보고에 `[KEEPA]`·`[KBCH]` 줄 또는 멈춘 곳만 더한다. 13:20 회차·06:30 넘으면 건너뛴다(다음 날 `--due` 가 이어받는다).
-7. **K뷰티 국면 지도(KBPH · 주 1회 월요일 · 2026-10-22 등록)** — 6번까지 끝난 뒤, 05:30 회차이고 지금이 07:00 KST 전이며
-   `python3 kbeauty/phase_brief.py --due` 가 종료코드 0(이번 주 월요일 뒤 국면 원재료가 없다)이면 같은 윈도우 크롬에서 `kbeauty/RUNBOOK.md` '1-d'.
+7. **K뷰티 국면 지도(KBPH · 주 1회 일요일 · 2026-10-22 등록 · 10-24 월→일)** — 6번까지 끝난 뒤, 05:30 회차이고 지금이 07:00 KST 전이며
+   `python3 kbeauty/phase_brief.py --due` 가 종료코드 0(이번 주 일요일 뒤 국면 원재료가 없다)이면 같은 윈도우 크롬에서 `kbeauty/RUNBOOK.md` '1-d'.
    Keepa 미국 → 유럽 5개국·일본·캐나다 → FastMoss 미국 공식 샵(로그인돼 있을 때만) → `phase.py` → `push.py --phase`(바로 배포).
    올라가면 GitHub 워크플로 `phase_brief.yml` 이 텔레그램 '💄 K뷰티 국면 주간'을 보낸다(사용자 2026-10-22 "주간 + 텔레 브리핑").
-   07:00 넘으면 건너뛴다 — 화요일 아침 회차가 `--due` 로 이어받는다. 보고에 `[KBPH]` 줄.
+   07:00 넘으면 건너뛴다 — 월요일 아침 회차가 `--due` 로 이어받는다. 보고에 `[KBPH]` 줄.
 
 ## 0. 저장소
 
@@ -154,6 +154,6 @@ python3 amazon-beauty-tracker/subcat/push.py
 1) cd /home/claude/coverage-dashboard → git status 가 깨끗하면 git pull -q --ff-only → python3 amazon-beauty-tracker/subcat/ingest.py --today 와 python3 amazon-beauty-tracker/subcat/lists.py --today. 둘 다 종료코드 0 이면 '오늘 이미 수집됨' 한 줄로 끝. 하나만 0 이면 빠진 쪽만 한다.
 2) 윈도우 크롬 기다리기: mcp__claude-in-chrome__list_connected_browsers 에 osPlatform 이 Windows 인 브라우저가 없으면 Bash 로 sleep 240 하고 다시 본다 — 처음 본 때부터 최대 90분(10/10 실측: PC 는 05:15 에 깨는데 크롬 확장은 05:53 에 붙었다). 보이면 select_browser 로 그 브라우저를 고르고 RUNBOOK 순서대로: 미국 세부 카테고리 수집 → 덤프 옮기기 → ingest.py --check → ingest.py → 1-b(같은 탭에서 미국 → 영·독·프·이·스·일 lists.js · 덤프는 get_page_text 로 · block 인 나라는 끝에 한 번만 다시) → lists.py --check → lists.py → unknown_check.py(그날 덤프들) → push.py(한 번에). 아마존 /dp/ 는 열지 않고, 세부 카테고리가 BLOCKED 면 다시 돌리지 않는다. 배포 여부는 push.py 가 정한다. 사용자가 열어 둔 탭은 건드리지 않고, 만든 탭은 닫는다.
 3) 90분 안에 안 보이면 수집하지 말고 멈추고, 같은 날 13:20 KST 에 이 메시지와 같은 내용으로 send_later 를 하나 건다(이름 '아마존 세부 카테고리 아침 수집 (MM/DD 13:20)' · 이미 있으면 안 건다 · 지금이 13:20 회차면 더 걸지 않는다).
-3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 · 월요일 주 1회)을 조건대로.
+3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 · 일요일 주 1회)을 조건대로.
 4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄 · unknown_check.py 가 [새 브랜드 확인] 줄을 내면 운영사를 웹으로 찾아보고, 한국 상장사·상장 준비가 아니면 묻지 말고 --decide 로 무시를 적는다 — 한국 상장사로 확인된 것만 붙여 사전에 넣을지 묻는다(PushNotification 도). 실패면 어디서 왜 멈췄는지.
 ```

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """K뷰티 국면 주간 브리핑 — KBPH 블록(public/index.html)을 읽어 텔레그램 한 통 (2026-10-22).
 
-사용자: "주간으로 업데이트하면 브리핑 메시지 텔레로 보내 주는 것도 가능한가" → 월요일 아침 국면 수집(크롬 세션)이 KBPH 를 올리면
+사용자: "주간으로 업데이트하면 브리핑 메시지 텔레로 보내 주는 것도 가능한가" → 일요일 아침 국면 수집(크롬 세션, 10/24 월→일)이 KBPH 를 올리면
 `.github/workflows/phase_brief.yml` 이 이걸 부른다. 화면(app.js renderCosPhase)과 같은 식을 파이썬으로 다시 푼다:
   아마존(미국·유럽 5개국·일본·캐나다) — 가로 비중 YoY(최근 3개월 vs 작년 같은 3개월) × 세로 비중 QoQ(바로 앞 3개월) → 네 칸
   틱톡샵(미국 공식 샵)              — 비중 QoQ × MoM (2026-04 부터라 전년 없음 · 4월 앞부분은 추정)
@@ -11,7 +11,7 @@
 
   python3 kbeauty/phase_brief.py          # 메시지만 찍는다
   python3 kbeauty/phase_brief.py --send   # 텔레그램(TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID) — 같은 KBPH asOf 는 한 번만
-  python3 kbeauty/phase_brief.py --due    # 국면 수집할 차례면 종료코드 0(이번 주 월요일 이후 원재료가 없을 때) · 아니면 1
+  python3 kbeauty/phase_brief.py --due    # 국면 수집할 차례면 종료코드 0(이번 주 일요일 이후 원재료가 없을 때) · 아니면 1
 """
 import argparse
 import datetime as dt
@@ -225,7 +225,7 @@ def companies(d, C, n=8):
         if c and p and tc and tp:
             out.append((co, c / tc, 100 * (c / tc) / (p / tp)))
     out.sort(key=lambda z: -z[1])
-    return [f"{esc(co)}  {shp(s)}  <i>{pct(y)}</i>" for co, s, y in out[:n]]
+    return [f"{esc(co)} {shp(s)} · {pct(y)}" for co, s, y in out[:n]]
 
 
 def bx_lines(d, cut=0.1):
@@ -253,6 +253,7 @@ def bx_lines(d, cut=0.1):
 
 
 def message(d, R, prev):
+    """2026-10-24 개편: 일요일 발송 · 이모지 구획 제목 빼고 전 지역 합산 하나를 본문으로, 채널·시장은 한 줄씩."""
     M, end = R["M"], R["end"]
     e = M.index(end)
     c3, p3 = mlab(M, e, 3)
@@ -261,70 +262,67 @@ def message(d, R, prev):
     st = {}
     us = R["us"].rows(True)
     st["us"] = {k: r["q"] for k, r in us.items()}
-    L = [f"<b>💄 K뷰티 국면 주간</b>",
-         f"{c3} 기준 (vs {p3}) · 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))} 수집"]
-    # 요약 — 합산이 있으면 합산 기준
+    now = kst_now()
+    L = [f"<b>K뷰티 국면 주간 · {now.month}/{now.day}({'월화수목금토일'[now.weekday()]})</b>",
+         f"<i>{c3} vs {p3} · 수집 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))}</i>"]
     has_t = "tt" in R
-    SU = R["sum"].rows(False) if has_t else None            # 미국 합산(아마존 미국 + 틱톡샵)
     SAc = R.get("all") or R.get("sum")
-    S = SAc.rows(False) if has_t else us                    # 전 지역 합산(아마존 8개국 + 틱톡샵) — 요약·상장사 기준
-    f = "x"   # 합산: QoQ · 아마존만: YoY
-    up, dn = movers(d, S, f)
-    L += ["", "<b>📌 요약</b>"]
-    L.append(f"• 바구니 판매  아마존 미국 YoY {pctg(R['us'].base(True))}" + (f" · 미국 합산 QoQ {pctg(R['sum'].base(False))} · 전 지역 합산 QoQ {pctg(SAc.base(False))}" if has_t else ""))
-    lab = " (전 지역)" if has_t else ""
-    if up:
-        L.append(f"• 비중↑{lab}  " + ", ".join(up))
-    if dn:
-        L.append(f"• 비중↓{lab}  " + ", ".join(dn))
-    allch = []
+    S = SAc.rows(False) if has_t else us
     if has_t:
+        SU = R["sum"].rows(False)
         tt = R["tt"].rows(False)
         st["tt"] = {k: r["q"] for k, r in tt.items()}
-        st["sumall"] = {k: r["q"] for k, r in S.items()}     # 전 지역 합산 칸
-        st["sumus"] = {k: r["q"] for k, r in SU.items()}     # 미국 합산 칸
-        prev_all = pq.get("sumall") or (pq.get("sum") if pq.get("sumdef") == "all" else None)   # 10/22 한때 'sum' 키에 전 지역을 적었다
+        st["sumall"] = {k: r["q"] for k, r in S.items()}
+        st["sumus"] = {k: r["q"] for k, r in SU.items()}
+        prev_all = pq.get("sumall") or (pq.get("sum") if pq.get("sumdef") == "all" else None)
         allch = changes(d, S, prev_all)
     else:
         allch = changes(d, us, pq.get("us"))
+
+    # 1) 요약
+    up, dn = movers(d, S, "x")
+    L += ["", "<b>요약</b>"]
+    L.append("판매  " + (f"전 지역 QoQ {pctg(SAc.base(False))} · " if has_t else "") + f"아마존 미국 YoY {pctg(R['us'].base(True))}")
+    if up:
+        L.append("비중↑  " + ", ".join(up))
+    if dn:
+        L.append("비중↓  " + ", ".join(dn))
     if allch:
-        L.append("• 칸 바뀜  " + ", ".join(allch[:6]))
-    bx = bx_lines(d)
-    if bx:
-        L += ["", "<b>⚠ 아마존 미국 바이박스 없음</b> <i>(최근 30일 판매량 중 · 장바구니 버튼이 사라져 다음 달 판매가 꺾인다 — 수요 아님)</i>"] + bx
+        L.append("칸 바뀜  " + ", ".join(allch[:6]))
+
+    # 2) 상장사
     if has_t:
-        L += ["", "<b>🏢 상장사</b> <i>(전 지역 합산 비중 · QoQ)</i>"] + companies(d, SAc)
-        L += ["", "<b>🌐 전 지역 합산</b> <i>아마존 미·유럽5·일·캐 + 틱톡샵 미국 · QoQ×MoM</i>"] + quads(d, S)
-        L += ["", "<b>➕ 미국 합산</b> <i>아마존 미국 + 틱톡샵 · QoQ×MoM</i>"] + quads(d, SU)
-        uch = changes(d, SU, pq.get("sumus"))
-        if uch:
-            L.append("칸 바뀜: " + ", ".join(uch[:5]))
-    L += ["", "<b>🇺🇸 아마존 미국</b> <i>YoY×QoQ</i>"] + quads(d, us)
+        L += ["", "<b>상장사</b> <i>전 지역 비중 · QoQ</i>"] + companies(d, SAc)
+
+    # 3) 국면 — 전 지역 합산 하나만
+    L += ["", "<b>국면</b> <i>" + ("아마존 8개국 + 틱톡샵 미국 합산" if has_t else "아마존 미국") + "</i>"] + quads(d, S)
+
+    # 4) 채널·시장 — 한 줄씩
+    L += ["", "<b>채널·시장</b>"]
     a_up, a_dn = movers(d, us, "y", n=2)
     if a_up or a_dn:
-        L.append("↕ " + ", ".join(a_up + a_dn))
+        L.append("아마존 미국 <i>비중 YoY</i>  " + ", ".join(a_up + a_dn))
     if has_t:
-        est = " · 4월 일부 추정" if R.get("mest") and R["mest"][0] in R["tt"].M[R["tt"].e - 5:R["tt"].e + 1] else ""
-        L += ["", f"<b>🎵 틱톡샵 미국</b> <i>QoQ×MoM{est}</i>"] + quads(d, tt)
         t_up, t_dn = movers(d, tt, "x", n=2)
         if t_up or t_dn:
-            L.append("↕ " + ", ".join(t_up + t_dn))
-    ex = []
+            L.append("틱톡샵 미국 <i>비중 QoQ</i>  " + ", ".join(t_up + t_dn))
     for code, lab in [("eu", "유럽5"), ("jp", "일본"), ("ca", "캐나다")]:
         if code not in R:
             continue
         rows = R[code].rows(True)
         st[code] = {k: r["q"] for k, r in rows.items()}
         big = sorted([(k, r) for k, r in rows.items() if r["s"] >= 0.01], key=lambda z: -z[1]["s"])[:3]
-        ch = changes(d, rows, pq.get(code), 0.01)
-        ex.append(f"<b>{lab}</b> 판매 YoY {pctg(R[code].base(True))}\n  " + ", ".join(f"{nm(d, k)} {shp(r['s'])} {QS[r['q']]}" for k, r in big)
-                  + (f"\n  칸 바뀜: {', '.join(ch[:4])}" if ch else ""))
-    if ex:
-        L += ["", "<b>🌍 아마존 다른 시장</b> <i>비중 상위 3</i>"] + ex
-    L += ["", "<i>가속=비중↑·최근에도↑ · 둔화=↑인데 최근↓ · 반등=↓인데 최근↑ · 하락=둘 다↓ · 굵게=상장사 · 비중 0.5% 이상만</i>"]
+        L.append(f"{lab} YoY {pctg(R[code].base(True))}  " + ", ".join(f"{nm(d, k)} {shp(r['s'])}({QS[r['q']]})" for k, r in big))
+
+    # 5) 경고(있을 때만)
+    bx = bx_lines(d)
+    if bx:
+        L += ["", "<b>주의: 아마존 미국 바이박스 없음</b> <i>수요 아님 · 다음 달 판매가 꺾임</i>"] + bx
+
+    L += ["", "<i>가속 비중↑·최근↑ · 둔화 ↑·최근↓ · 반등 ↓·최근↑ · 하락 둘 다↓ · 굵게=상장사</i>"]
     if not pq:
         L.append("<i>첫 회 — 다음 주부터 '칸 바뀜'이 붙는다</i>")
-    L.append(f'<a href="{SITE}">대시보드 열기</a>')
+    L.append(f'<a href="{SITE}">대시보드</a>')
     return "\n".join(L), st
 
 
@@ -350,12 +348,12 @@ def send(text):
 
 
 def due():
-    """이번 주 월요일(KST) 이후 미국 국면 원재료가 없으면 차례."""
+    """이번 주 일요일(KST, 2026-10-24부터 일요일 발송) 이후 미국 국면 원재료가 없으면 차례."""
     now = kst_now().date()
-    mon = now - dt.timedelta(days=now.weekday())
+    mon = now - dt.timedelta(days=(now.weekday() + 1) % 7)   # 가장 최근 일요일(오늘이 일요일이면 오늘)
     files = sorted((HERE / "data" / "phase").glob("20??-??-??.json"))
     last = dt.date.fromisoformat(files[-1].name[:10]) if files else dt.date(2000, 1, 1)
-    print(f"마지막 국면 원재료 {last} · 이번 주 월요일 {mon} → {'차례' if last < mon else '이미 받음'}")
+    print(f"마지막 국면 원재료 {last} · 이번 주 일요일 {mon} → {'차례' if last < mon else '이미 받음'}")
     return last < mon
 
 

@@ -1,8 +1,8 @@
 name: K뷰티 국면 주간 브리핑
 
-# 월요일 아침 국면 수집(크롬 세션 · kbeauty/push.py --phase)이 KBPH 원재료를 올리면 텔레그램 한 통 (2026-10-22 신설).
+# 일요일 아침 국면 수집(2026-10-24 월→일)(크롬 세션 · kbeauty/push.py --phase)이 KBPH 원재료를 올리면 텔레그램 한 통 (2026-10-22 신설).
 # 같은 KBPH asOf 는 한 번만(kbeauty/data/phase/brief_state.json). 규칙은 kbeauty/phase_brief.py 맨 위.
-# schedule = 백업 — push 로 안 깨어난 주(배포 생략 표시 커밋 등)에 월요일 09시·12시 KST 에 한 번 더 본다. 새 자료가 없으면 안 보낸다.
+# schedule = 백업 — push 로 안 깨어난 주(배포 생략 표시 커밋 등)에 일요일 09시·12시 KST 에 한 번 더 본다. 새 자료가 없으면 안 보낸다.
 on:
   push:
     branches: [main]
@@ -10,7 +10,7 @@ on:
       - "kbeauty/data/phase/**"
       - "!kbeauty/data/phase/brief_state.json"
   schedule:
-    - cron: "7 0,3 * * 1"
+    - cron: "7 0,3 * * 0"
   workflow_dispatch:
     inputs:
       force:

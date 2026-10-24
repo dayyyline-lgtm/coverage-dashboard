@@ -81,9 +81,9 @@ python3 kbeauty/push.py                                              # 배포 �
 - 환율(`data/fx_month.csv`)은 러너가 매일 아침(events.yml · `kbeauty/fx.py` · ECB 월평균)에 갱신하고 블록을 다시 만든다 — 크롬 세션은 손대지 않는다.
 - 보고 한 줄: `[KEEPA] 저장 … · 실패 …` + `[KBCH] …` + 거짓 0 을 rerun 했으면 그 목록.
 
-## 1-d. 국면 지도 주간 회차 (KBPH · 월요일 · 2026-10-22)
+## 1-d. 국면 지도 주간 회차 (KBPH · 일요일 · 2026-10-22 · 10-24 월→일)
 
-사용자: "주간으로 업데이트 + 텔레 브리핑". 차례 판정 = `python3 kbeauty/phase_brief.py --due`(이번 주 월요일 KST 뒤 `data/phase/<날짜>.json` 이 없으면 0).
+사용자: "주간으로 업데이트 + 텔레 브리핑". 차례 판정 = `python3 kbeauty/phase_brief.py --due`(이번 주 일요일 KST 뒤 `data/phase/<날짜>.json` 이 없으면 0).
 매일 받지 않는 이유: Keepa 판매량이 '지난 30일 구매' 배지라 한 달 단위이고 판정(3개월·1개월)은 완결 달이 늘 때만 바뀐다 · FastMoss 는 180일을 한 번에 준다.
 
 1. **Keepa 미국** — keepa.com 탭(도메인 미국 · `button.knav-mk[data-domain="1"]`) → `kbeauty/phase_keepa.js` 를 붙여 넣는다(맨 위 주석대로) →
