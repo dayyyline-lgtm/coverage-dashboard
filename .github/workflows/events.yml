@@ -259,6 +259,15 @@ jobs:
         timeout-minutes: 4
         run: python runstep.py "SteamCharts 월별" fetch_steamm.py
 
+      # 네이버 데이터랩 월별 검색량(2023~ · fetch_ismsrch.py → ISMSRCH) — 손익 모델 국내 부문(리투오·메디큐브·티니핑 등) 지표. 지난달까지라 달이 바뀔 때만 바뀐다.
+      - name: 검색 월별(손익 모델)
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python runstep.py "검색 월별(ISM)" fetch_ismsrch.py
+
       # K-pop 투어 공연일·매출(위키백과 Tour dates 표 + TouringData · fetch_tours.py → TOURS) — 하이브·JYP·YG 공연 매출의 동인.
       - name: K-pop 투어
         continue-on-error: true

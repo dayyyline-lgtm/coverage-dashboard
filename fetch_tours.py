@@ -30,6 +30,11 @@ TOURS = [
     ("skz_dom", "스트레이키즈 Dominate", "JYP Ent.", "Stray Kids", "Dominate World Tour", "Dominate Tour (2024)"),
     ("twc_tif", "트와이스 This Is For", "JYP Ent.", "TWICE", "This Is For World Tour", "This Is For Tour (2025)"),
     ("bp_dl", "블랙핑크 Deadline", "와이지엔터", "BLACKPINK", "Deadline World Tour", None),
+    # 2026-10-25 — 앞으로의 일정이 잡힌 투어(매출 미보고 → 화면이 같은 아티스트 지난 투어 회당 매출을 빌린다)
+    ("skz_runit", "스트레이키즈 Run It", "JYP Ent.", "Stray Kids", "Run It World Tour", None),
+    ("aespa_hl", "에스파 SYNK: Hyper Line", "에스엠", "aespa", "Synk: Hyper Line", None),
+    ("aespa_pl", "에스파 SYNK: Parallel Line", "에스엠", "aespa", "Synk: Parallel Line", None),
+    ("aespa_cx", "에스파 SYNK: Complaexity", "에스엠", "aespa", "Synk: Complaexity", None),
 ]
 
 
