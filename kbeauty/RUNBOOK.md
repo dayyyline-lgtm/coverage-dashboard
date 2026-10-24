@@ -88,7 +88,7 @@ python3 kbeauty/push.py                                              # 배포 �
 
 1. **Keepa 미국** — keepa.com 탭(도메인 미국 · `button.knav-mk[data-domain="1"]`) → `kbeauty/phase_keepa.js` 를 붙여 넣는다(맨 위 주석대로) →
    `location.hash='#!finder/'+encodeURIComponent(JSON.stringify(KBPH_QUERY))` → 표가 차면 `KBPH.run()` → `KBPH.status()` done → hash 를 `KBPH_QUERY_NB` 로 바꿔 표가 차면 `KBPH.runNB()`(세트·번들 · 2026-10-23) → done → `KBPH.dump()` → get_page_text →
-   `kbeauty/data/phase/<오늘>.json`(ko·co·sup 는 직전 파일에서 옮긴다 — 화면이 쓰는 한글 이름·상장사).
+   `kbeauty/data/phase/<오늘>.json`(ko·co·sup 는 직전 파일에서 옮긴다 — 화면이 쓰는 한글 이름·상장사 · 2026-10-24 부터 덤프에 `r30t`·브랜드별 `r30`(최근 30일 창)이 같이 온다 — 그대로 둘 것).
 2. **유럽 5개국 · 일본 · 캐나다** — 같은 탭에서 `kbeauty/phase_keepa_eu.js`(맨 위 주석대로 · 나라 버튼 2·3·4·8·9 → `<오늘>.txt` · 일본 5·캐나다 6 → `<오늘>-jpca.txt`, 일본은 가타카나 표기 쿼리).
    시간이 모자라면 미국만 올리고 나머지는 지난 회차 값이 남는다(`phase.py` 는 eu 폴더의 마지막 날짜 파일을 쓴다 — 그날 `.txt`·`-jpca.txt` 둘 다 있어야 일곱 나라가 다 산다).
    일본 브랜드 목록(Product Finder 정확히 일치 · 자동완성으로 찾은 표기 · 2026-10-22): `アトパーム(atopalm)` `センテリアン24` `クリオ(clio)` `コースアールエックス(cosrx)`

@@ -71,11 +71,15 @@ window.KBPH={};
     K.fit=K.refine(rows,months);
     rows.forEach(r=>{ const m=r.m, o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),n:0}; o.n++;
       for(let j=0;j<36;j++){ o.u[j]+=m[j]; o.v[j]+=m[j]*K.px(r,j,months); } });
+    // 최근 30일 창(2026-10-24 · 미국판과 같은 식) — 브랜드 줄 다섯째 칸 = [오늘 · 30일 전 · 365일 전 · 395일 전] 배지 아랫값 합(36진수 · 검산값엔 안 넣는다)
+    const atK=(h,t)=>{ let v=0; for(let i=0;i<h.length;i+=2){ if(KM(h[i])>t) break; v=Math.max(h[i+1],0); } return v; };
+    const R30=[0,30,365,395].map(x=>now-x*86400000);
+    rows.forEach(r=>{ const o=B[r.b]; o.r=o.r||[0,0,0,0]; R30.forEach((t,i)=>{ o.r[i]+=atK(r.msh,t); }); });
     const L=['D|'+d+'|'+new Date().toISOString().slice(0,10)+'|'+ML[0]+'|'+rows.length+(K.fit?'|r':'')];   // 'r' = 배지 구간을 순위로 보정한 덤프(phase.py 가 보정 안 된 나라만 수준을 맞춘다)
     let h=0;
     Object.keys(B).sort().forEach(k=>{ const o=B[k], v=o.v.map(x=>Math.round(x/100));
       o.u.forEach((x,i)=>{ h=(h+x*(i+1))%1000003; }); v.forEach((x,i)=>{ h=(h+x*(i+7))%1000003; });
-      L.push(k+'|'+o.n+'|'+o.u.map(x=>x.toString(36)).join(',')+'|'+v.map(x=>x.toString(36)).join(',')); });
+      L.push(k+'|'+o.n+'|'+o.u.map(x=>x.toString(36)).join(',')+'|'+v.map(x=>x.toString(36)).join(',')+'|'+(o.r||[0,0,0,0]).map(x=>x.toString(36)).join(',')); });
     L.push('H|'+h);
     const t=L.join('\n'); sessionStorage.setItem('kbeu_'+d,t); return d+' brands '+Object.keys(B).length+' rows '+rows.length+' len '+t.length+' h '+h; };
 })(window.KBPH);

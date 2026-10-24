@@ -107,8 +107,14 @@ window.KBPH=window.KBPH||{};
     //   둘 다 장바구니 버튼이 없어 판매가 줄어든다. 행이 수집 시점 상태라 한 번의 스냅샷이다.
     const BX={}; rows.forEach(r=>{ const u=r.m[35]; if(!(u>0)||!r.bx) return; const sup=(r.bx.s==='-1'||r.bx.s==='-2')&&r.no>0&&r.bx.t&&(now-KM(r.bx.t))>=3*86400000, oos=r.no===0; if(!sup&&!oos) return;  // 억제는 3일 넘게 이어진 것만(2026-10-22 — 센텔리안24 마데카 크림이 하루 억제됐다 돌아온 걸 '판매가 꺾인다'로 경고했다 · Keepa 30일 바이박스 통계로 억제·품절 4%뿐)
       const o=BX[r.b]=BX[r.b]||{s:0,o:0,top:null}; if(oos) o.o+=u; else o.s+=u; if(!o.top||u>o.top.u) o.top={asin:r.a,t:r.t.slice(0,42),u,k:oos?'o':'s',since:r.bx.t?new Date(KM(r.bx.t)).toISOString().slice(0,10):'',n:r.no}; });
-    const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],fit:K.fit||null,b:{}};
-    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,uf:o.uf,...(o.ub.some(x=>x>0)?{ub:o.ub}:{}),v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null}; }
+    // 최근 30일 창(2026-10-24 · 사용자 "최근 7일·4주·3개월로 주는 게 좋을까" → 3개월은 완결 달, 조짐은 최근 30일 vs 직전 30일) —
+    //   배지 = 그 시점까지 30일 합이라 '오늘 배지' = 최근 30일 · '30일 전 배지' = 직전 30일 · '365일 전'·'395일 전' = 작년 같은 두 창.
+    //   보정 없이 배지 아랫값 합(하한)이다 — 비중(바구니 안 몫)으로만 쓰므로 하한 치우침은 대부분 상쇄. 배지 없는 세트(nb)는 0.
+    const atK=(h,t)=>{ let v=0; for(let i=0;i<h.length;i+=2){ if(KM(h[i])>t) break; v=Math.max(h[i+1],0); } return v; };
+    const R30=[0,30,365,395].map(d=>now-d*86400000), RB={};
+    rows.forEach(r=>{ const o=RB[r.b]=RB[r.b]||[0,0,0,0]; R30.forEach((t,i)=>{ o[i]+=atK(r.msh,t); }); });
+    const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],fit:K.fit||null,r30t:new Date(now).toISOString().slice(0,10),b:{}};
+    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,uf:o.uf,...(o.ub.some(x=>x>0)?{ub:o.ub}:{}),v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null,r30:RB[k]||[0,0,0,0]}; }
     let el=document.getElementById('__dump'); if(!el){ el=document.createElement('article'); el.id='__dump'; el.style.cssText='position:fixed;top:0;left:0;width:10px;height:10px;overflow:hidden;opacity:0.01;z-index:-1'; document.body.appendChild(el); }
     el.textContent='DUMPSTART'+JSON.stringify(out)+'DUMPEND'; return el.textContent.length; };
 })(window.KBPH);

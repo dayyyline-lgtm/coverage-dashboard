@@ -48,7 +48,16 @@ def build(path):
         for f in ("u", "n1k", "nw"):
             if len(b[f]) != n:
                 raise SystemExit(f"{k}.{f} 길이 {len(b[f])} ≠ 월 수 {n}")
+    # 최근 30일 창(phase_keepa.js · 2026-10-24) — 배지 아랫값 합이라 월별 u(구간 안 위치 보정)와 같은 배수로 수준을 맞춘다
+    L = n - 1
+    su = sum(sum(b["u"][L - 12:L]) for b in d["b"].values()); sf = sum(sum(b.get("uf", b["u"])[L - 12:L]) for b in d["b"].values())
+    rk = su / sf if sf else 1.0
+    for b in d["b"].values():
+        if b.get("r30"):
+            b["r30"] = [round(y * rk) for y in b["r30"]]
     out = {"asOf": d["asOf"], "src": d["src"], "months": d["months"], "partial": d.get("partial"), "b": d["b"]}
+    if d.get("r30t"):
+        out["r30t"] = d["r30t"]
     tt = build_tt(set(d["b"]))
     if tt:
         out["tt"] = tt
@@ -105,6 +114,8 @@ def build_mk(d):
             if len(u) != len(d["months"]) or len(v) != len(d["months"]):
                 raise SystemExit(f"유럽 {p[0]} 길이 {len(u)}/{len(v)}")
             cur["b"][p[0]] = {"u": u, "v": v, "n": int(p[1])}
+            if len(p) > 4 and p[4]:   # 최근 30일 창(2026-10-24 · 오늘·30일 전·365일 전·395일 전 배지 아랫값 합)
+                cur["b"][p[0]]["r30"] = [int(x, 36) for x in p[4].split(",")]
     # 덤프의 v 는 Keepa 가격(최소 단위)을 100 으로 나눈 값 — 엔화는 최소 단위가 1엔이라 다시 100 을 곱한다
     for m, c in out.items():
         if c["cur"] == "JPY":
@@ -123,6 +134,11 @@ def build_mk(d):
         for x in c["b"].values():
             x["u"] = [round(y * k) for y in x["u"]]
             x["v"] = [round(y * k) for y in x["v"]]
+    # 최근 30일 창은 보정 안 된 배지 아랫값이라 나라 구분 없이 같은 배수(미국 보정값 ÷ 아랫값)로 수준을 맞춘다 — 틱톡샵 주문 수량과 더해도 무게가 월별 u 와 같게
+    for m, c in out.items():
+        for x in c["b"].values():
+            if x.get("r30"):
+                x["r30"] = [round(y * k) for y in x["r30"]]
     for m, c in out.items():
         miss = [k for k in c["b"] if k not in d["b"]]
         if miss:
@@ -243,8 +259,13 @@ def build_tt(keys):
         o["mu"] = [a + c for a, c in zip(o["mu"], mu)]
         o["mv"] = [a + c for a, c in zip(o["mv"], mv)]
         o["fx"] += len(fixed)
+        # 최근 30일 창(2026-10-24) — 끝날까지 30일 · 그 앞 30일(판매량)
+        c30 = sum(u for t, u in zip(ds, U) if end - dt.timedelta(days=29) <= t <= end)
+        p30 = sum(u for t, u in zip(ds, U) if end - dt.timedelta(days=59) <= t <= end - dt.timedelta(days=30))
+        o["r30"] = [a + c for a, c in zip(o.get("r30", [0, 0]), [c30, p30])]
     weeks = [(first + dt.timedelta(days=7 * w + 6)).isoformat() for w in range(nw)]   # 주 끝날
-    return {"asOf": fhs[-1], "end": end.isoformat(), "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
+    r30 = [(end - dt.timedelta(days=29)).isoformat(), end.isoformat(), (end - dt.timedelta(days=59)).isoformat(), (end - dt.timedelta(days=30)).isoformat()]
+    return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
             "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)),
             "src": f"FastMoss 틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · 덤프 {len(files)}개 이어 붙임)", "b": b}
 

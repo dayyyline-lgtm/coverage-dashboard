@@ -61,9 +61,24 @@ def ssum(a, i0, i1):
 class Chan:
     """한 채널 — U[k] = 브랜드별 월 판매량(M 순서) · e = 끝 달 인덱스."""
 
-    def __init__(self, M, U, e):
+    def __init__(self, M, U, e, R=None):
         self.M, self.U, self.e = M, U, e
         self.tot = [sum((U[k][j] or 0) for k in U) for j in range(len(M))]
+        # R[k] = [최근 30일, 직전 30일(, 작년 같은 30일, 작년 그 앞 30일)] — 있으면 '조짐'(세로)을 MoM 대신 이걸로(2026-10-24)
+        self.R = R if R and sum(r[0] for r in R.values()) > 0 and sum(r[1] for r in R.values()) > 0 else None
+
+    def r30(self, k, back=1):
+        """최근 30일 비중 ÷ 직전 30일 비중(back=1) 또는 작년 같은 30일(back=2) × 100."""
+        if not self.R or k not in self.R:
+            return None
+        i = 1 if back == 1 else 2
+        tc = sum(r[0] for r in self.R.values()); tp = sum((r[i] if len(r) > i else 0) for r in self.R.values())
+        r = self.R[k]
+        if len(r) <= i or not tc or not tp:
+            return None
+        sc, sp = r[0] / tc, r[i] / tp
+        return {"sc": sc, "sp": sp, "y": 100 * sc / sp if sp > 0 and sc > 0 else None,
+                "g": r[0] / r[i] - 1 if r[i] > 0 else None, "gb": tc / tp - 1}
 
     def cmp(self, k, w, back):
         e = self.e
@@ -80,7 +95,7 @@ class Chan:
         out = {}
         for k in self.U:
             a = self.cmp(k, 3, 12 if yoy else 3)   # 가로
-            b = self.cmp(k, 3, 3) if yoy else self.cmp(k, 1, 1)   # 세로
+            b = self.cmp(k, 3, 3) if yoy else (self.r30(k) if self.R else self.cmp(k, 1, 1))   # 세로 — 30일 창이 있으면 최근 30일 vs 직전 30일
             if not a or not b or a["y"] is None or b["y"] is None:
                 continue
             out[k] = {"s": a["sc"], "x": a["y"], "y": b["y"], "q": qn(a["y"], b["y"]), "g": (a["g"], b["g"]), "sp": a["sp"]}
@@ -106,11 +121,15 @@ def build(d):
     e = M.index(end)
     res = {"end": end, "M": M}
     # 아마존 미국
-    res["us"] = Chan(M, {k: b["u"] for k, b in B.items()}, e)
+    RA = {k: b["r30"] for k, b in B.items() if b.get("r30")}
+    res["us"] = Chan(M, {k: b["u"] for k, b in B.items()}, e, RA or None)
+    res["r30t"] = d.get("r30t")
     # 틱톡샵
     if TM and end in TM:
         et = TM.index(end)
-        res["tt"] = Chan(TM, {k: b["mu"] for k, b in tt["b"].items()}, et)
+        RT = {k: b["r30"] for k, b in tt["b"].items() if b.get("r30")} if tt.get("r30") else {}
+        res["tt"] = Chan(TM, {k: b["mu"] for k, b in tt["b"].items()}, et, RT or None)
+        res["ttR30"] = tt.get("r30")
         ai = [M.index(m) if m in M else -1 for m in TM]
         keys = set(B) | set(tt["b"])
         mkb = [x["b"] for x in (d.get("mk") or {}).values()]
@@ -119,9 +138,24 @@ def build(d):
         tq = lambda k, j: (tt["b"][k]["mu"][j] or 0) if k in tt["b"] else 0
         S = {k: [(amzUS(k, ai[j]) if ai[j] >= 0 else 0) + tq(k, j) for j in range(len(TM))] for k in keys}        # 미국 합산(아마존 미국 + 틱톡샵)
         SA = {k: [(amzAll(k, ai[j]) if ai[j] >= 0 else 0) + tq(k, j) for j in range(len(TM))] for k in keys}      # 전 지역 합산(2026-10-22 · 아마존 8개국 + 틱톡샵)
+        # 합산 30일 창 = 아마존(그 지역들) + 틱톡샵 — 아마존 30일 창이 있을 때만(없으면 MoM 으로 남는다)
+        def rsum(withmk):
+            if not RA or not RT:
+                return None
+            out = {}
+            for k in keys:
+                a = list(RA.get(k, [0, 0])[:2])
+                if withmk:
+                    for mb in mkb:
+                        if k in mb and mb[k].get("r30"):
+                            a = [a[0] + mb[k]["r30"][0], a[1] + mb[k]["r30"][1]]
+                t = RT.get(k, [0, 0])
+                out[k] = [a[0] + t[0], a[1] + t[1]]
+            return out
+        mk_r30 = all(x.get("r30") for mb in mkb for x in mb.values())
         if mkb:
-            res["all"] = Chan(TM, SA, et)
-        res["sum"] = Chan(TM, S, et)
+            res["all"] = Chan(TM, SA, et, rsum(True) if mk_r30 else None)
+        res["sum"] = Chan(TM, S, et, rsum(False))
         res["mest"] = tt.get("mest") or []
         res["ttEnd"] = tt.get("end")
     # 다른 아마존 시장
@@ -271,7 +305,13 @@ def message(d, R, prev):
     st["us"] = {k: r["q"] for k, r in us.items()}
     now = kst_now()
     L = [f"<b>K뷰티 국면 주간 · {now.month}/{now.day}({'월화수목금토일'[now.weekday()]})</b>",
-         f"<i>{c3} vs {p3} · 수집 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))}</i>"]
+         None]
+    # 창 설명 — 판정 = 완결 3개월 · 조짐 = 최근 30일(있으면) 아니면 직전 완결 달
+    SAc0 = R.get("all") or R.get("sum")
+    w30 = R.get("ttR30") if SAc0 is not None and SAc0.R else None
+    m1, m0 = mlab(M, e, 1)
+    jz = f"조짐 최근 30일({md(w30[0])}~{md(w30[1])}) vs 직전 30일" if w30 else f"조짐 {m1} vs {m0}"
+    L[1] = f"<i>판정 {c3} vs {p3} · {jz} · 수집 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))}</i>"
     has_t = "tt" in R
     SAc = R.get("all") or R.get("sum")
     S = SAc.rows(False) if has_t else us
@@ -287,13 +327,26 @@ def message(d, R, prev):
         allch = changes(d, us, pq.get("us"))
 
     # 1) 요약
+    # 조짐 기준(30일 · 완결 달)이 지난번 보낸 것과 다르면 칸 바뀜을 내지 않는다 — 기준이 달라 생긴 가짜 바뀜이 된다(2026-10-24)
+    basis = "r30" if (has_t and SAc.R) else "m1"
+    st["basis"] = basis
+    if pq and pq.get("basis", "m1") != basis:
+        allch = []
+        L.append(None)   # 자리 표시 — 아래 요약에 한 줄
     up, dn = movers(d, S, "x")
     L += ["", "<b>요약</b>"]
-    L.append("판매  " + (f"전 지역 QoQ {pctg(SAc.base(False))} · " if has_t else "") + f"아마존 미국 YoY {pctg(R['us'].base(True))}")
+    g30 = None
+    if has_t and SAc.R:
+        any_k = next(iter(SAc.R))
+        g30 = (SAc.r30(any_k) or {}).get("gb")
+    L.append("판매  " + (f"전 지역 QoQ {pctg(SAc.base(False))} · " if has_t else "") + (f"최근 30일 {pctg(g30)} · " if g30 is not None else "") + f"아마존 미국 YoY {pctg(R['us'].base(True))}")
     if up:
         L.append("비중↑  " + ", ".join(up))
     if dn:
         L.append("비중↓  " + ", ".join(dn))
+    if None in L:
+        L.remove(None)
+        L.append("<i>이번 주부터 조짐을 최근 30일로 본다 — 칸 바뀜은 다음 주부터</i>")
     if allch:
         L.append("칸 바뀜  " + ", ".join(allch[:6]))
 
@@ -306,13 +359,19 @@ def message(d, R, prev):
 
     # 4) 채널·시장 — 한 줄씩
     L += ["", "<b>채널·시장</b>"]
-    a_up, a_dn = movers(d, us, "y", n=2)
+    if R["us"].R:   # 최근 30일 vs 직전 30일 비중(2026-10-24) — 판정(3개월)보다 먼저 움직이는 쪽
+        r30 = {k: {"s": x["sc"], "sp": x["sp"], "z": x["y"]} for k in R["us"].R for x in [R["us"].r30(k)] if x and x["y"] is not None}
+        a_up, a_dn = movers(d, r30, "z", n=2)
+        lab_a = "비중 최근 30일"
+    else:
+        a_up, a_dn = movers(d, us, "y", n=2)
+        lab_a = "비중 YoY"
     if a_up or a_dn:
-        L.append("아마존 미국 <i>비중 YoY</i>  " + ", ".join(a_up + a_dn))
+        L.append(f"아마존 미국 <i>{lab_a}</i>  " + ", ".join(a_up + a_dn))
     if has_t:
-        t_up, t_dn = movers(d, tt, "x", n=2)
+        t_up, t_dn = movers(d, tt, "y" if R["tt"].R else "x", n=2)
         if t_up or t_dn:
-            L.append("틱톡샵 미국 <i>비중 QoQ</i>  " + ", ".join(t_up + t_dn))
+            L.append(f"틱톡샵 미국 <i>비중 {'최근 30일' if R['tt'].R else 'QoQ'}</i>  " + ", ".join(t_up + t_dn))
     for code, lab in [("eu", "유럽5"), ("jp", "일본"), ("ca", "캐나다")]:
         if code not in R:
             continue
@@ -327,7 +386,7 @@ def message(d, R, prev):
     if bx:
         L += ["", "<b>주의: 아마존 미국 바이박스 없음</b> <i>수요 아님 · 다음 달 판매가 꺾임</i>"] + bx
 
-    L += ["", "<i>가속 비중↑·최근↑ · 둔화 ↑·최근↓ · 반등 ↓·최근↑ · 하락 둘 다↓ · 굵게=긍정(비중↑·가속·좋아진 칸)</i>"]
+    L += ["", "<i>가속 3개월↑·최근↑ · 둔화 3개월↑·최근↓ · 반등 3개월↓·최근↑ · 하락 둘 다↓ · 굵게=긍정(비중↑·가속·좋아진 칸)</i>"]
     if not pq:
         L.append("<i>첫 회 — 다음 주부터 '칸 바뀜'이 붙는다</i>")
     L.append(f'<a href="{SITE}">대시보드</a>')
