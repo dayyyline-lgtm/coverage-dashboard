@@ -377,7 +377,11 @@ def main():
 
     # 지역(시군구) 프록시 품목 — 단일 지역 시계열(국가 구분 없음)
     for ri in REGION_ITEMS:
-        exp = fetch_sigungu_series(ri["hs"], ri["sidoCd"], ri["sgg"], months)
+        # 공장이 여러 곳인 회사(2026-10-24 · 삼양 원주·밀양·익산 등)는 areas 로 합산한다
+        areas = ri.get("areas") or [{"sidoCd": ri["sidoCd"], "sgg": ri["sgg"]}]
+        parts = [fetch_sigungu_series(ri["hs"], a["sidoCd"], a["sgg"], months) for a in areas]
+        exp = [None if all(p[i] is None for p in parts) else round(sum(p[i] or 0 for p in parts), 1) for i in range(len(months))]
+        ri.setdefault("sgg", "+".join(a["sgg"] for a in areas))
         last = next((v for v in reversed(exp) if v), None)
         print(f"  {ri['label']:<20} {ri['sgg']} 최근 {last/1e6 if last else 0:,.1f} 백만달러")
         meta = REGION_META.get(ri["label"], {})

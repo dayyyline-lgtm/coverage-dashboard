@@ -30,97 +30,15 @@ RC = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
 # 전용 모델이 있는 종목은 받지 않는다(그쪽 수집기가 원본)
 SKIP = {"컴투스", "대원미디어", "카카오게임즈", "디어유"}
 # corpcode_cache.json 에 없는 종목(신규 상장 등) — DART company.json 으로 확인한 고유번호
-CORP_EXTRA = {}
+CORP_EXTRA = {"아로마티카": "01381805",       # 2025-11 상장 — 캐시에 없음
+              "탑코미디어": "00608699"}       # 134580 · 2026-10-08 사명 '엔키AX' 로 바뀜(이름으로 찾으면 안 나온다)
 
 
-# ── 원문 표 도구 ──────────────────────────────────────────────────────────────
-_DOC = {}
-
-
-def doc(rcept):
-    """보고서 원문 본문(가장 큰 파일). 한 회차 안에서는 캐시."""
-    if rcept in _DOC:
-        return _DOC[rcept]
-    b = urllib.request.urlopen(f"https://opendart.fss.or.kr/api/document.xml?crtfc_key={C2.DART_KEY}"
-                               f"&rcept_no={rcept}", timeout=120).read()
-    z = zipfile.ZipFile(io.BytesIO(b))
-    t = z.read(max(z.namelist(), key=lambda n: z.getinfo(n).file_size)).decode("utf-8", errors="replace")
-    _DOC[rcept] = t
-    time.sleep(0.4)
-    return t
-
-
-def cell(c):
-    return re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", "", c))).strip()
-
-
-def num(s, unit=1.0):
-    """'1,234' · '(1,234)' · '△1,234' · '-' → 십억원(unit = 원 단위 배수: 천원 1e3 · 백만원 1e6 · 원 1)."""
-    s = (s or "").replace(",", "").replace("\xa0", "").replace(" ", "").strip()
-    if s in ("", "-", "−", "–"):
-        return 0.0
-    neg = (s.startswith("(") and s.endswith(")")) or s[:1] in ("△", "▲") or s.startswith("-")
-    s = s.strip("()△▲-")
-    try:
-        v = float(s)
-    except ValueError:
-        return None
-    return round((-v if neg else v) * unit / 1e9, 4)
-
-
-def tables_after(t, anchor, n=3, span=60000, start=0):
-    """앵커 문구 뒤의 표 n 개 → [[셀,…],…] 목록. 앵커가 없으면 []."""
-    i = t.find(anchor, start)
-    if i < 0:
-        return []
-    out = []
-    for tb in re.findall(r"<TABLE[^>]*>(.*?)</TABLE>", t[i:i + span], re.S)[:n]:
-        rows = []
-        for tr in re.findall(r"<TR[^>]*>(.*?)</TR>", tb, re.S):
-            cs = [cell(c) for c in re.findall(r"<T[DHE][^>]*>(.*?)</T[DHE]>", tr, re.S)]
-            if any(cs):
-                rows.append(cs)
-        out.append(rows)
-    return out
-
-
-def unit_of(t, anchor):
-    """앵커 근처의 '(단위 : 천원)' → 원 단위 배수."""
-    i = t.find(anchor)
-    seg = t[i:i + 4000] if i >= 0 else ""
-    m = re.search(r"단위\s*[:：]?\s*(천원|백만원|억원|원)", seg)
-    return {"천원": 1e3, "백만원": 1e6, "억원": 1e8, "원": 1.0}.get(m.group(1) if m else "천원", 1e3)
-
-
-def qadd(q, n):
-    k = int(q[:4]) * 4 + int(q[-1]) - 1 + n
-    return f"{k // 4}Q{k % 4 + 1}"
-
-
-def cum_to_q(cum):
-    """{"2026Q2": {부문: [매출, 영업이익]}} 누적 → 분기(차분). Q1 은 그대로."""
-    out = {}
-    for q, d in cum.items():
-        if q.endswith("Q1"):
-            out[q] = d
-            continue
-        p = cum.get(qadd(q, -1))
-        if not p:
-            continue
-        o = {}
-        for k, (r, op) in d.items():
-            if k in p:
-                pr, pop = p[k]
-                o[k] = [round(r - pr, 3) if r is not None and pr is not None else None,
-                        round(op - pop, 3) if op is not None and pop is not None else None]
-        out[q] = o
-    return out
-
-
-# ── 종목별 부문 파서 ─────────────────────────────────────────────────────────
-# 함수(t, period_q) → {"부문": [매출, 영업이익|None]} 와 "cum"|"3m" 표시. 리서치 뒤 종목마다 붙인다.
-SEG = {}
-
+import glob, importlib, os
+from ism_lib import *  # noqa: F401,F403  — 원문 도구·SEG
+for _m in ("ism_seg_cos", "ism_seg_odm", "ism_seg_food", "ism_seg_game", "ism_seg_ent"):
+    if os.path.exists(_m + ".py"):
+        importlib.import_module(_m)
 
 # ── 수집 ─────────────────────────────────────────────────────────────────────
 def corps(html):
@@ -152,25 +70,49 @@ def reports(corp):
     return out
 
 
-def segs_of(nm, rep):
-    """정기보고서마다 부문 표 → 분기 부문 손익."""
+def segs_of(nm, rep, getdoc=None):
+    """정기보고서마다 부문 표 → 분기 부문 손익.
+       파서가 "_prev"(같은 표의 전년 같은 기간 = 재작성 비교치)를 주면 그 기준끼리 따로 차분해서 원래 값 위에 덮는다
+       (LG생활건강 2026 부문 재분류처럼 — 기준이 다른 누적끼리 빼면 안 된다)."""
     fn = SEG.get(nm)
     if not fn:
         return {}, None
-    cum, three = {}, {}
+    cum, rest, three = {}, {}, {}
     for ym, rc in sorted(rep.items()):
         q = f"{ym[:4]}Q{PERIOD[ym[5:]]}"
         try:
-            d, kind = fn(doc(rc), q)
+            d, kind = fn((getdoc or doc)(rc), q)
         except Exception as e:
             print(f"   [{nm}] {ym} 부문 파싱 실패: {type(e).__name__} {str(e)[:80]}")
             continue
         if not d:
             continue
+        pv = d.pop("_prev", None)
+        if pv:
+            rest[qadd(q, -4)] = pv
         (cum if kind == "cum" else three)[q] = d
     out = cum_to_q(cum) if cum else {}
-    out.update(three)
-    return {k: out[k] for k in sorted(out)}, (fn.__doc__ or "").strip().split("\n")[0]
+    if rest:
+        for k, v in cum_to_q(rest).items():
+            out.setdefault(k, {}).update(v)
+    for k, v in three.items():
+        out.setdefault(k, {}).update(v)
+    return {k: out[k] for k in sorted(out)}, (fn.__doc__ or "").strip().splitlines()[0]
+
+
+def seed_of(nm):
+    """ism_seed/*.json — 조사 때 원문에서 뽑은 과거 분기 부문 값(파서가 못 읽는 옛 양식 분기). 파서 값이 있으면 그게 이긴다."""
+    out = {}
+    for f in sorted(glob.glob("ism_seed/*.json")):
+        try:
+            d = json.load(open(f, encoding="utf-8")).get(nm) or {}
+        except Exception as e:
+            print(f"   시드 {f} 읽기 실패: {e}")
+            continue
+        for q, v in d.items():
+            if re.fullmatch(r"\d{4}Q[1-4]", q) and isinstance(v, dict):
+                out.setdefault(q, {}).update(v)
+    return out
 
 
 def load_block(html):
@@ -198,7 +140,7 @@ def main():
         except Exception as e:
             fails.append(f"{nm}: 목록 {type(e).__name__}"); continue
         time.sleep(0.3)
-        if not allp and prev.get("src") == rep and prev.get("q") and (nm not in SEG or prev.get("seg")):
+        if not allp and prev.get("src") == rep and prev.get("q") and ((nm not in SEG and not seed_of(nm)) or prev.get("seg")):
             continue                                      # 새 보고서 없음
         try:
             q = C2.dart_quarters("CFS", Y0, corp)
@@ -219,6 +161,23 @@ def main():
             q = {k: q[k] for k in sorted(q)}
         fs = "OFS" if q and len(ofsq) == len(q) else "CFS"
         seg, how = segs_of(nm, rep)
+        sd = seed_of(nm)
+        qfix, basis, old = {}, {}, {}
+        for qq, v in sd.items():                          # 시드의 특수 키 — 연결 손익 보정·옛 분류 표시·옛 분류 값
+            if "_q" in v:
+                qfix[qq] = v.pop("_q")
+            if "_basis" in v:
+                basis[qq] = v.pop("_basis")
+            if "_old" in v:
+                old[qq] = v.pop("_old")
+        if sd:                                            # 시드 위에 파서 값을 덮는다
+            for k, v in seg.items():
+                sd.setdefault(k, {}).update(v)
+                basis.pop(k, None)                        # 파서가 새로 읽은 분기는 지금 분류
+            seg = {k: sd[k] for k in sorted(sd) if sd[k]}
+            how = how or "조사 시드(옛 분기)"
+        for qq, f in qfix.items():                        # dart_quarters 가 잘못 내는 분기(중단영업 재분류 등)를 시드 값으로
+            q[qq] = {**q.get(qq, {}), **{k: v for k, v in f.items() if v is not None}}
         if prev.get("q") and len(q) < len(prev["q"]) - 1:
             fails.append(f"{nm}: 분기 {len(prev['q'])}→{len(q)} — 이전 값 유지")
             continue
@@ -226,6 +185,12 @@ def main():
                         "src": rep}
         if ofsq and fs == "CFS":
             out["s"][nm]["ofs"] = sorted(ofsq)              # 별도로 채운 분기(화면이 표시)
+        if qfix:
+            out["s"][nm]["qfix"] = sorted(qfix)             # 시드로 고친 분기
+        if basis:
+            out["s"][nm]["segBasis"] = basis                # "old" = 옛 분류 그대로인 분기
+        if old:
+            out["s"][nm]["segOld"] = old                    # 재작성 분기의 옛 분류 값(새/옛 비율용)
         done += 1
         lq = sorted(q)[-1] if q else "-"
         print(f"[ISM] {nm:10} {fs} 분기 {len(q)}개(마지막 {lq} 매출 {q.get(lq, {}).get('rev')}) · 부문 {len(seg)}개 분기")
