@@ -2434,49 +2434,9 @@ const topicsOf0=n=>{
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
-/* Qoo10 JP 뷰티 톱200 (2026-09-24) — 일본 K뷰티의 주 채널. 종목별 '톱200 진입 SKU 수'와 한국발 비중(섹터).
-   ⚠ 2026-10-18 '브랜드 최고 순위' 그룹을 지웠다(사용자 "SKU 하나의 순위는 쓸모없다 — 상위에 몇 개 들어가 매출이 나오는 게 중요"). */
-(function injectQoo10Trends(){
-  if(typeof QOO10==="undefined"||!QOO10.brands) return;
-  const md=d=>{const p=(d||"").slice(5).split("-"); return p.length===2?`${+p[0]}/${+p[1]}`:d;};
-  const NN=QOO10.n||200;
-  const by={};
-  QOO10.brands.forEach(b=>{ if(!b.stock||(b.hist||[]).length<2) return; (by[b.stock]=by[b.stock]||[]).push(b); });
-  Object.keys(by).forEach(stock=>{
-    const bs=by[stock];
-    const days=[...new Set(bs.flatMap(b=>b.hist.map(h=>h.d)))].sort();
-    // 브랜드마다 그날 톱200 안 SKU 수(c). 수집한 날 그 브랜드가 없으면 0(목록 밖) — 수집이 없던 날만 null.
-    const raw=bs.map(b=>{const m={}; b.hist.forEach(h=>{ m[h.d]=h.c||0; }); return days.map(d=>m[d]==null?0:m[d]);});
-    const rows=bs.length>1?[days.map((_,j)=>raw.reduce((t,a)=>t+(a[j]||0),0))].concat(raw):raw;
-    const prods=bs.length>1?["합계"].concat(bs.map(b=>b.brand)):bs.map(b=>b.brand);
-    const peak=Math.max(1,...rows.flat());
-    const ser=rows.map(a=>a.map(v=>Math.round(v/peak*1000)/10));
-    const name=`Qoo10 톱${NN} 진입 수(${stock})`;
-    TREND.groups[name]={
-      products:prods, productsGoogle:prods,
-      months:days.map(md), naver:ser, google:ser, rawSer:rows,
-      only:"naver", freq:"date", peak, unit:`개(톱${NN} 안 SKU)`, unitShort:"개",
-      srcName:`Qoo10 JP 뷰티 베스트셀러 톱${NN} 안에 든 SKU 수 · 브랜드별`,
-      reviewNote:"판매 기반 순위(사이트 안내). 일본 K뷰티 주 채널 — 아마존 JP 와 채널이 다르다"
-    };
-    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
-  });
-  // 섹터 지표 — 톱200 중 한국발 비중. 자기 브랜드가 없는 ODM·유통(실리콘투·콜마·코스맥스)의 일본 창.
-  const kr=(QOO10.kr||[]).filter(x=>x&&x.n);
-  if(kr.length>=2){
-    const days=kr.map(x=>x.d), pct=kr.map(x=>Math.round(x.kr/x.n*1000)/10), peak=Math.max(...pct)||1;
-    const name="Qoo10 뷰티 톱200 한국발 비중";
-    TREND.groups[name]={
-      products:["한국발 비중(%)"], productsGoogle:["한국발 비중(%)"],
-      months:days.map(md), naver:[pct.map(v=>Math.round(v/peak*1000)/10)], google:[pct.map(v=>Math.round(v/peak*1000)/10)],
-      rawSer:[pct], only:"naver", freq:"date", peak:peak, unit:"%(톱200 중 한국발)", unitShort:"%",
-      srcName:"Qoo10 JP 뷰티 톱200 중 원산·발송 KR 상품 비중 · 100 = 기간 최고",
-      reviewNote:"브랜드가 없는 ODM·유통 종목엔 이 비중이 일본 K뷰티 온도계다"
-    };
-    ["실리콘투","한국콜마","코스맥스","에이피알","아모레퍼시픽","달바글로벌","아로마티카","LG생활건강"].forEach(s=>{
-      if(R.some(r=>r.name===s)) (TREND_STOCK[s]=TREND_STOCK[s]||[]).push(name); });
-  }
-})();
+/* Qoo10 JP 뷰티 톱200 은 트렌드 탭에 올리지 않는다(2026-10-24 사용자 "q10 은 모든 종목 트렌드에 올려 둘 필요 없다 — 화장품 트렌드에만").
+   예전 injectQoo10Trends 가 종목마다 'Qoo10 톱200 진입 수(종목)'과 섹터 '한국발 비중'을 붙였다 — 지웠다.
+   Qoo10 은 화장품 트렌드 탭(원자료 > Qoo10 · 기준표 '확인' 칸)에서만 본다. 되살리지 말 것. */
 /* ══ 아마존 추이 재료 — 한투 김명주 채널(KMJAMZ) + 우리 트래커(AMAZON) 합산 (2026-09-29) ══════════════
    트래커는 8/2 시작이고 유럽은 탑50 까지만 읽는다. 김명주 채널(fetch_kmj.py)은 5/28 부터 5개국 탑100 을 준다.
    겹친 30일 314쌍 중 91% 가 제품별 순위까지 같았다(같은 시각·같은 리스트) → 한 줄로 이어 붙인다.
@@ -2692,7 +2652,7 @@ let trendStock="", trendGroup="", trendFreq="week";
 const KIND_ORDER=["플레이","시청","판매·순위","리뷰","게임경제","커뮤니티","검색","기타"];
 /* 중요도 등급 (2026-09-24 · 사용자 요청 "중요한 것부터, 나머지는 뒤로" → 2026-10-24 다시 좁힘).
    1 = ★ 핵심 — 실제로 팔리고·쓰이는 양을 재는 실측: 동접 · 앱 매출순위 · 스토어 판매순위 · 앨범판매 · 수출(관세청) ·
-       미국 선적(B/L) · 아마존 Top100 · Qoo10 · 올리브영 · 탑툰챗 일별 대화 · 버블 매출순위 · 극장 관객 · 방한 관광객
+       미국 선적(B/L) · 아마존 Top100 · 올리브영 · 탑툰챗 일별 대화 · 버블 매출순위 · 극장 관객 · 방한 관광객
    2 = 보조 — 수요의 앞쪽·관심: 시청자 · 스트리밍·조회수 · 리뷰 · 위시리스트·다운로드·예약 순위 · 게임경제 · 디시 글 양 · 브랜드 검색
    3 = 참고 — 채용 · 갤 순위 · 거래순위 · 경쟁사 · 캐릭터별 · 누적 · 무료순위. 계열이 전부 0/빈 값이면 3으로 내린다.
    ⚠ 2026-10-24 사용자 "게임 동접자 같은 건 굉장히 중요한데 다른 건 그렇지 않을 수 있다" — 예전엔 검색 트렌드까지 1등급이라
@@ -2704,8 +2664,8 @@ function topicTier(n){
   const G=TREND.groups[n]||{};
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
-  else if(/다운로드순위|유료순위|예약순위|위시리스트|한국발 비중/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|Qoo10|탑툰챗 대화|극장|관광객/.test(n)) t=1;
+  else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -2746,14 +2706,14 @@ const WIN_PRESET=[["단기",30],["중기",90],["장기",null]];
    하루 튐을 뉴스로 읽지 않게 하는 일은 선이 아니라 **변화율 계산**이 맡는다 —
    일별은 '최근 7일 합 vs 그 전 7일 합'(이번 주 vs 지난주). 전일비는 툴팁에만. */
 let trendSmooth=(()=>{ try{ return localStorage.getItem("trendTrendline")==="1"; }catch(_){ return false; } })();
-/* 겹쳐/나눠 보기 — null 이면 자동: 계열 셋 이상에 계열별 최고값이 5배 넘게 벌어지면 나눠 본다. 주제를 바꾸면 자동으로 돌아간다. */
+/* 겹쳐/나눠 보기 — 기본은 늘 '겹쳐 보기'(한 축). 주제를 바꾸면 겹쳐 보기로 돌아간다.
+   ⚠ 2026-09-26 엔 '계열 셋 이상에 최고값이 5배 넘게 벌어지면 자동으로 나눠 보기'였는데, 그러면 경쟁 비교 그룹이 거의 다 갈라졌다
+     (스킨부스터 = 리쥬란·리투오·셀르디엠·셀리비온 → 계열마다 따로 축이라 누가 큰지 못 본다). 2026-10-24 사용자 "스킨부스터처럼 서로 경쟁하는 거나
+     게임은 겹쳐 보는 칸이 필수인데 보기 힘들어졌다" → 자동 나눠 보기를 없앴다. 작은 계열의 움직임은 '나눠 보기' 버튼으로 본다. **자동으로 되돌리지 말 것.** */
 let trendLayout=null, _trendLayoutFor="";
 function trendLayoutOf(G){
   if(_trendLayoutFor!==trendGroup){ _trendLayoutFor=trendGroup; trendLayout=null; }
-  if(trendLayout) return trendLayout;
-  const ser=(G&&(G[trendSrc]||G.naver))||[];
-  const pk=ser.map(a=>Math.max(0,...(a||[]).filter(v=>v!=null))).filter(v=>v>0);
-  return (pk.length>=3 && Math.max(...pk)/Math.min(...pk)>=5) ? "split" : "overlay";
+  return trendLayout||"overlay";
 }
 /* 일별 주간 변화 — 마지막 값이 있는 날까지 7일 합 vs 그 앞 7일 합. 양쪽 다 5일 이상 있어야 낸다. */
 function weekOverWeek(ser){
@@ -6329,14 +6289,24 @@ function renderTrendCards(){
   };
   const open=box.dataset.open==="1";
   const both=core.length&&aux.length;
+  // 보조 카드는 핵심이 있고 5개 이상이면 접는다(2026-10-24) — 게임 종목은 카드가 700px 를 차지해 겹쳐 보기 차트가 1,300px 아래에서 시작했다.
+  //   이름은 그대로 보이고 누르면 그 주제로 간다. 펼침은 localStorage(trendAuxOpen)로 기억.
+  let auxOpen=false; try{ auxOpen=localStorage.getItem("trendAuxOpen")==="1"; }catch(_){}
+  const foldAux=both&&aux.length>=5&&!auxOpen;
+  const auxRow=`<div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center">
+      <button id="trendAuxMore" style="background:transparent;border:1px solid var(--line-soft);border-radius:8px;color:var(--muted);font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer">${foldAux?`보조 지표 ${aux.length}개 카드 보기`:"보조 지표 카드 접기"}</button>
+      ${foldAux?aux.map(g=>`<span data-grp="${attr(g)}" style="cursor:pointer;font-size:11.5px;color:${g===trendGroup?"var(--accent)":"var(--muted)"};font-weight:${g===trendGroup?800:500}">${attr(g)}</span>`).join('<span style="color:var(--muted2)">·</span>'):""}</div>`;
   box.innerHTML=(both?head(1,core.length,"실제 판매·이용량(동접·매출순위·수출·선적·아마존 등)"):"")+core.map(card).join("")
-    +(both?head(2,aux.length,"수요의 앞쪽·관심(시청·리뷰·검색·커뮤니티 등)"):"")+aux.map(card).join("")
+    +(both?head(2,aux.length,"수요의 앞쪽·관심(시청·리뷰·검색·커뮤니티 등)"):"")
+    +(both&&aux.length>=5?auxRow:"")+(foldAux?"":aux.map(card).join(""))
     +(rest.length?`<div style="grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <button id="trendCardsMore" style="background:transparent;border:1px solid var(--line-soft);border-radius:8px;color:var(--muted);font-size:11.5px;font-weight:700;padding:4px 10px;cursor:pointer">${open?"참고 지표 접기":`참고 지표 ${rest.length}개 보기`}</button>
         ${open?"":`<span style="font-size:11px;color:var(--muted2)">${rest.map(g=>attr(g)).join(" · ")}</span>`}</div>`
       +(open?`<div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:8px;opacity:.85">${rest.map(card).join("")}</div>`:""):"");
   const mb=document.getElementById("trendCardsMore");
   if(mb) mb.onclick=e=>{ e.stopPropagation(); box.dataset.open=open?"0":"1"; renderTrendCards(); };
+  const ab=document.getElementById("trendAuxMore");
+  if(ab) ab.onclick=e=>{ e.stopPropagation(); try{ localStorage.setItem("trendAuxOpen",foldAux?"1":"0"); }catch(_){} renderTrendCards(); };
 }
 function renderTrendSegs(){
   renderTrendStockPicker();
@@ -6410,8 +6380,8 @@ function renderTrendSegs(){
     }
     sseg.style.display=(cur&&cur.freq==="date")?"":"none";
     sseg.querySelectorAll("button").forEach(b=>b.classList.toggle("active",(b.dataset.s==="1")===trendSmooth));
-    // 겹쳐 보기 / 나눠 보기 — 계열이 둘 이상인 겹침 차트에서만. 크기 차이가 큰 그룹(메디큐브가 달바의 10배)은
-    //   겹치면 작은 계열이 바닥에 눌려 움직임이 안 보인다. 나눠 보면 계열마다 자기 축(실제 단위 눈금)으로 그린다.
+    // 겹쳐 보기 / 나눠 보기 — 계열이 둘 이상인 겹침 차트에서만. 기본은 겹쳐 보기(경쟁 비교 · 2026-10-24).
+    //   크기 차이가 큰 그룹(메디큐브가 달바의 10배)에서 작은 계열의 움직임을 보려면 나눠 보기 — 계열마다 자기 축(실제 단위 눈금).
     let lseg=document.getElementById("trendLayoutSeg");
     if(!lseg){
       lseg=document.createElement("div"); lseg.className="seg"; lseg.id="trendLayoutSeg"; lseg.style.marginLeft="6px";
@@ -9557,8 +9527,19 @@ const UNI_TREND_MIN=60;
 let _uniTrend=null;
 function uniTrendOK(c){ return topicTier(c.gname)<3 && !/극장/.test(c.gname) && !(c.rank!=null&&c.rank>100)
   && !(c.wow!=null&&c.wow<=-99) && !(c.win!=null&&c.win<=-99); }
-function uniTrendBy(){ if(_uniTrend) return _uniTrend; const by={};
-  (typeof trendCands==="function"?trendCands():[]).forEach(c=>{ if(c.score<UNI_TREND_MIN||!uniTrendOK(c)) return; (by[c.stock]=by[c.stock]||[]).push(c); });
+/* 핵심·보조 나눠 거르기(2026-10-24 사용자 "메인 트렌드가 뜨면 지금처럼 개요에 · 보조 트렌드는 등락이 많이 변하니까
+   긍정적인 방향으로 특이 트렌드가 두 개 이상 뜰 때만") — 핵심(★ topicTier 1) 신호는 방향과 무관하게 그대로,
+   보조(2) 신호는 같은 종목에 **오르는 쪽** 보조 신호가 2개 이상일 때만(그때는 오르는 것만) 띄운다. 핵심이 앞에 선다.
+   종목 페이지 머리 신호도 같은 함수(uniSignals)를 쓴다. 트렌드 탭 '주목할 추이'는 그대로(그쪽은 트렌드를 보러 간 자리). */
+function uniTrendBy(){ if(_uniTrend) return _uniTrend; const all={}, by={};
+  (typeof trendCands==="function"?trendCands():[]).forEach(c=>{ if(c.score<UNI_TREND_MIN||!uniTrendOK(c)) return; (all[c.stock]=all[c.stock]||[]).push(c); });
+  Object.entries(all).forEach(([st,cs])=>{
+    const core=cs.filter(c=>topicTier(c.gname)===1), auxUp=cs.filter(c=>topicTier(c.gname)===2&&trendChipTxt(c).up);
+    const show=core.concat(auxUp.length>=2?auxUp:[]);
+    if(!show.length) return;
+    show.auxOnly=!core.length;
+    by[st]=show;
+  });
   return (_uniTrend=by); }
 function trendChipTxt(c){
   const U={date:{n:7,unit:"일"},week:{n:4,unit:"주"},month:{n:3,unit:"개월"}};
@@ -9575,6 +9556,7 @@ function trendChipTxt(c){
 const TREND_PLACE_RE=/^(한국|미국|일본|중국|대만|홍콩|영국|독일|프랑스|스페인|이탈리아|캐나다|브라질|멕시코|러시아|카자흐|우즈베키스탄|키르기스스탄|타지키스탄|아르메니아|몽골|필리핀|베트남|태국|인도네시아|싱가포르|말레이시아|유럽|전세계|글로벌|전국|합계|\d+개국)|\(지역\)$/;
 function trendSigName(c){
   const p=String(c.prod||""), g=String(c.gname||"");
+  if(/B\/L/.test(g)) return `미국 선적(${p.replace(/^미국\s*/,"")})`;     // '토니모리 미국 해상 선적 미국 법인 수입' → '미국 선적(법인 수입)'
   if(!TREND_PLACE_RE.test(p)) return p;
   const amz=g.match(/^아마존 Top100 제품 수\((.+)\)$/);
   const subj=amz?`${amz[1]} 아마존`:g.replace(/\([^)]*\)/g,"").replace(/\s*국가별$/,"").replace(/\s+/g," ").trim();
@@ -9586,7 +9568,9 @@ function uniSignals(name){
   if(ps&&ps.hi) out.push({k:"hi", n:ps.hi.n, html:sigPill(`${ps.hi.lab} 신고가`,"hi",`종가 기준 — 지금 가격이 최근 ${ps.hi.n}거래일 종가 최고`)});
   if(ps&&ps.lo) out.push({k:"lo", n:ps.lo.n, html:sigPill(`${ps.lo.lab} 신저가`,"lo",`종가 기준 — 지금 가격이 최근 ${ps.lo.n}거래일 종가 최저`)});
   if(tr.length){ const c=tr[0], t=trendChipTxt(c);
-    out.push({k:"tr", html:sigPill(`${t.icon} ${attr(trendSigName(c))} <b class="${t.up?"up":"down"}">${t.chg}</b>`,"tr",`${c.gname}${tr.length>1?` 외 ${tr.length-1}건`:""} — 누르면 종목 페이지 트렌드`)+(tr.length>1?`<span class="sig-more">+${tr.length-1}</span>`:"")}); }
+    const tip=tr.auxOnly?`보조 지표 ${tr.length}개가 같이 올랐다 — ${tr.map(x=>trendSigName(x)).join(" · ")}`
+      :`${topicTier(c.gname)===1?"★ 핵심 지표 · ":""}${c.gname}${tr.length>1?` 외 ${tr.length-1}건`:""}`;
+    out.push({k:"tr", html:sigPill(`${t.icon} ${attr(trendSigName(c))} <b class="${t.up?"up":"down"}">${t.chg}</b>`,"tr",tip)+(tr.length>1?`<span class="sig-more">+${tr.length-1}</span>`:"")}); }
   return out;
 }
 /* 고점 대비 낙폭 · 최대 낙폭(MDD) — 유니버스 보드 52주·60일 칸, 종목 페이지 52주 칸에 손을 올리면 뜬다
@@ -9677,6 +9661,7 @@ function renderUniBoard(){
   <p class="note">종목을 누르면 종목 페이지(손익·트렌드·리포트·리비전·뉴스). 신고가·신저가 = <b>종가 기준</b>, 지금 가격이 최근 20·60·250거래일 종가의 최고·최저(긴 창을 먼저 표시).
     트렌드 급변 = 트렌드 탭 '주목할 추이'와 같은 점수(검색·앱순위·동접·시청·아마존 등이 이번 주 지난주보다 크게 움직였거나 기간 최고) ${UNI_TREND_MIN}점 이상 —
     채용·갤 순위 같은 참고 지표와 100위 밖 순위 이동은 뺐다(종목 페이지 트렌드 탭엔 다 있다).
+    <b>핵심 지표</b>(동접·매출순위·수출·선적·아마존 등)는 그대로 띄우고, <b>보조 지표</b>(시청·검색·리뷰·커뮤니티 등)는 같은 종목에 <b>오르는 쪽 신호가 2개 이상</b>일 때만 띄운다.
     ★ 탑픽 · ☆ 2nd pick. 52주 위치 막대의 점 = 저점~고점 사이 지금 가격.
     <b>52주 위치·최근 60일 칸에 손을 올리면</b> 고점 대비 낙폭 · 최대 낙폭(MDD) · 저점 대비 반등이 뜬다(종가 기준).</p>`;
   box.innerHTML=h;
@@ -12255,7 +12240,7 @@ function renderAmazon(){
     </tbody></table></div>`;
 }
 
-/* Qoo10 JP 뷰티 톱200 — 오늘 스냅샷 표 (2026-09-24). 추이(브랜드별 순위·한국발 비중)는 트렌드 탭에,
+/* Qoo10 JP 뷰티 톱200 — 오늘 스냅샷 표 (2026-09-24). 추이는 화장품 탭 기준표 'Qoo10 일본' 칸(2026-10-24 트렌드 탭에서 뺐다),
    여기는 '오늘 누가 어디에 있나'. 아마존 탭 맨 아래(Phase 3 의 '채널' 탭이 생기면 그리로 옮긴다). */
 function renderQoo10(){
   if(typeof QOO10==="undefined"||!QOO10.top||!QOO10.top.length) return;
@@ -12284,7 +12269,7 @@ function renderQoo10(){
   if(q10s) q10s.innerHTML=`${fmtUpd(QOO10.asOf)||""} · 한국발 <b>${kr.kr||0}</b>/${kr.n||0}(${kr.n?Math.round(kr.kr/kr.n*100):0}%)${krPrev?` · 전일 ${Math.round(krPrev.kr/krPrev.n*100)}%`:""}`;
   box.innerHTML=`
     <p class="note" style="margin:-4px 0 10px">일본 K뷰티의 주 채널. 판매 기반 순위(사이트 안내)라 아마존 BSR 과 같은 성격이며, <b>같은 방법으로 매일 재는 추이</b>로 보세요.
-      브랜드 매칭은 일본 표기 사전 기준 — 사전 밖 한국 브랜드는 '한국발'에만 셉니다. 종목별 진입 SKU 수 추이는 트렌드 탭 'Qoo10 톱200 진입 수'.</p>
+      브랜드 매칭은 일본 표기 사전 기준 — 사전 밖 한국 브랜드는 '한국발'에만 셉니다. 회사별 진입 수 변화(최근 4주 vs 그 전 4주)는 탭 맨 위 기준표 'Qoo10 일본' 칸.</p>
     <div class="tbl-wrap"><table>
       <thead><tr><th style="text-align:left">브랜드</th><th style="text-align:left">운영사</th><th style="text-align:right" title="톱200 안에 든 SKU 수 · 화살표는 전일 대비">진입 SKU</th><th style="text-align:right">리뷰 합</th><th style="text-align:left">순위(상위 8)</th></tr></thead>
       <tbody>${bRows||`<tr><td colspan="5" style="color:var(--muted)">매칭된 브랜드 없음</td></tr>`}</tbody></table></div>
