@@ -51,11 +51,13 @@
   const nextB = v => v < 100 ? 100 : v < 1000 ? v + 100 : v < 10000 ? v + 1000 : v < 100000 ? v + 10000 : v * 2;
   const mid = v => v >= 100000 ? 125000 : (v + nextB(v)) / 2;
 
-  K.domain = () => (typeof getDomainByTld === 'function') ? getDomainByTld(window.tld || 'com') : 0;
+  // 2026-10-26: keepa.com 새 메뉴는 getDomainByTld·window.tld 가 없다 — 지금 나라 = button.knav-mk[aria-current="true"] 의 data-domain
+  K.domain = () => { const b = document.querySelector('button.knav-mk[aria-current="true"]'); if (b && b.getAttribute('data-domain')) return +b.getAttribute('data-domain');
+    return (typeof getDomainByTld === 'function') ? getDomainByTld(window.tld || 'com') : 0; };
   K.grid = () => { const c = document.querySelector('.ag-root-wrapper'); return (c && c.__agComponent && c.__agComponent.gridApi) || null; };
   K.setDomain = async d => {
     if (K.domain() === d) return true;
-    const b = [...document.querySelectorAll('button.knav-mk')].find(x => x.textContent.includes(NAMES[d]));
+    const b = document.querySelector('button.knav-mk[data-domain="' + d + '"]') || [...document.querySelectorAll('button.knav-mk')].find(x => x.textContent.includes(NAMES[d]));
     if (!b) return false;
     b.click();
     for (let i = 0; i < 30; i++) { await sleep(300); if (K.domain() === d) { await sleep(800); return true; } }
