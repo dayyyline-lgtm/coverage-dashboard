@@ -11045,8 +11045,19 @@ const COS_TABS=[["phase","국면"],["top","아마존 Top100"],["brand","브랜�
 const COS_X=[["두 채널 다 늘었다","var(--good)"],["틱톡샵만 늘었다","#6fa8dc"],["아마존만 늘었다","var(--accent)"],["두 채널 다 줄었다","var(--warn)"]];
 const cosLs=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:v; }catch(e){ return d; } };
 const cosSv=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
+// 기본 보기(2026-10-26 사용자 "이걸 기본으로" — 추적 브랜드 합계 = 브랜드 쌓기 · 분기 · 합산 · 판매액 억원) — 예전에 저장된 보기·고정 브랜드는 한 번 비운다
+try{ if(localStorage.getItem("cosDef")!=="2026-10-26"){ ["cosUV","cosUP","cosQC","cosQU","cosSel","cosPin"].forEach(k=>localStorage.removeItem(k)); localStorage.setItem("cosDef","2026-10-26"); } }catch(e){}
+// 고른 브랜드 기본 = 가장 잘나가는 브랜드(2026-10-26 사용자) — 최근 3개 완결 달 판매액(아마존 전 지역)의 전년비 1위.
+//   K뷰티 내 비중 1% 이상 · 상장사·상장 준비·ODM 고객사 브랜드만(커버리지에 쓰이는 것). 고정(cosPin)이 있으면 그 브랜드. 열 때마다 다시 고른다(저장 안 함).
+function cosBestBrand(){
+  try{ const mk0=cosMk; cosMk="all"; let A; try{ A=KBV(); } finally{ cosMk=mk0; }
+    const M=KBPH.months, ie=(M.indexOf(KBPH.partial)>=0?M.indexOf(KBPH.partial):M.length)-1; if(ie<14) return "";
+    const S=(a,i0,i1)=>{ let t=0; for(let i=i0;i<=i1;i++) t+=(a&&a[i])||0; return t; };
+    const rows=Object.entries(A.b).map(([k,b])=>({k, b, v3:S(b.v,ie-2,ie), vy:S(b.v,ie-14,ie-12)})), tot=rows.reduce((t,r)=>t+r.v3,0)||1;
+    const c=rows.filter(r=>(r.b.co||r.b.sup)&&r.v3/tot>=0.01&&r.vy>0).sort((x,y)=>(y.v3/y.vy)-(x.v3/x.vy));
+    return c.length?c[0].k:""; }catch(e){ return ""; } }
 function cosPick(k){ if(cosPin===k){ cosPin=""; } else { cosPin=k; cosSel=k; cosSv("cosSel",k); } cosSv("cosPin",cosPin); renderCosPhase(); }
-let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","sum"), cosSel=cosLs("cosSel","medicube"), cosPin=cosLs("cosPin","");
+let cosTab=cosLs("cosTab","phase"), cosMode=cosLs("cosMode","sum"), cosSel="", cosPin=cosLs("cosPin","");   // cosSel 은 renderCosPhase 가 처음 그릴 때 고른다
 if(cosMode==="x") cosMode="sum";   // 아마존 × 틱톡샵 교차 보기는 2026-10-22 뺐다(사용자 "합산이 있으니 의미 없다") — 채널 갈림은 표의 아마존 칸·틱톡샵 칸으로 본다
 // 모아보기(2026-10-21) — 여러 브랜드를 한 줄로 더한 보기. 바구니(비중의 분모)는 그대로다(멤버를 빼고 합 하나를 넣으니 전체 합이 같다).
 //   국면 칸 함수는 전부 KBPH 대신 KBV() 를 읽는다.
@@ -11177,6 +11188,7 @@ function cosBxNote(k){
 function renderCosPhase(){
   cosSrcChips();
   const box=document.getElementById("cosPhase"); if(!box) return;
+  if(!cosSel) cosSel=cosPin||cosBestBrand()||"medicube";
   const P=cosPhaseData(); if(!P){ box.innerHTML=`<p class="note">아직 데이터가 없습니다.</p>`; return; }
   const {CA, CT, CS, B, D}=P, fx=D.fx;
   const MKL=KBB().mkLab||"미국";
@@ -11693,7 +11705,7 @@ let cosQU=(()=>{ try{ return localStorage.getItem("cosQU")||"krw"; }catch(e){ re
 // 추적 브랜드 합계 — 차트 하나 + 토글 넷(2026-10-24 사용자 "토글로 합치거나 간략하게"): 보기(브랜드 쌓기 · 같은 달 3개년) × 주기(월 · 분기) × 채널(cosQC) × 단위(cosQU · 억원·$M·판매량·비중).
 //   옛 차트 넷(합계 아마존 3개년 · 합계 틱톡샵 월별 · 합산 월별 쌓기 · 분기 판매액)을 대신한다 — 틱톡샵 월별 합계 = 채널 틱톡샵 · 월 · 쌓기의 막대 위 숫자.
 let cosUV=(()=>{ try{ return localStorage.getItem("cosUV")||"stk"; }catch(e){ return "stk"; } })();
-let cosUP=(()=>{ try{ return localStorage.getItem("cosUP")||"m"; }catch(e){ return "m"; } })();
+let cosUP=(()=>{ try{ return localStorage.getItem("cosUP")||"q"; }catch(e){ return "q"; } })();   // 기본 분기(2026-10-26)
 function cosUS(CT, hasQ){
   const v=cosUV==="yoy"?"yoy":"stk", hasV=Object.values(KBV().b||{}).some(b=>b.v);
   const p=v==="yoy"?"m":(cosUP==="q"&&hasQ?"q":"m");
