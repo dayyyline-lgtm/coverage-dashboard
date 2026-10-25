@@ -64,5 +64,93 @@
    "뷰티 전체 Top100(US)"
   ],
   "decision": "무시(비한국·비상장 — nida.co 미국 라스베이거스/nida.it.com 판매처, 한국 상장사 아님)"
+ },
+ "vitamasques": {
+  "name": "Vitamasques",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(호주 비상장·한국 OEM)"
+ },
+ "stacy": {
+  "name": "STACY",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(미국 속눈썹 용품·비상장)"
+ },
+ "maree": {
+  "name": "MAREE",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(미국 아마존 브랜드·비상장)"
+ },
+ "botanic": {
+  "name": "Botanic",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(Botanic Hearth 미국·비상장)"
+ },
+ "judydoll": {
+  "name": "JUDYDOLL",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(중국 브랜드)"
+ },
+ "byoma": {
+  "name": "BYOMA",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(영국 비상장)"
+ },
+ "simplefield": {
+  "name": "SimpleField",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(미국/중국 셀러·비상장)"
+ },
+ "nuna": {
+  "name": "NUNA",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(아마존 셀러 브랜드·한국 상장사 아님)"
+ },
+ "kitsch": {
+  "name": "Kitsch",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(미국 비상장)"
+ },
+ "beautyfactor": {
+  "name": "BEAUTYFACTOR",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(중국 셀러)"
+ },
+ "tatuo": {
+  "name": "Tatuo",
+  "asked": "2026-10-26",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(중국 셀러)"
  }
 }
