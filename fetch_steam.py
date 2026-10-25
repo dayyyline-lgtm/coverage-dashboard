@@ -7,16 +7,22 @@ Steam 동접·리뷰 수집 — 게임 커버 종목의 '실측' 수요/평판 �
   SteamCharts chart-data.json 이 [ [ms, 동접], ... ] 로 과거 전체를 준다(호출마다 최신 포함).
   → UTC 날짜별 '최고 동접(daily peak)' 으로 리샘플. 과거가 통째로 들어오니 백필이 필요없다.
   SteamCharts 가 막히면 공식 API(GetNumberOfCurrentPlayers)로 오늘 1점만 보완(기존 시계열 보존).
-리뷰(스냅샷 누적):
-  공식 store.steampowered.com/appreviews (query_summary) 로 현재 총리뷰·긍정%를 매일 1점씩 쌓는다.
-  (리뷰는 과거 시계열 무료 소스가 없어 오늘부터 누적.)
+리뷰(일별 · 2026-10-25 부터):
+  store.steampowered.com/appreviewhistogram 의 recent(최근 30일 **일별** 신규 리뷰) + rollups(출시부터 주·월 합)
+  → 날짜(UTC)마다 {"d", "t" 그날 끝 누적, "n" 그날 신규, "pos"}. 30일을 통째로 다시 받으니 빠진 날이 저절로 메워진다.
+  ⚠ 옛 경로 appreviews(query_summary)는 10/23 부터 홈으로 302 를 준다(PC·러너 둘 다) — 동접만 들어와서
+    블록 asOf 는 멀쩡했고 리뷰만 10/22 에 멈춰 있었다(watchdog 이 못 봤다 → 리뷰 날짜를 따로 본다).
+  ⚠ 기준이 옛 total_reviews(purchase_type=all)와 다르다 — 유료작은 신규가 1.2~1.6배 적게 잡힌다(키 등록분이 빠지는 듯).
+    10/22 까지의 옛 기록은 겹친 9/27~10/22 의 '옛 증분 ÷ 새 증분'(`rvk`)으로 나눠 새 기준에 이어 붙였다(`rvb`="hist").
+    붉은사막 리뷰당 판매(GAMEEST box)도 같은 비율로 20.5 → 32.5. 무료 게임(배그·TL)은 옛 누적이 삭제로 줄어
+    증분이 음수라 비율을 못 낸다 → 옛 기록을 버리고 30일부터 다시 쌓는다.
 
 index.html 의 STEAM 상수(그 블록만) 를 교체/삽입한다. 시세·트렌드 블록은 안 건드린다.
 
   python fetch_steam.py            # 수집·기록
   python fetch_steam.py --dry-run  # 출력만
 """
-import re, json, sys, datetime, urllib.request
+import re, json, sys, datetime, urllib.request, urllib.parse
 
 HTML = "public/index.html"
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -77,12 +83,38 @@ def _players_now(appid):
     return resp.get("player_count") if resp.get("result") == 1 else None
 
 
+RVB = "hist"                       # 리뷰 기준 표시 — 이게 없는 옛 기록은 기준이 달라 이어 붙이지 않는다
+
+
 def _reviews(appid):
-    d = _get(f"https://store.steampowered.com/appreviews/{appid}"
-             "?json=1&language=all&num_per_page=0&purchase_type=all", browser=True)
-    q = d.get("query_summary") or {}
-    tot, pos = q.get("total_reviews") or 0, q.get("total_positive") or 0
-    return (tot, round(pos / tot * 100, 1)) if tot else (0, None)
+    """(누적 리뷰수, 긍정%, [(UTC 날짜, 그날 신규 리뷰)] 최근 30일 · 진행 중인 오늘 포함)."""
+    d = _get(f"https://store.steampowered.com/appreviewhistogram/{appid}"
+             "?l=english&review_score_preference=0", browser=True)
+    r = d.get("results") or {}
+    roll, rec = r.get("rollups") or [], r.get("recent") or []
+    if not roll or not rec:
+        raise ValueError("빈 히스토그램")
+    n = lambda x: (x.get("recommendations_up") or 0) + (x.get("recommendations_down") or 0)
+    tot = sum(n(x) for x in roll)                     # rollups 는 진행 중인 주·달까지 들어 있다 = 지금까지 전부
+    up = sum(x.get("recommendations_up") or 0 for x in roll)
+    U = datetime.timezone.utc
+    days = sorted((datetime.datetime.fromtimestamp(x["date"], U).date(), n(x)) for x in rec)
+    return tot, (round(up / tot * 100, 1) if tot else None), days
+
+
+def _pos_all(appids):
+    """{appid: 긍정%} — 상점이 보여 주는 값(summary_filtered · 정수). 히스토그램 합으로 낸 긍정%는
+    리뷰 폭탄 거른 것이 안 빠져 상점 표시보다 낮다(붉은사막 79.5 vs 83). 실패하면 빈 dict → 히스토그램 값."""
+    q = json.dumps({"ids": [{"appid": a} for a in appids], "context": {"language": "english", "country_code": "US"},
+                    "data_request": {"include_reviews": True}}, separators=(",", ":"))
+    try:
+        d = _get("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json="
+                 + urllib.parse.quote(q), browser=True)
+        return {i["appid"]: ((i.get("reviews") or {}).get("summary_filtered") or {}).get("percent_positive")
+                for i in (d.get("response") or {}).get("store_items") or [] if i.get("appid")}
+    except Exception as e:
+        print(f"  [상점 긍정% 실패] {str(e)[:60]} → 히스토그램 합으로")
+        return {}
 
 
 def _const(html, name):
@@ -110,6 +142,7 @@ def main():
             for g in (_const(html, "STEAM") or {}).get("games", [])}
 
     games = []
+    shop_pos = _pos_all([a for _, _, a in GAMES])
     for stock, title, appid in GAMES:
         old = prev.get((stock, title), {})
         dates, players = old.get("dates") or [], old.get("players") or []
@@ -136,21 +169,37 @@ def main():
             except Exception as e2:
                 print(f"    [현재동접도 실패] {str(e2)[:60]}")
 
-        rvh = list(old.get("reviews") or [])                  # 리뷰 스냅샷 누적
+        rvh = list(old.get("reviews") or [])                  # 날짜(UTC)별 누적·신규
+        if rvh and old.get("rvb") != RVB:
+            print(f"    [리뷰] {title}: 옛 기준 기록 {len(rvh)}일은 이어 붙이지 않는다(기준이 다르다)")
+            rvh = []
         try:
-            tot, pos = _reviews(appid)
-            pt = {"d": today.isoformat(), "t": tot, "pos": pos}
-            if rvh and rvh[-1].get("d") == today.isoformat():
-                rvh[-1] = pt
-            else:
-                rvh.append(pt)
-            rvh = rvh[-DAYS:]
-            print(f"    리뷰 {tot:,} 긍정 {pos}%")
+            tot, pos, days = _reviews(appid)
+            if shop_pos.get(appid) is not None:
+                pos = float(shop_pos[appid])
+            utc_today = datetime.datetime.now(datetime.timezone.utc).date()
+            cum, later = {}, 0                                 # 그날 끝 누적 = 합계 − 그 뒤 날들의 신규
+            for dd, c in reversed(days):
+                cum[dd] = tot - later
+                later += c
+            keep = {x["d"]: x for x in rvh if x.get("d")}
+            for dd, c in days:
+                if dd >= utc_today:                            # 진행 중인 UTC 당일은 뺀다(동접과 같은 규칙)
+                    continue
+                k = dd.isoformat()
+                keep[k] = {"d": k, "t": cum[dd], "n": c, "pos": (keep.get(k) or {}).get("pos", pos)}
+            rvh = [keep[k] for k in sorted(keep)][-DAYS:]
+            if rvh:
+                rvh[-1]["pos"] = pos
+            print(f"    리뷰 {tot:,} 긍정 {pos}% · 최근 {rvh[-1]['d'] if rvh else '—'} 신규 {rvh[-1]['n'] if rvh else '—'}")
         except Exception as e:
             print(f"    [리뷰 실패] {str(e)[:60]}")
 
-        games.append({"stock": stock, "title": title, "appid": appid,
-                      "dates": dates, "players": players, "avg": avgs, "reviews": rvh})
+        g = {"stock": stock, "title": title, "appid": appid,
+             "dates": dates, "players": players, "avg": avgs, "reviews": rvh, "rvb": RVB}
+        if old.get("rvk") is not None:
+            g["rvk"] = old["rvk"]
+        games.append(g)
 
     steam = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
              "games": games}

@@ -143,7 +143,21 @@ def freshness(html, now):
             lim = max(lim, 72)
         if age > lim:
             bad.append((key, label, age, lim))
+    # Steam 리뷰는 블록 asOf 와 따로 본다 — 동접만 들어와도 asOf 가 새로워져서, 리뷰 경로가 홈으로 302 를 주며
+    # 10/22 에 멈춘 것을 사흘 동안 아무도 몰랐다(2026-10-25). 리뷰 행의 d 는 UTC 날짜라 그날 자정부터 센다.
+    ln = re.search(r'^const STEAM\s*=\s*(\{.*\});?\s*$', html, re.M)
+    try:
+        last = max(((g.get("reviews") or [{}])[-1].get("d") or "") for g in json.loads(ln.group(1)).get("games", []))
+    except Exception:
+        last = ""
+    ts = parse_ts(last)
+    if ts and (now - ts).total_seconds() / 3600 > STEAM_RV_H:
+        bad.append(("STEAM_RV", "Steam 리뷰", (now - ts).total_seconds() / 3600, STEAM_RV_H))
     return bad
+
+
+# 리뷰는 하루 한 번(KST 09시 뒤) 최근 30일을 통째로 다시 받는다 — 하루 빠져도 다음 날 메워지므로 사흘.
+STEAM_RV_H = 72
 
 
 # 데일리 레터가 마지막으로 나간 뒤 이만큼 지나면 알린다.

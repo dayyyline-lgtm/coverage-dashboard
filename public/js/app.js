@@ -2042,7 +2042,8 @@ function trendOwnerOf(gname, prod, fb){
   });
 })();
 /* Steam '일일 신규 리뷰'를 트렌드 편입 — 리뷰는 구매자만 쓰므로 일일 증가분이 판매 대리지표.
-   누적 리뷰수(reviews[].t)의 전일 대비 Δ. 며칠 쌓여야 뜬다. */
+   그날 신규(reviews[].n · 히스토그램 · 2026-10-25~)를 그대로 쓰고, n 이 없는 옛 행은 누적(t)의 전일 대비 Δ.
+   누적 Δ 는 삭제가 많은 무료 게임(배그)에서 음수가 돼 0 으로 찍혔다 — n 은 그런 일이 없다. */
 (function injectSteamReviewTrends(){
   if(typeof STEAM==="undefined"||!STEAM.games) return;
   STEAM.games.forEach(g=>{
@@ -2053,7 +2054,7 @@ function trendOwnerOf(gname, prod, fb){
       // 수집이 빈 날(8/2·8/22~23 같은)은 Δ가 며칠치 합이다 → 날수로 나눠 '하루당'으로.
       // 안 나누면 8/3 에 309 가 찍혀 '원인 불명 스파이크'로 읽힌다(실제는 이틀치 155/일).
       const gap=Math.max(1,Math.round((new Date(rv[i].d)-new Date(rv[i-1].d))/864e5));
-      d.push(Math.max(0,Math.round((rv[i].t-rv[i-1].t)/gap)));
+      d.push(rv[i].n!=null?rv[i].n:Math.max(0,Math.round((rv[i].t-rv[i-1].t)/gap)));
       const p=(rv[i].d||"").slice(5).split("-"); dates.push(p.length===2?`${+p[0]}/${+p[1]}`:rv[i].d);
     }
     const peak=Math.max(...d)||1, pos=rv[rv.length-1].pos;
@@ -6473,7 +6474,8 @@ const GAMEEST={
 /* 지역별 PS5 설치대수(백만대, 대략) — 순위를 매출로 바꾸려면 '그 나라 시장이 얼마나 큰가'가 반드시 필요하다.
    같은 3위라도 한국 3위와 미국 3위는 자릿수가 다르다. 이 가중이 없으면 한국이 70% 로 나온다(실측: 틀림). */
 const PS_MARKET={us:25, gb:5, jp:6, kr:1, de:6};
-const GE_DEF={box:20.5, asp:52000, attach:15, pre:25, alpha:1.0, fx:1370};
+// box(리뷰당 판매) — 2026-10-25 리뷰 기준을 히스토그램으로 바꾸며 20.5 × 1.584(STEAM 붉은사막 rvk · 겹친 9/27~10/22 옛 증분 ÷ 새 증분 · 주별 1.41~1.71) = 32.5
+const GE_DEF={box:32.5, asp:52000, attach:15, pre:25, alpha:1.0, fx:1370};
 function geVal(id){ const el=document.getElementById("ge_"+id);
   const v=el?parseFloat(el.value):NaN; return (isFinite(v)&&v>0)?v:GE_DEF[id]; }
 
@@ -6573,7 +6575,7 @@ function renderGameEst(){
         R?`리뷰 하루 ${fmt0(R.pace)}건 페이스 · Steam ${M((nowU-agoU)*G.plat.steam)}장`:"리뷰 데이터 부족")
     +card(`설치기반 매출환산 <span class="src">누적</span>`, EOK(nowU*asp),
         `판매량 × 순ASP ${fmt0(asp)}원(공시 역산) · 공시 누적 기여 ${EOK(bt.filter(b=>!b.est).reduce((a,b)=>a+b.contrib,0))}`)
-    +card(`DLC 예약 <span class="src">D-${dd} · ${D.release}</span>`, EOK(preRev),
+    +card(`DLC 예약 <span class="src">${dd>0?"D-"+dd:dd===0?"출시일":"출시 D+"+(-dd)} · ${D.release}</span>`, EOK(preRev),
         `설치기반 ${M(nowU)} × 부착 ${(attach*100).toFixed(0)}% = ${M(dlcU)}장 × 순단가 ${fmt0(dlcNet)}원 = <b>${EOK(dlcRev)}</b> 중 예약 ${(pre*100).toFixed(0)}%`, true)
     +`</div>`;
 
@@ -9764,9 +9766,10 @@ function renderStockTab(name){
     const opmOf=a=>(a.opm!=null?a.opm:(a.rev?a.op/a.rev*100:null));
     const pc=v=>v==null?"—":`<span class="${cls(v)}">${sign(v,0)}%</span>`;
     const mid=SP_MODEL[name], kb=!mid&&typeof kbHas==="function"&&kbHas(name);
-    // 공통 분기 손익 모델(ism.js · 2026-10-24) — 전용 모델이 없는 종목
-    const ism=!mid&&typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name];
-    body.innerHTML=(mid?`<div id="spModel"></div>`:"")+(ism?`<div id="spIsm"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+    // 공통 분기 손익 모델(ism.js · 2026-10-24) — 전용 손익 모델 4종목은 fetch_ism.SKIP 이라 ISM.s 에 없다.
+    //   펄어비스는 전용 모델이 '판매 추정'(붉은사막 GAMEEST)이라 손익은 ISM 이 맡는다 → 손익을 위에, 판매 추정을 아래에(2026-10-25 · 전엔 !mid 로 가려졌다)
+    const ism=typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name];
+    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
       <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
@@ -11327,7 +11330,15 @@ function renderCosPhase(){
   const mks=(Object.keys(KBPH.mk||{}).length?["all"]:[]).concat(["us"], COS_EU.some(m=>(KBPH.mk||{})[m])?["eu"]:[], COS_MK.map(x=>x[0]).filter(m=>(KBPH.mk||{})[m]));
   const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 · 순위로 구간 보정)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
   const US=cosUS(CT, !!cosQuarterVal());   // 추적 브랜드 합계 — 보기·주기·채널·단위 토글 넷(2026-10-24)
-  box.innerHTML=`${mkBtns}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
+  // 추적 브랜드 합계는 탭 맨 위(지역 버튼 바로 아래 · 2026-10-25 사용자 "이거는 거의 맨 위에 올려야 하는 것 아닌가") — 전엔 지도·고른 브랜드 카드 아래(스크롤 약 2,900px)였다.
+  //   지역 버튼은 이 칸도 따르므로 그 위에 둔다. 지도 쪽 채널·모아보기·비상장 버튼은 이 칸과 무관하다.
+  const allH=`    <div class="cp-all" style="margin:0 0 18px"><div class="cp-selh"><span class="cp-tag all">추적 브랜드 합계</span><span style="font-size:16px;font-weight:800">우리가 추적하는 K뷰티 브랜드 합계</span></div>
+    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBV().b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBV().tt.b).map(k=>(KBV().b[k]||{}).ko||k).join(" · "):""))}">아마존 ${MKL} <b>${Object.keys(KBB().b).length}개</b>${CT?` · 틱톡샵 미국 공식 샵 <b>${Object.keys(KBV().tt.b).length}개</b>`:""} 브랜드를 더한 값 · <b>비상장 포함</b> · 아래 지도·목록 버튼과 무관 (마우스 = 브랜드 목록)<br>
+      K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 '지난달 N개 구매' 배지(구간 아랫값)를 그달 평균 판매 순위로 구간 안에서 보정한 값 — 배지가 안 붙는 세트·묶음 상품은 빠져 실제보다 작다</div>
+    ${cosUBar(US,CT)}
+    <div class="chart-box" style="margin-top:6px"><div class="asd-h">${cosUHead(US,MKL)}</div><div id="cpU"></div></div>
+    <details class="fold" data-fold="cpQT"${foldOpen("cpQT")} style="margin-top:8px${US.v==="stk"&&US.p==="q"?"":";display:none"}"><summary>브랜드 × 분기 표 <span class="g" style="font-weight:400">(누르면 아래 카드에 그 브랜드)</span></summary><div id="cpQT" style="margin-top:6px"></div></details></div>`;
+  box.innerHTML=`${mkBtns}${allH}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
       <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
       <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
@@ -11335,12 +11346,6 @@ function renderCosPhase(){
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
     <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달)가 꼬리로 · 누르면 고정. 원 크기 = 3개월 비중 · 점선 0 = 변화 없음.</p>
     ${lists}${selH}
-    <div class="cp-all"><div class="cp-selh"><span class="cp-tag all">추적 브랜드 합계</span><span style="font-size:16px;font-weight:800">우리가 추적하는 K뷰티 브랜드 합계</span></div>
-    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBV().b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBV().tt.b).map(k=>(KBV().b[k]||{}).ko||k).join(" · "):""))}">아마존 ${MKL} <b>${Object.keys(KBB().b).length}개</b>${CT?` · 틱톡샵 미국 공식 샵 <b>${Object.keys(KBV().tt.b).length}개</b>`:""} 브랜드를 더한 값 · <b>비상장 포함</b> · 위 버튼과 무관 (마우스 = 브랜드 목록)<br>
-      K뷰티 시장 전체는 아님 — 목록 밖 브랜드(메디힐·티르티르 등)는 빠진다 · 아마존은 '지난달 N개 구매' 배지(구간 아랫값)를 그달 평균 판매 순위로 구간 안에서 보정한 값 — 배지가 안 붙는 세트·묶음 상품은 빠져 실제보다 작다</div>
-    ${cosUBar(US,CT)}
-    <div class="chart-box" style="margin-top:6px"><div class="asd-h">${cosUHead(US,MKL)}</div><div id="cpU"></div></div>
-    <details class="fold" data-fold="cpQT"${foldOpen("cpQT")} style="margin-top:8px${US.v==="stk"&&US.p==="q"?"":";display:none"}"><summary>브랜드 × 분기 표 <span class="g" style="font-weight:400">(누르면 위에서 그 브랜드)</span></summary><div id="cpQT" style="margin-top:6px"></div></details></div>
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
     <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 ${MKL}${CT?" · 틱톡샵 미국":""} · 점선 = 추적 브랜드 합계 · 금색 = 고른 브랜드 · 굵은 이름 = 상장사${CT?" · 틱톡샵·합산 YoY 는 2027-04 부터":""}</span></div>
