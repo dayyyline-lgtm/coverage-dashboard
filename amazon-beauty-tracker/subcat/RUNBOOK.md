@@ -124,14 +124,14 @@ python3 amazon-beauty-tracker/subcat/push.py
 - `unknown_check.py` 는 그날 U 줄(제목에 Korean 이 있는데 사전에 없는 상품)을 `data/subcat/unknown_daily.csv` 에 쌓고, 사전 밖 브랜드가
   규모 기준(① 7개국 중 한 곳이라도 뷰티 전체 Top100 · ② 미국 세부 카테고리 SKU 3개 이상 · ③ 세부 카테고리 Top10 최근 7일 중 4일)을 넘으면
   `[새 브랜드 확인] …` 줄을 찍는다(2026-10-23 사용자 "사전에 없는 브랜드 일정 규모 이상 되면 나한테 물어봐"). 한 번 물은 브랜드는 `unknown_asked.json` 에 적혀 다시 안 묻는다.
-  사용자가 답하면: 넣기 → config.json `brands` 맨 뒤 한 줄 · 무시 → `unknown_check.py --decide "이름=무시"`.
+  처리(묻지 않는다 · 2026-10-27 사용자 "너가 찾아보고 비한국 비상장이면 무시"): 웹으로 운영사를 찾아 → 한국 회사 아님·상장 아님 = `--decide "이름=무시(사유)"` · 한국 브랜드(비상장 포함) = config.json `brands` 맨 뒤 한 줄(상태 N · 운영사 이름) + `--decide "이름=추가(사유)"` · 상장사·상장 준비 소속 = 같은 식으로 넣고 상태 L/P · 국적이 끝내 불명이면 무시하고 보고에 한 줄.
 - 끝나면 만든 탭을 닫는다(`tabs_close_mcp`).
 
 ## 4. 보고 (한 줄)
 
 `ingest.py` 출력의 `[AMZSUB] …` 줄 + `상장사 상위` 줄 + 상장사 새 SKU(`NEW` 줄)가 있으면 그것까지 + `lists.py` 의 `[AMZL]` 7줄을
 '7개국 ok 7 · 한국 자리 미15 영12 …' 처럼 한 줄로. 실패면 어디서 멈췄는지.
-`unknown_check.py` 가 `[새 브랜드 확인]` 줄을 냈으면 먼저 웹으로 운영사를 찾아본다 — **한국 상장사(또는 상장 준비)가 아니면 묻지 않고 `--decide "이름=무시(사유)"`**(2026-10-23 사용자 "비한국 비상장이면 무시"). 한국 상장사·상장 준비로 확인된 것만 보고에 붙여 사전에 넣을지 묻고 휴대폰 알림(PushNotification).
+`unknown_check.py` 가 `[새 브랜드 확인]` 줄을 냈으면 위 처리대로 직접 정리하고(묻지 않는다) 보고에 한 줄만 — 예: "새 브랜드 3: 무시 2(미국·중국) · 사전 추가 1(○○ · 한국 비상장)". 상장사 소속을 새로 넣었으면 그 줄은 꼭 적는다.
 
 ## 사람이 고칠 것
 
@@ -155,5 +155,5 @@ python3 amazon-beauty-tracker/subcat/push.py
 2) 윈도우 크롬 기다리기: mcp__claude-in-chrome__list_connected_browsers 에 osPlatform 이 Windows 인 브라우저가 없으면 Bash 로 sleep 240 하고 다시 본다 — 처음 본 때부터 최대 90분(10/10 실측: PC 는 05:15 에 깨는데 크롬 확장은 05:53 에 붙었다). 보이면 select_browser 로 그 브라우저를 고르고 RUNBOOK 순서대로: 미국 세부 카테고리 수집 → 덤프 옮기기 → ingest.py --check → ingest.py → 1-b(같은 탭에서 미국 → 영·독·프·이·스·일 lists.js · 덤프는 get_page_text 로 · block 인 나라는 끝에 한 번만 다시) → lists.py --check → lists.py → unknown_check.py(그날 덤프들) → push.py(한 번에). 아마존 /dp/ 는 열지 않고, 세부 카테고리가 BLOCKED 면 다시 돌리지 않는다. 배포 여부는 push.py 가 정한다. 사용자가 열어 둔 탭은 건드리지 않고, 만든 탭은 닫는다.
 3) 90분 안에 안 보이면 수집하지 말고 멈추고, 같은 날 13:20 KST 에 이 메시지와 같은 내용으로 send_later 를 하나 건다(이름 '아마존 세부 카테고리 아침 수집 (MM/DD 13:20)' · 이미 있으면 안 건다 · 지금이 13:20 회차면 더 걸지 않는다).
 3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 · 일요일 주 1회)을 조건대로.
-4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄 · unknown_check.py 가 [새 브랜드 확인] 줄을 내면 운영사를 웹으로 찾아보고, 한국 상장사·상장 준비가 아니면 묻지 말고 --decide 로 무시를 적는다 — 한국 상장사로 확인된 것만 붙여 사전에 넣을지 묻는다(PushNotification 도). 실패면 어디서 왜 멈췄는지.
+4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄 · unknown_check.py 가 [새 브랜드 확인] 줄을 내면 운영사를 웹으로 찾아 묻지 말고 정리한다 — 비한국·비상장 = --decide 무시 · 한국 브랜드 = config.json brands 맨 뒤에 넣고 --decide 추가(RUNBOOK 3단계 아래 처리 규칙) · 보고엔 한 줄(무시 n · 추가 n · 상장사 소속이면 이름). 실패면 어디서 왜 멈췄는지.
 ```

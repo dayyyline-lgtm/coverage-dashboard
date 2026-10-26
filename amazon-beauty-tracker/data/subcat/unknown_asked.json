@@ -6,7 +6,7 @@
    "뷰티 전체 Top100(FR)",
    "세부 카테고리 SKU 5개"
   ],
-  "decision": "무시(해외 소유)"
+  "decision": "무시(록시땅 소유·프랑스)"
  },
  "jiyu": {
   "name": "JIYU",
@@ -15,7 +15,7 @@
    "뷰티 전체 Top100(US)",
    "세부 카테고리 SKU 3개"
   ],
-  "decision": "무시(비상장)"
+  "decision": "무시(미국 아스펜 본사·비상장)"
  },
  "terez": {
   "name": "TEREZ",
@@ -23,7 +23,7 @@
   "why": [
    "세부 카테고리 SKU 3개"
   ],
-  "decision": "무시(비상장)"
+  "decision": "추가(케이피타운·한국·비상장)"
  },
  "pūrlisse": {
   "name": "pūrlisse",
@@ -31,7 +31,7 @@
   "why": [
    "세부 카테고리 SKU 3개"
   ],
-  "decision": "무시(해외 비상장)"
+  "decision": "무시(미국·비상장)"
  },
  "rael": {
   "name": "Rael",
@@ -39,7 +39,7 @@
   "why": [
    "뷰티 전체 Top100(DE)"
   ],
-  "decision": "무시(비상장)"
+  "decision": "무시(미국 LA·비상장)"
  },
  "fria": {
   "name": "Fria",
@@ -47,7 +47,7 @@
   "why": [
    "뷰티 전체 Top100(IT)"
   ],
-  "decision": "무시(비상장)"
+  "decision": "무시(이탈리아 생산)"
  },
  "obge": {
   "name": "OBgE",
@@ -55,7 +55,7 @@
   "why": [
    "뷰티 전체 Top100(JP)"
   ],
-  "decision": "무시(비상장 추정)"
+  "decision": "추가(한국 남성 브랜드·비상장)"
  },
  "nida": {
   "name": "NIDA",
@@ -63,7 +63,7 @@
   "why": [
    "뷰티 전체 Top100(US)"
   ],
-  "decision": "무시(비한국·비상장 — nida.co 미국 라스베이거스/nida.it.com 판매처, 한국 상장사 아님)"
+  "decision": "무시(미국 라스베이거스)"
  },
  "vitamasques": {
   "name": "Vitamasques",
@@ -71,7 +71,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(호주 비상장·한국 OEM)"
+  "decision": "무시(영국)"
  },
  "stacy": {
   "name": "STACY",
@@ -79,7 +79,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(미국 속눈썹 용품·비상장)"
+  "decision": "무시(미국)"
  },
  "maree": {
   "name": "MAREE",
@@ -87,7 +87,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(미국 아마존 브랜드·비상장)"
+  "decision": "무시(미국)"
  },
  "botanic": {
   "name": "Botanic",
@@ -95,7 +95,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(Botanic Hearth 미국·비상장)"
+  "decision": "무시(해외 셀러)"
  },
  "judydoll": {
   "name": "JUDYDOLL",
@@ -111,7 +111,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(영국 비상장)"
+  "decision": "무시(영국)"
  },
  "simplefield": {
   "name": "SimpleField",
@@ -119,7 +119,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(미국/중국 셀러·비상장)"
+  "decision": "무시(해외 셀러)"
  },
  "nuna": {
   "name": "NUNA",
@@ -127,7 +127,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(아마존 셀러 브랜드·한국 상장사 아님)"
+  "decision": "무시(국적 불명 셀러)"
  },
  "kitsch": {
   "name": "Kitsch",
@@ -135,7 +135,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(미국 비상장)"
+  "decision": "무시(미국)"
  },
  "beautyfactor": {
   "name": "BEAUTYFACTOR",
@@ -143,7 +143,7 @@
   "why": [
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
-  "decision": "무시(중국 셀러)"
+  "decision": "무시(국적 불명 셀러)"
  },
  "tatuo": {
   "name": "Tatuo",
