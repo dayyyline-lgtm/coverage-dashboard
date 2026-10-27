@@ -55,9 +55,13 @@ def build(path):
     for b in d["b"].values():
         if b.get("r30"):
             b["r30"] = [round(y * rk) for y in b["r30"]]
+        if b.get("rw"):   # 3달·1달 창(2026-10-27 · 기준점 14일 간격 7개 × 0·30·60·90·120·150·365·395·425일 전 배지 아랫값 합) — r30 과 같은 배수
+            b["rw"] = [[round(y * rk) for y in a] for a in b["rw"]]
     out = {"asOf": d["asOf"], "src": d["src"], "months": d["months"], "partial": d.get("partial"), "b": d["b"]}
     if d.get("r30t"):
         out["r30t"] = d["r30t"]
+    if d.get("rws") and any(b.get("rw") for b in d["b"].values()):
+        out["rw"] = {"t": d.get("r30t") or d["asOf"], "s": d["rws"]}   # 기준점 0 = 수집일 · s = 기준점 간격(일)
     tt = build_tt(set(d["b"]))
     if tt:
         out["tt"] = tt
@@ -116,6 +120,11 @@ def build_mk(d):
             cur["b"][p[0]] = {"u": u, "v": v, "n": int(p[1])}
             if len(p) > 4 and p[4]:   # 최근 30일 창(2026-10-24 · 오늘·30일 전·365일 전·395일 전 배지 아랫값 합)
                 cur["b"][p[0]]["r30"] = [int(x, 36) for x in p[4].split(",")]
+            if len(p) > 5 and p[5]:   # 3달·1달 창(2026-10-27 · 기준점 7개 × 9칸 = 63개 · 미국판 rw 와 같은 모양)
+                w = [int(x, 36) for x in p[5].split(",")]
+                if len(w) != 63:
+                    raise SystemExit(f"유럽 {p[0]} rw 길이 {len(w)} ≠ 63")
+                cur["b"][p[0]]["rw"] = [w[i * 9:(i + 1) * 9] for i in range(7)]
     # 덤프의 v 는 Keepa 가격(최소 단위)을 100 으로 나눈 값 — 엔화는 최소 단위가 1엔이라 다시 100 을 곱한다
     for m, c in out.items():
         if c["cur"] == "JPY":
@@ -139,6 +148,8 @@ def build_mk(d):
         for x in c["b"].values():
             if x.get("r30"):
                 x["r30"] = [round(y * k) for y in x["r30"]]
+            if x.get("rw"):
+                x["rw"] = [[round(y * k) for y in a] for a in x["rw"]]
     for m, c in out.items():
         miss = [k for k in c["b"] if k not in d["b"]]
         if miss:
@@ -156,6 +167,7 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "biodance": "biodance", "equalberry": "eqqualberry",
           "clio": "clio",
           "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
+RW_N = 7              # 3달·1달 창의 기준점 수(14일 간격 · 최근 12주) — phase_keepa.js 의 RWN 과 같게
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
 
@@ -232,10 +244,12 @@ def build_tt(keys):
                 fixed.append(i)
         wu, wv = [0] * nw, [0] * nw
         mu, mv = [0] * len(months), [0] * len(months)
+        fill = 0                                                    # 관측 전 날(4/1~첫날 전) 하루 채움값 — 3달 창도 같은 값을 쓴다
         if gap > 0 and ds and (ds[0] - start).days <= 3:            # 하루 이틀 늦게 받은 샵(ZEROID 10/22)도 같은 규칙으로 — 빠진 날수는 샵 자기 첫날 기준
             n14 = min(14, len(U))
             gs = (ds[0] - m0).days
-            mu0, mv0 = sum(U[:n14]) / n14 * gs, sum(V[:n14]) / n14 * gs
+            fill = sum(U[:n14]) / n14
+            mu0, mv0 = fill * gs, sum(V[:n14]) / n14 * gs
         else:
             mu0 = mv0 = 0
         for t, u, v in zip(ds, U, V):
@@ -263,9 +277,23 @@ def build_tt(keys):
         c30 = sum(u for t, u in zip(ds, U) if end - dt.timedelta(days=29) <= t <= end)
         p30 = sum(u for t, u in zip(ds, U) if end - dt.timedelta(days=59) <= t <= end - dt.timedelta(days=30))
         o["r30"] = [a + c for a, c in zip(o.get("r30", [0, 0]), [c30, p30])]
+        # 3달·1달 창(2026-10-27 · 아마존 rw 와 같은 모양) — 기준점 = 끝날부터 14일 간격 7개 · 기준점마다 0·30·…·150일 전에 끝나는 30일 판매량 여섯 개
+        #   (3달 = 앞 셋 vs 뒤 셋 · 1달 = 0 vs 1). 전년 칸은 없다(4/24~). 관측 전 날은 위 채움값 — 그 날이 든 창은 블록 rw.e3·e1 에 표시.
+        daily = {t: u for t, u in zip(ds, U) if t <= end}
+        if fill:
+            for i in range((ds[0] - m0).days):
+                daily.setdefault(m0 + dt.timedelta(days=i), fill)
+        rw = [[round(sum(daily.get(end - dt.timedelta(days=14 * a + 30 * j + q), 0) for q in range(30))) for j in range(6)] for a in range(RW_N)]
+        o["rw"] = [[x + y for x, y in zip(p_, q_)] for p_, q_ in zip(o.get("rw") or [[0] * 6] * RW_N, rw)]
     weeks = [(first + dt.timedelta(days=7 * w + 6)).isoformat() for w in range(nw)]   # 주 끝날
+    # 3달·1달 창의 기준점별 쓸 수 있나 — ok3 = 180일 전까지 자료(관측 전 채움 포함)가 있다 · ok1 = 60일 · e3·e1 = 그 창에 채움값이 든다
+    floor = m0 if gap > 0 else start
+    anc = [end - dt.timedelta(days=14 * a) for a in range(RW_N)]
+    rwm = {"t": end.isoformat(), "s": 14,
+           "ok3": [int(a - dt.timedelta(days=179) >= floor) for a in anc], "ok1": [int(a - dt.timedelta(days=59) >= floor) for a in anc],
+           "e3": [int(gap > 0 and a - dt.timedelta(days=179) < start) for a in anc], "e1": [int(gap > 0 and a - dt.timedelta(days=59) < start) for a in anc]}
     r30 = [(end - dt.timedelta(days=29)).isoformat(), end.isoformat(), (end - dt.timedelta(days=59)).isoformat(), (end - dt.timedelta(days=30)).isoformat()]
-    return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
+    return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "rw": rwm, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
             "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)),
             "src": f"FastMoss 틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · 덤프 {len(files)}개 이어 붙임)", "b": b}
 

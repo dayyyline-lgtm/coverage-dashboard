@@ -88,14 +88,16 @@ python3 kbeauty/push.py                                              # 배포 �
 
 1. **Keepa 미국** — keepa.com 탭(도메인 미국 · `button.knav-mk[data-domain="1"]`) → `kbeauty/phase_keepa.js` 를 붙여 넣는다(맨 위 주석대로) →
    `location.hash='#!finder/'+encodeURIComponent(JSON.stringify(KBPH_QUERY))` → 표가 차면 `KBPH.run()` → `KBPH.status()` done → hash 를 `KBPH_QUERY_NB` 로 바꿔 표가 차면 `KBPH.runNB()`(세트·번들 · 2026-10-23) → done → `KBPH.dump()` → get_page_text →
-   `kbeauty/data/phase/<오늘>.json`(ko·co·sup 는 직전 파일에서 옮긴다 — 화면이 쓰는 한글 이름·상장사 · 2026-10-24 부터 덤프에 `r30t`·브랜드별 `r30`(최근 30일 창)이 같이 온다 — 그대로 둘 것).
+   `kbeauty/data/phase/<오늘>.json`(ko·co·sup 는 직전 파일에서 옮긴다 — 화면이 쓰는 한글 이름·상장사 · 2026-10-24 부터 덤프에 `r30t`·브랜드별 `r30`(최근 30일 창)이, 2026-10-27 부터 `rws`·브랜드별 `rw`(3달·1달 창 재료 · 기준점 7 × 9칸)가 같이 온다 — 그대로 둘 것).
+   덤프 옮기기: 이 PC 미리보기 서버(`.claude/devserver.py` 8766)가 떠 있으면 keepa.com 탭에서 폼 POST(`http://127.0.0.1:8766/recv`, 필드 name·d) → `.claude/recv/<name>.txt` 로 그대로 받는다(옮겨 적기 없음 · 길이·검산값 확인).
 2. **유럽 5개국 · 일본 · 캐나다** — 같은 탭에서 `kbeauty/phase_keepa_eu.js`(맨 위 주석대로 · 나라 버튼 2·3·4·8·9 → `<오늘>.txt` · 일본 5·캐나다 6 → `<오늘>-jpca.txt`, 일본은 가타카나 표기 쿼리).
    시간이 모자라면 미국만 올리고 나머지는 지난 회차 값이 남는다(`phase.py` 는 eu 폴더의 마지막 날짜 파일을 쓴다 — 그날 `.txt`·`-jpca.txt` 둘 다 있어야 일곱 나라가 다 산다).
    일본 브랜드 목록(Product Finder 정확히 일치 · 자동완성으로 찾은 표기 · 2026-10-22): `アトパーム(atopalm)` `センテリアン24` `クリオ(clio)` `コースアールエックス(cosrx)`
    `イニスフリー(innisfree)` `ラネージュ(laneige)` `ミシャ(missha)` `雪花秀 ソルファス(sulwhasoo)` + 라틴 abib · anua · axis-y · beauty of joseon · biodance · celimax · centellian 24 · clio ·
    clio professional · d'alba piedmont · d'alba · dr.althea · goodal · haruharu · innisfree · isntree · laneige · ma:nyo · medi-peel · medicube · mixsoon · numbuzin · peripera · real barrier ·
    rejuran · rom&nd · round lab · skin1004 · some by mi · sulwhasoo · tonymoly · torriden · vt cosmetics · zeroid. ⚠ `belif`(일본엔 'belif believe in truth'만)·`dalba`·`クリオ` 단독은 넣지 말 것.
-   덤프가 5만 자를 넘으면 get_page_text 가 잘린다 — 유럽 다섯 나라 · 일본+캐나다 두 번으로 나눠 띄운다.
+   덤프가 5만 자를 넘으면 get_page_text 가 잘린다 — 유럽 다섯 나라 · 일본+캐나다 두 번으로 나눠 띄운다(2026-10-27 부터 브랜드 줄 여섯째 칸 rw 63개가 붙어 나라당 약 1.7배 — 나라 두셋씩 나누거나 위 폼 POST 로).
+   나라 바꾸기는 새로 고침이 필요 없다(2026-10-27) — 나라 버튼을 누르고 `location.hash='#!finder'` → 다시 쿼리 해시를 넣으면 표가 그 나라로 다시 차고 수집기(KBPH)가 살아 있다 → `KBPH.rows={}; KBPH.done=false; KBPH.run()`.
 3. **FastMoss 미국 공식 샵** — 로그인돼 있을 때만(1-c-2 의 '로그인 여부'). `python3 kbeauty/phase.py --shops` 가 돌 샵(30곳)과 grab 호출을 찍는다.
    `__FMX.reset()` → 샵마다 상세 navigate → 4초 → 불러오기 → grab(5~10초 간격) → `plan()`·`dump(a,b)` → get_page_text → `kbeauty/data/phase/fm/<오늘>.txt`(줄마다 CRC · END 확인).
    ⚠ 캡차가 뜨면 풀지 말고 멈춘다 — 받은 데까지만. 로그인 안 돼 있으면 건너뛴다(틱톡샵 칸은 지난 덤프 값으로 남는다).

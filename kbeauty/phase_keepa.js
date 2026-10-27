@@ -113,8 +113,13 @@ window.KBPH=window.KBPH||{};
     const atK=(h,t)=>{ let v=0; for(let i=0;i<h.length;i+=2){ if(KM(h[i])>t) break; v=Math.max(h[i+1],0); } return v; };
     const R30=[0,30,365,395].map(d=>now-d*86400000), RB={};
     rows.forEach(r=>{ const o=RB[r.b]=RB[r.b]||[0,0,0,0]; R30.forEach((t,i)=>{ o[i]+=atK(r.msh,t); }); });
-    const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],fit:K.fit||null,r30t:new Date(now).toISOString().slice(0,10),b:{}};
-    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,uf:o.uf,...(o.ub.some(x=>x>0)?{ub:o.ub}:{}),v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null,r30:RB[k]||[0,0,0,0]}; }
+    // 3달·1달 창(2026-10-27 · 사용자 "국면 탭은 QoQ 가 아니라 3달이랑 1달로 — 주마다 데이터 쌓아서") — 기준점 = 지금부터 14일 간격 7개(최근 12주 · 지도 꼬리),
+    //   기준점마다 [0·30·60·90·120·150·365·395·425일 전] 배지 아랫값 합. 3달 = 0+30+60일 전(최근 90일) vs 90+120+150(직전 90일) · 작년 같은 90일 = 365+395+425 ·
+    //   1달 = 0 vs 30 · 작년 365. 배지 = 그 시점까지 30일 합이라 30일 간격 세 개를 더하면 90일이 빈틈없이 덮인다. 달력과 무관해 매주 수집할 때마다 창이 일주일씩 밀린다.
+    const RWO=[0,30,60,90,120,150,365,395,425], RWN=7, RWS=14, RW={};
+    rows.forEach(r=>{ const o=RW[r.b]=RW[r.b]||Array.from({length:RWN},()=>RWO.map(()=>0)); for(let a=0;a<RWN;a++) RWO.forEach((d,i)=>{ o[a][i]+=atK(r.msh,now-(a*RWS+d)*86400000); }); });
+    const out={asOf:new Date().toISOString().slice(0,10),months:ML,partial:ML[35],fit:K.fit||null,r30t:new Date(now).toISOString().slice(0,10),rws:RWS,b:{}};
+    for(const k in B){ const o=B[k]; out.b[k]={u:o.u,uf:o.uf,...(o.ub.some(x=>x>0)?{ub:o.ub}:{}),v:o.v.map(x=>Math.round(x/100)),pc:o.u[34]?Math.round(o.up[34]/o.u[34]*1000)/1000:null,n1k:o.n1k,nw:o.nw,pi:o.pw[1]?Math.round(o.pw[0]/o.pw[1]*1000)/1000:null,nsku:o.nsku,top1:o.top?{asin:o.top.asin,t:o.top.t,u:o.top.u}:null,bx:BX[k]?{s:BX[k].s,o:BX[k].o,top:BX[k].top}:null,r30:RB[k]||[0,0,0,0],rw:RW[k]||null}; }
     let el=document.getElementById('__dump'); if(!el){ el=document.createElement('article'); el.id='__dump'; el.style.cssText='position:fixed;top:0;left:0;width:10px;height:10px;overflow:hidden;opacity:0.01;z-index:-1'; document.body.appendChild(el); }
     el.textContent='DUMPSTART'+JSON.stringify(out)+'DUMPEND'; return el.textContent.length; };
 })(window.KBPH);
