@@ -152,5 +152,21 @@
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
   "decision": "무시(중국 셀러)"
+ },
+ "spalife": {
+  "name": "SpaLife",
+  "asked": "2026-10-28",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(해외 셀러 · 한국 회사 아님 추정)"
+ },
+ "plantifique": {
+  "name": "PLANTIFIQUE",
+  "asked": "2026-10-28",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ],
+  "decision": "무시(창업자 Cristina Gonta · 비한국 비상장)"
  }
 }
