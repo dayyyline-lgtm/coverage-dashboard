@@ -83,6 +83,8 @@ python3 kbeauty/push.py                                              # 배포 �
 
 ## 1-d. 국면 지도 주간 회차 (KBPH · 일요일 · 2026-10-22 · 10-24 월→일)
 
+> 2026-10-27 부터 이 회차는 **이 PC 예약 작업**이 한다 — 아래 1-e. 클라우드 아침 사슬은 국면을 건너뛴다. 이 절은 수집 단계의 원본으로 남긴다.
+
 사용자: "주간으로 업데이트 + 텔레 브리핑". 차례 판정 = `python3 kbeauty/phase_brief.py --due`(이번 주 일요일 KST 뒤 `data/phase/<날짜>.json` 이 없으면 0).
 매일 받지 않는 이유: Keepa 판매량이 '지난 30일 구매' 배지라 한 달 단위이고 판정(3개월·1개월)은 완결 달이 늘 때만 바뀐다 · FastMoss 는 180일을 한 번에 준다.
 
@@ -103,6 +105,38 @@ python3 kbeauty/push.py                                              # 배포 �
    ⚠ 캡차가 뜨면 풀지 말고 멈춘다 — 받은 데까지만. 로그인 안 돼 있으면 건너뛴다(틱톡샵 칸은 지난 덤프 값으로 남는다).
 4. `python3 kbeauty/phase.py` → `[KBPH] 갱신 …` 확인 → `python3 kbeauty/phase_brief.py`(미리보기 — 숫자가 이상하면 올리지 말고 멈춘다) → `python3 kbeauty/push.py --phase`.
 5. 올라가면 `phase_brief.yml` 이 텔레그램을 보낸다. 같은 asOf 는 한 번만(`data/phase/brief_state.json` — 지난번 칸과 견줘 '칸 바뀜'을 낸다 · 지우지 말 것).
+
+## 1-e. 국면 주간 회차를 이 PC 예약 작업으로 (2026-10-27~ · 1-d 를 대신한다)
+
+사용자: "일요일 국면 수집을 이 PC 예약 작업으로 옮겨 줘 — 오늘처럼 로컬로 덤프 받는 방식으로". 클라우드 아침 사슬(05:30)은 10/26·10/27 아침
+덤프를 파일로 옮겨 적다가 안전 필터 오탐으로 세션이 멈췄다(수집은 끝났는데 못 올림). 국면 덤프는 더 크다(미국 6.5만 자 · 유럽·일본·캐나다 11만 자).
+그래서 **이 PC 의 Claude 데스크톱 앱 예약 작업 `kbph-weekly`(일·월·화 06:50 · 차례는 `--due` 가 가린다)** 가 하고, 덤프는 옮겨 적지 않고 받기 서버로 받는다.
+
+- 앱이 켜져 있어야 돈다(꺼져 있으면 다음에 켤 때). 06:50 = PC 트래커 재시도 작업(06:45)이 PC 를 깨운 직후 · 클라우드 사슬(05:30)·K뷰티 채널 Keepa(06:30 전 시작)와 크롬이 겹치지 않게.
+- 작업 폴더 `C:\Users\user\Desktop\asd` · 파이썬은 `python`(이 PC 엔 python3 가 없다).
+
+1. **멈출 조건부터** — `git status --porcelain` 에 `.claude/` 밖 변경이 있으면 아무것도 하지 않고 보고한다(사람이 작업 중일 수 있다 · push.py 가 index.html 을 통째로 커밋한다).
+   깨끗하면 `git pull -q --ff-only` → `python kbeauty/phase_brief.py --due` 가 1 이면 '이번 주 이미 받음' 한 줄로 끝.
+2. **받기 서버** — `http://127.0.0.1:8766/` 이 200 이 아니면 띄운다: 미리보기 도구가 있으면 `preview_start {name:"nocache"}`, 없으면 Bash 백그라운드 `python .claude/devserver.py 8766`.
+   서버는 `public/` 을 보여 주고 `POST /recv`(필드 name·d)를 `.claude/recv/<name>.txt` 에 쓴다(127.0.0.1 만 · `.claude/` 는 커밋 안 됨).
+3. **크롬** — Claude in Chrome 도구를 ToolSearch 한 번으로 → `list_connected_browsers` 에서 Windows(이 PC · isLocal 이면 그것)를 `select_browser`. 없으면 4분마다 다시, 최대 40분.
+   새 탭에서 keepa.com 을 연다(사용자 탭은 건드리지 않는다). 오른쪽 위 마켓이 미국(.com)인지 · **데이터 한도(Quota)는 새 탭에서 본다**(열어 둔 탭 표시는 안 바뀐다) — 40% 밑이면 미국만.
+4. **보내기 함수** — 덤프를 띄운 탭에서 javascript_tool 로:
+   ```js
+   window.__send=(name,t)=>{let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))%1000000007;const f=document.createElement('form');f.method='POST';f.action='http://127.0.0.1:8766/recv';const a=document.createElement('textarea');a.name='d';a.value=t;const b=document.createElement('input');b.name='name';b.value=name;f.append(a,b);document.body.appendChild(f);setTimeout(()=>f.submit(),300);return 'len '+t.length+' h '+h;};
+   ```
+   보내면 탭이 받기 서버 화면('saved …')으로 넘어간다 — 다음 단계는 그 탭에서 keepa.com 으로 다시 navigate(수집기는 다시 붙여 넣는다 · sessionStorage 는 남는다).
+   받은 뒤 `python kbeauty/phase_recv.py hash .claude/recv/<name>.txt` 의 len·h 가 페이지가 돌려준 값과 같아야 한다(다르면 다시 보낸다).
+5. **미국** — 1-d 의 1번(`phase_keepa.js` 붙여 넣기 → run → runNB → `KBPH.dump()`) → `__send('kbph_us_'+오늘, document.getElementById('__dump').textContent)` →
+   `python kbeauty/phase_recv.py us .claude/recv/kbph_us_<오늘>.txt --sku <runNB 전 KBPH.status() 의 n>`(ko·co·sup·src 를 직전 파일에서 옮겨 `data/phase/<asOf>.json`).
+6. **유럽 5개국 · 일본 · 캐나다** — 1-d 의 2번. 나라마다 `KBPH.save(m)` 으로 sessionStorage `kbeu_<m>` 에 모은 뒤 한 번에:
+   `__send('kbph_eu_'+오늘, ['uk','de','fr','it','es'].map(m=>sessionStorage.getItem('kbeu_'+m)).join('\n')+'\n@@JPCA@@\n'+['jp','ca'].map(m=>sessionStorage.getItem('kbeu_'+m)).join('\n'))`
+   (빠진 나라가 있으면 보내지 않는다 — 지난 회차 값이 남는다) → `python kbeauty/phase_recv.py eu .claude/recv/kbph_eu_<오늘>.txt`.
+7. **FastMoss** — 1-d 의 3번(로그인돼 있을 때만 · 캡차면 멈춤). `dump` 로 띄운 뒤 `__send('kbph_fm_'+오늘, document.getElementById('fmxdump').textContent)` →
+   `python kbeauty/phase_recv.py fm .claude/recv/kbph_fm_<오늘>.txt`. fastmoss.com 이 폼 전송을 막으면(받은 파일이 안 생기면) 예전처럼 get_page_text 로 옮긴다.
+8. `python kbeauty/phase.py` → `python kbeauty/phase_brief.py`(미리보기 — 숫자가 이상하면 올리지 말고 멈춘다) → `python kbeauty/push.py --phase` → 만든 탭을 닫는다.
+   올라가면 `phase_brief.yml` 이 텔레그램 '💄 K뷰티 국면 주간'을 보낸다(사용자가 정한 주간 브리핑 · 같은 asOf 는 한 번만).
+9. 보고(2~3줄): `[KBPH]` 줄 · 받은 나라 · FastMoss 받았나 · push.py 의 배포 줄 · 멈췄으면 어디서 왜.
 
 ## 사람이 고칠 것
 
