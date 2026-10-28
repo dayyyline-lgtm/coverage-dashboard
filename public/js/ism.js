@@ -451,7 +451,9 @@ function renderIsm(name, host){
         :s.drv==="seas"?"직전 분기 × 계절":"전년 동기 × 성장률 · 직전 분기 × 계절 평균";
       const sch=/kpop/.test(String(s.src))?" · 일정 없는 분기는 기저만":"", w=s.pxw!=null&&(s.drv==="px"||s.drv==="pxa")?` · 지표 ${fmt(s.pxw*100,0)}%만 반영`:"";
       const ic=p.inc?` · 이익 = 전년 동기 + 매출 증분 × ${fmt(p.inc.d*100,0)}% ${p.inc.c>=0?"+":"−"} ${fmt(Math.abs(p.inc.c),1)}(상수항은 2026 까지)`:"";
-      return `<b${s.note?` title="${attr(s.note)}" style="text-decoration:underline dotted;cursor:help"`:""}>${attr(s.t)}</b> ${how}${w}${sch}${ic}`; }).join("<br>")}
+      const gqs=s.gq?Object.keys(s.gq).map(q=>`${c2QLab(q)} = 전년 동기 ${s.gq[q]>=0?"+":""}${fmt(s.gq[q]*100,0)}%(리포트·IR 근거)`).join(" · "):"";
+      const gqh=gqs?` · <span${s.gqNote?` title="${attr(s.gqNote)}" style="text-decoration:underline dotted;cursor:help"`:""}>${gqs}</span>`:"";
+      return `<b${s.note?` title="${attr(s.note)}" style="text-decoration:underline dotted;cursor:help"`:""}>${attr(s.t)}</b> ${how}${w}${sch}${ic}${gqh}`; }).join("<br>")}
       <br><b${S.note?` title="${attr(S.note)}" style="text-decoration:underline dotted;cursor:help"`:""}>영업이익</b> ${P.lin?`매출 × ${fmt(P.lin.d*100,1)}% − 고정비 ${fmt(-P.lin.c,1)} (R² ${fmt(P.lin.r2,2)})`
         :segs.length&&segs.every(s=>P.segs[s.k].m!=null)?"부문 이익률 × 매출의 합":`매출 × ${fmt(P.opm*100,1)}%${P.seas.some(v=>v)?" ± 계절":""}`}
       ${Object.keys(S.oneoff||{}).length?`<br>* 영업이익에 일회성 포함(${Object.entries(S.oneoff).map(([q,v])=>`${c2QLab(q)} ${fmt(-v,1)}`).join(" · ")}${S.oneoffNote?` ${S.oneoffNote}`:""}) — 이익률은 빼고 계산`:""}</div>`
