@@ -13101,11 +13101,11 @@ const RETAIL_ITEMS={   // [표시 이름, 실액 품목 키(합) | "L", 붙임 Y
   S:[["합계","L",7],["식품 계",["농수축산","신선조리","가공식품"],6],["농수축산",["농수축산"],3],["신선·조리",["신선조리"],4],["가공식품",["가공식품"],5],
      ["비식품 계",["일상용품","생활잡화"],2],["일상용품",["일상용품"],0],["생활잡화",["생활잡화"],1]]};
 const RETAIL_SUBT=/ 계$/;   // 소계 줄 — 표에서 굵게
-const RETAIL_LV={   // 위 겹친 실액 선: [이름, 품목 키 목록(합) | "L"] — 품목 하나하나는 아래 세부 품목 칸
-  B:[["합계","L"],["명품",["명품"]],["의류4+잡화",["잡화","여성정장","여성캐주얼","남성의류","아동스포츠"]],["식품",["식품"]]],
-  M:[["합계","L"],["식품",["식품"]],["비식품",["가전문화","의류","가정생활","스포츠","잡화","기타"]]],
-  C:[["합계","L"],["음료 등 가공",["가공식품"]],["담배 등",["담배등"]],["즉석·신선",["즉석신선"]]],
-  S:[["합계","L"],["농수축산",["농수축산"]],["가공식품",["가공식품"]],["신선·조리",["신선조리"]]]};
+const RETAIL_LV={   // 위 겹친 선: [이름, 품목 키 목록(합) | "L", 붙임 YoY 열(없으면 실액에서 환산)] — 품목 하나하나는 아래 세부 품목 칸
+  B:[["합계","L",9],["명품",["명품"],6],["의류4+잡화",["잡화","여성정장","여성캐주얼","남성의류","아동스포츠"],null],["식품",["식품"],8]],
+  M:[["합계","L",8],["식품",["식품"],7],["비식품",["가전문화","의류","가정생활","스포츠","잡화","기타"],6]],
+  C:[["합계","L",7],["음료 등 가공",["가공식품"],4],["담배 등",["담배등"],2],["즉석·신선",["즉석신선"],5]],
+  S:[["합계","L",7],["농수축산",["농수축산"],3],["가공식품",["가공식품"],5],["신선·조리",["신선조리"],4]]};
 const RETAIL_KPI={B:["구매건수","구매단가","점포당 매출"],M:["구매건수","구매단가","점포당 매출"],C:["구매건수","구매단가","점포 증가율","점포당 매출"],S:["구매건수","구매단가","점포당 매출"]};
 let retailCh={}, retailMode=(()=>{ try{ return localStorage.getItem("rtMode")==="yoy"?"yoy":"lv"; }catch(e){ return "lv"; } })();
 function retailCell(v, cur, yr){   // 숫자만 색(상승 빨강 · 하락 파랑) · 배경은 최신 열만 · 1월 앞에 연도 구분선
@@ -13133,7 +13133,8 @@ function renderRetail(name, host){
     ${segBtns}
     <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">전년동월비 %</th>${Y.map((m,i)=>`<th class="ye" style="${yb(i)?"border-left:1.5px solid var(--line);":""}${i===nY-1?"background:color-mix(in srgb, var(--accent) 10%, transparent)":""}">'${m.ym}<div class="g" style="font-size:10px;font-weight:400;min-height:12px">${m.ev?attr(m.ev):""}</div></th>`).join("")}</tr></thead>
       <tbody>${yoyRows}${kpiRows}</tbody></table></div>
-    <div class="sub-h" style="margin-top:10px">${RETAIL_CH[ch]} 실액 <span class="th-sub" style="display:inline">조원 · 월 · 점 = 고점</span></div>
+    <div class="sub-h" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${RETAIL_CH[ch]} ${retailMode==="yoy"?"전년동월비":"실액"} <span class="th-sub" style="display:inline">${retailMode==="yoy"?"% · 월 · 점선 = 실액에서 환산":"조원 · 월 · 점 = 고점"}</span>
+      <span class="seg" style="margin-left:auto">${[["lv","실액"],["yoy","전년비"]].map(([k,t])=>`<button data-rtmode="${k}" class="${retailMode===k?"active":""}">${t}</button>`).join("")}</span></div>
     <div id="rtLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div>
     <div id="rtChart"></div>
     <div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">세부 품목 · ${RETAIL_CH[ch]} <span class="th-sub" style="display:inline">${retailMode==="yoy"?"전년동월비 % · 칸마다 자기 축 · 점선 = 실액에서 환산('25.05 까지)":"조원 · 칸마다 자기 축 · 점 = 고점"}</span>
@@ -13142,22 +13143,36 @@ function renderRetail(name, host){
     <p class="note">실액은 조사표본 기준 추정 — '26.08 부터는 붙임에 점포당 매출 절대값이 없어 전년 같은 달 × (1+공식 YoY), 품목은 원문 비중으로 나눴다(품목 YoY 가 공식치와 0~2%p 다를 수 있음). 원자료·전 업태: <a href="${attr(RETAIL.tracker||"#")}" target="_blank" rel="noopener">유통업체 매출 트래커</a> · 갱신 ${attr(RETAIL.asOf||"")}</p>`;
   host.querySelectorAll("[data-rtch]").forEach(b=>b.onclick=()=>{ retailCh[name]=b.dataset.rtch; renderRetail(name, host); });
   host.querySelectorAll("[data-rtmode]").forEach(b=>b.onclick=()=>{ retailMode=b.dataset.rtmode; try{ localStorage.setItem("rtMode",retailMode); }catch(e){} renderRetail(name, host); });
-  const S=RETAIL_LV[ch].map(([n,ks],i)=>({n,c:PALR[i],v:M.map(m=>ks==="L"?m.L[ch]:ks.reduce((a,k)=>a+((m.I[ch]||{})[k]||0),0))}));
+  const yoyM=retailMode==="yoy", i0=yoyM?12:0, MM=M.slice(i0);
+  const S=RETAIL_LV[ch].map(([n,ks,col],i)=>{ const lv=M.map(m=>ks==="L"?m.L[ch]:ks.reduce((a,k)=>a+((m.I[ch]||{})[k]||0),0));
+    const off=M.map(m=>col!=null&&m.yoy&&m.yoy[ch]&&m.yoy[ch][col]!=null?m.yoy[ch][col]:null);
+    const yv=lv.map((v,j)=>off[j]!=null?off[j]:(j>=12&&lv[j-12]>0?(v/lv[j-12]-1)*100:null));
+    return {n,c:PALR[i],lv:lv.slice(i0),yv:yv.slice(i0),est:off.slice(i0).map(v=>v==null),v:(yoyM?yv:lv).slice(i0)}; });
   host.querySelector("#rtLeg").innerHTML=S.map(s=>`<span><span style="display:inline-block;width:14px;height:3px;background:${s.c};vertical-align:3px;margin-right:5px"></span>${s.n}</span>`).join("");
-  const el=host.querySelector("#rtChart"), W=el.clientWidth||860, H=240, P={l:46,r:12,t:10,b:24}, n=M.length;
-  const all=S.flatMap(s=>s.v), mx=Math.max(...all)*1.06, mn=0;
+  const el=host.querySelector("#rtChart"), W=el.clientWidth||860, H=240, P={l:46,r:12,t:10,b:24}, n=MM.length;
+  const all=S.flatMap(s=>s.v).filter(v=>v!=null);
+  let mx=Math.max(...all), mn=yoyM?Math.min(0,...all):0;
+  const raw=(mx-mn)/5, e10=Math.pow(10,Math.floor(Math.log10(raw||1))), st=[1,2,2.5,5,10].map(k=>k*e10).find(k=>k>=raw);
+  mx=Math.ceil(mx*1.02/st)*st; mn=Math.floor(mn/st)*st;
   const sx=i=>P.l+i/Math.max(1,n-1)*(W-P.l-P.r), sy=v=>H-P.b-(v-mn)/(mx-mn)*(H-P.t-P.b);
   const cs=k=>getComputedStyle(document.documentElement).getPropertyValue(k), gc=cs("--line"), mut=cs("--muted");
-  const st=[0.25,0.5,1].find(v=>mx/v<=6)||1;
+  const dec=st>=1?0:st>=0.1?1:2;
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
-  for(let v=0; v<=mx; v+=st){ s+=`<line x1="${P.l}" y1="${sy(v)}" x2="${W-P.r}" y2="${sy(v)}" stroke="${gc}"/><text x="${P.l-6}" y="${sy(v)+3}" text-anchor="end" font-size="10" fill="${mut}">${v.toFixed(2)}</text>`; }
-  M.forEach((m,i)=>{ if(m.ym.endsWith(".01")||i===n-1) s+=`<text x="${sx(i)}" y="${H-P.b+15}" text-anchor="middle" font-size="10" fill="${mut}">'${m.ym}</text>`; });
-  S.forEach((se,j)=>{ s+=`<polyline points="${se.v.map((v,i)=>`${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.c}" stroke-width="${j?1.7:2.4}" stroke-linejoin="round"${j===3?' stroke-dasharray="5 3"':""}/>`;
-    const pk=se.v.indexOf(Math.max(...se.v)); s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(se.v[pk]).toFixed(1)}" r="3.6" fill="${se.c}"/>`; });
+  for(let v=mn; v<=mx+st/2; v+=st){ const z=yoyM&&Math.abs(v)<st/1e3; s+=`<line x1="${P.l}" y1="${sy(v)}" x2="${W-P.r}" y2="${sy(v)}" stroke="${z?mut:gc}"/><text x="${P.l-6}" y="${sy(v)+3}" text-anchor="end" font-size="10" fill="${mut}">${(+v).toFixed(dec)}${yoyM?"%":""}</text>`; }
+  MM.forEach((m,i)=>{ if(m.ym.endsWith(".01")||i===n-1) s+=`<text x="${sx(i)}" y="${H-P.b+15}" text-anchor="middle" font-size="10" fill="${mut}">'${m.ym}</text>`; });
+  const path=(v,keep)=>{ let d="", pen=false; v.forEach((x,i)=>{ if(x!=null&&keep(i)){ d+=(pen?"L":"M")+sx(i).toFixed(1)+","+sy(x).toFixed(1); pen=true; } else pen=false; }); return d; };
+  S.forEach((se,j)=>{ const w=j?1.7:2.4, dash=j===3?' stroke-dasharray="5 3"':"";
+    if(yoyM){ const lastE=se.est.lastIndexOf(true);
+      const dE=path(se.v,i=>se.est[i]||i===lastE+1), dS=path(se.v,i=>!se.est[i]);
+      if(dE) s+=`<path d="${dE}" fill="none" stroke="${se.c}" stroke-width="${w*0.8}" stroke-dasharray="2 3" opacity=".75"/>`;
+      if(dS) s+=`<path d="${dS}" fill="none" stroke="${se.c}" stroke-width="${w}" stroke-linejoin="round"${dash}/>`; }
+    else { s+=`<path d="${path(se.v,()=>true)}" fill="none" stroke="${se.c}" stroke-width="${w}" stroke-linejoin="round"${dash}/>`;
+      const pk=se.v.indexOf(Math.max(...se.v)); s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(se.v[pk]).toFixed(1)}" r="3.6" fill="${se.c}"/>`; } });
   el.innerHTML=s+"</svg>";
-  attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>"'"+M[i].ym, yLab:Yp=>invLin(sy,Yp).toFixed(2)+"조",
-    pts:i=>S.map(se=>({y:sy(se.v[i]),c:se.c})),
-    html:i=>`<div class="tt-h">'${M[i].ym}${M[i].ev?` · ${attr(M[i].ev)}`:""}</div>`+S.map(se=>`<div class="tt-r"><span class="k"><span style="background:${se.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${se.n}</span><span class="v">${se.v[i].toFixed(3)}조</span></div>`).join("")});
+  attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>"'"+MM[i].ym, yLab:Yp=>invLin(sy,Yp).toFixed(yoyM?1:2)+(yoyM?"%":"조"),
+    pts:i=>S.filter(se=>se.v[i]!=null).map(se=>({y:sy(se.v[i]),c:se.c})),
+    html:i=>`<div class="tt-h">'${MM[i].ym}${MM[i].ev?` · ${attr(MM[i].ev)}`:""}</div>`+S.map(se=>{ const y=se.yv[i];
+      return `<div class="tt-r"><span class="k"><span style="background:${se.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${se.n}</span><span class="v">${se.lv[i].toFixed(3)}조 · <span class="${y>0?"up":y<0?"down":""}">${y==null?"—":(y>0?"+":"")+y.toFixed(1)+"%"}</span></span></div>`; }).join("")});
   retailGrid(host.querySelector("#rtGrid"), ch);
 }
 /* 세부 품목 작은 차트 — 품목마다 한 칸(자기 축). 실액 = 레벨 × 원문 비중 · 전년비 = 붙임 공식치(없는 '25.01~05 는 실액에서 환산, 점선) + 전년비 보기엔 구매 지표 칸 */
