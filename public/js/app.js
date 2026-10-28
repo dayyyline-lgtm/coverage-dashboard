@@ -13091,18 +13091,23 @@ function renderAmzBrand(){
    종목 → 업태: 백화점(B) · 대형마트(M) · 편의점(C) · SSM(S). 롯데쇼핑은 마트·슈퍼, GS리테일은 GS더프레시(SSM)가 같이 있다. */
 const RETAIL_MAP={"신세계":["B"],"현대백화점":["B"],"롯데쇼핑":["B","M","S"],"BGF리테일":["C"],"GS리테일":["C","S"]};
 const RETAIL_CH={B:"백화점 3사",M:"대형마트 4사",C:"편의점 4사",S:"SSM 4사"};
-const RETAIL_YOY={   // [표시 이름, yoy 행의 열]
-  B:[["합계",9],["해외유명(명품)",6],["식품",8],["비식품 계",7],["여성캐주얼",2],["남성의류",3],["아동스포츠",4],["잡화",0],["가정용품",5]],
-  M:[["합계",8],["식품",7],["비식품 계",6],["가전/문화",0],["의류",1],["가정/생활",2],["스포츠",3]],
-  C:[["합계",7],["음료 등 가공",4],["즉석·신선",5],["담배 등",2],["생활용품",0]],
-  S:[["합계",7],["농수축산",3],["신선·조리",4],["가공식품",5],["비식품 계",2]]};
-const RETAIL_LV={   // 실액 선: [이름, 품목 키 목록(합) | "L"]
+const RETAIL_ITEMS={   // [표시 이름, 실액 품목 키(합) | "L", 붙임 YoY 행의 열] — 첫 줄 = 업태 합계 · 표·세부 그래프가 같이 쓴다
+  B:[["합계","L",9],["비식품 계",["잡화","여성정장","여성캐주얼","남성의류","아동스포츠","가정용품","명품"],7],["해외유명(명품)",["명품"],6],["식품",["식품"],8],
+     ["여성정장",["여성정장"],1],["여성캐주얼",["여성캐주얼"],2],["남성의류",["남성의류"],3],["아동스포츠",["아동스포츠"],4],["잡화",["잡화"],0],["가정용품",["가정용품"],5]],
+  M:[["합계","L",8],["식품",["식품"],7],["비식품 계",["가전문화","의류","가정생활","스포츠","잡화","기타"],6],["가전/문화",["가전문화"],0],["의류",["의류"],1],
+     ["가정/생활",["가정생활"],2],["스포츠",["스포츠"],3],["잡화",["잡화"],4],["기타",["기타"],5]],
+  C:[["합계","L",7],["식품 계",["가공식품","즉석신선"],6],["음료 등 가공",["가공식품"],4],["즉석·신선",["즉석신선"],5],["비식품 계",["생활용품","잡화","담배등"],3],
+     ["담배 등",["담배등"],2],["생활용품",["생활용품"],0],["잡화",["잡화"],1]],
+  S:[["합계","L",7],["식품 계",["농수축산","신선조리","가공식품"],6],["농수축산",["농수축산"],3],["신선·조리",["신선조리"],4],["가공식품",["가공식품"],5],
+     ["비식품 계",["일상용품","생활잡화"],2],["일상용품",["일상용품"],0],["생활잡화",["생활잡화"],1]]};
+const RETAIL_SUBT=/ 계$/;   // 소계 줄 — 표에서 굵게
+const RETAIL_LV={   // 위 겹친 실액 선: [이름, 품목 키 목록(합) | "L"] — 품목 하나하나는 아래 세부 품목 칸
   B:[["합계","L"],["명품",["명품"]],["의류4+잡화",["잡화","여성정장","여성캐주얼","남성의류","아동스포츠"]],["식품",["식품"]]],
   M:[["합계","L"],["식품",["식품"]],["비식품",["가전문화","의류","가정생활","스포츠","잡화","기타"]]],
   C:[["합계","L"],["음료 등 가공",["가공식품"]],["담배 등",["담배등"]],["즉석·신선",["즉석신선"]]],
   S:[["합계","L"],["농수축산",["농수축산"]],["가공식품",["가공식품"]],["신선·조리",["신선조리"]]]};
 const RETAIL_KPI={B:["구매건수","구매단가","점포당 매출"],M:["구매건수","구매단가","점포당 매출"],C:["구매건수","구매단가","점포 증가율","점포당 매출"],S:["구매건수","구매단가","점포당 매출"]};
-let retailCh={};
+let retailCh={}, retailMode=(()=>{ try{ return localStorage.getItem("rtMode")==="yoy"?"yoy":"lv"; }catch(e){ return "lv"; } })();
 function retailCell(v, cur, yr){   // 숫자만 색(상승 빨강 · 하락 파랑) · 배경은 최신 열만 · 1월 앞에 연도 구분선
   const st=(cur?"background:color-mix(in srgb, var(--accent) 10%, transparent);font-weight:700;":"")+(yr?"border-left:1.5px solid var(--line2, var(--line));":"");
   if(v==null) return `<td class="g" style="${st}">—</td>`;
@@ -13115,12 +13120,14 @@ function renderRetail(name, host){
   const M=RETAIL.months, last=M[M.length-1], Y=M.filter(m=>m.yoy).slice(-13);
   const PALR=["#d8b46a","#6fa8dc","#e07a5f","#81b29a"];
   const segBtns=chs.length>1?`<div class="seg" style="margin:0 0 8px">${chs.map(c=>`<button data-rtch="${c}" class="${c===ch?"active":""}">${RETAIL_CH[c]}</button>`).join("")}</div>`:"";
-  const ly=last.yoy||{}, hd=ly.head||{}, tot=(ly[ch]||[])[RETAIL_YOY[ch][0][1]];
+  const ly=last.yoy||{}, hd=ly.head||{};
   const nY=Y.length, yb=i=>i>0&&Y[i].ym.endsWith(".01");
   const row=(n,vals,o={})=>`<tr${o.top?' style="font-weight:700"':""}><td class="l"${o.ind?' style="padding-left:18px"':""}>${n}</td>${vals.map((v,i)=>retailCell(v,i===nY-1,yb(i))).join("")}</tr>`;
   const grp=t=>`<tr><td class="l g" style="font-size:11px;padding-top:9px;border-bottom:1px solid var(--line)">${t}</td>${Y.map((m,i)=>`<td style="border-bottom:1px solid var(--line)${yb(i)?";border-left:1.5px solid var(--line)":""}"></td>`).join("")}</tr>`;
-  const [h0,...hs]=RETAIL_YOY[ch];
-  const yoyRows=row(h0[0]+" (업태)",Y.map(m=>(m.yoy[ch]||[])[h0[1]]),{top:1})+grp("품목")+hs.map(([n,i])=>row(n,Y.map(m=>(m.yoy[ch]||[])[i]),{ind:1})).join("");
+  const [h0,...hs]=RETAIL_ITEMS[ch];
+  const yoyRows=row(h0[0]+" (업태)",Y.map(m=>(m.yoy[ch]||[])[h0[2]]),{top:1})+grp("품목")+hs.map(([n,,i])=>RETAIL_SUBT.test(n)
+    ? `<tr style="font-weight:600"><td class="l" style="padding-left:12px">${n}</td>${Y.map(m=>(m.yoy[ch]||[])[i]).map((v,j)=>retailCell(v,j===nY-1,yb(j))).join("")}</tr>`
+    : row(n,Y.map(m=>(m.yoy[ch]||[])[i]),{ind:1})).join("");
   const kpiRows=grp("구매 지표")+RETAIL_KPI[ch].map(k=>row(k,Y.map(m=>((m.kpi||{})[ch]||{})[k]),{ind:1})).join("");
   host.innerHTML=`<div class="sub-h">산업부 유통업체 매출동향 — ${RETAIL_CH[ch]} <span class="th-sub" style="display:inline">'${last.ym} · ${attr(RETAIL.release||"")} · 전체 ${sign(hd["전체"],1)}% · 오프라인 ${sign(hd["오프라인"],1)}% · 온라인 ${sign(hd["온라인"],1)}%</span></div>
     ${segBtns}
@@ -13129,8 +13136,12 @@ function renderRetail(name, host){
     <div class="sub-h" style="margin-top:10px">${RETAIL_CH[ch]} 실액 <span class="th-sub" style="display:inline">조원 · 월 · 점 = 고점</span></div>
     <div id="rtLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div>
     <div id="rtChart"></div>
+    <div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">세부 품목 · ${RETAIL_CH[ch]} <span class="th-sub" style="display:inline">${retailMode==="yoy"?"전년동월비 % · 칸마다 자기 축 · 점선 = 실액에서 환산('25.05 까지)":"조원 · 칸마다 자기 축 · 점 = 고점"}</span>
+      <span class="seg" style="margin-left:auto">${[["lv","실액"],["yoy","전년비"]].map(([k,t])=>`<button data-rtmode="${k}" class="${retailMode===k?"active":""}">${t}</button>`).join("")}</span></div>
+    <div id="rtGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px"></div>
     <p class="note">실액은 조사표본 기준 추정 — '26.08 부터는 붙임에 점포당 매출 절대값이 없어 전년 같은 달 × (1+공식 YoY), 품목은 원문 비중으로 나눴다(품목 YoY 가 공식치와 0~2%p 다를 수 있음). 원자료·전 업태: <a href="${attr(RETAIL.tracker||"#")}" target="_blank" rel="noopener">유통업체 매출 트래커</a> · 갱신 ${attr(RETAIL.asOf||"")}</p>`;
   host.querySelectorAll("[data-rtch]").forEach(b=>b.onclick=()=>{ retailCh[name]=b.dataset.rtch; renderRetail(name, host); });
+  host.querySelectorAll("[data-rtmode]").forEach(b=>b.onclick=()=>{ retailMode=b.dataset.rtmode; try{ localStorage.setItem("rtMode",retailMode); }catch(e){} renderRetail(name, host); });
   const S=RETAIL_LV[ch].map(([n,ks],i)=>({n,c:PALR[i],v:M.map(m=>ks==="L"?m.L[ch]:ks.reduce((a,k)=>a+((m.I[ch]||{})[k]||0),0))}));
   host.querySelector("#rtLeg").innerHTML=S.map(s=>`<span><span style="display:inline-block;width:14px;height:3px;background:${s.c};vertical-align:3px;margin-right:5px"></span>${s.n}</span>`).join("");
   const el=host.querySelector("#rtChart"), W=el.clientWidth||860, H=240, P={l:46,r:12,t:10,b:24}, n=M.length;
@@ -13147,4 +13158,57 @@ function renderRetail(name, host){
   attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>"'"+M[i].ym, yLab:Yp=>invLin(sy,Yp).toFixed(2)+"조",
     pts:i=>S.map(se=>({y:sy(se.v[i]),c:se.c})),
     html:i=>`<div class="tt-h">'${M[i].ym}${M[i].ev?` · ${attr(M[i].ev)}`:""}</div>`+S.map(se=>`<div class="tt-r"><span class="k"><span style="background:${se.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${se.n}</span><span class="v">${se.v[i].toFixed(3)}조</span></div>`).join("")});
+  retailGrid(host.querySelector("#rtGrid"), ch);
+}
+/* 세부 품목 작은 차트 — 품목마다 한 칸(자기 축). 실액 = 레벨 × 원문 비중 · 전년비 = 붙임 공식치(없는 '25.01~05 는 실액에서 환산, 점선) + 전년비 보기엔 구매 지표 칸 */
+function retailGrid(grid, ch){
+  if(!grid) return;
+  const M=RETAIL.months, yoy=retailMode==="yoy";
+  const lvOf=ks=>M.map(m=>ks==="L"?m.L[ch]:ks.reduce((a,k)=>a+((m.I[ch]||{})[k]||0),0));
+  const panels=RETAIL_ITEMS[ch].map(([n,ks,col])=>{
+    const lv=lvOf(ks);
+    const off=M.map(m=>m.yoy&&m.yoy[ch]&&m.yoy[ch][col]!=null?m.yoy[ch][col]:null);
+    const der=lv.map((v,i)=>i>=12&&lv[i-12]>0?(v/lv[i-12]-1)*100:null);
+    return {n, lv, yv:off.map((v,i)=>v!=null?v:der[i]), est:off.map(v=>v==null), sub:RETAIL_SUBT.test(n)||ks==="L"};
+  });
+  if(yoy) RETAIL_KPI[ch].forEach(k=>{ const v=M.map(m=>((m.kpi||{})[ch]||{})[k]); panels.push({n:k, kpi:1, yv:v, est:v.map(()=>false)}); });
+  const i0=yoy?12:0, idx=M.map((_,i)=>i).slice(i0);
+  grid.innerHTML=panels.map((p,j)=>{
+    const vals=idx.map(i=>yoy?p.yv[i]:p.lv[i]), lastV=vals.filter(v=>v!=null).slice(-1)[0];
+    const lastY=p.yv[M.length-1];
+    const head=yoy?`<span class="${lastY>0?"up":lastY<0?"down":""}" style="font-weight:700">${lastY==null?"—":(lastY>0?"+":"")+lastY.toFixed(1)+"%"}</span>`
+      :`<b>${lastV==null?"—":lastV.toFixed(3)+"조"}</b> <span class="${lastY>0?"up":lastY<0?"down":""}" style="font-size:11px">${lastY==null?"":(lastY>0?"+":"")+lastY.toFixed(1)+"%"}</span>`;
+    return `<div style="min-width:0${p.kpi&&!panels[j-1].kpi?";grid-column:1/-1;margin-top:2px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);padding-top:6px":""}">${p.kpi&&!panels[j-1].kpi?"구매 지표 (전년동월비 %)</div><div style=\"min-width:0\">":""}
+      <div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;margin-bottom:2px"><span style="${p.sub?"font-weight:700":""}">${p.n}</span><span>${head}</span></div>
+      <div class="rt-mini" data-k="${j}"></div></div>`; }).join("");
+  const cs=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const gc=cs("--line"), mut=cs("--muted"), acc=cs("--accent")||"#80590c";
+  grid.querySelectorAll(".rt-mini").forEach(el=>{
+    const p=panels[+el.dataset.k], v=idx.map(i=>yoy?p.yv[i]:p.lv[i]), est=idx.map(i=>yoy&&p.est[i]), n=v.length;
+    const W=el.clientWidth||240, H=112, P={l:38,r:6,t:6,b:17};
+    const ok=v.filter(x=>x!=null); if(!ok.length){ el.innerHTML=`<div class="g" style="font-size:11px">자료 없음</div>`; return; }
+    let lo=Math.min(...ok), hi=Math.max(...ok);
+    if(yoy){ lo=Math.min(lo,0); hi=Math.max(hi,0); } else lo=Math.min(lo*0.85, lo);
+    if(hi-lo<1e-9){ hi+=1; lo-=1; }
+    const raw=(hi-lo)/3, e=Math.pow(10,Math.floor(Math.log10(raw))), st=[1,2,2.5,5,10].map(k=>k*e).find(k=>k>=raw);
+    lo=Math.floor(lo/st)*st; hi=Math.ceil(hi/st)*st; if(!yoy&&lo<0) lo=0;
+    const sx=i=>P.l+i/Math.max(1,n-1)*(W-P.l-P.r), sy=x=>H-P.b-(x-lo)/(hi-lo)*(H-P.t-P.b);
+    const dec=st>=1?0:st>=0.1?1:st>=0.01?2:3;
+    let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+    for(let t=lo; t<=hi+st/2; t+=st){ const z=yoy&&Math.abs(t)<st/1e3; s+=`<line x1="${P.l}" y1="${sy(t).toFixed(1)}" x2="${W-P.r}" y2="${sy(t).toFixed(1)}" stroke="${z?mut:gc}"${z?' stroke-width="1"':""}/><text x="${P.l-4}" y="${(sy(t)+3).toFixed(1)}" text-anchor="end" font-size="9.5" fill="${mut}">${(+t).toFixed(dec)}</text>`; }
+    idx.forEach((mi,i)=>{ const ym=M[mi].ym; if(ym.endsWith(".01")) s+=`<line x1="${sx(i).toFixed(1)}" y1="${P.t}" x2="${sx(i).toFixed(1)}" y2="${H-P.b}" stroke="${gc}" stroke-dasharray="2 3"/><text x="${sx(i).toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9.5" fill="${mut}">'${ym.slice(0,2)}</text>`; });
+    // 선 — 공식치 실선 · 환산 점선(겹치는 경계 한 점은 양쪽에)
+    const seg=(want)=>{ let d="", pen=false; v.forEach((x,i)=>{ const inS=x!=null&&(est[i]===want||(i>0&&est[i-1]===want&&!want===est[i]&&v[i-1]!=null)); if(inS){ d+=(pen?"L":"M")+sx(i).toFixed(1)+","+sy(x).toFixed(1); pen=true; } else pen=false; }); return d; };
+    const dS=seg(false), dE=seg(true);
+    if(dE) s+=`<path d="${dE}" fill="none" stroke="${acc}" stroke-width="1.5" stroke-dasharray="3 3" opacity=".8"/>`;
+    if(dS) s+=`<path d="${dS}" fill="none" stroke="${acc}" stroke-width="${p.sub?2.1:1.7}" stroke-linejoin="round"/>`;
+    if(!yoy){ const pk=v.indexOf(Math.max(...ok)); s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(v[pk]).toFixed(1)}" r="3" fill="${acc}"/>`; }
+    el.innerHTML=s+"</svg>";
+    attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>"'"+M[idx[i]].ym, yLab:Yp=>invLin(sy,Yp).toFixed(yoy?1:3)+(yoy?"%":"조"),
+      pts:i=>v[i]==null?[]:[{y:sy(v[i]),c:acc}],
+      html:i=>{ const mi=idx[i], m=M[mi], yv=p.yv[mi];
+        return `<div class="tt-h">${p.n} · '${m.ym}${m.ev?` · ${attr(m.ev)}`:""}</div>`
+          +(p.kpi?"":`<div class="tt-r"><span class="k">실액</span><span class="v">${p.lv[mi].toFixed(3)}조</span></div>`)
+          +`<div class="tt-r"><span class="k">전년비${p.est[mi]&&yv!=null?" (실액 환산)":""}</span><span class="v ${yv>0?"up":yv<0?"down":""}">${yv==null?"—":(yv>0?"+":"")+yv.toFixed(1)+"%"}</span></div>`; }});
+  });
 }
