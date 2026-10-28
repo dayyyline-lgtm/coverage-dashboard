@@ -263,7 +263,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48,
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["CASINO","카지노 월간 실적",960],["GRANK","게임 매출순위(gamerscroll)",48],["ECOS","소매판매 지수(ECOS)",1080],["STEAMM","Steam 월별 동접",960],["TOURS","K-pop 투어",720],["ISMSRCH","네이버 월별 검색(손익 모델)",960],["ISMKP","Keepa 지누스(손익 모델)",1080],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["CASINO","카지노 월간 실적",960],["GRANK","게임 매출순위(gamerscroll)",48],["ECOS","소매판매 지수(ECOS)",1080],["RETAIL","산업부 유통업체 매출동향(크롬 예약)",1080],["STEAMM","Steam 월별 동접",960],["TOURS","K-pop 투어",720],["ISMSRCH","네이버 월별 검색(손익 모델)",960],["ISMKP","Keepa 지누스(손익 모델)",1080],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -9769,7 +9769,8 @@ function renderStockTab(name){
     // 공통 분기 손익 모델(ism.js · 2026-10-24) — 전용 손익 모델 4종목은 fetch_ism.SKIP 이라 ISM.s 에 없다.
     //   펄어비스는 전용 모델이 '판매 추정'(붉은사막 GAMEEST)이라 손익은 ISM 이 맡는다 → 손익을 위에, 판매 추정을 아래에(2026-10-25 · 전엔 !mid 로 가려졌다)
     const ism=typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name];
-    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+    const rt=typeof RETAIL_MAP!=="undefined"&&RETAIL_MAP[name]&&typeof RETAIL!=="undefined";
+    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
       <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
@@ -9789,6 +9790,8 @@ function renderStockTab(name){
       <p class="note">실적·컨센은 네이버 금융 재무 API(${fmtUpd(LIVE.asOf)}).${mid?" 위 분기 모델은 이 종목 전용 — 실적은 DART, 추정은 대체 데이터.":""}</p>`;
     drawQuarter(Qs);
     if(ism){ try{ renderIsm(name, document.getElementById("spIsm")); }catch(err){ console.error("분기 손익 모델", err); } }
+    // 산업부 유통업체 매출동향(2026-10-28 · RETAIL) — 유통 5종목
+    if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
     // 화장품 브랜드사 — 아마존(Keepa)·틱톡샵 채널 모델(2026-10-20 · KBCH)
     if(kb){ try{ renderKbModel(name, document.getElementById("spKb")); }catch(err){ console.error("채널 모델", err); } }
     if(mid){
@@ -13082,3 +13085,66 @@ function renderAmzBrand(){
   sec.addEventListener("click",e=>{ const t=e.target.closest("[data-amzb]"); if(!t||e.target.closest("[data-stock]")||e.target.closest("#amzBrand .seg")) return;
     amzBrPick(t.dataset.amzb); });
 })();
+
+/* ==== 산업부 유통업체 매출동향 — 유통 종목 손익 탭 (2026-10-28 · RETAIL · retail_ingest.py) ====
+   월간 보도자료 붙임의 업태·품목 YoY + 실액(조원, 조사표본 기준 추정). 수집은 사용자 PC 크롬 예약 작업.
+   종목 → 업태: 백화점(B) · 대형마트(M) · 편의점(C) · SSM(S). 롯데쇼핑은 마트·슈퍼, GS리테일은 GS더프레시(SSM)가 같이 있다. */
+const RETAIL_MAP={"신세계":["B"],"현대백화점":["B"],"롯데쇼핑":["B","M","S"],"BGF리테일":["C"],"GS리테일":["C","S"]};
+const RETAIL_CH={B:"백화점 3사",M:"대형마트 4사",C:"편의점 4사",S:"SSM 4사"};
+const RETAIL_YOY={   // [표시 이름, yoy 행의 열]
+  B:[["합계",9],["해외유명(명품)",6],["식품",8],["비식품 계",7],["여성캐주얼",2],["남성의류",3],["아동스포츠",4],["잡화",0],["가정용품",5]],
+  M:[["합계",8],["식품",7],["비식품 계",6],["가전/문화",0],["의류",1],["가정/생활",2],["스포츠",3]],
+  C:[["합계",7],["음료 등 가공",4],["즉석·신선",5],["담배 등",2],["생활용품",0]],
+  S:[["합계",7],["농수축산",3],["신선·조리",4],["가공식품",5],["비식품 계",2]]};
+const RETAIL_LV={   // 실액 선: [이름, 품목 키 목록(합) | "L"]
+  B:[["합계","L"],["명품",["명품"]],["의류4+잡화",["잡화","여성정장","여성캐주얼","남성의류","아동스포츠"]],["식품",["식품"]]],
+  M:[["합계","L"],["식품",["식품"]],["비식품",["가전문화","의류","가정생활","스포츠","잡화","기타"]]],
+  C:[["합계","L"],["음료 등 가공",["가공식품"]],["담배 등",["담배등"]],["즉석·신선",["즉석신선"]]],
+  S:[["합계","L"],["농수축산",["농수축산"]],["가공식품",["가공식품"]],["신선·조리",["신선조리"]]]};
+const RETAIL_KPI={B:["구매건수","구매단가","점포당 매출"],M:["구매건수","구매단가","점포당 매출"],C:["구매건수","구매단가","점포 증가율","점포당 매출"],S:["구매건수","구매단가","점포당 매출"]};
+let retailCh={};
+function retailCell(v, cur, yr){   // 숫자만 색(상승 빨강 · 하락 파랑) · 배경은 최신 열만 · 1월 앞에 연도 구분선
+  const st=(cur?"background:color-mix(in srgb, var(--accent) 10%, transparent);font-weight:700;":"")+(yr?"border-left:1.5px solid var(--line2, var(--line));":"");
+  if(v==null) return `<td class="g" style="${st}">—</td>`;
+  const c=Math.abs(v)<0.05?"":v>0?"up":"down";
+  return `<td class="${c}" style="${st}">${v>0?"+":""}${(+v).toFixed(1)}</td>`; }
+function renderRetail(name, host){
+  if(!host||typeof RETAIL==="undefined"||!RETAIL.months||!RETAIL.months.length) return;
+  const chs=RETAIL_MAP[name]; if(!chs) return;
+  const ch=chs.includes(retailCh[name])?retailCh[name]:chs[0];
+  const M=RETAIL.months, last=M[M.length-1], Y=M.filter(m=>m.yoy).slice(-13);
+  const PALR=["#d8b46a","#6fa8dc","#e07a5f","#81b29a"];
+  const segBtns=chs.length>1?`<div class="seg" style="margin:0 0 8px">${chs.map(c=>`<button data-rtch="${c}" class="${c===ch?"active":""}">${RETAIL_CH[c]}</button>`).join("")}</div>`:"";
+  const ly=last.yoy||{}, hd=ly.head||{}, tot=(ly[ch]||[])[RETAIL_YOY[ch][0][1]];
+  const nY=Y.length, yb=i=>i>0&&Y[i].ym.endsWith(".01");
+  const row=(n,vals,o={})=>`<tr${o.top?' style="font-weight:700"':""}><td class="l"${o.ind?' style="padding-left:18px"':""}>${n}</td>${vals.map((v,i)=>retailCell(v,i===nY-1,yb(i))).join("")}</tr>`;
+  const grp=t=>`<tr><td class="l g" style="font-size:11px;padding-top:9px;border-bottom:1px solid var(--line)">${t}</td>${Y.map((m,i)=>`<td style="border-bottom:1px solid var(--line)${yb(i)?";border-left:1.5px solid var(--line)":""}"></td>`).join("")}</tr>`;
+  const [h0,...hs]=RETAIL_YOY[ch];
+  const yoyRows=row(h0[0]+" (업태)",Y.map(m=>(m.yoy[ch]||[])[h0[1]]),{top:1})+grp("품목")+hs.map(([n,i])=>row(n,Y.map(m=>(m.yoy[ch]||[])[i]),{ind:1})).join("");
+  const kpiRows=grp("구매 지표")+RETAIL_KPI[ch].map(k=>row(k,Y.map(m=>((m.kpi||{})[ch]||{})[k]),{ind:1})).join("");
+  host.innerHTML=`<div class="sub-h">산업부 유통업체 매출동향 — ${RETAIL_CH[ch]} <span class="th-sub" style="display:inline">'${last.ym} · ${attr(RETAIL.release||"")} · 전체 ${sign(hd["전체"],1)}% · 오프라인 ${sign(hd["오프라인"],1)}% · 온라인 ${sign(hd["온라인"],1)}%</span></div>
+    ${segBtns}
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">전년동월비 %</th>${Y.map((m,i)=>`<th class="ye" style="${yb(i)?"border-left:1.5px solid var(--line);":""}${i===nY-1?"background:color-mix(in srgb, var(--accent) 10%, transparent)":""}">'${m.ym}<div class="g" style="font-size:10px;font-weight:400;min-height:12px">${m.ev?attr(m.ev):""}</div></th>`).join("")}</tr></thead>
+      <tbody>${yoyRows}${kpiRows}</tbody></table></div>
+    <div class="sub-h" style="margin-top:10px">${RETAIL_CH[ch]} 실액 <span class="th-sub" style="display:inline">조원 · 월 · 점 = 고점</span></div>
+    <div id="rtLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div>
+    <div id="rtChart"></div>
+    <p class="note">실액은 조사표본 기준 추정 — '26.08 부터는 붙임에 점포당 매출 절대값이 없어 전년 같은 달 × (1+공식 YoY), 품목은 원문 비중으로 나눴다(품목 YoY 가 공식치와 0~2%p 다를 수 있음). 원자료·전 업태: <a href="${attr(RETAIL.tracker||"#")}" target="_blank" rel="noopener">유통업체 매출 트래커</a> · 갱신 ${attr(RETAIL.asOf||"")}</p>`;
+  host.querySelectorAll("[data-rtch]").forEach(b=>b.onclick=()=>{ retailCh[name]=b.dataset.rtch; renderRetail(name, host); });
+  const S=RETAIL_LV[ch].map(([n,ks],i)=>({n,c:PALR[i],v:M.map(m=>ks==="L"?m.L[ch]:ks.reduce((a,k)=>a+((m.I[ch]||{})[k]||0),0))}));
+  host.querySelector("#rtLeg").innerHTML=S.map(s=>`<span><span style="display:inline-block;width:14px;height:3px;background:${s.c};vertical-align:3px;margin-right:5px"></span>${s.n}</span>`).join("");
+  const el=host.querySelector("#rtChart"), W=el.clientWidth||860, H=240, P={l:46,r:12,t:10,b:24}, n=M.length;
+  const all=S.flatMap(s=>s.v), mx=Math.max(...all)*1.06, mn=0;
+  const sx=i=>P.l+i/Math.max(1,n-1)*(W-P.l-P.r), sy=v=>H-P.b-(v-mn)/(mx-mn)*(H-P.t-P.b);
+  const cs=k=>getComputedStyle(document.documentElement).getPropertyValue(k), gc=cs("--line"), mut=cs("--muted");
+  const st=[0.25,0.5,1].find(v=>mx/v<=6)||1;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let v=0; v<=mx; v+=st){ s+=`<line x1="${P.l}" y1="${sy(v)}" x2="${W-P.r}" y2="${sy(v)}" stroke="${gc}"/><text x="${P.l-6}" y="${sy(v)+3}" text-anchor="end" font-size="10" fill="${mut}">${v.toFixed(2)}</text>`; }
+  M.forEach((m,i)=>{ if(m.ym.endsWith(".01")||i===n-1) s+=`<text x="${sx(i)}" y="${H-P.b+15}" text-anchor="middle" font-size="10" fill="${mut}">'${m.ym}</text>`; });
+  S.forEach((se,j)=>{ s+=`<polyline points="${se.v.map((v,i)=>`${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ")}" fill="none" stroke="${se.c}" stroke-width="${j?1.7:2.4}" stroke-linejoin="round"${j===3?' stroke-dasharray="5 3"':""}/>`;
+    const pk=se.v.indexOf(Math.max(...se.v)); s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(se.v[pk]).toFixed(1)}" r="3.6" fill="${se.c}"/>`; });
+  el.innerHTML=s+"</svg>";
+  attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>"'"+M[i].ym, yLab:Yp=>invLin(sy,Yp).toFixed(2)+"조",
+    pts:i=>S.map(se=>({y:sy(se.v[i]),c:se.c})),
+    html:i=>`<div class="tt-h">'${M[i].ym}${M[i].ev?` · ${attr(M[i].ev)}`:""}</div>`+S.map(se=>`<div class="tt-r"><span class="k"><span style="background:${se.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${se.n}</span><span class="v">${se.v[i].toFixed(3)}조</span></div>`).join("")});
+}
