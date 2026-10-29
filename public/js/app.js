@@ -2435,6 +2435,36 @@ const topicsOf0=n=>{
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   }));
 })();
+/* 전국 호텔 숙박료 — 국가데이터처(옛 통계청) 소비자물가 호텔숙박료·콘도이용료·여관숙박료(ECOS 901Y009 · fetch_ecos.py → ECOS.s · t:"cpi")
+   · 호텔/레져 5종목(2026-10-29 사용자 "저런 것도 트렌드에 넣어야겠지 — 전국 호텔 숙박료 소비자물가").
+   값 = 지수(2020=100) 그대로 — 세 품목이 같은 기준이라 한 축에 겹친다. 여름 휴양지 몫이 커서 계절이 크다 →
+   판정·카드·범례는 RETAIL 처럼 작년 같은 달과(yoyCmp). 신호는 호텔숙박료만(sigIdx 0) · 물가라 문턱 ±10%(sigTh · 매출은 25%).
+   이름 하나를 다섯 종목이 같이 쓴다(방한 외래관광객과 같은 방식) — 전국 지표라 '주목할 추이'에 같은 칩이 다섯 번 서지 않게. */
+(function injectHotelCpiTrends(){
+  if(typeof ECOS==="undefined"||!ECOS.s||!ECOS.s.K02101||!ECOS.s.K02101.v) return;
+  const C=[["K02101","호텔숙박료"],["K02103","콘도이용료"],["K02102","여관숙박료"]].filter(([c])=>ECOS.s[c]&&ECOS.s[c].v);
+  const M=Object.keys(ECOS.s.K02101.v).sort(); if(M.length<25) return;
+  const raw=C.map(([c])=>M.map(m=>{ const v=ECOS.s[c].v[m]; return v==null?null:v; }));
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const yoyAt=(i,j)=>j>=12?pct(raw[i][j],raw[i][j-12]):null;
+  const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+  const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+  const ix=v=>v==null||isNaN(v)?"—":(Math.abs(v-Math.round(v))<1e-6?String(Math.round(v)):v.toFixed(1));
+  const li=M.length-1, mo=+M[li].slice(5,7);
+  const s3=(a,e)=>{ let t=0; for(let i=e-2;i<=e;i++){ if(i<0||a[i]==null) return null; t+=a[i]; } return t; };
+  const notes=C.map(([,n],i)=>{ const a=raw[i], y3=pct(s3(a,li),s3(a,li-12));
+    return `${n} ${mo}월 ${ix(a[li])}(전년동월비 ${sg(yoyAt(i,li))})`+(y3!=null?` · 최근 3개월 전년비 ${sg(y3)}`:""); });
+  const name="전국 호텔 숙박료(소비자물가)";
+  TREND.groups[name]={products:C.map(c=>c[1]), productsGoogle:C.map(c=>c[1]), months:M.map(m=>`${m.slice(2,4)}.${+m.slice(5,7)}`),
+    naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt, only:"naver", freq:"month", peak,
+    unit:"지수(2020=100 · 월)", unitShort:"", realFmt:ix, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0], sigTh:10,
+    srcName:"국가데이터처(옛 통계청) 소비자물가지수 · 한국은행 ECOS 901Y009 · 2020=100 · 전국 40개 도시 표본 업소에서 누구나 내는 그달 요금(세금 포함 · 쿠폰·회원가 제외 · 서비스 품목은 매달 21~25일 조사) · 여름 휴양지 몫이 커서 작년 같은 달과 비교",
+    reviewNote:notes.join(" · ")};
+  ["호텔신라","GS피앤엘","서부T&D","파라다이스","롯데관광개발"].forEach(stock=>{
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+  TREND_OWNER[name]={"호텔숙박료":"호텔신라"};   // 주목할 추이 칩은 한 번만 — 호텔신라 이름으로(없으면 TREND_STOCK 첫 종목 파라다이스로 붙는다)
+})();
 /* 디시 갤러리 순위(BUZZ.dc) — 글 수(DCGALL)가 '양' 이라면 이쪽은 '전체 마이너갤 대비 상대 온도'다.
    글이 줄어도 순위가 버티면 판 전체가 식은 것이고, 글은 그대로인데 순위가 밀리면 우리만 식은 것이다.
    ⚠ 순위는 작을수록 뜨겁다 — 다른 순위 계열과 같이 (301−순위)/300 으로 뒤집어 그리고 축·표는 실제 순위.
@@ -2692,7 +2722,8 @@ let trendStock="", trendGroup="", trendFreq="week";
 const KIND_ORDER=["플레이","시청","판매·순위","리뷰","게임경제","커뮤니티","검색","기타"];
 /* 중요도 등급 (2026-09-24 · 사용자 요청 "중요한 것부터, 나머지는 뒤로" → 2026-10-24 다시 좁힘).
    1 = ★ 핵심 — 실제로 팔리고·쓰이는 양을 재는 실측: 동접 · 앱 매출순위 · 스토어 판매순위 · 앨범판매 · 수출(관세청) ·
-       미국 선적(B/L) · 아마존 Top100 · 올리브영 · 탑툰챗 일별 대화 · 버블 매출순위 · 극장 관객 · 방한 관광객
+       미국 선적(B/L) · 아마존 Top100 · 올리브영 · 탑툰챗 일별 대화 · 버블 매출순위 · 극장 관객 · 방한 관광객 ·
+       유통 업계 매출 · 전국 호텔 숙박료(소비자물가 — 양이 아니라 값이지만 호텔 매출 = 객실 요금 × 판매 객실이라 핵심으로 둔다)
    2 = 보조 — 수요의 앞쪽·관심: 시청자 · 스트리밍·조회수 · 리뷰 · 위시리스트·다운로드·예약 순위 · 게임경제 · 디시 글 양 · 브랜드 검색
    3 = 참고 — 채용 · 갤 순위 · 거래순위 · 경쟁사 · 캐릭터별 · 누적 · 무료순위. 계열이 전부 0/빈 값이면 3으로 내린다.
    ⚠ 2026-10-24 사용자 "게임 동접자 같은 건 굉장히 중요한데 다른 건 그렇지 않을 수 있다" — 예전엔 검색 트렌드까지 1등급이라
@@ -2705,7 +2736,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -3283,10 +3314,20 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   const lab1=daily?"최근 7일":U.u+"비", lab2=daily?"4주 전":U.back+" 전";
   if(tt) tt.textContent=`${trendGroup} · ${G.srcName||(trendSrc==="naver"?"네이버":"구글")} — 실제 값`+(P?` · ${P.name} ${P.label}`:"");
   const isRank=!!(G.rankN&&G.rawSer);
+  // 계절이 큰 월별 계열(yoyCmp — 유통 실액 · 호텔 숙박료 물가)은 표도 작년 같은 달과 견준다(2026-10-29) — 전월비는 8월→9월 같은 계절 낙차만 보여 준다
+  const yoyT=!isRank&&!!(G.yoyCmp&&G.yoyAt&&G.rawFull&&FREQ==="month");
   makeTable(document.getElementById("trendTable"),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"curS",label:'최근값<span class="th-sub">마지막 수집일</span>',render:r=>`${r.curT}${r.when?`<span class="th-sub">${r.when}</span>`:""}`},
-    ...(isRank?[
+    ...(yoyT?[
+      {key:"mom",label:'전년동월비<span class="th-sub">작년 같은 달 대비</span>',render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom,1)}%</span>`},
+      {key:"b2S",label:'작년 같은 달<span class="th-sub">그때 값</span>',render:r=>r.b2T},
+      {key:"q",label:'최근 3개월 전년비<span class="th-sub">작년 같은 3개월 대비</span>',render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,1)}%</span>`},
+      ...(hasWin?[
+        {key:"hiS",label:"구간 고점",render:r=>r.hiT},
+        {key:"hi",label:"고점 대비",render:r=>r.hi==null?"—":`<span class="${cls(r.hi)}">${sign(r.hi,0)}%</span>`},
+      ]:[]),
+    ]:isRank?[
       {key:"d1",label:daily?'7일 전 대비':U.u+" 대비",render:r=>r.d1==null?"—":(r.d1>0?`<span class="up">▲${r.d1}</span>`:r.d1<0?`<span class="down">▼${-r.d1}</span>`:"—")},
       {key:"d2",label:lab2+" 대비",render:r=>r.d2==null?"—":(r.d2>0?`<span class="up">▲${r.d2}</span>`:r.d2<0?`<span class="down">▼${-r.d2}</span>`:"—")},
       {key:"bestS",label:"구간 최고 순위",render:r=>r.bestT},
@@ -3311,6 +3352,17 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       row.d1=(at(bk1)!=null&&r[li]!=null)?at(bk1)-r[li]:null;
       row.d2=(at(bk2)!=null&&r[li]!=null)?at(bk2)-r[li]:null;
       const best=Math.min(...r.filter(v=>v!=null)); row.bestS=-best; row.bestT=isFinite(best)?`${best}위`:"—";
+      return row;
+    }
+    if(yoyT){                                            // 작년 같은 달 · 최근 3개월 vs 작년 같은 3개월 — 창 밖(1년 전)도 rawFull 에서 읽는다
+      const rf=G.rawFull[i]||[], L=li!=null?li+(rf.length-ser.length):null;
+      const s3=e=>{ let t=0; for(let k=e-2;k<=e;k++){ if(k<0||rf[k]==null) return null; t+=rf[k]; } return t; };
+      row.mom=L!=null?G.yoyAt(i,L):null;
+      const pv=(L!=null&&L-12>=0)?rf[L-12]:null; row.b2S=pv==null?-1e18:pv; row.b2T=pv==null?"—":trendRealFmt(G,pv);
+      const a3=L!=null?s3(L):null, b3=L!=null?s3(L-12):null; row.q=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
+      let hi=-1,hj=-1; ser.forEach((v,j)=>{ if(v!=null&&v>hi){ hi=v; hj=j; } });
+      row.hiS=hj<0?-1e18:R(hj); row.hiT=hj<0?"—":`${trendRealFmt(G,R(hj))}<span class="th-sub">${M[hj]||""}</span>`;
+      row.hi=(hasWin&&hi>0&&cur!=null)?(cur/hi-1)*100:null;
       return row;
     }
     const b2=(li!=null&&li-bk2>=0)?ser[li-bk2]:null;
@@ -6221,6 +6273,7 @@ const TREND_SRC_ASOF=[
   ["방한", ()=>(typeof TOURISM!=="undefined")&&TOURISM.asOf],
   ["써클", ()=>(typeof CIRCLE!=="undefined")&&CIRCLE.asOf],
   ["탑툰챗", ()=>(typeof TOPTOON!=="undefined")&&TOPTOON.asOf],
+  ["소비자물가", ()=>(typeof ECOS!=="undefined")&&ECOS.asOf],
 ];
 function trendFresh(G){
   if(!G) return "";
@@ -6749,7 +6802,7 @@ function trendCands(){
         const y1=G.yoyAt?G.yoyAt(pi,l):(r[l-12]>0?(r[l]/r[l-12]-1)*100:null);
         const s3=e=>{ let t=0; for(let i=e-2;i<=e;i++){ if(r[i]==null) return null; t+=r[i]; } return t; };
         const a3=s3(l), b3=s3(l-12), y3=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
-        const mag=Math.max(Math.abs(y1||0),Math.abs(y3||0)); if(mag<25) return;
+        const mag=Math.max(Math.abs(y1||0),Math.abs(y3||0)); if(mag<(G.sigTh||25)) return;   // sigTh — 물가(호텔 숙박료)는 10%
         keep(pi,{prod:prods[pi]||gname, wow:y1, win:y3, isHigh:false, score:mag, freq, yoy:true});
         return;
       }
