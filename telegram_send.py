@@ -180,5 +180,7 @@ if __name__ == "__main__":
         get_chat_id()
     elif len(sys.argv) > 1 and sys.argv[1] == "test":
         send("✅ <b>커버리지 대시보드</b> 텔레그램 연결 테스트 성공")
+    elif len(sys.argv) > 2 and sys.argv[1] == "msg":     # 이 PC 예약 작업(K뷰티 Keepa 주간)이 멈춤·로그아웃을 알릴 때 — 2026-10-30
+        sys.exit(0 if send(" ".join(sys.argv[2:]), parse_mode=None) else 1)
     else:
-        print("사용법: python telegram_send.py chatid   |   python telegram_send.py test")
+        print("사용법: python telegram_send.py chatid | test | msg <보낼 글>")
