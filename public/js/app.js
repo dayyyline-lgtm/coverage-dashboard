@@ -13373,16 +13373,35 @@ function retailGrid(grid, ch){
    주기 버튼 하나(일·주·월·분기)가 차트 셋을 같이 움직인다 — 자료마다 가장 촘촘한 주기보다 잘게는 못 쪼갠다
    (OTA 일 → 리츠 월 → 회사 IR 분기). 세 달이 다 없는 분기는 선에 잇지 않고 빈 원으로 따로 둔다(부분 기간을 완결 기간과 섞지 않는다). */
 const ADR_MAP={
-  "호텔신라":{reit:["stay_ghm","stay_mapo"], ir:"shilla", irh:["shilla_seoul","shilla_jeju","shilla_stay"], ota:["shilla_seoul","shilla_jeju","stay_ghm","stay_mapo"]},
-  "GS피앤엘":{reit:["nt_ddm"], ir:"gs", irh:["gic","westin","pjeju","ninetree"], ota:["gic","westin","pjeju","nt_md2","nt_ddm"]},
-  "서부T&D":{reit:["gm_ys"], ir:"seobu", irh:["dragoncity"], ota:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"]}};
+  "호텔신라":{reit:["stay_ghm","stay_mapo"], ir:"shilla", irh:["shilla_seoul","shilla_jeju","shilla_stay"], ota:["shilla_seoul","shilla_jeju","stay_ghm","stay_mapo"],
+    kayak:["shilla_seoul","shilla_jeju","stay_all"], kmore:["stay_ghm","stay_mapo","stay_yeoksam","stay_seocho","stay_samsung","stay_sdm","stay_guro","stay_dongtan","stay_hud","stay_jeju","stay_iho"]},
+  "GS피앤엘":{reit:["nt_ddm"], ir:"gs", irh:["gic","westin","pjeju","ninetree"], ota:["gic","westin","pjeju","nt_md2","nt_ddm"],
+    kayak:["gic","westin","pjeju","nt5"], kmore:["nt_md1","nt_md2","nt_ins","nt_ddm","nt_pg","nt_ys"]},
+  "서부T&D":{reit:["gm_ys"], ir:"seobu", irh:["dragoncity"], ota:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"],
+    kayak:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"], kmore:[]}};
+/* KAYAK 검색가(ADR.kayak · hotel_adr/kayak.js 주 1회 · 2026-10-29~) — 호텔 페이지의 '지난 12개월 KAYAK 사용자 검색가' 달별 평균.
+   달러로 쌓인 값을 그달 원/달러로 환산(build.py) · 끝난 달은 끝난 뒤 첫 수집 값 · 수준은 ADR 이 아니다(전 객실 타입) — 변화만 본다.
+   리츠가 실제 ADR 을 내는 호텔(그랜드 머큐어·신라스테이 광화문·마포)로 3Q/2Q 를 맞대 보는 검증 줄을 같이 띄운다. */
+const ADR_KREIT=["gm_ys","stay_ghm","stay_mapo","nt_ddm"];
+/* 전국 호텔 물가 — 통계청 소비자물가 숙박 품목(ECOS 901Y009 · 2020=100 · fetch_ecos.py 가 매일 · 2026-10-29~).
+   호텔숙박료는 1975 년부터 있다(블록엔 2010~). 전국·전 등급이라 여름 휴양지 몫이 커서 계절 모양은 서울 도심 호텔과 다르다 — 전년비를 본다. */
+const ADR_CPI=[["K02101","호텔숙박료"],["K02102","여관숙박료"],["K02103","콘도이용료"]];
+function adrCpiQ(code){
+  const v=(typeof ECOS!=="undefined"&&ECOS.s&&ECOS.s[code])?ECOS.s[code].v:null; if(!v) return {};
+  const qd={}; Object.entries(v).forEach(([ym,x])=>{ const q=ym.slice(0,4)+"Q"+(Math.floor((+ym.slice(5,7)-1)/3)+1); (qd[q]=qd[q]||[]).push(x); });
+  const out={}; Object.entries(qd).forEach(([q,a])=>{ out[q]={v:a.reduce((s,x)=>s+x,0)/a.length, n:a.length}; });
+  const pq=(q,k)=>{ let y=+q.slice(0,4), n=+q.slice(-1)-k; while(n<1){ n+=4; y--; } return `${y}Q${n}`; };
+  Object.entries(out).forEach(([q,r])=>{ const p4=out[pq(q,4)], p1=out[pq(q,1)];
+    r.yoy=p4&&p4.n===3&&r.n===3?(r.v/p4.v-1)*100:null; r.qoq=p1&&p1.n===3&&r.n===3?(r.v/p1.v-1)*100:null; });
+  return out;
+}
 const ADR_NM={shilla_seoul:"서울신라호텔",shilla_jeju:"제주신라호텔",shilla_stay:"신라스테이(전 지점)",shilla_leisure:"레저",
-  gic:"그랜드 인터컨티넨탈",westin:"웨스틴 서울 파르나스",pjeju:"파르나스 호텔 제주",ninetree:"나인트리(4곳)",nt_md2:"나인트리 명동II",nt_ddm:"나인트리 동대문",
+  gic:"그랜드 인터컨티넨탈",westin:"웨스틴 서울 파르나스",pjeju:"파르나스 호텔 제주",ninetree:"나인트리(6곳)",nt_md2:"나인트리 명동II",nt_ddm:"나인트리 동대문",
   dragoncity:"서울드래곤시티",gm_ys:"그랜드 머큐어 용산",ns_ys:"노보텔 스위트 용산",nv_ys:"노보텔 용산",is_ys:"이비스 스타일 용산",
   stay_ghm:"신라스테이 광화문",stay_mapo:"신라스테이 마포",all:"전 사업장"};
 const ADR_RCOL={gm_ys:"#e07a5f",nt_ddm:"#6fa8dc",stay_ghm:"#d8b46a",stay_mapo:"#81b29a"};   // 리츠 4곳 — 색은 호텔에 고정(어느 종목 페이지에서든 같다)
 const ADR_PAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6"];
-const ADR_ST0={per:"m",rm:"adr",im:"px",om:"al"};
+const ADR_ST0={per:"m",rm:"adr",im:"px",om:"al",km:"lv",cm:"yoy"};
 let adrSt=(()=>{ try{ return Object.assign({},ADR_ST0,JSON.parse(localStorage.getItem("adrSt")||"{}")); }catch(e){ return Object.assign({},ADR_ST0); } })();
 const adrSave=()=>{ try{ localStorage.setItem("adrSt",JSON.stringify(adrSt)); }catch(e){} };
 const adrQo=q=>(+q.slice(0,4))*4+(+q.slice(-1));                       // 2026Q3 → 정렬 번호
@@ -13458,7 +13477,8 @@ function renderAdr(name, host){
   const seg=(key,opts,cur)=>`<span class="seg" style="margin:0 0 0 auto">${opts.map(([k,t])=>`<button data-adr="${key}" data-v="${k}" class="${cur===k?"active":""}">${t}</button>`).join("")}</span>`;
   const rLast=cfg.reit.map(k=>{ const m=(RH[k]||{}).m||[]; return m.length?m[m.length-1][0]:null; }).filter(Boolean).sort().pop();
   const irLast=cfg.irh.map(k=>{ const r=IRc.h[k]||[]; return r.length?r[r.length-1][0]:null; }).filter(Boolean).sort((a,b)=>adrQo(a)-adrQo(b)).pop();
-  let h=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">호텔 ADR 추적 <span class="th-sub" style="display:inline">리츠 월별 ${rLast?"'"+rLast.slice(2).replace("-","."):"—"}까지 · 회사 IR ${irLast?adrQL(irLast):"—"}까지 · 선행 판매가 ${O.last?adrMD(O.last):"—"} 관측</span>
+  const KY=A.kayak&&A.kayak.h?A.kayak:null, kOwn=(cfg.kayak||[]).filter(k=>KY&&KY.h[k]);
+  let h=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">호텔 ADR 추적 <span class="th-sub" style="display:inline">리츠 월별 ${rLast?"'"+rLast.slice(2).replace("-","."):"—"}까지 · 회사 IR ${irLast?adrQL(irLast):"—"}까지 · 선행 판매가 ${O.last?adrMD(O.last):"—"} 관측${KY?` · KAYAK ${adrMD(KY.asOf)} 수집`:""}</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="g" style="font-size:11.5px">주기</span>${seg("per",[["d","일"],["w","주"],["m","월"],["q","분기"]],per)}</span></div>`;
 
   // ① 분기 ADR — 리츠 실측 + 증권사 언급(2Q → 3Q 를 한 줄로)
@@ -13476,9 +13496,19 @@ function renderAdr(name, host){
       return `<div title="${attr(b.src+" · "+b.d+(b.note?" · "+b.note:""))}">${L.join("<br>")}${b.est&&!/추정/.test((b.adr||"")+(b.occ||""))?' <span class="g">(추정)</span>':""}</div>`; }).join("")}</td>`;
   const rcell=(k,q)=>{ const r=((RH[k]||{}).q||[]).find(x=>x[0]===q); if(!r) return `<td class="g">—</td>`; const part=r[4]<3;
     return `<td ${td0}><b>${adrMan(r[1]/10)}만원</b>${part?` <span class="g">(${r[4]}개월)</span>`:""}<br>전년비 ${part?"—":adrPc(r[5])}${part||r[6]==null?"":` · 전분기비 ${adrPc(r[6])}`}<br><span class="g">OCC ${fmt(r[2])}%</span></td>`; };
-  h+=`<div class="sub-h" style="margin-top:6px">분기 ADR — 리츠 실측 · 증권사 언급 <span class="th-sub" style="display:inline">만원 · 리츠 = 객실 판매 가중 평균 · 증권사 = 원문 표현 그대로(마우스 = 출처·날짜)</span></div>
+  // 전국 호텔 물가 칸 — 분기 평균 지수의 전년비(앞) · 전분기비(작게)
+  const CPQ=adrCpiQ("K02101"), cpiRow=Object.keys(CPQ).length>0;
+  const cpiCell=q=>{ const r=CPQ[q]; if(!r) return `<td class="g">—</td>`; if(r.n<3) return `<td class="g">${r.n}개월</td>`;
+    return `<td ${td0}>전년비 <b>${adrPc(r.yoy)}</b><br><span class="g">전분기비 ${adrPc(r.qoq)} · 지수 ${fmt(r.v,1)}</span></td>`; };
+  // KAYAK 칸 — 수준은 ADR 이 아니라서 전분기비(·전년비)를 앞에, 검색가는 작게
+  const kcell=(k,q)=>{ const r=((KY&&KY.h[k])||{}).q?KY.h[k].q.find(x=>x[0]===q):null; if(!r||r[2]<3) return `<td class="g">${r?`진행 중`:"—"}</td>`;
+    const L=[]; if(r[3]!=null) L.push(`전분기비 <b>${adrPc(r[3])}</b>`); if(r[4]!=null) L.push(`전년비 <b>${adrPc(r[4])}</b>`);
+    return `<td ${td0}>${L.join("<br>")||'<span class="g">비교 전</span>'}<br><span class="g">검색가 ${adrMan(r[1]/10)}만</span></td>`; };
+  h+=`<div class="sub-h" style="margin-top:6px">분기 ADR — 리츠 실측 · 증권사 언급${kOwn.length?" · 예약 사이트 검색가 변화":""} <span class="th-sub" style="display:inline">만원 · 리츠 = 객실 판매 가중 평균 · 증권사 = 원문 표현 그대로(마우스 = 출처·날짜)${kOwn.length?" · KAYAK = 검색가 평균의 전분기비(아래 차트)":""}${cpiRow?" · 전국 호텔숙박료 = 통계청 소비자물가(전국·전 등급) 분기 평균":""}</span></div>
     <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">호텔</th>${cols.map(q=>`<th class="ye">${adrQL(q)}</th>`).join("")}${yrCol.map(y=>`<th class="ye">${y} 연간</th>`).join("")}</tr></thead><tbody>
     ${cfg.reit.map(k=>`<tr><td class="l">${ADR_NM[k]} <span class="g" style="font-size:10.5px">리츠 실측</span></td>${cols.map(q=>rcell(k,q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`).join("")}
+    ${kOwn.map(k=>`<tr><td class="l">${KY.h[k].n} <span class="g" style="font-size:10.5px">KAYAK</span></td>${cols.map(q=>kcell(k,q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`).join("")}
+    ${cpiRow?`<tr><td class="l">전국 호텔숙박료 <span class="g" style="font-size:10.5px">통계청 물가</span></td>${cols.map(q=>cpiCell(q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`:""}
     ${bh.map(k=>`<tr><td class="l">${ADR_NM[k]||k} <span class="g" style="font-size:10.5px">증권사</span></td>${cols.map(q=>bcell(BR.filter(b=>b.h===k&&b.q===q))).join("")}${yrCol.map(y=>bcell(BR.filter(b=>b.h===k&&b.q===y))).join("")}</tr>`).join("")}
     </tbody></table></div>`.replace('<div class="tbl-wrap">','<div class="tbl-wrap" data-adr-end="1">');
 
@@ -13488,6 +13518,16 @@ function renderAdr(name, host){
     ${seg("rm",[["adr","ADR"],["occ","OCC"],["rvp","RevPAR"],["yoy","ADR 전년비"]],rm)}</div>
     <div id="adrRLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrR"></div>
     <details class="fold" data-fold="adrRT"${foldOpen("adrRT")} style="margin-top:6px"><summary>리츠 4곳 분기 표 <span class="g" style="font-weight:400">ADR · 전년비 · OCC</span></summary><div class="fold-b" id="adrRT"></div></details>`;
+
+  // ②-b 예약 사이트 검색가 — KAYAK(월이 가장 촘촘 · 주기 '분기'면 분기)
+  const km=adrSt.km==="ix"?"ix":"lv";
+  if(kOwn.length){
+    const kAll=kOwn.concat((cfg.kmore||[]).filter(k=>KY.h[k]));
+    h+=`<div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${rPer==="q"?"분기":"월별"} 예약 사이트 검색가 — KAYAK <span class="th-sub" style="display:inline">${km==="ix"?"첫 완결 분기 = 100":"만원"} · KAYAK 사용자가 지난 12개월 검색한 요금의 달별 평균(전 객실 타입·세금 포함) · 달러로 쌓인 값을 그달 원/달러로 환산 · 수준은 ADR 보다 높다 — 변화만 볼 것 · 빈 원 = 진행 중</span>
+      ${seg("km",[["lv","검색가"],["ix","지수"]],km)}</div>
+      <div id="adrKLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrK"></div><div id="adrKV" class="note" style="margin-top:4px"></div>
+      <details class="fold" data-fold="adrKT"${foldOpen("adrKT")} style="margin-top:6px"><summary>호텔별 표 · ${kAll.length}곳 <span class="g" style="font-weight:400">월별 검색가 · 분기 전분기비·전년비</span></summary><div class="fold-b" id="adrKT"></div></details>`;
+  }
 
   // ③ 회사 IR 분기
   const irLong=cfg.irh.some(k=>(IRc.h[k]||[]).length>=8);
@@ -13503,6 +13543,15 @@ function renderAdr(name, host){
     ${seg("om",[["al","평균"],["wd","평일(수)"],["we","주말(토)"]],adrSt.om)}</div>
     <div id="adrOLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrO"></div><div id="adrOT" style="margin-top:6px"></div>
     <details class="fold" data-fold="adrOAll"${foldOpen("adrOAll")} style="margin-top:6px"><summary>13곳 전체 · ${adrMD(O.last)} 관측 <span class="g" style="font-weight:400">경쟁 호텔 같이 보기</span></summary><div class="fold-b" id="adrOTall"></div></details>`;
+
+  // ④-b 전국 호텔 물가(통계청 소비자물가 · 월)
+  const cm=adrSt.cm==="lv"?"lv":"yoy";
+  if(cpiRow){
+    const lastYm=Object.keys(ECOS.s.K02101.v).sort().pop();
+    h+=`<div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${per==="q"?"분기":"월별"} 전국 호텔 물가 — 통계청 소비자물가 <span class="th-sub" style="display:inline">${cm==="yoy"?"전년비 %":"지수 2020=100"} · 전국·전 등급(여름 휴양지 몫이 커서 계절 모양은 서울 도심 호텔과 다르다 — 전년비로 볼 것) · '${lastYm.slice(2,4)}.${lastYm.slice(5,7)}까지 · 매달 초 공표</span>
+      ${seg("cm",[["yoy","전년비"],["lv","지수"]],cm)}</div>
+      <div id="adrCLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrC"></div>`;
+  }
 
   // ⑤ 시장 참고값 · 읽는 법 · 출처
   const K=(A.mkt||{}).kha||{}, ky=Object.keys(K.y||{}).sort();
@@ -13556,6 +13605,47 @@ function renderAdr(name, host){
         return `<tr><td class="l" style="font-weight:700">${adrDot(ADR_RCOL[k])}${ADR_NM[k]} ADR</td>${qL.map(q=>{ const r=mp[q]; return `<td>${r?adrMan(r[1]/10)+(r[4]<3?`<span class="g">(${r[4]}개월)</span>`:""):"—"}</td>`; }).join("")}</tr>`
           +`<tr class="sub-row"><td class="l">└ 전년비</td>${qL.map(q=>`<td>${mp[q]?adrPc(mp[q][5]):"—"}</td>`).join("")}</tr>`
           +`<tr class="sub-row"><td class="l">└ OCC</td>${qL.map(q=>`<td>${mp[q]?fmt(mp[q][2])+"%":"—"}</td>`).join("")}</tr>`; }).join("")+`</tbody></table></div>`;
+  }
+
+  // ── KAYAK 차트 · 검증 줄 · 호텔별 표
+  if(kOwn.length){
+    const isQ=rPer==="q", KH=KY.h, mi=ym=>(+ym.slice(0,4))*12+(+ym.slice(5,7))-1;
+    const stN={l:"끝나고 한참 뒤 수집 — 내년 같은 달 미리 검색이 조금 섞임",c:"진행 중",d:""};
+    let labels=[];
+    if(!isQ){ const ms=kOwn.flatMap(k=>KH[k].m.map(r=>mi(r[0]))); for(let i=Math.min(...ms);i<=Math.max(...ms);i++) labels.push(`${Math.floor(i/12)}-${String(i%12+1).padStart(2,"0")}`); }
+    else { const qs=kOwn.flatMap(k=>(KH[k].q||[]).map(r=>adrQo(r[0]))); for(let i=Math.min(...qs);i<=Math.max(...qs);i++) labels.push(`${Math.floor((i-1)/4)}Q${(i-1)%4+1}`); }
+    const base=k=>{ const q=(KH[k].q||[]).find(r=>r[2]===3); return q?q[1]:null; };     // 지수 기준 = 첫 완결 분기
+    const S=kOwn.map((k,j)=>{ const b=base(k), f=v=>v==null?null:km==="ix"?(b?v/b*100:null):v/10, mp={};
+      if(!isQ){ KH[k].m.forEach(r=>mp[r[0]]=r); const rows=labels.map(l=>mp[l]||null);
+        return {k, n:KH[k].n, c:ADR_PAL[j%ADR_PAL.length], w:2.2, rows, v:rows.map(r=>r&&r[3]!=="c"?f(r[2]):null), pv:rows.map(r=>r&&r[3]==="c"?f(r[2]):null)}; }
+      (KH[k].q||[]).forEach(r=>mp[r[0]]=r); const rows=labels.map(l=>mp[l]||null);
+      return {k, n:KH[k].n, c:ADR_PAL[j%ADR_PAL.length], w:2.2, rows, v:rows.map(r=>r&&r[2]===3?f(r[1]):null), pv:rows.map(r=>r&&r[2]<3?f(r[1]):null)}; });
+    host.querySelector("#adrKLeg").innerHTML=adrLeg(S);
+    const xl=i=>isQ?adrQL(labels[i]):`'${labels[i].slice(2,4)}.${labels[i].slice(5,7)}`;
+    adrLine(host.querySelector("#adrK"),{labels, xl, end:true, h:220, series:S,
+      xTick:i=>{ if(isQ) return adrQL(labels[i]); const m=+labels[i].slice(5,7); return (m===1||i===0)?`'${labels[i].slice(2,4)}.${m}`:(labels.length<=15||m%3===1)?`${m}월`:null; },
+      tip:i=>`<div class="tt-h">${xl(i)}</div>`+S.map(se=>{ const r=se.rows[i]; if(!r) return "";
+        if(isQ) return `<div class="tt-r"><span class="k">${adrDot(se.c)}${se.n}${r[2]<3?` (${r[2]}개월 끝남)`:""}</span><span class="v">${adrMan(r[1]/10)}만${r[3]!=null?" · 전분기비 "+adrPc(r[3]):""}${r[4]!=null?" · 전년비 "+adrPc(r[4]):""}</span></div>`;
+        return `<div class="tt-r"><span class="k">${adrDot(se.c)}${se.n}${r[3]==="c"?" (진행 중)":r[3]==="l"?" *":""}</span><span class="v">${adrMan(r[2]/10)}만 · $${fmt0(r[1])}</span></div>`; }).join("")
+        +(isQ?"":`<div class="g" style="font-size:10.5px;margin-top:3px">$ = KAYAK 원값 · 만원 = 그달 원/달러 ${fmt0((KY.fx||{})[labels[i]]||0)}원으로 환산${S.some(se=>se.rows[i]&&se.rows[i][3]==="l")?" · * "+stN.l:""}</div>`)});
+    // 검증 — 리츠 실측 ADR 과 같은 분기쌍으로
+    const V=ADR_KREIT.map(k=>{ const rq=((RH[k]||{}).q||[]).filter(r=>r[4]===3&&r[6]!=null), kq=((KH[k]||{}).q||[]).filter(r=>r[2]===3&&r[3]!=null);
+      const qs=rq.map(r=>r[0]).filter(q=>kq.some(x=>x[0]===q)); if(!qs.length) return null; const q=qs[qs.length-1];
+      return {k, q, a:rq.find(r=>r[0]===q)[6], b:kq.find(r=>r[0]===q)[3]}; }).filter(Boolean);
+    const qPrev=q=>{ let y=+q.slice(0,4), n=+q.slice(-1)-1; if(n<1){ n=4; y--; } return `${y}Q${n}`; };
+    const fxQ=q=>{ const y=+q.slice(0,4), n=+q.slice(-1), vs=[0,1,2].map(i=>(KY.fx||{})[`${y}-${String(3*n-2+i).padStart(2,"0")}`]).filter(Boolean); return vs.length===3?vs.reduce((a,b)=>a+b,0)/3:null; };
+    const vq=V.length?V[0].q:null, fxc=vq&&fxQ(vq)&&fxQ(qPrev(vq))?(fxQ(vq)/fxQ(qPrev(vq))-1)*100:null;
+    host.querySelector("#adrKV").innerHTML=V.length?`검증 — 리츠가 낸 실제 ADR 과 같은 분기 비교(${adrQL(vq)}/${adrQL(qPrev(vq))} · 실측 → KAYAK): `
+      +V.map(v=>`${ADR_NM[v.k]||KH[v.k].n} ${adrPc(v.a)} → ${adrPc(v.b)}`).join(" · ")+(fxc!=null&&Math.abs(fxc)>=1?` · 환산 안 하면 원/달러 변화(${adrPc(fxc)})만큼 어긋난다`:""):"";
+    // 호텔별 표 — 최근 12개월 · 분기 전분기비·전년비
+    const kAll=kOwn.concat((cfg.kmore||[]).filter(k=>KH[k]));
+    const ML=[...new Set(kAll.flatMap(k=>KH[k].m.map(r=>r[0])))].sort().slice(-12);
+    const QL=[...new Set(kAll.flatMap(k=>(KH[k].q||[]).filter(r=>r[2]===3).map(r=>r[0])))].sort((a,b)=>adrQo(a)-adrQo(b)).slice(-4);
+    host.querySelector("#adrKT").innerHTML=`<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">만원 · 검색가</th>${ML.map(m=>`<th>'${m.slice(2,4)}.${m.slice(5,7)}</th>`).join("")}${QL.map(q=>`<th class="ye">${adrQL(q)}<br><span class="g" style="font-weight:400">전분기비</span></th>`).join("")}</tr></thead><tbody>`
+      +kAll.map(k=>{ const mp={}, qp={}; KH[k].m.forEach(r=>mp[r[0]]=r); (KH[k].q||[]).forEach(r=>qp[r[0]]=r);
+        return `<tr><td class="l"${kOwn.includes(k)?' style="font-weight:700"':""}>${KH[k].n}</td>${ML.map(m=>{ const r=mp[m]; return !r?`<td class="g">—</td>`:`<td${r[3]==="c"?' class="g"':""} title="${attr("$"+fmt0(r[1])+(stN[r[3]]?" · "+stN[r[3]]:""))}">${adrMan(r[2]/10)}${r[3]==="c"?"<br><span style=\"font-size:10px\">진행</span>":""}</td>`; }).join("")}${QL.map(q=>{ const r=qp[q]; return `<td>${r?adrPc(r[3])+(r[4]!=null?`<br><span class="g" style="font-size:10.5px">전년 ${adrPc(r[4])}</span>`:""):"—"}</td>`; }).join("")}</tr>`; }).join("")
+      +`</tbody></table></div><p class="note" style="margin-top:4px">그달 원/달러로 환산한 만원 · 마우스 = KAYAK 원값(달러) · 진행 = 이번 달(아직 검색이 쌓이는 중) · 첫 수집(${adrMD(KY.snaps[0])}) 전의 달은 끝나고 한참 뒤 값 · 전년비는 수집 1년 뒤부터 · 묶음: 나인트리 5곳 = 객실 수 × 상반기 투숙률 가중(용산은 위탁 운영이라 매출이 수수료뿐이어서 뺐다) · 드래곤시티 4곳 = 객실 수 가중 · 신라스테이 11곳 = 단순 평균 · 수집 ${KY.snaps.length}회</p>`;
+    toEnd(host.querySelector("#adrKT .tbl-wrap"));
   }
 
   // ── 회사 IR 차트(신라처럼 길 때만)·표
@@ -13625,4 +13715,25 @@ function renderAdr(name, host){
       +`</tbody></table></div>`; };
   host.querySelector("#adrOT").innerHTML=otbl(cfg.ota)+`<p class="note" style="margin-top:4px">${adrMD(O.last)} 관측 · 만원(세금 포함 ÷ 1.1) · 아래 작은 글씨 = Google 이 매긴 가격 수준(이 호텔의 보통 범위 대비)·할인폭 · 마우스 = 세금 포함 원가격과 보통 범위</p>`;
   host.querySelector("#adrOTall").innerHTML=otbl(["dragoncity"].concat(Object.keys(A.hotels||{})));
+
+  // ── 전국 호텔 물가 차트
+  if(cpiRow){
+    const isQ=per==="q", CC=["#d8b46a","#81b29a","#6fa8dc"];
+    const ser=ADR_CPI.filter(([c])=>ECOS.s[c]).map(([c,n],j)=>{
+      const v=ECOS.s[c].v, qq=adrCpiQ(c);
+      if(isQ){ const ks=Object.keys(qq).sort((a,b)=>adrQo(a)-adrQo(b)); return {c, n, ks, qq, val:k=>{ const r=qq[k]; return !r?null:cm==="yoy"?r.yoy:r.v; }, part:k=>qq[k]&&qq[k].n<3, col:CC[j]}; }
+      const ks=Object.keys(v).sort(); return {c, n, ks, val:k=>{ if(cm!=="yoy") return v[k]; const p=v[(+k.slice(0,4)-1)+k.slice(4)]; return p?(v[k]/p-1)*100:null; }, part:()=>false, col:CC[j]}; });
+    let labels=[...new Set(ser.flatMap(s=>s.ks))].sort((a,b)=>isQ?adrQo(a)-adrQo(b):a.localeCompare(b));
+    if(cm==="yoy"){ const i0=labels.findIndex(l=>ser[0].val(l)!=null); if(i0>0) labels=labels.slice(i0); }
+    const S=ser.map(s=>({k:s.c, n:s.n, c:s.col, w:s.c==="K02101"?2.6:1.4, op:s.c==="K02101"?null:0.75,
+      v:labels.map(l=>s.part(l)?null:s.val(l)), pv:labels.map(l=>s.part(l)?s.val(l):null)}));
+    host.querySelector("#adrCLeg").innerHTML=adrLeg(S,new Set(["K02101"]));
+    const xl=i=>isQ?adrQL(labels[i]):`'${labels[i].slice(2,4)}.${labels[i].slice(5,7)}`;
+    adrLine(host.querySelector("#adrC"),{labels, xl, end:true, h:200, zero:cm==="yoy", unit:cm==="yoy"?"%":"",
+      series:S.slice().reverse(),
+      xTick:i=>{ const l=labels[i], y=+l.slice(0,4); const first=isQ?l.endsWith("Q1"):l.endsWith("-01"); return first&&(labels.length<60||y%2===0)?`'${l.slice(2,4)}`:null; },
+      tip:i=>`<div class="tt-h">${xl(i)}</div>`+ser.map((s,j)=>{ const x=s.val(labels[i]); if(x==null) return "";
+        const lv=isQ?(s.qq[labels[i]]||{}).v:ECOS.s[s.c].v[labels[i]];
+        return `<div class="tt-r"><span class="k">${adrDot(s.col)}${s.n}${s.part(labels[i])?" (진행 중)":""}</span><span class="v">${cm==="yoy"?adrPc(x):fmt(x,1)}${cm==="yoy"&&lv!=null?" · 지수 "+fmt(lv,1):""}</span></div>`; }).join("")});
+  }
 }

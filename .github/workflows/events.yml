@@ -248,6 +248,7 @@ jobs:
         run: python runstep.py "게임 순위(gamerscroll)" fetch_grank.py
 
       # 한국은행 소매업태별 판매액지수(ECOS 901Y098 · sample 키) — 유통·면세 종목 손익 모델의 동인. 익월 말 공표, 바뀐 달만 쓴다.
+      # + 소비자물가 숙박 품목(901Y009 호텔숙박료 등 · 익월 초 공표) — 호텔 3종목 '호텔 ADR 추적'의 전국 호텔 물가(2026-10-29).
       - name: 소매판매 지수(ECOS)
         continue-on-error: true
         timeout-minutes: 3

@@ -22,7 +22,7 @@
 ## 아침 수집 — 이 세션 (한 회차)
 
 1. **사슬 유지(맨 먼저)** — `list_triggers` 로 이름이 '아마존 세부 카테고리 아침 수집 (' 로 시작하는 예약을 보고, 내일·모레 05:30 회차가 없으면 건다.
-2. 아래 0단계(`ingest.py --today` 와 `lists.py --today` 가 둘 다 0 이면 아마존은 끝 · 하나만 0 이면 빠진 쪽만). 아마존이 끝나 있어도 `hotel_adr/build.py --today` 가 1 이면 8번만 한다.
+2. 아래 0단계(`ingest.py --today` 와 `lists.py --today` 가 둘 다 0 이면 아마존은 끝 · 하나만 0 이면 빠진 쪽만). 아마존이 끝나 있어도 `hotel_adr/build.py --today` 나 `hotel_adr/build.py --kayak-done` 이 1 이면 8번만 한다.
 3. **윈도우 크롬 기다리기** — `list_connected_browsers` 에 osPlatform Windows 가 없으면 `sleep 240` 하고 다시. 처음 본 때부터 최대 90분.
    붙으면 `select_browser` 로 그 브라우저를 고르고 1~3단계.
 4. 90분 안에 안 붙으면 수집하지 말고 멈추고, 같은 날 13:20 에 같은 메시지로 `send_later` 를 하나 건다(13:20 회차 자신이면 더 걸지 않는다).
@@ -40,6 +40,8 @@
    `hotel_adr/RUNBOOK.md` 1·2단계(새 탭 → 수집기 → 덤프 → build.py → push.py · 5분 안팎). 먼저 `python3 hotel_adr/build.py --today` 가 0 이면 건너뛴다.
    ⚠ google.com 은 `new Function` 이 막혀 있어 그 RUNBOOK 의 불러오는 코드(TrustedScript + nonce)를 그대로 쓸 것.
    아마존·Keepa 와 무관하니 여기서 멈추거나 실패해도 위엔 영향이 없다 — 보고에 `[ADR]` 줄 또는 멈춘 곳만 더한다. 13:20 회차여도 오늘 관측이 없으면 한다.
+   그다음 **KAYAK 월별 검색가(주 1회 · 2026-10-29 등록)** — `python3 hotel_adr/build.py --kayak-done` 이 1 이면 `hotel_adr/RUNBOOK.md` 3단계
+   (kayak.com/robots.txt 탭 → 수집기 → 덤프 → `--kayak-check` → `--kayak` → push.py · 2분 안팎). 0 이면 건너뛴다. 보고에 `[ADR] KAYAK` 줄만 더한다.
 
 ## 0. 저장소
 

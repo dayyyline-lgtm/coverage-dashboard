@@ -157,11 +157,22 @@ def freshness(html, now):
     ts = parse_ts(last)
     if ts and (now - ts).total_seconds() / 3600 > STEAM_RV_H:
         bad.append(("STEAM_RV", "Steam 리뷰", (now - ts).total_seconds() / 3600, STEAM_RV_H))
+    # 호텔 KAYAK 월별 검색가도 블록(ADR) asOf 와 따로 본다 — Google 호텔이 매일 asOf 를 새로 찍어서 KAYAK 이 멈춰도 안 보인다(2026-10-29).
+    ln = re.search(r'^const ADR\s*=\s*(\{.*\});?\s*$', html, re.M)
+    try:
+        last = (json.loads(ln.group(1)).get("kayak") or {}).get("asOf") or ""
+    except Exception:
+        last = ""
+    ts = parse_ts(last)
+    if ts and (now - ts).total_seconds() / 3600 > KAYAK_H:
+        bad.append(("ADR_KAYAK", "호텔 KAYAK 월별 검색가(주 1회 크롬)", (now - ts).total_seconds() / 3600, KAYAK_H))
     return bad
 
 
 # 리뷰는 하루 한 번(KST 09시 뒤) 최근 30일을 통째로 다시 받는다 — 하루 빠져도 다음 날 메워지므로 사흘.
 STEAM_RV_H = 72
+# KAYAK 은 주 1회(아침 크롬 8번) — 한 주 빠져도 다음 주가 메운다. 두 주 넘게 비면 알린다.
+KAYAK_H = 24 * 16
 
 
 # 데일리 레터가 마지막으로 나간 뒤 이만큼 지나면 알린다.

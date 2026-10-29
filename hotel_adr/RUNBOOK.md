@@ -1,6 +1,6 @@
-# 호텔 ADR — 아침 수집 절차 (Google 호텔 선행 판매가 · 2026-10-29 ~)
+# 호텔 ADR — 아침 수집 절차 (Google 호텔 선행 판매가 매일 · KAYAK 월별 검색가 주 1회 · 2026-10-29 ~)
 
-대시보드 `ADR` 블록(호텔신라 · GS피앤엘 · 서부T&D 종목 페이지 손익 탭 '호텔 ADR 추적')의 **일별** 재료.
+대시보드 `ADR` 블록(호텔신라 · GS피앤엘 · 서부T&D 종목 페이지 손익 탭 '호텔 ADR 추적')의 **일별**(Google 호텔 · 1~2단계)·**월별**(KAYAK · 3단계) 재료.
 리츠 IR 월별·회사 IR 분기·증권사 언급은 손으로 넣는다(아래 '사람이 넣는 것').
 
 ## 누가 · 언제
@@ -38,6 +38,40 @@ python3 hotel_adr/push.py                               # hotel_adr/data · inde
 ```
 
 보고 한 줄: build.py 의 `[ADR] OTA … 선행 판매가 …` 줄(실패면 멈춘 곳).
+
+## 3. KAYAK 월별 검색가 — 주 1회 (2026-10-29 ~)
+
+먼저 `python3 hotel_adr/build.py --kayak-done` — 종료코드 0(이번 달 수집이 6일 안쪽에 있다)이면 건너뛴다. 달이 바뀐 첫 회차는 늘 받는다(지난달 값을 그때 굳힌다).
+
+1. `tabs_create_mcp` → `navigate` 로 `https://www.kayak.com/robots.txt` (가볍고 CSP 가 없어 `new Function` 이 된다 · google.com 과 다르다).
+2. `javascript_tool` 에 그대로:
+   ```js
+   const R='https://raw.githubusercontent.com/dayyyline-lgtm/coverage-dashboard/main/hotel_adr/';
+   new Function(await (await fetch(R+'kayak.js',{cache:'no-store'})).text())();
+   window.__KAYAKADR.start(); 'started'
+   ```
+3. 30초 간격으로 `window.__KAYAKADR.status()` — `done · 26/26 · ok 26 · err 0` 까지(1분 안팎). err 가 있으면 사유가 괄호에 나온다.
+   `막힘(captcha)` 이 여럿이면 멈추고 보고(다음 주가 이어받는다).
+4. `window.__KAYAKADR.dump()` → `get_page_text` → 본문을 **한 글자도 바꾸지 말고** `/tmp/adr/kayak.txt`. 만든 탭을 닫는다.
+5. ```
+   python3 hotel_adr/build.py --kayak-check /tmp/adr/kayak.txt   # 줄마다 CRC · END 줄 수 → 종료코드 0
+   python3 hotel_adr/build.py --kayak /tmp/adr/kayak.txt         # kayak.csv 에 더하고 블록 다시 만들기
+   python3 hotel_adr/push.py
+   ```
+   `--kayak-check` 가 틀린 줄을 말하면 그 호텔만 다시: `window.__KAYAKADR.start({only:['gic','westin']})` → dump → 같은 순서.
+
+보고 한 줄: build.py 의 `[ADR] KAYAK … 전분기비 …` 줄.
+
+### KAYAK 값 읽는 법
+- 호텔 페이지에 박힌 `monthlyStayPrice`(1~12월) = **KAYAK 사용자가 지난 12개월 동안 검색한 요금의 달별 평균**(전 객실 타입·세금 포함). 수준은 ADR 보다 높다(그랜드IC 약 2배) — 변화만 쓴다.
+- KAYAK 은 달러로 쌓아 두고 화면 통화로는 '오늘 환율' 하나를 곱한다(2026-10-29 kayak.co.kr 값 ÷ kayak.com 값이 모든 달 1,339.2). 그래서 `build.py` 가
+  **그달 평균 원/달러**(ECB · `kbeauty/data/fx_month.csv`)로 다시 바꾼다. 안 바꾸면 원화 강세(2Q→3Q −5.6%)만큼 3분기가 높게 나왔다.
+- 검증(2026-10-29): 리츠 실측 ADR 3Q26/2Q26 대비 — 그랜드 머큐어 −2.0% → KAYAK +0.9% · 신라스테이 광화문 −8.8% → −9.9% · 마포 −6.7% → −7.3%. 월별 수준 상관 0.83~0.98.
+- 달 번호 → 실제 연월: 수집일보다 앞 달 = 올해 끝난 달 · 같은 달 = 진행 중 · 뒤 달 = 작년 같은 달과 내년 미리 검색이 섞여서 버린다.
+  끝난 달은 **끝난 뒤 첫 수집 값**으로 굳힌다(그 뒤로는 내년 같은 달 미리 검색이 조금씩 섞여 든다). 첫 수집(10/29)의 1~8월은 한참 뒤 값이라 `l` 표시.
+- `weeklyStayPrice`(요일별)는 최근 2주 표본이라 들쭉날쭉해서 저장만 하고 화면엔 안 쓴다.
+- 전년비는 수집 1년 뒤(2027-10~)부터 저절로 생긴다. 웨이백 머신 사본엔 월별 값이 없어 과거는 못 채운다(2026-10-29 확인).
+- 호텔·KAYAK id 를 더하려면 `kayak.js` 의 `H` 와 `build.py` 의 `KAYAK_H` 둘 다(id 는 웹 검색 'kayak 호텔이름 ksp' 의 주소 끝 숫자).
 
 ## 수집기가 하는 일 (`ota.js`)
 
