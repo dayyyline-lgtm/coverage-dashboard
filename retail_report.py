@@ -499,6 +499,213 @@ def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+# ── 브리핑: 업태마다 #태그 · 흐름 · 국면 · 바뀐 것 · 식품/비식품 · 건수·단가 ──────────
+# 국면 = 최근 3개월 평균 전년비 vs 직전 3개월 평균(1%p 넘게 달라야 가속·둔화). 판정은 이 식 하나 — 문구만 바꿔 쓴다.
+PHASE = {
+    "가속": ("좋아지는 중 (가속)", "플러스 폭이 커지고 있다"),
+    "둔화": ("꺾이는 중 (둔화)", "아직 플러스지만 폭이 줄고 있다"),
+    "유지+": ("비슷 (플러스 유지)", "비슷한 폭의 플러스가 이어진다"),
+    "플전": ("좋아지는 중 (플러스 전환)", "마이너스에서 플러스로 돌아섰다"),
+    "완화": ("바닥 다지는 중 (감소 완화)", "아직 마이너스지만 폭이 줄고 있다"),
+    "심화": ("나빠지는 중 (감소 심화)", "마이너스 폭이 커지고 있다"),
+    "마전": ("나빠지는 중 (마이너스 전환)", "플러스에서 마이너스로 돌아섰다"),
+    "유지-": ("부진 지속", "비슷한 폭의 마이너스가 이어진다"),
+}
+GOOD, BAD = {"가속", "플전", "완화"}, {"둔화", "심화", "마전"}
+FOOD = {"B": ("식품", "비식품 계"), "M": ("식품", "비식품 계"), "C": ("식품 계", "비식품 계"), "S": ("식품 계", "비식품 계")}
+O_NAMES = ["가전/전자", "도서/문구", "패션/의류", "화장품", "아동/유아", "스포츠", "식품", "생활/가구", "서비스/기타"]
+
+
+def phase_of(s):
+    r, p = sum(s[-3:]) / 3, sum(s[-6:-3]) / 3
+    if p <= 0 < r:
+        k = "플전"
+    elif r <= 0 < p:
+        k = "마전"
+    elif r > 0:
+        k = "가속" if r - p >= 1 else "둔화" if p - r >= 1 else "유지+"
+    else:
+        k = "완화" if r - p >= 1 else "심화" if p - r >= 1 else "유지-"
+    return k, r, p
+
+
+def item_contrib(M, ch, j, ks):
+    base = M[j - 12]["L"][ch]
+    return (sum((M[j]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks) -
+            sum((M[j - 12]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks)) / base * 100
+
+
+def holiday_shift(M):
+    """(최근 두 달에 명절 시점 차이가 있나, 머리 문구) — 올해 명절 달이 작년과 다르면 그 앞뒤 달 전년비가 부풀거나 꺼진다."""
+    last = M[-1]
+    shift = False
+    for m in M[-2:]:
+        e = m.get("ev") or ""
+        h = "추석" if "추석" in e else "설" if e.startswith("설") else ""
+        if h:
+            ly = next((x for x in M if x["ym"] == f"{int(m['ym'][:2]) - 1:02d}.{m['ym'][3:]}"), None)
+            if not ly or h not in (ly.get("ev") or ""):
+                shift = True
+    e = last.get("ev") or ""
+    h = "추석" if "추석" in e else "설" if e.startswith("설") else ""
+    note = ""
+    if h and "선판매" not in e:
+        y, mo = int(last["ym"][:2]), int(last["ym"][3:])
+        ly = [x for x in M if x["ym"].startswith(f"{y - 1:02d}.") and h in (x.get("ev") or "") and "선판매" not in (x.get("ev") or "")]
+        if ly:
+            lmo = int(ly[0]["ym"][3:])
+            day = re.search(r"\(([^)]+)\)", e)
+            lday = re.search(r"\(([^)]+)\)", ly[0]["ev"])
+            when = f"올해 {day.group(1) if day else f'{mo}월'} · 작년 {lday.group(1) if lday else f'{lmo}월'}"
+            pre = M[-2] if "선판매" in (M[-2].get("ev") or "") else None
+            span = f"{int(pre['ym'][3:])}~{mo}월" if pre else f"{mo}월"
+            if lmo > mo:
+                note = (f"{h} 시점: {when} → {span} 전년비는 명절 매출 덕에 부풀었고, "
+                        f"{lmo}월은 작년 {h} 달이라 낮게 나오기 쉽다")
+            elif lmo < mo:
+                note = f"{h} 시점: {when} → {lmo}월은 작년 {h} 달이라 낮았고, 올해 {mo}월은 명절이 늦게 와 부풀었다"
+    return shift, note
+
+
+def brief(R):
+    """(머리 html, 업태 섹션 html, 평문) — 업태마다 '#백화점 +8.4%' 머리 + 흐름 · 국면 · 바뀐 것 · 식품/비식품 · 건수·단가."""
+    M = [m for m in R["months"] if m.get("yoy")]
+    j = len(R["months"]) - 1
+    MM = R["months"]
+    last, prev = MM[-1], MM[-2]
+    mo, pmo = int(last["ym"][3:]), int(prev["ym"][3:])
+    shift, hnote = holiday_shift(MM)
+    secs, plains, verdict = [], [], {}
+    foodonly, tag_of = set(), CH_SHORT
+
+    def flow(series, months):
+        path = " → ".join(f"{int(m['ym'][3:])}월 {v:+.1f}" for m, v in zip(months[-4:], series[-4:]))
+        st, d = 0, 0
+        for a, b in zip(series[::-1][1:], series[::-1]):    # 끝에서부터 같은 방향으로 몇 달 움직였나
+            dd = 1 if b > a else -1 if b < a else 0
+            if st == 0:
+                d = dd
+            if dd != d or dd == 0:
+                break
+            st += 1
+        tail = f" (전년비 {st}개월 연속 {'높아짐' if d > 0 else '낮아짐'})" if st >= 3 else ""
+        sg = 1 if series[-1] > 0 else -1
+        run = 0
+        for v in series[::-1]:
+            if (v > 0) == (sg > 0) and v != 0:
+                run += 1
+            else:
+                break
+        if 1 <= run <= 4 and run < len(series):
+            tail += f" · {int(months[-run]['ym'][3:])}월부터 {'플러스' if sg > 0 else '마이너스'}"
+        return path + tail
+
+    def section(tag, series, months, extra):
+        k, r, p = phase_of(series)
+        verdict[tag] = k
+        bold, why = PHASE[k]
+        lines = [f"<b>#{tag} {series[-1]:+.1f}%</b> ({pmo}월 {series[-2]:+.1f})",
+                 f"국면: <b>{bold}</b> — {why} · 최근 3개월 평균 {r:+.1f}% (직전 3개월 {p:+.1f}%)",
+                 f"흐름: {flow(series, months)}"]
+        if k in BAD and series[-1] - series[-2] >= 1.5:
+            lines.append(f"→ 다만 이번 달은 반등 ({series[-2]:+.1f} → {series[-1]:+.1f})")
+        if k in GOOD and series[-2] - series[-1] >= 1.5:
+            lines.append(f"→ 다만 이번 달은 주춤 ({series[-2]:+.1f} → {series[-1]:+.1f})")
+        lines += extra(k, series)
+        secs.append("<p>" + "<br>".join(lines) + "</p>")
+        plains.append("\n".join(re.sub("<[^>]+>", "", l) for l in lines))
+
+    for c in "BMCS":
+        ser = [tot_yoy(m, c) for m in M]
+        ok = [(m, v) for m, v in zip(M, ser) if v is not None]
+        months, series = [m for m, _ in ok], [v for _, v in ok]
+
+        def extra(k, series, c=c):
+            out = []
+            jj = [MM.index(m) for m in MM[-6:]]
+            leaf = [(nm, ks) for nm, ks, _ in ITEMS[c] if ks != "L" and not nm.endswith(" 계")]
+            ch_ = sorted(((nm, item_contrib(MM, c, j - 1, ks), item_contrib(MM, c, j, ks)) for nm, ks in leaf),
+                         key=lambda t: -abs(t[2] - t[1]))
+            mv = [f"{esc(nm)} {a:+.1f} → {b:+.1f}%p" for nm, a, b in ch_[:2] if abs(b - a) >= 0.3]
+            if mv:
+                out.append("바뀐 것: " + " · ".join(mv) + f" (기여 {pmo}월 → {mo}월)")
+            fk, nk = FOOD[c]
+            fks = next(ks for nm, ks, _ in ITEMS[c] if nm == fk)
+            nks = next(ks for nm, ks, _ in ITEMS[c] if nm == nk)
+            f0, f1 = item_contrib(MM, c, j - 1, fks), item_contrib(MM, c, j, fks)
+            n0, n1 = item_contrib(MM, c, j - 1, nks), item_contrib(MM, c, j, nks)
+            out.append(f"기여: 식품 {f1:+.1f}%p · 비식품 {n1:+.1f}%p ({pmo}월 {f0:+.1f} · {n0:+.1f})")
+            up_now = k in GOOD or series[-1] - series[-2] >= 1.5
+            if shift and up_now:
+                nr = sum(item_contrib(MM, c, x, nks) for x in jj[-2:]) / 2
+                npv = sum(item_contrib(MM, c, x, nks) for x in jj[-5:-2]) / 3
+                w0 = f"{int(MM[jj[-5]]['ym'][3:])}~{int(MM[jj[-3]]['ym'][3:])}월"
+                w1 = f"{int(MM[jj[-2]]['ym'][3:])}~{mo}월"
+                if nr - npv >= 1:
+                    out.append(f"→ 명절 영향이 적은 비식품도 좋아졌다 ({w0} 평균 {npv:+.1f} → {w1} {nr:+.1f}%p) — 명절 효과만은 아니다")
+                else:
+                    foodonly.add(tag_of[c])
+                    out.append(f"→ 좋아진 몫은 식품뿐 — 비식품은 {w0} 평균 {npv:+.1f} → {w1} {nr:+.1f}%p로 그대로. 명절 시점 효과일 수 있어 다음 달 확인")
+            kp = last.get("kpi", {}).get(c) or {}
+            n, u = kp.get("구매건수"), kp.get("구매단가")
+            if n is not None and u is not None:
+                who = "손님 수(건수)가 끌었다" if n > u else "객단가가 끌었다"
+                if n < 0 and u < 0:
+                    who = "건수·단가 둘 다 줄었다"
+                txt = f"건수·단가: 구매건수 {n:+.1f}% · 구매단가 {u:+.1f}% → {who}"
+                ps = kp.get("점포당 매출")
+                if kp.get("점포 증가율") is not None:
+                    txt += f" · 점포 수 {kp['점포 증가율']:+.1f}%"
+                out.append(txt)
+                if kp.get("점포 증가율") is None and ps is not None and series[-1] is not None:
+                    implied = ((1 + series[-1] / 100) / (1 + ps / 100) - 1) * 100     # 합계 = 점포당 × 점포 수
+                    if abs(implied) >= 3:
+                        out.append(f"점포: 점포당 매출 {ps:+.1f}% vs 합계 {series[-1]:+.1f}% → 점포 수 약 {implied:+.0f}%"
+                                   + (" — 점포가 줄었는데 합계가 플러스 = 남은 점포 매출이 크게 늘었다" if implied < 0 < series[-1] else ""))
+            return out
+
+        section(CH_SHORT[c], series, months, extra)
+
+    # 온라인 — 품목 비중이 없어 품목 전년비로만
+    on = [(m, head_yoy(m, "온라인")) for m in M if head_yoy(m, "온라인") is not None]
+
+    def extra_on(k, series):
+        out = []
+        o1 = (last["yoy"].get("O") or [])[:9]
+        o0 = (prev.get("yoy", {}).get("O") or [])[:9]
+        if len(o1) == 9 and len(o0) == 9:
+            ch_ = sorted(zip(O_NAMES, o0, o1), key=lambda t: -abs((t[2] or 0) - (t[1] or 0)))
+            mv = [f"{nm} {a:+.1f} → {b:+.1f}%" for nm, a, b in ch_[:3] if a is not None and b is not None and abs(b - a) >= 3]
+            if mv:
+                out.append("바뀐 것: " + " · ".join(mv) + " (품목 전년비)")
+            hi = sorted([(nm, v) for nm, v in zip(O_NAMES, o1) if v is not None], key=lambda t: -t[1])
+            out.append(f"강한 품목: {hi[0][0]} {hi[0][1]:+.1f}% · {hi[1][0]} {hi[1][1]:+.1f}% / 약한 품목: {hi[-1][0]} {hi[-1][1]:+.1f}%")
+        return out
+
+    section("온라인", [v for _, v in on], [m for m, _ in on], extra_on)
+
+    hd = last["yoy"]["head"]
+    good = [t for t, k in verdict.items() if k in GOOD]
+    bad = [t for t, k in verdict.items() if k in BAD]
+    flat = [t for t, k in verdict.items() if k not in GOOD and k not in BAD]
+    pe = (prev.get("yoy") or {}).get("head", {}).get("전체")
+    hl = [f"<b>전체 {sgn(hd.get('전체'))}%</b> ({pmo}월 {sgn(pe)}) · 오프라인 {sgn(hd.get('오프라인'))}% · 온라인 {sgn(hd.get('온라인'))}%"]
+    if good:
+        hl.append("좋아지는 곳: <b>" + " · ".join(t + ("*" if t in foodonly else "") for t in good) + "</b>")
+    if bad:
+        hl.append("꺾이거나 나빠지는 곳: <b>" + " · ".join(bad) + "</b>")
+    if flat:
+        hl.append("비슷: " + " · ".join(flat))
+    if any(t in foodonly for t in good):
+        hl.append("* 좋아진 몫이 식품뿐 — 명절 시점 효과일 수 있다")
+    if hnote:
+        hl.append(esc(hnote))
+    head = (f"<h2>{mo}월 유통업체 매출 브리핑</h2><p>{'<br>'.join(hl)}</p>")
+    plain = (f"{mo}월 유통업체 매출 브리핑\n" + "\n".join(re.sub("<[^>]+>", "", l) for l in hl) + "\n\n" +
+             "\n\n".join(plains))
+    return head, "".join(secs), plain
+
+
 def build_rich(R):
     M = R["months"]
     last = M[-1]
@@ -528,22 +735,11 @@ def build_rich(R):
                   td(sgn(yy[-1][0]) + ("*" if yy[-1][1] and yy[-1][0] is not None else "")) + \
                   td(sgn(yy[-2][0]) + ("*" if yy[-2][1] and yy[-2][0] is not None else "")) + td(f"{lv[-1]:.3f}") + "</tr>"
     t2 += "</table>"
-    # 요약 — 기여 상위 품목(계산값)
-    lines = []
-    for c in "BMCS":
-        cy = (last["yoy"].get(c) or [None] * 12)[TOT[c]]
-        py_ = (prev.get("yoy", {}).get(c) or [None] * 12)[TOT[c]]
-        top = contrib(M, c)[:2]
-        lines.append(f"<b>{CH_SHORT[c]}</b> {sgn(cy)}% (전월 {sgn(py_)}) — 기여 상위: " +
-                     " · ".join(f"{esc(n)} {v:+.1f}%p" for n, v in top))
-    ev = f" · {esc(last['ev'])}" if last.get("ev") else ""
-    html = (f"<h2>{mo}월 유통업체 매출 — 전체 {sgn(hd.get('전체'))}%</h2>"
-            f"<p>오프라인 {sgn(hd.get('오프라인'))}% · 온라인 {sgn(hd.get('온라인'))}%{ev} · {esc(R.get('release', ''))}</p>"
-            f"<p>{'<br>'.join(lines)}</p>" + t1 + t2 +
-            f"<p>기여 %p = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계(계산값). * = 붙임에 품목 전년비가 없어 실액으로 환산.<br>"
-            f"실액은 조사표본 기준 추정. 그래프 11장(한눈에 · 품목 기여 · 기여 월별 · 추이 · 업태별 실액)은 이어서 보낸다. 대시보드: 유통 종목 페이지 손익 탭 · <a href=\"{SITE}\">{SITE}</a></p>")
-    plain = (f"{mo}월 유통업체 매출 — 전체 {sgn(hd.get('전체'))}% (오프 {sgn(hd.get('오프라인'))} · 온 {sgn(hd.get('온라인'))}){ev}\n" +
-             "\n".join(re.sub("<[^>]+>", "", l) for l in lines))
+    head, secs, plain = brief(R)
+    html = (head + secs + t1 + t2 +
+            f"<p>국면 = 최근 3개월 평균 전년비 vs 직전 3개월 평균(1%p 넘게 달라야 가속·둔화) · 기여 %p = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계(계산값) · "
+            f"* = 붙임에 품목 전년비가 없어 실액으로 환산 · 실액은 조사표본 기준 추정.<br>"
+            f"출처 산업통상부 주요 유통업체 매출 동향 {esc(R.get('release', ''))} · 그래프 11장은 이어서 · 대시보드 유통 종목 페이지 손익 탭 <a href=\"{SITE}\">{SITE}</a></p>")
     return html, plain
 
 
