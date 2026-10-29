@@ -1,0 +1,37 @@
+name: 예약 사이트 과거 흔적 조사(일회성)
+# diag_ota.py 를 push 하면 돈다. 커먼 크롤·웨이백의 KAYAK 계열 호텔 페이지 사본에서 숙박월별 평균 검색가를 찾아
+# diag-ota 가지에만 올린다(main 은 안 건드림 · CI 스킵 표시).
+on:
+  push:
+    branches: [main]
+    paths: ["diag_ota.py"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 사본 찾기
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -u diag_ota.py | tee diag_ota_log.txt
+      - name: diag-ota 가지에 올리기
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p diag_ota_out && cp diag_ota_log.txt diag_ota_out/ 2>/dev/null || true
+          mv diag_ota_out /tmp/diag_ota_out
+          git checkout --orphan diag-ota-tmp
+          git rm -rf --quiet --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          mv /tmp/diag_ota_out ./diag_ota_out
+          git add diag_ota_out
+          git commit -q -m "예약 사이트 사본 조사 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          git push -f origin HEAD:refs/heads/diag-ota
