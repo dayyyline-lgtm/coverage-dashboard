@@ -2396,6 +2396,45 @@ const topicsOf0=n=>{
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
+/* 산업부 유통업체 매출동향(RETAIL) — 유통 5종목 트렌드(2026-10-29 사용자 "유통 트렌드에 왜 안 넣어 — 종목별로 월별·분기별로").
+   종목마다 업태 그룹 하나씩(롯데쇼핑 = 백화점·대형마트·SSM · GS리테일 = 편의점·SSM): 계열 = 업태 합계 + 품목군 4개(텔레그램 기여 차트와 같은 묶음) · 값 = 월 실액(억원).
+   ⚠ 계절이 큰 월 매출이라 판정·카드·범례는 **작년 같은 달**과 견준다(yoyCmp) — 전월비로 보면 12월·명절 달마다 급등락으로 읽힌다.
+   신호(주목할 추이·개요 트렌드 급변)는 업태 합계만(sigIdx) — 품목군은 보기용. 전년비 ±25% 이상일 때만 신호.
+   ⚠ RETAIL_MAP 등은 아래쪽(유통 종목 손익 탭)에 const 로 있어 여기서 못 쓴다(TDZ) — 이 안에 따로 둔다. 종목·업태를 바꾸면 둘 다 고칠 것. */
+(function injectRetailTrends(){
+  if(typeof RETAIL==="undefined"||!RETAIL.months||RETAIL.months.length<13) return;
+  const MAPS={"신세계":["B"],"현대백화점":["B"],"롯데쇼핑":["B","M","S"],"BGF리테일":["C"],"GS리테일":["C","S"]};
+  const NM={B:"백화점 3사",M:"대형마트 4사",C:"편의점 4사",S:"SSM 4사"}, TOT={B:9,M:8,C:7,S:7};
+  const MIXJ={B:[["명품",["명품"]],["식품",["식품"]],["의류",["여성정장","여성캐주얼","남성의류","아동스포츠"]],["잡화·가정",["잡화","가정용품"]]],
+    M:[["식품",["식품"]],["가전·문화",["가전문화"]],["의류·잡화·스포츠",["의류","잡화","스포츠"]],["가정생활·기타",["가정생활","기타"]]],
+    C:[["음료 등 가공",["가공식품"]],["즉석·신선",["즉석신선"]],["담배 등",["담배등"]],["생활용품·잡화",["생활용품","잡화"]]],
+    S:[["농수축산",["농수축산"]],["신선·조리",["신선조리"]],["가공식품",["가공식품"]],["비식품",["일상용품","생활잡화"]]]};
+  const M=RETAIL.months, lab=m=>`${m.ym.slice(0,2)}.${+m.ym.slice(3,5)}`;
+  const ek=v=>v==null||isNaN(v)?"—":Math.abs(v)>=1e4?`${+(v/1e4).toFixed(2)}조`:`${Math.round(v).toLocaleString("ko-KR")}억`;
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const groups={};                                   // 업태마다 한 번 만들어 종목마다 이름만 달리 붙인다(읽기 전용)
+  Object.keys(NM).forEach(ch=>{
+    const rows=[[NM[ch],M.map(m=>m.L[ch]*1e4)]].concat(MIXJ[ch].map(([n,ks])=>[n, M.map(m=>ks.reduce((t,k)=>t+(((m.I||{})[ch]||{})[k]||0),0)*1e4)]));
+    const raw=rows.map(r=>r[1].map(v=>v>0?Math.round(v):null));
+    const off=M.map(m=>((m.yoy||{})[ch]||[])[TOT[ch]]);                    // 업태 합계는 붙임 공식 전년비가 있으면 그것
+    const yoyAt=(i,j)=>i===0&&off[j]!=null?off[j]:pct(raw[i][j],raw[i][j-12]);
+    const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const li=M.length-1, mo=+M[li].ym.slice(3,5);
+    const notes=rows.map((r,i)=>{ const a=raw[i], q=a.slice(li-2,li+1), qy=a.slice(li-14,li-11);
+      const qs=q.every(x=>x!=null)?q.reduce((x,y)=>x+y,0):null, qys=qy.length===3&&qy.every(x=>x!=null)?qy.reduce((x,y)=>x+y,0):null;
+      return `${r[0]} ${mo}월 ${ek(a[li])}(전년동월비 ${sg(yoyAt(i,li))})`+(qs!=null?` · 최근 3개월 ${ek(qs)}(전년비 ${sg(pct(qs,qys))})`:""); });
+    groups[ch]={products:rows.map(r=>r[0]), productsGoogle:rows.map(r=>r[0]), months:M.map(lab), naver:norm, google:norm, rawSer:raw, rawFull:raw,
+      yoyAt, only:"naver", freq:"month", peak, unit:"억원(월 · 조사표본 기준 추정)", unitShort:"억원", realFmt:ek, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0],
+      srcName:`산업통상부 주요 유통업체 매출 동향(월간 · ${RETAIL.release||""}) · 실액 = 조사표본 기준 추정('26.08~ 작년 같은 달 × (1+공식 전년비)) · 품목군 = 실액 × 붙임 품목 비중 · 변화는 작년 같은 달과 비교(계절이 커서 전월비는 안 씀)`,
+      reviewNote:notes.join(" · ")};
+  });
+  Object.entries(MAPS).forEach(([stock,chs])=>chs.forEach(ch=>{
+    const name=`${stock} 업계 매출 · ${NM[ch]}`;
+    TREND.groups[name]=groups[ch];
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  }));
+})();
 /* 디시 갤러리 순위(BUZZ.dc) — 글 수(DCGALL)가 '양' 이라면 이쪽은 '전체 마이너갤 대비 상대 온도'다.
    글이 줄어도 순위가 버티면 판 전체가 식은 것이고, 글은 그대로인데 순위가 밀리면 우리만 식은 것이다.
    ⚠ 순위는 작을수록 뜨겁다 — 다른 순위 계열과 같이 (301−순위)/300 으로 뒤집어 그리고 축·표는 실제 순위.
@@ -2666,7 +2705,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -2681,7 +2720,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트|극장/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장|업계 매출/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";
@@ -2734,6 +2773,7 @@ function trendReal(G, pi, i){
 }
 function trendRealFmt(G, x){
   if(x==null||isNaN(x)) return "—";
+  if(G.realFmt) return G.realFmt(x);                                     // 그룹이 단위를 직접 적는다(유통 실액 '2.96조' · '9,850억')
   // ⚠ 그룹의 fmt 는 받는 값이 제각각이다 — 순위 그룹은 '뒤집힌 점수'(31−순위), 누적 막대는 실제 값.
   //   여기 x 는 늘 실제 값이므로 순위는 직접 적고, fmt 는 누적 막대에만 쓴다(9/26 '제우스 94위' 오류의 원인).
   if(G.rankN) return `${Math.round(x)}위`;
@@ -2816,7 +2856,7 @@ function winPlan(G, days){
     if(G.preferWeek && wk && wk.n>=MIN_PTS.week && days>=21) pick=wk;
     else pick=(d && d.n>=5 && (d.days>=days*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
   }
-  const n=days==null?pick.n:Math.min(pick.n, Math.max(MIN_PTS[pick.f], Math.ceil(days/FREQ_DAYS[pick.f])));
+  const n=days==null?pick.n:Math.min(pick.n, Math.max(MIN_PTS[pick.f], G.minPts||0, Math.ceil(days/FREQ_DAYS[pick.f])));   // minPts = 그룹이 정한 최소 점 수(유통 월 매출 = 2년 + 1달 — 작년 같은 달이 보이게)
   return {days, name:winName(days), freq:pick.f, n, total:pick.n, maxDays, label:`${n}${FREQ_UNIT[pick.f]}`};
 }
 /* 현재 구간에 맞는 뷰 — 빈도를 고르고 뒤에서 n 개만 남긴다(months·naver·google·rawSer 를 같이 자른다).
@@ -2901,7 +2941,7 @@ const invLin=(f,Y)=>{ const a=f(0), b=f(1); return (b===a)?0:(Y-a)/(b-a); };
 /* 트렌드 차트의 y 꼬리표 — 축 눈금과 같은 말로(순위는 '위', peak 아는 계열은 실제 단위, 나머지는 지수) */
 function trendYLab(G,v){
   if(G.rankN){ const n=G.rankN, of=G.rankOf||(x=>n+1-x); return Math.max(1,Math.round(of(v)))+"위"; }
-  if(G.peak&&!G.stack) return nAbbr(v*G.peak/100)+(typeof shortUnit==="function"?shortUnit(G):"");
+  if(G.peak&&!G.stack) return G.realFmt?G.realFmt(v*G.peak/100):nAbbr(v*G.peak/100)+(typeof shortUnit==="function"?shortUnit(G):"");
   return v>=10?String(Math.round(v)):v.toFixed(1);
 }
 
@@ -2971,7 +3011,9 @@ function drawTrend(){
     // 추세선(켰을 때만) — 원값 밑에 얇은 점선으로. 원값을 대신하지 않는다.
     if(SM&&SM[pi]) s+=`<path d="${trendPath(SM[pi],sx,sy)}" fill="none" stroke="${c}" stroke-width="1.4" stroke-dasharray="5 4" stroke-opacity=".8" stroke-linejoin="round"/>`;
     s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    ser.forEach((v,i)=>{ if(v==null) return; s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
+    if(G.peakDot){ const vs=ser.filter(v=>v!=null), pk=vs.length?ser.indexOf(Math.max(...vs)):-1;          // 점은 고점에만(유통 월 매출 · 사용자 규칙)
+      if(pk>=0) s+=`<circle cx="${sx(pk)}" cy="${sy(ser[pk])}" r="3.4" fill="${c}"><title>${PRODUCTS[pi]} ${M[pk]} 고점</title></circle>`; }
+    else ser.forEach((v,i)=>{ if(v==null) return; s+=`<circle cx="${sx(i)}" cy="${sy(v)}" r="2.6" fill="${c}"><title>${PRODUCTS[pi]} ${M[i]}: ${v}</title></circle>`;});
     const li=ser.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
     if(li!=null) ends.push({y:sy(ser[li])+4, t:PRODUCTS[pi], c});
   });
@@ -3000,8 +3042,10 @@ function drawTrend(){
     if(!rows.length) return null;
     return `<div class="tt-h">${M[i]}</div>`+rows.map(r=>
       `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
-      +`<span class="v">${r.r0!=null?"":r.v}${(r.r0!=null||G.peak)?`<span style="color:var(--muted);font-weight:600;font-size:10.5px">${r.r0!=null?"":" · "}${fmt0(r.r0!=null?r.r0:r.v*G.peak/100)}${G.unitShort||"건"}</span>`:""}`
+      +`<span class="v">${r.r0!=null?"":r.v}${(r.r0!=null||G.peak)?`<span style="color:var(--muted);font-weight:600;font-size:10.5px">${r.r0!=null?"":" · "}${G.realFmt?G.realFmt(r.r0!=null?r.r0:r.v*G.peak/100):fmt0(r.r0!=null?r.r0:r.v*G.peak/100)+(G.unitShort||"건")}</span>`:""}`
       +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}`
+      +`${(G.yoyCmp&&G.yoyAt&&G.rawFull)?(()=>{ const off=(G.rawFull[0]||[]).length-(series[0]||[]).length, y=G.yoyAt(PRODUCTS.indexOf(r.p), i+off);
+          return y==null?"":` <span class="${cls(y)}" style="font-size:10.5px">전년비 ${sign(y,1)}%</span>`; })():""}`
       +`${r.a!=null?` <span style="color:var(--muted);font-weight:600;font-size:10.5px">· 7일평균 ${G.rawSer?(G.fmt?G.fmt(r.a):r.a):r.a}</span>`:""}</span></div>`).join("");
   }});
   fillTrendLegendTable(G, PRODUCTS, series, M, U);
@@ -3076,8 +3120,12 @@ function yAxisInfo(G){
     ticks:ymax=>evenTicks(ymax,v=>String(Math.round(v)))};
   // ④ peak 를 아는 실측 계열 — 눈금을 실제 단위(명·건·개/일…)로 되돌린다.
   if(G.peak){ const u=shortUnit(G);
+    // niceTicks — 실제 단위에서 둥근 눈금(1·2·2.5·5 × 10ᵏ)을 만들어 지수로 되돌린다(유통 실액 '0 · 1조 · 2조 · 3조' — 4등분하면 '9,700억' 이 나온다)
+    if(G.niceTicks) return {kind:"abs", cap:G.unit||u||"실측값", pad:62,
+      ticks:ymax=>{ const top=ymax*G.peak/100, raw=top/4, e=Math.pow(10,Math.floor(Math.log10(raw||1))), st=[1,2,2.5,5,10].map(k=>k*e).find(k=>k>=raw)||raw, out=[];
+        for(let t=0;t<=top+st*1e-6;t+=st) out.push({v:t/G.peak*100, label:G.realFmt?G.realFmt(t):nAbbr(t)+u}); return out; }};
     return {kind:"abs", cap:G.unit||u||"실측값", pad:62,
-      ticks:ymax=>evenTicks(ymax,v=>nAbbr(v*G.peak/100)+u)}; }
+      ticks:ymax=>evenTicks(ymax,v=>G.realFmt?G.realFmt(v*G.peak/100):nAbbr(v*G.peak/100)+u)}; }
   // ⑤ 나머지 = 검색 트렌드 지수
   return {kind:"idx", cap:"검색지수 · 기간 고점=100", pad:44,
     ticks:ymax=>evenTicks(ymax,v=>Number.isInteger(v)?String(v):v.toFixed(1))};
@@ -3184,6 +3232,9 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       if(G.rankN&&G.rawSer&&li!=null){ const r=G.rawSer[i]||[], b=li-(FREQ_BACK[FREQ]||1);
         const d=(b>=0&&r[b]!=null&&r[li]!=null)?r[b]-r[li]:null;
         momTxt=d==null?"":` · ${FREQ_LAB[FREQ]||"전기"} ${d>0?`<span class="up">▲${d}</span>`:d<0?`<span class="down">▼${-d}</span>`:"변동 없음"}`; }
+      else if(G.yoyCmp&&G.yoyAt&&G.rawFull){                 // 계절이 큰 월 매출 — 작년 같은 달과(전체 계열 기준)
+        const r=G.rawFull[i]||[], l=r.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop(), y=l!=null?G.yoyAt(i,l):null;
+        momTxt=` · 전년동월비 ${y==null?"—":`<span class="${cls(y)}">${sign(y,1)}%</span>`}`; }
       else if(!G.snapshot&&!G.stack){
         const mom=(FREQ==="date")?weekOverWeek(ser):((li!=null&&li>0&&ser[li-1]>0)?(ser[li]/ser[li-1]-1)*100:null);
         momTxt=` · ${FREQ==="date"?"최근 7일":U.u+"비"} ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom,0)}%</span>`}`; }
@@ -6249,9 +6300,10 @@ function trendCardStats(gname, stock){
     else valTxt=trendRealFmt(V, V.peak?lead.last*V.peak/100:lead.last);
     // 변화 — 일별은 이번 주 vs 지난주(7일 합). 하루 튐·진행 중인 오늘치에 흔들리지 않게. 주별·월별은 전기비.
     if(freq==="date"){ const full=ser0[lead.i]||[]; chg=weekOverWeek(full); }
+    else if(V.yoyCmp&&V.yoyAt&&V.rawFull){ const r=V.rawFull[lead.i]||[], l=r.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop(); chg=l!=null?V.yoyAt(lead.i,l):null; }
     else if(prev>0&&lead.last!=null) chg=(lead.last/prev-1)*100;
   }
-  return {freq, k:smoothed?k:1, rows:rows.slice(0,4), lead, chg, dRank, valTxt};
+  return {freq, k:smoothed?k:1, rows:rows.slice(0,4), lead, chg, dRank, valTxt, yoy:!!V.yoyCmp};
 }
 function renderTrendCards(){
   const chart=document.getElementById("trendChart"); if(!chart||!chart.parentElement) return;
@@ -6279,7 +6331,7 @@ function renderTrendCards(){
     const act=g===trendGroup;
     const chg=S.dRank!=null?`<span class="${S.dRank>0?'up':S.dRank<0?'down':''}" style="font-size:11px;font-weight:700">${S.dRank>0?'▲':S.dRank<0?'▼':'—'}${Math.abs(S.dRank)||''}</span>`
       : S.chg==null?`<span style="font-size:11px;color:var(--muted2)">—</span>`:`<span class="${cls(S.chg)}" style="font-size:11px;font-weight:700">${sign(S.chg,0)}%</span>`;
-    const chgLab=S.freq==="date"?"최근 7일":S.freq==="week"?"전주":"전월";
+    const chgLab=S.freq==="date"?"최근 7일":S.freq==="week"?"전주":S.yoy?"전년비":"전월";
     const isCore=topicTier(g)===1;
     return `<div data-grp="${attr(g)}" title="${attr(g)} — 클릭하면 이 주제를 크게 봅니다" style="cursor:pointer;background:var(--panel);border:1px solid ${act?'var(--accent)':'var(--line-soft)'};${isCore?'border-top:2px solid color-mix(in srgb, var(--accent) 70%, transparent);':''}border-radius:12px;padding:8px 10px 6px;box-shadow:${act?'var(--shadow)':'none'}">
       <div style="font-size:11px;font-weight:700;color:${act?'var(--text)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${attr(g)}</div>
@@ -6690,6 +6742,17 @@ function trendCands(){
         keep(pi,{prod:prods[pi]||gname,wow,win,isHigh,score,freq,wk:true});
         return;
       }
+      if(G.yoyCmp&&freq==="month"){                       // 계절이 큰 월 매출(유통 실액) — 작년 같은 달 · 최근 3개월 vs 작년 같은 3개월
+        if(G.sigIdx&&!G.sigIdx.includes(pi)) return;      // 신호는 업태 합계만
+        const r=(G.rawFull||G.rawSer||series)[pi]||[]; let l=-1; for(let i=r.length-1;i>=0;i--) if(r[i]!=null){ l=i; break; }
+        if(l<14) return;
+        const y1=G.yoyAt?G.yoyAt(pi,l):(r[l-12]>0?(r[l]/r[l-12]-1)*100:null);
+        const s3=e=>{ let t=0; for(let i=e-2;i<=e;i++){ if(r[i]==null) return null; t+=r[i]; } return t; };
+        const a3=s3(l), b3=s3(l-12), y3=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
+        const mag=Math.max(Math.abs(y1||0),Math.abs(y3||0)); if(mag<25) return;
+        keep(pi,{prod:prods[pi]||gname, wow:y1, win:y3, isHigh:false, score:mag, freq, yoy:true});
+        return;
+      }
       const c=a.filter(v=>v!=null); if(c.length<3) return;
       const last=c[c.length-1], b1=c[c.length-2];
       const back=Math.min(c.length-1,(U[freq]||U.week).n), b=c[c.length-1-back];
@@ -6740,7 +6803,7 @@ function renderTrendHighlights(){
         const u=U[c.freq]||U.week, useWin=c.win!=null&&Math.abs(c.win)>=Math.abs(c.wow||0);
         const v=useWin?c.win:(c.wow!=null?c.wow:null);
         up=(v==null||v>=0); icon=(c.isHigh&&up)?"🚀":up?"🔥":"🧊";
-        const lw=c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
+        const lw=c.yoy?"최근 3개월 작년보다 ":c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.yoy?"작년 같은 달보다 ":c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
         chg=v==null?(c.wk?"주간 최고":"신고점"):(useWin?lw:lm)+`${v>=0?"+":""}${v.toFixed(0)}%`;
       }
       return `<button onclick='selectTrend(${JSON.stringify(c.stock)},${JSON.stringify(c.gname)})' style="display:flex;gap:7px;align-items:center;background:var(--panel2);border:1px solid ${c.tier===1?'color-mix(in srgb, var(--accent) 55%, var(--line))':'var(--line)'};border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12.5px;color:var(--text)"><span>${icon}</span>${c.tier===1?'<span style="color:var(--accent);font-size:11px;font-weight:800" title="핵심 지표">★</span>':''}<b>${c.prod}</b><span style="color:${up?'var(--up)':'var(--down)'};font-weight:700">${chg}</span><span style="color:var(--muted);font-size:11px">${c.stock} · ${shortG(c.gname)}</span></button>`;
@@ -9549,7 +9612,7 @@ function trendChipTxt(c){
   if(c.rank!=null){ const up=c.drank>0; return {icon:(c.rank<=10&&up)?"🚀":up?"🔥":"🧊", up, chg:`${c.rank}위 ${up?"▲":"▼"}${Math.abs(c.drank)}`}; }
   const u=U[c.freq]||U.week, useWin=c.win!=null&&Math.abs(c.win)>=Math.abs(c.wow||0);
   const v=useWin?c.win:(c.wow!=null?c.wow:null), up=(v==null||v>=0);
-  const lw=c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
+  const lw=c.yoy?"최근 3개월 작년보다 ":c.wk?"4주 전 주보다 ":`${u.n}${u.unit} 전보다 `, lm=c.yoy?"작년 같은 달보다 ":c.wk?"지난주보다 ":(c.freq==="month"?"지난달보다 ":"지난주보다 ");
   return {icon:(c.isHigh&&up)?"🚀":up?"🔥":"🧊", up, chg:v==null?(c.wk?"주간 최고":"신고점"):(useWin?lw:lm)+`${v>=0?"+":""}${v.toFixed(0)}%`};
 }
 /* 배지 이름 — 계열 이름이 나라·합계뿐이면('한국' '5개국 합계') 무엇의 것인지 모른다 → 앞에 주제를 붙인다.
@@ -13108,6 +13171,9 @@ const RETAIL_LV={   // 위 겹친 선: [이름, 품목 키 목록(합) | "L", �
   S:[["합계","L",7],["농수축산",["농수축산"],3],["가공식품",["가공식품"],5],["신선·조리",["신선조리"],4]]};
 const RETAIL_KPI={B:["구매건수","구매단가","점포당 매출"],M:["구매건수","구매단가","점포당 매출"],C:["구매건수","구매단가","점포 증가율","점포당 매출"],S:["구매건수","구매단가","점포당 매출"]};
 let retailCh={}, retailMode=(()=>{ try{ return localStorage.getItem("rtMode")==="yoy"?"yoy":"lv"; }catch(e){ return "lv"; } })();
+// 월별 ↔ 분기별(2026-10-29 사용자 "종목별로 월별·분기별로 넣고 IS 에도") — 분기별 = 업계 분기 실액·전년비 vs 회사 DART 부문 전년비(+ 분기 손익 모델 추정)
+let retailPer=(()=>{ try{ return localStorage.getItem("rtPer")==="q"?"q":"m"; }catch(e){ return "m"; } })();
+const RETAIL_SEG={"신세계":{B:"백화점"},"현대백화점":{B:"백화점"},"롯데쇼핑":{B:"백화점",M:"할인점",S:"슈퍼"},"BGF리테일":{C:"편의점"},"GS리테일":{C:"편의점",S:"수퍼"}};   // ISM 부문 키
 function retailCell(v, cur, yr){   // 숫자만 색(상승 빨강 · 하락 파랑) · 배경은 최신 열만 · 1월 앞에 연도 구분선
   const st=(cur?"background:color-mix(in srgb, var(--accent) 10%, transparent);font-weight:700;":"")+(yr?"border-left:1.5px solid var(--line2, var(--line));":"");
   if(v==null) return `<td class="g" style="${st}">—</td>`;
@@ -13129,7 +13195,12 @@ function renderRetail(name, host){
     ? `<tr style="font-weight:600"><td class="l" style="padding-left:12px">${n}</td>${Y.map(m=>(m.yoy[ch]||[])[i]).map((v,j)=>retailCell(v,j===nY-1,yb(j))).join("")}</tr>`
     : row(n,Y.map(m=>(m.yoy[ch]||[])[i]),{ind:1})).join("");
   const kpiRows=grp("구매 지표")+RETAIL_KPI[ch].map(k=>row(k,Y.map(m=>((m.kpi||{})[ch]||{})[k]),{ind:1})).join("");
-  host.innerHTML=`<div class="sub-h">산업부 유통업체 매출동향 — ${RETAIL_CH[ch]} <span class="th-sub" style="display:inline">'${last.ym} · ${attr(RETAIL.release||"")} · 전체 ${sign(hd["전체"],1)}% · 오프라인 ${sign(hd["오프라인"],1)}% · 온라인 ${sign(hd["온라인"],1)}%</span></div>
+  const perBtns=`<span class="seg" style="margin-left:auto">${[["m","월별"],["q","분기별"]].map(([k,t])=>`<button data-rtper="${k}" class="${retailPer===k?"active":""}">${t}</button>`).join("")}</span>`;
+  const headH=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">산업부 유통업체 매출동향 — ${RETAIL_CH[ch]} <span class="th-sub" style="display:inline">'${last.ym} · ${attr(RETAIL.release||"")} · 전체 ${sign(hd["전체"],1)}% · 오프라인 ${sign(hd["오프라인"],1)}% · 온라인 ${sign(hd["온라인"],1)}%</span>${perBtns}</div>`;
+  const bindTop=()=>{ host.querySelectorAll("[data-rtch]").forEach(b=>b.onclick=()=>{ retailCh[name]=b.dataset.rtch; renderRetail(name, host); });
+    host.querySelectorAll("[data-rtper]").forEach(b=>b.onclick=()=>{ retailPer=b.dataset.rtper; try{ localStorage.setItem("rtPer",retailPer); }catch(e){} renderRetail(name, host); }); };
+  if(retailPer==="q"){ retailQuarterView(name, host, ch, headH+segBtns); bindTop(); return; }
+  host.innerHTML=`${headH}
     ${segBtns}
     <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">전년동월비 %</th>${Y.map((m,i)=>`<th class="ye" style="${yb(i)?"border-left:1.5px solid var(--line);":""}${i===nY-1?"background:color-mix(in srgb, var(--accent) 10%, transparent)":""}">'${m.ym}<div class="g" style="font-size:10px;font-weight:400;min-height:12px">${m.ev?attr(m.ev):""}</div></th>`).join("")}</tr></thead>
       <tbody>${yoyRows}${kpiRows}</tbody></table></div>
@@ -13141,7 +13212,7 @@ function renderRetail(name, host){
       <span class="seg" style="margin-left:auto">${[["lv","실액"],["yoy","전년비"]].map(([k,t])=>`<button data-rtmode="${k}" class="${retailMode===k?"active":""}">${t}</button>`).join("")}</span></div>
     <div id="rtGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px"></div>
     <p class="note">실액은 조사표본 기준 추정 — '26.08 부터는 붙임에 점포당 매출 절대값이 없어 전년 같은 달 × (1+공식 YoY), 품목은 원문 비중으로 나눴다(품목 YoY 가 공식치와 0~2%p 다를 수 있음). 원자료·전 업태: <a href="${attr(RETAIL.tracker||"#")}" target="_blank" rel="noopener">유통업체 매출 트래커</a> · 갱신 ${attr(RETAIL.asOf||"")}</p>`;
-  host.querySelectorAll("[data-rtch]").forEach(b=>b.onclick=()=>{ retailCh[name]=b.dataset.rtch; renderRetail(name, host); });
+  bindTop();
   host.querySelectorAll("[data-rtmode]").forEach(b=>b.onclick=()=>{ retailMode=b.dataset.rtmode; try{ localStorage.setItem("rtMode",retailMode); }catch(e){} renderRetail(name, host); });
   const yoyM=retailMode==="yoy", i0=yoyM?12:0, MM=M.slice(i0);
   const S=RETAIL_LV[ch].map(([n,ks,col],i)=>{ const lv=M.map(m=>ks==="L"?m.L[ch]:ks.reduce((a,k)=>a+((m.I[ch]||{})[k]||0),0));
@@ -13174,6 +13245,70 @@ function renderRetail(name, host){
     html:i=>`<div class="tt-h">'${MM[i].ym}${MM[i].ev?` · ${attr(MM[i].ev)}`:""}</div>`+S.map(se=>{ const y=se.yv[i];
       return `<div class="tt-r"><span class="k"><span style="background:${se.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${se.n}</span><span class="v">${se.lv[i].toFixed(3)}조 · <span class="${y>0?"up":y<0?"down":""}">${y==null?"—":(y>0?"+":"")+y.toFixed(1)+"%"}</span></span></div>`; }).join("")});
   retailGrid(host.querySelector("#rtGrid"), ch);
+}
+/* 분기별 보기 — 업계(산업부 업태 실액) 분기 합·전년비 · 품목 · 구매 지표(3개월 평균) vs 회사 DART 부문 매출·전년비(분기 손익 모델 ISM 의 실적·추정).
+   진행 분기(달이 1~2개)는 그 달들만 작년 같은 달과 견준다(ismPartYoY 와 같은 방식). 회사 E = 분기 손익 모델 추정(업계 전년비 × 기울기 등 — 위 손익 표와 같은 값). */
+function retailQuarterView(name, host, ch, head){
+  const M=RETAIL.months, qOf=m=>`20${m.ym.slice(0,2)}Q${Math.ceil(+m.ym.slice(3,5)/3)}`;
+  const QS={}; M.forEach(m=>{ (QS[qOf(m)]=QS[qOf(m)]||[]).push(m); });
+  const qPrev=q=>`${+q.slice(0,4)-1}${q.slice(4)}`, qLab=q=>`${q.slice(-1)}Q${q.slice(2,4)}`;
+  const lvF=ks=>m=>ks==="L"?m.L[ch]:ks.reduce((t,k)=>t+(((m.I||{})[ch]||{})[k]||0),0);
+  const sumQ=(q,f)=>(QS[q]||[]).reduce((t,m)=>t+f(m),0);
+  const yoyQ=(q,f)=>{ const a=QS[q]||[], b=QS[qPrev(q)]||[]; if(!a.length||!b.length) return null;
+    if(a.length===3&&b.length===3){ const x=sumQ(q,f), y=sumQ(qPrev(q),f); return y>0?{v:(x/y-1)*100,n:3}:null; }
+    let x=0,y=0,n=0; a.forEach(m=>{ const p=b.find(z=>z.ym.slice(3)===m.ym.slice(3)); if(p){ x+=f(m); y+=f(p); n++; } }); return (n&&y>0)?{v:(x/y-1)*100,n}:null; };
+  const cols=Object.keys(QS).sort().filter(q=>QS[qPrev(q)]);              // 전년비가 나오는 분기부터
+  const B=(typeof ismBuild==="function"&&typeof ISM!=="undefined")?ismBuild(name):null, sk=(RETAIL_SEG[name]||{})[ch];
+  const co=q=>{ const o=B&&B.Q[q], s=o&&o.seg&&o.seg[sk]; return s?{v:s.rev, act:!!o.act}:null; };
+  const coY=q=>{ const a=co(q), b=co(qPrev(q)); return (a&&b&&b.v>0)?{v:(a.v/b.v-1)*100, act:a.act}:null; };
+  const kpiQ=(q,k)=>{ const xs=(QS[q]||[]).map(m=>((m.kpi||{})[ch]||{})[k]).filter(v=>v!=null); return xs.length?xs.reduce((t,v)=>t+v,0)/xs.length:null; };
+  const nC=cols.length, yb=i=>i>0&&cols[i].endsWith("Q1"), lastC=nC-1;
+  const td=(h,i,o={})=>`<td class="${o.c||""}" style="${i===lastC?"background:color-mix(in srgb, var(--accent) 10%, transparent);":""}${yb(i)?"border-left:1.5px solid var(--line);":""}${o.st||""}"${o.tip?` title="${attr(o.tip)}"`:""}>${h}</td>`;
+  const pcC=(x,i,o={})=>x==null?td("—",i,{c:"g"}):td(`${x.v>0?"+":""}${x.v.toFixed(1)}${x.n&&x.n<3?`<span class="g" style="font-size:10px">·${x.n}개월</span>`:""}`,i,{c:Math.abs(x.v)<0.05?"":x.v>0?"up":"down",...o});
+  const row=(t,cells,o={})=>`<tr${o.b?' style="font-weight:700"':""}><td class="l"${o.ind?' style="padding-left:16px"':""}>${t}</td>${cells}</tr>`;
+  const grp=t=>`<tr><td class="l g" style="font-size:11px;padding-top:9px;border-bottom:1px solid var(--line)">${t}</td>${cols.map((q,i)=>`<td style="border-bottom:1px solid var(--line)${yb(i)?";border-left:1.5px solid var(--line)":""}"></td>`).join("")}</tr>`;
+  const [h0,...hs]=RETAIL_ITEMS[ch];
+  const lvRow=row("업계 매출(조원)", cols.map((q,i)=>{ const n=(QS[q]||[]).length; return td(sumQ(q,lvF("L")).toFixed(2)+(n<3?`<span class="g" style="font-size:10px">·${n}개월</span>`:""),i); }).join(""));
+  const yoyRow=row(`업계 전년비 %`, cols.map((q,i)=>pcC(yoyQ(q,lvF("L")),i)).join(""),{b:1});
+  const itRows=grp("품목 전년비 %")+hs.map(([n,ks])=>row(n, cols.map((q,i)=>pcC(yoyQ(q,lvF(ks)),i)).join(""), {ind:1, b:RETAIL_SUBT.test(n)})).join("");
+  const kRows=grp("구매 지표 · 3개월 평균 전년비 %")+RETAIL_KPI[ch].map(k=>row(k, cols.map((q,i)=>{ const v=kpiQ(q,k); return pcC(v==null?null:{v},i); }).join(""), {ind:1})).join("");
+  const segT=B&&sk?(((ISM_SPEC[name]||{}).segs||[]).find(x=>x.k===sk)||{}).t||sk:null;
+  const coRows=!segT?"":grp(`${name} ${segT} — DART 부문 매출(E = 분기 손익 모델 추정)`)
+    +row("매출(십억원)", cols.map((q,i)=>{ const c=co(q); return td(c?`${fmt(c.v,1)}${c.act?"":"<b style=\"color:var(--accent)\"> E</b>"}`:"—",i,{st:c&&!c.act?"color:var(--muted);":""}); }).join(""),{ind:1})
+    +row("전년비 %", cols.map((q,i)=>{ const y=coY(q); return pcC(y?{v:y.v}:null,i,{st:y&&!y.act?"opacity:.75;":""}); }).join(""),{ind:1,b:1})
+    +row("업계와 차이 %p", cols.map((q,i)=>{ const a=coY(q), b=yoyQ(q,lvF("L")); if(!a||!b||b.n<3) return td("—",i,{c:"g"}); const d=a.v-b.v; return td(`${d>0?"+":""}${d.toFixed(1)}`,i,{c:"g"}); }).join(""),{ind:1});
+  host.innerHTML=`${head}
+    <div class="sub-h" style="margin-top:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">분기 전년비 — 업계 vs ${segT?attr(name+" "+segT):"회사"} <span class="th-sub" style="display:inline">% · 막대 = 분기 · 옅은 막대 = 모델 추정(E)</span>
+      <span id="rtQLeg" style="display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-left:auto"></span></div>
+    <div id="rtQChart"></div>
+    <div class="tbl-wrap" style="margin-top:8px"><table class="mini-tbl"><thead><tr><th class="l">분기</th>${cols.map((q,i)=>`<th class="ye" style="${yb(i)?"border-left:1.5px solid var(--line);":""}${i===lastC?"background:color-mix(in srgb, var(--accent) 10%, transparent)":""}">${qLab(q)}</th>`).join("")}</tr></thead>
+      <tbody>${lvRow}${yoyRow}${itRows}${kRows}${coRows}</tbody></table></div>
+    <p class="note">업계 = 산업부 「주요 유통업체 매출 동향」 업태 실액(조사표본 기준 추정)의 분기 합 · 진행 분기(·n개월)는 그 달들을 작년 같은 달과 견준 값 · 구매 지표는 월 전년비의 3개월 평균.
+      회사 = DART 부문 매출(백화점은 순매출 기준이라 수준은 업계와 다르다 — 전년비만 견준다${ch==="M"?" · 롯데쇼핑 할인점에는 해외 마트(약 27%)가 들어 있다":""}) · E = 위 '분기 손익 모델' 추정과 같은 값.</p>`;
+  // 차트 — 업계·회사 전년비 묶은 막대(업계 = 회색, 회사 = 금색 · 추정 분기는 옅게)
+  const el=host.querySelector("#rtQChart"); if(!el) return;
+  const cs=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim(), gc=cs("--line"), mut=cs("--muted"), acc=cs("--accent")||"#80590c", ind=cs("--muted2")||"#9aa5b1";
+  const S1=cols.map(q=>yoyQ(q,lvF("L"))), S2=cols.map(q=>coY(q));
+  host.querySelector("#rtQLeg").innerHTML=`<span><span style="display:inline-block;width:10px;height:10px;background:${ind};border-radius:2px;margin-right:5px;vertical-align:-1px"></span>업계(산업부 ${RETAIL_CH[ch]})</span>`
+    +(segT?`<span><span style="display:inline-block;width:10px;height:10px;background:${acc};border-radius:2px;margin-right:5px;vertical-align:-1px"></span>${attr(name+" "+segT)}(DART)</span>`:"");
+  const all=[...S1,...S2].filter(Boolean).map(x=>x.v);
+  const W=el.clientWidth||860, H=220, P={l:40,r:12,t:16,b:26}, n=cols.length;
+  let mx=Math.max(0,...all), mn=Math.min(0,...all); const raw=(mx-mn)/5||1, e10=Math.pow(10,Math.floor(Math.log10(raw))), st=[1,2,2.5,5,10].map(k=>k*e10).find(k=>k>=raw);
+  mx=Math.ceil(mx/st)*st; mn=Math.floor(mn/st)*st; if(mx===mn) mx=mn+st;
+  const band=(W-P.l-P.r)/n, sx=i=>P.l+band*(i+0.5), sy=v=>H-P.b-(v-mn)/(mx-mn)*(H-P.t-P.b), bw=Math.min(22,band*0.3);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let v=mn; v<=mx+st/2; v+=st){ const z=Math.abs(v)<st/1e3; s+=`<line x1="${P.l}" y1="${sy(v)}" x2="${W-P.r}" y2="${sy(v)}" stroke="${z?mut:gc}"/><text x="${P.l-6}" y="${sy(v)+3}" text-anchor="end" font-size="10" fill="${mut}">${(+v).toFixed(st>=1?0:1)}%</text>`; }
+  cols.forEach((q,i)=>{ s+=`<text x="${sx(i)}" y="${H-P.b+16}" text-anchor="middle" font-size="10.5" fill="${mut}">${qLab(q)}</text>`;
+    const bar=(x,v,c,op)=>{ const y0=sy(0), y1=sy(v); return `<rect x="${(x-bw/2).toFixed(1)}" y="${Math.min(y0,y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(y1-y0)).toFixed(1)}" rx="2" fill="${c}" opacity="${op}"/>`; };
+    if(S1[i]) s+=bar(sx(i)-bw/2-1.5, S1[i].v, ind, S1[i].n<3?.5:1);
+    if(S2[i]) s+=bar(sx(i)+bw/2+1.5, S2[i].v, acc, S2[i].act?1:.45)+(S2[i].act?"":`<text x="${(sx(i)+bw/2+1.5).toFixed(1)}" y="${(Math.min(sy(0),sy(S2[i].v))-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${acc}">E</text>`); });
+  el.innerHTML=s+"</svg>";
+  attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>qLab(cols[i]),yLab:Yp=>invLin(sy,Yp).toFixed(1)+"%",
+    pts:()=>[],
+    html:i=>{ const a=S1[i], b=S2[i], f=x=>x==null?"—":`<span class="${x.v>0?"up":x.v<0?"down":""}">${x.v>0?"+":""}${x.v.toFixed(1)}%</span>`;
+      return `<div class="tt-h">${qLab(cols[i])}${a&&a.n<3?` · 업계 ${a.n}개월`:""}</div><div class="tt-r"><span class="k">업계 ${RETAIL_CH[ch]}</span><span class="v">${f(a)}</span></div>`
+        +(segT?`<div class="tt-r"><span class="k">${attr(name+" "+segT)}${b&&!b.act?" (모델 추정)":""}</span><span class="v">${f(b)}</span></div>`:"")
+        +((a&&b&&a.n===3)?`<div class="tt-r"><span class="k">차이</span><span class="v">${(b.v-a.v)>0?"+":""}${(b.v-a.v).toFixed(1)}%p</span></div>`:""); }});
 }
 /* 세부 품목 작은 차트 — 품목마다 한 칸(자기 축). 실액 = 레벨 × 원문 비중 · 전년비 = 붙임 공식치(없는 '25.01~05 는 실액에서 환산, 점선) + 전년비 보기엔 구매 지표 칸 */
 function retailGrid(grid, ch){

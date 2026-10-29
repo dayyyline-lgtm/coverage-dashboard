@@ -1940,6 +1940,6 @@ const ISM_SPEC_RAW = [
 ];
 ISM_SPEC_RAW.forEach(r=>{
   ISM_SPEC[r.name]={note:r.note, oneoff:r.oneoff, oneoffNote:r.oneoffNote, opFit:r.opFit, opmWin:r.opmWin, bad:r.bad, segs:r.segs.map(s=>({...s,
-    px:(s.px&&!s.wait)?(()=>ismPxOf(s.px, r.name)):null, pxLab:s.px?ismPxLab(s.px):"", src:s.px?s.px.src:null,
+    px:(s.px&&!s.wait)?(()=>ismPxOf(s.px, r.name)):null, pxLab:s.px?ismPxLab(s.px):"", src:s.px?s.px.src:null, pxP:s.px?(s.px.params||{}):null,
     drv:s.wait?"yoy":s.drv, note:s.wait?[s.note,"지표 수집 준비 중 — 지금은 전년 동기 × 성장률"].filter(Boolean).join(" · "):s.note}))};
 });

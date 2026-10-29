@@ -20,10 +20,15 @@ const ismMid=q=>[1,2,3].map(i=>`${q.slice(0,4)}-${String((+q.slice(-1)-1)*3+i).p
 
 /* ── 지표 → 분기 합 {q:{v, n(달 수)}} ─────────────────────────────────── */
 function ismFill(o){ const out={}; for(let y=2023;y<=2027;y++) for(let i=1;i<=4;i++){ const q=`${y}Q${i}`; out[q]={v:o[q]||0, n:3}; } return out; }  // 일정형 지표 — 빈 분기 = 0
-function ismAgg(pairs){        // [[ym, 값], …] → 분기 합
-  const o={}; pairs.forEach(([ym,v])=>{ if(v==null||!isFinite(v)) return; const q=ismQ(ym); const x=o[q]||(o[q]={v:0,n:0}); x.v+=v; x.n++; });
+function ismAgg(pairs){        // [[ym, 값], …] → 분기 합 {v, n(달 수), m:{ym: 값}} — m 은 진행 분기를 '같은 달끼리' 견줄 때 쓴다(유통 RETAIL)
+  const o={}; pairs.forEach(([ym,v])=>{ if(v==null||!isFinite(v)) return; const q=ismQ(ym); const x=o[q]||(o[q]={v:0,n:0,m:{}}); x.v+=v; x.n++; x.m[ym]=v; });
   return o;
 }
+// 진행 분기(달이 1~2개뿐)의 지표 전년비 — 그 달들만 작년 같은 달과 견준다. 유통 월 매출은 분기 안 계절이 커서(12월·명절)
+//   '있는 달 × 3/n' 보다 낫다(백화점·편의점 실측 오차 1.6~2.0% → 0.4~1.2%) — 면세·체인슈퍼(ECOS)는 반대라 유통(RETAIL)만 쓴다.
+function ismPartYoY(x, x0){ if(!x||!x0||!x.m||!x0.m) return null; let a=0, b=0, n=0;
+  Object.keys(x.m).forEach(ym=>{ const y0=`${+ym.slice(0,4)-1}${ym.slice(4)}`; if(x0.m[y0]!=null){ a+=x.m[ym]; b+=x0.m[y0]; n++; } });
+  return (n&&b>0)?{g:a/b-1, n}:null; }
 const ISM_PX={
   // 관세청 수출(TRADE · 품목 라벨 · 나라 코드 ""=전체) → 원화 십억
   trade(label, code){ if(typeof TRADE==="undefined") return {};
@@ -282,10 +287,13 @@ function ismBuild(name, opt){
       segsAll.forEach(s=>{ const p0=P.segs[s.k], p={...p0, g:q>="2027"?p0.g7:p0.g}, q4=c2QAdd(q,-4), base=(Q[q4]&&Q[q4].seg[s.k]&&!p.bad.has(q4))?baseRev(q4,s.k):null;
         // ① 지표 식(px · pxa)
         let pv=null, pw="";
-        const x=p.px&&p.px[q], xv=x&&x.n>=1?x.v*3/x.n:null, xl=x?(x.n===3?`${s.pxLab||"지표"} ${fmt(x.v,1)}${x.e?"(진행 분기 추정)":""}`:`${s.pxLab||"지표"} ${x.n}개월 ${fmt(x.v,1)}×3/${x.n}`):"";
+        const x=p.px&&p.px[q], x4=p.px&&p.px[q4], part=(s.src==="retail"&&x&&x.n<3&&x4&&x4.n===3)?ismPartYoY(x,x4):null;
+        const xv=x&&x.n>=1?(part?x4.v*(1+part.g):x.v*3/x.n):null;
+        const xl=x?(x.n===3?`${s.pxLab||"지표"} ${fmt(x.v,1)}${x.e?"(진행 분기 추정)":""}`
+          :part?`${s.pxLab||"지표"} ${part.n}개월 작년 같은 달 대비 ${part.g>=0?"+":""}${fmt(part.g*100,1)}% → 분기 ${fmt(xv,1)}`:`${s.pxLab||"지표"} ${x.n}개월 ${fmt(x.v,1)}×3/${x.n}`):"";
         if((s.drv==="px"||(s.drv==="pxy"&&p.yb==null))&&p.k!=null&&xv!=null){ pv=p.k*xv; pw=`${xl} × ${fmt(p.k,3)}(최근 ${p.kN}분기 비율)`; }
-        if(s.drv==="pxy"&&p.yb!=null&&base!=null&&x&&x.n===3&&p.px[q4]&&p.px[q4].n===3&&p.px[q4].v>0){ const xg=x.v/p.px[q4].v-1, gy=p.ya+p.yb*xg;
-          pv=base*(1+gy); pw=`전년 동기 ${fmt(base,1)} × (1${gy>=0?"+":""}${fmt(gy*100,1)}%) — ${s.pxLab||"지표"} 전년비 ${xg>=0?"+":""}${fmt(xg*100,1)}% × ${fmt(p.yb,2)} ${p.ya>=0?"+":"−"} ${fmt(Math.abs(p.ya)*100,1)}%p(최근 ${p.yN}분기 적합${p.r2!=null?` · R² ${fmt(p.r2,2)}`:""})`; }
+        if(s.drv==="pxy"&&p.yb!=null&&base!=null&&x&&(x.n===3||part)&&p.px[q4]&&p.px[q4].n===3&&p.px[q4].v>0){ const xg=x.n===3?x.v/p.px[q4].v-1:part.g, gy=p.ya+p.yb*xg;
+          pv=base*(1+gy); pw=`전년 동기 ${fmt(base,1)} × (1${gy>=0?"+":""}${fmt(gy*100,1)}%) — ${s.pxLab||"지표"} 전년비${x.n===3?"":`(${part.n}개월 · 작년 같은 달 대비)`} ${xg>=0?"+":""}${fmt(xg*100,1)}% × ${fmt(p.yb,2)} ${p.ya>=0?"+":"−"} ${fmt(Math.abs(p.ya)*100,1)}%p(최근 ${p.yN}분기 적합${p.r2!=null?` · R² ${fmt(p.r2,2)}`:""})`; }
         if(s.drv==="pxa"&&p.ib!=null&&xv!=null){ pv=p.ia+p.ib*xv; pw=`${fmt(p.ia,1)} + ${fmt(p.ib,3)} × ${xl}(최근 ${p.kN}분기 적합${p.r2!=null?` · R² ${fmt(p.r2,2)}`:""})`; }
         // ② 자기 이력 — 전년 동기 × 성장률 과 직전 분기 × 계절 의 평균(한 분기가 튀어도 덜 흔들리게) · 새 부문은 직전 분기
         const pq0=Q[c2QAdd(q,-1)], prev0=pq0&&pq0.seg[s.k]?pq0.seg[s.k].rev:null, gs=`(1${p.g>=0?"+":""}${fmt(p.g*100,0)}%)`;
@@ -390,14 +398,26 @@ function renderIsm(name, host){
   const lab=o=>o.yr?`${o.q}${o.act?"A":o.cOnly?"C":"E"}`:`${c2QLab(o.q)}${o.act?"":o.cOnly?"C":"E"}`;
   const prevOf=o=>o.yr?(Y[String(+o.q-1)]||null):(Q[c2QAdd(o.q,-4)]||null);
   const mc=LS.mktcapEok?LS.mktcapEok/10:null;
-  const open=ismOpen[name]||{};
+  const open=ismOpen[name]||(segs.some(s=>s.src==="retail")?{rev:true}:{});   // 유통 부문이 있으면 처음부터 펼쳐 업계 전년비 줄이 보이게
   const ROWS=[{k:"rev", t:"매출액", em:1, tg:segs.length?"rev":null}, {k:"rev", t:"YoY", r:"yoy"}, {k:"rev", t:"QoQ", r:"qoq"}]
-    .concat(segs.map(s=>({k:s.k, t:s.t, seg:1, g:"rev"})))
+    // 유통 부문(지표 = 산업부 유통업체 매출동향 · RETAIL)은 부문 전년비와 업계 전년비를 바로 밑에 — 모델이 무엇을 따라가는지 보이게(2026-10-29)
+    .concat(segs.flatMap(s=>[{k:s.k, t:s.t, seg:1, g:"rev"}].concat(s.src==="retail"?[
+      {k:s.k, t:`${s.t} 전년비`, seg:1, g:"rev", syoy:1},
+      {k:s.k, t:`업계 전년비(산업부 ${({B:"백화점 3사",M:"대형마트 4사",C:"편의점 4사",S:"SSM 4사"})[(s.pxP||{}).ch]||""}${(s.pxP||{}).w?" · 상품군 가중":""})`, seg:1, g:"rev", ind:1}]:[])))
     .concat(segs.length?[{k:"_rest", t:"그 밖·조정", seg:1, g:"rev", sm:1}]:[])
     .concat([{k:"op", t:"영업이익", em:1, tg:segs.some(s=>s.m!=null||(P.segs[s.k]||{}).m!=null)?"op":null}, {k:"op", t:"영업이익률", r:"opm"}, {k:"op", t:"YoY", r:"opyoy"}])
     .concat(segs.filter(s=>(P.segs[s.k]||{}).m!=null).map(s=>({k:s.k, t:s.t+" 영업이익", seg:1, sop:1, g:"op"})))
     .concat([{k:"pbt", t:"세전이익", tg:"np"}, {k:"np", t:"당기순이익", g:"np"}, {k:"npp", t:"지배주주 순이익", em:1}, {k:"per", t:"PER(현재 시총)", r:"per"}]);
   const valOf=(o,r)=>{
+    const pc1=v=>(v==null||!isFinite(v))?"—":`<span class="${cls(v)}">${sign(v*100,1)}%</span>`;   // 업계와 견주는 줄은 소수 한 자리
+    if(r.syoy){ const a=o.seg&&o.seg[r.k], pr=o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)], b=pr&&pr.seg&&pr.seg[r.k];
+      return {h:(a&&b&&b.rev>0)?pc1(a.rev/b.rev-1):"—"}; }
+    if(r.ind){ const px=(P.segs[r.k]||{}).px; if(!px) return {h:"—"};
+      if(o.yr){ const qs=[1,2,3,4].map(i=>`${o.q}Q${i}`), q0=[1,2,3,4].map(i=>`${+o.q-1}Q${i}`);
+        return {h:[...qs,...q0].every(q=>px[q]&&px[q].n===3)?pc1(qs.reduce((t,q)=>t+px[q].v,0)/q0.reduce((t,q)=>t+px[q].v,0)-1):"—"}; }
+      const x=px[o.q], x4=px[c2QAdd(o.q,-4)];
+      if(x&&x4&&x.n===3&&x4.n===3&&x4.v>0) return {h:pc1(x.v/x4.v-1), tip:"산업부 유통업체 매출동향 — 분기 실액 전년비(모델이 이 값을 받아 부문 전년비를 낸다)"};
+      const pt=ismPartYoY(x,x4); return pt?{h:pc1(pt.g)+`<span class="g" style="font-size:10px">·${pt.n}개월</span>`, tip:`${pt.n}개월만 나온 진행 분기 — 그 달들을 작년 같은 달과 견준 값`}:{h:"—"}; }
     if(r.r==="yoy"){ const p=prevOf(o)||cols.find(x=>x.q===(o.yr?String(+o.q-1):c2QAdd(o.q,-4))); return {h:chg(o.rev,p&&p.rev)}; }
     if(r.r==="qoq"){ if(o.yr) return {h:""}; const p=Q[c2QAdd(o.q,-1)]; return {h:chg(o.rev,p&&p.rev)}; }
     if(r.r==="opm") return {h:(o.rev&&o.op!=null)?`${fmt(o.op/o.rev*100,1)}%`:"—"};
@@ -470,7 +490,7 @@ function renderIsm(name, host){
     <div class="tbl-wrap"><table class="mini-tbl ism-t"><thead><tr><th class="l">${attr(name)}</th>${th}</tr></thead><tbody>${body}${consRow}</tbody></table></div>
     ${method}${btLine}${asm}
     <p class="note">실적 DART ${D.fs==="OFS"?"별도":"연결"}(${(Object.keys(D.src||{}).sort().pop()||"").replace("-",".")}까지)${D.segHow?` · 부문 ${attr(D.segHow)}`:""} · 칸에 마우스 = 추정 식</p>`;
-  host.querySelectorAll("[data-ismtg]").forEach(el=>el.addEventListener("click",()=>{ const g=el.dataset.ismtg, o=ismOpen[name]=ismOpen[name]||{}; o[g]=!o[g];
+  host.querySelectorAll("[data-ismtg]").forEach(el=>el.addEventListener("click",()=>{ const g=el.dataset.ismtg, o=ismOpen[name]=ismOpen[name]||{...open}; o[g]=!o[g];
     try{ localStorage.setItem("ismOpen",JSON.stringify(ismOpen)); }catch(e){} renderIsm(name, host); }));
   const upd=()=>{ const a={seg:{}};
     host.querySelectorAll("[data-ismg]").forEach(i=>{ const s=(a.seg[i.dataset.ismg]=a.seg[i.dataset.ismg]||{}); s.g=+i.value; });
