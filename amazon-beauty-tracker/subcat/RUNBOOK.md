@@ -22,7 +22,7 @@
 ## 아침 수집 — 이 세션 (한 회차)
 
 1. **사슬 유지(맨 먼저)** — `list_triggers` 로 이름이 '아마존 세부 카테고리 아침 수집 (' 로 시작하는 예약을 보고, 내일·모레 05:30 회차가 없으면 건다.
-2. 아래 0단계(`ingest.py --today` 와 `lists.py --today` 가 둘 다 0 이면 끝 · 하나만 0 이면 빠진 쪽만).
+2. 아래 0단계(`ingest.py --today` 와 `lists.py --today` 가 둘 다 0 이면 아마존은 끝 · 하나만 0 이면 빠진 쪽만). 아마존이 끝나 있어도 `hotel_adr/build.py --today` 가 1 이면 8번만 한다.
 3. **윈도우 크롬 기다리기** — `list_connected_browsers` 에 osPlatform Windows 가 없으면 `sleep 240` 하고 다시. 처음 본 때부터 최대 90분.
    붙으면 `select_browser` 로 그 브라우저를 고르고 1~3단계.
 4. 90분 안에 안 붙으면 수집하지 말고 멈추고, 같은 날 13:20 에 같은 메시지로 `send_later` 를 하나 건다(13:20 회차 자신이면 더 걸지 않는다).
@@ -36,6 +36,10 @@
 7. **K뷰티 국면 지도(KBPH) — 이 세션은 하지 않는다(2026-10-27~).** 이 PC 의 Claude 데스크톱 앱 예약 작업 `kbph-weekly`(일·월·화 06:50)가
    덤프를 PC 받기 서버로 받아 올린다(`kbeauty/RUNBOOK.md` '1-e'). 이 세션에선 10/26·10/27 아침 덤프를 옮겨 적다 안전 필터 오탐으로 멈췄고
    국면 덤프는 더 커서다. 같은 크롬을 두 세션이 동시에 몰지 않게 여기서 국면을 손대지 말 것.
+8. **호텔 ADR(Google 호텔 선행 판매가 · 매일 · 2026-10-29 등록)** — 3단계 push.py(와 6번이 있는 날은 6번)까지 끝난 뒤 같은 윈도우 크롬에서
+   `hotel_adr/RUNBOOK.md` 1·2단계(새 탭 → 수집기 → 덤프 → build.py → push.py · 5분 안팎). 먼저 `python3 hotel_adr/build.py --today` 가 0 이면 건너뛴다.
+   ⚠ google.com 은 `new Function` 이 막혀 있어 그 RUNBOOK 의 불러오는 코드(TrustedScript + nonce)를 그대로 쓸 것.
+   아마존·Keepa 와 무관하니 여기서 멈추거나 실패해도 위엔 영향이 없다 — 보고에 `[ADR]` 줄 또는 멈춘 곳만 더한다. 13:20 회차여도 오늘 관측이 없으면 한다.
 
 ## 0. 저장소
 
@@ -124,6 +128,7 @@ python3 amazon-beauty-tracker/subcat/push.py
   `[새 브랜드 확인] …` 줄을 찍는다(2026-10-23 사용자 "사전에 없는 브랜드 일정 규모 이상 되면 나한테 물어봐"). 한 번 물은 브랜드는 `unknown_asked.json` 에 적혀 다시 안 묻는다.
   처리(묻지 않는다 · 2026-10-27 사용자 "너가 찾아보고 비한국 비상장이면 무시"): 웹으로 운영사를 찾아 → 한국 회사 아님·상장 아님 = `--decide "이름=무시(사유)"` · 한국 브랜드(비상장 포함) = config.json `brands` 맨 뒤 한 줄(상태 N · 운영사 이름) + `--decide "이름=추가(사유)"` · 상장사·상장 준비 소속 = 같은 식으로 넣고 상태 L/P · 국적이 끝내 불명이면 무시하고 보고에 한 줄.
 - 끝나면 만든 탭을 닫는다(`tabs_close_mcp`).
+- 그다음 '아침 수집 — 이 세션' 6번(Keepa · 조건부) → 8번(호텔 ADR · 매일).
 
 ## 4. 보고 (한 줄)
 
@@ -152,6 +157,6 @@ python3 amazon-beauty-tracker/subcat/push.py
 1) cd /home/claude/coverage-dashboard → git status 가 깨끗하면 git pull -q --ff-only → python3 amazon-beauty-tracker/subcat/ingest.py --today 와 python3 amazon-beauty-tracker/subcat/lists.py --today. 둘 다 종료코드 0 이면 '오늘 이미 수집됨' 한 줄로 끝. 하나만 0 이면 빠진 쪽만 한다.
 2) 윈도우 크롬 기다리기: mcp__claude-in-chrome__list_connected_browsers 에 osPlatform 이 Windows 인 브라우저가 없으면 Bash 로 sleep 240 하고 다시 본다 — 처음 본 때부터 최대 90분(10/10 실측: PC 는 05:15 에 깨는데 크롬 확장은 05:53 에 붙었다). 보이면 select_browser 로 그 브라우저를 고르고 RUNBOOK 순서대로: 미국 세부 카테고리 수집 → 덤프 옮기기 → ingest.py --check → ingest.py → 1-b(같은 탭에서 미국 → 영·독·프·이·스·일 lists.js · 덤프는 get_page_text 로 · block 인 나라는 끝에 한 번만 다시) → lists.py --check → lists.py → unknown_check.py(그날 덤프들) → push.py(한 번에). 아마존 /dp/ 는 열지 않고, 세부 카테고리가 BLOCKED 면 다시 돌리지 않는다. 배포 여부는 push.py 가 정한다. 사용자가 열어 둔 탭은 건드리지 않고, 만든 탭은 닫는다.
 3) 90분 안에 안 보이면 수집하지 말고 멈추고, 같은 날 13:20 KST 에 이 메시지와 같은 내용으로 send_later 를 하나 건다(이름 '아마존 세부 카테고리 아침 수집 (MM/DD 13:20)' · 이미 있으면 안 건다 · 지금이 13:20 회차면 더 걸지 않는다).
-3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 · 일요일 주 1회)을 조건대로.
+3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 — 이 세션은 안 함)·8번(호텔 ADR · Google 호텔 · 매일)을 조건대로.
 4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄 · unknown_check.py 가 [새 브랜드 확인] 줄을 내면 운영사를 웹으로 찾아 묻지 말고 정리한다 — 비한국·비상장 = --decide 무시 · 한국 브랜드 = config.json brands 맨 뒤에 넣고 --decide 추가(RUNBOOK 3단계 아래 처리 규칙) · 보고엔 한 줄(무시 n · 추가 n · 상장사 소속이면 이름). 실패면 어디서 왜 멈췄는지.
 ```

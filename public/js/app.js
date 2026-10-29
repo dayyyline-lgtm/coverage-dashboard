@@ -269,7 +269,7 @@ const FRESH_LIMITS = [
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
   ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
-  ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],
+  ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],["ADR","호텔 ADR(Google 호텔 아침 크롬)",168],
 ];
 
 function ageHours(a){
@@ -9833,7 +9833,8 @@ function renderStockTab(name){
     //   펄어비스는 전용 모델이 '판매 추정'(붉은사막 GAMEEST)이라 손익은 ISM 이 맡는다 → 손익을 위에, 판매 추정을 아래에(2026-10-25 · 전엔 !mid 로 가려졌다)
     const ism=typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name];
     const rt=typeof RETAIL_MAP!=="undefined"&&RETAIL_MAP[name]&&typeof RETAIL!=="undefined";
-    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+    const adr=typeof ADR_MAP!=="undefined"&&ADR_MAP[name]&&typeof ADR!=="undefined";   // 호텔 ADR 추적(2026-10-29) — 호텔신라·GS피앤엘·서부T&D
+    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
       <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
@@ -9855,6 +9856,7 @@ function renderStockTab(name){
     if(ism){ try{ renderIsm(name, document.getElementById("spIsm")); }catch(err){ console.error("분기 손익 모델", err); } }
     // 산업부 유통업체 매출동향(2026-10-28 · RETAIL) — 유통 5종목
     if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
+    if(adr){ try{ renderAdr(name, document.getElementById("spAdr")); }catch(err){ console.error("호텔 ADR", err); } }
     // 화장품 브랜드사 — 아마존(Keepa)·틱톡샵 채널 모델(2026-10-20 · KBCH)
     if(kb){ try{ renderKbModel(name, document.getElementById("spKb")); }catch(err){ console.error("채널 모델", err); } }
     if(mid){
@@ -13361,4 +13363,266 @@ function retailGrid(grid, ch){
           +(p.kpi?"":`<div class="tt-r"><span class="k">실액</span><span class="v">${p.lv[mi].toFixed(3)}조</span></div>`)
           +`<div class="tt-r"><span class="k">전년비${p.est[mi]&&yv!=null?" (실액 환산)":""}</span><span class="v ${yv>0?"up":yv<0?"down":""}">${yv==null?"—":(yv>0?"+":"")+yv.toFixed(1)+"%"}</span></div>`; }});
   });
+}
+
+/* ==== 호텔 ADR 추적 — 호텔 3종목 손익 탭 (2026-10-29 · ADR · hotel_adr/build.py) ====
+   사용자 "ADR 추적을 대시보드에 — 시계열 최대한 길게 · 일별 안 되면 주별, 주별 안 되면 최소 월별 · 분기로 모아서도".
+   재료 넷: ① 리츠 IR 월별 ADR·OCC — 신한서부티엔디리츠가 빌려준 호텔(그랜드 머큐어 용산 · 나인트리 동대문('26.04 매각) · 신라스테이 광화문·마포)
+   ② 회사 IR 분기 — 신라 사업장별 투숙률(2011~)·매출(2015~) · GS피앤엘 사업장별(2025~) · 서부T&D 드래곤시티 객실·식음 매출
+   ③ 증권사 ADR 언급(원문 표현) ④ Google 호텔 선행 판매가 — 아침 크롬 수집(2026-10-29~ 매일 · hotel_adr/ota.js).
+   주기 버튼 하나(일·주·월·분기)가 차트 셋을 같이 움직인다 — 자료마다 가장 촘촘한 주기보다 잘게는 못 쪼갠다
+   (OTA 일 → 리츠 월 → 회사 IR 분기). 세 달이 다 없는 분기는 선에 잇지 않고 빈 원으로 따로 둔다(부분 기간을 완결 기간과 섞지 않는다). */
+const ADR_MAP={
+  "호텔신라":{reit:["stay_ghm","stay_mapo"], ir:"shilla", irh:["shilla_seoul","shilla_jeju","shilla_stay"], ota:["shilla_seoul","shilla_jeju","stay_ghm","stay_mapo"]},
+  "GS피앤엘":{reit:["nt_ddm"], ir:"gs", irh:["gic","westin","pjeju","ninetree"], ota:["gic","westin","pjeju","nt_md2","nt_ddm"]},
+  "서부T&D":{reit:["gm_ys"], ir:"seobu", irh:["dragoncity"], ota:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"]}};
+const ADR_NM={shilla_seoul:"서울신라호텔",shilla_jeju:"제주신라호텔",shilla_stay:"신라스테이(전 지점)",shilla_leisure:"레저",
+  gic:"그랜드 인터컨티넨탈",westin:"웨스틴 서울 파르나스",pjeju:"파르나스 호텔 제주",ninetree:"나인트리(4곳)",nt_md2:"나인트리 명동II",nt_ddm:"나인트리 동대문",
+  dragoncity:"서울드래곤시티",gm_ys:"그랜드 머큐어 용산",ns_ys:"노보텔 스위트 용산",nv_ys:"노보텔 용산",is_ys:"이비스 스타일 용산",
+  stay_ghm:"신라스테이 광화문",stay_mapo:"신라스테이 마포",all:"전 사업장"};
+const ADR_RCOL={gm_ys:"#e07a5f",nt_ddm:"#6fa8dc",stay_ghm:"#d8b46a",stay_mapo:"#81b29a"};   // 리츠 4곳 — 색은 호텔에 고정(어느 종목 페이지에서든 같다)
+const ADR_PAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6"];
+const ADR_ST0={per:"m",rm:"adr",im:"px",om:"al"};
+let adrSt=(()=>{ try{ return Object.assign({},ADR_ST0,JSON.parse(localStorage.getItem("adrSt")||"{}")); }catch(e){ return Object.assign({},ADR_ST0); } })();
+const adrSave=()=>{ try{ localStorage.setItem("adrSt",JSON.stringify(adrSt)); }catch(e){} };
+const adrQo=q=>(+q.slice(0,4))*4+(+q.slice(-1));                       // 2026Q3 → 정렬 번호
+const adrQL=q=>`${q.slice(-1)}Q${q.slice(2,4)}`;                       // 2026Q3 → 3Q26
+const adrMD=d=>d?`${+d.slice(5,7)}/${+d.slice(8,10)}`:"—";
+const adrMan=(v,d=1)=>v==null||!isFinite(v)?"—":(+v).toFixed(d);       // 만원
+const adrPc=(v,d=1)=>v==null||!isFinite(v)?"—":`<span class="${cls(v)}">${v>0?"+":""}${(+v).toFixed(d)}%</span>`;
+const adrPp=v=>v==null||!isFinite(v)?"—":`<span class="${cls(v)}">${v>0?"+":""}${(+v).toFixed(1)}%p</span>`;
+/* 수집기(ota.js stayDates)·build.py rule_dates 와 같은 규칙 — 관측일 +14일 뒤 첫 수·토, +45일 뒤 첫 수·토 */
+function adrRule(obs){
+  const o=new Date(obs+"T00:00:00Z"), nx=(t,wd)=>{ let d=new Date(t); while(d.getUTCDay()!==wd) d=new Date(d.getTime()+864e5); return d.toISOString().slice(0,10); };
+  return [nx(o.getTime()+14*864e5,3), nx(o.getTime()+14*864e5,6), nx(o.getTime()+45*864e5,3), nx(o.getTime()+45*864e5,6)];
+}
+/* 관측일(일별) → 주·월·분기로 묶기. 마지막 기간이 아직 안 끝났으면 partial */
+function adrAgg(obs, per){
+  const keyOf=d=>{ if(per==="d") return d; if(per==="m") return d.slice(0,7);
+    if(per==="q") return d.slice(0,4)+"Q"+(Math.floor((+d.slice(5,7)-1)/3)+1);
+    const t=new Date(d+"T00:00:00Z"), wd=(t.getUTCDay()+6)%7; return new Date(t.getTime()-wd*864e5).toISOString().slice(0,10); };
+  const endOf=k=>{ if(per==="d") return k; if(per==="w") return new Date(new Date(k+"T00:00:00Z").getTime()+6*864e5).toISOString().slice(0,10);
+    if(per==="m") return new Date(Date.UTC(+k.slice(0,4), +k.slice(5,7), 0)).toISOString().slice(0,10);
+    return new Date(Date.UTC(+k.slice(0,4), (+k.slice(-1))*3, 0)).toISOString().slice(0,10); };
+  const ks=[], groups=[];
+  obs.forEach((d,i)=>{ const k=keyOf(d); if(ks[ks.length-1]!==k){ ks.push(k); groups.push([]); } groups[groups.length-1].push(i); });
+  const last=obs[obs.length-1];
+  const lab=k=>per==="d"?adrMD(k):per==="w"?adrMD(k)+"주":per==="m"?`'${k.slice(2,4)}.${k.slice(5,7)}`:adrQL(k);
+  return {keys:ks, labels:ks.map(lab), groups, partial:ks.map(k=>per!=="d"&&endOf(k)>last)};
+}
+/* 꺾은선 — o:{labels, xl(i) 꼬리표, xTick(i), series:[{n,c,v,pv?,w?,op?}], unit, zero(0선 · 전년비), tip(i), end(끝 이름표), h}
+   pv = 부분 기간 값(선에 잇지 않고 빈 원) · 점은 계열마다 고점 하나(레벨 지표만) · 앞뒤가 빈 외톨이 값은 작은 점 */
+function adrLine(el, o){
+  if(!el) return;
+  const n=o.labels.length, W=el.clientWidth||860, H=o.h||230, narrow=W<560;
+  const P={l:46, r:(o.end&&!narrow)?112:14, t:12, b:24};
+  const all=[]; o.series.forEach(s=>{ s.v.concat(s.pv||[]).forEach(v=>{ if(v!=null&&isFinite(v)) all.push(v); }); });
+  if(!all.length||!n){ el.innerHTML=`<div class="g" style="font-size:12px;padding:10px 0">자료 없음</div>`; return; }
+  let mx=Math.max(...all), mn=Math.min(...all);
+  if(o.zero){ mn=Math.min(0,mn); mx=Math.max(0,mx); }
+  if(mx-mn<1e-9){ mx+=1; mn-=1; }
+  const raw=(mx-mn)/5, e10=Math.pow(10,Math.floor(Math.log10(raw))), st=[1,2,2.5,5,10].map(k=>k*e10).find(k=>k>=raw);
+  mx=Math.ceil(mx/st)*st; mn=Math.floor(mn/st)*st;
+  const sx=i=>n<=1?(P.l+W-P.r)/2:P.l+i/(n-1)*(W-P.l-P.r), sy=v=>H-P.b-(v-mn)/(mx-mn)*(H-P.t-P.b);
+  const cs=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim(), gc=cs("--line"), mut=cs("--muted"), pan=cs("--panel")||"#fff", txt=cs("--text");
+  const dec=st>=1?0:st>=0.1?1:2;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  for(let v=mn; v<=mx+st/2; v+=st){ const z=o.zero&&Math.abs(v)<st/1e3; s+=`<line x1="${P.l}" y1="${sy(v).toFixed(1)}" x2="${W-P.r}" y2="${sy(v).toFixed(1)}" stroke="${z?mut:gc}"/><text x="${P.l-6}" y="${(sy(v)+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${mut}">${(+v).toFixed(dec)}${o.unit||""}</text>`; }
+  for(let i=0;i<n;i++){ const t=o.xTick?o.xTick(i):null; if(t) s+=`<text x="${sx(i).toFixed(1)}" y="${H-P.b+15}" text-anchor="middle" font-size="10" fill="${mut}">${t}</text>`; }
+  const path=v=>{ let d="", pen=false; v.forEach((x,i)=>{ if(x!=null&&isFinite(x)){ d+=(pen?"L":"M")+sx(i).toFixed(1)+","+sy(x).toFixed(1); pen=true; } else pen=false; }); return d; };
+  const ends=[];
+  o.series.forEach(se=>{
+    const op=se.op?` opacity="${se.op}"`:"", d=path(se.v);
+    if(d) s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||2}" stroke-linejoin="round" stroke-linecap="round"${op}/>`;
+    se.v.forEach((x,i)=>{ if(x!=null&&(i===0||se.v[i-1]==null)&&(i===n-1||se.v[i+1]==null)) s+=`<circle cx="${sx(i).toFixed(1)}" cy="${sy(x).toFixed(1)}" r="2.6" fill="${se.c}"${op}/>`; });
+    (se.pv||[]).forEach((x,i)=>{ if(x!=null) s+=`<circle cx="${sx(i).toFixed(1)}" cy="${sy(x).toFixed(1)}" r="4" fill="${pan}" stroke="${se.c}" stroke-width="1.8"/>`; });
+    if(!o.zero){ let pk=-1; se.v.forEach((x,i)=>{ if(x!=null&&(pk<0||x>se.v[pk])) pk=i; });
+      if(pk>=0) s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(se.v[pk]).toFixed(1)}" r="3.6" fill="${se.c}" stroke="${pan}" stroke-width="2"/>`; }
+    let li=-1; se.v.forEach((x,i)=>{ if(x!=null) li=i; }); (se.pv||[]).forEach((x,i)=>{ if(x!=null&&i>li) li=i; });
+    if(li>=0) ends.push({y:sy(se.v[li]!=null?se.v[li]:se.pv[li]), n:se.n});
+  });
+  if(o.end&&!narrow&&ends.length){ ends.sort((a,b)=>a.y-b.y); for(let k=1;k<ends.length;k++) if(ends[k].y-ends[k-1].y<12) ends[k].y=ends[k-1].y+12;
+    ends.forEach(e=>{ s+=`<text x="${(W-P.r+8).toFixed(1)}" y="${(e.y+3.5).toFixed(1)}" font-size="10.5" fill="${txt}">${e.n}</text>`; }); }
+  el.innerHTML=s+"</svg>";
+  attachChartTip(el,{W,H,pad:P,n,xOf:sx,xLab:i=>o.xl?o.xl(i):o.labels[i], yLab:Yp=>invLin(sy,Yp).toFixed(dec+1)+(o.unit||""),
+    pts:i=>o.series.map(se=>{ const v=se.v[i]!=null?se.v[i]:(se.pv||[])[i]; return v==null?null:{y:sy(v),c:se.c}; }).filter(Boolean),
+    html:o.tip});
+}
+const adrLeg=(S,own)=>S.map(se=>`<span style="${own&&own.has(se.k)?"font-weight:700;color:var(--text)":""}"><span style="display:inline-block;width:14px;height:${own&&own.has(se.k)?3:2}px;background:${se.c};vertical-align:3px;margin-right:5px"></span>${se.n}</span>`).join("");
+const adrDot=c=>`<span style="background:${c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>`;
+
+function renderAdr(name, host){
+  if(!host||typeof ADR==="undefined") return;
+  const cfg=ADR_MAP[name]; if(!cfg) return;
+  const A=ADR, RH=(A.reit||{}).h||{}, IRc=(A.ir||{})[cfg.ir]||{h:{}}, O=A.ota||{}, per=adrSt.per;
+  const seg=(key,opts,cur)=>`<span class="seg" style="margin:0 0 0 auto">${opts.map(([k,t])=>`<button data-adr="${key}" data-v="${k}" class="${cur===k?"active":""}">${t}</button>`).join("")}</span>`;
+  const rLast=cfg.reit.map(k=>{ const m=(RH[k]||{}).m||[]; return m.length?m[m.length-1][0]:null; }).filter(Boolean).sort().pop();
+  const irLast=cfg.irh.map(k=>{ const r=IRc.h[k]||[]; return r.length?r[r.length-1][0]:null; }).filter(Boolean).sort((a,b)=>adrQo(a)-adrQo(b)).pop();
+  let h=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">호텔 ADR 추적 <span class="th-sub" style="display:inline">리츠 월별 ${rLast?"'"+rLast.slice(2).replace("-","."):"—"}까지 · 회사 IR ${irLast?adrQL(irLast):"—"}까지 · 선행 판매가 ${O.last?adrMD(O.last):"—"} 관측</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="g" style="font-size:11.5px">주기</span>${seg("per",[["d","일"],["w","주"],["m","월"],["q","분기"]],per)}</span></div>`;
+
+  // ① 분기 ADR — 리츠 실측 + 증권사 언급(2Q → 3Q 를 한 줄로)
+  const BR=(A.br||[]).filter(b=>b.co===name);
+  const rq=new Set(); cfg.reit.forEach(k=>((RH[k]||{}).q||[]).forEach(r=>rq.add(r[0])));
+  // 마지막 열 = 이미 끝난 분기(갱신 시각 기준) — 아직 발표 전인 회사(GS피앤엘 3Q 등)도 빈 칸으로 보이게
+  const asD=String(A.asOf||"").slice(0,10), doneQ=asD?adrQo(`${asD.slice(0,4)}Q${Math.floor((+asD.slice(5,7)-1)/3)+1}`)-1:0;
+  const qset=new Set([...BR.filter(b=>/Q/.test(b.q)).map(b=>b.q), ...rq]); if(doneQ) qset.add(`${Math.floor((doneQ-1)/4)}Q${(doneQ-1)%4+1}`);
+  const allQ=[...qset].sort((a,b)=>adrQo(a)-adrQo(b));
+  const cols=allQ.slice(-5), yrCol=[...new Set(BR.filter(b=>!/Q/.test(b.q)).map(b=>b.q))];
+  const bh=[...new Set(BR.map(b=>b.h))].sort((a,b)=>{ const o=k=>{ const i=cfg.irh.indexOf(k); return i<0?(k==="all"?90:50):i; }; return o(a)-o(b); });
+  const td0=`style="text-align:left;font-size:11.5px;line-height:1.45;white-space:normal;min-width:92px;vertical-align:top"`;
+  const bcell=arr=>!arr.length?`<td class="g">—</td>`:`<td ${td0}>${arr.map(b=>{ const L=[];
+      if(b.adr) L.push(`<b>${attr(b.adr)}</b>`); if(b.yoy) L.push(`전년비 ${attr(b.yoy)}`); if(b.occ) L.push(`<span class="g">OCC ${attr(b.occ)}</span>`);
+      return `<div title="${attr(b.src+" · "+b.d+(b.note?" · "+b.note:""))}">${L.join("<br>")}${b.est&&!/추정/.test((b.adr||"")+(b.occ||""))?' <span class="g">(추정)</span>':""}</div>`; }).join("")}</td>`;
+  const rcell=(k,q)=>{ const r=((RH[k]||{}).q||[]).find(x=>x[0]===q); if(!r) return `<td class="g">—</td>`; const part=r[4]<3;
+    return `<td ${td0}><b>${adrMan(r[1]/10)}만원</b>${part?` <span class="g">(${r[4]}개월)</span>`:""}<br>전년비 ${part?"—":adrPc(r[5])}${part||r[6]==null?"":` · 전분기비 ${adrPc(r[6])}`}<br><span class="g">OCC ${fmt(r[2])}%</span></td>`; };
+  h+=`<div class="sub-h" style="margin-top:6px">분기 ADR — 리츠 실측 · 증권사 언급 <span class="th-sub" style="display:inline">만원 · 리츠 = 객실 판매 가중 평균 · 증권사 = 원문 표현 그대로(마우스 = 출처·날짜)</span></div>
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">호텔</th>${cols.map(q=>`<th class="ye">${adrQL(q)}</th>`).join("")}${yrCol.map(y=>`<th class="ye">${y} 연간</th>`).join("")}</tr></thead><tbody>
+    ${cfg.reit.map(k=>`<tr><td class="l">${ADR_NM[k]} <span class="g" style="font-size:10.5px">리츠 실측</span></td>${cols.map(q=>rcell(k,q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`).join("")}
+    ${bh.map(k=>`<tr><td class="l">${ADR_NM[k]||k} <span class="g" style="font-size:10.5px">증권사</span></td>${cols.map(q=>bcell(BR.filter(b=>b.h===k&&b.q===q))).join("")}${yrCol.map(y=>bcell(BR.filter(b=>b.h===k&&b.q===y))).join("")}</tr>`).join("")}
+    </tbody></table></div>`.replace('<div class="tbl-wrap">','<div class="tbl-wrap" data-adr-end="1">');
+
+  // ② 리츠 4곳 월별·분기 — 주기 '분기'면 분기, 나머지는 월(리츠는 월이 가장 촘촘하다)
+  const rPer=per==="q"?"q":"m", rm=adrSt.rm;
+  h+=`<div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${rPer==="q"?"분기":"월별"} ${rm==="occ"?"OCC":rm==="rvp"?"RevPAR":rm==="yoy"?"ADR 전년비":"ADR"} — 리츠 IR 호텔 4곳 <span class="th-sub" style="display:inline">${rm==="occ"||rm==="yoy"?"%":"만원"} · ${rPer==="m"?"이 자료는 월이 가장 촘촘하다":"세 달이 다 있는 분기만 선 · 빈 원 = 받은 달까지"}${rm==="yoy"?" · 2024년부터(그 전은 코로나 기저)":""} · 굵은 선 = 이 회사 호텔</span>
+    ${seg("rm",[["adr","ADR"],["occ","OCC"],["rvp","RevPAR"],["yoy","ADR 전년비"]],rm)}</div>
+    <div id="adrRLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrR"></div>
+    <details class="fold" data-fold="adrRT"${foldOpen("adrRT")} style="margin-top:6px"><summary>리츠 4곳 분기 표 <span class="g" style="font-weight:400">ADR · 전년비 · OCC</span></summary><div class="fold-b" id="adrRT"></div></details>`;
+
+  // ③ 회사 IR 분기
+  const irLong=cfg.irh.some(k=>(IRc.h[k]||[]).length>=8);
+  const irNote={shilla:"투숙 1실당 매출 = 사업장 매출(식음·연회 포함) ÷ 투숙 객실 — ADR 이 아니라 방향 확인용 · 투숙률 2011~ · 매출 2015 3Q~",
+    gs:"사업장별 매출·OCC — 2025년 인적분할 재상장 뒤부터 · 웨스틴은 '25 1~3Q 재개관 공사",
+    seobu:"서울드래곤시티 객실+식음 매출(DART) · 가용 객실당 = 매출 ÷ (1,700실 × 일수) — OCC 는 회사가 안 낸다(증권사 언급은 위 표)"}[cfg.ir]||"";
+  h+=`<div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">분기 — 회사 IR <span class="th-sub" style="display:inline">${irNote}</span>
+    ${irLong?seg("im",[["px","투숙 1실당 매출"],["occ","투숙률"],["yoy","매출 전년비"]],adrSt.im):""}</div>
+    ${irLong?`<div id="adrILeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrI"></div>`:""}<div id="adrIT"></div>`;
+
+  // ④ 선행 판매가(OTA)
+  h+=`<div class="sub-h" style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">${{d:"일별",w:"주별",m:"월별",q:"분기"}[per]} 선행 판매가 — Google 호텔 <span class="th-sub" style="display:inline">만원 · 세금 포함 최저가 ÷ 1.1 · 관측일 기준 2주 뒤·6주 반 뒤의 수·토 4박 평균</span>
+    ${seg("om",[["al","평균"],["wd","평일(수)"],["we","주말(토)"]],adrSt.om)}</div>
+    <div id="adrOLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrO"></div><div id="adrOT" style="margin-top:6px"></div>
+    <details class="fold" data-fold="adrOAll"${foldOpen("adrOAll")} style="margin-top:6px"><summary>13곳 전체 · ${adrMD(O.last)} 관측 <span class="g" style="font-weight:400">경쟁 호텔 같이 보기</span></summary><div class="fold-b" id="adrOTall"></div></details>`;
+
+  // ⑤ 시장 참고값 · 읽는 법 · 출처
+  const K=(A.mkt||{}).kha||{}, ky=Object.keys(K.y||{}).sort();
+  h+=`<details class="fold" data-fold="adrMkt"${foldOpen("adrMkt")} style="margin-top:8px"><summary>시장 참고값 <span class="g" style="font-weight:400">한국호텔업협회 연간 · STR 월 — 정의가 달라 위 차트와 겹치지 않는다</span></summary><div class="fold-b">
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">전국 관광호텔</th>${ky.map(y=>`<th class="ye">${y}</th>`).join("")}</tr></thead><tbody>
+      <tr><td class="l">ADR(만원)</td>${ky.map(y=>`<td>${adrMan(K.y[y][0]/1e4)}</td>`).join("")}</tr>
+      <tr class="sub-row"><td class="l">객실이용률</td>${ky.map(y=>`<td>${fmt(K.y[y][1])}%</td>`).join("")}</tr>
+      <tr class="sub-row"><td class="l">RevPAR(만원)</td>${ky.map(y=>`<td>${adrMan(K.y[y][2]/1e4)}</td>`).join("")}</tr></tbody></table></div>
+    <ul class="note" style="margin:6px 0 0 16px;padding:0">${((A.mkt||{}).pts||[]).map(p=>`<li>${attr(p.t)} — ${attr(p.v)}${p.url?` <a href="${attr(p.url)}" target="_blank" rel="noopener">원문</a>`:""}</li>`).join("")}</ul>
+    <p class="note">전국 관광호텔 연간: <a href="${attr(K.url||"#")}" target="_blank" rel="noopener">${attr(K.via||"")}</a> 인용</p></div></details>`;
+  const seen=new Set(), srcL=Object.entries((A.reit||{}).src||{}).sort((a,b)=>b[0].localeCompare(a[0])).filter(([,v])=>{ if(seen.has(v[1])) return false; seen.add(v[1]); return true; })
+    .map(([k,v])=>`<a href="${attr(v[1])}" target="_blank" rel="noopener" title="${attr(v[0])}">리츠 IR '${k.slice(1,3)}.${k.slice(3,5)}</a>`).join(" · ");
+  h+=`<p class="note" style="line-height:1.65">리츠 실측은 신한서부티엔디리츠 IR 차트를 좌표로 읽은 값(±0.2~0.5천원 · 차트 숫자 라벨로 검산). 선행 판매가는 공개 최저가라 법인·단체 할인이 섞인 실제 ADR 보다 높다 — 수준보다 추이를 볼 것(매일 아침 크롬 수집).
+    출처: ${srcL}${IRc.src&&IRc.src[1]?` · <a href="${attr(IRc.src[1])}" target="_blank" rel="noopener">${attr(String(IRc.src[0]).split(" — ")[0])}</a>`:""} · 증권사 리포트(한경 컨센서스·네이버 리서치) · Google 호텔 · 갱신 ${attr(A.asOf||"")}</p>`;
+  host.innerHTML=h;
+  host.querySelectorAll("[data-adr]").forEach(b=>b.onclick=()=>{ adrSt[b.dataset.adr]=b.dataset.v; adrSave(); renderAdr(name, host); });
+  const toEnd=w=>{ if(w) w.scrollLeft=w.scrollWidth; };   // 폭이 좁으면 최근 분기가 먼저 보이게(표는 오른쪽 끝부터)
+
+  // ── 리츠 차트·표
+  const own=new Set(cfg.reit), RK=["gm_ys","nt_ddm","stay_ghm","stay_mapo"].filter(k=>RH[k]&&RH[k].m&&RH[k].m.length);
+  if(RK.length){
+    const pick=(r,isQ)=>rm==="adr"?r[1]/10:rm==="occ"?r[2]:rm==="rvp"?r[3]/10:(isQ?r[5]:r[4]);
+    let labels=[], S;
+    if(rPer==="m"){
+      const mi=ym=>(+ym.slice(0,4))*12+(+ym.slice(5,7))-1;
+      const lo=Math.min(...RK.map(k=>mi(RH[k].m[0][0]))), hi=Math.max(...RK.map(k=>mi(RH[k].m[RH[k].m.length-1][0])));
+      for(let i=lo;i<=hi;i++) labels.push(`${Math.floor(i/12)}-${String(i%12+1).padStart(2,"0")}`);
+      S=RK.map(k=>{ const mp={}; RH[k].m.forEach(r=>mp[r[0]]=r); const rows=labels.map(l=>mp[l]||null);
+        return {k, n:ADR_NM[k], c:ADR_RCOL[k], w:own.has(k)?2.6:1.4, op:own.has(k)?null:0.7, rows, v:rows.map(r=>r?pick(r,false):null)}; });
+    } else {
+      const qs=RK.flatMap(k=>RH[k].q.map(r=>adrQo(r[0])));
+      for(let i=Math.min(...qs);i<=Math.max(...qs);i++) labels.push(`${Math.floor((i-1)/4)}Q${(i-1)%4+1}`);
+      S=RK.map(k=>{ const mp={}; RH[k].q.forEach(r=>mp[r[0]]=r); const rows=labels.map(l=>mp[l]||null), li=rows.reduce((a,r,i)=>r?i:a,-1);
+        return {k, n:ADR_NM[k], c:ADR_RCOL[k], w:own.has(k)?2.6:1.4, op:own.has(k)?null:0.7, rows,
+          v:rows.map(r=>r&&r[4]===3?pick(r,true):null), pv:rows.map((r,i)=>r&&r[4]<3&&i===li&&rm!=="yoy"?pick(r,true):null)}; });
+    }
+    // 전년비는 2024년부터 — 2023년은 코로나 기저(2022)라 +100~150% 가 찍혀 최근 등락이 바닥에 깔린다
+    if(rm==="yoy"){ const i0=labels.indexOf(rPer==="m"?"2024-01":"2024Q1");
+      if(i0>0){ labels=labels.slice(i0); S.forEach(se=>{ se.rows=se.rows.slice(i0); se.v=se.v.slice(i0); if(se.pv) se.pv=se.pv.slice(i0); }); } }
+    host.querySelector("#adrRLeg").innerHTML=adrLeg(S,own);
+    const xl=i=>rPer==="m"?`'${labels[i].slice(2,4)}.${labels[i].slice(5,7)}`:adrQL(labels[i]);
+    adrLine(host.querySelector("#adrR"),{labels, xl, end:true, zero:rm==="yoy", unit:rm==="occ"||rm==="yoy"?"%":"",
+      xTick:i=>(rPer==="m"?labels[i].endsWith("-01"):labels[i].endsWith("Q1"))?`'${labels[i].slice(2,4)}`:null,
+      series:S.slice().sort((a,b)=>(own.has(a.k)?1:0)-(own.has(b.k)?1:0)),
+      tip:i=>`<div class="tt-h">${xl(i)}</div>`+S.map(se=>{ const r=se.rows[i]; if(!r) return ""; const isQ=rPer==="q", part=isQ&&r[4]<3;
+        return `<div class="tt-r"><span class="k">${adrDot(se.c)}${se.n}${part?` (${r[4]}개월)`:""}</span><span class="v">${adrMan(r[1]/10)}만 · ${fmt(r[2])}% · ${part?"—":adrPc(isQ?r[5]:r[4])}</span></div>`; }).join("")});
+    // 분기 표(접힘) — 최근 8개 분기
+    const qL=[...new Set(RK.flatMap(k=>RH[k].q.map(r=>r[0])))].sort((a,b)=>adrQo(a)-adrQo(b)).slice(-8);
+    host.querySelector("#adrRT").innerHTML=`<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">만원 · %</th>${qL.map(q=>`<th class="ye">${adrQL(q)}</th>`).join("")}</tr></thead><tbody>`
+      +RK.map(k=>{ const mp={}; RH[k].q.forEach(r=>mp[r[0]]=r);
+        return `<tr><td class="l" style="font-weight:700">${adrDot(ADR_RCOL[k])}${ADR_NM[k]} ADR</td>${qL.map(q=>{ const r=mp[q]; return `<td>${r?adrMan(r[1]/10)+(r[4]<3?`<span class="g">(${r[4]}개월)</span>`:""):"—"}</td>`; }).join("")}</tr>`
+          +`<tr class="sub-row"><td class="l">└ 전년비</td>${qL.map(q=>`<td>${mp[q]?adrPc(mp[q][5]):"—"}</td>`).join("")}</tr>`
+          +`<tr class="sub-row"><td class="l">└ OCC</td>${qL.map(q=>`<td>${mp[q]?fmt(mp[q][2])+"%":"—"}</td>`).join("")}</tr>`; }).join("")+`</tbody></table></div>`;
+  }
+
+  // ── 회사 IR 차트(신라처럼 길 때만)·표
+  if(irLong){
+    const im=adrSt.im, IK=cfg.irh.filter(k=>(IRc.h[k]||[]).some(r=>(im==="px"?r[3]:im==="occ"?r[1]:r[5])!=null));
+    const val=r=>im==="px"?(r[3]==null?null:r[3]/10):im==="occ"?r[1]:r[5];
+    const qs=IK.flatMap(k=>IRc.h[k].filter(r=>val(r)!=null).map(r=>adrQo(r[0])));
+    const labels=[]; if(qs.length) for(let i=Math.min(...qs);i<=Math.max(...qs);i++) labels.push(`${Math.floor((i-1)/4)}Q${(i-1)%4+1}`);
+    const S=IK.map((k,j)=>{ const mp={}; IRc.h[k].forEach(r=>mp[r[0]]=r); const rows=labels.map(l=>mp[l]||null);
+      return {k, n:ADR_NM[k], c:ADR_PAL[cfg.irh.indexOf(k)%ADR_PAL.length], w:2.2, rows, v:rows.map(r=>r?val(r):null)}; });
+    host.querySelector("#adrILeg").innerHTML=adrLeg(S);
+    adrLine(host.querySelector("#adrI"),{labels, xl:i=>adrQL(labels[i]), end:true, zero:im==="yoy", unit:im==="px"?"":"%",
+      xTick:i=>labels[i].endsWith("Q1")&&(+labels[i].slice(0,4))%2===0?`'${labels[i].slice(2,4)}`:null,
+      series:S, tip:i=>`<div class="tt-h">${adrQL(labels[i])}</div>`+S.map(se=>{ const r=se.rows[i]; if(!r) return "";
+        return `<div class="tt-r"><span class="k">${adrDot(se.c)}${se.n}</span><span class="v">${r[2]!=null?fmt0(r[2])+"억 ":""}${r[1]!=null?"· OCC "+r[1]+"% ":""}${r[3]!=null?"· 1실당 "+adrMan(r[3]/10)+"만 ":""}${r[5]!=null?"· "+adrPc(r[5]):""}</span></div>`; }).join("")});
+  }
+  {
+    const IK=cfg.irh.filter(k=>(IRc.h[k]||[]).length);
+    const qs=[...new Set(IK.flatMap(k=>IRc.h[k].map(r=>r[0])))].sort((a,b)=>adrQo(a)-adrQo(b)).slice(-8);
+    const sk=IRc.skip||{};
+    let t=`<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">사업장</th>${qs.map(q=>`<th class="ye">${adrQL(q)}</th>`).join("")}</tr></thead><tbody>`;
+    IK.forEach(k=>{ const mp={}; IRc.h[k].forEach(r=>mp[r[0]]=r); const g=f=>qs.map(q=>mp[q]?f(mp[q]):null), has=f=>g(f).some(v=>v!=null);
+      const row=(lab,vals,b)=>`<tr${b?"":' class="sub-row"'}><td class="l"${b?' style="font-weight:700"':""}>${lab}</td>${vals.map(v=>`<td>${v==null?"—":v}</td>`).join("")}</tr>`;
+      t+=row(`${ADR_NM[k]||k} 매출(억)`, qs.map(q=>{ const r=mp[q]; return r&&r[2]!=null?fmt0(r[2])+((sk[k]||[]).includes(q)?' <span class="g">공사</span>':""):null; }), 1);
+      t+=row("└ 전년비", g(r=>r[5]!=null?adrPc(r[5]):null));
+      if(has(r=>r[1])) t+=row("투숙률", g(r=>r[1]!=null?fmt(r[1],Number.isInteger(r[1])?0:1)+"%":null));
+      if(has(r=>r[7])) t+=row("└ 전년 대비", g(r=>r[7]!=null?adrPp(r[7]):null));
+      if(has(r=>r[3])){ t+=row("투숙 1실당 매출(만원)", g(r=>r[3]!=null?adrMan(r[3]/10):null)); t+=row("└ 전년비", g(r=>r[6]!=null?adrPc(r[6]):null)); }
+      else if(has(r=>r[4])) t+=row("가용 객실당 매출(만원)", g(r=>r[4]!=null?adrMan(r[4]/10):null));
+    });
+    const notes=Object.entries(IRc.note||{}).filter(([k])=>IK.includes(k)).map(([k,v])=>`${ADR_NM[k]||k}: ${attr(v)}`).join(" · ");
+    host.querySelector("#adrIT").innerHTML=t+`</tbody></table></div>`+(notes?`<p class="note" style="margin-top:4px">${notes}</p>`:"");
+    toEnd(host.querySelector("#adrIT .tbl-wrap"));
+  }
+  toEnd(host.querySelector('[data-adr-end]')); toEnd(host.querySelector("#adrRT .tbl-wrap"));
+
+  // ── 선행 판매가(OTA) 차트·표
+  const obs=O.obs||[], om=adrSt.om, idx=O.idx||{};
+  const OK=cfg.ota.filter(k=>idx[k]&&idx[k][om]&&idx[k][om].some(v=>v!=null));
+  const ag=adrAgg(obs, per);
+  const OS=OK.map(k=>{ const src=idx[k][om], vals=ag.groups.map(g=>{ const xs=g.map(i=>src[i]).filter(v=>v!=null); return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length/10:null; });
+    return {k, n:ADR_NM[k], c:ADR_PAL[cfg.ota.indexOf(k)%ADR_PAL.length], w:2.2, v:vals.map((v,i)=>ag.partial[i]?null:v), pv:vals.map((v,i)=>ag.partial[i]?v:null)}; });
+  host.querySelector("#adrOLeg").innerHTML=adrLeg(OS);
+  const oel=host.querySelector("#adrO");
+  if(ag.labels.length>=2&&OS.length) adrLine(oel,{labels:ag.labels, end:true, h:200, series:OS,
+      xTick:i=>{ const n=ag.labels.length, st=Math.max(1,Math.ceil(n/8)); return (i%st===0||i===n-1)?ag.labels[i]:null; },
+      tip:i=>`<div class="tt-h">${ag.labels[i]}${ag.partial[i]?" (진행 중)":""} · 관측 ${ag.groups[i].length}일</div>`+OS.map(se=>{ const v=se.v[i]!=null?se.v[i]:se.pv[i]; return v==null?"":`<div class="tt-r"><span class="k">${adrDot(se.c)}${se.n}</span><span class="v">${adrMan(v)}만</span></div>`; }).join("")});
+  else oel.innerHTML=`<div class="g" style="font-size:12px;padding:6px 0 2px">관측 ${obs.length}일${obs.length?` (${adrMD(obs[0])}~)`:""} — 아침마다 쌓이고, 두 기간 이상이 되면 선이 생긴다. 아래는 마지막 관측.</div>`;
+  const rows=O.rows||[], byK={}; rows.forEach(r=>{ (byK[r[0]]=byK[r[0]]||{})[r[1]]=r; });
+  const rule=O.last?adrRule(O.last):[], dcR=A.dcRooms||{};
+  const dcRow=stay=>{ const rs=Object.entries(dcR).map(([k,nr])=>[(byK[k]||{})[stay],nr]); if(!rs.length||rs.some(([r])=>!r||r[8]!=="ok"||r[2]==null)) return null;
+    return ["dragoncity",stay,Math.round(rs.reduce((a,[r,nr])=>a+r[2]*nr,0)/rs.reduce((a,[,nr])=>a+nr,0)),null,null,"","","","ok"]; };
+  const ocell=r=>{ if(!r) return `<td class="g">—</td>`;
+    const [,stay,p,lo,hi,lab,deal,alt,st]=r;
+    if(st==="soldout") return `<td class="g" title="${attr(alt?"가까운 날짜 "+alt.replace(":"," ₩"):"")}">매진</td>`;
+    if(st==="suite") return `<td class="g" title="일반 객실이 없고 스위트만 남음 — 지수에서 뺐다">스위트만</td>`;
+    if(st!=="ok"||p==null) return `<td class="g">${attr(st||"—")}</td>`;
+    const tl=`세금 포함 ₩${fmt0(p)}${lo&&hi?` · 이 호텔 보통 범위 ₩${fmt0(lo)}~₩${fmt0(hi)}`:""}${deal?` · 평소보다 ${deal}% 낮음`:""}`;
+    return `<td title="${attr(tl)}">${adrMan(p/1.1/1e4)}${lab||deal?`<div class="g" style="font-size:10.5px;line-height:1.2">${attr(lab||"")}${deal?` −${attr(deal)}%`:""}</div>`:""}</td>`; };
+  const wk=s=>"일월화수목금토"[new Date(s+"T00:00:00Z").getUTCDay()];
+  const otbl=keys=>{
+    const stays=[...new Set(keys.flatMap(k=>Object.keys(k==="dragoncity"?(byK.gm_ys||{}):(byK[k]||{}))))].sort();
+    if(!stays.length) return `<div class="g" style="font-size:12px">관측 없음</div>`;
+    return `<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">숙박일 → <span class="g" style="font-weight:400">• = 지수에 넣는 날</span></th>${stays.map(s=>`<th>${rule.includes(s)?"• ":""}${adrMD(s)}(${wk(s)})</th>`).join("")}<th class="ye">지수</th></tr></thead><tbody>`
+      +keys.map(k=>{ const ix=idx[k]&&idx[k][om]&&O.obs&&O.obs.length&&O.obs[O.obs.length-1]===O.last?idx[k][om][idx[k][om].length-1]:null;
+        return `<tr><td class="l"${cfg.ota.includes(k)?' style="font-weight:700"':""}>${ADR_NM[k]||k}${k==="dragoncity"?' <span class="g" style="font-size:10.5px">4개 브랜드 객실 가중</span>':""}</td>${stays.map(s=>ocell(k==="dragoncity"?dcRow(s):(byK[k]||{})[s])).join("")}<td>${ix==null?"—":adrMan(ix/10)}</td></tr>`; }).join("")
+      +`</tbody></table></div>`; };
+  host.querySelector("#adrOT").innerHTML=otbl(cfg.ota)+`<p class="note" style="margin-top:4px">${adrMD(O.last)} 관측 · 만원(세금 포함 ÷ 1.1) · 아래 작은 글씨 = Google 이 매긴 가격 수준(이 호텔의 보통 범위 대비)·할인폭 · 마우스 = 세금 포함 원가격과 보통 범위</p>`;
+  host.querySelector("#adrOTall").innerHTML=otbl(["dragoncity"].concat(Object.keys(A.hotels||{})));
 }
