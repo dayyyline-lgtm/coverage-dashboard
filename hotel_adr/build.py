@@ -7,6 +7,7 @@
   market.json        시장 참고값(한국호텔업협회 연간 · STR 월 · 문체부)
   ota.csv            Google 호텔 최저가 관측(관측일 × 호텔 × 숙박일) — hotel_adr/ota.js(크롬)가 쌓는다
   kayak.csv          KAYAK 호텔 월별 평균 요금(수집일 × 호텔 · 달러 12달 + 요일 7개) — hotel_adr/kayak.js(크롬)가 주 1회 쌓는다
+  ../dart/rooms.json DART 정기보고서 객실 매출·호텔별 투숙률(보고서별 누적) — hotel_adr/dart.py(events.yml 05시 · 러너 DART 키)가 쌓는다 → bu_block(공시 바텀업 ADR)
 
 쓰는 법(아침 수집 절차는 hotel_adr/RUNBOOK.md):
   python3 hotel_adr/build.py                 블록만 다시 만든다(데이터가 같으면 파일을 안 건드린다)
@@ -440,6 +441,279 @@ def kayak_block(rows):
     return {"asOf": last, "snaps": snaps, "fx": fx, "h": H}
 
 
+# ---------------- 공시 바텀업 ADR = 객실 매출(DART) ÷ 판매 객실(객실 수 × 영업일 × 투숙률) ----------------
+# 재료: hotel_adr/dart/rooms.json(hotel_adr/dart.py — 보고서별 누적) · ir_quarterly.json(회사 IR 분기 투숙률) · broker.json(웨스틴 단가)
+# 신라스테이 임차 12곳(연결 '호텔객실'에 매출이 잡히는 곳 — DART 설비 표 '임차' · 서부산·여수·이호테우·전주·옌청은 위탁이라 수수료만)
+# 객실 수 = 신라호텔앤리조트 공식 사이트 지점별 '객실 수'(2026-10-29) · 개관 = 지점 연혁(day 모르면 15일) — 2022-10 기사 '14개 4,510실'과 합이 맞는다
+SHILLA_STAY = [("동탄", 286, "2013-11-15"), ("역삼", 306, "2014-10-01"), ("제주", 301, "2015-02-15"), ("서대문", 317, "2015-04-15"),
+               ("울산", 335, "2015-07-15"), ("마포", 382, "2015-08-15"), ("광화문", 338, "2015-12-15"), ("구로", 309, "2016-02-15"),
+               ("천안", 305, "2016-07-15"), ("서초", 305, "2017-04-15"), ("해운대", 407, "2017-04-15"), ("삼성", 309, "2020-04-01")]
+SHILLA_ROOMS = {"shilla_seoul": 464, "shilla_jeju": 429}
+SHILLA_SEOUL_OPEN = {"2013Q1": 0, "2013Q2": 0, "2013Q3": 61}    # 2013-01~07 객실 개보수 · 8/1 재개관(서울신라 — 3Q 는 8·9월 61일)
+# GS피앤엘 — 객실 수는 2025 사업보고서~ 표 · 인터컨티넨탈 코엑스는 656실이었다(2024-07-01 영업 중단 · 웨스틴 564실로 2025-09-15 개관)
+GS_ROOMS = {"gic": 550, "pjeju": 307, "nt_md1": 144, "nt_md2": 408, "nt_ins": 301, "nt_ddm": 219, "nt_pg": 315}
+GS_NT = ["nt_md1", "nt_md2", "nt_ins", "nt_ddm", "nt_pg"]          # 임차 5곳 — 용산 로카우스는 위탁(객실수입에 안 잡힌다)
+GS_ICC = {"rooms": 656, "last": "2024-06-30"}
+GS_WESTIN = {"rooms": 564, "open": "2025-09-15"}
+# 웨스틴 제외 비교용 웨스틴 ADR(천원) — 증권사 원문 '30만원 초반'(1Q26 · 하나·IBK·키움) · '35만원 안팎'(2Q26 · 하나·키움·IBK)을 가운데값으로
+GS_WESTIN_ADR = {"2026Q1": 315, "2026Q2": 350}
+DC_ALL = 1700
+
+
+def _qdays(q):
+    y, n = int(q[:4]), int(q[-1])
+    return sum(calendar.monthrange(y, m)[1] for m in range(3 * n - 2, 3 * n + 1))
+
+
+def _qspan(q):
+    y, n = int(q[:4]), int(q[-1])
+    a = date(y, 3 * n - 2, 1)
+    b = date(y + 1, 1, 1) if n == 4 else date(y, 3 * n + 1, 1)
+    return a, b
+
+
+def _open_days(q, start=None, last=None):
+    a, b = _qspan(q)
+    if start:
+        a = max(a, date.fromisoformat(start))
+    if last:
+        b = min(b, date.fromisoformat(last) + timedelta(days=1))
+    return max(0, (b - a).days)
+
+
+def _ytd_q(R, idx=0):
+    """보고서별 누적(v[0]) → 분기. 연간은 다음 해 1분기 보고서의 '전년 연간'(v[1] · 재작성 기준)이 이긴다 —
+       호텔신라 2018 사업보고서 매출 유형 표의 오기(호텔객실 12,775)·2015 사업보고서 누락을 이걸로 메운다."""
+    ytd = {ym: d["v"][idx] for ym, d in R.items() if d.get("v") and len(d["v"]) > idx and d["v"][idx] is not None}
+    for ym, d in R.items():
+        if ym.endswith("-03") and d.get("v") and len(d["v"]) > 1 and d["v"][1]:
+            ytd[f"{int(ym[:4]) - 1}-12"] = d["v"][1]
+    q = {}
+    for ym in sorted(ytd):
+        y, n = int(ym[:4]), int(ym[5:]) // 3
+        if n == 1:
+            q[f"{y}Q1"] = ytd[ym]
+        else:
+            p = f"{y}-{3 * (n - 1):02d}"
+            if p in ytd and ytd[ym] >= ytd[p]:
+                q[f"{y}Q{n}"] = ytd[ym] - ytd[p]
+    fy = {int(ym[:4]): v for ym, v in ytd.items() if ym.endswith("-12")}
+    return q, fy
+
+
+def _qsort(ks):
+    return sorted(ks, key=lambda s: (int(s[:4]), int(s[-1])))
+
+
+def _cmp(rows, i):
+    """ADR(열 i) 전년비·전분기비 — 같은 구성(비고 'c' 가 같은 분기)끼리만."""
+    m = {r["q"]: r for r in rows}
+    for r in rows:
+        v = r.get("adr")
+        p4, p1 = m.get(qprev(r["q"], 4)), m.get(qprev(r["q"], 1))
+        r["yoy"] = round((v / p4["adr"] - 1) * 100, 1) if v and p4 and p4.get("adr") and p4.get("c") == r.get("c") else None
+        r["qoq"] = round((v / p1["adr"] - 1) * 100, 1) if v and p1 and p1.get("adr") and p1.get("c") == r.get("c") else None
+        rv, p4r = r.get("rvp"), (p4 or {}).get("rvp")
+        r["ryoy"] = round((rv / p4r - 1) * 100, 1) if rv and p4r and p4.get("c") == r.get("c") else None
+
+
+def bu_block(IR):
+    try:
+        with open(os.path.join(ROOT, "hotel_adr", "dart", "rooms.json"), encoding="utf-8") as f:
+            DR = json.load(f)
+    except Exception:
+        return None
+    out = {"asOf": DR.get("asOf")}
+    # ── 호텔신라
+    S = DR["r"].get("shilla", {})
+    rq, fy = _ytd_q(S)
+    occ = IR["shilla"]["occ"]
+    rows = []
+    for q in _qsort(rq):
+        if q < "2010Q1":
+            continue
+        d = _qdays(q)
+        sd = SHILLA_SEOUL_OPEN.get(q, d)
+        av = [SHILLA_ROOMS["shilla_seoul"] * sd, SHILLA_ROOMS["shilla_jeju"] * d,
+              sum(r * _open_days(q, o) for nm, r, o in SHILLA_STAY)]
+        nst = sum(1 for nm, r, o in SHILLA_STAY if date.fromisoformat(o) < _qspan(q)[1])
+        o = [occ.get("shilla_seoul", {}).get(q), occ.get("shilla_jeju", {}).get(q), occ.get("shilla_stay", {}).get(q)]
+        rn = [None if (o[i] is None and av[i]) else round(av[i] * (o[i] or 0) / 100) for i in range(3)]
+        rr = rq[q] / 100                                                    # 억원
+        full = None not in rn
+        row = {"q": q, "rr": round(rr, 1), "rn": rn, "av": av, "n": nst}
+        # 구성 꼬리표 — 신라스테이 임차 지점 수(+ 서울 휴관). 같은 꼬리표끼리만 전년비를 낸다
+        row["c"] = f"s{nst}" + ("x" if sd < d else "")
+        if full and sum(rn):
+            row["adr"] = round(rr * 1e8 / sum(rn) / 1e3, 1)                 # 천원
+            row["occ"] = round(sum(rn) / sum(av) * 100, 1)
+        if sum(av):
+            row["rvp"] = round(rr * 1e8 / sum(av) / 1e3, 1)                 # 가용 객실당(투숙률이 없어도 낸다)
+        if not full:
+            row["why"] = "신라스테이 투숙률 공시 전(회사 IR 2016~)" if nst and o[2] is None else "투숙률 공시 전(회사 IR 2011~)"
+        if sd < d:
+            row["why"] = ("서울신라 객실 개보수 휴관(2013-01~07)" if sd == 0 else "서울신라 8/1 재개관 — 8·9월만") + (" · " + row["why"] if row.get("why") else "")
+        rows.append(row)
+    _cmp(rows, 0)
+    out["shilla"] = {"q": rows, "fy": {str(k): round(v / 100, 1) for k, v in sorted(fy.items())},
+                     "stay": [[nm, r, o] for nm, r, o in SHILLA_STAY], "rooms": SHILLA_ROOMS,
+                     "src": ["호텔신라 분기·반기·사업보고서 '주요 제품 등의 현황' 매출 유형 '호텔객실'(연결)", "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%ED%98%B8%ED%85%94%EC%8B%A0%EB%9D%BC"]}
+    # ── GS피앤엘
+    G = DR["r"].get("gspnl", {})
+    gq, gfy = _ytd_q(G)
+    for ym, d in G.items():                                            # 2024 사업보고서(분할 첫해)의 v = [2024, 2023, 2022] 연간
+        if ym.endswith("-12") and d.get("v"):
+            for k, v in zip(range(int(ym[:4]), int(ym[:4]) - 3, -1), d["v"]):
+                gfy.setdefault(k, v)
+    # 연간 투숙률(사업보고서 표 · 2023~) + 누적 투숙률(1Q·반기·3Q)
+    yocc, ytd_occ = {}, {}
+    for ym, d in G.items():
+        if not d.get("o") or not d.get("oh"):
+            continue
+        hd = d["oh"]
+        for k, vv in d["o"].items():
+            for j, h in enumerate(hd):
+                if j + 1 >= len(vv) or vv[j + 1] is None:
+                    continue
+                m = re.match(r"(\d{4})년\s*투숙률", h)
+                if m:
+                    yocc.setdefault(int(m.group(1)), {}).setdefault(k, vv[j + 1])
+                elif j == 0:
+                    ytd_occ.setdefault(ym, {})[k] = vv[1]
+    GIR = IR["gs"]["occ"]
+    def gs_rn(q):
+        """분기 판매 객실 — 호텔별. 회사 IR 분기 투숙률이 먼저, 없으면 DART 누적 투숙률을 차분."""
+        d = _qdays(q); y, n = int(q[:4]), int(q[-1])
+        rn, av, src = {}, {}, None
+        # 웨스틴(2025-09-15~) · 코엑스(~2024-06-30)
+        wd = _open_days(q, start=GS_WESTIN["open"])
+        ym = f"{y}-{3 * n:02d}"; pym = f"{y}-{3 * (n - 1):02d}" if n > 1 else None
+        def dart_q(k, days_fn):
+            if ym not in ytd_occ or k not in ytd_occ[ym]:
+                return None
+            cur = ytd_occ[ym][k] / 100 * days_fn(f"{y}-01-01", ym)
+            if n == 1:
+                return cur
+            if not pym or pym not in ytd_occ or k not in ytd_occ[pym]:
+                return None
+            return cur - ytd_occ[pym][k] / 100 * days_fn(f"{y}-01-01", pym)
+        def ytd_days(a, ymx, start=None):
+            b = date(int(ymx[:4]), int(ymx[5:]), calendar.monthrange(int(ymx[:4]), int(ymx[5:]))[1]) + timedelta(days=1)
+            a = date.fromisoformat(a)
+            if start:
+                a = max(a, date.fromisoformat(start))
+            return max(0, (b - a).days)
+        for k in ["gic", "pjeju"]:
+            o = GIR.get(k, {}).get(q)
+            if o is not None:
+                rn[k] = GS_ROOMS[k] * d * o / 100; src = "ir"
+            else:
+                v = dart_q(k, lambda a, b: ytd_days(a, b))
+                if v is not None:
+                    rn[k] = GS_ROOMS[k] * v; src = "dart"
+            av[k] = GS_ROOMS[k] * d
+        o = GIR.get("ninetree", {}).get(q)
+        if o is not None:
+            rn["nt"] = sum(GS_ROOMS[k] for k in GS_NT) * d * o / 100
+        else:
+            vs = [dart_q(k, lambda a, b: ytd_days(a, b)) for k in GS_NT]
+            if None not in vs:
+                rn["nt"] = sum(GS_ROOMS[k] * v for k, v in zip(GS_NT, vs))
+        av["nt"] = sum(GS_ROOMS[k] for k in GS_NT) * d
+        if wd:
+            o = GIR.get("westin", {}).get(q)
+            if o is not None and wd == d:
+                rn["westin"] = GS_WESTIN["rooms"] * d * o / 100
+            elif q == "2025Q3":
+                # 9/15~30 은 회사 IR 분기 투숙률이 없다 — 2025 연간(사업보고서 · 영업 108일 기준) − 4Q(IR) 로 9월 투숙률을 낸다
+                fyo, q4 = yocc.get(2025, {}).get("westin"), GIR.get("westin", {}).get("2025Q4")
+                d4 = _qdays("2025Q4")
+                if fyo is not None and q4 is not None:
+                    so = (fyo * (wd + d4) - q4 * d4) / wd
+                    rn["westin"] = GS_WESTIN["rooms"] * wd * so / 100
+            else:
+                v = dart_q("westin", lambda a, b: ytd_days(a, b, GS_WESTIN["open"]))
+                if v is not None:
+                    rn["westin"] = GS_WESTIN["rooms"] * v
+            av["westin"] = GS_WESTIN["rooms"] * wd
+        need = ["gic", "pjeju", "nt"] + (["westin"] if wd else [])
+        ok = all(k in rn for k in need)
+        return rn, av, ok
+    grows = []
+    for q in _qsort(gq):
+        rr = gq[q] / 100
+        rn, av, ok = gs_rn(q)
+        row = {"q": q, "rr": round(rr, 1), "rn": {k: round(v) for k, v in rn.items()}, "av": {k: round(v) for k, v in av.items()}}
+        wd = _open_days(q, start=GS_WESTIN["open"])
+        row["c"] = "w" if wd == _qdays(q) else ("w-" if wd else "x")       # 웨스틴 전 분기 영업 · 일부 · 없음
+        if ok and sum(rn.values()):
+            row["adr"] = round(rr * 1e8 / sum(rn.values()) / 1e3, 1)
+            row["occ"] = round(sum(rn.values()) / sum(av.values()) * 100, 1)
+            row["rvp"] = round(rr * 1e8 / sum(av.values()) / 1e3, 1)
+            wa = GS_WESTIN_ADR.get(q)
+            if wa and "westin" in rn:
+                ex_rr = rr * 1e8 - rn["westin"] * wa * 1e3
+                ex_rn = sum(v for k, v in rn.items() if k != "westin")
+                row["exw"] = round(ex_rr / ex_rn / 1e3, 1)
+        else:
+            row["why"] = "호텔별 투숙률 없음"
+        grows.append(row)
+    _cmp(grows, 0)
+    gm = {r["q"]: r for r in grows}
+    for r in grows:            # 웨스틴 제외 전년비 — 작년 같은 분기가 웨스틴 없이 돈 분기(2025 1·2Q)일 때
+        p = gm.get(qprev(r["q"], 4))
+        if r.get("exw") and p and p.get("adr") and p.get("c") == "x":
+            r["exyoy"] = round((r["exw"] / p["adr"] - 1) * 100, 1)
+    # 연간 — 사업보고서 연간 투숙률(2023~)
+    gy = []
+    for y in sorted(gfy):
+        if y not in yocc:
+            continue
+        Y = yocc[y]; dy = 366 if calendar.isleap(y) else 365
+        rn = {k: GS_ROOMS[k] * dy * Y[k] / 100 for k in ["gic", "pjeju"] + GS_NT if Y.get(k) is not None}
+        av = {k: GS_ROOMS[k] * dy for k in rn}
+        if Y.get("westin") is not None:
+            if y <= 2024:
+                wd = (min(date(y + 1, 1, 1), date.fromisoformat(GS_ICC["last"]) + timedelta(days=1)) - date(y, 1, 1)).days
+                rms = GS_ICC["rooms"]
+            else:
+                wd = (date(y + 1, 1, 1) - max(date(y, 1, 1), date.fromisoformat(GS_WESTIN["open"]))).days
+                rms = GS_WESTIN["rooms"]
+            if wd > 0:
+                rn["westin"] = rms * wd * Y["westin"] / 100; av["westin"] = rms * wd
+        rr = gfy[y] / 100
+        gy.append({"y": y, "rr": round(rr, 1), "rn": round(sum(rn.values())), "av": round(sum(av.values())),
+                   "adr": round(rr * 1e8 / sum(rn.values()) / 1e3, 1), "occ": round(sum(rn.values()) / sum(av.values()) * 100, 1),
+                   "rvp": round(rr * 1e8 / sum(av.values()) / 1e3, 1),
+                   "occh": {k: v for k, v in Y.items()}})
+    for i, r in enumerate(gy):
+        p = gy[i - 1] if i and gy[i - 1]["y"] == r["y"] - 1 else None
+        r["yoy"] = round((r["adr"] / p["adr"] - 1) * 100, 1) if p else None
+    out["gs"] = {"q": grows, "y": gy, "rooms": GS_ROOMS, "nt": GS_NT, "icc": GS_ICC, "westin": GS_WESTIN, "wadr": GS_WESTIN_ADR,
+                 "fy": {str(k): round(v / 100, 1) for k, v in sorted(gfy.items())},
+                 "src": ["GS피앤엘 분기·반기·사업보고서 매출 유형 '객실수입' · '(3) 전체 객실수 및 투숙률 실적'", "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=GS%ED%94%BC%EC%95%A4%EC%97%98"]}
+    # ── 서부T&D 드래곤시티 — 객실+식음 한 칸 → 가용 객실당 매출
+    B = DR["r"].get("seobu", {})
+    bq, bfy = _ytd_q(B)
+    brows = []
+    for q in _qsort(bq):
+        if q < "2018Q1":           # 2017-10 영업 개시(브랜드별 순차) — 첫 분기는 객실 수가 안 맞는다
+            continue
+        rv = bq[q] / 100
+        av = DC_ALL * _qdays(q)
+        brows.append({"q": q, "rr": round(rv, 1), "av": av, "rvp": round(rv * 1e8 / av / 1e3, 1), "c": "a"})
+    for r in brows:
+        r["adr"] = None
+    m = {r["q"]: r for r in brows}
+    for r in brows:
+        p4, p1 = m.get(qprev(r["q"], 4)), m.get(qprev(r["q"], 1))
+        r["ryoy"] = round((r["rvp"] / p4["rvp"] - 1) * 100, 1) if p4 else None
+        r["rqoq"] = round((r["rvp"] / p1["rvp"] - 1) * 100, 1) if p1 else None
+    out["seobu"] = {"q": brows, "fy": {str(k): round(v / 100, 1) for k, v in sorted(bfy.items())}, "rooms": DC_ALL,
+                    "src": ["서부T&D 분기·반기·사업보고서 매출 유형 '관광호텔업 · 객실, 식음료수입'", "https://dart.fss.or.kr/dsab007/main.do?option=corp&textCrpNm=%EC%84%9C%EB%B6%80%ED%8B%B0%EC%97%94%EB%94%94"]}
+    return out
+
+
 # ---------------- 블록 ----------------
 def build():
     R = jload("reit_monthly.json")
@@ -457,6 +731,9 @@ def build():
     K = kayak_block(kayak_load())
     if K:
         blk["kayak"] = K
+    BU = bu_block(IR)
+    if BU:
+        blk["bu"] = BU
     return blk
 
 

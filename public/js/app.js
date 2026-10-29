@@ -13487,7 +13487,7 @@ const ADR_NM={shilla_seoul:"서울신라호텔",shilla_jeju:"제주신라호텔"
   stay_ghm:"신라스테이 광화문",stay_mapo:"신라스테이 마포",all:"전 사업장"};
 const ADR_RCOL={gm_ys:"#e07a5f",nt_ddm:"#6fa8dc",stay_ghm:"#d8b46a",stay_mapo:"#81b29a"};   // 리츠 4곳 — 색은 호텔에 고정(어느 종목 페이지에서든 같다)
 const ADR_PAL=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6"];
-const ADR_ST0={per:"m",rm:"adr",im:"px",om:"al",km:"lv",cm:"yoy"};
+const ADR_ST0={per:"m",rm:"adr",im:"px",om:"al",km:"lv",cm:"yoy",bm:"adr"};
 let adrSt=(()=>{ try{ return Object.assign({},ADR_ST0,JSON.parse(localStorage.getItem("adrSt")||"{}")); }catch(e){ return Object.assign({},ADR_ST0); } })();
 const adrSave=()=>{ try{ localStorage.setItem("adrSt",JSON.stringify(adrSt)); }catch(e){} };
 const adrQo=q=>(+q.slice(0,4))*4+(+q.slice(-1));                       // 2026Q3 → 정렬 번호
@@ -13538,13 +13538,13 @@ function adrLine(el, o){
   const ends=[];
   o.series.forEach(se=>{
     const op=se.op?` opacity="${se.op}"`:"", d=path(se.v);
-    if(d) s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||2}" stroke-linejoin="round" stroke-linecap="round"${op}/>`;
+    if(d) s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||2}" stroke-linejoin="round" stroke-linecap="round"${se.dash?` stroke-dasharray="${se.dash}"`:""}${op}/>`;
     se.v.forEach((x,i)=>{ if(x!=null&&(i===0||se.v[i-1]==null)&&(i===n-1||se.v[i+1]==null)) s+=`<circle cx="${sx(i).toFixed(1)}" cy="${sy(x).toFixed(1)}" r="2.6" fill="${se.c}"${op}/>`; });
     (se.pv||[]).forEach((x,i)=>{ if(x!=null) s+=`<circle cx="${sx(i).toFixed(1)}" cy="${sy(x).toFixed(1)}" r="4" fill="${pan}" stroke="${se.c}" stroke-width="1.8"/>`; });
     if(!o.zero){ let pk=-1; se.v.forEach((x,i)=>{ if(x!=null&&(pk<0||x>se.v[pk])) pk=i; });
       if(pk>=0) s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(se.v[pk]).toFixed(1)}" r="3.6" fill="${se.c}" stroke="${pan}" stroke-width="2"/>`; }
     let li=-1; se.v.forEach((x,i)=>{ if(x!=null) li=i; }); (se.pv||[]).forEach((x,i)=>{ if(x!=null&&i>li) li=i; });
-    if(li>=0) ends.push({y:sy(se.v[li]!=null?se.v[li]:se.pv[li]), n:se.n});
+    if(li>=0&&!(o.endNear&&li<n-1-o.endNear)) ends.push({y:sy(se.v[li]!=null?se.v[li]:se.pv[li]), n:se.en||se.n});
   });
   if(o.end&&!narrow&&ends.length){ ends.sort((a,b)=>a.y-b.y); for(let k=1;k<ends.length;k++) if(ends[k].y-ends[k-1].y<12) ends[k].y=ends[k-1].y+12;
     ends.forEach(e=>{ s+=`<text x="${(W-P.r+8).toFixed(1)}" y="${(e.y+3.5).toFixed(1)}" font-size="10.5" fill="${txt}">${e.n}</text>`; }); }
@@ -13556,6 +13556,135 @@ function adrLine(el, o){
 const adrLeg=(S,own)=>S.map(se=>`<span style="${own&&own.has(se.k)?"font-weight:700;color:var(--text)":""}"><span style="display:inline-block;width:14px;height:${own&&own.has(se.k)?3:2}px;background:${se.c};vertical-align:3px;margin-right:5px"></span>${se.n}</span>`).join("");
 const adrDot=c=>`<span style="background:${c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>`;
 
+/* ── 공시 바텀업 ADR(ADR.bu · hotel_adr/build.py bu_block · hotel_adr/dart.py · 2026-10-29)
+   사용자 "다각도로 바텀업으로 실측 과거 데이터를 시계열 세세하게 나눠서 — 실제로 ADR 이 분기별로 어떻게 됐는지".
+   ADR = 객실 매출(DART 정기보고서 '사업의 내용' 매출 유형 · 누적을 분기로 차분) ÷ 판매 객실(객실 수 × 영업일 × 투숙률).
+   신라 = 연결 '호텔객실' ÷ (서울신라 464 + 제주신라 429 + 신라스테이 임차 12곳 3,900실) · GS = '객실수입' ÷ (GIC · 웨스틴(전 코엑스) · 제주 · 나인트리 임차 5곳)
+   · 서부T&D = 객실과 식음이 한 칸이라 ADR 이 아니라 가용 객실당 매출. 전년비는 같은 구성(c — 신라스테이 지점 수·웨스틴 영업)끼리만.
+   회사 평균선은 무채색(글씨 색) — 리츠 호텔 색(호텔에 고정)과 겹치지 않게. 판매 객실 보기만 묶음별 색(검증: 골드·하늘·테라코타·틸 CVD 통과). */
+const ADR_BU_GC=["#d8b46a","#6fa8dc","#e07a5f","#5fb3b3"];
+const ADR_BU_G={shilla:[["서울신라",0],["제주신라",1],["신라스테이 임차 12곳",2]], gs:[["그랜드 인터컨티넨탈","gic"],["웨스틴(전 코엑스)","westin"],["파르나스 제주","pjeju"],["나인트리 임차 5곳","nt"]]};
+const adrBuRn=(co,r,k)=>{ const v=co==="shilla"?(r.rn||[])[k]:(r.rn||{})[k]; return v==null?null:v; };
+const adrBuSum=(co,r)=>{ if(!r.rn) return null; const a=co==="shilla"?r.rn:Object.values(r.rn); return a.some(v=>v==null)?null:a.reduce((x,y)=>x+y,0); };
+const adrMan2=v=>v==null||!isFinite(v)?"—":(v/1e4).toFixed(1);          // 실·박 → 만
+function adrBuLeg(S){
+  return S.map(se=>`<span style="${se.own?"font-weight:700;color:var(--text)":""}"><svg width="18" height="8" style="vertical-align:0;margin-right:5px"><line x1="1" y1="4" x2="17" y2="4" stroke="${se.c}" stroke-width="${se.own?3:2}"${se.dash?` stroke-dasharray="${se.dash==="2 3"?"2 2.5":"5 3"}"`:""}${se.op?` opacity="${se.op}"`:""}/></svg>${se.n}</span>`).join("");
+}
+function adrBuHtml(name, cfg, A){
+  const BU=A.bu, co=cfg.ir, D=BU&&BU[co]; if(!D||!D.q||!D.q.length) return "";
+  const isS=co==="seobu";
+  const opts=isS?[["rvp","가용 객실당 매출"],["ryoy","전년비"]]:[["adr","ADR"],["yoy","ADR 전년비"],["rvp","RevPAR"],["rn","판매 객실"]];
+  let bm=adrSt.bm; if(!opts.some(o=>o[0]===bm)) bm=opts[0][0];
+  const lastQ=D.q[D.q.length-1].q, first=(D.q.find(r=>r.adr!=null||r.rvp!=null)||D.q[0]).q;
+  const how={
+    shilla:`연결 '호텔객실' 매출 ÷ 판매 객실 — 서울신라 464실 · 제주신라 429실 · 신라스테이 임차 12곳 3,900실(위탁 지점·신라모노그램은 수수료라 빠진다) × 영업일 × 사업장별 투숙률(회사 IR). 신라스테이 투숙률은 2016년부터 — 그 전 ADR 은 서울·제주 2곳(2011~2013 3Q)뿐`,
+    gs:`'객실수입'(파르나스호텔) ÷ 판매 객실 — 그랜드 인터컨티넨탈 550 · 웨스틴 564(2025-09-15 개관 · 전엔 인터컨티넨탈 코엑스 656실, 2024-06 까지) · 제주 307 · 나인트리 임차 5곳 1,387실 × 영업일 × 투숙률(회사 IR 분기 · DART 누적) · 용산 로카우스는 위탁이라 뺐다`,
+    seobu:`서울드래곤시티 '객실, 식음료수입' ÷ 가용 객실(1,700실 × 일수) — 회사가 객실과 식음을 한 칸에 적어 ADR 을 따로 못 낸다. 실제 ADR 은 아래 리츠(그랜드 머큐어)·증권사 언급`}[co];
+  return `<div class="sub-h" style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">분기 ${isS?"가용 객실당 매출":"ADR"} — 공시로 계산(바텀업) <span class="th-sub" style="display:inline">${adrQL(first)}~${adrQL(lastQ)} · ${bm==="rn"?"만 실·박":bm==="yoy"||bm==="ryoy"?"%":"만원"} · 굵은 선 = 회사 전체(DART 객실 매출 ÷ 판매 객실) · 가는 선 = 리츠 실측 개별 호텔</span>
+      <span class="seg" style="margin:0 0 0 auto">${opts.map(([k,t])=>`<button data-adr="bm" data-v="${k}" class="${bm===k?"active":""}">${t}</button>`).join("")}</span></div>
+    <div class="note" style="margin:0 0 4px">${how}</div>
+    <div id="adrBLeg" style="display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--muted);margin:2px 0 4px"></div><div id="adrB"></div>
+    <div id="adrBT" style="margin-top:6px"></div>
+    <details class="fold" data-fold="adrBTall"${foldOpen("adrBTall")} style="margin-top:6px"><summary>분기 전체 표 · ${D.q.length}개 분기 <span class="g" style="font-weight:400">${isS?"객실+식음 매출 · 가용 객실 · 가용 객실당 매출":"객실 매출 · 판매 객실 · 투숙률 · ADR · RevPAR"} · DART 누적을 분기로 차분</span></summary><div class="fold-b" id="adrBTall"></div></details>`;
+}
+function adrBuDraw(host, name, cfg, A){
+  const BU=A.bu, co=cfg.ir, D=BU&&BU[co], el=host.querySelector("#adrB"); if(!D||!el) return;
+  const isS=co==="seobu", RH=(A.reit||{}).h||{};
+  const opts=isS?["rvp","ryoy"]:["adr","yoy","rvp","rn"]; let bm=adrSt.bm; if(!opts.includes(bm)) bm=opts[0];
+  const ink=getComputedStyle(document.documentElement).getPropertyValue("--text").trim()||"#222";
+  const Q=D.q, qm={}; Q.forEach(r=>qm[r.q]=r);
+  // x 축: 회사 자료 처음 ~ 끝(리츠는 그 안쪽만)
+  const y0=(D.y||[]).length?Math.min(...D.y.map(y=>y.y)):null;
+  const lo=Math.min(adrQo(Q[0].q), y0?adrQo(`${y0}Q1`):1e9), hi=adrQo(Q[Q.length-1].q), labels=[]; for(let i=lo;i<=hi;i++) labels.push(`${Math.floor((i-1)/4)}Q${(i-1)%4+1}`);
+  const row=l=>qm[l]||null, S=[];
+  const pick=(r,k)=>{ if(!r) return null; const v=r[k]; return v==null||!isFinite(v)?null:v; };
+  if(bm==="rn"){
+    (ADR_BU_G[co]||[]).forEach(([n,k],j)=>S.push({n, c:ADR_BU_GC[j], w:2.2, v:labels.map(l=>{ const r=row(l), v=r?adrBuRn(co,r,k):null;
+      const av=r&&r.av?(co==="shilla"?r.av[k]:r.av[k]):null; return v==null||(!v&&!av)?null:v/1e4; })}));
+  } else {
+    const f=bm==="adr"||bm==="rvp"?(v=>v==null?null:v/10):(v=>v);
+    const key=bm==="adr"?"adr":bm==="rvp"?"rvp":bm==="yoy"?"yoy":"ryoy";
+    if(co==="shilla"&&bm!=="rvp"){
+      S.push({n:"전 사업장 평균(서울·제주·스테이 12곳)", en:"전 사업장", c:ink, w:2.8, own:1, v:labels.map(l=>{ const r=row(l); return r&&r.n>0?f(pick(r,key)):null; })});
+      S.push({n:"서울·제주 2곳(신라스테이 전 · 2013 상반기는 제주만)", en:"서울·제주", c:ink, w:2, dash:"5 3", own:1, v:labels.map(l=>{ const r=row(l); return r&&r.n===0?f(pick(r,key)):null; })});
+    } else {
+      S.push({n:co==="shilla"?"전 사업장(서울·제주·스테이)":co==="gs"?"전 호텔 평균(나인트리 임차 5곳 포함)":"드래곤시티 객실+식음 ÷ 가용 객실", en:co==="shilla"?"전 사업장":co==="gs"?"전 호텔":"드래곤시티", c:ink, w:2.8, own:1, v:labels.map(l=>f(pick(row(l),key)))});
+    }
+    if(co==="gs"&&(bm==="adr"||bm==="yoy")){
+      const ek=bm==="adr"?"exw":"exyoy";
+      if(Q.some(r=>r[ek]!=null)) S.push({n:`웨스틴 제외(추정 · 웨스틴 ADR 은 증권사 언급)`, en:"웨스틴 제외", c:ink, w:2, dash:"5 3", own:1, v:labels.map(l=>f(pick(row(l),ek)))});
+    }
+    if(co==="gs"&&(D.y||[]).length){
+      const ym={}, ak=bm==="adr"?"adr":bm==="rvp"?"rvp":"yoy"; D.y.forEach(y=>{ ym[y.y]=y; });
+      S.push({n:`연간 ${bm==="yoy"?"ADR 전년비":"평균"}(사업보고서 연간 투숙률)`, en:"연간", c:ink, w:1.6, dash:"2 3", op:0.75, v:labels.map(l=>{ const y=ym[+l.slice(0,4)]; return y?f(y[ak]):null; })});
+    }
+    // 리츠 실측(개별 호텔) — ADR 보기에선 ADR, RevPAR 보기에선 RevPAR, 전년비는 ADR 전년비
+    if(bm!=="rn") cfg.reit.forEach(k=>{ const rq=((RH[k]||{}).q)||[], mp={}; rq.forEach(r=>{ if(r[4]===3) mp[r[0]]=r; });
+      const v=labels.map(l=>{ const r=mp[l]; if(!r) return null; const x=r[bm==="rvp"?3:bm==="adr"?1:5]; return x==null?null:(bm==="adr"||bm==="rvp"?x/10:x); });
+      if(v.some(x=>x!=null)) S.push({n:`${ADR_NM[k]} ${isS&&bm==="rvp"?"ADR ":""}(리츠 실측)`, en:ADR_NM[k].replace("신라스테이 ","스테이 "), c:ADR_RCOL[k], w:1.5, op:0.85, v}); });
+  }
+  host.querySelector("#adrBLeg").innerHTML=adrBuLeg(S);
+  const zero=bm==="yoy"||bm==="ryoy";
+  adrLine(el,{labels, xl:i=>adrQL(labels[i]), end:true, endNear:2, zero, h:250, unit:zero?"%":"",
+    xTick:i=>labels[i].endsWith("Q1")&&(labels.length<=24||(+labels[i].slice(0,4))%2===0)?`'${labels[i].slice(2,4)}`:null,
+    series:S.slice().reverse(),
+    tip:i=>{ const r=row(labels[i]); let t=`<div class="tt-h">${adrQL(labels[i])}</div>`;
+      S.forEach(se=>{ const v=se.v[i]; if(v==null) return; t+=`<div class="tt-r"><span class="k">${adrDot(se.c)}${se.n}</span><span class="v">${zero?adrPc(v):bm==="rn"?v.toFixed(1)+"만":adrMan(v)+"만"}</span></div>`; });
+      if(r&&!isS){ const sm=adrBuSum(co,r); t+=`<div class="g" style="font-size:10.5px;margin-top:3px">객실 매출 ${fmt(r.rr,1)}억 · 판매 객실 ${adrMan2(sm)}만 실·박${r.occ!=null?` · 투숙률 ${fmt(r.occ,1)}%`:""}${r.why?` · ${attr(r.why)}`:""}</div>`; }
+      if(r&&isS) t+=`<div class="g" style="font-size:10.5px;margin-top:3px">객실+식음 매출 ${fmt(r.rr,1)}억 · 가용 객실 ${adrMan2(r.av)}만 실·일</div>`;
+      return t; }});
+  // 최근 8개 분기 표
+  const QL=Q.slice(-8), td=v=>`<td>${v}</td>`;
+  const rowsH=[];
+  if(isS){
+    rowsH.push(`<tr><td class="l">객실+식음 매출(억)</td>${QL.map(r=>td(fmt(r.rr,1))).join("")}</tr>`);
+    rowsH.push(`<tr><td class="l" style="font-weight:700">가용 객실당 매출(만원)</td>${QL.map(r=>`<td><b>${adrMan(r.rvp/10)}</b></td>`).join("")}</tr>`);
+    rowsH.push(`<tr class="sub-row"><td class="l">└ 전년비</td>${QL.map(r=>td(adrPc(r.ryoy))).join("")}</tr>`);
+    rowsH.push(`<tr class="sub-row"><td class="l">└ 전분기비</td>${QL.map(r=>td(adrPc(r.rqoq))).join("")}</tr>`);
+  } else {
+    rowsH.push(`<tr><td class="l">객실 매출(억)</td>${QL.map(r=>td(fmt(r.rr,1))).join("")}</tr>`);
+    rowsH.push(`<tr><td class="l">판매 객실(만 실·박)</td>${QL.map(r=>td(adrMan2(adrBuSum(co,r)))).join("")}</tr>`);
+    (ADR_BU_G[co]||[]).forEach(([n,k])=>rowsH.push(`<tr class="sub-row"><td class="l">└ ${n}</td>${QL.map(r=>td(adrMan2(adrBuRn(co,r,k)))).join("")}</tr>`));
+    rowsH.push(`<tr><td class="l">투숙률(판매 ÷ 가용)</td>${QL.map(r=>td(r.occ!=null?fmt(r.occ,1)+"%":"—")).join("")}</tr>`);
+    rowsH.push(`<tr><td class="l" style="font-weight:700">ADR(만원)</td>${QL.map(r=>`<td><b>${adrMan(r.adr/10)}</b></td>`).join("")}</tr>`);
+    rowsH.push(`<tr class="sub-row"><td class="l">└ 전년비</td>${QL.map(r=>`<td title="${attr(r.yoy==null&&r.adr!=null?"작년 같은 분기와 호텔 구성이 달라 안 낸다(신라스테이 개관 · 웨스틴 개관)":"")}">${adrPc(r.yoy)}</td>`).join("")}</tr>`);
+    rowsH.push(`<tr class="sub-row"><td class="l">└ 전분기비</td>${QL.map(r=>td(adrPc(r.qoq))).join("")}</tr>`);
+    if(co==="gs"&&QL.some(r=>r.exw!=null)){
+      rowsH.push(`<tr class="sub-row"><td class="l" title="웨스틴 객실 매출 = 웨스틴 판매 객실 × 증권사가 말한 웨스틴 ADR(1Q26 '30만원 초반' → 31.5 · 2Q26 '35만원 안팎' → 35.0)">└ 웨스틴 제외(추정)</td>${QL.map(r=>td(r.exw!=null?adrMan(r.exw/10):"—")).join("")}</tr>`);
+      rowsH.push(`<tr class="sub-row"><td class="l">└ 　그 전년비(작년 = 웨스틴 없던 분기)</td>${QL.map(r=>td(adrPc(r.exyoy))).join("")}</tr>`);
+    }
+    rowsH.push(`<tr><td class="l">RevPAR(만원)</td>${QL.map(r=>td(adrMan(r.rvp/10))).join("")}</tr>`);
+    rowsH.push(`<tr class="sub-row"><td class="l">└ 전년비</td>${QL.map(r=>td(adrPc(r.ryoy))).join("")}</tr>`);
+  }
+  host.querySelector("#adrBT").innerHTML=`<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">${isS?"드래곤시티":co==="gs"?"GS피앤엘 전 호텔":"호텔신라 전 사업장"}</th>${QL.map(r=>`<th class="ye">${adrQL(r.q)}</th>`).join("")}</tr></thead><tbody>${rowsH.join("")}</tbody></table></div>`
+    +(co==="gs"&&(D.y||[]).length?`<div class="tbl-wrap" style="margin-top:6px"><table class="mini-tbl"><thead><tr><th class="l">연간(사업보고서)</th>${D.y.map(y=>`<th class="ye">${y.y}</th>`).join("")}</tr></thead><tbody>
+      <tr><td class="l">객실수입(억)</td>${D.y.map(y=>td(fmt(y.rr,1))).join("")}</tr>
+      <tr><td class="l">판매 객실(만 실·박)</td>${D.y.map(y=>td(adrMan2(y.rn))).join("")}</tr>
+      <tr><td class="l">투숙률</td>${D.y.map(y=>`<td title="${attr(Object.entries(y.occh||{}).map(([k,v])=>`${{gic:"GIC",westin:y.y<=2024?"코엑스":"웨스틴",pjeju:"제주",nt_md1:"명동Ⅰ",nt_md2:"명동Ⅱ",nt_ins:"인사동",nt_ddm:"동대문",nt_pg:"판교",nt_ys:"로카우스(위탁·제외)"}[k]||k} ${v}%`).join(" · "))}">${fmt(y.occ,1)}%</td>`).join("")}</tr>
+      <tr><td class="l" style="font-weight:700">ADR(만원)</td>${D.y.map(y=>`<td><b>${adrMan(y.adr/10)}</b></td>`).join("")}</tr>
+      <tr class="sub-row"><td class="l">└ 전년비</td>${D.y.map(y=>td(adrPc(y.yoy))).join("")}</tr>
+      <tr><td class="l">RevPAR(만원)</td>${D.y.map(y=>td(adrMan(y.rvp/10))).join("")}</tr></tbody></table></div>
+      <p class="note" style="margin-top:4px">연간 판매 객실 = 호텔별 객실 수 × 영업일 × 사업보고서 연간 투숙률(마우스) — 2024 코엑스는 1~6월 182일(656실) · 2025 웨스틴은 9/15~ 108일. 2023·2024 는 분기 객실수입이 없어(GS리테일 시절) 연간만.</p>`:"")
+    +`<p class="note" style="margin-top:4px">${co==="shilla"?`호텔객실 매출은 연결 기준이라 신라스테이 임차 12곳이 들어간다 — 판매 객실의 80% 넘게가 신라스테이라 '전 사업장 평균'은 신라스테이 단가 쪽으로 끌린다. 지점이 늘어난 분기(2016~2017 · 2020 2Q 삼성)는 작년과 구성이 달라 전년비를 안 낸다. 신라스테이 투숙률은 위탁 지점까지 포함한 평균일 수 있다(임차 12곳에 그대로 적용).`:co==="gs"?`2025 3Q 웨스틴은 9/15~30 영업 — 그 16일 투숙률은 2025 연간(사업보고서)에서 4Q(IR)를 빼서 냈다. 회사 평균은 웨스틴(5성)이 들어온 4Q25 부터 높아진다 — 구성 효과. 웨스틴 제외 줄이 같은 호텔끼리의 비교에 가깝다.`:`리츠 IR 이 주는 그랜드 머큐어(202실) ADR 이 드래곤시티 4개 브랜드 중 유일한 실측 ADR 이다.`} DART 정기보고서는 분기말 45일(3Q 는 11월 중순)에 나온다 — 그 뒤 아침 수집(events.yml)이 저절로 받는다.</p>`;
+  // 전체 표(세로)
+  const TA=host.querySelector("#adrBTall");
+  if(TA){
+    const hd=isS?["분기","객실+식음(억)","가용 객실(만)","가용 객실당(만원)","전년비","전분기비"]:["분기","객실 매출(억)","판매 객실(만)",...(ADR_BU_G[co]||[]).map(g=>g[0]),"투숙률","ADR(만원)","전년비","전분기비","RevPAR(만원)","비고"];
+    TA.innerHTML=`<div class="tbl-wrap" style="max-height:420px;overflow:auto"><table class="mini-tbl"><thead><tr>${hd.map((x,i)=>`<th${i?"":` class="l"`}>${x}</th>`).join("")}</tr></thead><tbody>`
+      +Q.slice().reverse().map(r=>isS?`<tr><td class="l">${adrQL(r.q)}</td><td>${fmt(r.rr,1)}</td><td>${adrMan2(r.av)}</td><td><b>${adrMan(r.rvp/10)}</b></td><td>${adrPc(r.ryoy)}</td><td>${adrPc(r.rqoq)}</td></tr>`
+        :`<tr><td class="l">${adrQL(r.q)}</td><td>${fmt(r.rr,1)}</td><td>${adrMan2(adrBuSum(co,r))}</td>${(ADR_BU_G[co]||[]).map(([n,k])=>`<td class="g">${adrMan2(adrBuRn(co,r,k))}</td>`).join("")}<td>${r.occ!=null?fmt(r.occ,1)+"%":"—"}</td><td><b>${adrMan(r.adr/10)}</b></td><td>${adrPc(r.yoy)}</td><td>${adrPc(r.qoq)}</td><td>${adrMan(r.rvp/10)}</td><td class="g" style="text-align:left;white-space:normal;min-width:120px;font-size:11px">${attr(r.why||"")}</td></tr>`).join("")
+      +`</tbody></table></div><p class="note" style="margin-top:4px">출처: <a href="${attr((D.src||[])[1]||"#")}" target="_blank" rel="noopener">${attr((D.src||[])[0]||"DART")}</a> · 투숙률 = 회사 IR 분기 자료${co==="gs"?"(2025~) · DART 누적 투숙률(2026~ 차분)":"(2011~ · 신라스테이 2016~)"}${co==="shilla"?` · 신라스테이 객실 수 = 신라호텔앤리조트 지점 소개(2026-10) · 개관 = 지점 연혁`:""} · DART 수집 ${attr(BU.asOf||"")}</p>`;
+  }
+}
+/* ① 분기 표의 '공시 계산' 칸 */
+function adrBuCell(co, r){
+  if(!r) return `<td class="g" title="그 분기 정기보고서 전(분기말 45일 · 3Q 는 11월 중순)">—</td>`;
+  const td0=`style="text-align:left;font-size:11.5px;line-height:1.45;white-space:normal;min-width:92px;vertical-align:top"`;
+  if(co==="seobu") return `<td ${td0}>객실+식음 ÷ 가용 <b>${adrMan(r.rvp/10)}만원</b><br>전년비 ${adrPc(r.ryoy)}${r.rqoq!=null?` · 전분기비 ${adrPc(r.rqoq)}`:""}</td>`;
+  if(r.adr==null) return `<td class="g">${attr(r.why||"—")}</td>`;
+  return `<td ${td0}><b>${adrMan(r.adr/10)}만원</b><br>전년비 ${adrPc(r.yoy)}${r.qoq!=null?` · 전분기비 ${adrPc(r.qoq)}`:""}${r.exw!=null?`<br><span title="웨스틴 ADR 은 증권사 언급">웨스틴 제외 ${adrMan(r.exw/10)}만 · 전년비 ${adrPc(r.exyoy)}</span>`:""}<br><span class="g">투숙률 ${fmt(r.occ,1)}%</span></td>`;
+}
+
 function renderAdr(name, host){
   if(!host||typeof ADR==="undefined") return;
   const cfg=ADR_MAP[name]; if(!cfg) return;
@@ -13566,6 +13695,10 @@ function renderAdr(name, host){
   const KY=A.kayak&&A.kayak.h?A.kayak:null, kOwn=(cfg.kayak||[]).filter(k=>KY&&KY.h[k]);
   let h=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">호텔 ADR 추적 <span class="th-sub" style="display:inline">리츠 월별 ${rLast?"'"+rLast.slice(2).replace("-","."):"—"}까지 · 회사 IR ${irLast?adrQL(irLast):"—"}까지 · 선행 판매가 ${O.last?adrMD(O.last):"—"} 관측${KY?` · KAYAK ${adrMD(KY.asOf)} 수집`:""}</span>
     <span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="g" style="font-size:11.5px">주기</span>${seg("per",[["d","일"],["w","주"],["m","월"],["q","분기"]],per)}</span></div>`;
+
+  // ⓪ 분기 ADR — 공시로 계산(바텀업 · DART 객실 매출 ÷ 판매 객실)
+  h+=adrBuHtml(name, cfg, A);
+  const BUc=(A.bu||{})[cfg.ir], buQ={}; ((BUc||{}).q||[]).forEach(r=>buQ[r.q]=r);
 
   // ① 분기 ADR — 리츠 실측 + 증권사 언급(2Q → 3Q 를 한 줄로)
   const BR=(A.br||[]).filter(b=>b.co===name);
@@ -13592,6 +13725,7 @@ function renderAdr(name, host){
     return `<td ${td0}>${L.join("<br>")||'<span class="g">비교 전</span>'}<br><span class="g">검색가 ${adrMan(r[1]/10)}만</span></td>`; };
   h+=`<div class="sub-h" style="margin-top:6px">분기 ADR — 리츠 실측 · 증권사 언급${kOwn.length?" · 예약 사이트 검색가 변화":""} <span class="th-sub" style="display:inline">만원 · 리츠 = 객실 판매 가중 평균 · 증권사 = 원문 표현 그대로(마우스 = 출처·날짜)${kOwn.length?" · KAYAK = 검색가 평균의 전분기비(아래 차트)":""}${cpiRow?" · 전국 호텔숙박료 = 통계청 소비자물가(전국·전 등급) 분기 평균":""}</span></div>
     <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">호텔</th>${cols.map(q=>`<th class="ye">${adrQL(q)}</th>`).join("")}${yrCol.map(y=>`<th class="ye">${y} 연간</th>`).join("")}</tr></thead><tbody>
+    ${BUc&&BUc.q&&BUc.q.length?`<tr><td class="l">${cfg.ir==="shilla"?"전 사업장 평균":cfg.ir==="gs"?"전 호텔 평균":"드래곤시티"} <span class="g" style="font-size:10.5px">공시 계산</span></td>${cols.map(q=>adrBuCell(cfg.ir,buQ[q])).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`:""}
     ${cfg.reit.map(k=>`<tr><td class="l">${ADR_NM[k]} <span class="g" style="font-size:10.5px">리츠 실측</span></td>${cols.map(q=>rcell(k,q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`).join("")}
     ${kOwn.map(k=>`<tr><td class="l">${KY.h[k].n} <span class="g" style="font-size:10.5px">KAYAK</span></td>${cols.map(q=>kcell(k,q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`).join("")}
     ${cpiRow?`<tr><td class="l">전국 호텔숙박료 <span class="g" style="font-size:10.5px">통계청 물가</span></td>${cols.map(q=>cpiCell(q)).join("")}${yrCol.map(()=>`<td class="g">—</td>`).join("")}</tr>`:""}
@@ -13655,6 +13789,7 @@ function renderAdr(name, host){
   host.innerHTML=h;
   host.querySelectorAll("[data-adr]").forEach(b=>b.onclick=()=>{ adrSt[b.dataset.adr]=b.dataset.v; adrSave(); renderAdr(name, host); });
   const toEnd=w=>{ if(w) w.scrollLeft=w.scrollWidth; };   // 폭이 좁으면 최근 분기가 먼저 보이게(표는 오른쪽 끝부터)
+  try{ adrBuDraw(host, name, cfg, A); host.querySelectorAll("#adrBT .tbl-wrap").forEach(toEnd); }catch(err){ console.error("ADR 공시 계산", err); }
 
   // ── 리츠 차트·표
   const own=new Set(cfg.reit), RK=["gm_ys","nt_ddm","stay_ghm","stay_mapo"].filter(k=>RH[k]&&RH[k].m&&RH[k].m.length);

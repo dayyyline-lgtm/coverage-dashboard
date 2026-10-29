@@ -1,0 +1,35 @@
+name: 호텔 ADR DART 파서 점검(일회성)
+# hotel_adr/dart.py 를 push 하면 돈다 — 최근 보고서 2개씩을 원문에서 다시 읽어 시드(hotel_adr/dart/rooms.json)와 견준다.
+# 결과는 diag-hotel-dry 가지에만 올린다(main 은 안 건드림 · CI 스킵 표시).
+on:
+  push:
+    branches: [main]
+    paths: ["hotel_adr/dart.py"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  dry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 파서 점검
+        env:
+          PYTHONIOENCODING: utf-8
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python hotel_adr/dart.py --dry 2>&1 | tee /tmp/dry.txt
+      - name: diag-hotel-dry 가지에 올리기
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan diag-hotel-dry-tmp
+          git rm -rf --quiet --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp /tmp/dry.txt ./dry.txt
+          git add dry.txt
+          git commit -q -m "호텔 DART 파서 점검 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          git push -f origin HEAD:refs/heads/diag-hotel-dry
