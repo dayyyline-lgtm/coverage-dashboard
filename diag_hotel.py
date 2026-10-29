@@ -40,13 +40,24 @@ def reports(corp, y0):
             m = re.search(r"\((\d{4})\.(\d{2})\)", r["report_nm"])
             if m and m.group(2) in PERIOD:
                 ym = f"{m.group(1)}-{m.group(2)}"
-                if ym not in out or r["rcept_no"] > out[ym][0]:
-                    out[ym] = (r["rcept_no"], r["report_nm"].strip())
+                out.setdefault(ym, []).append((r["rcept_no"], r["report_nm"].strip()))
         if page >= int(d.get("total_page") or 1):
             break
         page += 1
         time.sleep(0.3)
-    return out
+    return {k: sorted(v, reverse=True) for k, v in out.items()}      # 최신(정정) 먼저 — 받기 실패하면 그 앞 것
+
+
+def dec(raw):
+    """DART 원문은 UTF-8 과 EUC-KR 이 섞여 있다(2009~2022 상당수가 EUC-KR) — 선언을 보고, 없으면 UTF-8 → CP949 순."""
+    m = re.search(rb'encoding="([^"]+)"', raw[:300])
+    enc = (m.group(1).decode("ascii", "ignore").lower() if m else "")
+    if enc in ("euc-kr", "euckr", "ks_c_5601-1987", "cp949", "ms949"):
+        return raw.decode("cp949", errors="replace")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp949", errors="replace")
 
 
 def cell(c):
@@ -119,21 +130,28 @@ def main():
             print(f"[{nm}] 목록 실패 {e}"); continue
         print(f"[{nm}] 보고서 {len(rep)}개 · {min(rep) if rep else '-'} ~ {max(rep) if rep else '-'}", flush=True)
         for ym in sorted(rep):
-            rc, rn = rep[ym]
+            cands = rep[ym]
+            rc, rn = cands[0]
             fn = f"{OUT}/{nm}/{ym}_{rc}.txt"
             if os.path.exists(fn):
                 continue
             try:
-                b = get(f"https://opendart.fss.or.kr/api/document.xml?crtfc_key={KEY}&rcept_no={rc}", 180)
-                z = zipfile.ZipFile(io.BytesIO(b))
                 best = ""
-                for n in sorted(z.namelist(), key=lambda n: -z.getinfo(n).file_size):
-                    t = z.read(n).decode("utf-8", errors="replace")
-                    s = section2(t)
-                    if len(s) > len(best):
-                        best = s
+                for rc, rn in cands:                      # 정정 보고서가 zip 이 아니면(첨부정정 등) 그 앞 보고서
+                    b = get(f"https://opendart.fss.or.kr/api/document.xml?crtfc_key={KEY}&rcept_no={rc}", 180)
+                    try:
+                        z = zipfile.ZipFile(io.BytesIO(b))
+                    except zipfile.BadZipFile:
+                        time.sleep(0.5); continue
+                    for n in sorted(z.namelist(), key=lambda n: -z.getinfo(n).file_size):
+                        s = section2(dec(z.read(n)))
+                        if len(s) > len(best):
+                            best = s
+                        if best:
+                            break
                     if best:
                         break
+                fn = f"{OUT}/{nm}/{ym}_{rc}.txt"
                 ex = excerpt(best)
                 open(fn, "w", encoding="utf-8").write(f"### {nm} {ym} {rn} {rc} · 사업의 내용 {len(best):,}자\n{ex}\n")
                 index.append({"c": nm, "ym": ym, "rc": rc, "nm": rn, "sec": len(best), "ex": len(ex)})
