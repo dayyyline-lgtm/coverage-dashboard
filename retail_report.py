@@ -373,7 +373,7 @@ def main():
     cap = f"{int(ym[3:])}월 유통업체 매출동향 그래프 — ① 헤드라인 전년비 ② 업태별 최근 3개년 같은 달 실액(4장) ③ 업태별 품목 전년비(4장)"
     ok2 = tg.send_photos(pngs, caption=cap)
     if ok1 and ok2:
-        json.dump({"sent": ym, "at": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")},
+        json.dump({"sent": ym, "at": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "table": tg.RICH_MODE, "photos": len(pngs)},
                   open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
         print(f"[retail_report] {ym} 보냄")
     else:

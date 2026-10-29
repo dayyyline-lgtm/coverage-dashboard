@@ -70,6 +70,7 @@ def send(text, chat_id=None, parse_mode="HTML", silent=False):
 
 
 LAST = {}       # 마지막 send 결과(진단용) — 호출자가 파일로 남길 수 있게 노출
+RICH_MODE = ""  # 마지막 send_rich 가 표(rich)로 갔는지, 평문으로 떨어졌는지(사유)
 
 
 def _api(method, data=None, body=None, ctype=None, timeout=60):
@@ -100,8 +101,11 @@ def send_rich(html, fallback=None, chat_id=None, silent=False):
     if silent:
         p["disable_notification"] = True
     res = _api("sendRichMessage", body=json.dumps(p, ensure_ascii=False).encode("utf-8"), ctype="application/json; charset=utf-8")
+    global RICH_MODE
     if res.get("ok"):
+        RICH_MODE = "rich"
         print("[telegram] rich 전송 성공"); return True
+    RICH_MODE = "plain: " + str(res.get("description", res))[:120]
     print(f"[telegram] rich 실패 {str(res)[:200]} — 평문으로")
     return send(fallback or html, chat_id=cid, parse_mode=None if fallback else "HTML", silent=silent)
 
