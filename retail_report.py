@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """산업부 유통업체 매출동향 → 텔레그램 (2026-10-29 · 사용자 "숫자만 보내면 보기 힘드니 그래프로")
 
-RETAIL 블록(public/index.html)에서 그래프 PNG 11장(앨범 둘) + 표 메시지 한 통을 만들어 보낸다.
-  ① 표(sendRichMessage · 테두리 표): 업태별 최근 6개월 전년비 + 최신 달 품목 전년비·실액 + 자동 요약(기여 상위 품목 · 계산값)
-  ② 앨범(sendMediaGroup · 사진마다 읽는 법 캡션): ① 이번 달 업태별 전년비(막대 + 전월 세로선) ② 품목별 기여(%p · 합 = 업태 전년비)
-     ③ 업태별 기여 월별(품목군 4개 누적 막대 + 합계 가로줄 · '25.01~ · 사용자 "시계열 비교가 안 돼서") ④ 최근 13개월 전년비 막대
-     ⑤ 업태별 '최근 3개년 같은 달' 실액 막대 4장(두 번째 앨범) — 폰에서 읽히게 글씨를 키워 그린다(DPI 200)
-  2026-10-29 사용자 "시각적으로 이해가 잘 안 됨" → 선 7개 겹친 헤드라인·품목 작은 차트 52칸을 이 구성으로 바꿨다.
+RETAIL 블록(public/index.html)에서 메시지 넷을 만들어 이 순서로 보낸다(2026-10-29 사용자 "표 데이터 따로 · 브리핑 따로 · 사진 깔끔하게").
+  ① 브리핑(sendRichMessage) — 요약 + 업태마다 '#백화점 +8.4%' 머리, 국면(굵게)·추이·변화·구성·명절 점검·객수/객단가. 리포트식 개조식.
+  ② 데이터 표(sendRichMessage · 테두리 표) — 업태 6개월 · 업태별 품목(전년비·기여·실액) · 구매 지표 · 온라인 품목.
+  ③ 그래프 앨범 둘(sendMediaGroup · 캡션 없음 — 캡션은 사진 보기에서 그림 아래쪽을 덮는다): ① 이번 달 업태별 전년비 ② 품목별 기여
+     ③ 최근 13개월 추이 ④ 업태별 기여 월별 × 4 / ⑤ 업태별 최근 3개년 같은 달 실액 × 4. 모든 그림이 같은 틀(frame — 금색 머리줄 · 제목 · 부제 · 각주·출처).
+  글꼴은 Pretendard(retail_report.yml 이 npm 으로 받아 RETAIL_FONT_DIR 로) — 없으면 나눔고딕.
 같은 달은 한 번만 보낸다(retail_report_sent.json). 보내는 곳은 GitHub Actions(retail_report.yml) — 클라우드 세션은 텔레그램에 못 붙는다.
 
-  python retail_report.py --png DIR        # 그림만 만든다(점검용)
+  RETAIL_FONT_DIR=… python retail_report.py --png DIR   # 그림·브리핑·표 html 만 만든다(점검용)
   python retail_report.py --send [--force]
 """
 import argparse, datetime, json, os, re, sys
@@ -158,81 +158,9 @@ def ev_bands(ax, months, xs, other=(), fs=9):
         ax.text((a + b) / 2, 0.985, h, transform=trx, fontsize=fs, color=MUT, ha="center", va="top", zorder=5)
 
 
-def style(ax, grid="y"):
-    for s in ("top", "right"):
-        ax.spines[s].set_visible(False)
-    for s in ("left", "bottom"):
-        ax.spines[s].set_color(G1)
-    ax.tick_params(colors=MUT, labelsize=10, length=0)
-    if grid:
-        ax.grid(axis=grid, color=GRID, lw=0.9)
-    ax.set_axisbelow(True)
+from matplotlib.lines import Line2D
 
 
-def heading(fig, title, sub=None, y=0.975):
-    fig.text(0.03, y, title, fontsize=17, color=INK, fontweight="bold", ha="left", va="top")
-    if sub:
-        fig.text(0.03, y - 0.048, sub, fontsize=11.5, color=MUT, ha="left", va="top", linespacing=1.45)
-
-
-def foot(fig, txt):
-    fig.text(0.03, 0.012, txt, fontsize=9, color=MUT, ha="left", va="bottom", linespacing=1.4)
-
-
-def pct(v, _=None):
-    return "0" if abs(v) < 1e-9 else f"{v:+g}%"
-
-
-# ── ① 이번 달 한눈에: 업태별 전년비 막대 + 전월 세로선 ─────────────────────
-def fig_now(M, path):
-    last, prev = M[-1], M[-2]
-    mo, pmo = int(last["ym"][3:]), int(prev["ym"][3:])
-    cur = [f(last) for _, f in SERIES]
-    pv = [f(prev) for _, f in SERIES]
-    ys = [0, 1, 2, 3.5, 4.5, 5.5, 6.5]
-    vals = [v for v in cur + pv if v is not None]
-    lo, hi = min(0, min(vals)), max(0, max(vals))
-    pad = (hi - lo) * 0.08
-    fig, ax = plt.subplots(figsize=(6.6, 5.9), dpi=DPI)
-    fig.patch.set_facecolor("white")
-    style(ax, grid="x")
-    for y, c, p in zip(ys, cur, pv):
-        if c is not None:
-            ax.barh(y, c, height=0.58, color=UP if c > 0 else DN, zorder=2)
-        if p is not None:
-            ax.plot([p, p], [y - 0.4, y + 0.4], color=INK, lw=2.2, zorder=3, solid_capstyle="butt")
-    ax.axvline(0, color=G2, lw=1.1, zorder=1)
-    ax.axhline(2.75, color=G1, lw=0.9)
-    ax.set_yticks(ys)
-    ax.set_yticklabels([nm for nm, _ in SERIES], fontsize=13, color=INK)
-    ax.get_yticklabels()[0].set_fontweight("bold")
-    ax.set_ylim(6.5 + 0.6, -0.95)
-    ax.set_xlim(lo - pad, hi + pad)
-    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(pct))
-    ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
-    tr = _blend(ax.transAxes, ax.transData)
-    ax.text(1.04, -0.75, f"{mo}월", transform=tr, fontsize=11, color=MUT, ha="left", va="center")
-    ax.text(1.27, -0.75, f"{pmo}월", transform=tr, fontsize=11, color=MUT, ha="left", va="center")
-    for y, c, p in zip(ys, cur, pv):
-        ax.text(1.04, y, f"{c:+.1f}%" if c is not None else "—", transform=tr, fontsize=13.5, fontweight="bold",
-                color=UP if (c or 0) > 0 else DN if (c or 0) < 0 else MUT, ha="left", va="center")
-        ax.text(1.27, y, f"{p:+.1f}" if p is not None else "—", transform=tr, fontsize=12, color=MUT, ha="left", va="center")
-    ax.text(-0.02, 3.5 - 0.62, "업태별 (오프라인 안)", transform=tr, fontsize=9.5, color=MUT, ha="right", va="center")
-    # 제목 = 결론: 전체 숫자 + 크게 움직인 업태
-    moves = sorted([(abs(c - p), nm, c, p) for (nm, _), c, p in zip(SERIES[1:], cur[1:], pv[1:])
-                    if c is not None and p is not None and abs(c - p) >= 2], reverse=True)[:3]
-    sub = " · ".join(f"{nm} {p:+.1f}→{c:+.1f}" for _, nm, c, p in moves)
-    hn = holiday_note(M)
-    heading(fig, f"{mo}월 유통업체 매출 전년비 {cur[0]:+.1f}%",
-            (f"크게 바뀐 곳: {sub}" if sub else f"{pmo}월과 비슷") + (f"\n{hn}" if hn else ""))
-    foot(fig, f"막대 = {mo}월 전년동월비(빨강 증가 · 파랑 감소) · 검은 세로선 = {pmo}월 · 오른쪽 숫자 = 그 값\n"
-              "산업통상부 주요 유통업체 매출 동향 — 전체 26개사 = 오프라인 15 + 온라인 11")
-    fig.subplots_adjust(left=0.2, right=0.76, top=0.80, bottom=0.13)
-    fig.savefig(path, facecolor="white")
-    plt.close(fig)
-
-
-# ── ② 무엇이 움직였나: 품목이 업태 전년비에 보탠 몫(%p) ─────────────────────
 def item_rows(M, ch):
     j = len(M) - 1
     base = M[j - 12]["L"][ch]
@@ -247,6 +175,171 @@ def item_rows(M, ch):
     return sorted(out, key=lambda t: -t[1])
 
 
+def item_contrib(M, ch, j, ks):
+    base = M[j - 12]["L"][ch]
+    return (sum((M[j]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks) -
+            sum((M[j - 12]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks)) / base * 100
+
+
+def holiday_info(M):
+    """명절 시점 — (최근 두 달에 시점 차이가 있나, 짧은 문구 '추석 시점: 올해 9/25 · 작년 10/6', 영향 문구).
+       올해 명절 달이 작년과 다르면 그 앞뒤 달 전년비가 부풀거나 꺼진다."""
+    last = M[-1]
+    shift = False
+    for m in M[-2:]:
+        e = m.get("ev") or ""
+        h = "추석" if "추석" in e else "설" if e.startswith("설") else ""
+        if h:
+            ly = next((x for x in M if x["ym"] == f"{int(m['ym'][:2]) - 1:02d}.{m['ym'][3:]}"), None)
+            if not ly or h not in (ly.get("ev") or ""):
+                shift = True
+    e = last.get("ev") or ""
+    h = "추석" if "추석" in e else "설" if e.startswith("설") else ""
+    short = impact = ""
+    if h and "선판매" not in e:
+        y, mo = int(last["ym"][:2]), int(last["ym"][3:])
+        ly = [x for x in M if x["ym"].startswith(f"{y - 1:02d}.") and h in (x.get("ev") or "") and "선판매" not in (x.get("ev") or "")]
+        if ly:
+            lmo = int(ly[0]["ym"][3:])
+            day, lday = re.search(r"\(([^)]+)\)", e), re.search(r"\(([^)]+)\)", ly[0]["ev"])
+            short = f"{h} 시점: 올해 {day.group(1) if day else f'{mo}월'} · 작년 {lday.group(1) if lday else f'{lmo}월'}"
+            pre = M[-2] if "선판매" in (M[-2].get("ev") or "") else None
+            span = f"{int(pre['ym'][3:])}~{mo}월" if pre else f"{mo}월"
+            if lmo > mo:
+                impact = f"{span} 전년비 상향 효과, {lmo}월은 역기저 부담"
+            elif lmo < mo:
+                impact = f"{lmo}월 전년비 하향, {mo}월 상향 효과"
+    return shift, short, impact
+
+
+# ── 그림 틀 — 모든 그림이 같은 머리·여백·꼬리 (2026-10-29 사용자 "사진들 디자인적으로 깔끔하게") ──────────
+#   머리: 작은 금색 줄(자료·달) → 제목(결론) → 부제(읽는 법) · 꼬리: 가는 선 + 각주 + 출처
+#   위치는 인치로 잡는다 — 그림 높이가 달라도 머리·꼬리 간격이 같아 넘겨 볼 때 들쭉날쭉하지 않다.
+#   캡션은 달지 않는다 — 텔레그램 사진 보기에서 캡션이 그림 아래쪽을 덮는다(그림 제목이 이름 역할).
+W_IN, LM, RM = 8.0, 0.5, 0.5
+KICK, SRC = "", ""                     # make_pngs 가 채운다
+
+
+def _font():
+    """Pretendard 가 있으면 그것(retail_report.yml 이 npm 으로 받아 RETAIL_FONT_DIR 로 알려 준다) — 없으면 나눔고딕(koreanize)."""
+    import glob
+    from matplotlib import font_manager as fm
+    d = os.environ.get("RETAIL_FONT_DIR", "")
+    fs = sorted(glob.glob(os.path.join(d, "Pretendard-*.otf"))) if d else []
+    if not fs:
+        return "기본"
+    for f in fs:
+        fm.fontManager.addfont(f)
+    plt.rcParams["font.family"] = "Pretendard"
+    return "Pretendard"
+
+
+FONT = _font()
+
+
+def frame(h, title, sub=None, foot=None):
+    fig = plt.figure(figsize=(W_IN, h), dpi=DPI)
+    fig.patch.set_facecolor("white")
+    x = LM / W_IN
+    fig.text(x, 1 - 0.30 / h, KICK, fontsize=10, color=ACC, fontweight="bold", va="top")
+    fig.text(x, 1 - 0.55 / h, title, fontsize=19, color=INK, fontweight="bold", va="top")
+    if sub:
+        fig.text(x, 1 - 1.00 / h, sub, fontsize=11.5, color=MUT, va="top", linespacing=1.55)
+    lines = ([foot] if foot else []) + ([SRC] if SRC else [])
+    n = len(lines)
+    if n:
+        fig.add_artist(Line2D([x, 1 - RM / W_IN], [(0.32 + 0.19 * n) / h] * 2, transform=fig.transFigure, color=G1, lw=0.8))
+    for i, t in enumerate(lines):
+        fig.text(x, (0.17 + 0.19 * (n - 1 - i)) / h, t, fontsize=8.8, color=MUT, va="bottom")
+    return fig
+
+
+def place(fig, h, top, bottom, left=None, right=None):
+    """인치로 축 자리 — top·bottom = 그림 위·아래 끝에서 잰 거리."""
+    l = LM if left is None else left
+    r = RM if right is None else right
+    return fig.add_axes([l / W_IN, bottom / h, (W_IN - l - r) / W_IN, (h - top - bottom) / h])
+
+
+def style(ax, grid="y"):
+    for s in ("top", "right", "left"):
+        ax.spines[s].set_visible(False)
+    ax.spines["bottom"].set_color(G1)
+    ax.spines["bottom"].set_linewidth(0.8)
+    ax.tick_params(colors=MUT, labelsize=10, length=0, pad=6)
+    if grid:
+        ax.grid(axis=grid, color=GRID, lw=0.8)
+    ax.set_axisbelow(True)
+
+
+def pct(v, _=None):
+    return "0" if abs(v) < 1e-9 else f"{v:+g}%"
+
+
+def pp(v, _=None):
+    return "0" if abs(v) < 1e-9 else f"{v:+g}"
+
+
+def save(fig, path):
+    fig.savefig(path, facecolor="white")
+    plt.close(fig)
+
+
+# ── ① 이번 달 한눈에: 업태별 전년비 막대 + 전월 눈금 ─────────────────────────
+def fig_now(M, path):
+    last, prev = M[-1], M[-2]
+    mo, pmo = int(last["ym"][3:]), int(prev["ym"][3:])
+    cur = [f(last) for _, f in SERIES]
+    pv = [f(prev) for _, f in SERIES]
+    ys = [0, 1, 2, 3.75, 4.75, 5.75, 6.75]
+    vals = [v for v in cur + pv if v is not None]
+    lo, hi = min(0, min(vals)), max(0, max(vals))
+    pad = (hi - lo) * 0.05
+    moves = sorted([(abs(c - p), nm, c, p) for (nm, _), c, p in zip(SERIES[1:], cur[1:], pv[1:])
+                    if c is not None and p is not None and abs(c - p) >= 2], reverse=True)[:3]
+    sub = ("크게 바뀐 곳  " + "  ·  ".join(f"{nm} {p:+.1f} → {c:+.1f}" for _, nm, c, p in moves)) if moves else f"{pmo}월과 비슷한 흐름"
+    _, hs, _ = holiday_info(M)
+    if hs:
+        sub += "\n" + hs
+    h = 7.0
+    fig = frame(h, f"{mo}월 유통업체 매출 전년비 {cur[0]:+.1f}%", sub,
+                foot=f"막대 = {mo}월 전년동월비(빨강 증가 · 파랑 감소) · 검은 눈금 = {pmo}월 · 전체 26개사 = 오프라인 15 + 온라인 11")
+    left, right = 1.6, 1.95
+    ax = place(fig, h, top=1.95 if hs else 1.7, bottom=1.05, left=left, right=right)
+    style(ax, grid="x")
+    ax.spines["bottom"].set_visible(False)
+    for y, c, p in zip(ys, cur, pv):
+        if c is not None:
+            ax.barh(y, c, height=0.5, color=UP if c > 0 else DN, zorder=2)
+        if p is not None:
+            ax.plot([p, p], [y - 0.34, y + 0.34], color=INK, lw=2.0, zorder=3, solid_capstyle="butt")
+    ax.axvline(0, color=G2, lw=1.0, zorder=1)
+    ax.set_yticks(ys)
+    ax.set_yticklabels([nm for nm, _ in SERIES], fontsize=13, color=INK)
+    ax.get_yticklabels()[0].set_fontweight("bold")
+    ax.set_ylim(6.75 + 0.5, -0.95)
+    ax.set_xlim(lo - pad, hi + pad)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(pct))
+    ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5, steps=[1, 2, 2.5, 5, 10]))
+    tr = _blend(ax.transAxes, ax.transData)
+    aw = W_IN - left - right
+    c1, c2, c0 = 1 + 0.32 / aw, 1 + 1.28 / aw, -(left - LM) / aw
+    ax.text(c1, -0.7, f"{mo}월", transform=tr, fontsize=10.5, color=MUT, ha="left", va="center")
+    ax.text(c2, -0.7, f"{pmo}월", transform=tr, fontsize=10.5, color=MUT, ha="left", va="center")
+    ax.text(c0, -0.7, "합계", transform=tr, fontsize=10.5, color=MUT, ha="left", va="center")
+    ax.text(c0, 3.05, "오프라인 업태", transform=tr, fontsize=10.5, color=MUT, ha="left", va="center")
+    ax.add_artist(Line2D([c0, 1 + (right - RM) / aw], [2.65, 2.65], transform=tr, color=G1, lw=0.8, clip_on=False))
+    for y, c, p in zip(ys, cur, pv):
+        ax.text(c1, y, f"{c:+.1f}%" if c is not None else "—", transform=tr, fontsize=13.5, fontweight="bold",
+                color=UP if (c or 0) > 0 else DN if (c or 0) < 0 else MUT, ha="left", va="center")
+        ax.text(c2, y, f"{p:+.1f}" if p is not None else "—", transform=tr, fontsize=12, color=MUT, ha="left", va="center")
+    save(fig, path)
+
+
+# ── ② 무엇이 움직였나: 품목이 업태 전년비에 보탠 몫(%p) ─────────────────────
+SHORT = {"해외유명(명품)": "명품", "음료 등 가공": "음료·가공", "가전/문화": "가전·문화", "가정/생활": "가정·생활"}
+
+
 def fig_drivers(M, path):
     last = M[-1]
     mo = int(last["ym"][3:])
@@ -254,38 +347,46 @@ def fig_drivers(M, path):
     allv = [r[1] for c in rows for r in rows[c]]
     lo, hi = min(0, min(allv)), max(0, max(allv))
     span = hi - lo
-    fig, axs = plt.subplots(2, 2, figsize=(7.4, 8.6), dpi=DPI)
-    fig.patch.set_facecolor("white")
-    for ax, c in zip(axs.flat, "BMCS"):
+    h = 9.2
+    fig = frame(h, f"{mo}월 품목별 기여 — 무엇이 전년비를 움직였나",
+                "막대 = 품목이 업태 전년비에 보탠 몫(%p) · 막대를 다 더하면 업태 전년비",
+                foot="기여 = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계 — 실액·비중으로 낸 계산값 · 품목 자체 전년비는 표 메시지")
+    top0, bot0, title_h, gap, gx = 1.42, 0.85, 0.52, 0.42, 0.6
+    n_top = max(len(rows["B"]), len(rows["M"]))
+    n_bot = max(len(rows["C"]), len(rows["S"]))
+    unit = (h - top0 - bot0 - 2 * title_h - gap) / (n_top + n_bot)
+    col_w = (W_IN - LM - RM - gx) / 2
+    lab_w = 1.05
+    for idx, c in enumerate("BMCS"):
+        r, k = divmod(idx, 2)
         R = rows[c]
-        style(ax, grid="x")
+        n_row = n_top if r == 0 else n_bot
+        top = top0 + title_h + (0 if r == 0 else n_top * unit + gap + title_h)
+        x0 = LM + k * (col_w + gx)
+        ax = fig.add_axes([(x0 + lab_w) / W_IN, 1 - (top + n_row * unit) / h, (col_w - lab_w) / W_IN, n_row * unit / h])
+        style(ax, grid=None)
+        ax.spines["bottom"].set_visible(False)
         ys = list(range(len(R)))
         for y, (nm, v, iy, est) in zip(ys, R):
-            ax.barh(y, v, height=0.62, color=UP if v > 0 else DN, zorder=2)
-            ax.text(v + (span * 0.03 if v >= 0 else -span * 0.03), y, f"{v:+.1f}", fontsize=11, fontweight="bold",
+            ax.barh(y, v, height=0.56, color=UP if v > 0 else DN, zorder=2)
+            ax.text(v + (span * 0.025 if v >= 0 else -span * 0.025), y, f"{v:+.1f}", fontsize=11, fontweight="bold",
                     color=INK, ha="left" if v >= 0 else "right", va="center")
-        ax.axvline(0, color=G2, lw=1.1)
+        ax.axvline(0, color=G2, lw=1.0)
         ax.set_yticks(ys)
-        ax.set_yticklabels([f"{nm}\n{'품목 ' + format(iy, '+.1f') + '%' if iy is not None else ''}{'*' if est else ''}"
-                            for nm, v, iy, est in R], fontsize=10.5, color=INK, linespacing=1.15)
-        for t in ax.get_yticklabels():
-            t.set_multialignment("right")
-        ax.set_ylim(len(R) - 0.4, -0.6)
-        ax.set_xlim(lo - span * 0.32, hi + span * 0.32)
-        ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=4, steps=[1, 2, 2.5, 5, 10]))
-        ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "0" if abs(v) < 1e-9 else f"{v:+g}"))
+        ax.set_yticklabels([SHORT.get(nm, nm) for nm, *_ in R], fontsize=11.5, color=INK)
+        ax.set_ylim(n_row - 0.5, -0.5)
+        ax.set_xlim(lo - span * 0.22, hi + span * 0.22)
+        ax.set_xticks([])
         t = tot_yoy(last, c)
-        ax.set_title(f"{CH_SHORT[c]}  {t:+.1f}%", fontsize=14, color=INK, loc="left", fontweight="bold", pad=8)
-    heading(fig, f"{mo}월 무엇이 움직였나 — 품목별 기여",
-            "막대 = 품목이 업태 전년비에 보탠 몫(%p) · 막대를 다 더하면 제목 숫자\n이름 아래 = 그 품목 자체의 전년비")
-    foot(fig, "기여 %p = (품목 실액 - 작년 같은 달) ÷ 작년 같은 달 업태 합계 — 실액·비중으로 낸 계산값 · 칸끼리 같은 축\n"
-              "* = 붙임에 품목 전년비가 없어 실액으로 환산")
-    fig.subplots_adjust(left=0.2, right=0.97, top=0.815, bottom=0.085, wspace=0.62, hspace=0.3)
-    fig.savefig(path, facecolor="white")
-    plt.close(fig)
+        ty = 1 - (top - 0.16) / h
+        fig.text(x0 / W_IN, ty, CH_SHORT[c], fontsize=14, color=INK, fontweight="bold", va="bottom")
+        fig.text((x0 + col_w) / W_IN, ty, f"{t:+.1f}%", fontsize=14, fontweight="bold", ha="right", va="bottom",
+                 color=UP if t > 0 else DN if t < 0 else MUT)
+        fig.add_artist(Line2D([x0 / W_IN, (x0 + col_w) / W_IN], [ty - 0.07 / h] * 2, transform=fig.transFigure, color=G1, lw=0.8))
+    save(fig, path)
 
 
-# ── ②-b 품목 기여의 월별 추이: 품목군 4개 누적 막대 + 합계 가로줄 ────────────
+# ── ③ 품목 기여의 월별 추이: 품목군 4개 누적 막대 + 합계 가로줄 ───────────────
 # 품목을 다 쌓으면 색이 8개라 폰에서 안 읽힌다 → 업태마다 4개 품목군. 색은 빨강·파랑(등락)과 겹치지 않는 한 벌(검증 통과).
 MIX_COL = ["#c98500", "#199e70", "#6250d6", "#d55181"]
 MIX = {
@@ -307,13 +408,26 @@ def mix_series(M, ch):
     return rows
 
 
+def month_ticks(ax, months, x, fs=10):
+    labs = []
+    for i, m in enumerate(months):
+        mm = int(m["ym"][3:])
+        labs.append(f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or i == 0) else ""))
+    ax.set_xticks(x)
+    ax.set_xticklabels(labs, fontsize=fs, color=MUT, linespacing=1.15)
+
+
 def fig_mix(M, ch, path):
     rows = mix_series(M, ch)
     x = list(range(len(rows)))
-    fig, ax = plt.subplots(figsize=(7.6, 5.8), dpi=DPI)
-    fig.patch.set_facecolor("white")
+    mo = int(rows[-1][0]["ym"][3:])
+    h = 6.9
+    fig = frame(h, f"{CH[ch]} — 전년비를 만든 품목, 월별",
+                f"막대 = 품목군이 업태 전년비에 보탠 몫(%p) · 검은 가로줄 = 합계(업태 전년비) · 범례 숫자 = {mo}월",
+                foot="회색 띠 = 명절 달(추석 앞 선판매 달 포함) · 실액 × 붙임 품목 비중으로 낸 계산값 · 축의 0.6% 밑 조각은 생략")
+    ax = place(fig, h, top=1.9, bottom=1.25, left=0.9)
     style(ax)
-    W = 0.72
+    W = 0.7
     pos, neg = [0.0] * len(rows), [0.0] * len(rows)
     span0 = (max([0] + [sum(a for a in g if a > 0) for _, g in rows]) -
              min([0] + [sum(a for a in g if a < 0) for _, g in rows])) or 1
@@ -332,87 +446,76 @@ def fig_mix(M, ch, path):
             else:
                 neg[i] += a
     tot = [sum(g) for _, g in rows]
-    # 합계 = 막대보다 넓은 검은 가로줄 — 막대 양옆으로 삐져나와 조각 경계가 아니라 '표시'로 읽힌다
+    # 합계 = 막대보다 넓은 검은 가로줄 — 막대 양옆으로 삐져나와 조각 경계가 아니라 '표시'로 읽힌다(흰 테두리를 두르면 막대 끝을 가려 떠 보인다)
     tx, ty = [], []
     for xi, t in zip(x, tot):
-        tx += [xi - 0.47, xi + 0.47, float("nan")]
+        tx += [xi - 0.46, xi + 0.46, float("nan")]
         ty += [t, t, float("nan")]
-    # 흰 테두리는 두르지 않는다 — 두르면 막대 끝을 몇 px 가려 합계가 막대보다 높이 떠 보인다
     tl, = ax.plot(tx, ty, color=INK, lw=2.6, solid_capstyle="butt", zorder=4, label=f"합계  {tot[-1]:+.1f}")
     hand.insert(0, tl)
-    ax.axhline(0, color=G2, lw=1.1, zorder=3)
+    ax.axhline(0, color=G2, lw=1.0, zorder=3)
     lo, hi = min(neg + tot + [0]), max(pos + tot + [0])
     sp = hi - lo or 1
     ax.set_ylim(lo - sp * 0.06, hi + sp * 0.17)          # 위 여백 = 명절 글씨 자리
     ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=6, steps=[1, 2, 2.5, 5, 10]))
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "0" if abs(v) < 1e-9 else f"{v:+g}"))
-    ax.tick_params(axis="y", labelsize=10)
-    labs = []
-    for m, _ in rows:
-        mm = int(m["ym"][3:])
-        labs.append(f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or m is rows[0][0]) else ""))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(pp))
+    month_ticks(ax, [m for m, _ in rows], x)
     ev_bands(ax, [m for m, _ in rows], x, other=("휴업",) if ch == "M" else ())
-    ax.set_xticks(x)
-    ax.set_xticklabels(labs, fontsize=9.5, color=INK, linespacing=1.1)
     ax.set_xlim(-0.6, len(x) - 0.4)
-    ax.legend(handles=hand, loc="lower left", bbox_to_anchor=(0, 1.01), ncol=5, frameon=False, fontsize=10, handlelength=1.1,
-              columnspacing=1.0, handletextpad=0.4)
-    last = rows[-1][0]
-    mo = int(last["ym"][3:])
-    fig.text(0.03, 0.975, f"{CH[ch]} — 전년비를 만든 품목, 월별", fontsize=17, color=INK, fontweight="bold", ha="left", va="top")
-    fig.text(0.03, 0.915, "막대 = 품목군이 업태 전년비에 보탠 몫(%p) · 0 위 = 끌어올림, 아래 = 끌어내림\n"
-                          f"검은 가로줄 = 합계(업태 전년비) · 범례 숫자 = {mo}월 값", fontsize=11, color=MUT, ha="left", va="top", linespacing=1.45)
-    foot(fig, "회색 띠 = 명절 달(추석 앞 선판매 달 포함) · 실액 × 붙임 품목 비중으로 낸 계산값 — 합계는 실액 기준이라\n"
-              "붙임 공식 전년비와 몇 달은 조금 다르다 · 아주 작은 조각(축의 0.6% 밑)은 그리지 않았다")
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.74, bottom=0.16)
-    fig.savefig(path, facecolor="white")
-    plt.close(fig)
+    ax.legend(handles=hand, loc="lower left", bbox_to_anchor=(0, 1.03), ncol=5, frameon=False, fontsize=10.5,
+              handlelength=1.0, columnspacing=1.3, handletextpad=0.45, borderaxespad=0)
+    save(fig, path)
 
 
-# ── ③ 최근 13개월 추이: 달마다 막대 하나 ───────────────────────────────────
+# ── ④ 최근 13개월 추이: 달마다 막대 하나 ───────────────────────────────────
 def fig_trend(M, path):
     Y = [m for m in M if m.get("yoy")][-13:]
-    fig = plt.figure(figsize=(7.4, 9.6), dpi=DPI)
-    fig.patch.set_facecolor("white")
-    gs = fig.add_gridspec(4, 2, height_ratios=[1.3, 1, 1, 1], hspace=0.62, wspace=0.28)
-    slots = [gs[0, :], gs[1, 0], gs[1, 1], gs[2, 0], gs[2, 1], gs[3, 0], gs[3, 1]]
     x = list(range(len(Y)))
-    for i, (sl, (nm, f)) in enumerate(zip(slots, SERIES)):
-        ax = fig.add_subplot(sl)
+    h = 11.2
+    fig = frame(h, f"전년동월비 추이 — 최근 {len(Y)}개월",
+                "막대 하나 = 한 달(빨강 증가 · 파랑 감소) · 칸마다 자기 축 · 맨 위 칸 회색 띠 = 명절 달",
+                foot="0 에 아주 가까운 달(±축의 1.5% 안)은 짧은 막대로 표시")
+    top, bot = 1.42, 0.95
+    title_h, tick_h = 0.42, 0.42
+    avail = h - top - bot
+    small_n = 3
+    big = 2.0                                                       # 맨 위 칸 높이(인치)
+    sm = (avail - (big + title_h + tick_h + 0.12) - small_n * (title_h + tick_h)) / small_n
+    gx = 0.75
+    cw = (W_IN - LM - RM - 0.45 - gx) / 2
+    slots = [(LM + 0.45, top + title_h, W_IN - LM - RM - 0.45, big)]
+    y0 = top + title_h + big + tick_h + 0.12
+    for r in range(small_n):
+        for k in range(2):
+            slots.append((LM + 0.45 + k * (cw + gx), y0 + r * (sm + title_h + tick_h) + title_h, cw, sm))
+    for i, ((xl, yt, w, hh), (nm, f)) in enumerate(zip(slots, SERIES)):
+        ax = fig.add_axes([xl / W_IN, 1 - (yt + hh) / h, w / W_IN, hh / h])
         style(ax)
         v = [f(m) for m in Y]
         vv = [a for a in v if a is not None]
         lo, hi = min(0, min(vv)), max(0, max(vv))
         sp = (hi - lo) or 1
-        # 0 에 아주 가까운 달(SSM '25.9 -0.2%)은 막대가 0 선에 묻혀 '빈 달'처럼 보인다 → 축의 1.5% 짜리 짧은 막대로
+        # 0 에 아주 가까운 달(SSM '25.9 -0.2%)은 막대가 0 선에 묻혀 '빈 달'처럼 보인다 → 축의 1.5% 짧은 막대로
         ax.bar(x, [0 if not a else (a if abs(a) >= sp * 0.015 else sp * 0.015 * (1 if a > 0 else -1)) for a in v],
-               width=0.7, color=[UP if (a or 0) > 0 else DN for a in v], zorder=2)
+               width=0.68, color=[UP if (a or 0) > 0 else DN for a in v], zorder=2)
         ax.axhline(0, color=G2, lw=1, zorder=3)
-        ax.set_ylim(lo - sp * (0.12 if lo < 0 else 0.04), hi + sp * (0.24 if i == 0 else 0.12))
+        ax.set_ylim(lo - sp * (0.1 if lo < 0 else 0.03), hi + sp * (0.24 if i == 0 else 0.16))
         if i == 0:
             ev_bands(ax, Y, x, other=("휴업", "편입"), fs=9.5)
-        if v[-1] is not None:
-            ax.text(1.0, 1.03, f"{int(Y[-1]['ym'][3:])}월 {v[-1]:+.1f}%", transform=ax.transAxes, ha="right", va="bottom",
-                    fontsize=12.5 if i == 0 else 11.5, fontweight="bold", color=UP if v[-1] > 0 else DN if v[-1] < 0 else MUT)
-        labs = []
-        for m in Y:
-            mm = int(m["ym"][3:])
-            labs.append(f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or m is Y[0]) else ""))
-        ax.set_xticks(x)
-        ax.set_xticklabels(labs, fontsize=9.5 if i == 0 else 8.5, linespacing=1.1)
+        month_ticks(ax, Y, x, fs=9.5 if i == 0 else 8.8)
+        ax.set_xlim(-0.6, len(x) - 0.4)
         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=4, steps=[1, 2, 2.5, 5, 10]))
-        ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda val, _: "0" if abs(val) < 1e-9 else f"{val:+g}"))
+        ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(pp))
         ax.tick_params(axis="y", labelsize=9)
-        ax.set_title(nm, fontsize=14 if i == 0 else 12.5, color=INK, loc="left", fontweight="bold", pad=6)
-    heading(fig, f"전년동월비 추이 — 최근 {len(Y)}개월",
-            "막대 하나 = 한 달 (빨강 증가 · 파랑 감소) · 칸마다 자기 축\n맨 위 칸 회색 띠 = 명절 달 · 위쪽 작은 글씨 = 그 달 사정")
-    foot(fig, "산업통상부 주요 유통업체 매출 동향 · 칸 오른쪽 위 = 마지막 달 전년비 · 0 에 아주 가까운 달은 짧은 막대로 표시")
-    fig.subplots_adjust(left=0.09, right=0.97, top=0.83, bottom=0.075)
-    fig.savefig(path, facecolor="white")
-    plt.close(fig)
+        fs = 14 if i == 0 else 12.5
+        fig.text(xl / W_IN - 0.45 / W_IN, 1 - (yt - 0.1) / h, nm, fontsize=fs, color=INK, fontweight="bold", va="bottom")
+        if v[-1] is not None:
+            fig.text((xl + w) / W_IN, 1 - (yt - 0.1) / h, f"{int(Y[-1]['ym'][3:])}월 {v[-1]:+.1f}%", fontsize=fs - 1, fontweight="bold",
+                     ha="right", va="bottom", color=UP if v[-1] > 0 else DN if v[-1] < 0 else MUT)
+    save(fig, path)
 
 
-# ── ④ 업태별 최근 3개년 같은 달 실액 + 올해 막대 위 YoY + KPI 3개 ─────────────
+# ── ⑤ 업태별 최근 3개년 같은 달 실액 + 올해 막대 위 YoY + KPI 3개 ─────────────
 def fig_years(M, ch, path):
     by = {m["ym"]: m for m in M}
     last = M[-1]["ym"]
@@ -420,8 +523,28 @@ def fig_years(M, ch, path):
     yrs = [y2 - 2, y2 - 1, y2]
     _, yy = yoy_series(M, ch, "L", TOT[ch])
     yoy_of = {m["ym"]: yy[i] for i, m in enumerate(M)}
-    fig, ax = plt.subplots(figsize=(7.6, 5.6), dpi=DPI)
-    fig.patch.set_facecolor("white")
+    h = 7.2
+    fig = frame(h, f"{CH[ch]} — 월별 매출(조원)", "회색 = 재작년·작년 같은 달 · 금색 = 올해 · 막대 위 % = 올해 전년동월비",
+                foot="실액 = 조사표본 기준 추정('26.08~ 작년 같은 달 × (1+공식 전년비)) · 누계·연간 전년비는 계산값 · * = 실액으로 환산")
+    # KPI 3개
+    cur = by[last]["L"][ch]
+    cy = yoy_of.get(last, (None, True))[0]
+    ytd = sum(by[f"{y2:02d}.{mo:02d}"]["L"][ch] for mo in range(1, lm + 1) if f"{y2:02d}.{mo:02d}" in by)
+    ytd0 = sum(by[f"{y2 - 1:02d}.{mo:02d}"]["L"][ch] for mo in range(1, lm + 1) if f"{y2 - 1:02d}.{mo:02d}" in by)
+    py = [by.get(f"{y2 - 1:02d}.{mo:02d}") for mo in range(1, 13)]
+    ppy = [by.get(f"{y2 - 2:02d}.{mo:02d}") for mo in range(1, 13)]
+    kp = [(f"{lm}월", f"{cur:.2f}조", cy), (f"1~{lm}월 누계", f"{ytd:.1f}조", (ytd / ytd0 - 1) * 100 if ytd0 else None)]
+    if all(py):
+        a = sum(m["L"][ch] for m in py)
+        b = sum(m["L"][ch] for m in ppy) if all(ppy) else None
+        kp.append((f"20{y2 - 1:02d} 연간", f"{a:.1f}조", (a / b - 1) * 100 if b else None))
+    for i, (t, v, g) in enumerate(kp):
+        x0 = (LM + i * 2.3) / W_IN
+        fig.text(x0, 1 - 1.38 / h, t, fontsize=10.5, color=MUT, va="top")
+        fig.text(x0, 1 - 1.62 / h, v, fontsize=20, color=INK, fontweight="bold", va="top")
+        if g is not None:
+            fig.text(x0, 1 - 2.0 / h, f"전년비 {g:+.1f}%", fontsize=10.5, color=UP if g > 0 else DN, va="top")
+    ax = place(fig, h, top=2.75, bottom=1.25, left=0.85)
     style(ax)
     w = 0.27
     for i, (y, col) in enumerate(zip(yrs, [Y_OLD, Y_MID, ACC])):
@@ -432,84 +555,43 @@ def fig_years(M, ch, path):
                 xs.append(mo + (i - 1) * w)
                 vs.append(by[k]["L"][ch])
                 ms.append(mo)
-        ax.bar(xs, vs, width=w * 0.92, color=col, label=f"20{y:02d}", zorder=2)
+        ax.bar(xs, vs, width=w * 0.9, color=col, label=f"20{y:02d}", zorder=2)
         if y == y2:
             for x_, v_, mo in zip(xs, vs, ms):
                 yv, est = yoy_of.get(f"{y:02d}.{mo:02d}", (None, True))
                 if yv is None:
                     continue
                 top = max(by[k]["L"][ch] for k in (f"{yy_:02d}.{mo:02d}" for yy_ in yrs) if k in by)
-                ax.text(x_, top * 1.015, f"{yv:+.0f}%" + ("*" if est else ""), ha="center", va="bottom", fontsize=10,
+                ax.text(x_, top * 1.015, (f"{yv:+.1f}%" if abs(yv) < 1 else f"{yv:+.0f}%") + ("*" if est else ""), ha="center", va="bottom", fontsize=10,
                         color=UP if yv > 0 else DN if yv < 0 else MUT, fontweight="bold")
     ev = {int(k[3:]): ev_short(by[k].get("ev")) for k in by if k.startswith(f"{y2:02d}.") and by[k].get("ev")}
     ev = {k: v for k, v in ev.items() if v in ("설", "추석", "추석전", "설전") or (v == "휴업" and ch == "M")}
     ax.set_xticks(range(1, 13))
-    ax.set_xticklabels([f"{mo}월" + (f"\n{ev[mo]}" if mo in ev else "") for mo in range(1, 13)], fontsize=10.5, color=INK)
+    ax.set_xticklabels([f"{mo}월" + (f"\n{ev[mo]}" if mo in ev else "") for mo in range(1, 13)], fontsize=10.5, color=MUT, linespacing=1.2)
     ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
-    ax.tick_params(axis="y", labelsize=10)
     vmax = max(m["L"][ch] for m in M)
-    ax.set_ylim(0, vmax * 1.2)
+    ax.set_ylim(0, vmax * 1.18)
     ax.set_xlim(0.45, 12.55)
-    ax.legend(loc="upper left", bbox_to_anchor=(0, 1.13), frameon=False, fontsize=10.5, ncol=3, handlelength=1.2, columnspacing=1.2)
-    # KPI 3개
-    cur = by[last]["L"][ch]
-    cy = yoy_of.get(last, (None, True))[0]
-    ytd = sum(by[f"{y2:02d}.{mo:02d}"]["L"][ch] for mo in range(1, lm + 1) if f"{y2:02d}.{mo:02d}" in by)
-    ytd0 = sum(by[f"{y2 - 1:02d}.{mo:02d}"]["L"][ch] for mo in range(1, lm + 1) if f"{y2 - 1:02d}.{mo:02d}" in by)
-    py = [by.get(f"{y2 - 1:02d}.{mo:02d}") for mo in range(1, 13)]
-    ppy = [by.get(f"{y2 - 2:02d}.{mo:02d}") for mo in range(1, 13)]
-    kp = [(f"{lm}월", f"{cur:.2f}조", cy),
-          (f"1~{lm}월 누계", f"{ytd:.1f}조", (ytd / ytd0 - 1) * 100 if ytd0 else None)]
-    if all(py):
-        a = sum(m["L"][ch] for m in py)
-        b = sum(m["L"][ch] for m in ppy) if all(ppy) else None
-        kp.append((f"20{y2 - 1:02d} 연간", f"{a:.1f}조", (a / b - 1) * 100 if b else None))
-    for i, (t, v, g) in enumerate(kp):
-        x0 = 0.03 + i * 0.25
-        fig.text(x0, 0.845, t, fontsize=10.5, color=MUT, ha="left")
-        fig.text(x0, 0.795, v, fontsize=18, color=INK, ha="left", fontweight="bold")
-        if g is not None:
-            fig.text(x0, 0.755, f"전년비 {g:+.1f}%", fontsize=10.5, color=UP if g > 0 else DN, ha="left")
-    fig.text(0.03, 0.975, f"{CH[ch]} — 월별 실액(조원)", fontsize=17, color=INK, fontweight="bold", ha="left", va="top")
-    fig.text(0.03, 0.912, "회색 = 재작년·작년 같은 달 · 금색 = 올해 · 막대 위 % = 올해 전년비", fontsize=11, color=MUT, ha="left", va="top")
-    foot(fig, "실액 = 조사표본 기준 추정(점포당 매출×점포수, '26.08~ 작년 같은 달×(1+공식 전년비)) · 누계·연간 전년비는 계산값 · * = 실액으로 환산")
-    fig.subplots_adjust(left=0.07, right=0.98, top=0.645, bottom=0.12)
-    fig.savefig(path, facecolor="white")
-    plt.close(fig)
+    ax.legend(loc="lower right", bbox_to_anchor=(1, 1.02), frameon=False, fontsize=10.5, ncol=3, handlelength=1.0,
+              columnspacing=1.2, handletextpad=0.45, borderaxespad=0)
+    save(fig, path)
 
 
-# ── 표·요약 ───────────────────────────────────────────────────────────
-def contrib(M, ch):
-    """최신 달 품목별 전년비 기여(%p, 계산값) = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계."""
-    j = len(M) - 1
-    if j < 12:
-        return []
-    base = M[j - 12]["L"][ch]
-    out = []
-    for nm, ks, col in ITEMS[ch]:
-        if ks == "L" or nm.endswith(" 계"):
-            continue
-        a = sum((M[j]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks)
-        b = sum((M[j - 12]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks)
-        out.append((nm, (a - b) / base * 100))
-    return sorted(out, key=lambda t: -abs(t[1]))
-
-
+# ── 표·브리핑 ─────────────────────────────────────────────────────────
 def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-# ── 브리핑: 업태마다 #태그 · 흐름 · 국면 · 바뀐 것 · 식품/비식품 · 건수·단가 ──────────
 # 국면 = 최근 3개월 평균 전년비 vs 직전 3개월 평균(1%p 넘게 달라야 가속·둔화). 판정은 이 식 하나 — 문구만 바꿔 쓴다.
-PHASE = {
-    "가속": ("좋아지는 중 (가속)", "플러스 폭이 커지고 있다"),
-    "둔화": ("꺾이는 중 (둔화)", "아직 플러스지만 폭이 줄고 있다"),
-    "유지+": ("비슷 (플러스 유지)", "비슷한 폭의 플러스가 이어진다"),
-    "플전": ("좋아지는 중 (플러스 전환)", "마이너스에서 플러스로 돌아섰다"),
-    "완화": ("바닥 다지는 중 (감소 완화)", "아직 마이너스지만 폭이 줄고 있다"),
-    "심화": ("나빠지는 중 (감소 심화)", "마이너스 폭이 커지고 있다"),
-    "마전": ("나빠지는 중 (마이너스 전환)", "플러스에서 마이너스로 돌아섰다"),
-    "유지-": ("부진 지속", "비슷한 폭의 마이너스가 이어진다"),
+PHASE = {   # 짧은 이름(굵게) · 풀이
+    "가속": ("가속", "증가 폭 확대"),
+    "둔화": ("둔화", "증가 폭 축소"),
+    "유지+": ("유지", "비슷한 증가세"),
+    "플전": ("플러스 전환", "감소 → 증가"),
+    "완화": ("감소 완화", "감소 폭 축소"),
+    "심화": ("감소 심화", "감소 폭 확대"),
+    "마전": ("마이너스 전환", "증가 → 감소"),
+    "유지-": ("부진 지속", "비슷한 감소세"),
 }
 GOOD, BAD = {"가속", "플전", "완화"}, {"둔화", "심화", "마전"}
 FOOD = {"B": ("식품", "비식품 계"), "M": ("식품", "비식품 계"), "C": ("식품 계", "비식품 계"), "S": ("식품 계", "비식품 계")}
@@ -529,57 +611,27 @@ def phase_of(s):
     return k, r, p
 
 
-def item_contrib(M, ch, j, ks):
-    base = M[j - 12]["L"][ch]
-    return (sum((M[j]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks) -
-            sum((M[j - 12]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks)) / base * 100
-
-
-def holiday_shift(M):
-    """(최근 두 달에 명절 시점 차이가 있나, 머리 문구) — 올해 명절 달이 작년과 다르면 그 앞뒤 달 전년비가 부풀거나 꺼진다."""
-    last = M[-1]
-    shift = False
-    for m in M[-2:]:
-        e = m.get("ev") or ""
-        h = "추석" if "추석" in e else "설" if e.startswith("설") else ""
-        if h:
-            ly = next((x for x in M if x["ym"] == f"{int(m['ym'][:2]) - 1:02d}.{m['ym'][3:]}"), None)
-            if not ly or h not in (ly.get("ev") or ""):
-                shift = True
-    e = last.get("ev") or ""
-    h = "추석" if "추석" in e else "설" if e.startswith("설") else ""
-    note = ""
-    if h and "선판매" not in e:
-        y, mo = int(last["ym"][:2]), int(last["ym"][3:])
-        ly = [x for x in M if x["ym"].startswith(f"{y - 1:02d}.") and h in (x.get("ev") or "") and "선판매" not in (x.get("ev") or "")]
-        if ly:
-            lmo = int(ly[0]["ym"][3:])
-            day = re.search(r"\(([^)]+)\)", e)
-            lday = re.search(r"\(([^)]+)\)", ly[0]["ev"])
-            when = f"올해 {day.group(1) if day else f'{mo}월'} · 작년 {lday.group(1) if lday else f'{lmo}월'}"
-            pre = M[-2] if "선판매" in (M[-2].get("ev") or "") else None
-            span = f"{int(pre['ym'][3:])}~{mo}월" if pre else f"{mo}월"
-            if lmo > mo:
-                note = (f"{h} 시점: {when} → {span} 전년비는 명절 매출 덕에 부풀었고, "
-                        f"{lmo}월은 작년 {h} 달이라 낮게 나오기 쉽다")
-            elif lmo < mo:
-                note = f"{h} 시점: {when} → {lmo}월은 작년 {h} 달이라 낮았고, 올해 {mo}월은 명절이 늦게 와 부풀었다"
-    return shift, note
+def rel(R):
+    """'2026-10-28 11:00 (9월호)' → '9월호(10/28 발표)'"""
+    s = R.get("release", "") or ""
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2}).*?\(([^)]+)\)", s)
+    return f"{m.group(4)}({int(m.group(2))}/{int(m.group(3))} 발표)" if m else s
 
 
 def brief(R):
-    """(머리 html, 업태 섹션 html, 평문) — 업태마다 '#백화점 +8.4%' 머리 + 흐름 · 국면 · 바뀐 것 · 식품/비식품 · 건수·단가."""
+    """브리핑 메시지(rich html, 평문) — 요약 + 업태마다 '#백화점 +8.4%' 머리와 국면·추이·변화·구성·점검·객수/객단가.
+       말투는 리포트식 개조식(명사형 끝맺음). 판정·계산은 여기 한 곳(phase_of · item_contrib)."""
     M = [m for m in R["months"] if m.get("yoy")]
-    j = len(R["months"]) - 1
     MM = R["months"]
+    j = len(MM) - 1
     last, prev = MM[-1], MM[-2]
     mo, pmo = int(last["ym"][3:]), int(prev["ym"][3:])
-    shift, hnote = holiday_shift(MM)
-    secs, plains, verdict = [], [], {}
-    foodonly, tag_of = set(), CH_SHORT
+    shift, hshort, himpact = holiday_info(MM)
+    secs, verdict, foodonly = [], {}, set()
 
     def flow(series, months):
-        path = " → ".join(f"{int(m['ym'][3:])}월 {v:+.1f}" for m, v in zip(months[-4:], series[-4:]))
+        ms = [int(m["ym"][3:]) for m in months[-4:]]
+        txt = f"{ms[0]}~{ms[-1]}월 " + " → ".join(f"{v:+.1f}" for v in series[-4:]) + "%"
         st, d = 0, 0
         for a, b in zip(series[::-1][1:], series[::-1]):    # 끝에서부터 같은 방향으로 몇 달 움직였나
             dd = 1 if b > a else -1 if b < a else 0
@@ -588,7 +640,8 @@ def brief(R):
             if dd != d or dd == 0:
                 break
             st += 1
-        tail = f" (전년비 {st}개월 연속 {'높아짐' if d > 0 else '낮아짐'})" if st >= 3 else ""
+        if st >= 3:
+            txt += f", 전년비 {st}개월 연속 {'상승' if d > 0 else '하락'}"
         sg = 1 if series[-1] > 0 else -1
         run = 0
         for v in series[::-1]:
@@ -597,171 +650,178 @@ def brief(R):
             else:
                 break
         if 1 <= run <= 4 and run < len(series):
-            tail += f" · {int(months[-run]['ym'][3:])}월부터 {'플러스' if sg > 0 else '마이너스'}"
-        return path + tail
+            txt += f", {int(months[-run]['ym'][3:])}월부터 {'플러스' if sg > 0 else '마이너스'}"
+        return txt
 
     def section(tag, series, months, extra):
         k, r, p = phase_of(series)
         verdict[tag] = k
-        bold, why = PHASE[k]
-        lines = [f"<b>#{tag} {series[-1]:+.1f}%</b> ({pmo}월 {series[-2]:+.1f})",
-                 f"국면: <b>{bold}</b> — {why} · 최근 3개월 평균 {r:+.1f}% (직전 3개월 {p:+.1f}%)",
-                 f"흐름: {flow(series, months)}"]
+        nm, why = PHASE[k]
+        L = [f"국면: <b>{nm}</b>({why}) — 최근 3개월 평균 {r:+.1f}%, 직전 3개월 {p:+.1f}%",
+             f"추이: {flow(series, months)}"]
         if k in BAD and series[-1] - series[-2] >= 1.5:
-            lines.append(f"→ 다만 이번 달은 반등 ({series[-2]:+.1f} → {series[-1]:+.1f})")
+            L.append(f"{mo}월은 반등({series[-2]:+.1f} → {series[-1]:+.1f}%)")
         if k in GOOD and series[-2] - series[-1] >= 1.5:
-            lines.append(f"→ 다만 이번 달은 주춤 ({series[-2]:+.1f} → {series[-1]:+.1f})")
-        lines += extra(k, series)
-        secs.append("<p>" + "<br>".join(lines) + "</p>")
-        plains.append("\n".join(re.sub("<[^>]+>", "", l) for l in lines))
+            L.append(f"{mo}월은 주춤({series[-2]:+.1f} → {series[-1]:+.1f}%)")
+        L += extra(k, series)
+        secs.append((f"#{tag} {series[-1]:+.1f}%", f"{pmo}월 {series[-2]:+.1f}%", L))
 
     for c in "BMCS":
-        ser = [tot_yoy(m, c) for m in M]
-        ok = [(m, v) for m, v in zip(M, ser) if v is not None]
+        ok = [(m, tot_yoy(m, c)) for m in M if tot_yoy(m, c) is not None]
         months, series = [m for m, _ in ok], [v for _, v in ok]
 
         def extra(k, series, c=c):
             out = []
-            jj = [MM.index(m) for m in MM[-6:]]
+            jj = list(range(len(MM) - 6, len(MM)))
             leaf = [(nm, ks) for nm, ks, _ in ITEMS[c] if ks != "L" and not nm.endswith(" 계")]
-            ch_ = sorted(((nm, item_contrib(MM, c, j - 1, ks), item_contrib(MM, c, j, ks)) for nm, ks in leaf),
-                         key=lambda t: -abs(t[2] - t[1]))
-            mv = [f"{esc(nm)} {a:+.1f} → {b:+.1f}%p" for nm, a, b in ch_[:2] if abs(b - a) >= 0.3]
+            mv = sorted(((nm, item_contrib(MM, c, j - 1, ks), item_contrib(MM, c, j, ks)) for nm, ks in leaf),
+                        key=lambda t: -abs(t[2] - t[1]))
+            mv = [f"{esc(SHORT.get(nm, nm))} 기여 {a:+.1f} → {b:+.1f}%p" for nm, a, b in mv[:2] if abs(b - a) >= 0.3]
             if mv:
-                out.append("바뀐 것: " + " · ".join(mv) + f" (기여 {pmo}월 → {mo}월)")
+                out.append("변화: " + ", ".join(mv))
             fk, nk = FOOD[c]
             fks = next(ks for nm, ks, _ in ITEMS[c] if nm == fk)
             nks = next(ks for nm, ks, _ in ITEMS[c] if nm == nk)
             f0, f1 = item_contrib(MM, c, j - 1, fks), item_contrib(MM, c, j, fks)
             n0, n1 = item_contrib(MM, c, j - 1, nks), item_contrib(MM, c, j, nks)
-            out.append(f"기여: 식품 {f1:+.1f}%p · 비식품 {n1:+.1f}%p ({pmo}월 {f0:+.1f} · {n0:+.1f})")
-            up_now = k in GOOD or series[-1] - series[-2] >= 1.5
-            if shift and up_now:
+            out.append(f"구성: 식품 {f1:+.1f}%p, 비식품 {n1:+.1f}%p ({pmo}월 {f0:+.1f}, {n0:+.1f}%p)")
+            if shift and (k in GOOD or series[-1] - series[-2] >= 1.5):
                 nr = sum(item_contrib(MM, c, x, nks) for x in jj[-2:]) / 2
                 npv = sum(item_contrib(MM, c, x, nks) for x in jj[-5:-2]) / 3
                 w0 = f"{int(MM[jj[-5]]['ym'][3:])}~{int(MM[jj[-3]]['ym'][3:])}월"
                 w1 = f"{int(MM[jj[-2]]['ym'][3:])}~{mo}월"
                 if nr - npv >= 1:
-                    out.append(f"→ 명절 영향이 적은 비식품도 좋아졌다 ({w0} 평균 {npv:+.1f} → {w1} {nr:+.1f}%p) — 명절 효과만은 아니다")
+                    out.append(f"명절 점검: 비식품도 개선({w0} 평균 {npv:+.1f} → {w1} {nr:+.1f}%p) — 명절 효과만은 아님")
                 else:
-                    foodonly.add(tag_of[c])
-                    out.append(f"→ 좋아진 몫은 식품뿐 — 비식품은 {w0} 평균 {npv:+.1f} → {w1} {nr:+.1f}%p로 그대로. 명절 시점 효과일 수 있어 다음 달 확인")
+                    foodonly.add(CH_SHORT[c])
+                    out.append(f"명절 점검: 개선은 식품에 국한(비식품 {w0} 평균 {npv:+.1f} → {w1} {nr:+.1f}%p) — 명절 효과 가능성, 다음 달 확인 필요")
             kp = last.get("kpi", {}).get(c) or {}
             n, u = kp.get("구매건수"), kp.get("구매단가")
             if n is not None and u is not None:
-                who = "손님 수(건수)가 끌었다" if n > u else "객단가가 끌었다"
-                if n < 0 and u < 0:
-                    who = "건수·단가 둘 다 줄었다"
-                txt = f"건수·단가: 구매건수 {n:+.1f}% · 구매단가 {u:+.1f}% → {who}"
-                ps = kp.get("점포당 매출")
+                who = "둘 다 감소" if n < 0 and u < 0 else ("객수 주도" if n > u else "객단가 주도")
+                txt = f"객수·객단가: 구매건수 {n:+.1f}%, 구매단가 {u:+.1f}% — {who}"
                 if kp.get("점포 증가율") is not None:
-                    txt += f" · 점포 수 {kp['점포 증가율']:+.1f}%"
+                    txt += f" (점포 수 {kp['점포 증가율']:+.1f}%)"
                 out.append(txt)
-                if kp.get("점포 증가율") is None and ps is not None and series[-1] is not None:
+                ps = kp.get("점포당 매출")
+                if kp.get("점포 증가율") is None and ps is not None:
                     implied = ((1 + series[-1] / 100) / (1 + ps / 100) - 1) * 100     # 합계 = 점포당 × 점포 수
                     if abs(implied) >= 3:
-                        out.append(f"점포: 점포당 매출 {ps:+.1f}% vs 합계 {series[-1]:+.1f}% → 점포 수 약 {implied:+.0f}%"
-                                   + (" — 점포가 줄었는데 합계가 플러스 = 남은 점포 매출이 크게 늘었다" if implied < 0 < series[-1] else ""))
+                        out.append(f"점포: 점포당 매출 {ps:+.1f}% vs 합계 {series[-1]:+.1f}% → 점포 수 약 {abs(implied):.0f}% {'감소' if implied < 0 else '증가'} 추정"
+                                   + (", 남은 점포 매출 급증" if implied < 0 < series[-1] else ""))
             return out
 
         section(CH_SHORT[c], series, months, extra)
 
-    # 온라인 — 품목 비중이 없어 품목 전년비로만
     on = [(m, head_yoy(m, "온라인")) for m in M if head_yoy(m, "온라인") is not None]
 
     def extra_on(k, series):
         out = []
-        o1 = (last["yoy"].get("O") or [])[:9]
-        o0 = (prev.get("yoy", {}).get("O") or [])[:9]
+        o1, o0 = (last["yoy"].get("O") or [])[:9], (prev.get("yoy", {}).get("O") or [])[:9]
         if len(o1) == 9 and len(o0) == 9:
-            ch_ = sorted(zip(O_NAMES, o0, o1), key=lambda t: -abs((t[2] or 0) - (t[1] or 0)))
-            mv = [f"{nm} {a:+.1f} → {b:+.1f}%" for nm, a, b in ch_[:3] if a is not None and b is not None and abs(b - a) >= 3]
+            mv = sorted(zip(O_NAMES, o0, o1), key=lambda t: -abs((t[2] or 0) - (t[1] or 0)))
+            mv = [f"{nm} {a:+.1f} → {b:+.1f}%" for nm, a, b in mv[:3] if a is not None and b is not None and abs(b - a) >= 3]
             if mv:
-                out.append("바뀐 것: " + " · ".join(mv) + " (품목 전년비)")
+                out.append("변화: " + ", ".join(mv))
             hi = sorted([(nm, v) for nm, v in zip(O_NAMES, o1) if v is not None], key=lambda t: -t[1])
-            out.append(f"강한 품목: {hi[0][0]} {hi[0][1]:+.1f}% · {hi[1][0]} {hi[1][1]:+.1f}% / 약한 품목: {hi[-1][0]} {hi[-1][1]:+.1f}%")
+            out.append(f"강약: 강세 {hi[0][0]} {hi[0][1]:+.1f}%, {hi[1][0]} {hi[1][1]:+.1f}% / 약세 {hi[-1][0]} {hi[-1][1]:+.1f}%")
         return out
 
     section("온라인", [v for _, v in on], [m for m, _ in on], extra_on)
 
     hd = last["yoy"]["head"]
+    pe = (prev.get("yoy") or {}).get("head", {}).get("전체")
     good = [t for t, k in verdict.items() if k in GOOD]
     bad = [t for t, k in verdict.items() if k in BAD]
     flat = [t for t, k in verdict.items() if k not in GOOD and k not in BAD]
-    pe = (prev.get("yoy") or {}).get("head", {}).get("전체")
-    hl = [f"<b>전체 {sgn(hd.get('전체'))}%</b> ({pmo}월 {sgn(pe)}) · 오프라인 {sgn(hd.get('오프라인'))}% · 온라인 {sgn(hd.get('온라인'))}%"]
+    S = [f"전체 <b>{sgn(hd.get('전체'))}%</b> ({pmo}월 {sgn(pe)}%) · 오프라인 {sgn(hd.get('오프라인'))}% · 온라인 {sgn(hd.get('온라인'))}%"]
     if good:
-        hl.append("좋아지는 곳: <b>" + " · ".join(t + ("*" if t in foodonly else "") for t in good) + "</b>")
+        S.append("개선: <b>" + ", ".join(t + ("*" if t in foodonly else "") for t in good) + "</b>")
     if bad:
-        hl.append("꺾이거나 나빠지는 곳: <b>" + " · ".join(bad) + "</b>")
+        S.append("둔화·악화: <b>" + ", ".join(bad) + "</b>")
     if flat:
-        hl.append("비슷: " + " · ".join(flat))
-    if any(t in foodonly for t in good):
-        hl.append("* 좋아진 몫이 식품뿐 — 명절 시점 효과일 수 있다")
-    if hnote:
-        hl.append(esc(hnote))
-    head = (f"<h2>{mo}월 유통업체 매출 브리핑</h2><p>{'<br>'.join(hl)}</p>")
-    plain = (f"{mo}월 유통업체 매출 브리핑\n" + "\n".join(re.sub("<[^>]+>", "", l) for l in hl) + "\n\n" +
-             "\n\n".join(plains))
-    return head, "".join(secs), plain
+        S.append("보합: " + ", ".join(flat))
+    if hshort:
+        S.append(esc(hshort) + (f" — {esc(himpact)}" if himpact else ""))
+    star = "* 식품만 개선 — 명절 효과 가능성" if any(t in foodonly for t in good) else ""
+    bl = lambda xs: "<br>".join("▸ " + x for x in xs)
+    html = (f"<h2>{mo}월 유통업체 매출 브리핑</h2>"
+            f"<p>산업통상부 「주요 유통업체 매출 동향」 {esc(rel(R))} · 전년동월비 기준</p>"
+            f"<h3>요약</h3><p>{bl(S)}{'<br>' + star if star else ''}</p>"
+            + "".join(f"<h3>{t}</h3><p><i>{esc(pv)}</i><br>{bl(L)}</p>" for t, pv, L in secs)
+            + "<p><i>국면 = 최근 3개월 평균 전년비와 직전 3개월 평균 비교(1%p 이상 차이) · 기여 = 실액·비중으로 낸 계산값 · 데이터 표와 그래프는 이어서</i></p>")
+    strip = lambda s: re.sub("<[^>]+>", "", s)
+    plain = (f"{mo}월 유통업체 매출 브리핑 — {rel(R)}\n\n[요약]\n" + "\n".join("▸ " + strip(x) for x in S) + (f"\n{star}" if star else "")
+             + "".join(f"\n\n{t} ({pv})\n" + "\n".join("▸ " + strip(x) for x in L) for t, pv, L in secs))
+    return html, plain
 
 
-def build_rich(R):
+def tables(R):
+    """데이터 표 메시지(rich html, 평문) — 업태 6개월 · 업태별 품목(전년비·기여·실액) · 구매 지표 · 온라인 품목."""
     M = R["months"]
-    last = M[-1]
-    ym = last["ym"]
-    mo = int(ym[3:])
+    last, prev = M[-1], M[-2]
+    j = len(M) - 1
+    mo, pmo = int(last["ym"][3:]), int(prev["ym"][3:])
     Y = [m for m in M if m.get("yoy")][-6:]
-    hd = last["yoy"]["head"]
     td = lambda s, al="right": f'<td align="{al}">{s}</td>'
     th = lambda s, al="right": f'<th align="{al}">{s}</th>'
-    rows = [("전체", lambda m: m["yoy"]["head"].get("전체")), ("오프라인", lambda m: m["yoy"]["head"].get("오프라인")),
-            ("온라인", lambda m: m["yoy"]["head"].get("온라인"))] + \
-           [(CH_SHORT[c], (lambda c: lambda m: (m["yoy"].get(c) or [None] * 12)[TOT[c]])(c)) for c in "BMCS"]
-    t1 = "<table bordered><caption>업태별 전년동월비(%)</caption><tr>" + th("업태", "left") + \
-         "".join(th(lab(m["ym"]) + (f"<br>{esc(m['ev'])}" if m.get("ev") else "")) for m in Y) + "</tr>"
+    out = [f"<h2>{mo}월 유통업체 매출 — 데이터</h2>",
+           f"<p>{esc(rel(R))} · 전년동월비 % · 기여 %p · 실액 조원(조사표본 기준 추정) · * 붙임에 없어 실액으로 환산</p>"]
+    rows = [("전체", lambda m: head_yoy(m, "전체")), ("오프라인", lambda m: head_yoy(m, "오프라인")),
+            ("온라인", lambda m: head_yoy(m, "온라인"))] + [(CH_SHORT[c], (lambda c: lambda m: tot_yoy(m, c))(c)) for c in "BMCS"]
+    t = "<table bordered><caption>업태별 전년동월비 · 최근 6개월</caption><tr>" + th("업태", "left") + \
+        "".join(th(lab(m["ym"]) + (f"<br>{esc(ev_short(m['ev']))}" if m.get("ev") else "")) for m in Y) + "</tr>"
     for nm, f in rows:
-        t1 += "<tr>" + td(f"<b>{nm}</b>", "left") + "".join(td(sgn(f(m))) for m in Y) + "</tr>"
-    t1 += "</table>"
-    prev = M[-2]
-    t2 = f"<table bordered><caption>{mo}월 품목 전년동월비 · 실액</caption><tr>" + th("업태", "left") + th("품목", "left") + \
-         th(f"{mo}월 %") + th(f"{int(prev['ym'][3:])}월 %") + th("실액(조)") + "</tr>"
+        t += "<tr>" + td(f"<b>{nm}</b>", "left") + "".join(td(sgn(f(m))) for m in Y) + "</tr>"
+    out.append(t + "</table>")
     for c in "BMCS":
-        for k, (nm, ks, col) in enumerate(ITEMS[c]):
+        t = (f"<table bordered><caption>{CH[c]} · 품목</caption><tr>" + th("품목", "left") + th(f"{mo}월 %") + th(f"{pmo}월 %") +
+             th(f"{mo}월 기여 %p") + th("실액(조)") + "</tr>")
+        for nm, ks, col in ITEMS[c]:
             lv, yy = yoy_series(M, c, ks, col)
             b = nm == "합계" or nm.endswith(" 계")
-            name = f"<b>{nm}</b>" if b else nm
-            t2 += "<tr>" + td(f"<b>{CH_SHORT[c]}</b>" if k == 0 else "", "left") + td(name, "left") + \
-                  td(sgn(yy[-1][0]) + ("*" if yy[-1][1] and yy[-1][0] is not None else "")) + \
-                  td(sgn(yy[-2][0]) + ("*" if yy[-2][1] and yy[-2][0] is not None else "")) + td(f"{lv[-1]:.3f}") + "</tr>"
-    t2 += "</table>"
-    head, secs, plain = brief(R)
-    html = (head + secs + t1 + t2 +
-            f"<p>국면 = 최근 3개월 평균 전년비 vs 직전 3개월 평균(1%p 넘게 달라야 가속·둔화) · 기여 %p = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계(계산값) · "
-            f"* = 붙임에 품목 전년비가 없어 실액으로 환산 · 실액은 조사표본 기준 추정.<br>"
-            f"출처 산업통상부 주요 유통업체 매출 동향 {esc(R.get('release', ''))} · 그래프 11장은 이어서 · 대시보드 유통 종목 페이지 손익 탭 <a href=\"{SITE}\">{SITE}</a></p>")
+            cb = "" if ks == "L" else f"{item_contrib(M, c, j, ks):+.1f}"
+            star = lambda e: "*" if e[1] and e[0] is not None else ""
+            t += "<tr>" + td(f"<b>{esc(nm)}</b>" if b else esc(nm), "left") + td(sgn(yy[-1][0]) + star(yy[-1])) + \
+                td(sgn(yy[-2][0]) + star(yy[-2])) + td(cb) + td(f"{lv[-1]:.3f}") + "</tr>"
+        out.append(t + "</table>")
+    K = ["구매건수", "구매단가", "점포당 매출"]
+    t = "<table bordered><caption>구매 지표 · 전년동월비 %</caption><tr>" + th("업태", "left") + \
+        "".join(th(f"{k}<br>{mo}월") + th(f"{pmo}월") for k in K[:2]) + th(f"점포당 매출<br>{mo}월") + "</tr>"
+    for c in "BMCS":
+        k1, k0 = last.get("kpi", {}).get(c) or {}, prev.get("kpi", {}).get(c) or {}
+        t += "<tr>" + td(f"<b>{CH_SHORT[c]}</b>", "left") + "".join(td(sgn(k1.get(k))) + td(sgn(k0.get(k))) for k in K[:2]) + \
+            td(sgn(k1.get("점포당 매출"))) + "</tr>"
+    out.append(t + "</table>")
+    O = [m for m in M if (m.get("yoy") or {}).get("O")][-3:]
+    if len(O) == 3:
+        t = "<table bordered><caption>온라인 품목 · 전년동월비 %</caption><tr>" + th("품목", "left") + \
+            "".join(th(f"{int(m['ym'][3:])}월") for m in O[::-1]) + "</tr>"
+        for i, nm in enumerate(O_NAMES + ["합계"]):
+            t += "<tr>" + td(f"<b>{nm}</b>" if nm == "합계" else nm, "left") + "".join(td(sgn((m["yoy"]["O"] + [None] * 10)[i])) for m in O[::-1]) + "</tr>"
+        out.append(t + "</table>")
+    out.append(f"<p><i>기여 = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계(계산값) · 대시보드: 유통 종목 페이지 손익 탭 · <a href=\"{SITE}\">{SITE}</a></i></p>")
+    html = "".join(out)
+    plain = f"{mo}월 유통업체 매출 — 데이터 표는 텔레그램 리치 메시지로만 보낸다(이 기기에서 표가 안 보이면 대시보드에서): {SITE}"
     return html, plain
 
 
 def make_pngs(R, d):
-    """[(경로, 캡션)] 묶음 둘 — ① 이번 달·기여·추이 ② 업태별 실액 3개년. 보는 순서대로.
-       캡션은 한 줄 이름만 — 읽는 법은 그림 안 부제에 있다. 길게 쓰면 텔레그램 사진 보기에서 캡션이 그림 아래쪽을 덮는다."""
+    """그림 묶음 둘 — ① 이번 달 · 품목 기여 · 13개월 추이 · 업태별 기여 월별 ② 업태별 실액 3개년. 보는 순서대로. 캡션 없음."""
+    global KICK, SRC
     os.makedirs(d, exist_ok=True)
     M = R["months"]
-    mo, pmo = int(M[-1]["ym"][3:]), int(M[-2]["ym"][3:])
+    y, mo = int(M[-1]["ym"][:2]), int(M[-1]["ym"][3:])
+    KICK = f"산업부 유통업체 매출동향 · 20{y:02d}년 {mo}월"
+    SRC = f"자료: 산업통상부 「주요 유통업체 매출 동향」 {rel(R)} · 정리: 커버리지 대시보드"
     a, b = [], []
-    p = os.path.join(d, "1_now.png"); fig_now(M, p)
-    a.append((p, f"① {mo}월 업태별 전년비"))
-    p = os.path.join(d, "2_drivers.png"); fig_drivers(M, p)
-    a.append((p, f"② {mo}월 품목별 기여(%p)"))
+    p = os.path.join(d, "1_now.png"); fig_now(M, p); a.append(p)
+    p = os.path.join(d, "2_drivers.png"); fig_drivers(M, p); a.append(p)
+    p = os.path.join(d, "3_trend.png"); fig_trend(M, p); a.append(p)
     for i, c in enumerate("BMCS"):
-        p = os.path.join(d, f"3{i}_{c}_mix.png"); fig_mix(M, c, p)
-        a.append((p, f"③ {CH[c]} · 품목 기여 월별"))
-    p = os.path.join(d, "4_trend.png"); fig_trend(M, p)
-    a.append((p, "④ 최근 13개월 전년비"))
+        p = os.path.join(d, f"4{i}_{c}_mix.png"); fig_mix(M, c, p); a.append(p)
     for i, c in enumerate("BMCS"):
-        p = os.path.join(d, f"5{i}_{c}_years.png"); fig_years(M, c, p)
-        b.append((p, f"⑤ {CH[c]} · 월별 실액 3개년"))
+        p = os.path.join(d, f"5{i}_{c}_years.png"); fig_years(M, c, p); b.append(p)
     return a, b
 
 
@@ -773,11 +833,14 @@ def main():
     ym = R["months"][-1]["ym"]
     if a.png:
         for grp in make_pngs(R, a.png):
-            for p, c in grp:
-                print(p, "|", c)
-        html, plain = build_rich(R)
-        open(os.path.join(a.png, "rich.html"), "w", encoding="utf-8").write(html)
-        print(plain)
+            for p in grp:
+                print(p)
+        h1, p1 = brief(R)
+        h2, _ = tables(R)
+        open(os.path.join(a.png, "brief.html"), "w", encoding="utf-8").write(h1)
+        open(os.path.join(a.png, "tables.html"), "w", encoding="utf-8").write(h2)
+        print(f"[글꼴] {FONT}")
+        print(p1)
         return
     if not a.send:
         sys.exit("--png DIR 또는 --send")
@@ -787,17 +850,22 @@ def main():
     import telegram_send as tg
     if not tg.configured():
         sys.exit("[retail_report] 텔레그램 토큰·챗ID 없음")
-    html, plain = build_rich(R)
-    ok1 = tg.send_rich(html, fallback=plain)
+    # 보내는 순서: ① 브리핑(글) ② 데이터 표 ③ 그래프 앨범 둘(캡션 없음)
+    h1, p1 = brief(R)
+    ok1 = tg.send_rich(h1, fallback=p1)
+    m1 = tg.RICH_MODE
+    h2, p2 = tables(R)
+    ok2 = tg.send_rich(h2, fallback=p2)
+    m2 = tg.RICH_MODE
     groups = make_pngs(R, "retail_png")
-    pngs = [p for g in groups for p, _ in g]
-    ok2 = all([tg.send_photos([p for p, _ in g], captions=[c for _, c in g]) for g in groups])
-    if ok1 and ok2:
-        json.dump({"sent": ym, "at": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "table": tg.RICH_MODE, "photos": len(pngs)},
+    ok3 = all([tg.send_photos(g) for g in groups])
+    if ok1 and ok2 and ok3:
+        json.dump({"sent": ym, "at": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "brief": m1, "table": m2,
+                   "photos": sum(len(g) for g in groups), "font": FONT},
                   open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
         print(f"[retail_report] {ym} 보냄")
     else:
-        sys.exit(f"[retail_report] 전송 실패 (표 {ok1} · 그래프 {ok2})")
+        sys.exit(f"[retail_report] 전송 실패 (브리핑 {ok1} · 표 {ok2} · 그래프 {ok3})")
 
 
 if __name__ == "__main__":
