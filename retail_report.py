@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """산업부 유통업체 매출동향 → 텔레그램 (2026-10-29 · 사용자 "숫자만 보내면 보기 힘드니 그래프로")
 
-RETAIL 블록(public/index.html)에서 그래프 PNG 7장 + 표 메시지 한 통을 만들어 보낸다.
+RETAIL 블록(public/index.html)에서 그래프 PNG 11장(앨범 둘) + 표 메시지 한 통을 만들어 보낸다.
   ① 표(sendRichMessage · 테두리 표): 업태별 최근 6개월 전년비 + 최신 달 품목 전년비·실액 + 자동 요약(기여 상위 품목 · 계산값)
   ② 앨범(sendMediaGroup · 사진마다 읽는 법 캡션): ① 이번 달 업태별 전년비(막대 + 전월 세로선) ② 품목별 기여(%p · 합 = 업태 전년비)
-     ③ 최근 13개월 전년비 막대 ④ 업태별 '최근 3개년 같은 달' 실액 막대 4장 — 폰에서 읽히게 글씨를 키워 그린다(DPI 200)
+     ③ 업태별 기여 월별(품목군 4개 누적 막대 + 합계 가로줄 · '25.01~ · 사용자 "시계열 비교가 안 돼서") ④ 최근 13개월 전년비 막대
+     ⑤ 업태별 '최근 3개년 같은 달' 실액 막대 4장(두 번째 앨범) — 폰에서 읽히게 글씨를 키워 그린다(DPI 200)
   2026-10-29 사용자 "시각적으로 이해가 잘 안 됨" → 선 7개 겹친 헤드라인·품목 작은 차트 52칸을 이 구성으로 바꿨다.
 같은 달은 한 번만 보낸다(retail_report_sent.json). 보내는 곳은 GitHub Actions(retail_report.yml) — 클라우드 세션은 텔레그램에 못 붙는다.
 
@@ -261,6 +262,78 @@ def fig_drivers(M, path):
     plt.close(fig)
 
 
+# ── ②-b 품목 기여의 월별 추이: 품목군 4개 누적 막대 + 합계 가로줄 ────────────
+# 품목을 다 쌓으면 색이 8개라 폰에서 안 읽힌다 → 업태마다 4개 품목군. 색은 빨강·파랑(등락)과 겹치지 않는 한 벌(검증 통과).
+MIX_COL = ["#c98500", "#199e70", "#6250d6", "#d55181"]
+MIX = {
+    "B": [("명품", ["명품"]), ("식품", ["식품"]), ("의류", ["여성정장", "여성캐주얼", "남성의류", "아동스포츠"]), ("잡화·가정", ["잡화", "가정용품"])],
+    "M": [("식품", ["식품"]), ("가전·문화", ["가전문화"]), ("의류·잡화·스포츠", ["의류", "잡화", "스포츠"]), ("가정생활·기타", ["가정생활", "기타"])],
+    "C": [("음료 등 가공", ["가공식품"]), ("즉석·신선", ["즉석신선"]), ("담배 등", ["담배등"]), ("생활용품·잡화", ["생활용품", "잡화"])],
+    "S": [("농수축산", ["농수축산"]), ("신선·조리", ["신선조리"]), ("가공식품", ["가공식품"]), ("비식품", ["일상용품", "생활잡화"])],
+}
+
+
+def mix_series(M, ch):
+    """월별 품목군 기여(%p) — 실액·비중으로 낸 계산값. 막대 합 = 실액 기준 업태 전년비."""
+    rows = []
+    for j in range(12, len(M)):
+        base = M[j - 12]["L"][ch]
+        g = [(sum((M[j]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks) -
+              sum((M[j - 12]["I"].get(ch) or {}).get(k, 0) or 0 for k in ks)) / base * 100 for _, ks in MIX[ch]]
+        rows.append((M[j], g))
+    return rows
+
+
+def fig_mix(M, ch, path):
+    rows = mix_series(M, ch)
+    x = list(range(len(rows)))
+    fig, ax = plt.subplots(figsize=(7.6, 5.8), dpi=DPI)
+    fig.patch.set_facecolor("white")
+    style(ax)
+    pos, neg = [0.0] * len(rows), [0.0] * len(rows)
+    for gi, ((nm, _), col) in enumerate(zip(MIX[ch], MIX_COL)):
+        v = [g[gi] for _, g in rows]
+        bot = [pos[i] if a >= 0 else neg[i] for i, a in enumerate(v)]
+        ax.bar(x, v, bottom=bot, width=0.74, color=col, edgecolor="white", linewidth=0.9, zorder=2,
+               label=f"{nm}  {v[-1]:+.1f}")
+        for i, a in enumerate(v):
+            if a >= 0:
+                pos[i] += a
+            else:
+                neg[i] += a
+    tot = [sum(g) for _, g in rows]
+    ax.plot(x, tot, ls="none", marker="_", ms=15, mew=2.8, color=INK, zorder=4, label=f"합계  {tot[-1]:+.1f}")
+    ax.axhline(0, color=G2, lw=1.1, zorder=3)
+    lo, hi = min(neg + [0]), max(pos + [0])
+    sp = hi - lo or 1
+    ax.set_ylim(lo - sp * 0.06, hi + sp * 0.08)
+    ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=6, steps=[1, 2, 2.5, 5, 10]))
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "0" if abs(v) < 1e-9 else f"{v:+g}"))
+    ax.tick_params(axis="y", labelsize=10)
+    labs = []
+    trx = _blend(ax.transData, ax.transAxes)
+    for xi, (m, _) in zip(x, rows):
+        mm = int(m["ym"][3:])
+        labs.append(f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or m is rows[0][0]) else ""))
+        e = ev_short(m.get("ev"))
+        if e in ("설", "추석", "추석전") or (e == "휴업" and ch == "M"):     # 명절은 셋째 줄에 작게(이웃 달과 안 겹치게)
+            ax.text(xi, -0.112, e, transform=trx, fontsize=8.5, color=MUT, ha="center", va="top")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labs, fontsize=9.5, color=INK, linespacing=1.1)
+    ax.set_xlim(-0.6, len(x) - 0.4)
+    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.01), ncol=5, frameon=False, fontsize=10, handlelength=1.1,
+              columnspacing=1.0, handletextpad=0.4)
+    last = rows[-1][0]
+    mo = int(last["ym"][3:])
+    fig.text(0.03, 0.975, f"{CH[ch]} — 전년비를 만든 품목, 월별", fontsize=17, color=INK, fontweight="bold", ha="left", va="top")
+    fig.text(0.03, 0.915, "막대 = 품목군이 업태 전년비에 보탠 몫(%p) · 0 위 = 끌어올림, 아래 = 끌어내림\n"
+                          f"검은 가로줄 = 합계(업태 전년비) · 범례 숫자 = {mo}월 값", fontsize=11, color=MUT, ha="left", va="top", linespacing=1.45)
+    foot(fig, "실액 × 붙임 품목 비중으로 낸 계산값 — 합계는 실액 기준이라 붙임 공식 전년비와 몇 달은 조금 다르다 · 아래 작은 글씨 = 명절·휴업")
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.74, bottom=0.15)
+    fig.savefig(path, facecolor="white")
+    plt.close(fig)
+
+
 # ── ③ 최근 13개월 추이: 달마다 막대 하나 ───────────────────────────────────
 def fig_trend(M, path):
     Y = [m for m in M if m.get("yoy")][-13:]
@@ -432,28 +505,31 @@ def build_rich(R):
             f"<p>오프라인 {sgn(hd.get('오프라인'))}% · 온라인 {sgn(hd.get('온라인'))}%{ev} · {esc(R.get('release', ''))}</p>"
             f"<p>{'<br>'.join(lines)}</p>" + t1 + t2 +
             f"<p>기여 %p = (품목 실액 − 작년 같은 달) ÷ 작년 같은 달 업태 합계(계산값). * = 붙임에 품목 전년비가 없어 실액으로 환산.<br>"
-            f"실액은 조사표본 기준 추정. 그래프 7장(한눈에 · 품목 기여 · 추이 · 업태별 실액)은 이어서 보낸다. 대시보드: 유통 종목 페이지 손익 탭 · <a href=\"{SITE}\">{SITE}</a></p>")
+            f"실액은 조사표본 기준 추정. 그래프 11장(한눈에 · 품목 기여 · 기여 월별 · 추이 · 업태별 실액)은 이어서 보낸다. 대시보드: 유통 종목 페이지 손익 탭 · <a href=\"{SITE}\">{SITE}</a></p>")
     plain = (f"{mo}월 유통업체 매출 — 전체 {sgn(hd.get('전체'))}% (오프 {sgn(hd.get('오프라인'))} · 온 {sgn(hd.get('온라인'))}){ev}\n" +
              "\n".join(re.sub("<[^>]+>", "", l) for l in lines))
     return html, plain
 
 
 def make_pngs(R, d):
-    """(경로, 캡션) 목록 — 보는 순서: 이번 달 한눈에 → 무엇이 움직였나 → 추이 → 업태별 실액."""
+    """[(경로, 캡션)] 묶음 둘 — ① 이번 달·기여·추이 ② 업태별 실액 3개년. 보는 순서대로."""
     os.makedirs(d, exist_ok=True)
     M = R["months"]
     mo, pmo = int(M[-1]["ym"][3:]), int(M[-2]["ym"][3:])
-    out = []
+    a, b = [], []
     p = os.path.join(d, "1_now.png"); fig_now(M, p)
-    out.append((p, f"① {mo}월 한눈에 — 막대 = {mo}월 전년비(빨강 증가·파랑 감소), 검은 세로선 = {pmo}월"))
+    a.append((p, f"① {mo}월 한눈에 — 막대 = {mo}월 전년비(빨강 증가·파랑 감소), 검은 세로선 = {pmo}월"))
     p = os.path.join(d, "2_drivers.png"); fig_drivers(M, p)
-    out.append((p, f"② {mo}월 무엇이 움직였나 — 품목이 업태 전년비에 보탠 몫(%p). 막대를 다 더하면 업태 전년비"))
-    p = os.path.join(d, "3_trend.png"); fig_trend(M, p)
-    out.append((p, "③ 최근 13개월 전년비 — 막대 하나 = 한 달"))
+    a.append((p, f"② {mo}월 무엇이 움직였나 — 품목이 업태 전년비에 보탠 몫(%p). 막대를 다 더하면 업태 전년비"))
     for i, c in enumerate("BMCS"):
-        p = os.path.join(d, f"4{i}_{c}_years.png"); fig_years(M, c, p)
-        out.append((p, f"④ {CH[c]} 월별 실액 — 회색 재작년·작년, 금색 올해, 막대 위 % = 올해 전년비"))
-    return out
+        p = os.path.join(d, f"3{i}_{c}_mix.png"); fig_mix(M, c, p)
+        a.append((p, f"③ {CH[c]} 기여 월별 — 색 = 품목군, 0 위는 끌어올림·아래는 끌어내림, 검은 가로줄 = 합계"))
+    p = os.path.join(d, "4_trend.png"); fig_trend(M, p)
+    a.append((p, "④ 최근 13개월 전년비 — 막대 하나 = 한 달"))
+    for i, c in enumerate("BMCS"):
+        p = os.path.join(d, f"5{i}_{c}_years.png"); fig_years(M, c, p)
+        b.append((p, f"⑤ {CH[c]} 월별 실액 — 회색 재작년·작년, 금색 올해, 막대 위 % = 올해 전년비"))
+    return a, b
 
 
 def main():
@@ -463,8 +539,9 @@ def main():
     R = load()
     ym = R["months"][-1]["ym"]
     if a.png:
-        for p, c in make_pngs(R, a.png):
-            print(p, "|", c)
+        for grp in make_pngs(R, a.png):
+            for p, c in grp:
+                print(p, "|", c)
         html, plain = build_rich(R)
         open(os.path.join(a.png, "rich.html"), "w", encoding="utf-8").write(html)
         print(plain)
@@ -479,9 +556,9 @@ def main():
         sys.exit("[retail_report] 텔레그램 토큰·챗ID 없음")
     html, plain = build_rich(R)
     ok1 = tg.send_rich(html, fallback=plain)
-    pics = make_pngs(R, "retail_png")
-    pngs = [p for p, _ in pics]
-    ok2 = tg.send_photos(pngs, captions=[c for _, c in pics])
+    groups = make_pngs(R, "retail_png")
+    pngs = [p for g in groups for p, _ in g]
+    ok2 = all([tg.send_photos([p for p, _ in g], captions=[c for _, c in g]) for g in groups])
     if ok1 and ok2:
         json.dump({"sent": ym, "at": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "table": tg.RICH_MODE, "photos": len(pngs)},
                   open(STATE, "w", encoding="utf-8"), ensure_ascii=False)
