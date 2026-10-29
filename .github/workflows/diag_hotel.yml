@@ -1,0 +1,36 @@
+name: 호텔 ADR DART 조사(일회성)
+# diag_hotel.py 를 push 하면 돈다. DART 정기보고서 '사업의 내용' 호텔 발췌를 diag-hotel 가지에만 올린다(main 은 안 건드림).
+# 커밋은 CI 스킵 표시라 Cloudflare 미리보기 빌드도 안 생긴다.
+on:
+  push:
+    branches: [main]
+    paths: ["diag_hotel.py"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: DART 원문 발췌
+        env:
+          PYTHONIOENCODING: utf-8
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: python diag_hotel.py
+      - name: diag-hotel 가지에 올리기
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mv diag_hotel_out /tmp/diag_hotel_out
+          git checkout --orphan diag-hotel-tmp
+          git rm -rf --quiet --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          mv /tmp/diag_hotel_out ./diag_hotel_out
+          git add diag_hotel_out
+          git commit -q -m "호텔 DART 발췌 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          git push -f origin HEAD:refs/heads/diag-hotel
