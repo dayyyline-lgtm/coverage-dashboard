@@ -9429,7 +9429,7 @@ function revisionHtml(name){
 
   if(N){
     // 다가오는 분기 — 증권사 평균을 네이버 컨센과 나란히. 두 출처가 갈리면 그 자체가 정보다
-    // (네이버는 FnGuide 집계, 이쪽은 120일 창 안의 증권사별 최신 리포트 평균).
+    // (네이버는 FnGuide 집계, 이쪽은 100일 창 안의 증권사별 최신 리포트 평균).
     const qk=`20${N.q.slice(2,4)}${String(+N.q[0]*3).padStart(2,"0")}`;      // 3Q26 → 202609
     const nv=((((LIVE.stocks[name]||{}).cons||{}).quarter||{}).series||[]).find(s=>s.k===qk)||{};
     const cal=CAL.filter(e=>e.ty==="earn"&&e.co===name&&e.d>=TODAY).map(e=>e.d).sort()[0];
@@ -9448,7 +9448,7 @@ function revisionHtml(name){
       ${SN.map(x=>`<tr>${segCell(x)}<td>${eok(x.sc)}${nn(x.n)}</td><td>${pct(x.y)}</td><td>${eok(x.oc)}</td></tr>`).join("")}
       </tbody></table></div></details>`;
   }
-  h+=`<p class="note">단위 억 원 · 작은 숫자 = 응답 증권사 수 · 증권사 컨센 = 발표 직전 증권사별 마지막 리포트 평균(120일 창) ·
+  h+=`<p class="note">단위 억 원 · 작은 숫자 = 응답 증권사 수 · 증권사 컨센 = 발표 직전 증권사별 마지막 리포트 평균(100일 창) ·
     리비전 = 같은 증권사의 발표 직전↔직후 리포트 비교 · 차이 = 증권사 평균 ÷ 네이버 − 1 · 리비전 트래커 수집(${fmtUpd(RV.asOf)})</p>`;
   return h;
 }
