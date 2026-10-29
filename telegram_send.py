@@ -110,8 +110,8 @@ def send_rich(html, fallback=None, chat_id=None, silent=False):
     return send(fallback or html, chat_id=cid, parse_mode=None if fallback else "HTML", silent=silent)
 
 
-def send_photos(paths, caption="", chat_id=None, silent=False):
-    """사진 여러 장을 앨범(sendMediaGroup · 10장씩)으로. 캡션은 첫 장에만. 한 장이면 sendPhoto."""
+def send_photos(paths, caption="", chat_id=None, silent=False, captions=None):
+    """사진 여러 장을 앨범(sendMediaGroup · 10장씩)으로. caption = 첫 장에만 · captions = 장마다. 한 장이면 sendPhoto."""
     import uuid, mimetypes
     cid = chat_id or CHAT_ID
     if not (BOT_TOKEN and cid):
@@ -133,7 +133,8 @@ def send_photos(paths, caption="", chat_id=None, silent=False):
         field("chat_id", cid)
         if silent:
             field("disable_notification", "true")
-        cap = caption if g == 0 else ""
+        caps = (captions[g:g + 10] if captions else [caption if (g == 0 and i == 0) else "" for i in range(len(grp))])
+        cap = caps[0] if caps else ""
         if len(grp) == 1:
             if cap:
                 field("caption", cap[:1024])
@@ -143,8 +144,8 @@ def send_photos(paths, caption="", chat_id=None, silent=False):
             media = []
             for i, p in enumerate(grp):
                 m = {"type": "photo", "media": f"attach://p{i}"}
-                if i == 0 and cap:
-                    m["caption"] = cap[:1024]
+                if i < len(caps) and caps[i]:
+                    m["caption"] = caps[i][:1024]
                 media.append(m)
                 filepart(f"p{i}", p)
             field("media", json.dumps(media, ensure_ascii=False))
