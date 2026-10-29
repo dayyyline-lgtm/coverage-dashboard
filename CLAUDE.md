@@ -1946,6 +1946,10 @@ PC 트래커(curl_cffi · 작업 스케줄러 05:15/06:45)는 **고치지 않고
 - 화면: 신세계·현대백화점 → 백화점 · 롯데쇼핑 → 백화점/대형마트/SSM 전환 · BGF리테일 → 편의점 · GS리테일 → 편의점/SSM(`RETAIL_MAP`).
   표 = 최근 13개월 YoY(숫자만 등락색 · 최신 열 음영 · 1월 앞 세로선 · 명절 표기는 머리 칸 아래) + 구매 지표, 차트 = 실액 선(점은 고점에만).
 - 신선도: `FRESH_LIMITS`·`watchdog.LIMITS` 45일.
+- **텔레그램 = `retail_report.py` → `retail_report.yml`**(2026-10-29 · 사용자 "숫자만 보내면 보기 힘드니 그래프로"): 새 달이 RETAIL 에 들어오면 표 한 통(`sendRichMessage` · 테두리 표 —
+  업태별 최근 6개월 전년비 · 최신 달 품목 전년비·실액 · 기여 상위 품목 %p 계산값) + 그래프 9장 앨범(`sendMediaGroup` — 헤드라인 전년비 · 업태별 최근 3개년 같은 달 실액 막대 + KPI 3개 · 업태별 품목 전년비 작은 차트).
+  깨우는 것 = 커밋 메시지에 '유통업체 매출동향'이 든 index.html push(월간 예약 작업 커밋) + 백업 schedule(매월 20~31일 KST 11:47~19:47 매시). 같은 달은 한 번만(`retail_report_sent.json` — 지우지 말 것) · 다시 보내려면 workflow_dispatch force.
+  보내는 곳은 GitHub Actions(secrets) — 클라우드 세션은 텔레그램에 못 붙는다. 그림 점검은 `python retail_report.py --png <폴더>`. `telegram_send.send_rich`·`send_photos` 는 다른 수집기도 쓸 수 있다.
 
 ## 화장품 트렌드 분석 탭 — 옛 '아마존 Top100' (2026-10-21 개편 · `#amazon` 그대로)
 

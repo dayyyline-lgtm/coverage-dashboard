@@ -1,0 +1,88 @@
+name: 유통업체 매출동향 텔레그램
+
+# 산업부 '주요 유통업체 매출 동향' 새 달이 RETAIL 블록에 들어오면 텔레그램으로 표 한 통 + 그래프 9장 (2026-10-29 신설).
+# 월간 수집(예약 작업 '유통업체 매출동향 월간 수집' · 커밋 메시지 '…유통업체 매출동향…')이 올리면 push 로 깨어난다.
+# 다른 index.html push 는 job 의 if 에서 바로 건너뛴다. schedule = 백업(매월 20~31일 KST 11:47~19:47 매시) — 새 달이 없으면 안 보낸다.
+# 같은 달은 한 번만(retail_report_sent.json). 규칙은 retail_report.py 맨 위.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/index.html"
+  schedule:
+    - cron: "47 2-10 20-31 * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "같은 달이라도 다시 보내기"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: retail-report
+  cancel-in-progress: false
+
+jobs:
+  send:
+    if: github.event_name != 'push' || contains(github.event.head_commit.message, '유통업체 매출동향')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      sent: ${{ steps.s.outputs.sent }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 그래프 라이브러리
+        run: pip install -q matplotlib koreanize-matplotlib
+      - name: 보내기
+        id: s
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python retail_report.py --send ${{ inputs.force && '--force' || '' }}
+          if git status --porcelain retail_report_sent.json | grep -q .; then
+            echo "sent=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retail-report
+          path: |
+            retail_report_sent.json
+            retail_png/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  record:
+    needs: send
+    if: needs.send.outputs.sent == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: repo-write
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: retail-report
+          path: dl/
+      - name: 커밋
+        run: |
+          cp dl/retail_report_sent.json .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add retail_report_sent.json
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git commit -q -m "유통업체 매출 텔레그램 발송기록 $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST [CI Skip]"
+          for i in 1 2 3 4; do
+            git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0
+            sleep 7
+          done
+          echo "발송기록 push 실패 — 다음 회차에 같은 달을 다시 보낼 수 있다"; exit 1

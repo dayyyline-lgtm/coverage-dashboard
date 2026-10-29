@@ -72,6 +72,86 @@ def send(text, chat_id=None, parse_mode="HTML", silent=False):
 LAST = {}       # 마지막 send 결과(진단용) — 호출자가 파일로 남길 수 있게 노출
 
 
+def _api(method, data=None, body=None, ctype=None, timeout=60):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
+    hd = {"Content-Type": ctype} if ctype else {}
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(url, data=body if body is not None else data, headers=hd), timeout=timeout)
+        return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        txt = e.read().decode("utf-8", "replace")
+        print(f"[telegram] {method} HTTP {e.code}: {' '.join(txt.split())[:220]}")
+        try:
+            return json.loads(txt)
+        except Exception:
+            return {"ok": False}
+    except Exception as e:
+        print(f"[telegram] {method} 오류: {str(e)[:150]}")
+        return {"ok": False}
+
+
+def send_rich(html, fallback=None, chat_id=None, silent=False):
+    """sendRichMessage(Bot API 10.1 · <h2>·<p>·<table bordered> 를 그대로 그린다).
+       실패하면 fallback(평문)을 sendMessage 로. 3만 자를 넘기면 앞에서 자른다(호출자가 나눌 것)."""
+    cid = chat_id or CHAT_ID
+    if not (BOT_TOKEN and cid):
+        print("[telegram] 토큰·챗ID 미설정 — 전송 생략"); return False
+    p = {"chat_id": cid, "rich_message": {"html": html[:30000]}}
+    if silent:
+        p["disable_notification"] = True
+    res = _api("sendRichMessage", body=json.dumps(p, ensure_ascii=False).encode("utf-8"), ctype="application/json; charset=utf-8")
+    if res.get("ok"):
+        print("[telegram] rich 전송 성공"); return True
+    print(f"[telegram] rich 실패 {str(res)[:200]} — 평문으로")
+    return send(fallback or html, chat_id=cid, parse_mode=None if fallback else "HTML", silent=silent)
+
+
+def send_photos(paths, caption="", chat_id=None, silent=False):
+    """사진 여러 장을 앨범(sendMediaGroup · 10장씩)으로. 캡션은 첫 장에만. 한 장이면 sendPhoto."""
+    import uuid, mimetypes
+    cid = chat_id or CHAT_ID
+    if not (BOT_TOKEN and cid):
+        print("[telegram] 토큰·챗ID 미설정 — 전송 생략"); return False
+    ok = True
+    for g in range(0, len(paths), 10):
+        grp = paths[g:g + 10]
+        bnd = "----tg" + uuid.uuid4().hex
+        parts = []
+
+        def field(name, val):
+            parts.append(f'--{bnd}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{val}\r\n'.encode("utf-8"))
+
+        def filepart(name, path):
+            ct = mimetypes.guess_type(path)[0] or "application/octet-stream"
+            parts.append(f'--{bnd}\r\nContent-Disposition: form-data; name="{name}"; filename="{os.path.basename(path)}"\r\n'
+                         f'Content-Type: {ct}\r\n\r\n'.encode("utf-8") + open(path, "rb").read() + b"\r\n")
+
+        field("chat_id", cid)
+        if silent:
+            field("disable_notification", "true")
+        cap = caption if g == 0 else ""
+        if len(grp) == 1:
+            if cap:
+                field("caption", cap[:1024])
+            filepart("photo", grp[0])
+            method = "sendPhoto"
+        else:
+            media = []
+            for i, p in enumerate(grp):
+                m = {"type": "photo", "media": f"attach://p{i}"}
+                if i == 0 and cap:
+                    m["caption"] = cap[:1024]
+                media.append(m)
+                filepart(f"p{i}", p)
+            field("media", json.dumps(media, ensure_ascii=False))
+            method = "sendMediaGroup"
+        parts.append(f"--{bnd}--\r\n".encode())
+        res = _api(method, body=b"".join(parts), ctype=f"multipart/form-data; boundary={bnd}", timeout=120)
+        print(f"[telegram] {method} {len(grp)}장", "성공" if res.get("ok") else f"실패 {str(res)[:200]}")
+        ok = ok and bool(res.get("ok"))
+    return ok
+
+
 def get_chat_id():
     """봇에게 아무 메시지나 보낸 뒤 이걸 실행하면 chat_id 를 알려준다(최초 설정용)."""
     if not BOT_TOKEN:
