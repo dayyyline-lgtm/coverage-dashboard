@@ -1,0 +1,50 @@
+[
+{
+"src": "cc",
+"col": "CC-MAIN-2025-43",
+"k": "nt_ddm",
+"dom": "www.kayak.com",
+"ts": "20251016134838",
+"url": "https://www.kayak.com/Seoul-Hotels-Nine-Tree-Hotel-Dongdaemun.6019223.ksp",
+"sc": "200",
+"fn": "crawl-data/CC-MAIN-2025-43/segments/1759648663798.77/warc/CC-MAIN-20251016113935-20251016143935-00907.warc.gz",
+"off": 819725638,
+"ln": 235321,
+"m": null,
+"cur": "USD",
+"title": "NINE TREE BY PARNAS SEOUL DONGDAEMUN from $55. Seoul Hotel Deals &amp; Reviews - KAYAK",
+"err": null
+},
+{
+"src": "cc",
+"col": "CC-MAIN-2025-43",
+"k": "nt_md1",
+"dom": "www.kayak.com",
+"ts": "20251005223255",
+"url": "https://www.kayak.com/Seoul-Hotels-Nine-Tree-Hotel-Myeongdong.496105.ksp",
+"sc": "200",
+"fn": "crawl-data/CC-MAIN-2025-43/segments/1759648358124.83/warc/CC-MAIN-20251005210857-20251006000857-00350.warc.gz",
+"off": 843887490,
+"ln": 234789,
+"m": null,
+"cur": "USD",
+"title": "NINE TREE BY PARNAS SEOUL MYEONGDONG 1 from $85. Seoul Hotel Deals &amp; Reviews - KAYAK",
+"err": null
+},
+{
+"src": "cc",
+"col": "CC-MAIN-2025-43",
+"k": "stay_yeoksam",
+"dom": "www.kayak.com",
+"ts": "20251013033712",
+"url": "https://www.kayak.com/Seoul-Hotels-Shilla-Stay-Yeoksam.2154992.ksp",
+"sc": "200",
+"fn": "crawl-data/CC-MAIN-2025-43/segments/1759648358910.32/warc/CC-MAIN-20251013014802-20251013044802-00628.warc.gz",
+"off": 839586870,
+"ln": 238664,
+"m": null,
+"cur": "USD",
+"title": "Shilla Stay Gangnam Yeoksam from $78. Seoul Hotel Deals &amp; Reviews - KAYAK",
+"err": null
+}
+]
