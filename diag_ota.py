@@ -1,4 +1,4 @@
-"""예약 사이트 과거 흔적(일회성) — 커먼 크롤·웨이백에 남은 KAYAK 계열 호텔 페이지에서 monthlyStayPrice(숙박월별 평균 검색가)를 찾는다.
+"""예약 사이트 과거 흔적(일회성 · 2차 — 커먼 크롤만, 2025 가을~2026 초 사본) — 커먼 크롤·웨이백에 남은 KAYAK 계열 호텔 페이지에서 monthlyStayPrice(숙박월별 평균 검색가)를 찾는다.
 
 왜: 2026-10-29 KAYAK 수집은 2026년 1~9월 값만 준다(지난 12개월 검색 평균). 2025년 가을~겨울에 찍힌 사본이 있으면
 그 안의 7~9월 값 = 2025년 7~9월 숙박 → 2026년 같은 달과 견줘 '예약 사이트 기준 전년비'가 나온다.
@@ -120,14 +120,16 @@ def wayback(results):
     return caps
 
 
+WANT = ["CC-MAIN-2025-47", "CC-MAIN-2025-43", "CC-MAIN-2025-51", "CC-MAIN-2026-04", "CC-MAIN-2026-08",
+        "CC-MAIN-2025-38", "CC-MAIN-2026-12", "CC-MAIN-2025-33", "CC-MAIN-2026-17", "CC-MAIN-2026-21"]
+CC_DOMS = ["www.kayak.com", "www.momondo.com", "www.kayak.co.kr", "www.kayak.co.uk", "ca.kayak.com"]
+DOM_CUR = {"www.kayak.com": "USD", "www.momondo.com": "USD", "www.kayak.co.kr": "KRW", "www.kayak.co.uk": "GBP", "ca.kayak.com": "CAD"}
+
+
 def cc_collections():
     st, t = get("https://index.commoncrawl.org/collinfo.json", 60)
-    out = []
-    for c in json.loads(t):
-        m = re.search(r"CC-MAIN-(\d{4})-(\d{2})", c["id"])
-        if m and (int(m.group(1)), int(m.group(2))) >= (2024, 30):
-            out.append(c)
-    return out
+    have = {c["id"]: c for c in json.loads(t)}
+    return [have[i] for i in WANT if i in have]
 
 
 def commoncrawl(results):
@@ -137,17 +139,22 @@ def commoncrawl(results):
     except Exception as e:
         print("[cc] 목록 실패", e); return caps
     print("[cc] 컬렉션", [c["id"] for c in cols], flush=True)
-    for c in cols:
-        for dom in DOMAINS[:11]:
+    for dom in CC_DOMS:
+        for c in cols:
             for city in CITIES:
-                if left() < 60 * 12:
+                if left() < 60 * 3:
                     print("[cc] 시간 예산 — 색인 중단", flush=True); return caps
                 u = (f"{c['cdx-api']}?url=" + urllib.parse.quote(f"{dom}/{city}-Hotels-", safe="/")
                      + "&matchType=prefix&output=json&limit=20000")
-                try:
-                    st, t = get(u, 90, 3)
-                except Exception as e:
-                    print(f"[cc] {c['id']} {dom} {city} 실패 {e}", flush=True); time.sleep(5); continue
+                t = None
+                for i in range(5):
+                    try:
+                        st, t = get(u, 120, 1)
+                        break
+                    except Exception as e:
+                        print(f"[cc] {c['id']} {dom} {city} 재시도 {i+1} {str(e)[:60]}", flush=True); time.sleep(8 + 8 * i)
+                if t is None:
+                    continue
                 n = 0
                 for line in t.splitlines():
                     if not line.startswith("{"):
@@ -157,10 +164,18 @@ def commoncrawl(results):
                     except Exception:
                         continue
                     m = re.search(r"\.(\d+)\.ksp", r.get("url", ""))
-                    if m and m.group(1) in ID2K:
-                        caps.append({"src": "cc", "col": c["id"], "k": ID2K[m.group(1)], "dom": dom, "ts": r.get("timestamp"),
-                                     "url": r.get("url"), "sc": r.get("status"), "fn": r.get("filename"),
-                                     "off": int(r.get("offset", 0)), "ln": int(r.get("length", 0))})
+                    if m and m.group(1) in ID2K and str(r.get("status")) == "200":
+                        cap = {"src": "cc", "col": c["id"], "k": ID2K[m.group(1)], "dom": dom, "ts": r.get("timestamp"),
+                               "url": r.get("url"), "sc": r.get("status"), "fn": r.get("filename"),
+                               "off": int(r.get("offset", 0)), "ln": int(r.get("length", 0))}
+                        try:
+                            x = extract(fetch_cc(cap))
+                        except Exception as e:
+                            x = {"err": f"{type(e).__name__} {str(e)[:80]}"}
+                        cap.update({"m": x.get("m"), "cur": DOM_CUR.get(dom), "title": x.get("title"), "err": x.get("err")})
+                        caps.append(cap)
+                        print(f"   {c['id']} {cap['ts'][:8]} {dom} {cap['k']} → {cap['m'] if cap['m'] else ('없음 ' + str(cap.get('title') or cap.get('err'))[:60])}", flush=True)
+                        json.dump(caps, open(f"{OUT}/cc_pages.json", "w"), ensure_ascii=False, indent=0)
                         n += 1
                 if n:
                     print(f"[cc] {c['id']} {dom} {city} 우리 호텔 {n}개", flush=True)
@@ -185,10 +200,10 @@ def fetch_wb(cap):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    caps = []
-    caps += wayback(caps)
-    caps += commoncrawl(caps)
-    json.dump(caps, open(f"{OUT}/captures.json", "w"), ensure_ascii=False, indent=0)
+    caps = commoncrawl([])
+    json.dump(caps, open(f"{OUT}/cc_pages.json", "w"), ensure_ascii=False, indent=0)
+    print(f"끝 · 커먼 크롤 사본 {len(caps)}개 · 월별 값 있는 것 {sum(1 for c in caps if c.get('m'))}개", flush=True)
+    return
     print(f"사본 후보 {len(caps)}개", flush=True)
     # 2025-06 ~ 2026-10 사본만 본다(호텔·도메인·달마다 하나씩 — 같은 달 여러 개면 맨 뒤)
     pick = {}
