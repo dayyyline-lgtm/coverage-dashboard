@@ -300,6 +300,19 @@ jobs:
             echo "올리브영 오늘치 이미 있음(또는 KST 09시 전) - 생략"
           fi
 
+      # 방한 외래관광객 지난달 공식치(2026-10-29 · fetch_tourism.py → TOURISM). 한국관광공사가 그달 말에 내는데
+      #   데이터랩 반영이 낮일 때가 있어(9월분 10/29 낮) 05시 수집만으론 하루 늦는다 → 25일부터 지난달이 없으면 회차마다 본다.
+      - name: 방한 외래관광객(월말 공표 따라잡기)
+        if: steps.gate.outputs.go == '1'
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          if python -c "import sys;from collector_health import tourism_stale;sys.exit(0 if tourism_stale() else 1)"; then
+            python runstep.py "방한관광" fetch_tourism.py
+          else
+            echo "방한 관광 지난달치 있음(또는 25일 전) - 생략"
+          fi
+
       # 한투 김명주 텔레그램 '주요 국가 아마존 뷰티 Top 100' (2026-09-29 · fetch_kmj.py → KMJAMZ).
       #   평일 KST 07:30 전후에 글이 올라온다(주말·연휴는 가끔). KMJAMZ.asOf 가 **마지막 글 날짜**라
       #   오늘 글이 아직 없으면 다음 회차가 다시 본다 — 평소 요청 1건(t.me/s 공개 미리보기 · 키 불필요).

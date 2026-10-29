@@ -43,9 +43,12 @@ const ISM_PX={
   // 써클차트 월간 앨범 판매량(CIRCLE · 종목) → 만 장
   circle(stock){ if(typeof CIRCLE==="undefined"||!CIRCLE.month) return {}; const m=CIRCLE.month, a=(m.byStock||{})[stock]; if(!a) return {};
     return ismAgg(m.periods.map((p,i)=>[`20${p.slice(0,2)}-${p.slice(3,5)}`, a[i]==null?null:a[i]/1e4])); },
-  // 방한 외래관광객(TOURISM) → 만 명
-  tour(){ if(typeof TOURISM==="undefined") return {};
-    return ismAgg(TOURISM.months.map((m,i)=>[`${m.slice(0,4)}-${m.slice(4,6)}`, TOURISM.total[i]==null?null:TOURISM.total[i]/1e4])); },
+  // 방한 외래관광객(TOURISM) → 만 명 · 기본 = 공식 총계 · ports = 입국 공항·항구 키 목록(icn 인천공항 · cju 제주공항 …)을 더한 것
+  //   (2026-10-29 전 TOURISM.total 은 인천공항 입국분이었다 — 옛 계수와 견줄 때 ports:["icn"])
+  tour(ports){ if(typeof TOURISM==="undefined") return {};
+    const P=TOURISM.ports, ix=(ports&&P)?ports.map(k=>P.keys.indexOf(k)).filter(i=>i>=0):null;
+    const val=i=>ix&&ix.length?(ix.some(k=>P.v[k][i]==null)?null:ix.reduce((t,k)=>t+P.v[k][i],0)):TOURISM.total[i];
+    return ismAgg(TOURISM.months.map((m,i)=>{ const v=val(i); return [`${m.slice(0,4)}-${m.slice(4,6)}`, v==null?null:v/1e4]; })); },
   // 게임 한국 매출순위(GRANK · gamerscroll) → 컴투스 곡선(c2Rev · 결제액 억/일) ÷ 1.1 → 회사 매출 십억/달.
   //   달마다: 일별이 그 달을 거의 덮으면(빠진 날 3일 이하) 일별 합을 일수로 늘리고, 아니면 월평균 순위 × 일수(볼록성 때문에 조금 낮다).
   app(slugs, ids){ if(typeof GRANK==="undefined"||typeof c2Rev!=="function") return {};
@@ -153,7 +156,7 @@ function ismPxOf(px, name){ const p=px.params||{};
     case "kb": return ISM_PX.kb(p.keys||[], p.mk, p.tt);
     case "ecos": return ISM_PX.ecos(p.item||p.code);
     case "circle": return ISM_PX.circle(p.stock||name);
-    case "tour": return ISM_PX.tour();
+    case "tour": return ISM_PX.tour(p.ports);
     case "casino": return ISM_PX.casino(p.name||p.corp||name, p.keys||p.key||"c");
     case "app": return ISM_PX.app(p.slugs||(p.games||[]).map(g=>g.gs), p.ids);
     case "steam": return ISM_PX.steam(p.appid);
@@ -173,7 +176,7 @@ function ismKbLab(codes){ codes=codes||[]; const eu=["UK","DE","FR","IT","ES"], 
   return `아마존 ${a.join("·")}${tt.length?` + 틱톡샵 ${tt.map(c=>c.slice(3)).join("·")}`:""}`; }
 function ismPxLab(px){ if(!px) return ""; const p=px.params||{};
   return ({trade:`관세청 ${p.label||""}${p.code?" "+p.code:""} 수출(원화)`, sgg:`관세청 ${p.label||""} 수출(원화)`, kb:`아마존${({all:"",us:" 미국",eu:" 유럽5",jp:" 일본",ca:" 캐나다",uk:" 영국"})[p.mk||"all"]??(" "+p.mk)}${(p.tt!==false&&(!p.mk||p.mk==="all"||p.mk==="us"))?"·틱톡샵":""} 판매액(${(p.keys||[]).join("·")})`,
-    ecos:`${p.name||"소매"} 판매지수(ECOS)`, circle:"써클 앨범(만 장)", tour:"방한 관광객(만 명)", casino:"카지노 월 공시 매출", app:"한국 매출순위 곡선(억/일)",
+    ecos:`${p.name||"소매"} 판매지수(ECOS)`, circle:"써클 앨범(만 장)", tour:(p.ports&&p.ports.length?`${p.ports.map(k=>({icn:"인천공항",gmp:"김포공항",pus:"김해공항",cju:"제주공항"})[k]||k).join("·")} 입국 외래관광객(만 명)`:"방한 외래관광객(공식 총계 · 만 명)"), casino:"카지노 월 공시 매출", app:"한국 매출순위 곡선(억/일)",
     steam:`${p.title||"Steam"} 월평균 동접(천 명)`, kpoptour:"투어 그로스(십억원)", kpopshows:"공연 회수", gameest:`${p.title||"게임"} 판매 × ASP(십억원)`, kbch:`${ismKbLab(p.codes)} 판매액(십억원)`, bl:"미국 해상 선적(B/L 톤)", srch:`네이버 검색 '${p.kw||""}'(월 합)`, retail:`산업부 유통업체 매출동향 ${({B:"백화점 3사",M:"대형마트 4사",C:"편의점 4사",S:"SSM 4사"})[p.ch]||p.ch}${p.w?"(회사 상품군 가중)":p.keys?"("+p.keys.join("·")+")":""}`, kp:`아마존 미국 '${p.key||""}' 판매액(십억원)`})[px.src]||px.src; }
 
 /* ── 엔진 ─────────────────────────────────────────────────────────────── */

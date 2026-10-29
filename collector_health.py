@@ -108,6 +108,28 @@ def due_today(const_name, after_hour=0, html_path="public/index.html"):
     return m.group(1)[:10] != now.date().isoformat()
 
 
+def tourism_stale(html_path="public/index.html"):
+    """방한 외래관광객(TOURISM)에 **지난달 공식치가 아직 없나** — 매달 25일 뒤에만 본다. (2026-10-29)
+
+    한국관광공사는 전월 통계를 그달 말에 낸다(2026-09분: 보도 10/28 · 데이터랩 10/29 낮).
+    05시 events.yml 한 번만 두면 데이터랩이 낮에 올린 날은 하루 늦는다 — 그래서 refresh.yml 이
+    25일부터 회차마다 이걸 보고, 지난달이 없으면 fetch_tourism.py 를 돌린다(4요청 남짓).
+    """
+    now = datetime.datetime.now(KST)
+    if now.day < 25:
+        return False
+    try:
+        html = open(html_path, encoding="utf-8").read()
+    except Exception:
+        return True
+    m = re.search(r'const TOURISM\s*=\s*\{.*?"months"\s*:\s*\[([^\]]*)\]', html, re.S)
+    if not m:
+        return True
+    last = (re.findall(r'"(\d{6})"', m.group(1)) or [""])[-1]
+    prev = (now.replace(day=1) - datetime.timedelta(days=1)).strftime("%Y%m")
+    return last < prev
+
+
 def trend_daily_stale(html_path="public/index.html"):
     """트렌드 **일별 축의 끝이 어제가 아닌가.** (2026-09-09)
 

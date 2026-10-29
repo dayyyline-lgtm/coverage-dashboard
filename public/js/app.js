@@ -2250,20 +2250,53 @@ function injectCompanyStack(items, opt){
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
   });
 })();
-/* 방한 외래관광객(월별)을 호텔/면세/카지노 종목의 트렌드로 편입 — 인바운드 관광 = 수요 매크로. */
+/* 방한 외래관광객(월별)을 호텔/면세/카지노 종목의 트렌드로 편입 — 인바운드 관광 = 수요 매크로.
+   2026-10-29 개편(사용자 "9월 206.2만 뜬 게 대시보드에 없다"): total = 공식 총계(한국관광통계 · 2019-01~). 그 전 값은 인바운드 중 인천공항 입국분(61%)이었다.
+   그룹 셋 — 총계 · 국적별(상위 12 + 그 밖) · 입국 공항·항구별. 계절이 커서(여름·명절) 판정·카드·표는 작년 같은 달과(yoyCmp · 유통·숙박료와 같은 방식).
+   신호는 총계만(sigIdx) · 문턱 ±15% — 국적·공항 줄은 보기용(같은 칩이 열두 번 서지 않게). */
 (function injectTourismTrends(){
   if(typeof TOURISM==="undefined"||!TOURISM.total||TOURISM.total.length<2) return;
-  const months=(TOURISM.months||[]).map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`);
-  const total=TOURISM.total, peak=Math.max(...total)||1;
-  TREND.groups["방한 외래관광객"]={
-    products:["방한 외래관광객"], productsGoogle:["방한 외래관광객"],
-    months:months, naver:[total.map(v=>Math.round(v/peak*100))],
-    google:[total.map(v=>Math.round(v/peak*100))],
-    only:"naver", freq:"month", peak:peak,
-    unit:"명(월)", srcName:"한국관광 데이터랩 · 방한 외래관광객(월별)"
+  const M=TOURISM.months||[], months=M.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), li=M.length-1, mo=+M[li].slice(4,6), yr=M[li].slice(0,4);
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const man=v=>v==null||isNaN(v)?"—":(v>=1e4?(v/1e4).toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})+"만":Math.round(v).toLocaleString())+"명";
+  const sum=(a,i0,i1)=>{ let t=0; for(let i=i0;i<=i1;i++){ if(i<0||a[i]==null) return null; t+=a[i]; } return t; };
+  const at=ym=>M.indexOf(ym);
+  const build=(name,rows,extra)=>{
+    const raw=rows.map(r=>r[1].map(v=>v==null?null:v));
+    const yoyAt=(i,j)=>j>=12?pct(raw[i][j],raw[i][j-12]):null;
+    const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    TREND.groups[name]=Object.assign({products:rows.map(r=>r[0]), productsGoogle:rows.map(r=>r[0]), months, naver:norm, google:norm,
+      rawSer:raw, rawFull:raw, yoyAt, only:"naver", freq:"month", peak, unit:"명(월)", unitShort:"명", realFmt:man,
+      niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[], sigTh:15}, extra);
   };
-  ["파라다이스","롯데관광개발","GKL","호텔신라","현대백화점","신세계"].forEach(s=>{
-    (TREND_STOCK[s]=TREND_STOCK[s]||[]).push("방한 외래관광객");
+  const T=TOURISM.total, y0=at(`${yr}01`), y19=at(`2019${M[li].slice(4,6)}`);
+  const ytd=y0>=0?sum(T,y0,li):null, ytdP=y0>=12?sum(T,y0-12,li-12):null, ytd19=at("201901")>=0?sum(T,at("201901"),at("201901")+(li-y0)):null;
+  const src="한국관광 데이터랩 · 한국관광통계(법무부 출입국 · 승무원 제외 · 교포 포함) · 매달 말 전월분 공표";
+  build("방한 외래관광객",[["방한 외래관광객",T]],{sigIdx:[0], srcName:src,
+    reviewNote:`${yr}년 ${mo}월 ${man(T[li])}(전년동월비 ${sg(pct(T[li],T[li-12]))} · 2019년 같은 달 대비 ${sg(y19>=0?pct(T[li],T[y19]):null)})`
+      +(ytd!=null?` · 1~${mo}월 누적 ${man(ytd)}(전년비 ${sg(pct(ytd,ytdP))} · 2019년 대비 ${sg(pct(ytd,ytd19))})`:"")});
+  const N=TOURISM.nat;
+  if(N&&N.months&&N.months.length>12){
+    const map=Object.fromEntries(N.months.map((m,i)=>[m,i]));
+    const codes=Object.keys(N.v||{}), row=c=>M.map(m=>map[m]==null?null:N.v[c][map[m]]);
+    const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][li]||0)-(a[1][li]||0));
+    rows.push(["그 밖",M.map((m,j)=>map[m]==null?null:Math.max(0,T[j]-codes.reduce((t,c)=>t+(N.v[c][map[m]]||0),0)))]);
+    build("방한 외래관광객 · 국적별",rows,{srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)",
+      reviewNote:`${mo}월 · `+rows.slice(0,6).map(r=>`${r[0]} ${man(r[1][li])}(${sg(pct(r[1][li],r[1][li-12]))})`).join(" · ")});
+  }
+  const P=TOURISM.ports;
+  if(P&&P.v){
+    const rows=P.names.map((n,i)=>[n,P.v[i]]);
+    build("방한 외래관광객 · 입국 공항·항구별",rows,{srcName:src+" · 입국한 공항·항구 기준(제주공항·제주항 = 제주 직항·크루즈)",
+      reviewNote:`${mo}월 · `+rows.filter(r=>r[1][li]>0).sort((a,b)=>b[1][li]-a[1][li]).slice(0,6).map(r=>`${r[0]} ${man(r[1][li])}(${sg(pct(r[1][li],r[1][li-12]))})`).join(" · ")});
+  }
+  ["파라다이스","롯데관광개발","GKL","호텔신라","현대백화점","신세계","GS피앤엘","서부T&D","파마리서치"].forEach(s=>{
+    ["방한 외래관광객","방한 외래관광객 · 국적별","방한 외래관광객 · 입국 공항·항구별"].forEach(g=>{
+      if(!TREND.groups[g]) return;
+      if(s==="파마리서치"&&g!=="방한 외래관광객") return;   // 파마리서치는 외국인 시술 손님 — 총계만
+      (TREND_STOCK[s]=TREND_STOCK[s]||[]).push(g);
+    });
   });
 })();
 /* 써클차트 앨범 판매량 — 엔터 종목의 실물 수요/매출 신호. 회사 합계(월·주).
