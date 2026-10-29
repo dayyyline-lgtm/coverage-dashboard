@@ -21,6 +21,7 @@ try:
 except Exception:
     pass
 import matplotlib.pyplot as plt
+import matplotlib.patches  # noqa: F401  (범례 Patch)
 plt.rcParams["axes.unicode_minus"] = False
 
 HTML = "public/index.html"
@@ -50,6 +51,7 @@ KPI = {"B": ["구매건수", "구매단가", "점포당 매출"], "M": ["구매�
 ACC, UP, DN = "#9a6a12", "#c0392b", "#2c64b0"
 G1, G2, INK, MUT, GRID = "#cfd3d8", "#9aa3ad", "#1d2329", "#6b737c", "#eceef0"
 Y_OLD, Y_MID = "#d9dce0", "#a9b0b8"        # 3개년 막대: 재작년 · 작년 (올해 = ACC)
+BAND = "#f1f2f4"                           # 명절 달 배경 띠(눈금선보다 옅게)
 DPI = 200                                  # 폰에서 열면 폭이 약 1/3 로 줄어든다 — 글씨를 키워 그린다
 
 def load():
@@ -133,6 +135,27 @@ def holiday_note(M):
     same = l["ym"][3:] == last["ym"][3:]
     return f"올해 {ev} · 작년 {h}은 {int(l['ym'][3:])}월{'(같은 달)' if same else ''}" + \
         (re.sub(r"^[^(]*", "", l["ev"]) if "(" in l["ev"] else "")
+
+
+def ev_bands(ax, months, xs, other=(), fs=9):
+    """명절 달 = 옅은 회색 띠(이어진 달은 한 띠 · 8월 추석 선판매 + 9월 추석 → '추석' 하나) + 띠 안 위쪽에 이름.
+       other = 띠 없이 이름만(휴업·편입). 눈금 아래 셋째 줄에 두면 이웃 달 글씨가 붙고 텔레그램 캡션에 가린다.
+       글씨 자리가 막대와 안 겹치게 부르는 쪽이 y 위쪽 여백을 남긴다."""
+    trx = _blend(ax.transData, ax.transAxes)
+    runs = []
+    for xi, m in zip(xs, months):
+        e = ev_short(m.get("ev"))
+        h = next((k for k in ("설", "추석") if e.startswith(k)), None)
+        if h:
+            if runs and runs[-1][0] == h and runs[-1][2] == xi - 1:
+                runs[-1][2] = xi
+            else:
+                runs.append([h, xi, xi])
+        elif e in other:
+            ax.text(xi, 0.985, e, transform=trx, fontsize=fs, color=MUT, ha="center", va="top", zorder=5)
+    for h, a, b in runs:
+        ax.axvspan(a - 0.5, b + 0.5, color=BAND, lw=0, zorder=0)
+        ax.text((a + b) / 2, 0.985, h, transform=trx, fontsize=fs, color=MUT, ha="center", va="top", zorder=5)
 
 
 def style(ax, grid="y"):
@@ -290,46 +313,58 @@ def fig_mix(M, ch, path):
     fig, ax = plt.subplots(figsize=(7.6, 5.8), dpi=DPI)
     fig.patch.set_facecolor("white")
     style(ax)
+    W = 0.72
     pos, neg = [0.0] * len(rows), [0.0] * len(rows)
+    span0 = (max([0] + [sum(a for a in g if a > 0) for _, g in rows]) -
+             min([0] + [sum(a for a in g if a < 0) for _, g in rows])) or 1
+    hand = []
     for gi, ((nm, _), col) in enumerate(zip(MIX[ch], MIX_COL)):
         v = [g[gi] for _, g in rows]
         bot = [pos[i] if a >= 0 else neg[i] for i, a in enumerate(v)]
-        ax.bar(x, v, bottom=bot, width=0.74, color=col, edgecolor="white", linewidth=0.9, zorder=2,
-               label=f"{nm}  {v[-1]:+.1f}")
+        # 축 높이의 0.6% 밑(그림에서 4px 안쪽) 조각은 그리지 않는다 — 흰 테두리 두 줄만 남아 막대가 갈라진 것처럼 보인다
+        keep = [abs(a) >= span0 * 0.006 for a in v]
+        ax.bar([xi for xi, k in zip(x, keep) if k], [a for a, k in zip(v, keep) if k],
+               bottom=[b for b, k in zip(bot, keep) if k], width=W, color=col, edgecolor="white", linewidth=0.7, zorder=2)
+        hand.append(matplotlib.patches.Patch(color=col, label=f"{nm}  {v[-1]:+.1f}"))
         for i, a in enumerate(v):
             if a >= 0:
                 pos[i] += a
             else:
                 neg[i] += a
     tot = [sum(g) for _, g in rows]
-    ax.plot(x, tot, ls="none", marker="_", ms=15, mew=2.8, color=INK, zorder=4, label=f"합계  {tot[-1]:+.1f}")
+    # 합계 = 막대보다 넓은 검은 가로줄 — 막대 양옆으로 삐져나와 조각 경계가 아니라 '표시'로 읽힌다
+    tx, ty = [], []
+    for xi, t in zip(x, tot):
+        tx += [xi - 0.47, xi + 0.47, float("nan")]
+        ty += [t, t, float("nan")]
+    # 흰 테두리는 두르지 않는다 — 두르면 막대 끝을 몇 px 가려 합계가 막대보다 높이 떠 보인다
+    tl, = ax.plot(tx, ty, color=INK, lw=2.6, solid_capstyle="butt", zorder=4, label=f"합계  {tot[-1]:+.1f}")
+    hand.insert(0, tl)
     ax.axhline(0, color=G2, lw=1.1, zorder=3)
-    lo, hi = min(neg + [0]), max(pos + [0])
+    lo, hi = min(neg + tot + [0]), max(pos + tot + [0])
     sp = hi - lo or 1
-    ax.set_ylim(lo - sp * 0.06, hi + sp * 0.08)
+    ax.set_ylim(lo - sp * 0.06, hi + sp * 0.17)          # 위 여백 = 명절 글씨 자리
     ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=6, steps=[1, 2, 2.5, 5, 10]))
     ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "0" if abs(v) < 1e-9 else f"{v:+g}"))
     ax.tick_params(axis="y", labelsize=10)
     labs = []
-    trx = _blend(ax.transData, ax.transAxes)
-    for xi, (m, _) in zip(x, rows):
+    for m, _ in rows:
         mm = int(m["ym"][3:])
         labs.append(f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or m is rows[0][0]) else ""))
-        e = ev_short(m.get("ev"))
-        if e in ("설", "추석", "추석전") or (e == "휴업" and ch == "M"):     # 명절은 셋째 줄에 작게(이웃 달과 안 겹치게)
-            ax.text(xi, -0.112, e, transform=trx, fontsize=8.5, color=MUT, ha="center", va="top")
+    ev_bands(ax, [m for m, _ in rows], x, other=("휴업",) if ch == "M" else ())
     ax.set_xticks(x)
     ax.set_xticklabels(labs, fontsize=9.5, color=INK, linespacing=1.1)
     ax.set_xlim(-0.6, len(x) - 0.4)
-    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.01), ncol=5, frameon=False, fontsize=10, handlelength=1.1,
+    ax.legend(handles=hand, loc="lower left", bbox_to_anchor=(0, 1.01), ncol=5, frameon=False, fontsize=10, handlelength=1.1,
               columnspacing=1.0, handletextpad=0.4)
     last = rows[-1][0]
     mo = int(last["ym"][3:])
     fig.text(0.03, 0.975, f"{CH[ch]} — 전년비를 만든 품목, 월별", fontsize=17, color=INK, fontweight="bold", ha="left", va="top")
     fig.text(0.03, 0.915, "막대 = 품목군이 업태 전년비에 보탠 몫(%p) · 0 위 = 끌어올림, 아래 = 끌어내림\n"
                           f"검은 가로줄 = 합계(업태 전년비) · 범례 숫자 = {mo}월 값", fontsize=11, color=MUT, ha="left", va="top", linespacing=1.45)
-    foot(fig, "실액 × 붙임 품목 비중으로 낸 계산값 — 합계는 실액 기준이라 붙임 공식 전년비와 몇 달은 조금 다르다 · 아래 작은 글씨 = 명절·휴업")
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.74, bottom=0.15)
+    foot(fig, "회색 띠 = 명절 달(추석 앞 선판매 달 포함) · 실액 × 붙임 품목 비중으로 낸 계산값 — 합계는 실액 기준이라\n"
+              "붙임 공식 전년비와 몇 달은 조금 다르다 · 아주 작은 조각(축의 0.6% 밑)은 그리지 않았다")
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.74, bottom=0.16)
     fig.savefig(path, facecolor="white")
     plt.close(fig)
 
@@ -346,22 +381,23 @@ def fig_trend(M, path):
         ax = fig.add_subplot(sl)
         style(ax)
         v = [f(m) for m in Y]
-        ax.bar(x, [a or 0 for a in v], width=0.7, color=[UP if (a or 0) > 0 else DN for a in v], zorder=2)
-        ax.axhline(0, color=G2, lw=1)
         vv = [a for a in v if a is not None]
         lo, hi = min(0, min(vv)), max(0, max(vv))
         sp = (hi - lo) or 1
-        ax.set_ylim(lo - sp * (0.12 if lo < 0 else 0.04), hi + sp * 0.12)
+        # 0 에 아주 가까운 달(SSM '25.9 -0.2%)은 막대가 0 선에 묻혀 '빈 달'처럼 보인다 → 축의 1.5% 짜리 짧은 막대로
+        ax.bar(x, [0 if not a else (a if abs(a) >= sp * 0.015 else sp * 0.015 * (1 if a > 0 else -1)) for a in v],
+               width=0.7, color=[UP if (a or 0) > 0 else DN for a in v], zorder=2)
+        ax.axhline(0, color=G2, lw=1, zorder=3)
+        ax.set_ylim(lo - sp * (0.12 if lo < 0 else 0.04), hi + sp * (0.24 if i == 0 else 0.12))
+        if i == 0:
+            ev_bands(ax, Y, x, other=("휴업", "편입"), fs=9.5)
         if v[-1] is not None:
             ax.text(1.0, 1.03, f"{int(Y[-1]['ym'][3:])}월 {v[-1]:+.1f}%", transform=ax.transAxes, ha="right", va="bottom",
                     fontsize=12.5 if i == 0 else 11.5, fontweight="bold", color=UP if v[-1] > 0 else DN if v[-1] < 0 else MUT)
         labs = []
         for m in Y:
             mm = int(m["ym"][3:])
-            t = f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or m is Y[0]) else "")
-            if i == 0 and m.get("ev"):
-                t = f"{mm}\n{ev_short(m['ev'])}" if not (mm == 1 or m is Y[0]) else t + f" {ev_short(m['ev'])}"
-            labs.append(t)
+            labs.append(f"{mm}" + (f"\n'{m['ym'][:2]}" if (mm == 1 or m is Y[0]) else ""))
         ax.set_xticks(x)
         ax.set_xticklabels(labs, fontsize=9.5 if i == 0 else 8.5, linespacing=1.1)
         ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=4, steps=[1, 2, 2.5, 5, 10]))
@@ -369,8 +405,8 @@ def fig_trend(M, path):
         ax.tick_params(axis="y", labelsize=9)
         ax.set_title(nm, fontsize=14 if i == 0 else 12.5, color=INK, loc="left", fontweight="bold", pad=6)
     heading(fig, f"전년동월비 추이 — 최근 {len(Y)}개월",
-            "막대 하나 = 한 달 (빨강 증가 · 파랑 감소) · 칸마다 자기 축\n맨 위 칸 아래 글씨 = 명절·휴업 등 그 달 사정")
-    foot(fig, "산업통상부 주요 유통업체 매출 동향 · 칸 오른쪽 위 = 마지막 달 전년비")
+            "막대 하나 = 한 달 (빨강 증가 · 파랑 감소) · 칸마다 자기 축\n맨 위 칸 회색 띠 = 명절 달 · 위쪽 작은 글씨 = 그 달 사정")
+    foot(fig, "산업통상부 주요 유통업체 매출 동향 · 칸 오른쪽 위 = 마지막 달 전년비 · 0 에 아주 가까운 달은 짧은 막대로 표시")
     fig.subplots_adjust(left=0.09, right=0.97, top=0.83, bottom=0.075)
     fig.savefig(path, facecolor="white")
     plt.close(fig)
@@ -512,23 +548,24 @@ def build_rich(R):
 
 
 def make_pngs(R, d):
-    """[(경로, 캡션)] 묶음 둘 — ① 이번 달·기여·추이 ② 업태별 실액 3개년. 보는 순서대로."""
+    """[(경로, 캡션)] 묶음 둘 — ① 이번 달·기여·추이 ② 업태별 실액 3개년. 보는 순서대로.
+       캡션은 한 줄 이름만 — 읽는 법은 그림 안 부제에 있다. 길게 쓰면 텔레그램 사진 보기에서 캡션이 그림 아래쪽을 덮는다."""
     os.makedirs(d, exist_ok=True)
     M = R["months"]
     mo, pmo = int(M[-1]["ym"][3:]), int(M[-2]["ym"][3:])
     a, b = [], []
     p = os.path.join(d, "1_now.png"); fig_now(M, p)
-    a.append((p, f"① {mo}월 한눈에 — 막대 = {mo}월 전년비(빨강 증가·파랑 감소), 검은 세로선 = {pmo}월"))
+    a.append((p, f"① {mo}월 업태별 전년비"))
     p = os.path.join(d, "2_drivers.png"); fig_drivers(M, p)
-    a.append((p, f"② {mo}월 무엇이 움직였나 — 품목이 업태 전년비에 보탠 몫(%p). 막대를 다 더하면 업태 전년비"))
+    a.append((p, f"② {mo}월 품목별 기여(%p)"))
     for i, c in enumerate("BMCS"):
         p = os.path.join(d, f"3{i}_{c}_mix.png"); fig_mix(M, c, p)
-        a.append((p, f"③ {CH[c]} 기여 월별 — 색 = 품목군, 0 위는 끌어올림·아래는 끌어내림, 검은 가로줄 = 합계"))
+        a.append((p, f"③ {CH[c]} · 품목 기여 월별"))
     p = os.path.join(d, "4_trend.png"); fig_trend(M, p)
-    a.append((p, "④ 최근 13개월 전년비 — 막대 하나 = 한 달"))
+    a.append((p, "④ 최근 13개월 전년비"))
     for i, c in enumerate("BMCS"):
         p = os.path.join(d, f"5{i}_{c}_years.png"); fig_years(M, c, p)
-        b.append((p, f"⑤ {CH[c]} 월별 실액 — 회색 재작년·작년, 금색 올해, 막대 위 % = 올해 전년비"))
+        b.append((p, f"⑤ {CH[c]} · 월별 실액 3개년"))
     return a, b
 
 
