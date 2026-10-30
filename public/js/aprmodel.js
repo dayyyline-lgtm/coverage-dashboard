@@ -61,13 +61,40 @@ function aprBuild(asmIn){
   const Rc=q=>(fc[q]!=null&&Q[q]&&Q[q].reg.R한국!=null)?fc[q]+Q[q].reg.R한국:null;     // 고정 환율 매출(해외 물량 + 국내)
   // 3Q26 — 원화 비용(원가·인건비 등)·판관비를 비율과 영업이익으로 역산
   const q3="2026Q3", q2="2026Q2";
-  // 그 밖 판관비(인건비·지급수수료·상각…) = 고정비 성격 — 2026 1Q→2Q +3%(매출 +29%). 직전 분기 × (1 + 최근 4분기 평균 증가율)
+  // 물량 추세 — 2026 1~3Q(1Q·3Q 행사 없음 · 2Q 프라임데이)
+  const f1=fc["2026Q1"], f2=fc["2026Q2"], f3=fc["2026Q3"];
+  const gAuto=(f1&&f3)?Math.sqrt(f3/f1)-1:0.1, eAuto=(f1&&f2)?f2/(f1*(1+gAuto))-1:0.1;
+  const g4=A.g4!=null?A.g4/100:gAuto, e4=A.e4!=null?A.e4/100:eAuto;
+  // 그 밖 판관비(원화 비용) — 항목마다 성격대로 (2026-10-30 사용자 "인건비·지급수수료 성격 반영해서 채워 줘")
+  //   인건비·지급수수료·상각 = 고정비 — 직전 분기 × (1 + 그 항목 증가율). 증가율 = 최근 4분기 합 ÷ 그 전 4분기 합의 분기 환산(0~15%) · 물량 성장보다 빠르게는 안 늘린다
+  //   포장비 = 물량 비례 — 고정 환율 매출 × 최근 4분기 비율
+  //   기타(임차·소모품·세금과공과 등) = 연말에 몰리는 반고정 — [전년 동기 × (1+최근 4분기 전년비)] 와 [직전 분기 × 계절 배수] 의 평균 · 연 증가율은 물량 성장 이하
   const osgA=act.filter(q=>Q[q].sg&&!Q[q].ir).map(q=>Q[q].sga-Q[q].sg.ad-Q[q].sg.cm-Q[q].sg.fr);
-  const gO=(()=>{ const v=osgA.slice(-5); if(v.length<2) return 0.03; const r=Math.pow(v[v.length-1]/v[0],1/(v.length-1))-1; return Math.max(0,Math.min(0.15,r)); })();
+  const gO=(()=>{ const v=osgA.slice(-5); if(v.length<2) return 0.03; const r=Math.pow(v[v.length-1]/v[0],1/(v.length-1))-1; return Math.max(0,Math.min(0.15,r)); })();   // 항목이 없을 때만
+  const sgA=act.filter(q=>Q[q].sg&&Q[q].sg.hr!=null&&!Q[q].ir), L8=sgA.slice(-8);
+  const s4=(k,qs)=>qs.reduce((t,q)=>t+Q[q].sg[k],0);
+  const gK={}; ["hr","fee","dep","etc"].forEach(k=>{ const r=L8.length===8?s4(k,L8.slice(4))/s4(k,L8.slice(0,4)):null;
+    gK[k]=k==="etc"?(r?Math.max(0,Math.min(0.6,r-1)):0.1):(r?Math.max(0,Math.min(0.15,Math.pow(r,0.25)-1)):0.03); });
+  const L4s=sgA.slice(-4).filter(q=>Rc(q)), pkR=L4s.length?s4("pk",L4s)/L4s.reduce((t,q)=>t+Rc(q),0):0.005;
+  const seaE=(()=>{ const raw={}; [1,2,3,4].forEach(i=>{ const v=sgA.filter(q=>+q.slice(-1)===i).map(q=>{ const p=c2QAdd(q,-1); return sgA.includes(p)&&Q[p].sg.etc>0?Q[q].sg.etc/Q[p].sg.etc:null; }).filter(Boolean);
+      raw[i]=v.length?Math.exp(v.reduce((t,x)=>t+Math.log(x),0)/v.length):1; });
+    const n=Math.pow(raw[1]*raw[2]*raw[3]*raw[4],0.25); return Object.fromEntries([1,2,3,4].map(i=>[i,raw[i]/n])); })();   // 네 분기 곱 = 1(성장은 따로)
+  const sgEst=(q,rc,gq)=>{ const p=c2QAdd(q,-1), P0=Q[p]&&Q[p].sg, y4=Q[c2QAdd(q,-4)], qi=+q.slice(-1);
+    if(!P0||P0.hr==null) return null;
+    const o={}, w={};
+    ["hr","fee","dep"].forEach(k=>{ const g=Math.min(gK[k],gq); o[k]=P0[k]*(1+g); w[k]=`직전 분기 ${fmt(P0[k],1)} × (1+${fmt(g*100,1)}%)${gq<gK[k]?` — 추세 ${fmt(gK[k]*100,1)}% 를 물량 성장으로 제한`:` — 최근 4분기 ÷ 그 전 4분기의 분기 환산`}`; });
+    o.pk=rc*pkR; w.pk=`고정 환율 매출 ${fmt(rc,1)} × ${fmt(pkR*100,2)}%(최근 4분기)`;
+    const gy=Math.min(gK.etc,Math.pow(1+gq,4)-1), a=y4&&y4.sg&&y4.sg.etc!=null?y4.sg.etc*(1+gy):null, b=P0.etc*seaE[qi]*Math.pow(1+gy,0.25);
+    o.etc=a!=null?(a+b)/2:b;
+    w.etc=a!=null?`[전년 동기 ${fmt(y4.sg.etc,1)} × (1+${fmt(gy*100,0)}%) + 직전 분기 ${fmt(P0.etc,1)} × 계절 ${fmt(seaE[qi]*Math.pow(1+gy,0.25),2)}] ÷ 2`:`직전 분기 ${fmt(P0.etc,1)} × 계절 ${fmt(seaE[qi],2)}`;
+    o.osg=o.hr+o.fee+o.dep+o.pk+o.etc;
+    return {sg:o, why:{hr:`인건비 = 고정비(인원·임금) · ${w.hr}`,
+      o2:`지급수수료 ${fmt(o.fee,1)} = 고정 · ${w.fee}\n상각 ${fmt(o.dep,1)} = 고정 · ${w.dep}\n포장 ${fmt(o.pk,1)} = 물량 비례 · ${w.pk}\n기타 ${fmt(o.etc,1)} = 연말에 몰리는 반고정 · ${w.etc}`}}; };
   if(Q[q3]&&Q[q3].ir){ const o=Q[q3], x=o._r, p=Q[q2];
-    const osg=(p&&p.sg?p.sga-p.sg.ad-p.sg.cm-p.sg.fr:0.07*o.rev)*(1+gO), sga=o._sg.ad+o._sg.cm+o._sg.fr+osg;
+    const E=sgEst(q3, Rc(q3), gAuto);
+    const osg=E?E.sg.osg:(p&&p.sg?p.sga-p.sg.ad-p.sg.cm-p.sg.fr:0.07*o.rev)*(1+gO), sga=o._sg.ad+o._sg.cm+o._sg.fr+osg;
     o.oth=x.op0!=null?x.op-x.op0:x.fxv; o.cogs=o.rev-sga+o.oth-o.op; o.sga=sga;
-    o.sg={ad:o._sg.ad, cm:o._sg.cm, fr:o._sg.fr, osg}; o.est={cogs:1, osg:1}; }
+    o.sg={ad:o._sg.ad, cm:o._sg.cm, fr:o._sg.fr, ...(E?E.sg:{}), osg}; o.why=E?E.why:null; o.est={cogs:1, osg:1}; }
   // 비율·민감도 기준
   const sameQ=(k,qi)=>{ const qs=act.filter(q=>+q.slice(-1)===qi&&Q[q].sg&&Q[q].rev>0); const q=qs[qs.length-1]; return q?Q[q].sg[k]/Q[q].rev:null; };
   const flo={ad:A.adF/100, cm:A.cmF/100, fr:A.frF/100};
@@ -78,10 +105,6 @@ function aprBuild(asmIn){
   const h1=["2026Q1","2026Q2"].filter(q=>Q[q]&&!Q[q].ir&&Rc(q)), cogsH1=h1.length?h1.reduce((t,q)=>t+Q[q].cogs,0)/h1.reduce((t,q)=>t+Rc(q),0):null;
   const osgR=(base.sg.osg!=null?base.sg.osg:(base.sga-base.sg.ad-base.sg.cm-base.sg.fr))/Rc(base.q);
   const d3=Iend(q3)/Iend(q2)-1, expo=(base.ir&&d3<-0.005)?base._r.fxv/d3/base.reg.R해외:0;         // 외화 매출채권 평가손 민감도(해외 매출 대비)
-  // 물량 추세 — 2026 1~3Q(1Q·3Q 행사 없음 · 2Q 프라임데이)
-  const f1=fc["2026Q1"], f2=fc["2026Q2"], f3=fc["2026Q3"];
-  const gAuto=(f1&&f3)?Math.sqrt(f3/f1)-1:0.1, eAuto=(f1&&f2)?f2/(f1*(1+gAuto))-1:0.1;
-  const g4=A.g4!=null?A.g4/100:gAuto, e4=A.e4!=null?A.e4/100:eAuto;
   const dom=k=>Q[k]&&Q[k].reg.R한국;
   const dQ=["2025Q4","2026Q1","2026Q2","2026Q3"].filter(q=>dom(q)!=null&&dom(c2QAdd(q,-4))!=null);   // 국내 부문은 2025Q1 부터 — 있는 분기끼리
   const gDAuto=dQ.length?(dQ.reduce((t,q)=>t+dom(q),0)/dQ.reduce((t,q)=>t+dom(c2QAdd(q,-4)),0)-1)/2:0;
@@ -112,7 +135,8 @@ function aprBuild(asmIn){
     const dm=y===2026?(Q[p].reg.R한국*((dom("2025Q4")&&dom("2025Q3"))?dom("2025Q4")/dom("2025Q3"):1)):Q[q4].reg.R한국*(1+gD27);
     const rev=ov+dm, rc=f+dm;
     const osgP=Q[p].sg?(Q[p].sg.osg!=null?Q[p].sg.osg:Q[p].sga-Q[p].sg.ad-Q[p].sg.cm-Q[p].sg.fr):rc*osgR;
-    const sg={ad:rev*ratio("ad",qi), cm:rev*ratio("cm",qi), fr:rev*ratio("fr",qi), osg:osgP*(1+Math.min(gO,gq))};   // 고정비는 물량보다 빨리 늘지 않게
+    const E=sgEst(q, rc, gq); if(E) Object.assign(why, E.why);
+    const sg={ad:rev*ratio("ad",qi), cm:rev*ratio("cm",qi), fr:rev*ratio("fr",qi), ...(E?E.sg:{osg:osgP*(1+Math.min(gO,gq))})};   // 고정비는 물량보다 빨리 늘지 않게
     const sga=sg.ad+sg.cm+sg.fr+sg.osg, cogs=rc*cogsR-(y===2026&&qi===4?A.refund:0);
     const dI=Iend(q)/Iend(p)-1, oth=expo*ov*dI;
     why.oth=`해외 매출 ${fmt(ov,1)} × 분기 마지막 달 환율 변화 ${dI>=0?"+":""}${fmt(dI*100,1)}% × 민감도 ${fmt(expo,3)}`;
@@ -132,7 +156,7 @@ function aprBuild(asmIn){
         ...(qs.every(x=>x.sg.hr!=null)?Object.fromEntries(["hr","fee","dep","pk","etc"].map(k=>[k,qs.reduce((t,x)=>t+x.sg[k],0)])):{})}:null,
       seg:{"화장품":ss("seg","화장품"), "디바이스":ss("seg","디바이스"), "기타":ss("seg","기타")}, reg:{"R해외":ss("reg","R해외"), "R한국":ss("reg","R한국")},
       est:qs.some(x=>x.est)}; });
-  return {Q, Y, act, lastAct, fc, A, P:{gAuto, eAuto, g4, e4, g27, gD27, gDAuto, cogsR, cogsAuto, cogsH1, osgR, gO, expo, nonop, tax, ratio, d3},
+  return {Q, Y, act, lastAct, fc, A, P:{gAuto, eAuto, g4, e4, g27, gD27, gDAuto, cogsR, cogsAuto, cogsH1, osgR, gO, gK, pkR, seaE, expo, nonop, tax, ratio, d3},
     fx:{usd:q=>fxAvg("USD",q), eur:q=>fxAvg("EUR",q), Iq, lastYm}, COLS};
 }
 
@@ -145,16 +169,34 @@ function renderAprModel(host){
   const f1=v=>(v==null||!isFinite(v))?"—":fmt(v,1);
   const pc=v=>(v==null||!isFinite(v))?"—":`<span class="${cls(v)}">${sign(v*100,0)}%</span>`;
   const chg=(c,b)=>(c==null||b==null||!(b>0))?"—":pc(c/b-1);
+  const pc1=v=>(v==null||!isFinite(v))?"—":`<span class="${cls(v)}">${sign(v*100,1)}%</span>`;
+  // 컨센 — 분기 = 증권사 리포트 평균(어닝 리비전 트래커 · 종목마다 최신 리포트 · 100일) → 없으면 네이버 · 연간 = 네이버(2026)·엑셀(2027) · 트래커 연간 영업이익은 마우스에
   const LS=(typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[name])||{}, cn=LS.cons||{}, cons={};
-  ((cn.quarter||{}).series||[]).forEach(x=>{ if(x.e) cons[`${x.k.slice(0,4)}Q${Math.ceil(+x.k.slice(4,6)/3)}`]=x; });
-  ((cn.year||{}).series||[]).forEach(x=>{ if(x.e) cons[x.k.slice(0,4)]=x; });
-  const R0=(typeof byName!=="undefined"&&byName[name])||{}; if(R0.rev27!=null&&!cons["2027"]) cons["2027"]={rev:R0.rev27, op:R0.op27, xl:1};
+  ((cn.quarter||{}).series||[]).forEach(x=>{ if(x.e) cons[`${x.k.slice(0,4)}Q${Math.ceil(+x.k.slice(4,6)/3)}`]={rev:x.rev, op:x.op, np:x.np, src:"네이버 컨센"}; });
+  ((cn.year||{}).series||[]).forEach(x=>{ if(x.e) cons[x.k.slice(0,4)]={rev:x.rev, op:x.op, np:x.np, eps:x.eps, src:"네이버 컨센"}; });
+  const R0=(typeof byName!=="undefined"&&byName[name])||{};
+  if(R0.rev27!=null&&!cons["2027"]){ const c6=cons["2026"]; cons["2027"]={rev:R0.rev27, op:R0.op27, np:(c6&&c6.np&&c6.eps&&R0.eps27)?c6.np*R0.eps27/c6.eps:null, src:"엑셀 컨센(27E · 순이익 = 26E × EPS 비율)", xl:1}; }
+  const RV=(typeof REVISION!=="undefined"&&REVISION.stocks&&REVISION.stocks[name])||null;
+  const qk=p=>{ const m=/^([1-4])Q(\d\d)$/.exec(p||""); if(m) return `20${m[2]}Q${m[1]}`; const y=/^(\d{4})E$/.exec(p||""); return y?y[1]:null; };
+  const MK={"매출":"rev","영업이익":"op","지배순이익":"np"};
+  if(RV){
+    const put=(p,list,seg,done)=>{ const k=qk(p); if(!k||!list) return; const c={src:`증권사 리포트 평균${done?"(발표 전)":""} · 리비전 트래커`, n:{}};
+      list.forEach(s=>{ const m=MK[s.m]; if(m&&s.c!=null){ c[m]=s.c; c.n[m]=s.n; } });
+      (seg||[]).forEach(s=>{ const m=s.s==="해외"?"ov":s.s==="한국"?"dm":null; if(!m||s.lv!==0) return;
+        const v=done?(s.sa!=null&&s.ss!=null?s.sa/(1+s.ss):null):s.sc; if(v!=null) c[m]=v; });
+      if(c.rev!=null||c.op!=null) cons[k]=c; };
+    if(RV.done) put(RV.done.q, RV.done.sur, RV.done.seg, true);
+    if(RV.next) put(RV.next.q, RV.next.cons, RV.next.seg, false);
+    ((RV.done&&RV.done.rev)||[]).forEach(r=>{ const k=qk(r.p), v=r.post!=null?r.post:r.pre; if(!k||v==null) return;
+      if(!cons[k]) cons[k]={op:v, n:{op:r.post!=null?r.n:r.np}, src:`증권사 리포트 평균 · 리비전 트래커`};
+      else if(/^\d{4}$/.test(k)) cons[k].opT={v, n:r.post!=null?r.n:r.np, post:r.post!=null}; });
+  }
   const cols=B.COLS.map(q=>Q[q]).filter(Boolean).concat(["2025","2026","2027"].map(y=>Y[y]).filter(Boolean));
   const nextQ=(cols.find(o=>!o.yr&&!o.act)||{}).q;
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?(o.ir?"P":""):"E"}`;
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
   const mc=LS.mktcapEok?LS.mktcapEok/10:null;
-  const open={rev:false, sga:true, ...aprOpen};
+  const open={rev:false, sga:true, cons:true, ...aprOpen};
   const osgOf=o=>o.sg?(o.sg.osg!=null?o.sg.osg:o.sga-o.sg.ad-o.sg.cm-o.sg.fr):null;
   const ROWS=[
     {t:"매출액", k:"rev", em:1, tg:"rev"}, {t:"YoY", r:"yoy"}, {t:"QoQ", r:"qoq"},
@@ -166,8 +208,9 @@ function renderAprModel(host){
     {t:"매출총이익", v:o=>o.rev-o.cogs, em:1, est:"cogs"}, {t:"매출총이익률", p:o=>(o.rev-o.cogs)/o.rev, sub:1, est:"cogs"},
     {t:"판매비와관리비", k:"sga", tg:"sga"}, {t:"판관비율", p:o=>o.sga/o.rev, sub:1},
     {t:"광고선전비", g:"sga", v:o=>o.sg&&o.sg.ad, rp:"ad"}, {t:"판매수수료", g:"sga", v:o=>o.sg&&o.sg.cm, rp:"cm"}, {t:"운반비", g:"sga", v:o=>o.sg&&o.sg.fr, rp:"fr"},
-    {t:"인건비", g:"sga", v:o=>o.sg&&o.sg.hr, act:1}, {t:"지급수수료·상각·포장 등", g:"sga", v:o=>o.sg&&o.sg.hr!=null?o.sg.fee+o.sg.dep+o.sg.pk+o.sg.etc:null, act:1},
-    {t:"원화 비용 합(인건비·지급수수료 등)", g:"sga", v:o=>osgOf(o), rp:"osg", est:"osg"},
+    {t:"인건비", g:"sga", v:o=>o.sg&&o.sg.hr, rp:"hr", est:"osg", tip:o=>o.why&&o.why.hr},
+    {t:"지급수수료·상각·포장 등", g:"sga", v:o=>o.sg&&o.sg.hr!=null?o.sg.fee+o.sg.dep+o.sg.pk+o.sg.etc:null, rp:"o2", est:"osg", tip:o=>o.why&&o.why.o2},
+    {t:"원화 비용 합(인건비·지급수수료 등)", g:"sga", v:o=>osgOf(o), rp:"osg", est:"osg", tip:o=>o.why&&o.why.hr?"인건비 + 지급수수료·상각·포장 등 — 위 두 줄(항목마다 성격대로 · 칸에 마우스)":""},
     {t:"기타영업손익(외환 평가 · IFRS 18)", k:"oth"},
     {t:"영업이익", k:"op", em:1}, {t:"영업이익률", p:o=>o.op/o.rev, sub:1}, {t:"YoY", r:"opyoy"},
     {t:"세전이익", k:"pbt"}, {t:"지배주주 순이익", k:"npp", em:1}, {t:"PER(현재 시총)", r:"per"},
@@ -183,24 +226,47 @@ function renderAprModel(host){
     if(v==null||!isFinite(v)) return {h:"—"};
     const pct=r.rp&&o.rev?`<span class="g" style="font-size:10.5px"> ${fmt(v/(r.rp==="osg"?o.rev:o.rev)*100,1)}%</span>`:"";
     const approx=(o.est&&r.est&&o.est[r.est])||(o.ir&&r.rp&&r.rp!=="osg");
-    const tip=!o.act&&!o.yr?(r.tip?r.tip(o):({cogs:`고정 환율 매출 × ${fmt(P.cogsR*100,1)}%(${A.cogsB!=null?"입력":"3Q26 역산 · 관세 환급 뺀 값"} — 원화 비용)`, sga:"", oth:(o.why&&o.why.oth)||""})[r.k]||(r.rp?({ad:`매출 × ${fmt(P.ratio("ad",+o.q.slice(-1))*100,1)}%`, cm:`매출 × ${fmt(P.ratio("cm",+o.q.slice(-1))*100,1)}%`, fr:`매출 × ${fmt(P.ratio("fr",+o.q.slice(-1))*100,1)}%`, osg:`직전 분기 × (1+${fmt(Math.min(P.gO,(o.q<"2027"?P.g4:Math.pow(1+P.g27,0.25)-1))*100,1)}%) — 고정비 성격(최근 4분기 평균 증가율 ${fmt(P.gO*100,1)}% · 물량 성장보다 빠르게는 안 늘린다)`})[r.rp]:"")||"")
-      :(o.ir&&approx?(r.est?"역산 — 매출 − 영업이익 − 광고·수수료·운반 − 그 밖 판관비(2Q26 비율) + 외환 평가손. 3분기보고서가 나오면 바뀐다":"컨콜 비율(약)"):"");
+    const t0=r.tip&&!o.yr?r.tip(o):"";
+    const tip=t0?t0:!o.act&&!o.yr?(({cogs:`고정 환율 매출 × ${fmt(P.cogsR*100,1)}%(${A.cogsB!=null?"입력":"3Q26 역산 · 관세 환급 뺀 값"} — 원화 비용)`, sga:"", oth:(o.why&&o.why.oth)||""})[r.k]||(r.rp?({ad:`매출 × ${fmt(P.ratio("ad",+o.q.slice(-1))*100,1)}%`, cm:`매출 × ${fmt(P.ratio("cm",+o.q.slice(-1))*100,1)}%`, fr:`매출 × ${fmt(P.ratio("fr",+o.q.slice(-1))*100,1)}%`, osg:`직전 분기 × (1+${fmt(Math.min(P.gO,(o.q<"2027"?P.g4:Math.pow(1+P.g27,0.25)-1))*100,1)}%) — 고정비 성격(최근 4분기 평균 증가율 ${fmt(P.gO*100,1)}% · 물량 성장보다 빠르게는 안 늘린다)`})[r.rp]:"")||"")
+      :(o.ir&&approx?(r.est?"역산 — 매출 − 영업이익 − 광고·수수료·운반(컨콜 비율) − 인건비·지급수수료 등(항목별 추정) + 외환 평가손. 3분기보고서가 나오면 바뀐다":"컨콜 비율(약)"):"");
     return {h:(approx?"≈":"")+f1(v)+pct, tip};
   };
   const yrEdge=i=>i>0&&(cols[i].yr!==cols[i-1].yr||(!cols[i].yr&&cols[i].q.slice(0,4)!==cols[i-1].q.slice(0,4)));
   const th=cols.map((o,i)=>`<th style="${yrEdge(i)?"border-left:2px solid var(--line);":""}${o.q===nextQ?"background:color-mix(in srgb, var(--accent) 14%, transparent);":""}">${lab(o)}</th>`).join("");
-  const body=ROWS.filter(r=>(!r.g||open[r.g])&&!(r.act&&!cols.some(o=>o.sg&&o.sg.hr!=null))).map(r=>{
+  const body=ROWS.filter(r=>!r.g||open[r.g]).map(r=>{
     const tog=r.tg?`<span data-aprtg="${r.tg}" style="cursor:pointer;color:var(--muted);margin-right:4px">${open[r.tg]?"▾":"▸"}</span>`:"";
     const sub=r.sub||!!r.r||!!r.g;
     return `<tr${r.em?' style="font-weight:800"':""}><td class="l" style="${r.g?"padding-left:22px;":""}${sub?"color:var(--muted);font-size:11.5px;":""}">${tog}${attr(r.t)}</td>`
-      +cols.map((o,i)=>{ const v=(r.act&&(!o.act||o.ir))?{h:""}:valOf(o,r); const shade=o.q===nextQ?"background:color-mix(in srgb, var(--accent) 8%, transparent);":"";
+      +cols.map((o,i)=>{ const v=valOf(o,r); const shade=o.q===nextQ?"background:color-mix(in srgb, var(--accent) 8%, transparent);":"";
         return `<td style="${yrEdge(i)?"border-left:2px solid var(--line);":""}${shade}${r.em?"border-top:1px solid var(--line);border-bottom:1px solid var(--line);":""}${r.sm?"font-size:11px;color:var(--muted);":""}"${v.tip?` title="${attr(v.tip)}"`:""}>${v.h}</td>`; }).join("")+`</tr>`; }).join("");
-  const consRow=`<tr><td class="l" style="color:var(--muted);font-size:11.5px">참고: 컨센 매출 / 영업이익</td>`+cols.map((o,i)=>{ const c=cons[o.q];
-    return `<td style="color:var(--muted);font-size:11px;${yrEdge(i)?"border-left:2px solid var(--line);":""}"${c&&c.xl?' title="2027 = 엑셀 컨센"':""}>${c&&!o.act?`${f1(c.rev)} / ${f1(c.op)}`:""}</td>`; }).join("")+`</tr>`;
+  // 컨센 대비 (2026-10-30 사용자 "밑에 각각 우리 추정이 컨센 대비 어떤지") — 우리 ÷ 컨센 − 1 · 3Q26P 는 잠정실적 ÷ 발표 전 컨센(서프라이즈)
+  const cTip=(o,c,m)=>{ const n=c.n&&c.n[m]; let s=`${c.src}${n?` · ${n}곳`:""}`;
+    if(o.act) s=`잠정실적 ÷ 발표 전 컨센 = 서프라이즈 · ${s}`;
+    if(m==="op"&&c.opT) s+=` · 트래커 증권사 평균 ${fmt(c.opT.v,1)}(${c.opT.n}곳${c.opT.post?" · 실적 뒤 수정":" · 발표 전"})`;
+    return s; };
+  const dTip=(o,c)=>c.rev>0&&c.op!=null?`영업이익 차이 ${sign(o.op-c.op,1)} = 매출 차이 × 컨센 이익률 ${sign((o.rev-c.rev)*c.op/c.rev,1)} + 우리 매출 × 이익률 차이 ${sign(o.rev*(o.op/o.rev-c.op/c.rev),1)}`:"";
+  const CR=[
+    {t:"컨센 대비 · 영업이익", em:1, tg:"cons", m:"op", h:(o,c)=>c.op>0?pc1(o.op/c.op-1):""},
+    {t:"컨센 매출", g:"cons", m:"rev", h:(o,c)=>c.rev!=null?f1(c.rev):"", mute:1},
+    {t:"우리 ÷ 컨센", g:"cons", m:"rev", h:(o,c)=>c.rev>0?pc1(o.rev/c.rev-1):""},
+    {t:"해외 우리 ÷ 컨센", g:"cons", m:"ov", h:(o,c)=>c.ov>0&&o.reg.R해외!=null?pc1(o.reg.R해외/c.ov-1):"", tip:(o,c)=>c.ov>0?`해외 컨센 ${fmt(c.ov,1)} · 우리 ${fmt(o.reg.R해외,1)}`:""},
+    {t:"국내 우리 ÷ 컨센", g:"cons", m:"ov", h:(o,c)=>c.dm>0&&o.reg.R한국!=null?pc1(o.reg.R한국/c.dm-1):"", tip:(o,c)=>c.dm>0?`국내 컨센 ${fmt(c.dm,1)} · 우리 ${fmt(o.reg.R한국,1)}`:""},
+    {t:"컨센 영업이익", g:"cons", m:"op", h:(o,c)=>c.op!=null?f1(c.op):"", mute:1},
+    {t:"영업이익률 우리 − 컨센", g:"cons", m:"op", h:(o,c)=>{ if(!(c.rev>0)||c.op==null) return ""; const d=(o.op/o.rev-c.op/c.rev)*100; return `<span class="${cls(d)}">${sign(d,1)}%p</span>`; }},
+    {t:"영업이익 차이 중 매출 몫", g:"cons", m:"op", h:(o,c)=>{ if(!(c.rev>0)||c.op==null) return ""; const a=(o.rev-c.rev)*c.op/c.rev; return `<span class="${cls(a)}">${sign(a,1)}</span>`; }, tip:(o,c)=>dTip(o,c)},
+    {t:"영업이익 차이 중 이익률 몫", g:"cons", m:"op", h:(o,c)=>{ if(!(c.rev>0)||c.op==null) return ""; const b=o.rev*(o.op/o.rev-c.op/c.rev); return `<span class="${cls(b)}">${sign(b,1)}</span>`; }, tip:(o,c)=>dTip(o,c)},
+    {t:"컨센 지배주주 순이익", g:"cons", m:"np", h:(o,c)=>c.np!=null?f1(c.np):"", mute:1},
+    {t:"우리 ÷ 컨센", g:"cons", m:"np", h:(o,c)=>c.np>0&&o.npp!=null?pc1(o.npp/c.np-1):""},
+  ];
+  const consRow=CR.filter(r=>!r.g||open[r.g]).map(r=>{
+    const tog=r.tg?`<span data-aprtg="${r.tg}" style="cursor:pointer;color:var(--muted);margin-right:4px">${open[r.tg]?"▾":"▸"}</span>`:"";
+    return `<tr${r.em?' style="font-weight:800"':""}><td class="l" style="${r.g?"padding-left:22px;color:var(--muted);font-size:11.5px;":""}">${tog}${attr(r.t)}</td>`
+      +cols.map((o,i)=>{ const c=cons[o.q], h=c?r.h(o,c):"", tp=c&&h?((r.tip&&r.tip(o,c))||cTip(o,c,r.m)):"";
+        return `<td style="${yrEdge(i)?"border-left:2px solid var(--line);":""}${o.q===nextQ?"background:color-mix(in srgb, var(--accent) 8%, transparent);":""}${r.em?"border-top:2px solid var(--line);":""}${r.mute?"color:var(--muted);font-size:11px;":""}"${tp?` title="${attr(tp)}"`:""}>${h}</td>`; }).join("")+`</tr>`; }).join("");
   const card=(t,v,sub)=>`<div style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:12px 14px">
     <div style="font-size:11.5px;color:var(--muted);font-weight:700">${t}</div><div style="font-size:19px;font-weight:800;margin-top:3px">${v}</div>
     <div style="font-size:11px;color:var(--muted2);margin-top:3px;line-height:1.45">${sub||""}</div></div>`;
-  const vsC=o=>{ const c=cons[o.q]; return c?`컨센 대비 ${pc(o.rev/c.rev-1)} / ${c.op>0?pc(o.op/c.op-1):"—"} · 이익률 ${fmt(o.op/o.rev*100,1)}%`:`이익률 ${fmt(o.op/o.rev*100,1)}%`; };
+  const vsC=o=>{ const c=cons[o.q]; return c&&c.rev>0?`컨센 ${f1(c.rev)} / ${f1(c.op)} 대비 ${pc1(o.rev/c.rev-1)} / ${c.op>0?pc1(o.op/c.op-1):"—"} · 이익률 ${fmt(o.op/o.rev*100,1)}%(컨센 ${fmt(c.op/c.rev*100,1)}%)`:`이익률 ${fmt(o.op/o.rev*100,1)}%`; };
   const nq=Q[nextQ], y6=Y["2026"], y7=Y["2027"];
   // 가이던스(3Q26 실적발표) — 매출 3조 이상 · 영업이익 7,300~7,500억
   const gd=y6?`가이던스 매출 3,000+ · 영업이익 730~750 대비 ${y6.rev>=3000?"매출 충족":"매출 미달"} · 영업이익 ${y6.op>=730?"충족":`${fmt(730-y6.op,1)} 모자람`}`:"";
@@ -220,7 +286,9 @@ function renderAprModel(host){
     <br><b>국내</b> 4Q = 3Q × 작년 4Q/3Q · 2027 = 2026 × (1${P.gD27>=0?"+":""}${fmt(P.gD27*100,1)}%)
     <br><b>광고·수수료·운반</b> 매출 × 비율 — 3Q26 컨콜 수준(${A.adF}·${A.cmF}·${A.frF}%)과 최근 같은 분기 실적 중 높은 쪽(개선 없음 · 4Q 수수료 ${fmt(P.ratio("cm",4)*100,1)}% = 4Q25)
     <br><b>매출원가</b> 고정 환율 매출 × ${fmt(P.cogsR*100,1)}%(${A.cogsB!=null?"입력":"3Q26 역산"} · 1H26 ${P.cogsH1!=null?fmt(P.cogsH1*100,1)+"%":"—"}) — 원화 비용이라 원화 강세면 매출 대비 오른다 · 관세 환급(일회성) 뺌
-    <br><b>인건비·지급수수료 등</b> 직전 분기 × (1+${fmt(P.gO*100,1)}%) — 고정비 성격(최근 4분기 평균 · 물량보다 빠르게는 안 늘린다)
+    <br><b>인건비·지급수수료·상각</b> 고정비 — 직전 분기 × (1+항목 증가율: 인건비 ${fmt(P.gK.hr*100,1)} · 지급수수료 ${fmt(P.gK.fee*100,1)} · 상각 ${fmt(P.gK.dep*100,1)}%/분기 = 최근 4분기 ÷ 그 전 4분기) · 물량 성장보다 빠르게는 안 늘린다(2027 분기 ${fmt((Math.pow(1+P.g27,0.25)-1)*100,1)}%)
+    <br><b>포장비</b> 물량 비례 — 고정 환율 매출 × ${fmt(P.pkR*100,2)}% · <b>기타</b>(임차·소모품·세금과공과 등) 연말에 몰리는 반고정 — [전년 동기 × (1+${fmt(P.gK.etc*100,0)}%)] 와 [직전 분기 × 계절 배수(4Q ${fmt(P.seaE[4],2)})] 의 평균
+    <br><b>컨센</b> 4Q26·1Q27 = 증권사 리포트 평균(리비전 트래커 · 종목별 최신 리포트 100일 — 3Q26 실적 뒤 수정한 리포트가 올라오면 바뀐다) · 2026 = 네이버 · 2027 = 엑셀 · 3Q26P 줄 = 잠정실적 ÷ 발표 전 컨센
     <br><b>기타영업손익</b> 외화 매출채권 평가(IFRS 18) = 해외 매출 × 분기 말 환율 변화 × 3Q26 민감도(평가손 ${fmt(-APR_IR["2026Q3"].fxv,1)} ÷ 환율 ${fmt(P.d3*100,1)}%) · 환율 그대로면 0
     <br><b>3Q26</b> 잠정실적(10/30) + 컨콜 비율(≈) · 원가·그 밖 판관비는 역산(≈) — 3분기보고서(11월 중순)가 들어오면 DART 값으로${amz}</div>`;
   const fv=v=>v==null?"":String(v);
