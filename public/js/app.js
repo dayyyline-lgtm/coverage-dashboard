@@ -9939,7 +9939,9 @@ function renderStockTab(name){
       <div id="qChart"></div>
       <p class="note">실적·컨센은 네이버 금융 재무 API(${fmtUpd(LIVE.asOf)}).${mid?" 위 분기 모델은 이 종목 전용 — 실적은 DART, 추정은 대체 데이터.":""}</p>`;
     drawQuarter(Qs);
-    if(ism){ try{ renderIsm(name, document.getElementById("spIsm")); }catch(err){ console.error("분기 손익 모델", err); } }
+    // 에이피알 = 비용 구조 모델(aprmodel.js · 2026-10-30 — 3Q26 컨콜 뒤 사용자 "물류비·마케팅비 개선을 가정하지 말고"). 나머지는 공통 엔진
+    if(ism){ try{ if(name==="에이피알"&&typeof renderAprModel==="function"&&typeof APRMODEL!=="undefined"&&APRMODEL.q) renderAprModel(document.getElementById("spIsm"));
+      else renderIsm(name, document.getElementById("spIsm")); }catch(err){ console.error("분기 손익 모델", err); } }
     // 산업부 유통업체 매출동향(2026-10-28 · RETAIL) — 유통 5종목
     if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
     if(adr){ try{ renderAdr(name, document.getElementById("spAdr")); }catch(err){ console.error("호텔 ADR", err); } }
