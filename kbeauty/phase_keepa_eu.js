@@ -11,7 +11,8 @@
      5) kbeauty/data/phase/eu/<날짜>.txt 로 옮겨 적고 python3 kbeauty/phase.py (나라마다 H 검산이 틀리면 멈춘다)
    일본(data-domain 5)·캐나다(6)도 같은 수집기 — 일본은 브랜드 표기에 가타카나가 붙어 쿼리에 그 표기를 더하고 K.collect 에서 라틴 키로 바꾼다(CLAUDE.md '일본·캐나다').
    결과 표가 늦게 차서 페이지 수보다 행이 적게 오는 일이 있다(10/21 이·스 2% 모자람) — 다시 받아도 같으면 그대로 둔다. */
-window.KBPH={};
+// 주간 통합 수집(keepa_week.js)과 같이 붙이면 미국판 KBPH 를 덮지 않게 KBPHEU 에 둔다 · 혼자 붙이면 예전처럼 KBPH 로도 부른다
+window.KBPHEU={}; if(!window.KBPH||!window.KBPH.dump) window.KBPH=window.KBPHEU;
 (function(K){
   const api=()=>document.querySelector('.ag-root-wrapper').__agComponent.gridApi;
   const MAP={"equalberry":"eqqualberry","clio professional":"clio","d'alba":"d'alba piedmont","centellian24":"centellian 24"};
@@ -22,7 +23,7 @@ window.KBPH={};
     let s3=(p180>0&&p90>0)?(180*p180-90*p90)/90:p180; if(!ok(s3,p180)) s3=p180>0?p180:s2;
     let s4=(p365>0&&p180>0)?(365*p365-180*p180)/185:p365; if(!ok(s4,p365)) s4=p365>0?p365:s3;
     return [a,s2,s3,s4]; };
-  K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}; const rb=(d.brand||'').toLowerCase();
+  K.collect=function(){ (window.__kwNodes?(f=>window.__kwNodes.forEach(d=>f({data:d}))):(f=>api().forEachNode(f)))(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}; const rb=(d.brand||'').toLowerCase();
     // 일본 표기 'コースアールエックス(cosrx)' 처럼 괄호 안 라틴 이름이 있으면 그걸 키로 · センテリアン24 는 괄호가 없다(2026-10-22)
     const pm=rb.match(/\(([^)]+)\)\s*$/), key=/センテリアン/.test(rb)?'centellian 24':pm?(MAP[pm[1]]||pm[1]):(MAP[rb]||rb);
     K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb,b:key,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s),hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1}; }); };
@@ -56,6 +57,7 @@ window.KBPH={};
       Object.values(P).forEach(g=>{ if(g.bad) return; const e=Math.min(Math.exp(ko[g.p]||0)*cur(g.rk),49*g.kids.length); if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nF++; }); } K.nFill=nF; }
     return {a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill}; };
   // 압축 덤프 — 브랜드마다 판매량(u)·판매액(v, 현지 통화 단위)만 · 36진수
+  K.fromObjs=function(A){ K.rows={}; window.__kwNodes=A; K.collect(); window.__kwNodes=null; K.done=true; return Object.keys(K.rows).length; };
   K.save=function(d){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];
     for(let j=35;j>=0;j--){ const x=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth()-j,1)); months.push([x.getTime(),Date.UTC(x.getUTCFullYear(),x.getUTCMonth()+1,1)]); ML.push(x.toISOString().slice(0,7)); }
@@ -85,5 +87,5 @@ window.KBPH={};
       L.push(k+'|'+o.n+'|'+o.u.map(x=>x.toString(36)).join(',')+'|'+v.map(x=>x.toString(36)).join(',')+'|'+(o.r||[0,0,0,0]).map(x=>x.toString(36)).join(',')+'|'+(o.w||[]).map(x=>x.toString(36)).join(',')); });
     L.push('H|'+h);
     const t=L.join('\n'); sessionStorage.setItem('kbeu_'+d,t); return d+' brands '+Object.keys(B).length+' rows '+rows.length+' len '+t.length+' h '+h; };
-})(window.KBPH);
+})(window.KBPHEU);
 'ok'

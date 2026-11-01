@@ -195,6 +195,23 @@
     return K.status();
   };
 
+  // 주간 통합 수집(keepa_week.js · 2026-11-01) — 나라마다 한 번 받은 상품 객체(byD[도메인])를 과제(브랜드)마다 나눠 담아 그대로 짓는다.
+  //   과제마다 Finder 를 다시 부르지 않는다. 브랜드 표기는 소문자 그대로 · 일본 'コースアールエックス(cosrx)' 는 괄호 안 라틴 이름 · センテリアン → centellian 24 로도 맞춘다.
+  const bkeys = b => { const r = String(b || '').toLowerCase(), m = r.match(/\(([^)]+)\)\s*$/), o = [r]; if (m) o.push(m[1]); if (/センテリアン/.test(r)) o.push('centellian 24', 'centellian24'); return o; };
+  K.fromRows = (tasks, opt, byD) => {
+    K.opt = opt || {}; K.tasks = tasks; K.raw = []; K.log = []; K.err = ''; K.L = null;
+    NOW = Date.now(); MC = ym(NOW); MS = MC - 36; K.state = 'run'; K.t0 = Date.now(); K.t1 = 0;
+    for (const t of tasks) {
+      const all = byD[t.d]; if (!all) { K.raw.push({t, fail: 'no-domain'}); K.log.push(t.d + ' ' + t.k + ' no-domain'); continue; }
+      const B = new Set(t.b.map(x => x.toLowerCase()));
+      let rows = all.filter(o => bkeys(o.brand).some(k => B.has(k)));
+      if (t.tf) { const re = new RegExp(t.tf, 'i'); rows = rows.filter(x => re.test(x.title || '')); }
+      K.raw.push({t, n: rows.length, ps: rows.map(prod)}); K.log.push(t.d + ' ' + t.k + ' ' + rows.length);
+    }
+    K.i = tasks.length; K.build(); K.state = 'done'; K.t1 = Date.now();
+    return K.status();
+  };
+
   // 몇 과제만 다시(0 으로 잡힌 것 등) — 'd:k' 쉼표 목록. 받은 묶음을 그 자리에 갈아 끼우고 다시 짓는다.
   K.rerun = async (keys, zw) => {
     const ks = String(keys || '').split(',').filter(Boolean);

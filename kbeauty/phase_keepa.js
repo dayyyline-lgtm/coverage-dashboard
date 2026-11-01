@@ -26,7 +26,7 @@ window.KBPH=window.KBPH||{};
 (function(K){
   const api=()=>document.querySelector('.ag-root-wrapper').__agComponent.gridApi;
   K.rows={}; K.done=false; K.log=[]; K.nbq=false; K.nbMax=0; K.sn=new Set();
-  K.collect=function(){ api().forEachNode(n=>{ const d=n.data; if(!d||!d.asin||d.domainId!==1) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
+  K.collect=function(){ (window.__kwNodes?(f=>window.__kwNodes.forEach(d=>f({data:d}))):(f=>api().forEachNode(f)))(n=>{ const d=n.data; if(!d||!d.asin||d.domainId!==1) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
     if(K.nbq){ const rc=(s.current&&s.current[3])||-1; if(rc>K.nbMax) K.nbMax=rc; K.sn.add(d.asin); if(K.rows[d.asin]) return; }
     K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':b)((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
       bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0,hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1,
@@ -45,6 +45,9 @@ window.KBPH=window.KBPH||{};
       await sl(1000); K.collect(); K.log.push(p+':'+Object.keys(K.rows).length);
       if(K.nbq&&K.nbMax>150000) break; }
     K.done=true; })(); return 'started'; };
+  // 주간 통합 수집(keepa_week.js · 2026-11-01)이 이미 받은 상품 객체로 행을 채운다 — 표를 다시 부르지 않는다.
+  //   A = 배지 질의(역대 피크 ≥ 50)에 걸린 상품 · B = 순위 질의에만 걸린 상품(배지 없음 · 지금 순위 15만 위 안만 넘긴다 — 옛 runNB 와 같은 범위)
+  K.fromObjs=function(A,B){ K.rows={}; K.sn=new Set(); K.nbMax=0; K.nbq=false; window.__kwNodes=A; K.collect(); K.nbq=true; window.__kwNodes=B||[]; K.collect(); window.__kwNodes=null; K.nbq=false; K.done=true; return Object.keys(K.rows).length; };
   K.runNB=function(){ K.nbq=true; K.nbMax=0; K.sn=new Set(); K.done=false; return K.run(); };
   // 그달 가격(센트) — 달 가운데가 오늘에서 며칠 전인가로 구간을 고른다 · 1년 넘은 달은 185~365일 전 평균(그 앞 가격 이력은 Finder 행에 없다) · 가격을 모르면 0
   K.px=function(r,j,months){ const p=r.pr||[]; if(!(p[0]>0)) return 0; const age=(Date.now()-(months[j][0]+14*86400000))/86400000;
