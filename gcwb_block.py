@@ -22,7 +22,8 @@ for k, v in D["is"].items():
     o = {kk: round(x / 1000, 3) for kk, x in zip(K, v)}
     if k in D["laennec"]: o["L"] = round(D["laennec"][k] / 1000, 3)
     s = D["sep_sales"].get(k)
-    if s: o.update(prod=round((s[0] + s[1]) / 1000, 3), goods=round((s[2] + s[3] + s[4]) / 1000, 3), sep=round(s[5] / 1000, 3))
+    if s: o.update(prod=round((s[0] + s[1]) / 1000, 3), goods=round((s[2] + s[3] + s[4]) / 1000, 3), sep=round(s[5] / 1000, 3),
+                     gq=[round(s[2] / 1000, 3), round(s[3] / 1000, 3), round(s[4] / 1000, 3)])   # 상품 전문의약품·건기식·기타
     if k in D["sga"]: o["sg"] = {kk: vv for kk, vv in D["sga"][k].items()}
     u = D["util"].get(k)
     if u: o["ut"] = {"amp": round(u["amp"][1] / u["amp"][0], 4), "vial": round(u["vial"][1] / u["vial"][0], 4)}
