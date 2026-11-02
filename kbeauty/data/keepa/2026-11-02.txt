@@ -1,0 +1,756 @@
+H|8|2026-11-02|24286|24322|230|full|1fm8ah3
+F|1|26600|30|11.6690|-0.2499|-0.9870|own|1snd0l6
+F|2|4546|24|12.5350|-0.6175|-1.1440|own|1iw4xn5
+F|3|3326|28|10.8690|-0.5194|-0.9636|own|110ta63
+F|4|1561|27|11.1813|-0.6907|-0.8210|own|10zpkbv
+F|5|14167|29|9.1760|-0.1949|-1.0007|own|7ngety
+F|6|3384|28|9.2796|-0.3257|-0.9282|own|dzxjyz
+F|8|1883|25|11.5124|-0.7105|-0.8419|own|16044qg
+F|9|1626|28|11.4740|-0.7318|-0.8249|own|s3kxmk
+A|1|medicube|281|201|8gz,6wm,9sk,crt,c9y,ft3,g9k,10bp,2zb2,2bls,2uqq,5ag3,6eky,9jat,6gnb,aj3n,dyxe,hjfv,fdzk,imj3,10h5p,kpjs,i87y,vwdz,zgxk,13ydp,10z1x,ye7b,urbi,zhih,s142,18kzb,zl6p,118bu,10n0c,1r69c,1rc3p|ag31,9fgo,apdn,c9sc,avzg,du8p,g17t,pj3h,2rtbv,1x93t,1z9cp,44omx,5f9ls,9182b,4gzci,6a8sk,86wdw,9wxkx,8mknc,9rum8,lcfzj,ayq33,9fpi0,h5569,jyin3,ni3v3,iw3qa,hs3us,h56c1,iwvmm,fxie8,p37jr,jx7tb,kdcju,jzz4h,100bat,1085fc|3|y4wu3k
+T|1|medicube|1|B0GCMKDSJB|7|medicube Toner Pads Zero Pore Pad 2.0 fo|1gi||2m4nh,2oc1m,5zk3a,2kin8,2kin8,2scnv,2kc9m,34bk2,2i0vj,2xftb,2l91u,38ka4,38ka4|1qc82bp
+T|1|medicube|2|B0GWMM2QRN|4|medicube PDRN Pink Peptide Serum with Sa|1gi||16ird,1tpv6,16ird,16ird,1i3ur,1jevb,t6l4,1tla4,149jw,16ul5,17al4,1xmbs,1xmbs|3kw89w
+T|1|medicube|3|B0H1V4P2XQ|2|medicube Booster Pro X2 - 7 in 1 Glow Be|j7o||,,,,,,,krk,tff1,pgbv,ujl8,2mzt2,2rmky|1nid2av
+T|1|medicube|4|B0GHMZXX8Y|1|medicube PDRN Collagen Volume Multi Balm|1ja||,,,,,r0,aar8,1fhs4,134vg,1fva8,z9r4,1hbd8,1hbd8|1ba7z2t
+T|1|medicube|5|B0GF1RYJT6|5|medicube Capsule Cream with Salmon DNA P|1ja||1hvas,1kx7k,16c5g,14rux,14xwo,18fj0,siat,1eabo,s3of,12372,156ag,1kw25,1mzaw|1h0e8rg
+T|1|medicube|6|B0GK19HWFZ|3|medicube Jelly Gel Mask with Salmon DNA|1gs||1h9g3,1l3d9,muoo,qnj3,ugdj,ugdj,k4jc,148aw,23f1o,ume4,114yk,1vzrg,1vzrg|msgxq2
+A|2|medicube|272|216|3n,4c,6h,96,98,7w,83,7p,jc,oi,179,rw,1go,1ui,2bu,5hk,5po,633,88l,8co,dk1,cov,fbx,rqg,xrh,1zev,2jcx,424t,5yt6,5xxt,71un,8oh0,8yj1,9yuz,9nmh,pjwu,n9h3|7bq,amv,bms,cvz,cwr,767,7y2,665,dcp,e96,mco,fq5,rwa,wmp,10wa,2ku8,2nyf,2qio,3jju,3bcj,5drx,4zch,6623,blap,dwuf,tlj6,12fd2,1ojnd,2itn7,2l9ke,2r2qv,3gdcv,3lwtf,3x81g,3tomp,asv1w,9tt0z|13|916ha4
+T|2|medicube|1|B0HN54FBCL|6|medicube Toner Pads Zero Pore Pad 2.0 fo|16i||3m3g,bgtl,cuil,hrcc,vpzi,uiz1,oi98,w4zo,zy7t,tok2,wra6,568p8,469c1|q1s8vv
+T|2|medicube|2|B0G7VWP49L|3|medicube Jelly Cream with Collagen Niaci|1ae||xmx,26hh,2vtl,7eor,9cd4,7eor,br5c,9uzq,bwf9,9ocn,9ocn,owdg,owdg|14vfyeh
+T|2|medicube|3|B0G6K9M5SJ|3|medicube Jelly Gel Mask with Salmon DNA|rs||1v16,4c36,4hhq,aqn3,b0gt,aqn3,8lq0,fdmk,d1oc,8t5i,6sl0,lljo,lljo|nzz1vf
+T|2|medicube|4|B0DNDYDG2Y|6|medicube PDRN Pink Peptide Serum with Sa|zu||1sas,2d26,2zqr,4q4c,7vj7,7vj7,alli,7kki,alli,a04l,aodn,c0ez,c0ez|hje6kv
+A|3|medicube|200|151|2y,2y,2s,4v,2a,4p,4w,4o,4n,4p,7k,82,b1,96,bb,k3,2g5,3wl,4ft,3uc,604,7fg,86a,97o,a9k,dx6,ki8,fwi,q67,rlb,12be,12g8,16kj,1nhv,1kpn,2fuo,2fdk|7mz,7km,6b6,7h2,2km,5j7,6ui,5j7,558,5bg,5tk,6ft,awr,ab6,8x8,dgr,18sw,1zfe,26il,1vsh,2yws,3m16,3ym6,4hry,4usz,6mc0,9v9n,861x,d85o,e839,h65h,im4y,kg2y,sjs5,tdoq,1dj1d,1ddob|3|cr6i4f
+T|3|medicube|1|B0HN7MM6PR|6|medicube Zero Pore Pad 2.0 Peeling Toner|1b6||rc3,16h3,24n9,1pf7,431j,3ipp,3mym,4hju,6f4x,6lgb,6qpv,7oib,7oib|1oqu3bw
+T|3|medicube|2|B0H7BLS8HS|2|medicube Booster Pro X2 7-in-1 Glow Beau|flu||,,,,,,,57u,8bg,1wfs,40xa,8zex,8zex|1b79fwk
+T|3|medicube|3|B0HDS5998R|5|medicube PDRN Pink Peptid Serum mit Lach|1a4||j8a,j8a,w1s,w1s,1lou,1lou,2ajy,2ajy,2ajy,36si,2o78,5q9d,5rbd|vqdyoc
+T|3|medicube|4|B0GSY3Z2VV|5|medicube Kapsel Creme mit Lachs-DNA PDRN|1d5||u8w,u8w,12rf,12wk,1995,1dfv,1uen,1dmh,1fuh,1xwf,1kuc,2mo3,2mo3|wjc6q1
+A|4|medicube|198|155|1r,1m,2t,2n,2a,1s,1r,1o,1m,1j,2m,5k,6m,8y,lt,sb,1ty,29c,2cy,2j3,2tf,46v,4zg,6hc,66l,8i3,ak1,a54,efl,fmg,jzv,qsu,qap,1ruu,1sxu,2q75,2pnd|3lm,2n8,68r,53l,2j8,3gr,3i8,30s,2ip,1yh,2jm,412,51f,7ki,ey9,l5w,1264,17t2,196v,1dbk,1ifo,2536,2l2u,3azp,38c4,4ea7,5hbz,5hsa,7v6f,8if0,9fg6,ds9c,dxar,vno5,vzuy,1dfba,1d5to|5|1rz4ae7
+T|4|medicube|1|B0FL2CPQSX|6|medicube Zero Pore Pad 2.0 Pads Exfolian|1bn||79p,d8c,jh3,qo1,1nbt,1iwa,1dl0,1v1z,1isu,3j5h,3j5h,7q8g,7q8g|1ltbdir
+T|4|medicube|2|B0FPCC599C|1|medicube Body Peel Shot a l'Acide hypoch|1ou||,,,,,oj,5vr,23mi,23mi,5x70,3ct6,399o,2vh0|90j2rl
+T|4|medicube|3|B0GHMZXX8Y|1|medicube Stick Baume Multi Volume PDRN P|1lr||,,,,,,,,a5,11ui,1w4i,48e9,48e9|1gue3
+T|4|medicube|4|B0HKJG4N6V|3|medicube Jelly Creme au Collagene Niacin|1iq||bg5,i9c,qgq,grn,v4v,tyu,10mc,10mc,10mc,1mpz,2290,30lb,30lb|1mqt6hj
+A|5|medicube|138|92|13d,vt,1lq,1lg,1o6,1qp,1vb,2pg,9as,5am,b8m,g13,8bn,vqk,jmx,i57,kjj,t1f,sr7,qsf,1b9j,ouy,syr,19kt,23m1,1cuc,17n5,1aog,14k5,1biu,1c92,178p,21zc,1jr0,1lrx,2fd3,2fg0|30e36,2lwai,3wfrq,3wej8,4hm5q,6nsln,8jem4,c116l,xdt26,em9j7,1exhou,1vojdh,193grl,4pyivf,2dcnhq,1wgdc8,1pg3u1,2n6e61,27kjv6,291yex,3vf8h4,1se9dy,2sd1v1,46g5bt,6qxknz,4cw5x7,42yifm,496lx6,3axr7q,4kso5n,3xc92e,3biu6e,6snti0,4bvcrh,54lqfj,87nhed,875zsa|1|11716hw
+T|5|medicube|1|B0DW7NH3S3|2|X2 18|r08||,,,,,20pxc,j33ly,hc30i,1s4xj0,119lgc,12xem8,2b697k,2b697k|hcfny0
+T|5|medicube|2|B0DW88DVK5|7|2.0 (70 Pads)|1uo||az4hu,8jowt,8007v,8iia8,8o7ly,b575s,oov42,o91z6,13c60s,144529,14j4zr,1lgjlc,1lgjlc|f7pse7
+T|5|medicube|3|B0H6FX176L|2|16|j3i||2qc4rn,1qkt7s,1qkt7s,1qkt7s,qthnw,1qkt7s,nl7rc,dd7zw,13bcxk,cpeo0,13p7e0,187fo0,187fo0|1yw28f0
+T|5|medicube|4|B0G1BBW17G|8||1rw||l8ytw,d4h5k,a1qoz,awltz,7yrey,d0e70,dfcyq,btx2a,lfrhk,f9elv,dnrlv,m1cge,lvzsa|cpa5e6
+T|5|medicube|5|B0H44SKNTG|5|PDRN 50ml|2bc||13xeje,olzd0,o2d5v,o2d5v,o2d5v,o2d5v,fqlrg,csmn0,r0kqc,9xvw5,a9ann,l7e26,l7e26|18e9mun
+T|5|medicube|6|B0GSF3HRGM|2|()|9yc||,,,poyr,ex18k,e6w7u,9lu1e,84mlu,7e0yu,5vdn8,5vdn8,650ze,650ze|1h7cs1r
+A|6|medicube|152|127|1y,2m,2j,1x,1s,1s,1f,2r,5v,8n,c4,fo,k2,u6,1ec,1jj,1rm,39k,5ca,7g7,col,bsz,gvt,lvn,m9o,p5y,tka,10z8,11k9,11bv,vch,17dn,1ah5,1h41,1mb4,21qd,22n9|bj3,gs1,euz,arx,8fe,a5w,7cm,8q8,bnz,f1n,jfj,ker,o3x,10f5,1nr7,1rvt,1v8l,347r,4ov4,6ct9,apea,9s1d,e0am,i4ox,ixls,llcf,p588,vjo1,w9p5,wooa,ofrx,yonm,12ir9,18arj,1d7ai,1rs7i,1sm9q|2|hte74r
+T|6|medicube|1|B0D5NZKS18|6|Medicube Zero Pore Pads 2.0 - Dual-Textu|2is||4hss,4k3f,6i32,8k07,7dec,89zk,4j20,6jni,5pfn,9xta,a0gj,ck7u,c65u|1ob4ul8
+T|6|medicube|2|B0GTFZ9992|5|PDRN Pink Collagen Capsule Cream by Medi|28k||3qvf,2k5w,3xja,3blc,3bln,3ib1,2evq,3w55,41gf,3a8j,3bb7,3u3m,3u3m|gxusbd
+T|6|medicube|3|B0GHMZXX8Y|1|medicube PDRN Pink Collagen Volume Multi|24h||,,,,,,,3p5,3rl9,2e7u,2e7u,5ktq,68ga|1gimug4
+T|6|medicube|4|B0HCXRVFMJ|2|PDRN Pink Peptide Serum by Medicube for|1p4||20kh,1fu2,1fu2,20kh,2law,2law,1v8u,2xo6,2xo6,2wfv,3282,3nmx,3nmx|vjb5p0
+A|8|medicube|213|162|18,z,1k,2u,31,24,2p,2o,2o,2n,4q,53,5d,5j,ar,hr,2n4,2rs,4ck,37t,3ru,48m,5hr,7u1,7we,9gz,ekv,bxh,qex,g4w,13ti,156v,1m9p,3fim,311b,62z6,6390|1rr,16d,21y,acp,an6,5ax,4yp,4t3,4t3,4pf,5vu,634,9d6,ige,nte,xvl,24ox,2cb0,34fo,2h30,2vmt,37at,3sqq,4sr4,54p5,5511,7sqr,7tvu,dz7d,92qx,ipss,la8h,snod,1n3t0,1fcpn,33q27,33wts|3|4dyexu
+T|8|medicube|1|B0GT81WM3M|6|medicube Toner Pads Zero Pore Pad 2.0|1bn||bd5,ds9,kd5,n2a,1adr,11d3,1vsu,1rvj,2p77,6y1t,6eyp,c3hq,c3hq|17xl0im
+T|8|medicube|2|B0HN5JKHHD|3|medicube Jelly Cream with Collagen Niaci|1h4||c1s,ess,s6h,eh3,158z,np7,2508,2fto,2u3k,5a7x,4ppl,ckfi,ckfi|iko03j
+T|8|medicube|3|B0H1YKCHDC|5|medicube PDRN Pink Peptide Serum with Sa|1a4||d2p,kn7,yen,kn7,1pxk,yen,2apd,2nff,5auu,4xdf,5e4y,a6cr,a6cr|ae3n2c
+T|8|medicube|4|B0HN55RP4F|5|medicube Capsule Cream with Deep Vitamin|1cl||qjp,qjp,1c2k,1dl7,1k89,1ok7,2all,21n4,2dwa,4ned,2sdr,88z1,88z1|743izs
+A|9|medicube|210|161|x,1d,2g,24,1y,1z,1w,21,1w,1x,2p,2k,2o,61,9c,by,k0,17i,1mj,1sc,2hv,38u,4yy,9jr,7z0,b8x,fxv,c41,h4k,i9d,161x,1378,1f5s,27h6,26c9,4zx1,58id|4ea,4in,8nn,6t6,4ri,541,4rc,440,3q2,3x2,4kf,3u0,4du,lkt,u3r,rqc,10vk,1pj2,1l7e,1pch,1edj,1q0t,2l1b,4u7c,433v,5wco,87hx,6olw,a1ck,atvo,jbjs,kxvs,oomk,1550y,14l7y,2ote9,2trcy|3|1js8ugn
+T|9|medicube|1|B0H82CFLQY|2|medicube Booster Pro X2|gl8||,,,,,,,83l,83l,6khb,6kvb,biu1,biu1|iwshp8
+T|9|medicube|2|B0HJ879NQH|5|medicube PDRN Pink Peptide Serum with Sa|15j||k1j,xej,1ark,xej,1ark,1o4k,4ycu,34yj,4ycu,4i9o,4r4c,9xec,9xec|1tf8obr
+T|9|medicube|3|B0HN4ZFQXK|6|medicube Toner Pads Zero Pore Pad 2.0|1bn||cg0,ot0,s5f,lzo,12f0,1du6,27ye,2cry,2v8b,48c3,3dru,b3i5,b3i5|fkfzpe
+T|9|medicube|4|B0HN25D59C|3|medicube Collagen Jelly Cream|12r||8vd,bvh,mbb,cnb,qth,pbf,1m39,1wj3,2lc5,2vms,3h3k,84dz,84dz|1c1u9lu
+A|1|aprilskin|49|43|34h,2st,2t5,48n,58c,5lq,5j7,6b2,ar7,9rb,95w,fun,keq,rbl,hly,ir5,fzk,h1s,qja,iv2,q9z,c6p,cv3,es9,ekc,gqd,8q4,d1j,dnm,m4k,zzy,scn,r7j,l4n,lal,mjc,m9u|1ejc,19gh,197x,1tdj,25rd,25sz,24nd,2fzi,49sh,3xqf,3ovr,6y4w,8t23,c5bs,7bsi,7sm3,6e0x,73tx,93qz,7juf,b6w8,54pm,5grg,69b3,64af,6r3t,3njg,5itw,5ulu,a6lr,bnuy,9hr3,8xe3,7fp8,6z2f,78ri,76z7|1|1t1q1zw
+T|1|aprilskin|1|B0H75NDZ18|3|APRILSKIN Hero All Day Plumping Lip Stai|zu||,,c7,6wh,85n,4e4,92k,g09,1kh,11wg,19e5,1ewx,1ewx|1coeck6
+T|1|aprilskin|2|B0DZWGLV9G|1|APRILSKIN TXA Pink Capsule Gel Mask 4EA|rs||3eu,3eu,10v,10v,10v,5opl,3gro,3gro,3gro,iwx,iwx,12hp,12hp|1jrmob5
+T|1|aprilskin|3|B0DY4W4WZK|1|APRILSKIN TXA Niacinamide Toning Shot Se|rs||8pt,8pt,4oz,4oz,4oz,k46,sx9,knr,knr,xhn,q1q,5xx,5xx|d6bott
+T|1|aprilskin|4|B0CVQ2G1ML|1|APRILSKIN Carrotene IPMP Cleansing Balm|1ja||zf1,zf1,l90,dgi,l90,l90,m80,e2o,clc,dmb,li6,n16,n16|187sp74
+T|1|aprilskin|5|B0DF7QCSYP|1|APRILSKIN Pink Aloe Mucin Serum|1gi||3j2,4xv,248,248,248,248,26t,26t,26t,1chn,22t,3n9,3n9|wtahxx
+T|1|aprilskin|6|B0F1S28RJ6|1|APRILSKIN TXA Niacinamide Overnight Wrap|rs||7bl,8ni,4nr,4nr,3bt,4nr,19pf,krx,krx,bd6,y3i,6nd,6nd|rt88mv
+A|2|aprilskin|6|5|9,5,4,4,4,t,l,o,i,m,l,18,27,2c,2d,4c,2b,2e,29,2c,2c,1h,2g,2c,2e,2c,2x,3j,1x,1n,2o,1q,1u,1q,1s,1f,1d|6n,3k,2p,2l,2n,fj,bc,ct,9s,br,bt,l2,10z,14e,15m,20b,13s,16d,12p,14i,14f,rv,17h,14v,15u,14r,1hu,1vf,10y,vf,17y,u4,up,v2,vp,rm,qn|44|ki8q6z
+A|3|aprilskin|7|5|6,3,a,5,4,f,r,e,d,v,p,2e,2b,2a,28,74,2d,27,24,1b,2d,1e,19,14,17,2e,15,21,12,10,14,v,z,10,z,19,18|4o,2k,83,3z,2t,ar,gy,9e,89,je,hg,1ei,1bh,1al,19e,3xn,1dn,1b6,18m,rz,1d9,wo,ta,p6,qc,1eg,q3,16m,mt,m3,m0,gs,k4,nz,ok,y8,xk|47|1y5ajzr
+A|4|aprilskin|8|6|4,5,3,2,4,7,3,4,3,4,7,5,4,c,d,c,k,i,l,j,p,o,u,10,n,x,1m,24,x,13,v,13,s,x,r,u,t|3h,49,2o,1m,2y,65,2v,3o,2e,32,5m,3z,3t,am,b2,ax,hq,fo,if,gc,j7,hu,no,pu,gt,mu,14q,1df,n5,qr,j1,oc,im,mk,jf,np,mt|93|1mnxtes
+A|5|aprilskin|31|22|dy,d3,cn,f1,ez,fx,gr,jz,ss,ua,wg,uw,ms,wt,wd,uw,o8,vs,uq,z2,1cf,15x,1b3,2px,3am,268,1yx,1cz,1yf,2jy,5io,5dp,8b2,80y,73l,9ek,9f8|lrn7,jt61,jou5,o1w9,o6tp,s6gl,scao,zfuq,1ffi1,1jevq,1nlh4,1ltbw,161ks,1sk7d,1uxbx,1q66y,1f150,206cf,1xcfs,2543w,2vnuq,2j9na,2u4k1,653co,7l0ko,4z80c,4jpdq,33nyu,4ssug,5tm2b,binna,b2o8e,gtmm4,fhfbt,ei0rh,jvrfi,jxax2|11|1c7vh01
+T|5|aprilskin|1|B0FBVW71VX|8|19 +|2us||3cyvq,1kcuk,20c57,19dti,36629,26ap8,3atyy,2zuiu,4hmts,40wop,5totn,7xhs0,7xhs0|zxtug2
+T|5|aprilskin|2|B0B8Z8SVD9|1|APRILSKIN IPMP|230||2fjfl,1jfwo,11xmd,4dkl,8r56,2fjfl,3xw0w,3xw0w,5in8g,5edas,3uu2k,5mp2g,5mp2g|m6rqb1
+T|5|aprilskin|3|B0FRLBNPY6|1||1i6||,,,,,23qf,33ef0,33ef0,5kir0,56hji,411n6,582u0,582u0|1dhk9h6
+T|5|aprilskin|4|B0C6LSZG5Y|1|APRILSKIN 3.0+ (21 )|2us||bjf6,bjf6,3rpd,48bk,5rpl,5rpl,bkfo,5s7u,bkfo,5qtu,5qtu,bw8o,bw8o|1m93zl
+T|5|aprilskin|5|B0C6LT94YG|1|APRILSKIN 3.0+ (23 )|2rq||60tv,c1nq,60tv,2fxn,1wxe,1vq8,2whg,2pwg,5x93,3lh5,3lh5,5tdi,5tdi|cd97o5
+T|5|aprilskin|6|B0C6LSLLR3|1|APRILSKIN 3.0+ 22|2us||5mai,5mai,b8kz,b8kz,5mai,5mai,5skc,3s9g,5skc,3rcs,2orh,5y4c,5y4c|kwytrf
+A|6|aprilskin|11|11|l,c,c,a,16,1o,1o,1m,24,22,1y,4o,51,5r,77,a3,9x,76,i9,74,72,4i,3z,43,37,32,3f,34,2y,42,3n,38,3f,3o,46,4k,4l|q8,ey,f5,ch,xj,1t3,1wi,1sk,25e,20y,1w7,531,57a,5ki,6c1,9gm,7ov,6fd,ai3,521,6tr,40e,3j2,3m5,2oh,2lv,2yo,2st,2ik,3xj,3n6,378,3mt,3ai,3zb,3sk,3sn|53|b4drdn
+A|8|aprilskin|5|4|,,,,,,,9,8,6,f,t,12,13,u,1g,1a,1l,i,h,k,k,j,h,n,m,k,f,q,v,k,n,w,s,o,t,t|,,,,,,,56,48,34,89,g3,oa,rb,jd,uk,rg,xm,bf,c7,du,da,cj,b6,ej,dt,dd,be,iy,ld,d8,ey,mc,la,ht,np,nd|93|1p5yu3u
+A|9|aprilskin|7|5|2,2,2,2,2,5,b,5,4,e,h,q,1c,13,13,15,10,1w,v,n,r,q,m,u,1m,1e,18,10,l,19,2t,1u,1c,17,12,17,19|1t,1s,1r,1q,1p,3f,7b,3o,2n,94,fk,i7,15a,ua,ub,uc,pn,1d0,ne,i0,kg,jd,gl,mq,19q,137,y4,rv,hf,z0,1dq,wi,qn,t6,qo,zp,10v|89|o8e96t
+A|1|forment|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|d88am
+A|2|forment|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|1c0z3vq
+A|5|forment|2|2|46,46,46,23,23,23,23,46,46,46,23,23,23,46,23,23,9q,46,23,23,23,23,46,23,23,46,23,23,23,23,23,23,46,23,23,36,36|f80i,f80i,f80i,7m09,7m09,7m09,7m09,f80i,f80i,f80i,7m09,7m09,7m09,f80i,7m09,7m09,zip5,f80i,7m09,7m09,7m09,7m09,f80i,7m09,7m09,f80i,7m09,7m09,7m09,7m09,8xrc,8xrc,hvio,8uei,8uei,d9bs,dbjn|2|1utyhjl
+T|5|forment|1|B0B9B9R721|1|# FORMENT For Men Signature Perfume # CO|47o||7m09,f80i,7m09,7m09,7m09,7m09,8xrc,8xrc,hvio,8uei,8uei,8so0,8so0|pnxrej
+T|5|forment|2|B0B3R7QTY4|1|[FORMENT]BTS JUNGKOOKCOTTON HUG|48s||,,,,,,,,,,,4gns,4ivn|1xigsri
+A|1|dalba|114|72|ur2,w98,u9c,tnp,vtj,teo,m52,m7l,1mcz,111h,x42,1a8s,17ub,1rxl,zo8,1cjh,1n73,2bhf,24tl,2dil,3eld,1v42,2qj4,4gz9,3iuu,3x89,2qmz,3bw0,338q,3jaq,2rbx,41ts,34dz,37a1,37ky,5hxv,5jt7|hqz2,ikzy,hcsw,h5sw,ihtw,gqt3,cpcx,czib,ynj6,lvez,j3xw,qare,onvc,10j57,jwp4,qqa4,w7ys,199x8,15ymx,1b11d,1x8rj,11xc9,1hosg,2hu0x,211pf,28r4j,1kvrw,1xs5e,1tlib,21x3t,1kloz,2c4h1,1ub57,1tyyq,1vt0o,37lqo,38sq9|0|1gqrrzg
+T|1|dalba|1|B0GSW2DQ7P|9|d'alba Piedmont Italian White Truffle Fi|1ek||171xy,1b82a,w4xv,vhkn,okp8,rlpf,ianl,w6ou,l0zr,n8cq,m33t,146yw,146yw|ayigc0
+T|1|dalba|2|B0F131H7CL|5|d'alba Piedmont Waterfull Tone-Up Sunscr|1e0||adqu,a1tz,608z,8xhq,99el,a40n,a0r2,bj8d,aevn,9z5j,990s,qg4e,qg4e|b3l1o
+T|1|dalba|3|B0GQ2BXKCM|1|d'alba Piedmont White Truffle Double Ser|1mb||2ga1,3sfi,2087,6orc,b59l,flrt,ab54,eflk,ab54,9nsu,9nsu,dybc,dybc|1wu8xbf
+T|1|dalba|4|B0GQ2STYBG|1|d'alba Piedmont White Truffle Intensive|2mf||kbq,14ng,1vr3,451z,3dyc,3dyc,37ri,3xhm,4n7q,5b13,6pyz,aixo,aixo|1glfbqk
+T|1|dalba|5|B0G3477B9H|2|d'alba Piedmont White Truffle Double Ser|28j||3tqg,3tqg,3abg,4ed3,3abg,3abg,30yx,3mxr,30yx,2dev,2dev,2ye5,3k5r|iiqy40
+T|1|dalba|6|B0F8VF7D33|2|d'alba Piedmont White Truffle Vita Tonin|1mb||1vtw,2eoe,2dmh,2dmh,2dmh,1y21,1iqp,2e0t,1ydr,1w5r,1w5r,2oy5,2oy5|138h5ik
+A|2|dalba|37|24|1xi,1s5,1vg,22s,25r,1yc,25b,2fb,2te,2e4,29l,3pb,3ix,4lf,2rz,2ys,5t0,4kr,7ez,4u3,8g5,6uo,b6m,94w,g4s,fou,830,j12,nt8,i25,gdw,m6j,mop,d7b,eb0,jw4,jrm|wn8,u7h,vp6,yg0,zr2,wcf,yuo,130d,18oi,12kd,111j,1o7i,1l3r,20ux,183m,1ax2,2hyu,1z6d,37gz,25r5,3onb,2ze3,4trc,4404,73dl,71ju,3sj1,8w9b,azh1,8feo,733g,9nol,a4l0,5ok6,647g,8zs3,8wml|1|2d18bv
+T|2|dalba|1|B0CRGKF744|4|d'alba Piedmont Italian White Truffle Fi|18g||5upu,5o6u,2db1,6bsp,77wn,51tc,4pvp,6c46,6h93,3by6,3pgd,5yyr,5yyr|1xl5zoi
+T|2|dalba|2|B09SZ5JX2Y|1|d'alba Piedmont Italian White Truffle Do|18g||3qq,14f,9qb,11fb,1vd6,1ge9,tq5,1teb,25ad,139m,139m,1hi9,1hi9|16ncur5
+T|2|dalba|3|B0HGXMJJT8|5|d'alba Piedmont White Truffle Waterfull|18g||gud,gud,ikp,kb1,vja,vja,naw,naw,naw,nvj,lfe,r48,r48|18u7llv
+T|2|dalba|4|B0CW68D8CW|2|d'alba Piedmont Italian White Truffle Do|1p4||a1i,f67,a60,f67,div,div,ayu,9fr,9fr,7xa,7xa,9z6,9z6|18qnzsx
+A|3|dalba|45|29|ce,c5,a2,k6,1ox,1qn,1uc,212,2dw,3fs,4nx,4aa,55o,afx,70k,j36,hgg,fyy,cz3,asb,kja,ah7,k3k,jus,kxe,nmy,dtv,gqo,17hb,n0i,syl,u49,uxe,kgz,n0l,152g,150b|7ql,7h9,6ec,c46,ysv,z71,119x,14y0,1bxy,1wgz,2kf3,2fmr,2vr6,5tqw,3wo5,afs5,9kss,8sgc,7amh,62hh,bldg,626n,c2lt,bhso,c6wy,e3sv,8d1s,advu,rc0f,eekh,gy8b,i8ae,iqlp,cj5e,e6yl,nkdy,niyv|1|1maav01
+T|3|dalba|1|B0FN7781W2|3|d'alba Piedmont Italienischer Weier Truf|1b7||7len,82pz,4qnm,4zbb,85lv,5iyl,5ika,8cm3,8cm3,4eol,50s3,8en0,8en0|oq3aft
+T|3|dalba|2|B09SZ5JX2Y|1|d'alba Piedmont Weier Truffel Double Ser|16x||rdf,19me,rdf,1rvc,co7t,4td2,6i10,3om6,447u,2xkp,3u25,5kxc,5kxc|kcyw6v
+T|3|dalba|3|B0HF4FHXKK|2|d'alba Piedmont Weier Truffel Intensive|207||ew0,nl,dt,ew0,ycx,ycx,udc,1em8,1em8,1uwp,1uwp,3n95,3n95|v55kxm
+T|3|dalba|4|B0G55XYHHX|7|d'alba Piedmont Weier Truffel Waterfull|1mb||1d1c,1nio,t1n,t1n,1mqw,v1y,1g3v,1g3v,1n5l,12a6,15p0,2j14,2j14|1q78x4u
+A|4|dalba|38|27|1q,1f,1u,1o,26,5g,69,b0,ky,pt,o3,kg,q5,15n,xt,19m,1ci,1u4,271,20k,2az,168,182,10k,1a3,228,17y,141,1om,1rk,2qg,2ni,2pg,1uj,29f,2qe,2p2|157,zz,194,15l,1ga,3du,3un,6jm,c61,fnm,eov,cvp,g3f,pwu,kam,raf,rqi,13gb,19nn,160k,1ch8,qej,qur,mov,rjb,198z,qw1,p8b,119i,12re,1jmv,1j76,1lgg,131c,1bbb,1n7l,1mfz|17|o0fa9x
+T|4|dalba|1|B0D95BXNYJ|2|d'alba Piedmont Truffe Blanche Italienne|1p3||f6z,shh,eux,adu,hqa,izy,ws8,ua2,t0z,kcu,syj,xih,xih|1pyz462
+A|5|dalba|119|71|4og,5m4,6aq,6n0,a32,7ym,49n,79k,dhq,778,91x,jsp,dym,z7f,mpr,tbf,yo2,1101,z9w,z3d,1mb2,maj,10mv,1rke,2ipg,1wi7,1lfi,1q31,1m00,1not,1er9,13mf,2795,14bj,1dg3,2f6l,2fv9|99l33,b80g0,cfte6,d3kwy,ju59x,foxdv,8a2e1,dxpql,piuf3,d6hj1,gu4e4,110u55,qfayw,1sxzgb,16tn9n,1i8p3a,1t7tye,1xtpq4,1u8blq,1wxgwl,3807aa,16jae0,1zktyb,3ksb5c,5082xb,3o5em4,2z86u4,35srx1,325408,37kyox,2ph0qg,26ndfi,4c95yb,25kxtq,2kzz5o,4u7aup,4w5cs0|1|181rhdm
+T|5|dalba|1|B0FGPQ6RC9|11|[d'Alba] 35ml Waterfull Tone-Up Sun Crea|1v8||22tli1,1coydh,wvds1,tqpgc,17ukzm,188o18,13v7fs,xhhdk,1nhob4,rvv9w,11hubu,1y8ijk,1y8ijk|1wqpt8c
+T|5|dalba|2|B0H7HX8LBV|14|d'Alba 100ml White Truffle First Spray S|1zo||1if1x7,14jyh4,zxrao,18m013,ztkne,z5wq5,qhg9m,jpu7e,13ra1i,l4f4v,m61pg,14kevu,14kevu|l6q3fp
+T|5|dalba|3|B0HF7W5VP6|3|d'Alba180ml Vita Toning Serum Toner 180m|1ue||n0k67,j0mqo,dyowd,cz2kp,dyowd,dyowd,bw41c,9fmfe,itvjs,az0ak,az0ak,lus2o,nzif4|1gkqkkk
+T|5|dalba|4|B0D9GZ2KV4|6|d'Alba 50ml Hair Perfume Serum|186||mjr6,q6iz,zsla,1sbmy,gch5,1keud,1famh,1gk1w,3pfl6,3kyzx,608re,6b4b8,6b4b8|v4cw1x
+T|5|dalba|5|B0H93NMY91|2|[d'Alba] 100ml+100ml WhiteTruffleFirst S|3uw||4604a,23025,2n02q,1t01v,23025,2n02q,25mk6,1v9ya,4iy59,1sors,2l0yi,bg1y8,bg1y8|4sldr3
+T|5|dalba|6|B0G5Y5XVBP|1|d'Alba All Day Serum Make-up Fixer 80ml|22q||,,,,,2p93,27dn0,27dn0,3oaqc,289gu,3prs2,5lsns,5lsns|18kzktp
+A|6|dalba|40|28|2i5,36h,35n,3ue,4fj,3uj,2x1,3uy,6hn,550,56y,7xi,5xz,8xm,5ws,5ni,7rw,bf1,ffm,exh,h6r,9iy,d5l,tr3,omi,msg,j2c,l7q,r3c,11h0,icr,179y,w62,n6n,iuu,1g08,1fba|1zny,2ju6,2i62,32on,3icb,31vb,2c06,3224,54l7,43yl,47nf,6evo,4uem,7cym,4rjw,4jea,66tb,8z9m,c5vy,btwi,dvnq,7rmz,at9g,nul0,kssa,ihyq,g7vq,huh2,m1ly,uh4i,d99a,wax6,nopb,hyu3,f25z,14si8,148w6|1|11i910c
+T|6|dalba|1|B0CX93GBRX|4|d'alba Piedmont Italian White Truffle Fi|207||djh3,bo00,av8u,bihj,bzpa,f38x,67g6,enw6,b9wi,4phc,43co,fxyd,fea1|1la6jkr
+T|6|dalba|2|B0CC2HZ8WL|1|d'alba Piedmont Italian White Truffle In|333||,,,,,,,,jy,3xfw,320d,7tzt,7tzt|1uwv4rh
+T|6|dalba|3|B09SZ5JX2Y|1|d'alba Piedmont Italian White Truffle Do|1uo||1e2m,u1k,u1k,u1k,467u,8cfo,2wqk,7xnc,4hv8,3vbn,2u65,7mni,7mni|d7elu7
+T|6|dalba|4|B0F9L3R7KJ|2|d'alba Piedmont White Truffle Double Ser|2ur||1zed,1wm3,1act,1ix7,1ttt,1wm3,tyl,1utn,14m3,19jf,1pj0,29q3,29q3|1whlkbd
+A|8|dalba|37|26|10,1b,18,2e,7s,9a,bl,ep,v1,1vv,24x,2je,2bj,55q,4wt,4i2,6tv,76f,6im,5dh,6q6,2xp,44l,67x,84t,5s8,33j,4su,6q1,2vk,2yw,2q7,2m8,2ft,2c4,1r4,1r1|nv,uk,s9,1k5,4sx,5if,6or,8ha,hv0,12b4,17n0,1fww,1apw,2wgk,2qk7,2hi5,3r1o,40r3,3ne0,320w,3tx8,1p4f,2h80,3kkh,4lzm,3dcj,1vv7,2wo0,42wm,1ri9,20ud,1wzn,1ub5,1j62,1imx,16ih,16b0|6|t2r9t8
+T|8|dalba|1|B0FPD4TRRT|3|d'alba Piedmont Tartufo Bianco Italiano|1mb||3f88,2aik,10pb,1qda,2l2r,vyb,12bz,13z0,13z0,vs0,wm5,l3x,l3x|1s08knz
+A|9|dalba|37|24|t,3a,37,90,k5,ll,10r,2z1,6b7,64l,88l,99q,7ol,j3w,bu1,cbh,fy5,k52,knu,kk6,qdo,anm,qrw,w24,zd8,xwd,jpb,mfa,ubr,rfz,s6i,17f7,19l9,udl,yu0,14bo,14bh|js,26j,23w,5nc,c3u,cge,kzu,1oj5,3len,3iuk,4uwp,5g7p,4hq0,b837,6wks,76c0,980i,bpby,bwmo,bzmm,fv8b,6hff,gl75,jgsw,lxab,l3a0,cqci,edcs,j4kp,hkdb,gfbn,otcc,qjbu,gril,ixk6,mu0w,mtth|1|1xdyab7
+T|9|dalba|1|B09SZ5JX2Y|1|d'alba Piedmont Trufa Blanca Double Seru|1jf||2ptz,1q99,18gw,1q99,7etf,7etf,6ewi,aou6,aou6,67fr,67fr,66x0,66x0|1nze4mo
+T|9|dalba|2|B0CWKJKWDZ|3|d'alba Piedmont Trufa Blanca Italiana Fi|1b2||7rmo,7uo1,4etl,4ux1,4o0w,3pm4,3vwb,6x3k,7awd,3yu9,62cn,6eri,6eri|1jmw3lc
+T|9|dalba|3|B0FY62N9BH|7|d'alba Locion Solar Tonificante Waterful|1oy||87wq,7vbg,4di8,44pw,3kog,3c2k,3216,3e0n,3gzm,3854,3a8l,3zgz,3zgz|1xaay7r
+T|9|dalba|4|B0CW9XMDX9|2|d'alba Piedmont Trufa Blanca Italiana Do|207||1zgc,24is,1epr,22c6,1acl,1acl,13vu,13vu,1pou,1i2c,1i2c,21yo,21yo|16c1m5h
+A|1|missha|114|68|in8,hgg,jj5,ikt,jxv,jm7,llv,htc,11i5,i2f,iyx,uai,t0x,uhv,s6l,tpt,yvb,z7b,zlk,u1l,1cdd,1eya,1itu,1qeq,27j3,1ofr,1kfy,1yu6,1u0w,1rw8,1eo8,1l4c,1h7n,1jyb,1h3e,1xkq,25m4|8hqb,7qso,8r9k,8a2u,8ull,8ids,9em6,7rue,g1ck,7ypi,8dja,dg5l,donq,ecb0,cl14,dehf,fgv4,fut2,ftfc,dlkw,md8i,n32s,otmc,rfp8,ytr2,r8o7,ocow,u5pz,s3sc,rbt6,mrcj,pqzq,o0it,q2ui,o9dw,vnyd,yq2e|1|jxtv56
+T|1|missha|1|B0D485MGGB|12|MISSHA M Perfect Cover BB Cream No.23 Na|15e||jyhf,e5x1,dkhb,jevq,h1dt,h3ew,dldn,fmp5,dt2e,cp4e,c7vu,fbvx,iatx|1a8ouv6
+T|1|missha|2|B0DJDYYB5R|10|MISSHA M Perfect Cover Serum BB Cream No|1mc||8n6m,79lq,5oy4,5nhu,5cyg,4k98,4l4m,4235,52kt,64dp,4vte,6put,6o8h|1h0r2gj
+T|1|missha|3|B0D17GR89C|6|MISSHA Magic Cushion Foundation No.21 Li|xm||1180,rag,11dc,18ko,1a35,1bcc,x8w,uwn,jmz,w38,125p,1mvo,1s2o|t4pil0
+T|1|missha|4|B0CMYYDWXQ|3|MISSHA Time Revolution Night Repair Face|2ee||17h5,17h5,olp,olp,qta,156n,qe0,1as3,nzm,sso,sso,1d6z,1d6z|2jfpvc
+T|1|missha|5|B002C5IUWQ|1|MISSHA M BB Boomer Face Primer Korean De|vy||dz0,8ul,61z,gg,54g,61z,3zr,db6,db6,m6m,v22,v22,v22|18xse57
+T|1|missha|6|B09646RFWJ|1|MISSHA Time Revolution The First Essence|2ee||qgr,qgr,66b,2na,4es,4es,3k0,d1c,ao0,hhe,jtb,zwi,zwi|1jd1c9a
+A|2|missha|104|81|1n0,1h0,1tm,1jr,1ur,1s6,255,239,25q,1ys,1nl,1qk,1lt,1oh,1l6,1q5,209,2b3,2ar,1w1,20j,1xr,1z2,229,1y8,1x9,1sv,2bz,2i3,32d,3kv,376,2hg,3ae,35n,3ch,3dm|ome,m3o,r3v,mvb,r7p,p6f,tfw,rms,s8p,qkl,na0,nv6,m1f,mtm,ldh,mf5,pmb,tte,v66,on5,pr0,ovk,p6l,psm,nyp,ojq,n0y,vmj,x36,13bv,151c,11hi,uv7,xv9,x6z,yvp,zcl|19|12tyd54
+A|3|missha|169|125|2m5,2jq,2qv,3bp,3ey,39m,3c4,3bj,3me,2xc,2yh,2up,32q,2za,2fg,3jc,3b5,3wq,3wy,38c,3he,3b1,3az,3an,3bu,3bi,348,3aj,37y,3ow,3sv,3h3,2ym,34c,381,31i,30e|xsj,yda,11zj,1bg7,1cb0,19qt,1c24,1axt,1ec9,14b8,15nn,1349,17at,13lh,y3z,1a12,19sn,1j6o,1k3h,1a3b,1et4,1cgb,1dxf,1ce1,1dn7,1eko,1cx3,1fsu,1e70,1lnk,1ifh,1drq,16q8,17sb,1a9b,191q,18rn|33|1333z5
+T|3|missha|1|B0DYG1FXNT|5|MISSHA M Perfect Cover BB Cream Nr. 23 N|1a3||ar0,9l4,eab,buf,go4,ivt,h4c,fnr,b4o,bjn,dk0,cjw,bht|1gmgwdb
+A|4|missha|145|116|nv,nb,te,r0,sz,vh,vf,wf,xw,yg,xt,y6,11w,xw,zp,11i,12l,151,xp,11k,yi,zv,wd,st,yn,tl,zw,11e,12o,14g,125,11b,14v,15s,10o,13b,138|c5l,bwl,e0f,d6b,e9z,f3u,f5w,fzo,go6,he4,h0z,g13,h5o,fcu,gnh,hjq,hgv,hhn,etm,i3j,ghp,gu5,fo1,eg4,giy,ejw,htf,iu0,jcc,kjy,i08,ie1,jkm,k61,hk3,jx5,jug|92|zryuh0
+A|5|missha|387|278|jhy,kt0,gsj,k46,ijl,glv,fw3,fms,h2d,f7v,g3t,i5y,gfw,iys,g8i,g92,gcl,i7m,i0k,hqh,mfz,i7i,ii5,kuj,mqr,kmk,iha,ise,l1g,lx8,k6r,hav,pdp,h5f,hb5,qzf,qvk|o1by9,oxqwb,k746q,oem9k,mi52o,k3bf0,j03jd,iow31,kmkbe,iax4n,jiap2,lzlnt,jhgnp,mwjat,j9z1f,jeugc,jo2ef,lz2pb,m7fa9,lgbmr,r4lzc,lzluf,m4y03,p1pyk,rcusj,p96ao,mg7fl,n162q,ox1it,q432x,o5ib0,l5t6y,uyagm,m6qwe,lnxei,yo0ff,yjlrl|18|exhg9o
+T|5|missha|1|B0D4V94QX8|7|M () No.23 (15g)|19d||2hprw,2hjvv,27sog,273bq,2l1cm,2uwbw,2fqxj,2e5y5,3n2fw,2r6hi,2jot6,4jw1e,4jw1e|118tawo
+T|5|missha|2|B0CKX3FNDP|4|M () (No.23 )|10j||1zc0k,20ll0,1pwb1,1pwb1,3200t,3200t,2b520,1w05c,3uybc,1sxb2,32ie8,3we0g,3we0g|gpvuv4
+T|5|missha|3|B0D4M7LBR1|4|Magic Cushion (No.21 ())|uk||1s1at,1gz18,1euh8,1euh8,1emf2,1nk0l,1czum,r6ny,10vy9,11y8q,17d40,1x5jm,1x5jm|4s2j9y
+T|5|missha|4|B0D2NW5Q3Y|4|M () (15g) (No.23 15g)|uk||pgx7,o01t,o01t,rg65,xb8v,z7tp,11ifa,13qaa,1whw8,161p2,11tm2,1yboa,1yboa|1w2bjmw
+T|5|missha|5|B0GX9Q7BHX|2|(MISSHA) M BB No.23 (35g)|17w||1a4ul,13jy4,n265,jr7n,108zm,108zm,z992,zave,206yi,zxvv,136l9,1ylz4,1ylz4|1obu1cz
+T|5|missha|6|B0BL2HQ57R|1|MISSHA()|1p4||xl3l,xl3l,xl3l,xl3l,122ba,1v676,1uogo,168ak,1uogo,yefc,yefc,1xyio,1xyio|newk9z
+A|6|missha|119|95|mk,kl,pv,lc,o3,nk,p9,ss,p2,n3,n0,p1,s3,t9,nl,wm,wr,11z,17y,18d,11r,155,163,1e5,1fu,1ga,1my,1r5,1wj,1w4,1la,1tj,1l8,1qp,22v,21l,21m|jhc,hzg,l97,k47,l7v,ks6,m6p,pw5,mw0,l3m,lq0,n11,ofk,p22,lqb,sgv,t07,x7t,11vn,108u,w2u,zki,z6o,1478,15zh,16iu,1a4y,1f8z,1j83,1gxl,19la,1e98,18nn,1a7h,1ifk,1h4g,1h2h|50|z9fwst
+T|6|missha|1|B0DYFXF58X|5|MISSHA M Perfect Cover BB Cream Ex 50ml|1mb||csd,b5k,h7a,hct,ken,kj2,f4c,jtk,gua,h22,lhf,ml1,ml1|40kthu
+A|8|missha|171|129|14h,1cv,28r,1xq,21u,2gm,29a,26n,20d,1th,1wx,1y1,20n,20e,21h,1h4,246,222,29h,1te,1ps,1o8,1u6,1z8,26f,29n,1xv,29x,21g,289,22l,21t,1wu,20k,216,2ch,2cl|jky,ngt,zg5,vk9,xvf,13h4,yod,z2m,w43,uox,t25,vb3,vf5,wuc,wic,ri4,xmw,12m5,11fa,tl7,sap,rlz,xtb,xbh,z7q,17o2,wwn,11we,118u,137r,12by,10by,xni,zhy,1076,17js,17pe|59|124x29z
+A|9|missha|117|90|sc,nc,sv,r5,q0,q1,w4,y6,11m,15l,1cz,1dq,185,19p,1a0,19o,1h1,1ek,18i,1a7,15i,16r,14t,13w,19k,18x,13t,162,1eh,1dy,1f8,1dw,1es,1jm,1o9,1gp,1gl|fbp,cdw,fgo,e7t,dkn,e92,gfu,hij,jlh,keo,nn9,now,lcc,nd1,m38,mam,otf,o01,lsj,lz2,kuh,ln2,mu2,m5t,nlp,oex,lvf,mw1,r6p,rlt,pbz,ot2,oob,r3m,ua7,rgg,rgt|68|1mu75q6
+A|1|apieu|44|18|4zv,4zh,557,519,5gj,51x,4ro,4f5,6lz,4c8,3t6,498,4bf,5p5,49y,3zx,3ww,3hj,4n7,4r7,6al,3nb,489,4wt,4ls,4us,39l,2xq,326,2vu,2o8,2zd,2v9,2r1,2ny,2x9,2x5|1q6d,1m1n,1vkd,1wp8,24j3,21fu,1t10,1mi8,2f3q,1l83,1g7q,1ll7,1mg1,1y10,1ldv,1fq7,1h5o,1eju,1v6c,1u32,2kk4,1g6a,1o00,203u,1wrv,1xtn,1era,1a48,1alo,17zu,1529,1bkj,1aiy,164b,158e,1ap7,1ana|4|88bfg2
+T|1|apieu|1|B0HK135GMW|8|A'PIEU Raspberry Hair Vinegar Rinse for|14a||1674,12md,s6i,lzn,t9h,s6k,pzm,vk4,uhk,r48,osi,uvp,uvp|1nudsho
+A|2|apieu|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|3xvwpl
+A|3|apieu|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|19g0my5
+A|4|apieu|26|17|1m,2a,2m,2w,1r,1m,1t,2l,2z,2u,3m,4e,5d,5y,3e,52,4r,2t,2f,37,2w,3n,39,2x,3t,3d,4i,3x,43,5u,3v,4j,3j,3y,4v,4w,52|i1,pv,rx,zx,ok,lk,s1,z5,12y,10e,1fe,1v2,1za,1zn,1ad,1k1,1id,13q,x2,139,12b,1ji,1i5,176,1ns,1hk,23x,1tv,1w5,2n2,1t3,22l,1vs,1z6,2cr,27c,29u|97|11vdt15
+A|5|apieu|1|1|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,7,7,7,d,e|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,718,7j9,79h,ep5,fid|100|1pjk0sv
+T|5|apieu|1|B078X5CS3W|1|APIEU Raspberry Hair Vinegar / [/] 200ml|13q||,,,,,,,,718,7j9,79h,ep5,fid|kvt12s
+A|6|apieu|16|14|67,5b,6v,5m,61,5i,6x,5l,79,7c,6u,66,68,5p,4l,43,2q,3i,3h,45,3o,34,2w,32,31,2e,29,2v,2k,2v,25,1u,1w,24,2d,2i,2h|,,,,,7q,36,5r,50,gk,f2,a3,7m,as,qs,pw,dk,zj,wa,13p,12p,yf,wk,112,14x,vz,zi,1lj,1et,1q9,1c8,13f,19k,17w,1ie,1ix,1i2|100|140kem1
+A|8|apieu|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|1qfjc0n
+A|9|apieu|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|ld0an7
+A|1|cosrx|176|124|gd2m,dosw,bsvn,agcj,azi8,an0p,9lfc,9jfp,hx5j,9g0s,990r,d4qx,bwqg,fdqa,a94l,8fvj,8zz2,8zjj,6ogp,6cwt,bi4s,667d,65r5,9ddo,anav,be71,6a3q,66v7,6wtw,7jfa,52fg,9wwe,5z0k,6iaw,6uz9,apqz,auc3|8lwi6,76tqu,5z8ny,5ep11,5t3e0,5hn26,4y9i2,4why7,9j9ke,4t473,4q0lv,71b83,6u8k2,98s91,5xvo4,4ntdr,4ts6i,4tvmx,3gniz,38svv,63ux1,36k8i,381er,50ape,5rl8b,6av7y,3debj,3cg81,3q7dl,40w83,2r9es,5ekgl,372og,3i7qe,3pjji,5kifm,5mz6i|1|uqh9l4
+T|1|cosrx|1|B0D327SVBC|3|COSRX Snail Mucin 96% Repairing Serum fo|1fe||1nd0x,1nd0x,mw8l,m63a,qrto,t745,gz6n,145pp,k53r,h6fw,kdes,1257f,1257f|1ei727l
+T|1|cosrx|2|B0H6B99J7Q|2|COSRX Snail Mucin 92% Face Moisturizer f|1jg||ikfv,ikfv,abct,abct,abct,abct,6l9o,fdmk,72ft,b5o9,b01d,g66w,g66w|4848w6
+T|1|cosrx|3|B0DWMLRFJ5|6|COSRX Pink Peptides Collagen Hydrogel Ey|1op||o8h4,rqv4,e36e,hla5,ixbf,j7wo,eonj,gfln,948t,9wfj,9c2k,exnm,exnm|o3mcin
+T|1|cosrx|4|B0HN1VW4FP|2|COSRX 6X Peptide Collagen Skin Booster T|1mc||fz2k,berj,6ugj,6ugj,berj,6ugj,6ek0,ao9c,6vti,77pb,bm2p,f780,f780|179pr4k
+T|1|cosrx|5|B0H2YMBGYS|2|COSRX PDRN Exosome Overnight Face Mask K|1b8||1m43,1977,1f0y,2gib,2t03,3uhf,2c92,6ix3,3bx8,6059,6059,9m9z,9x1h|akjdn0
+T|1|cosrx|6|B0HMZKVGW6|2|COSRX The Blue Copper Peptide Bakuchiol|230||,,,,,13n,umi,8i90,5dyi,4n6h,870u,8qsx,9bmn|ey0sa5
+A|2|cosrx|113|79|131k,12j3,12i4,124x,1b0d,1g0r,1a1n,1brn,29tm,1h4a,1jxn,1ufr,1pnt,1p0w,y5i,1bpr,1d0x,13lb,vf4,zv6,1vwl,18uz,1a0r,1idj,1tr9,1whp,18ki,15sg,1fb1,1lu1,1s09,1mhf,1jpk,1hul,1eom,1mfr,1mfq|efwf,dnsy,dltl,dmm6,hj0i,j63j,gm0c,hnou,v6tb,jhgy,kbn9,okas,na0t,ngu7,cz97,i8m1,j4am,fryb,bo74,dfo1,qmu4,h0qe,hggs,l4sw,po6x,rb2h,hgyp,gpyj,kug8,mjo2,noq7,mate,llcb,jl3z,io0o,lq2p,lqqw|0|1xd9kp9
+T|2|cosrx|1|B0H4M2TS8F|7|COSRX Advanced Snail 92 All in One Cream|10j||57n5,5yr3,4a6h,3stp,54ia,4vrp,4c67,5gq3,5i71,4aqy,3zvm,58f3,56zg|awmr3h
+T|2|cosrx|2|B0CMT68F39|2|COSRX Advanced Snail 96 Mucin Power Esse|yj||6z3z,6z3z,46o0,4878,48b6,48b6,4ce3,4eks,4eks,46r2,46r2,43gb,43gb|vaptfm
+T|2|cosrx|3|B0H5D283KG|4|COSRX 6 Peptide Collagen Booster Serum 1|15t||3sqa,3lgo,2cp5,22ey,22ey,1s4r,1j4b,1mby,1r39,28ir,2k9t,3hqk,3hqk|1pfvqz1
+T|2|cosrx|4|B0H4ZLSFFX|2|COSRX Ultra-Light Invisible Sunscreen SP|v7||nre,nre,e98,orz,1hg2,42h1,6bcl,3ux9,3xpt,27i1,1efz,1m9y,1m9y|1cgic71
+A|3|cosrx|103|78|ieg,ecp,dtt,cjr,dkb,eja,f1c,hce,105p,hjs,k1u,wy2,14ri,10il,ken,to3,yqw,wm0,kty,j5o,wkr,mtq,lkg,z67,1al6,13s6,mlu,ie6,owv,nkd,sq3,wwk,to6,ji2,jo7,szb,sw8|818r,5we9,5sr9,5b3q,5u5r,68em,6gri,7iqq,g5mc,7ozb,934k,eq6s,jb4l,h2yy,9ns8,dyji,giw7,fsr1,9wup,96uu,ffna,aror,afxp,gk6y,lsz5,iqcc,axlr,8wv8,c9g2,bj0v,ckrw,ec3a,d0d0,8zxu,93av,dbgs,d9is|1|1vm5qjl
+T|3|cosrx|1|B0GXYRGRC6|6|COSRX Advanced Snail 92% All in One Crea|15o||5lll,4bsr,33rj,2dmy,3732,38c7,30z9,3ecx,2nqj,1rs0,1xuk,2dfz,2bod|50k2ic
+T|3|cosrx|2|B0HBWKZH7V|2|COSRX 6 Peptide Collagen Serum mit Coppe|1a4||3q7y,25pg,zbk,l6y,1dg7,zbk,xde,1apy,1dtd,1cnh,1pes,2oaj,2oaj|h8whyf
+T|3|cosrx|3|B0HLTSFDJ7|1|COSRX PDRN Exosome Overnight Wrapping Ma|1b8||mf,asz,asz,vs2,1l7c,18hp,19m3,wkx,wkx,wec,jft,1ln0,1ln0|7zsjcq
+T|3|cosrx|4|B0HFBS38WH|1|COSRX Ultra-Leichte Unsichtbare Sonnencr|xb||b4f,7lz,9y9,8s4,t9p,t9p,1v08,2pxk,2fmg,qnq,fzu,mdk,mdk|14005ve
+A|4|cosrx|88|86|4qj,554,68h,5zm,7v2,5jm,4zr,59f,58v,4o0,4ra,5za,6lh,76y,6r7,7fc,83m,88b,6xy,6ml,6ln,681,69h,6qb,76s,7iw,5pw,4sb,5cu,58x,54z,4ev,3fi,51r,58l,6gj,6m0|2at0,27x5,2s1b,2xnp,3tv2,2rlq,2hfo,2l1m,2jvi,2810,2a65,2y5z,3ayb,3lb1,3hxq,3ndz,40cu,43l0,3eof,37v2,3500,2xx1,2xot,33um,3cwh,3q9s,2twg,2gfg,2skq,2p3v,2iis,26jt,1q8p,2dl0,2gkj,2zd1,30oc|11|ysqt75
+T|4|cosrx|1|B01LEJ5MSK|1|COSRX Advanced Snail 92 Creme Tout en Un|1b2||kpm,kpm,kpm,d48,kpm,kpm,d8c,91x,3hd,9t8,b4c,jlu,jlu|15ij3vu
+T|4|cosrx|2|B0DLKCCPYZ|1|COSRX Peptide Collagen Hydrogel Eye Patc|1cw||5x7,48a,48a,5x7,7m3,7m3,8b0,5aa,3rx,94j,94j,8wo,8wo|16am9zl
+T|4|cosrx|3|B0HCCGVXB6|1|COSRX Advanced Snail 96% Mucin Power Ess|15e||ko9,ygf,d3d,ac5,7kw,8yi,9ib,88o,6z1,7pz,7pz,8mf,8mf|17bibqb
+A|5|cosrx|121|120|pna,gzi,fng,dvi,qmx,si1,kwf,zwk,1wce,rq0,15kh,u9c,ivc,1d9b,gu3,j0c,f0x,h1l,dzl,kaq,19rm,hsy,dux,jll,ppt,jrl,h8z,gsz,dax,kwh,jyq,gjk,12v5,lm7,lie,13kf,11m9|1bpffy,ssngo,qpy05,o5x7n,1df4zl,1guxct,11lh0z,1sywse,3iiepc,1fbf50,265d7h,1jj3wy,xqdgy,2j1c42,u8jrx,yn0bf,qvjjv,tzhn6,oolws,10ee8t,2iqnwx,xr1j6,nj8dw,x1whe,17i7jf,xduri,t2wjs,ta0we,ngpbl,10kale,10f54t,twlvp,1zu9mh,1358vp,139u70,221yii,1yny21|4|11sw7fj
+T|5|cosrx|1|B0FWQGLTQV|1|[23%] COSRX C232 20ml C 100%C C Vitamin|22g||,,2pfy,5dc7y,6wkus,9z24h,9z0ro,8fscc,n0ie0,8gwnq,8gwnq,nwzdc,nwzdc|41g5bv
+T|5|cosrx|2|B0DGG3MMJX|1|COSRX 3% 50mL - COSRX Tranexamic Acid Al|1ok||3dwi4,3dwi4,3dwi4,3dwi4,2153o,3dwi4,3iejg,23ubo,7q36s,4uxu8,3gygg,6adb0,6adb0|ej59s8
+T|5|cosrx|3|B0CCJ3SRB9|1|[6] COSRX 6 150mL Peptide Serum|1mp||4min2,3axvw,1zd4r,1zd4r,1zd4r,3axvw,3jd9g,24f5o,7s7ks,3hhqw,3hhqw,7ejak,7ejak|1n3ejxa
+T|5|cosrx|4|B0HQ51CTZX|1|[4%]COSRX BHA ZERO ZERO BHA AHA PHA BHA|1i6||hmc5,ljav,9ser,9ser,dpdg,1mqgi,1oxac,2tjh8,52rv0,3vf3i,3vf3i,42a7c,42a7c|klubuo
+T|5|cosrx|5|B0BG794FYW|1|[] COSRX 0.1 20ml E|1mw||5sfui,37ssy,37ssy,37ssy,1xha6,37ssy,3hdw0,3hdw0,69p00,3hqfe,3hqfe,4jb8s,38ngk|15pf9wf
+T|5|cosrx|6|B0GWPQ7FS4|1|COSRX 50ml UP 360 COSRX|2gw||,,,,,,3cj8,3cj8,2uhtc,2r7rc,2r7rc,4rgu8,4rgu8|14mjk3z
+A|6|cosrx|53|53|178,165,1d8,18a,1qf,1l9,2m5,46x,6mj,4yl,2ld,2bj,2jk,2p3,2kh,3k3,3s1,3w7,3to,39t,42s,43z,3wy,30u,2cn,216,29b,2ck,2mb,2m9,31g,30w,3ul,4ks,66y,72q,77r|yfe,vnl,10no,whp,1b12,17mi,1zb4,36d9,50jq,3rli,20q5,1rg3,1y6h,23oh,1zcm,2pec,2qih,2x5y,2xz1,2h5g,332a,33dc,2x3a,29v7,1uyu,1koc,1swf,1xc7,26v2,29w9,2dhz,2e2t,335l,3kgd,4yrc,5don,5huo|9|ctqjap
+T|6|cosrx|1|B07N3SMBRM|1|Cosrx Advanced Snail 96 Mucin Power Esse|1zj||hdt,fjx,a2b,a2b,a2b,4kp,evi,9mi,gmi,sgt,g4q,vbx,vbx|okx3qh
+T|6|cosrx|2|B0CCJ3SRB9|1|COSRX 6X Peptide Collagen Booster Toner|2fi||,,,,1gt,1gt,69f,8rl,is9,h03,y06,fyw,fyw|1pny1w9
+T|6|cosrx|3|B01LEJ5MSK|1|COSRX Advanced Snail 92 All in One Repai|20t||,,,,,,,,,,g05,ugo,ugo|sje44m
+T|6|cosrx|4|B0179IBBEE|1|Cosrx Acne Pimple Master Patch 24ea (10|1gi||,,,1j7,1j7,1j7,1gz,10f,4u0,4ze,bml,djj,g06|13gsnxj
+A|8|cosrx|96|79|6p6,4wc,60y,4r0,5qq,4eh,4jh,3qk,4nl,30n,46e,5un,81y,7g7,6o5,71w,ae6,8y3,6j6,56g,88z,5ql,666,61q,750,70q,5c0,4dx,5dh,583,5gm,5ar,4w1,4w8,5gy,6gk,683|340r,273i,2o1s,26sj,2nph,21rr,234t,1pqm,267y,1f5l,1xj0,2qe8,3rk3,3jhx,35xv,3b7o,5431,4hpf,38do,2hnq,3ze8,2sp9,304r,31lz,3nv9,3lf9,2tr6,2dgu,2wie,2sq6,2pmc,2nux,2h12,2doy,2ntw,31ps,2xzh|10|1mzzjt2
+T|8|cosrx|1|B0HJRKQFT7|3|COSRX Siero al collagene peptide con pep|1bw||pb2,fsq,dd2,7vo,dd2,8na,a0w,akn,bze,bjn,bjn,d2n,bqw|gor2m8
+T|8|cosrx|2|B0F8VN4HT6|2|COSRX Advanced Snail 92 Crema tutto in u|192||kvx,lqs,c7g,857,ave,8og,9n3,a4e,8rt,89n,at8,bx3,bx3|127xe76
+T|8|cosrx|3|B00PBX3L7K|1|COSRX Essenza di bava di lumaca 96 100ml|16r||j3t,j3t,atr,8a2,5qc,8a2,7xh,7xh,6pk,7ow,8vh,a35,a35|g7bcqs
+A|9|cosrx|89|73|3lu,39b,3xd,2vn,4rf,30c,3ib,397,5hc,3d9,3x6,87l,a64,aew,5pl,787,bsr,b5d,6xq,5ut,7sx,5wl,6qm,7bb,7kl,8tq,6dd,60l,796,6l6,6le,8eg,7lj,7cl,8e5,b5g,b5o|1lsv,19tj,1i8n,18cj,235c,19f7,1g3y,1d6d,2fb0,1hvm,1q0n,3rpz,4p3i,4u6l,2m75,3817,5h3r,58z4,3668,2oex,3m1r,2p1w,33xt,3jdc,3q4x,4ass,37kp,35yp,3ru4,3fdc,31nf,3uyk,3itt,3d4c,3t1r,4wif,4wps|9|51nffm
+T|9|cosrx|1|B0HJ93V56Q|5|COSRX Pink Peptide Collagen Hydrogel Eye|1ao||xgz,vso,t4y,v7j,1c0v,15wh,yw5,15zw,xln,vd3,z5h,1e6g,1e6g|873orq
+T|9|cosrx|2|B0H6JSSQD7|2|COSRX Tonico Serum de 6X Peptidos Collag|1dv||na9,na9,na9,na9,na9,eqw,cei,lvx,lvx,py6,rx9,u5u,u5u|5c94ln
+T|9|cosrx|3|B0HC826K4C|1|COSRX Snail Mucin 96% Power Face Serum 3|14z||i8m,ued,ac3,94b,7wj,ac3,9vu,hfx,hfx,8je,8je,h76,h76|wx7yga
+A|1|laneige|177|73|54le,b4m3,34qi,2xuj,30zo,2e9u,20kn,1nq7,cu6m,2313,2ioe,d8w5,4f9g,eq29,4hui,46k0,3hae,3kw0,35k1,2xjx,d3kl,43f4,2sfn,aary,5yu0,dcmy,4c23,3jbz,3uim,31ur,2isy,90sy,2khv,3eir,30ph,8jwf,8pu6|2wcbx,6r63z,1vpkk,1sksh,1tq60,1htcd,1a0jw,111w5,7sur2,1b3j2,1n1e6,87hy0,2um86,98av8,2zmev,2quwg,2ch3q,2gksf,25jdk,209v2,8jt84,2qqk4,1vohj,6ikhf,3ocs4,8dy3f,2urlj,2g969,2nci8,241ju,1qm5f,5qvvn,1rj0h,293kp,209bp,5p142,5tcvy|2|1bivlm8
+T|1|laneige|1|B0D98L6Q51|15|LANEIGE Lip Sleeping Mask Korean Overnig|1uo||nyt1,2gvmf,nwrk,oxb4,muzv,g3qg,fri5,18qcd,h7kb,mjcu,ifgp,1qmpb,1tzly|1srla5o
+T|1|laneige|2|B0F22GW72X|14|LANEIGE Glaze Craze Tinted Lip Serum wit|1p4||c1yp,oki7,5sbj,6pj9,68xn,4s4z,3lcv,mi1i,47bi,8t6t,4t57,14ysx,14pjl|4maaqu
+T|1|laneige|3|B0HK5YGV4B|12|LANEIGE Lip Glowy Balm: Sheer Tinted Lip|1gs||ih6n,1mhrw,dkac,c74x,btws,9yk9,7zf3,1j5q1,897a,bgmq,9xbx,sdp9,tfoh|1kw05yi
+T|1|laneige|4|B0HGQZNJSK|9|LANEIGE Cream Skin Face Hydrating Milky|2bc||6r4r,bbmv,7q5l,6r4r,7iep,6wva,4pbs,acxf,5h7l,68hy,7oy0,cco7,cco7|keaq63
+T|1|laneige|5|B0DQD7NZYF|8|LANEIGE Water Bank Blue Hyaluronic Acid|2xk||663h,hn4d,7s0j,89u7,8hsd,7mzz,5tuy,fzwd,6hno,6gdu,71fw,bqoo,bqoo|sg1wad
+T|1|laneige|6|B0HMFNYRGP|6|LANEIGE Neo Blurring Powder Korean Oil-C|1xg||4m82,8d31,581k,474c,8cba,5i07,4443,iu0c,4rsq,4uns,5cqd,9zvf,9zvf|hbtj5t
+A|2|laneige|91|49|4nd,6pa,4s0,4uv,3gk,3ba,3d9,2l8,2hc,2fa,2b5,2jm,4eb,5jf,1jf,2q3,2nc,25k,20r,1g9,11k,xc,172,1da,194,3wv,1n1,1ul,1pf,17h,190,1ji,1op,2xs,6m8,h7q,gvb|29iq,3d3b,2cv6,2fe5,1qou,1ne9,1oji,1an2,18lp,186w,16yi,19tg,23oi,2rcu,t14,1ew6,1cvd,140p,12b4,t2m,lff,k04,pgo,rbn,ote,27by,zof,1594,105s,sug,tc0,y2a,10sb,1n1o,3g8b,8lmo,8g0t|6|wabjll
+T|2|laneige|1|B0HFXRM4M7|7|LANEIGE Lip Sleeping Mask Berry Korean O|17m||454,ksk,3ra,69d,7x0,506,66r,7bt,7cv,bd0,1ero,3eqh,3gad|1aslu8s
+T|2|laneige|2|B0HFXZH3VV|8|LANEIGE Lip Glowy Balm Vanilla Hydrating|1cm||301,hc7,523,480,1xb,yn,z4,3w5,4v9,5gl,gko,183z,11qt|dd9mbh
+T|2|laneige|3|B0HFXLN26G|3|LANEIGE Water Bank Blue Hyaluronic Cream|1i6||88,56,35,2f,5v,3s,3q,1rb,16a,3kt,7jv,pnt,pnt|qkanuf
+T|2|laneige|4|B0HLQ9BC31|4|LANEIGE Cream Skin Cerapeptide Toner Moi|1tk||,,,,,,,,,,8xl,ndi,ndi|ctllc1
+A|3|laneige|55|38|24p,25o,1de,1es,1ep,1cv,1cc,x8,wd,yg,1dd,1fr,29f,2mt,jj,1vh,1qi,1rf,1pa,1lt,1kt,1n8,1t4,2hf,2jz,2zh,1cr,17b,1ff,1e3,wu,rw,q2,o9,xb,v0,v7|12rc,134n,oz9,oun,otk,ota,opr,hc1,gtw,hhn,pe5,qpf,16me,1h3h,dxz,zkk,y6o,1060,yde,wji,wgq,ywr,14me,1g8t,1j2l,20w2,14yi,12xw,16o4,13u3,tmd,qpm,opd,ik7,ndl,km9,kra|19|t5sdec
+A|4|laneige|74|46|65,7n,9s,8j,9a,6y,4t,68,6c,7h,8f,a2,a2,lr,d5,cq,bk,9t,9u,cc,d9,et,eu,ep,kp,r8,tb,x3,ud,v1,n3,n5,p0,qc,mb,jr,k4|5aa,6cl,86b,61c,6os,60g,3p4,5bi,5ig,6ej,71e,91j,8rf,kyf,dlh,qp0,gsf,chz,c6y,eo3,ear,kev,l29,gvc,lud,say,tlk,xc6,10qj,173n,12a8,ybp,z5w,nqu,k6l,hg9,hny|72|1f0chug
+A|5|laneige|212|77|876,6v6,5vx,5zw,6da,7cj,6al,7s0,alx,6ot,6fh,911,8k4,jmz,a5j,9ww,7ri,8zw,98e,7et,egl,7ti,9zx,hku,saf,pl0,ftq,dx9,dkc,e0u,duv,dpr,w0v,cqk,cfr,s7p,svf|gkgdo,dkogs,b1a3l,boc3q,c90tp,dcw99,bmh1y,foe46,k122z,d0x8e,c3i7j,hvzdd,gdd33,11ytcz,kqck2,jxyx0,f83wv,h9q5n,i1h6k,dz39i,rhgae,fhkm4,j9zx0,ywzo9,1leuy0,1ebolg,uucyv,skgno,sfp76,u4h3j,th0lb,tw5hc,21txsz,r52za,pokqg,1oarql,1plqi0|7|1pxs26x
+T|5|laneige|1|B0HPYBFTP8|10|60mL|320||eypof,7gi9p,4e2p2,6vlxa,6tja0,8tuj4,8m3it,9f8lh,112vfu,8u52f,6gdcg,g8bri,g8bri|fs14hg
+T|5|laneige|2|B0HPZLSD36|19|20g|1tp||fvqal,egh2j,7vmt0,5xbwf,5awzc,5d3xx,68ys9,63qcx,a3xpt,6aixs,6fh0k,epc9p,fzsc5|1u276ka
+T|5|laneige|3|B0HQ18PTQJ|10|23N|2jo||,,,39sl,10tky,1azq9,512r,1hv4c,47rll,21zhf,24glr,4nzgc,4iohc|a4ru1o
+T|5|laneige|4|B0H6L2YZ16|16|10g|1fy||4kqst,5z9f1,41isk,2xagk,27sbr,1srg3,1t3ac,1eilg,3fc5u,19xz2,1bgi9,5fbdv,5fbdv|mp9o46
+T|5|laneige|5|B0HPYDSLHY|14|12g|1p4||4fz0g,3kkwt,284fs,258bk,28kvg,1lk5z,1t9tr,1d7hm,320mn,112t5,1fnid,553qg,553qg|1a7yahe
+T|5|laneige|6|B0HPZQS6MJ|10|21W1|2ps||3678u,2z3fj,26hgs,1zbtn,1zdi0,1zdi0,2nc26,1mo5i,2rqsr,1d5gp,1d777,2o932,2vsou|wd2xeg
+A|6|laneige|134|57|bl6,o6g,dcm,abi,9uz,4su,4o8,4td,z54,994,5zw,1j9e,g5s,1dne,eo1,bmn,b2u,b0f,aii,9k0,1623,9hr,cj9,1ign,j4n,1h3y,dz8,e3v,d5g,bq9,a17,rk0,eb3,a6a,aiy,1f0h,1fht|9oig,j72p,avtt,8eo9,7ws5,3sm8,3qyu,4r1u,v00h,9dj5,4vby,1dlic,fipc,19cmq,ep04,c4ky,bmdm,bpav,b9du,agtz,13rxw,ait1,dg1u,1eg17,ja4b,1drsc,eojx,ex1y,e302,coa3,b11g,q767,ep0m,b13h,b61j,1c9um,1coq4|13|1qt4ieo
+T|6|laneige|1|B0H9P3DGTX|18|LANEIGE Lip Sleeping Mask: Nourish Hydra|2bc||3c5v,ceqg,388f,34ni,2qt5,1r2y,1e98,46ag,1wol,1wtc,282b,gktu,gn7y|1coky5
+T|6|laneige|2|B0FNSSSRFK|17|LANEIGE Lip Glowy Balm Berry: Sheer Tint|1yu||30r9,9jcg,1e5z,1bki,16e5,1gqk,102u,4306,1p4n,xeg,11oc,7lhi,7vcd|ac2m8n
+T|6|laneige|3|B0GD1RKV9L|6|LANEIGE Water Bank Blue Hyaluronic Cream|40g||qr7,1pzm,shq,zto,10m2,1408,ola,1ikw,v19,1677,12ej,5eoc,5eoc|1gmz7rd
+T|6|laneige|4|B0GHPQQ8XV|10|LANEIGE JuicePop Box Lip Tint: 12-HR Hyd|2e4||,,,9bc,oco,ch6,adl,nm2,haf,76c,5dr,3dzo,3dzo|gmhzu9
+A|8|laneige|88|55|51,4c,5h,6e,5i,39,31,2t,5b,4h,46,57,8q,nd,j1,dq,a7,ek,ds,cx,dm,fo,di,fq,nt,11t,v3,ue,nf,pe,n0,l3,ox,oz,q7,yy,zd|4kb,3pm,4r0,60w,4ta,2ue,2oq,2ct,55j,3ze,373,3yt,7vz,nyd,i94,bd0,9lb,c63,cge,bnw,dqn,gu4,dhz,ee1,k1v,ung,qx1,qlx,n2b,ofd,lgp,jo9,nl3,lwr,ky1,pny,q19|73|an3f8w
+A|9|laneige|108|68|2f,1o,1n,1x,24,23,23,2f,37,2w,4v,co,f7,qr,t5,qm,pa,m0,fm,i9,i9,ku,mw,qf,vm,vx,xl,jg,10v,xm,y1,rv,p4,yl,ro,14a,16y|2lm,20p,1ta,247,2ak,1u4,21n,2b2,2ss,2n8,446,av8,cd6,o9q,r6i,o4t,mka,kko,f0q,hwi,i6s,knh,ogy,som,xqz,yjn,zmo,i5h,14db,11ej,yqe,s9z,o86,x4h,nyq,wck,ydg|96|1oqpfiw
+A|1|sulwhasoo|83|41|44s,5c0,4x6,58w,4zp,3uw,5d9,42z,fw7,51m,4yf,f4c,5m0,9h7,5rd,5zi,71k,6pp,6yc,5q5,jmq,69g,6jg,d7i,826,aeb,7a3,7d6,8af,7rx,68k,dpu,7ae,8nr,7t7,fsy,g2s|6fmv,775c,6naj,73rb,6t1s,53bg,6u9v,587x,m35f,75w3,6tyf,mx5y,7rcs,ei57,7kg9,84pw,9i2z,9uyx,agcr,7r69,s3m2,8hkv,9flr,j5y6,c2jf,gw36,aobl,auvk,dauw,c9xi,akeq,lv8g,bxyd,bbtz,bbwe,p9b7,q0lj|6|707q78
+T|1|sulwhasoo|1|B0F22LZWR9|7|Sulwhasoo First Care Activating Serum VI|6v8||1z1r,2yvx,1m62,1qho,2385,1ooh,1uys,38vn,1qp3,1sri,1pxk,4dbx,48ye|1kl8l43
+T|1|sulwhasoo|2|B0F22M4GHX|6|Sulwhasoo Concentrated Ginseng Rejuvenat|3lv||1lo3,2jfl,1lo3,1lo3,2jfl,27sj,217y,46z3,217y,1s7t,206n,41qm,4fq4|1gzs5i0
+T|1|sulwhasoo|3|B0GW87GSFM|4|Sulwhasoo Gentle Cleansing Foam Hydratin|2hq||1ixj,1pfl,1ixj,1ehn,1ixj,1ixj,134q,2t9e,18am,1ngk,1kmd,3kxz,3kxz|ic1tn9
+T|1|sulwhasoo|4|B0GW7THQ5H|3|Sulwhasoo Gentle Cleansing Oil Korean Hy|104||10uk,15lt,tcw,w7m,12r3,zwd,pcg,1zfj,r9s,15j1,ykr,23wf,23wf|1dj8e0y
+T|1|sulwhasoo|5|B0F22P1JXD|6|Sulwhasoo Concentrated Ginseng Rejuvenat|8ur||rwj,18vq,rwj,kd0,13r5,13r5,zar,1lus,14l4,fmy,skw,1t8u,1t8u|14d9sik
+T|1|sulwhasoo|6|B0GW864QJD|2|Sulwhasoo Essential Firming Face Cream E|9kg||jfz,16cp,jfz,jfz,jfz,jfz,hau,14da,jhe,k2k,hs8,1hxo,1q43|6nn2xw
+A|2|sulwhasoo|20|20|2e,27,2e,2f,28,2e,2l,2t,2c,27,1x,20,21,1z,26,29,2j,5k,2g,2a,2q,2h,2v,30,3w,3l,3w,5l,3w,50,5f,60,58,56,57,5f,5e|3j5,36s,3j4,3vn,3lb,3zz,3zh,4de,3vk,3iy,3cg,3gk,3hq,3fd,3m5,3vj,3zg,85l,3u0,3n5,43o,3yd,465,4ee,5bu,4z0,5cy,6w8,58d,5y8,61d,67w,5pb,4ys,55z,53u,54a|92|bxntm8
+A|3|sulwhasoo|10|10|1e,1d,1g,1a,1f,1g,13,1a,18,1c,1b,1k,1d,1c,1f,1d,1o,2q,1l,1f,1n,1k,1p,1x,25,1z,1v,1v,2b,28,2a,2a,1x,1u,1v,1v,1v|2pm,2kp,320,2jo,2vc,30f,2cx,2x0,2ga,2wi,2p1,39e,2sg,2p7,2s8,2mj,34b,4bv,2vv,2ql,3bc,33m,33k,3j9,3zp,3s6,3km,375,454,3vj,3ui,482,3eg,3ed,3n8,3ks,3mc|98|1ksj3ee
+A|4|sulwhasoo|10|10|12,14,16,z,x,12,1e,12,11,w,w,1h,13,z,z,20,26,26,1s,15,1f,1n,1s,1l,1a,1k,1s,1j,2d,1z,28,2b,26,2n,2g,2d,2h|1mm,1qv,1zi,1oq,1mw,1uz,2fi,1rv,1su,1lx,1j2,21y,25s,20q,1lj,374,3q3,42g,3m2,20u,2b9,2yj,38l,31l,2je,2vp,2ul,2oo,4ct,42o,3hs,3y6,3mz,536,4gd,443,477|100|1d8upoe
+A|5|sulwhasoo|80|55|7l,6t,68,6r,6k,3y,3v,53,3z,4k,3v,3v,4x,4b,54,44,4l,3u,4p,6c,6u,6i,78,7i,7j,9f,8u,87,98,8y,92,8i,83,bp,hc,sk,rv|14nrj,10xnc,xerv,waqv,17hud,opx6,num2,t54f,ml9g,p1ha,mx2v,lyb2,pzo7,nsvm,s1qp,p2ls,rkfm,izbk,n8fq,txw1,v3sp,ttz1,10etu,zyzx,120fr,1c19r,19knu,12f7b,18l3t,19jwa,16lvn,1294i,10vwt,2d0rg,3uea9,5pwu2,5if5n|98|q2gywc
+T|5|sulwhasoo|1|B0HFH79T43|4|GR 30ml Sulwhasoo|d5m||,,,,,,,,,sb3j,1epx2,1xqe7,1sva4|ypfar2
+T|5|sulwhasoo|2|B0HFJSFW5D|3|VI Sulwhasoo|4ew||,,,,,,,,,ewhu,lcf3,970o,970o|5n3447
+T|5|sulwhasoo|3|B0HHJFTR4M|4|21N1 Sulwhasoo|71m||,,,,,,,,,,,kmlt,jt8d|1iqtlhr
+T|5|sulwhasoo|4|B0HFGL7PJW|2|GR 30ml Sulwhasoo|cb2||1ogi,2tiv,1xaf,1saw,2flk,49j0,2158,1ms4,1iol,444w,9xan,3nxf,3x9d|vn3cup
+T|5|sulwhasoo|5|B09MCHDLFY|2|Sulwhasoo()() ///// 30ml|||9x00,amlm,c0uk,4m6k,78vz,84f9,7xrc,7dsu,6ubc,6xab,4k17,2ujb,316s|tjgkeb
+T|5|sulwhasoo|6|B0CNJ1T1WT|3|Sulwhasoo () SPF 17/PA+ 35ml (17N)|||40oa,4eef,62gr,4g70,4ut0,48ba,5sae,32dj,2v8t,4o35,5crs,3kjh,15xz|5j9anm
+A|6|sulwhasoo|66|32|4e,7c,8l,8m,bb,ff,hf,jz,1l8,tc,zk,1ue,tv,15y,14b,1fr,1d7,1cu,1at,19v,39n,1el,1ji,3ah,1bc,1hy,1fw,11p,1p5,17p,1h0,2a2,1v8,1om,1wn,2sp,2v2|dhd,sk6,zc0,11uc,1b1b,20dm,2663,1tvy,36lm,20sf,40fg,44ci,28pe,4i8a,42vx,5esx,5152,3cfl,4iye,4jn6,81ea,4xva,5guo,7qmt,51yt,538t,56t2,2qcw,6nah,2uqf,5q88,77vj,6tzv,4ygc,5tzl,7j8z,7mkc|58|12yx9ct
+T|6|sulwhasoo|1|B0HM1V2ZST|5|Sulwhasoo Concentrated Ginseng Rejuvenat|||1pid,1pid,1pid,3o9,1pid,48m,1u5y,1u5y,1u5y,1u5y,1u5y,1u5y,1u5y|uadh6l
+T|6|sulwhasoo|2|B0HLR76N75|3|Sulwhasoo Concentrated Ginseng Renewing|mrg||ww6,dqm,a64,bju,wew,8uk,c1m,ww6,ww6,ww6,qcm,ww6,ww6|e4ms07
+T|6|sulwhasoo|3|B00AMXG15I|1|Sulwhasoo Gentle Cleansing Foam - Hydrat|40g||2zt,5zl,2zt,2zt,2zt,2zt,2zc,lv4,5yo,30c,60o,1o6o,1o6o|12nzqsu
+T|6|sulwhasoo|4|B0H8TD8QKS|7|Sulwhasoo Perfecting Cushion SPF 46 Even|7sk||b67,b67,b67,3mh,b67,ao3,6no,90c,jwi,iaw,qqb,5uf,5uf|1dxrssn
+A|8|sulwhasoo|14|14|17,11,29,1v,1j,1q,1l,1l,1h,1d,16,1l,1o,1h,29,24,1w,1r,1n,22,23,28,25,23,27,2e,2m,43,36,3e,2x,3a,3l,3r,3w,44,3w|2ab,20n,3yw,349,2ya,3mt,3d4,36c,2vo,2qr,28p,2zs,321,2ph,439,42u,3j6,36k,33w,3hc,41o,47s,40y,3x5,42e,4h5,4d5,7h1,635,6z1,5gn,64e,6yi,6rw,7i8,8tt,8cg|100|1aytbmz
+A|9|sulwhasoo|9|9|12,15,19,1f,1b,10,14,11,1e,17,w,19,1x,1c,1l,1j,1o,1u,26,1s,1a,1n,1v,1y,21,1w,1y,23,28,22,23,20,2a,22,27,25,26|28d,29n,2es,2le,2sy,23y,2dq,27z,35i,2qp,1xv,2hw,4q7,2up,30e,2zk,2yt,3d3,4dm,3ex,2gs,2xt,3q8,3iq,434,3md,3tw,3rm,48z,3x1,3iv,3hn,4id,3x7,482,450,468|100|s9pa14
+A|1|illiyoon|26|16|byk,9om,dum,adm,c7l,al8,a3u,9yz,ls0,9y9,9rw,m2p,fta,k1z,fiz,enn,hcx,hij,fj5,fam,12sr,kp5,oou,19tr,1471,15i8,wf2,13ay,13o7,27h2,1ehu,26t4,14h0,zj5,1ah3,3hdz,3he0|8fki,6fys,8vuy,6sq3,860y,6qnf,655p,60hu,du7b,61nl,5rt0,ejsw,abxs,cfh2,98x9,8i48,aa7y,9ohl,8brx,82hu,na23,aqps,c3vi,qa96,n1ux,p047,kicf,n8i6,nikw,1bgmz,wpbw,1hkj8,q1uq,nd8h,v2lo,2ebzk,2ec0w|0|r59pxm
+T|1|illiyoon|1|B0CDPGBR6P|10|Illiyoon Ceramide Ato Concentrate Cream|1xg||l2z6,msww,j6us,lo4x,ls80,15xic,srhi,19wip,n1yw,jxd8,qqni,1vdz0,1vdz0|rqxv4t
+T|1|illiyoon|2|B0FPGGKFCH|1|Illiyoon Ceramide ATO Moisturizing Milky|1xf||,,,,xf,1bcu,1b3u,3xbi,s9i,s8w,1b2t,818i,818i|99hgu2
+T|1|illiyoon|3|B0DSZZKTM5|1|Illiyoon Gentle Deep Facial Cleanser Low|1gr||lox,caj,caj,caj,lox,1em5,107h,1t69,lq3,10mr,10mr,2n8r,2n8r|6pwqd3
+T|1|illiyoon|4|B0F798SK7J|1|Illiyoon Ceramide Ato Concentrate Gel Fa|1xf||adl,sav,8ho,e5g,adl,1b64,4rw,xp,4rw,4ph,6la,3h6o,3h6o|h4xa9e
+T|1|illiyoon|5|B07NBJCLSC|1|Illiyoon Ceramide Ato 6.0 Top to Toe Was|1xg||dyw,fty,a8s,dyw,fty,rxs,sex,sex,sex,sx9,sx9,1vhl,1vhl|xste0n
+T|1|illiyoon|6|B0FLPNFD5L|1|ILLIYOON Ceramide Ato Concentrate Lip Ma|12v||,,,,,it,fv9,qg3,fv9,ft6,qcm,28yl,28yl|1wld9ze
+A|2|illiyoon|11|7|ak,dk,b3,bt,el,gn,ha,ik,gq,gg,ja,149,wm,ws,wp,zh,175,1g5,wp,14c,26m,1e8,1n6,2hr,340,2x3,2q4,2rv,2o4,2ta,3nt,4ma,4b4,3r0,46u,5x5,5x6|5mz,791,5x7,6b1,7si,8w4,989,9uj,8t2,8oy,a4y,ltx,g6i,es1,fhf,gys,jrd,pre,fh2,itb,136i,o8s,qpm,1790,1ez5,1atg,14cl,16fr,139h,189u,1gbp,1y1q,1y7e,1gsj,1r09,2l8v,2l93|1|b0l779
+T|2|illiyoon|1|B0D2L3D2DL|3|ILLIYOON Ceramide Ato Concentrate Cream|oz||13sc,13sc,xca,117i,xca,voc,12km,1fyn,1k8y,129r,1d9d,24ok,24ok|17tb7o4
+T|2|illiyoon|2|B0D2L1TNN3|3|ILLIYOON Ceramide Ato Lotion 350ml(11.83|1dz||82d,4yk,4yk,3bz,2qq,99p,9cn,cca,8ll,96e,8ni,ain,ain|xv3dlj
+A|5|illiyoon|25|16|95,bx,c4,do,g4,bw,cf,bv,gx,ez,bd,h0,ft,oo,im,jf,fy,se,j2,f0,uq,ei,jm,w6,1ib,1da,19o,1bd,1mj,1um,1mk,169,1yw,16n,15s,2ia,2id|fztq,jc7z,jm5v,mrv2,rbhj,li2a,hqc0,k8xr,vog1,smha,htx6,sc5r,qmum,18tym,t3lu,vjsr,rbzs,1bsgi,ufd2,p8lk,1fc9r,our3,vm4u,1aqus,23c6w,200re,1umj3,1rri2,262ns,2etiy,2je5y,1oq74,2y3mk,1uhf0,1qltm,3sk3w,3srdr|14|saodh7
+T|5|illiyoon|1|B0CM2RB7N4|6|Illiyoon 75mL|uj||13oka,z69s,u420,p1u9,13oka,186ur,10jcs,q21g,184t8,nzno,nzno,1oaak,1oaak|14yrjog
+T|5|illiyoon|2|B0CJJH38Z7|4|Illiyoon 350ml|1xf||n4rq,n4rq,jtwa,lo30,lo30,lo30,mkqc,fazf,xado,fbg3,fbg3,12o4o,12o4o|kx0o5u
+T|5|illiyoon|3|B0GRV5GVC2|1|Illiyoon 200ml|280||,,,,,2zwz,2xnf,2poo,30fo,2erz,30w0,99c0,99c0|1k94iu
+T|5|illiyoon|4|B0DBSW1TJV|2|Illiyoon 300ml|32k||2fzg,2fzg,5alt,2495,2fzg,2fzg,8cyg,2zyc,2pqr,8720,39js,2h5v,2h4i|1thesit
+T|5|illiyoon|5|B081PXPDQ9|1|Illiyoon 175ml|207||2kld,3xq3,2kld,3xq3,3xq3,3xq3,8bvu,45xx,8bvu,46el,46el,46el,46el|651ra1
+T|5|illiyoon|6|B07NBJCLSC|1|Illiyoon 500ml|1ky||35lz,35lz,35lz,35lz,35lz,35lz,3amu,25ia,3amu,25ia,3amu,6l9o,6l9o|iz32mh
+A|1|aestura|32|29|eu1,7g2,86r,7ps,8ns,7uu,75f,7w6,y7e,86g,83k,uyi,kdn,j5r,h5u,i2o,fsn,7bc,fkf,geg,uce,h6u,h20,ucn,xgt,w8u,n9d,vyv,wcd,zp5,ouo,1ojm,ww4,ywi,109o,1z46,1zvv|cdiw,62bt,6sf0,692s,71h4,6bff,5mzp,6c08,seuf,6gvp,6fi5,n37c,eu23,e4sa,dhij,edzo,csm3,56n9,cq85,dib1,ot34,e4ex,dv0y,oo49,qtyr,qc42,ic9i,pq1r,qibj,t88w,kbxc,1epi3,ru1v,t7a6,uehu,1o3q9,1om6q|1|1pyfuxc
+T|1|aestura|1|B0HPS7Y9QG|2|AESTURA A-CICA365 Soothing Repair Gel Cr|2gw||gx97,gx97,a5jx,gx97,gx97,gx97,afov,vm2u,hko9,hsqo,i6bk,144g0,144g0|33vxdg
+T|1|aestura|2|B09BHSJQHB|1|AESTURA ATOBARRIER365 Korean Cream Mist|1uo||30zf,2k7u,2k7u,30zf,15x0,2k7u,2t04,4ugk,2an0,2tuo,2tuo,4vxc,4vxc|1atfso8
+T|1|aestura|3|B0DHXKSD1P|2|AESTURA ATOBARRIER365 Lightweight Hydrat|2gw||2rlj,2bxx,1nrb,1nrb,2rlj,3fs5,1ad6,415u,2ctr,2ef4,2ef4,3rsw,3rsw|19yycc5
+T|1|aestura|4|B0F1CQ7YKD|1|AESTURA ATOBARRIER365 Korean Body Lotion|2xk||rly,17ld,opb,opb,17ld,17ld,1743,1zut,1743,17zk,17zk,2p62,2p62|1hwajec
+T|1|aestura|5|B09BHQPYN4|1|AESTURA ATOBARRIER365 Gentle Foaming pH-|1mc||nw2,nw2,nw2,nw2,nw2,nw2,o6u,1kfy,o6u,14i0,14i0,1wzr,1wzr|13l93n5
+T|1|aestura|6|B098NP8314|1|AESTURA ATOBARRIER365 Hydro Soothing Gel|1xf||z9s,z9s,z9s,z9s,1msb,2aau,27bf,2tz9,1knl,1c7f,1c7f,1c7f,1c7f|my2bh1
+A|2|aestura|19|12|9q,9q,9q,es,n9,kx,ix,j2,1es,ji,ia,1bp,ql,146,1cz,1fa,1jg,1ib,1jg,1hd,2hh,1hd,1jg,4pg,4st,3vl,399,36v,411,3bc,2jt,41h,3o0,2uw,2z8,53p,58h|6st,6st,6st,a5l,g2w,eev,cxz,d1d,ykf,cud,ck2,wi8,hoc,r53,xal,yvd,11tt,11eq,11tt,10ds,1p44,10be,11tt,396i,3bc5,2ppr,28h7,279c,2rwo,29zm,1swp,2urz,2mw4,21p9,249w,3l5y,3ofu|5|1sy0vsu
+T|2|aestura|1|B0BZPV8ZKC|5|AESTURA ATOBARRIER365 CREAM with Ceramid|207||37ye,2ms9,253h,253h,2oiy,26lv,1r1d,2ssh,2l2u,21cs,23q7,3alb,3alb|1w4gb5y
+A|5|aestura|40|28|87,5b,ac,ds,t5,ta,sf,wn,1z6,11m,16l,3dy,2b5,9dl,4mq,3h1,41y,3sh,3s3,2iy,93q,2xg,2tx,88g,lcw,iup,bd2,i84,d5e,h4l,l70,e8o,tsu,cdf,d37,zus,zw5|itlq,c5ee,muzy,uegv,1vhxn,1uqg9,1rrxp,21qtg,4d9kt,21e00,23pvp,52szc,4mkqa,jq1gf,9s5ha,73wj7,8fx1m,89sr9,8c3ck,5h3we,k5lfq,69q43,69cm9,is2ql,1dph7v,18hmfs,pl8ms,164rm3,tp7u7,144e98,1eugni,y7lqm,1zccds,sag21,ud0st,2dpm3e,2du1j5|5|jrrotq
+T|5|aestura|1|B0HGQHHKWB|5|AESTURA 365 (80ml) ( 80ml)|2jo||zaik9,vaa2f,jp3i9,waro3,kg48o,v9hbb,xkwu0,jur3g,1di5zi,m0qod,o9nvd,1xbbsg,1xbbsg|w5odwy
+T|5|aestura|2|B0BY21VGNN|1|AESTURA 365 200mL|2jo||2rszz,txwe,31yq,1r7ke,1r7ke,1r7ke,2u1m0,187wc,2u1m0,1lgx9,1epir,30w50,30w50|zb10ta
+T|5|aestura|3|B0HGQR9BZY|1|AESTURA365 150mL()|2jo||2t0aj,1ryzh,1ryzh,2t0aj,2t0aj,2t0aj,2us8c,1t3ha,2us8c,1ekb9,1ekb9,2y3g0,2y3g0|70ffmd
+T|5|aestura|4|B0GZ4PNFX6|1|AESTURA 365|1p4||,,,,,,1wet,px7u,1yp50,12ykd,p7jj,39vts,39vts|yyyppb
+T|5|aestura|5|B0F36RR5PD|4|AESTURA365 200g|1s6||16l2b,148rb,xy8c,12wpg,i7r3,jgcq,v79i,ifru,10dyc,b860,npar,1abto,1abto|10t170e
+T|5|aestura|6|B0GQRD9JC4|1|AESTURA 365 (150mL)|1p4||,,,,,6vbu,fzi2,bf2m,p4cy,b8f1,b8f1,zd5c,zd5c|1k4uzmo
+A|1|mamonde|17|15|hn,ec,ee,ex,cy,ba,au,9l,dx,e3,ch,ga,ek,dx,b9,c7,df,cy,cv,ce,c6,c0,8k,bb,ab,9k,73,6f,7c,52,1x1,1xv,o4,12o,n9,xt,xz|aa9,8ks,8hn,8o4,6kf,63u,5xm,4x2,7p8,7xg,6h2,8vg,7z7,7tw,64x,6aj,6dn,6l6,6sz,6me,6ou,6i6,4k3,64t,5ro,5ay,3t9,3gq,46b,2th,15ie,15hr,dyk,loc,cqx,ie9,ii4|23|ebtes0
+A|2|mamonde|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|1qb02w7
+A|5|mamonde|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|20spcu
+A|1|hanyul|29|19|4l,54,5j,5h,5i,31,8l,ct,rr,i4,ej,nx,ot,u9,jq,mv,kk,qg,lh,q5,sg,uw,uo,1cm,12f,12a,wb,vh,15y,1j9,ye,2xp,1js,1q7,1c8,2je,2jn|f4,y1,1d0,1b5,1bu,17c,4jj,75v,dqt,a1v,8b2,fub,c6w,hi6,a54,ehq,ddy,h6d,e81,jcw,nlq,pdv,t0d,18xv,113y,11kn,umn,ta1,10en,1g4b,ugv,2qol,1g31,1dp7,14ax,20w3,2138|13|1eq8cvy
+T|1|hanyul|1|B0FKPJBYG1|1|HANYUL Red Rice Hydrating Serum|3h0||c5h,c5h,57i,57i,1p9,fmh,52l,w4d,ilh,8dk,8dk,hre,hre|uo5jd4
+A|2|hanyul|2|2|3,3,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,c,8,b,a,7,a,9,a,b,7,6,e,7,b,c,c|2c,27,1l,1h,1f,1e,1d,1b,19,18,17,16,15,13,12,11,10,10,z,x,w,as,6w,a8,94,69,8q,7s,8k,9o,6s,5a,cy,6o,a1,bl,c3|100|l04pmw
+A|5|hanyul|14|12|,,,,,1k,1h,1z,42,34,1z,39,4s,54,4u,5o,62,77,5v,56,7v,5v,5m,7m,8k,9g,81,a4,8b,75,71,7b,ao,73,6l,6h,6h|,,,,,4cbu,45rb,5kld,ahdy,8ayu,5e2c,8x9w,diyf,f5yf,e7cx,gp5u,hcth,kk0u,h4tq,evm8,mh9j,g6x9,fuya,l0sl,n34p,qnza,m2ab,qo1e,mo9g,jkzn,jwc4,khkw,t5tt,jshd,ikc1,ieue,iecf|72|a7fx6y
+T|5|hanyul|1|B0G3D3HBX4|2|HANYUL () 60 CICA|2oo||72xy,72xy,5cxm,5cxm,5cxm,5cxm,5kgo,5kgo,b4xc,5le0,5le0,5le0,5le0|131e4c4
+T|5|hanyul|2|B0C4J7J7K1|1|HANYUL () 55ml CICA|3io||4js8,6you,4js8,5kjv,4js8,3p4x,3qpx,4671,4mma,3l5b,3c70,2k84,2ck5|1ovxq9r
+T|5|hanyul|3|B0FDJWRBXF|1|HANYUL () 120mL CICA|2bc||1n44,1ov7,176k,49q5,2zlx,2dit,23pe,2058,4ssu,2fzx,1xjd,1lj1,1k8n|2udjfc
+T|5|hanyul|4|B0CX565ZQ8|1|HANYUL 150ml|2i0||2m45,3107,2rsm,3xmv,2a6t,27qn,2zjf,2wxn,3b84,1xiq,15oj,2kx6,2o7m|1ttsozy
+T|5|hanyul|5|B0FH18MCW9|2|HANYUL () 100ml|2i0||2vgt,1l71,2lvi,2mrs,26ni,typ,u5f,1oeb,14qf,1xt4,20o2,14ta,153m|tcej1z
+T|5|hanyul|6|B0CX8D2HL2|1|HANYUL () 55ml|4jc||14zb,1gfp,1mk2,1692,202p,1liw,13rz,19mi,169r,173g,156m,11yc,14dx|74esie
+A|1|mise|45|20|2eh,2z3,3uq,38e,49x,4p7,5j8,649,i6j,6d4,7eq,kok,a4z,dj9,bde,8tx,ad9,ah3,97w,8lo,10lp,8qs,8md,lv3,f6d,gzt,9d2,cwt,dps,pwg,kqy,1566,h64,hzd,q2s,1p2n,1p2n|141f,1ell,1tj2,1huk,1z2i,29ma,2mvo,2y2g,934j,34s3,3mbv,aftm,51it,6rzs,5lih,4byg,54ia,56pg,4mqu,4bnc,iyps,4eoc,4dc4,b4pf,7r6z,8puu,4omn,6kq3,6vw6,d4qi,axmw,lzp2,9c06,9lv3,duyp,vgd3,vgcp|1|r8sdz1
+T|1|mise|1|B0H7VNMPSM|11|Mise En Scene Perfect Serum Original - H|182||6cqr,71kb,3mxg,4h4k,4hnp,8pqd,8dwh,fvh3,672f,5jk2,8kp9,j94h,j94h|cq285v
+T|1|mise|2|B0FLHK35YR|1|Mise En Scene Argan Oil Repair Hair Mask|1jj||,,r0,myx,myx,1hlh,11t4,35fc,11t4,1gco,2p83,6ccu,6ccu|19yy5zx
+T|1|mise|3|B0GPVVWMHD|10|Mise En Scene Perfect Serum Original Sha|332||qmf,qmf,gm4,pwp,wa2,1bd7,rc4,20ce,1gcn,1myq,1uvu,3wxq,3wxq|1u4bm06
+T|1|mise|4|B0GSVT38GD|4|Mise En Scene Tap and Clear - Korean Dry|1jj||,,pl,22h,4tr,975,9q7,m1s,dby,mco,g9m,1epx,1epx|zw0tr1
+A|2|mise|17|17|6,5,a,e,g,17,x,j,16,1j,1m,34,31,21,2v,36,2w,5x,4u,3h,69,4b,4m,9o,98,6m,6g,7d,96,9b,c9,fo,dv,ce,cq,k4,h5|2u,2e,4k,6o,7u,ld,ex,7w,jx,px,q7,1gn,1f7,ys,1b4,1kp,1ds,2u5,2bd,1px,2xk,240,2c8,4ks,491,344,32r,3ki,494,4b8,5a8,6sl,62t,5e8,5up,926,7xz|40|19frcb9
+A|5|mise|88|64|31b,2r9,36p,2x4,2x7,2ra,2sc,2um,45n,37b,47h,50t,3hl,6fq,3f9,3k2,3t9,44x,46t,52f,767,4im,47w,7h0,7bg,6s8,58v,5a9,67b,5g6,5bw,555,9po,566,53w,7do,7e3|4cgnc,3uvw8,486zr,3wh8n,3shcl,3sde3,3t30s,3y6bl,5xe5e,4gxmu,5k84u,6nupv,4qs5m,90lvy,4nbms,4u3ox,52rla,5nn4z,5r7ru,6w6np,a0wlq,66hro,5pnbd,a4b0d,a19n2,9f9sn,7khny,7dswn,8ts95,7o2w2,7hhpv,7bxpk,duoik,7dwi9,7as2y,aaj8w,ab9xz|11|1kmc6a5
+T|5|mise|1|B0CYP1TT1B|11|80ml|12w||4050u,494zv,2q7ig,2mpj2,3jkxa,2wree,2nxa2,2alhu,4m74d,2bado,2aobx,3u34f,3u34f|1vdgv7h
+T|5|mise|2|B0HGHBQ4ZB|1|200ml|1dz||1jpmp,za8e,vkiv,rutd,vkiv,vkiv,stm6,wnyq,1ln8c,sx36,wrwe,1lu6c,1lu6c|1kh7ixb
+T|5|mise|3|B0FZJMG9T3|9|680ml|1gr||sfgr,re5b,hmym,vvy5,oh3u,lkoy,mbu7,mbu7,17n5t,m8lw,m8lw,14pa0,14pa0|12afpsa
+T|5|mise|4|B08M3WXTD9|1|mise en scene 680ml 680ml ()|25i||ekwe,ekwe,ekwe,ekwe,ekwe,ekwe,etra,etra,etra,f4gp,f4gp,fajg,fajg|1sghmt1
+T|5|mise|5|B0H1KF4Q52|1|10 200ml|1zy||,,,,,,,2pxa,dvm4,8bro,8bro,ozb0,ozb0|q6iulq
+T|5|mise|6|B0D2NF4J1M|1|10 215ml|1ou||74hs,74hs,74hs,74hs,bvhn,bvhn,c3kk,79cc,79cc,bqgc,bqgc,gffo,gffo|14l7o4e
+A|1|iope|34|30|1us,1hq,1i5,1k8,1ji,2ff,1tn,1i1,5pj,272,1jm,72y,5aq,51h,1kp,1nw,2j6,2gg,2a9,1jk,722,1r5,1pc,4ke,4re,4o7,2t4,29h,yk,26h,1r1,3ig,218,2un,23a,4u7,59g|1wxf,1uot,1jue,1mcs,1mcs,2t83,2d9d,21ix,7pa6,34ff,23ik,87c5,6yx1,71s3,1w6v,24id,3egr,3ado,34p3,281s,8zob,2avo,2cv6,5uxz,6l3o,6hfp,3px5,33ol,1fqa,34w1,267n,4r0p,2lvz,3isq,2px0,6tfe,7bb1|7|1bp9jf4
+T|1|iope|1|B0GMRSG6YF|1|IOPE XMD Stem III Clinical Recovery Seru|4jw||,,,,283,bcj,fqt,128j,xql,p1e,khi,1wac,1wac|1imjxi2
+T|1|iope|2|B0GKCPDTRB|1|IOPE Expert Retinol RX 2% Reti-Jection S|4ec||,,,,25p,fex,6mf,oa7,b1d,av2,f7h,1tz0,1tz0|a0uwga
+T|1|iope|3|B0BJQ86VNH|1|IOPE Expert PDRN Caffeine Shot Serum 1.0|3bg||2bpl,2bpl,1e85,lrj,bpw,f2g,blz,ovn,blz,1bgk,e8k,ovu,ovu|achfrn
+T|1|iope|4|B0GTX4MGJX|4|IOPE Expert Retinol RX 1% Super Bounce S|3s4||16wj,16wj,sg8,sg8,1qs,xbn,il2,11b8,f8t,gcm,if0,ycs,1g8f|1dmrapq
+T|1|iope|5|B0GMRSYQP9|1|IOPE Expert Vitamin C 25% Antioxidant Se|3s4||,,,,1u8,5mp,5l9,9bf,5l9,cxb,98d,h0i,h0i|1w1j50g
+T|1|iope|6|B0GN2FYYGS|1|IOPE XMD Stem III Clinical Recovery Crea|5bo||,,,,2f6,3zl,7xo,d84,7xo,7zi,7zi,imu,imu|gus668
+A|2|iope|3|3|,,,,,,,,c,8,7,c,f,j,k,i,16,1o,o,j,t,l,h,h,f,f,f,h,h,c,c,n,i,j,l,h,h|,,,,,,,,c4,80,74,bk,f6,j9,jv,i7,166,1np,o4,ii,st,r6,je,ii,gp,g4,gc,js,jl,e2,dc,s0,mr,ni,qg,n3,mq|89|y0934g
+A|5|iope|32|18|97,bb,d0,b0,ba,ad,9w,ad,pn,er,co,oa,hq,17o,je,qb,qg,ie,j3,hq,1ah,jo,kk,uv,zl,un,px,wl,te,q8,tp,mb,rl,lh,nt,ru,tt|raf7,17e4s,1gblk,127if,1flpa,195gk,1ap2b,1a1gj,3s553,211z8,1k3oa,3ujnt,2cwbf,5iavn,23zr4,2ye81,2y4f0,20un5,25kz9,1ry87,5fphg,20muz,22jqg,32qm1,3swof,3alca,2jyof,3wo99,34f8v,2po6r,3c2wx,2euco,38ue3,2l9v4,2is2d,358cn,38vpg|35|6qvdeu
+T|5|iope|1|B0DS1KTYBL|2|IOPE PDRN 30ml|4mo||16gxz,uc3p,i79f,i79f,i79f,i79f,j6qo,9ldc,j6qo,9b2i,9b2i,w5eo,jag0|he6yst
+T|5|iope|2|B0GQ8KD6NN|2|IOPE 30ml|5go||,,,lg0k,m0xq,b0gv,moo0,bcc0,moo0,l3rx,bdq0,bdq0,bdq0|1lpi2s9
+T|5|iope|3|B0CMPQD2MY|5|IOPE 30ml|4mo||xlms,xlms,ifdf,ukdq,ifdf,97oq,j84o,9m2c,j84o,9n80,9n80,jag0,jag0|18skl6x
+T|5|iope|4|B0FTF5ZYH9|2|IOPE C 25% 23mL C|53c||a1ix,a1ix,e74j,s1wo,a1ix,chq0,a8x9,8kyw,a8x9,eolt,c5se,aly0,aly0|1878r1q
+T|5|iope|5|B0DCVSRPK5|3|IOPE 84ml|2s0||fi93,fi93,8smj,i3nf,dydb,dydb,erml,erml,al6x,dq52,dq52,7l2j,et3o|1adyokb
+T|5|iope|6|B0DW45CXCX|3|IOPE 120ml|||clzt,6fmp,atk1,5kqv,clzt,clzt,d5o0,d5o0,6po0,533n,c3r8,5gd5,ed80|lupawa
+A|1|belif|72|49|b0e,6my,7zn,85o,85b,82d,bjb,9d6,nxa,9np,c5y,ow6,mlu,oll,ife,ey1,hyk,irj,n8q,hoi,1655,fws,gdy,yvj,voa,srn,ic4,gpg,icg,i2n,cxh,nm9,d5p,dcb,dwt,ntx,nmq|9tc1,5n48,6uw9,77mm,73iq,7cx6,ayba,8qaj,n81m,8kz7,b31k,npu8,lhn2,n2w0,gzt1,e2bd,h144,hntm,lsnz,g3in,140nc,f2ft,fsnz,wwaz,ts52,r03n,hqq2,g2oq,hoam,hk2v,db6z,p1vd,dl27,dmvk,f73s,nrio,nio8|2|q280rh
+T|1|belif|1|B0D1W6FWMJ|5|belif Aqua Bomb - Lightweight Hydrating|2hq||8k5t,8k5t,5kso,4u0r,5ftx,5e6c,4dv0,8ado,5810,5578,4n06,5wvv,5rpy|24vlq4
+T|1|belif|2|B0D5DS3MKR|5|belif Moisturizing Bomb - Daily Ceramide|2hq||5t10,52n1,40am,40am,3vif,3x3u,2crn,5iyz,2axn,2itn,47bb,5yix,5yix|cvymh2
+T|1|belif|3|B0D8NB84XK|1|belif Aqua Bomb Cooling Eye Gel with Cer|2gw||3jrq,2wjf,29b4,29b4,29b4,29b4,zz0,1nyc,1nyc,1oqt,1oqt,2ef4,2ef4|1m91ayw
+T|1|belif|4|B0D5DV2VJZ|2|belif Peptide Eye Bomb Anti-Aging Eye Cr|35c||30rp,25ox,1am6,qey,1am6,1am6,pot,1fdl,wjf,vta,1e8c,28f5,28f5|v8m3tx
+T|1|belif|5|B0F9Z1GFQK|5|belif Aqua Bomb SPF 45 Hydrating Niacina|2xk||1f7u,109p,ljm,px7,ug6,v0r,shj,23d8,qme,jzu,gr6,13f3,13f3|6w0qmy
+T|1|belif|6|B085JZSBJR|1|belif Aqua Bomb Overnight Mask - Hydrati|2hq||13ls,13ls,jsw,bvr,bvr,bvr,fiq,icb,71z,9x9,crb,1496,1496|nxd4nq
+A|2|belif|31|16|1o,22,2r,2x,3a,2a,2j,33,3z,43,49,3w,3r,5a,4m,56,57,5a,8e,ca,c5,eb,ko,hl,os,no,lm,le,i7,ga,ik,hn,fx,b9,bo,cu,cs|1hk,1wm,2lv,2m5,2xj,234,2af,2qe,3e7,3hl,3js,3bi,35a,4et,3u7,49n,49v,4bm,6o6,9kx,9ft,atj,fbl,cxc,in5,g52,ggm,fsm,dp5,c2d,ds2,ddo,c7b,8l3,8vx,a8d,a56|51|45q4wr
+A|3|belif|30|19|7v,7y,7k,8n,8b,4x,4z,5i,4y,3w,35,4h,49,29,31,3h,3c,4d,5r,6n,6j,82,9x,dr,ge,i8,dn,g8,co,dk,by,bm,8o,aj,ad,ek,eh|771,7d3,71y,813,7o3,4i8,4gb,4qr,4hj,3l6,2wu,41n,3r1,21d,2ty,38p,330,41d,54p,5vl,5nh,70b,8s0,bqi,eah,g0f,bpb,e6z,awz,bo8,a34,9x9,79q,8mg,8dd,c5x,c3v|77|u9kctt
+A|4|belif|41|29|3y,4j,3r,35,4m,2s,3h,3k,3i,3d,33,2q,38,2i,2r,4l,2n,24,4i,5n,53,d9,ks,kn,pm,nq,mh,lb,kz,ji,fh,en,ct,8a,7u,80,9k|3i0,3y5,3cx,2lt,3ym,28a,2wy,331,2xf,2qj,2kh,28m,2bw,22t,286,3s5,29t,1sp,3s2,482,4gm,blr,hqt,inc,mow,kuj,k4j,j56,j39,hwa,dsx,d6x,as8,7ee,6n8,6sb,8k0|98|10m8ehq
+A|5|belif|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|a3qto
+A|6|belif|28|26|6x,7u,7f,71,7a,96,8w,8r,8q,93,7k,ag,aw,ao,9l,d6,ez,l3,l2,k8,124,jb,lx,184,1b9,1e0,kp,ng,pj,131,kb,wu,15n,t3,tq,1ao,1am|2yq,4ap,3yb,3hm,3bg,3b6,346,371,35p,3fn,453,5g7,5ya,4nk,c35,hag,kgv,tcx,sg1,pp8,1k78,psw,syr,1s92,1x1m,206k,s1y,wiz,yrh,1lgh,u17,1e4w,1wbc,17zh,19om,225f,2218|35|1gq3hqr
+A|8|belif|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|6z8arw
+A|9|belif|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|1e6jxtk
+A|1|tfs|191|140|rxa,ere,jy6,r0f,ncz,kgo,rsm,n94,1iol,u2r,14xb,1f52,1icg,1gja,qkr,15ch,18dh,15vu,1cnd,13qg,1p6i,13b3,13t7,1qbr,1ptt,1zrv,1029,19bv,10i6,131k,oi5,1646,rlm,10i0,10lx,1bym,1b54|845u,439o,62ov,7x0g,6zy5,7bv8,9jac,7un8,ipnl,9u1l,e0y0,hwtz,jzqh,jiq9,a8q7,fm1n,gzjj,gb2h,j66y,f3ei,ouru,fqqq,f2yx,onmd,om9i,uivv,e1fv,hew9,dyh0,etgu,9zau,h27q,b6mz,emrw,ejxk,j3jb,ijfq|4|pcek7r
+T|1|tfs|1|B0FBX6JYXD|2|THE FACE SHOP Rice Water Bright Foaming|x0||603a,5njm,3l4d,418r,2fuk,336k,232s,3yy4,2pp8,3566,41hi,6bs0,6bs0|10xgfje
+T|1|tfs|2|B0FH5F5KD3|2|THE FACE SHOP Rice Water Bright Makeup R|rg||37x2,398p,1vp0,3bw0,398p,3bw0,1yg4,3gro,265w,3chi,3b3i,3hp0,3hp0|1yqkt80
+T|1|tfs|3|B0GYCKW38S|1|THE FACE SHOP Rice Ceramide Moisturizing|18g||1rdo,1fuu,14bz,1fuu,14bz,14bz,uv4,177k,uv4,uv4,uv4,177k,177k|927iys
+T|1|tfs|4|B0G4XP6M55|3|The Face Shop Original Collagen Mask Hyd|1gs||1izz,5g0o,1aua,1pj4,meo,mdw,9eu,mbo,atx,1lpl,cgx,tbk,tbk|1ma127h
+T|1|tfs|5|B0DB6D3L9N|1|THE FACE SHOP Rice Water Bright Double C|208||2abb,3t6v,rfs,rfs,rfs,rfs,ij4,t9c,t9c,u3c,u3c,u3c,u3c|7nalk9
+T|1|tfs|6|B09TQJH34Q|2|THE FACE SHOP Rice Water Bright Light Cl|15c||1ktv,1ktv,pty,105x,pty,pty,hd0,sxo,hd0,h76,sny,sny,sny|wb56di
+A|2|tfs|23|22|q6,od,lt,l1,kn,g0,hs,fs,jx,je,jv,n8,jg,lo,lt,fv,ft,lo,ns,i9,ki,kg,k5,mj,o8,hh,hr,oy,jg,kh,if,i9,ct,jg,g4,ju,id|9bw,8xq,80k,7lu,7fn,62d,6nb,5xg,7e5,6yh,75s,88d,6xo,7lg,83v,5zh,5m9,7mq,8fg,6ef,7hm,7i2,7g0,851,8u5,6i7,6ax,95m,6vn,75i,6ad,6pa,4ht,721,5nz,794,6pj|18|kjdrp7
+A|3|tfs|13|13|8u,7c,9e,7i,7c,67,6f,84,8t,8e,6j,7s,ac,89,8a,bl,7x,82,9e,8h,ai,d3,9f,7t,7x,7l,7m,aw,7u,77,6w,63,6c,74,5u,5x,5z|3v5,37q,41j,3bw,382,2s7,2v2,3ko,3vd,3rr,2zt,3mu,4lg,3ra,3q8,4yv,3ku,3lc,4dx,3ps,4kl,5mk,420,3gm,3j1,3eb,3gi,5cj,3kb,39o,317,2o3,2pk,2xa,2g6,2ly,2mu|41|nfckmc
+A|4|tfs|27|26|8h,9y,dd,9h,9l,8e,8s,8s,8y,8w,94,97,8v,bh,ck,b9,9t,bl,9n,7r,7p,7o,7p,6w,76,65,8g,8h,7r,7s,6p,6o,63,6p,6i,6b,69|43v,4m1,664,4mn,4mh,451,4b9,4db,4f4,4d5,4jh,4n3,4ae,5fh,62s,5eu,4q6,65h,50s,3u5,3sr,3xl,3ux,3fs,3qn,37x,4dn,49u,40i,3yi,3e7,3b3,31t,3h3,3fe,3ep,3dl|61|1bpbhmh
+A|5|tfs|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|11jw0yi
+A|6|tfs|74|68|1bi,1dy,1pc,1qn,1ns,1ve,1ui,1qw,1sw,1ql,1pb,1m4,1pu,1sj,1pi,1ya,291,2zl,2nm,2h0,436,2s0,343,5cg,566,4mq,2qd,3is,4wn,4ss,2uf,4lj,3rq,3j3,3vi,4pf,4pg|shy,txi,10wb,12ww,11p2,1726,17qs,15np,17r3,17wv,165a,174b,17xf,184t,17c3,19ym,1eys,1twt,1oa9,1lbw,2a1s,1oxy,1txf,2v8c,2pui,2ipt,1n9i,1x0k,2m29,2m04,1o9g,2glo,23k6,1x0a,22z1,2jvp,2jwg|22|y24l7l
+T|6|tfs|1|B0GY5P3HCW|2|The Face Shop Rice Water Bright Foaming|18g||nvr,iwo,b81,eu8,os1,ezf,5xw,g4k,gwc,efg,i4s,wy4,wy4|7qlrsf
+T|6|tfs|2|B0GMYC95WD|1|The Face Shop Rice Ceramide Moisturizing|1e0||,,,ob,bpr,d3d,7n0,bt0,af0,bt0,d70,910,910|1hqhuhl
+A|8|tfs|14|14|52,4l,5f,3y,55,40,47,66,59,5b,60,57,4z,68,73,6e,7x,8p,81,6x,5p,61,6j,68,6q,5k,5i,7n,5x,68,68,61,5l,6o,65,65,65|2o0,2du,2qo,1zf,2p1,285,2co,35f,2p7,2on,34i,2na,2it,33r,3ia,365,3xc,4bg,40p,3ig,2sf,2xu,35b,2yx,39m,2rh,2nr,3oh,2wi,316,377,2yq,2of,3a6,337,34d,34g|85|1iv3wog
+A|9|tfs|18|18|1p,1q,1f,16,21,1z,2d,1w,2o,2p,3c,2q,2h,37,3j,2l,4q,5h,6o,3s,2q,3v,3k,2s,39,2z,2t,3w,3a,3k,3p,33,3p,3j,3n,3e,39|xp,xu,ss,o5,137,146,1ah,12u,1gg,1hb,1r2,1g7,1cm,1ng,1ty,1em,2e3,2vk,3ih,21i,1ga,1zf,1uz,1i2,1qk,1l1,1gl,20b,1oy,1u8,1rc,1j8,1q1,1o4,1qs,1pf,1na|92|pfot7d
+A|1|cnp|36|22|ci,af,af,ci,af,3b,gb,7ta,kjh,cgk,dqg,gxx,r9h,zke,p2l,hy3,gqe,gmi,eqz,bo6,gg3,7x2,5sn,cba,dx8,nt4,9nm,8f9,77g,8b8,49b,725,3qy,4fb,3a2,5d5,5e3|4wo,3iq,3iq,4wo,3iq,17w,6sv,3f0a,92rh,5jnq,66vw,7y9n,cmfs,fv68,ba41,8b80,7w1t,7tse,6wnk,5c2j,7ni3,3nai,2qn1,60y5,6r4t,atjq,4fd3,3vep,3df4,3vdg,24po,3fd5,1vsr,2367,1mrq,2vvf,2wid|2|150xhy4
+T|1|cnp|1|B0DGWQXB44|8|CNP Honey Lip Butter - Propolis Lipcerin|1dq||330f,70ua,2409,1sgz,1nhe,23kd,t38,1ng6,qmm,148r,ndw,1amm,1amm|1pfxw8x
+T|1|cnp|2|B0DW455CYN|5|CNP Propolis Jelly Lipcerin - 01 Honey C|18g||1goq,2gr4,1eea,19sl,w2h,x7m,icj,tj6,eg1,drw,ama,i7k,i7k|1j3dhx4
+A|2|cnp|4|4|,,,,,,1,1,1,1,1,1,1,1,1,1,3,4,6,5,d,f,e,11,18,1t,2r,28,2o,2n,2q,2p,1o,1d,1m,2i,2i|,,,,,,p,p,o,o,n,n,m,m,l,l,28,2q,3p,35,7m,8b,7y,nz,sr,16n,1le,1a6,1i2,1h6,1hy,1gz,y1,m4,pi,10x,10r|48|1wo1blg
+A|3|cnp|1|1|,,,,,,,,,,,,,,,,,,,,,,,1,1,1,1,1,1,1,1,1,1,1,4,a,9|,,,,,,,,,,,,,,,,,,,,,,,13,q,n,m,l,l,k,k,j,j,l,33,7s,75|100|nkl56s
+A|4|cnp|4|4|,,,,,,,,,,,,,,,,,,,,,,,3,6,4,3,3,3,l,a,7,6,6,a,j,i|,,,,,,,,,,,,,,,,,,,,,,,2o,6m,41,33,2y,2x,i2,87,5q,59,5q,9h,ht,gf|100|fknbn4
+A|5|cnp|181|137|5gb,5cx,5xr,5jr,59l,5q3,5fv,54o,7eh,5kg,5ri,7cu,5mo,9g1,6ge,6an,63s,828,7i0,5wg,7kp,8oz,6i3,853,bdz,818,6tc,71i,5zu,5do,5ib,5g7,6un,6up,5l4,7eo,7cb|8r2ls,8ooxc,98w3p,8g82g,85xgv,7zg5v,7lc64,7mq6x,aqwmf,7yuqe,7v3w4,b6u3e,8ph9p,f1uty,9eg00,9igps,8tx1u,br3du,bfj3n,9aow8,cajbx,dt4sa,aekfn,cl34o,hwkxp,c18u9,b3eor,blkh3,9dvnx,91wp8,9d9ld,99cd5,c9x5c,csy88,9ztrj,e93pf,e1aep|21|13wam3n
+T|5|cnp|1|B0H44QQZKQ|1|CNP TXA PDRN 30ml|3qg||,,,,,,,4rrj,17tfi,3mu2i,1tf19,42ls0,42ls0|d9b1v2
+T|5|cnp|2|B0GS5DGZ4Z|10|CNP 100ml PDRN|19u||95do7,5h8rl,3629v,336xv,283vh,1ioel,1nj4s,1nf4c,2ax9g,1rfh8,1cxpw,234kl,234kl|12v93ha
+T|5|cnp|3|B0HKNFBW38|2|CNP 100ml*3+P S 1ml*3|2jo||lnqy,lnqy,lnqy,y1bi,fgyo,y1bi,y7k4,y7k4,14fh8,y583,y583,vq4o,vq4o|p1kwq3
+T|5|cnp|4|B07Y4Z57K8|1|CNP () P CNP Laboratory 100ml|1ue||bnjm,gbd2,kz6i,kz6i,gbd2,gbd2,n610,i0os,n610,hu7g,mxp0,hqys,hqys|1w5dfg9
+T|5|cnp|5|B0DJ8QKX8Z|5|CNP Laboratory 30ml Derma Answer Active|1r7||5x9l,5x9l,juw8,9zss,49sq,juw8,mqd9,mqd9,mqd9,mae7,e4h5,egif,ftaz|ftx577
+T|5|cnp|6|B0H6GXTLWV|2|CNP Laboratory P 100ml PHA|1xg||1brce,b0rs,b0rs,afyp,b7a7,5owb,cznf,iosu,iosu,aodi,aodi,nr7i,nr7i|1fj856a
+A|6|cnp|8|8|d,f,j,x,w,q,17,12,1i,21,22,1t,2d,1l,1r,1k,21,1k,1c,1g,1o,1g,1h,1c,1m,1j,1m,1f,1a,y,10,14,1a,11,10,10,z|nw,p8,wk,1lw,1kf,167,1qv,1if,1j7,1qb,283,26i,2pk,1y7,258,1ss,1nv,1h1,1h9,1gt,1sf,1kd,1kp,1eq,1un,1o1,1tc,1kk,1go,11w,19a,1eo,1pn,1fe,1bv,1b9,19o|100|bbquvc
+A|8|cnp|3|3|,,,,,,,,,,,,,,,11,g,7,6,7,c,7,7,8,5,d,9,8,o,d,f,d,f,f,k,g,g|,,,,,,,,,,,,,,,vz,dt,61,5k,62,ac,5p,6f,77,4j,ce,8d,7p,j3,az,e1,c6,dw,db,hz,et,et|100|1uzvtx4
+A|9|cnp|2|2|,,,,,,,,,,,,,,,,,,,,,,,,,,4,2,a,5,7,a,9,6,b,b,b|,,,,,,,,,,,,,,,,,,,,,,,,,,4n,30,cm,5t,7c,ag,9a,5t,ad,ae,a4|100|t8rxmr
+A|1|vdl|8|5|4e,7m,7u,9s,9k,c6,fh,lw,24o,jb,e3,lb,fp,ka,n9,m9,o4,c8,a1,7c,9p,8n,97,aj,g3,kw,b5,b8,b6,7o,83,ak,6x,6j,6d,9d,9d|1ch,2su,2sx,400,3rh,5tf,81v,b0h,14ba,9ap,6i7,a1n,7ea,a7a,c0m,bj2,dld,6fc,54c,3sg,4ww,4eo,4q9,5iu,94n,bwy,61a,63g,630,40v,49p,5s2,3nu,3h6,3el,4wj,4wj|21|xqpvoj
+A|2|vdl|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|16fl925
+A|5|vdl|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|1ba9vve
+A|1|hince|149|21|104,y0,zd,x9,yl,15f,1it,1js,3ny,25q,239,2tc,3dj,473,33m,34c,3vm,3qj,2zn,2s3,69e,2e1,2x9,3bu,325,3w9,2ov,259,2ht,28r,32q,3pj,2ze,3r0,3v7,3sf,3w8|f5s,ef6,f26,e2g,ex8,jgp,r1o,t4m,1yji,14jv,158v,1lg9,1w21,2c7t,1pdj,1ow9,21fz,1xvr,1ktu,1emj,35dm,18a8,1hlp,1qkx,1mg9,22bv,1et2,14qm,1an8,14vr,1k2t,20w9,1hqq,1whv,1vvc,1zqr,21yp|45|1no607g
+T|1|hince|1|B0C5WY3BKZ|13|hince True Dimension Radiance Balm Korea|1nj||jxc,ssg,agu,680,6fv,8tc,bop,1bfp,fed,dbj,h2y,10ql,133i|1dj3zsn
+T|1|hince|2|B0DWDDQ1MS|33|HINCE Raw Glow Lip Tint - Stain Glazed G|1b8||4p8,9e7,1vp,xu,xv,4p7,yz,yz,2qy,kfz,kfz,zf,zf|qhsr07
+A|2|hince|3|3|,,,,,,,,,,,,,,,,,,,,,,7,7,7,g,g,d,d,e,q,k,j,x,m,h,g|,,,,,,,,,,,,,,,,,,,,,,5c,4u,4v,bp,bu,91,9e,a5,hc,d7,cj,mr,ei,be,bc|100|v1m5in
+A|3|hince|2|2|1,1,2,2,1,2,3,3,1,1,1,1,1,1,1,a,8,8,4,7,5,b,a,b,a,f,e,1q,o,14,u,s,i,s,q,d,c|n,n,1i,17,u,1k,2d,28,15,11,10,z,y,w,11,7s,61,65,30,55,3m,8o,82,8f,7l,bx,ao,1c4,it,uo,k8,ja,cc,er,dx,ap,ag|87|lzc8fj
+A|4|hince|2|2|,,,,,,,,,,,,,,,,,,,,,,,d,5,2,1,1,1,2,a,8,e,d,g,7,7|,,,,,,,,,,,,,,,,,,,,,,,ho,70,2u,1x,1u,1t,2z,84,6h,aq,ah,ca,2b,26|100|1bpt22v
+A|5|hince|201|61|6m9,743,5tw,5wi,4r0,2w4,2w2,3dv,3b5,358,2x8,2zb,301,3ca,1u6,18g,1i6,1ho,1pu,1z1,1vi,1e5,2kk,2d7,2qc,2uq,2le,3rs,3dz,46z,4r5,5h0,7gr,5jo,61o,6ig,6m9|9qe1u,9u5tc,85f1m,8otkv,6rh0c,3z5ay,433fv,5106f,4vdxv,4sagm,4fexe,4d9ie,4o6ty,5sk8o,2ysf6,25am7,2icdi,2k1y5,3368r,3g5n6,3amzw,2e1vo,4nxe4,497qv,52uen,5c6pp,4ovdb,74myl,6bt9t,7wb2n,9fzun,a4rc2,dwz9s,a5u4b,ayid4,c43dd,ccaus|55|1n3j2nm
+T|5|hince|1|B0B5T9R5TP|11|[hince/] TP001|2jo||k7yn,f5rj,f5rj,1203h,enkv,k7yn,18uns,for9,1uxga,1q3cx,1yka0,1dieo,1dieo|1kfp9kw
+T|5|hince|2|B0H2M29TVT|10|[hince/] 10 /|1j0||,,,,,,,xlpf,1g8ja,1fym9,1f33j,13z4t,13da5|13urkoi
+T|5|hince|3|B0H45LDDQM|13|[hince/] 01 /|1j0||,,,,,ggjn,69go,fp3r,1b6hu,pzvo,w89t,1oh30,1oh30|1e13nu3
+T|5|hince|4|B0GRGRQ38R|16|[hince/] 16|1jk||6617,6xe4,7rzs,2bl4,skro,x396,wr0w,wr0w,wr0w,vv9k,vv9k,xlvk,xlvk|d60qaq
+T|5|hince|5|B0B5T7YP4Q|13|[hince/] W002|uk||swxj,swxj,vbob,ac5t,vbob,vbob,veyx,veyx,veyx,uwaj,uwaj,w31y,w31y|c854hv
+T|5|hince|6|B0HB4JCDBG|5|[hince/] 21 /|2ps||,,,,,,,,,,ihfk,1b5j4,1b5j4|1inc7hg
+A|6|hince|2|2|7,c,e,e,k,p,k,c,d,8,b,a,c,6,j,h,k,j,c,f,o,h,l,s,w,13,1e,1n,17,1a,y,z,x,y,y,1g,1i|5w,ax,cq,ck,hb,lu,hn,a5,b9,77,a2,8g,a7,5p,ph,k6,oi,nx,f0,gt,px,iz,m3,rx,vu,117,1b7,1iw,14n,184,ya,xy,wf,vc,vf,190,1ak|94|zdea7m
+A|8|hince|2|2|,,,,,,,,,,,,,,,,,,,,,,,6,4,2,1,1,3,6,5,7,7,g,b,8,8|,,,,,,,,,,,,,,,,,,,,,,,5h,3w,1p,19,17,32,5t,48,5w,5p,d9,8l,3h,3g|100|sfxvbb
+A|9|hince|2|2|,,,,,,,,,,,,,,,,,,,,,,,6,2,2,3,6,a,9,e,b,e,d,8,9,9|,,,,,,,,,,,,,,,,,,,,,,,58,1x,1r,2m,57,8u,7r,aj,8k,aj,ae,5v,4r,4f|100|1t5rlhs
+A|1|ohui|9|9|,,,,2e,3s,5l,4q,a2,89,86,83,e3,fe,7i,7k,9s,af,dh,a4,eo,91,7e,94,cm,dt,86,ah,93,a3,9n,99,8g,6d,6g,4h,4e|,,,,6f5,ahq,f3g,caw,ndz,iwu,i0t,i31,wct,10wa,gmt,gvs,kba,m3m,tll,mvo,vmu,k58,gka,k2x,r5w,ubv,i2j,ntk,k8f,mhr,mf5,m9w,kph,cmg,dc6,6f1,681|67|hkbluf
+A|2|ohui|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|1f2gcqh
+A|5|ohui|13|10|30,4c,3q,55,55,3b,2t,3q,46,2x,47,4n,49,4v,6b,6k,3x,4v,3w,40,3a,36,2t,2v,35,3g,3n,4g,32,2x,2f,38,28,32,2a,1t,1t|alol,ffsv,cyrx,jlew,jriy,datu,aweb,fb3j,gcf2,b98u,fgf8,iezr,gw9q,jgli,p0fg,pefx,f0dq,gnuq,da7z,d3vn,c9ii,bhyg,9u15,acv3,bgx0,cwny,dj3z,fxg2,bloj,arm2,7eri,a7rf,71we,58hf,4g38,y1m,102e|89|5imj8v
+T|5|ohui|1|B0CSSPKJ2D|3|O HUI() 20ml MIRACLE TONING Glow Serum 2|||3nh2,30aw,33po,2xeb,3grz,3aj6,lb5,2ewm,21cq,1udw,1pdw,,|kzajzd
+T|5|ohui|2|B0CDWYP5DG|1|O HUI() 15g (#01 ) ULTIMATE FIT Tone-up|||oo5,mpe,13qm,n5f,tly,p86,11sv,ugd,rhq,14ut,1dtf,,|182jq55
+T|5|ohui|3|B0CF154VYR|1|O HUI() 150ml MIRACLE TONING Water Pad 1|||1ya0,1k76,1okx,4l06,1ln0,1xeb,1vxc,2k5x,1f2m,1gu8,i27,,|1wnidou
+T|5|ohui|4|B0DBTVNWW3|1|O HUI() 200ml Miracle Moisture Cleansing|32a||i4w,oix,x1x,rs1,kct,g9o,syd,hw4,j2m,fcs,hzz,le3,mci|vwe78w
+T|5|ohui|5|B0DBTZY6TV|1|O HUI() 50ml Miracle Moisture Ceramide B|1a2||eze,e23,dkm,dd0,dcn,d6x,dbe,d0u,c9v,d1q,ctr,cnj,dpw|1n1v225
+A|1|whoo|8|8|23,23,23,23,23,1d,1d,1d,1c,1d,11,t,u,v,o,v,y,1a,3j,3u,5f,5l,62,6a,6x,6s,5v,57,5c,5i,51,3x,3s,4l,48,49,4d|23a,23a,23a,23a,23a,1d6,1d6,1d6,1ce,1d6,111,t0,uf,v4,nz,v5,y3,2yj,c6x,d2u,fer,gi5,i0c,inp,lpy,i9t,j31,hkh,idy,kbv,im1,ddv,dew,h22,eiy,e1d,ejq|78|19fv9v
+A|2|whoo|1|1|,,,,,,,,,,,,,,,,7,2,3,2,2,2,5,3,4,4,2,5,3,4,4,3,2,2,3,5,5|,,,,,,,,,,,,,,,,k3,7c,8n,5z,5g,5h,de,9l,d3,ar,76,ei,88,as,b5,7o,6m,6e,aa,ez,fe|100|w38hjv
+A|5|whoo|6|6|4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,3,c,8,b,17,1c,17,1a,13,1k,1i,1f,18,12,z,z,x,u,s,14,v,v|crs,cn9,cn9,c71,bwq,bio,b6c,akz,ac4,abf,abf,abf,abf,9kb,8l6,8l6,3xm1,276j,2lht,9icc,9u4q,a3ea,a39g,8vgg,baa1,apny,aqk9,9wwb,90ab,74qa,7kwk,74hq,6tla,668l,av9x,5mht,5ncq|100|1dnnfe5
+T|5|whoo|1|B07W8WQC2T|1|THE HISTORY OF WHOO THE HISTORY OF WHOO|jwo||21m0,352b,3609,2rnj,232k,1jv8,2sxu,3ipk,2uqy,2ry7,6e8t,3j3d,3hd1|x3buo5
+T|5|whoo|2|B0DXPYTN7T|1|THE WHOO/ 20ml|53c||1s22,1alq,1u78,z44,t2z,14db,13wz,zqx,x8p,17ql,1s76,1qo5,1td1|zijyi6
+T|5|whoo|3|B07Z7BG97D|1|(The History Of ) : (150ml + 25ml) (110m|||1fdt,1lbr,2d0x,3au8,3m5g,1uqg,311a,20p0,2lt5,1si3,28li,,|gd39v5
+T|5|whoo|4|B01D61FVDU|1|The History of Whoo Gongjinhyang Jinhaey|3bv||8ll,e31,ty6,yj6,pfb,v5s,n0h,lc9,fsj,e1r,g8h,cqb,cmn|aui6h
+A|1|sum37|11|6|,,,,,,,,,,3k,7f,8c,el,c6,7z,io,d9,el,ap,hk,a7,av,gd,b9,dl,di,9i,9i,ar,bo,7e,8p,b3,6x,a5,ac|,,,,,,,,,,5ct,74o,7lo,gfh,e8g,6f4,e8h,bhd,ep6,dqj,h9l,dzs,fia,igf,cfw,e25,itl,ddq,b6e,dhw,gcb,97u,c50,htw,agp,9gq,9pp|46|u6s7q9
+A|2|sum37|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|zushjs
+A|5|sum37|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|ws8hsm
+A|1|cremeshop|426|384|do4,nv5,ev1,g6r,h4g,cwr,d1j,dm2,e87,ega,erh,fta,h8v,qfu,e6e,ccl,dk9,dwz,bj9,btt,b8y,bx5,b0h,be7,ejm,lpp,bfc,c9s,e73,fnq,cro,g72,fdl,fj4,hf8,iwa,jg8|4o03,7zh0,4whx,5drp,5phv,499z,4d1l,4kvb,4smj,4uqw,4w09,58vk,5xyg,907t,4wx6,48ie,4nk3,4m9p,3vb4,3z6j,3ti1,40ix,3mw0,3sf2,4ou4,75fl,3x45,42sr,4ow6,58sa,3yin,4w8y,4nq8,4m00,556k,5ger,5hs3|36|1adi727
+T|1|cremeshop|1|B0FT6QQYSP|1|The Creme Shop Miffy Perfect Travel Make|15o||3zw,h4m,7f7,auj,h4m,h4m,69o,h3f,9or,gpw,gpw,hd0,hd0|wak587
+A|2|cremeshop|10|4|o,1e,i,v,t,k,j,i,u,h,t,d,d,e,i,a,7,j,d,b,c,j,g,f,g,n,t,n,l,g,o,t,c,4,9,3h,3b|fh,vm,b6,jy,ii,cp,c3,br,jb,as,ia,85,8i,8w,bd,67,4i,c8,88,6w,7g,c5,ae,a2,ar,fo,jp,f3,dj,b2,b3,co,aa,5v,dy,1kf,1h7|84|54xol4
+A|5|cremeshop|7|4|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,c,11,9,j,u|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,pru,3nbi,u3d,1hpi,2fmh|100|a8ejpr
+T|5|cremeshop|1|B0FZ151CHF|4|HA|2vd||,,,,,,,,,2qf8,dhf,160u,18fp|1cf3r2j
+T|5|cremeshop|2|B0FT78N16P|1|HD|1u4||,,,,,,,,,mfi,ax5,6xl,7c4|76epth
+A|1|physiogel|27|22|2sh,1hx,1y2,2s7,2f7,3ng,5a0,3z8,6t8,2xd,3ya,4pm,444,3se,35b,4sr,63h,4ey,4fr,4n0,5c2,2xz,37f,571,68o,5f7,3rz,4db,3u8,3xt,2qw,4un,30w,36y,3se,501,4z4|1f0f,qeb,zpf,1hdg,1adi,1z1a,2syb,22yo,3qiz,1i0e,22az,2ko3,2e0s,24xc,1suf,2unx,3p82,2mgt,2q6h,2tlw,3c8d,1sq3,1xs7,35e1,3q87,389e,2bpm,2p6y,2d13,2fsa,1rlq,35co,1z5s,23bp,2hkd,3c69,3bni|4|c5kdy5
+T|1|physiogel|1|B0B9ZPD1J2|3|PHYSIOGEL Daily Moisture Therapy Hydrati|1un||13o6,xch,x2x,111a,yed,yed,klc,y0h,j7d,mfz,y0h,wmi,wmi|yzfkb
+T|1|physiogel|2|B0CX86YKWD|2|PHYSIOGEL Calming Relief Redness Relievi|1un||1841,11mb,hxn,jp1,gr6,gr6,cif,l2d,ec8,d9k,gcm,w32,w32|1kkihmr
+T|1|physiogel|3|B0HMW4C4CD|1|PHYSIOGEL Daily Moisture Therapy Face Bo|1xf||f45,bxl,acb,div,acb,acb,6qz,egn,8oe,8o0,8o0,egn,egn|6s28ug
+A|2|physiogel|18|12|5y,6f,7k,8l,7g,7l,7t,8a,7k,60,7v,6r,7z,6h,7x,81,9y,dm,c4,71,6r,7r,95,8i,9e,8r,ah,dv,7y,81,92,69,6z,7m,7n,8g,8e|496,4ls,5cb,655,5bo,5fr,5mw,60i,5k6,4c8,5q8,4x1,5qe,4q4,5on,5fm,6v8,9ao,8dr,4oc,4l8,5i9,6et,5rn,6hi,5z7,79q,9dy,5ce,5dd,5uo,46i,4l0,53b,538,5i5,5h9|81|qxsh63
+A|5|physiogel|32|25|11w,16w,10x,129,15a,xa,uy,w5,10h,th,re,11s,yj,1ax,zr,134,xr,19j,x2,zz,10u,pl,tm,115,1dh,11q,11s,12g,v9,xf,xa,s7,ts,nh,os,d2,cr|1r0hc,1yu9m,1mp92,1phh4,1w1ix,1ign5,1cc55,1bnuz,1lnep,17rxw,15f6g,1tgnp,1pb6f,29ftb,1vdyk,1yhqt,1qdqs,28ar0,1qt4y,1v7ew,1wxw6,1bj0g,1kqah,1yfeu,2ozdm,20wzt,20oe3,21pqr,1o2wi,1trpp,1r240,1h3os,1kdc9,16fmw,18ux8,onwm,o063|31|1uu413u
+T|5|physiogel|1|B0DTH6XY6P|3|PHYSIOGEL()DMT 150mL /|2mg||17v8x,qat8,qat8,pv52,n2ls,n2ls,jolq,jolq,n4k8,d2pu,gm16,733n,6pf2|1gbl010
+T|5|physiogel|2|B0F6B5W7C3|3|PHYSIOGEL() P /|1r9||6kvc,6kvc,6kvc,4xdv,5tf8,6kvc,6lef,5qko,55v6,769r,56ll,4bva,4ce2|1mko35e
+T|5|physiogel|3|B0GWPNDYMT|3|PHYSIOGEL() 75mL <>|2d0||4srz,3kjj,4krm,3bpj,464a,5ynl,7bje,5rtq,6it3,5ot1,6xob,xfq,vz1|vx97ge
+T|5|physiogel|4|B0GYN498LC|2|PHYSIOGEL() AI 50mL(Advanced Repair A.I.|1p4||39k1,39k1,39k1,5yxa,39k1,39k1,4myo,3mq2,4myo,51hc,51hc,2j9d,2iht|1uu8f7k
+T|5|physiogel|5|B08VS3YK4H|1|PHYSIOGEL()DMT 400mL /|21c||7x6s,7x6s,7x6s,7x6s,3yle,3yle,7u6c,3x36,3x36,48s0,48s0,2ao0,21ac|re6h1c
+T|5|physiogel|6|B08VRQKQK2|1|PHYSIOGEL()DMT / 100mL|35i||50gu,39wm,50gu,50gu,39wm,38hq,3an6,1zua,2rv0,2ap3,1x2s,28vm,25fj|15c7wpg
+A|1|drgroot|47|39|1do,1e5,1fo,435,23f,3rt,6mp,3h2,82w,3mp,3sc,5yn,9h5,axy,7wj,gln,hl1,mvl,wqx,w1e,1wzm,11y6,10pu,1bvz,1bfi,1h03,1doo,1d96,1ac7,12r7,lmu,1u8r,1jn8,1lkh,1sg2,2fnk,2frj|9zr,k9r,n6j,2y3n,1ehs,2x3k,4y9s,2p49,6jpa,2rd5,2y8o,4pdl,7nqb,919l,6rkn,f39o,eu8g,kbnn,si96,r7zr,1lkh1,vwy1,v8zp,154ie,15uev,19ghl,15ka5,158kp,13gjm,x0aw,hw5p,1tprb,1gfuz,1i1s9,1qgrf,28tb9,28yia|4|dasbh0
+T|1|drgroot|1|B0H7Z5YN74|3|Dr. Groot Hair Thickening Shampoo Korean|2bb||aki4,amy9,ai1y,aflt,apef,bcnv,5uoq,hylp,axj5,azrx,i3zj,op1k,op1k|1nezhfi
+T|1|drgroot|2|B0HLN8HYZ5|2|Dr. Groot Miracle in Shower Moisturizing|2jo||abob,abob,abob,abob,abob,3sa4,337r,aapu,aapu,af00,af00,hv66,hv66|hce5s7
+T|1|drgroot|3|B0DK263J67|1|Dr. Groot Hair Thickening Conditioner Fo|2ag||acos,acos,acos,acos,acos,acos,4aoc,9wy0,9wy0,abzo,abzo,h7zg,h7zg|1nssp6t
+T|1|drgroot|4|B0DK22L979|1|Dr. Groot Award-Winning Hair Thickening|208||4p5d,8ahy,8ahy,8ahy,591s,458z,31d3,8a9i,8a9i,8cv9,8cv9,4nn0,4nn0|1pwze8v
+T|1|drgroot|5|B0DLCQZ85Y|1|Dr. Groot Thickening Shampoo Conditioner|42o||,,,,,,,5mm9,4gec,4zwy,5kp0,6rab,6xb1|muc4kf
+T|1|drgroot|6|B0DNLMNTH2|1|Dr. Groot Thickening Serum Shampoo Condi|7ps||,,,,,,,9clo,4rct,3zhq,5xsd,3rt2,3py2|1yjcw14
+A|2|drgroot|4|4|,,,,,7,c,s,s,e,f,f,27,2g,4m,2h,2j,3m,4z,3m,4m,4p,9e,aj,db,de,fi,8j,8k,54,2z,5s,6g,a2,8m,8y,b0|,,,,,6j,c2,lv,o6,ce,e8,e5,23o,277,4ak,27i,28i,2n6,3yf,3fz,4dg,4f8,8wl,9ro,cgk,chl,e25,7qi,7qp,4p3,358,6du,718,apr,9hq,9xk,chn|11|1hm3p7l
+A|5|drgroot|15|12|p,p,1f,1c,10,1z,1a,1o,2v,1c,2n,2n,2d,3f,3i,2k,3o,3t,4w,44,3w,39,2d,20,2f,28,2e,22,1y,1m,1w,1y,25,1e,1o,1m,1l|,,,,,,,,,,,,,,,,,,,,,,,,32sz,1p6r,2uuz,3t4z,3bgp,1jrh,13qp,3gmd,2gz7,8pt,3hgg,2rrn,2mbw|98|uyyoe3
+T|5|drgroot|1|B0HGRT6JKH|1||9aw||,,,,,,,,,,3914,2b2g,26cg|1s6j604
+T|5|drgroot|2|B0CTJ566BD|1|Dr. Groot Premium Scalp Cleansing Brush|2d3||,,,op1,hyb,ce9,7yy,68y,dyq,8pt,8fc,gp7,fzg|13ufbb0
+A|1|aromatica|62|42|9ea,93c,8b4,85h,86i,78g,6ge,7fj,aep,8kl,6za,94z,8oc,9jc,7df,79n,8ab,7zk,8sf,8j2,biw,8as,90q,bih,i7k,hzt,ak6,dbv,cnh,i8q,bwr,jqq,ihy,dlw,fk1,mik,mim|65at,5pm0,54to,4x8o,51a4,4egp,43ka,4kpc,6o5c,5dua,4gtf,5vre,5jyr,66xd,4ppq,4m3l,57xy,52qq,5hkz,587k,6sd6,4uuf,567z,6p18,a3g3,a1d4,61c0,7qdf,6uiv,9x9l,6xsu,b5cm,aclv,8405,99za,dqus,dqxe|4|v9oaoz
+T|1|aromatica|1|B0GHR6KTSZ|2|AROMATICA Rosemary Root Enhancer 100ml N|1d0||5n2h,5keq,2vj2,3j33,3b3u,5pq8,3dhk,5yfk,63va,3lqs,3zap,6qlc,6qlc|1jegp4k
+T|1|aromatica|2|B0CNM5Z68Q|5|AROMATICA Rosemary Scalp Scaling Shampoo|1x2||18o7,13vo,zr3,13vo,13vo,z36,1315,14qz,1315,13o5,16ga,1ebo,1ebo|17knf73
+T|1|aromatica|3|B0GYRQ4PQB|1|AROMATICA Overnight Rosemary PDRN Scalp|28k||,,,,,,,166,5z3,z69,z69,1lcl,1lcl|qz0an2
+T|1|aromatica|4|B0BBLGTHPK|6|AROMATICA Rosemary Scalp Scaling Shampoo|3qq||vwy,tzw,p43,wqz,h7z,pxj,hgk,1380,sse,t3i,v3r,1agc,1agc|7ojjhc
+T|1|aromatica|5|B0BYMXJJ75|2|AROMATICA Rosemary Scalp Scrub 5.82oz /|1gs||9ju,9ju,65g,mjb,ki4,f0o,ebm,pqq,cvd,ba5,pfq,py6,py6|1jhcu01
+T|1|aromatica|6|B09B2599B7|2|AROMATICA Organic Aloe Vera Gel (10.14oz|16g||cis,bes,7ne,640,9ve,aze,bjo,krt,krt,99u,9sh,b3n,b3n|hrxoic
+A|2|aromatica|15|8|st,in,gy,lq,mh,hf,eg,eo,gr,ej,h4,j7,gu,mn,ka,rx,mt,tb,tl,hb,m1,ju,j5,j5,ln,vf,n7,um,k1,es,ih,il,k3,cc,er,l5,l5|f6h,a0u,972,bt5,bqc,8ot,7a9,7ff,8tn,7ci,8hp,9vj,8az,b0m,a06,dkj,b4s,gge,fls,8mn,app,9q1,9gw,9hh,ak4,h6m,bg4,hl7,9y4,7lp,9qp,9s9,aep,6nu,81d,bce,bca|8|1b9q7od
+A|3|aromatica|19|12|15s,t0,qc,tx,wk,ly,jr,jd,mi,i3,ka,q2,ig,14p,ro,qj,ll,wu,t5,k6,po,p0,s0,uv,x7,mj,hz,sb,kk,kg,od,pn,mf,jl,qa,yx,yv|nil,gcc,f0h,gwa,iua,cdp,bl9,csd,cxe,aps,bs5,f3f,alg,n0c,ff3,ekz,c0w,jkm,geq,b44,dm1,dgi,f5h,h0g,jek,chk,9sq,hl9,b9w,bsc,d6l,e0g,ccm,arr,edk,kv7,kul|9|132d69a
+A|4|aromatica|23|16|cs,9z,7m,87,8t,5r,8a,8s,76,79,dp,d7,d5,6m,dk,a3,9m,al,bl,67,6j,6u,6c,76,7z,6u,fb,dl,8u,fw,d5,c9,bi,bt,bu,8f,cb|7uc,697,4l7,4xq,5db,3l3,5a8,5m6,4jm,4lg,8oz,8b6,89z,41v,8qi,6ju,696,67h,6yn,3uk,3wn,422,3vg,4fw,4tj,43w,9qe,84v,5ht,a2y,8if,7z9,7hs,7i0,7hp,4t1,7ak|72|1ot2p6k
+A|5|aromatica|37|21|4,4,4,m,23,7n,oz,qw,1mg,10a,16i,1iu,11b,29z,1up,265,1ph,2os,2lw,2mx,3qp,208,3k0,3of,423,3x9,2yd,3n1,3jg,42f,3ry,45j,8re,5hl,5ro,6yp,6yo|6wy,6q9,6n1,yhz,3id7,dolc,15j9s,1adfv,2uxtn,1qeiw,1yk69,2o8oi,1t09s,3vyqn,32int,3ovt1,2xq4o,4nhip,4jgr0,4idor,6gfij,3j1ay,66rn8,6ge08,79t5m,6vr9q,56wh7,6bbbg,66suj,73ksj,6rw2f,7frvw,g2laj,9pefs,a7hrr,cxvzq,cxu59|7|1w5eenh
+T|5|aromatica|1|B0GWCSDJXD|3|[AROMATICA] 165g -|1s6||1ya5l,1ya5l,13tr6,1ya5l,1ya5l,2ftdu,24u9f,2ir8u,5xgaq,54uzv,59w4p,4u628,4u628|1s3r4ln
+T|5|aromatica|2|B0FWKN1M5G|2|[AROMATICA] 100ml -|1lx||22nl7,22nl7,1y6xh,22nl7,22nl7,2748w,2a7ew,2eue0,4ziyo,29lf8,29lf8,3k49o,3k49o|1lks2yh
+T|5|aromatica|3|B0FVFC81HQ|5|[AROMATICA] 400ml -|28z||p3p1,p3p1,j72o,q799,j72o,p3p1,jzul,olvo,10wxo,jtp2,uhzs,17qgk,17qgk|1c9zgq9
+T|5|aromatica|4|B0GYRQ4PQB|1|PDRN PDRN 100ml [AROMATICA]|384||,,,,,,,26yt,1fbrg,d9w6,d9w6,vcuw,vcuw|6nssp1
+T|5|aromatica|5|B09XHNHNTC|1|[AROMATICA] - [ 1 100ml 30ml 30g ]|2j2||gmw9,9zc5,4zo3,9zc5,9zc5,9zc5,addo,addo,haas,aapu,aapu,hkbw,hkbw|17mij2v
+T|5|aromatica|6|B0FVFJ3G8R|2|[AROMATICA] 400ml -|21c||819z,819z,819z,6fl7,819z,819z,8ct6,8ct6,dxcm,8a39,8a39,hbuc,hbuc|knd5pn
+A|6|aromatica|15|13|2,2,2,2,2,9,i,o,16,1f,1i,27,27,19,1h,2j,1y,28,1y,25,1u,2q,1w,2n,2m,2p,1u,1v,2a,4v,3h,2h,2j,2i,81,9o,9o|48,3z,3v,3t,3r,ds,t9,122,1u3,28o,2b6,3g2,3fx,1xa,2al,3vo,2w6,3bo,2yd,31c,2o7,40d,2pr,3tn,3tb,3ya,2nq,2ox,329,5p9,44d,39w,3lz,38z,8l9,a0e,a0b|63|1d2v90p
+A|8|aromatica|29|26|k3,dn,gv,h4,gq,bn,h8,gu,hk,i3,st,s9,sn,15w,10w,1ju,281,1nb,196,ss,1cy,yt,14l,10z,227,1hk,ps,zj,zm,lh,q3,r1,qu,m6,vy,17n,17g|d79,9e0,bg0,bma,bmx,8m9,c7h,blw,c2r,bvq,gx0,gsy,ha7,pwp,mvt,w5l,1aqy,10t7,rqe,hdu,ru7,jkx,mel,kv3,16vd,w7p,f8z,lww,kwt,d1z,fep,ft8,fu2,d16,hvc,q7i,q3q|22|zka4c8
+A|9|aromatica|29|24|gz,f9,et,d7,dc,dn,hd,hm,k5,hf,gw,iz,ka,l9,if,ht,k3,ig,il,ho,e8,bg,dv,d7,do,cc,bp,mh,gx,hs,gt,gz,d8,jv,hr,ok,on|d6z,b22,b5h,96x,9ag,9wo,clw,day,ft0,cqk,cwi,e2x,fxm,gim,du9,ddh,em1,clr,ckc,cco,95k,7eu,99q,8oq,8pl,7ii,7i2,ehi,a5x,bpz,akx,aq1,7ij,byj,9ul,cz4,d1f|70|1o5ke1h
+A|1|ts|20|7|nk,n5,ng,nx,od,os,ob,aa,86,9k,d5,a1,8r,6h,7t,dq,j7,jy,zz,eb,b5,bg,ai,ab,9r,7h,8p,cb,eh,d5,fn,90,62,8o,6e,6l,6n|9lb,98x,9et,9s5,a15,awz,at8,4pp,3lz,47m,5nr,4lz,3wg,2vc,3lj,606,84h,8rm,ff4,673,4tv,4vz,4ku,4l0,47z,38w,3t4,57j,65f,5s0,5r4,2xi,24f,2s3,27g,2e6,2fa|36|bs4pfj
+A|1|rejuran|47|30|b2,bf,d6,cg,cg,ea,dd,cq,fo,g3,gc,jb,1zl,3ys,24p,26x,2gh,62y,82f,7oc,n1q,79z,7mh,dsx,h9t,l0d,ayw,br9,auw,ezi,d5d,l11,dst,fhd,fhw,uxx,uxz|ia6,ie8,lh0,k75,jye,m56,l47,jp4,oaa,ood,p7w,si6,2p9o,5baq,2rd2,2v5e,3awf,83y2,b6kb,apgo,xazj,a77p,bc93,k72o,oz4q,u1im,fd31,gp0e,es7r,kgc3,hmsm,scn8,h3sa,hsu4,i61r,z0k2,yzwe|2|18qmgrs
+T|1|rejuran|1|B0HKNHZZYW|9|REJURAN Turnover Ampoule c-PDRN Face Ser|40g||hb3y,lv19,a7xo,bxw0,9cfw,efua,bqb1,jz2y,agzh,9ilj,9zcd,l66m,lbkh|16kknbo
+T|1|rejuran|2|B0GS97KS4P|6|REJURAN Turnover Mask c-PDRN Face Mask 5|1rw||1az3,1dsh,x2s,uvo,1e81,1cdt,17po,17o8,145j,26qh,26kb,49bi,49bi|1swsck9
+T|1|rejuran|3|B09GW8TLWG|1|REJURAN Nutritive Cream c-PDRN Rich Hydr|460||12bj,12bj,q7w,q7w,u93,u93,v36,1iv0,v36,wht,wht,1kmr,1kmr|3wdzt1
+T|1|rejuran|4|B0F93NZBKD|1|REJURAN Recover Lifting Ampoule c-PDRN F|9yc||1gcw,1gcw,nss,nss,nss,nss,oh7,1825,oh7,ovt,ovt,1dn7,1dn7|nygt7o
+T|1|rejuran|5|B0FPFYMMNT|4|REJURAN Active Cream Enhanced DOT c-PDRN|38o||gm7,tzu,eci,4xs,d5z,j4w,lke,6at,rbd,ob0,mgd,zlc,zlc|ceii0r
+T|1|rejuran|6|B0FSKSBRT2|1|REJURAN Pore Tightening Toner Pads PDRx|28k||,,,,12p,7ob,7r8,l1w,gmc,vrk,k49,tqf,tqf|1b5pv56
+A|2|rejuran|20|14|,,,,,,,,,,,,,,,,,,,,l,q,t,2l,2c,78,7x,7g,9h,kg,my,oq,gk,de,if,i4,i5|,,,,,,,,,,,,,,,,,,,,nn,ti,yn,38e,2r9,86b,8jc,6tk,9cx,kao,mei,ntd,en7,col,ir5,i16,i19|21|7i82m5
+T|2|rejuran|1|B0GGHV93X1|5|REJURAN Turnover Ampoule c-PDRN Original|30c||2bf,7q1,7q1,4mu,7q1,gzo,fy1,fy1,7xd,82o,dwu,csw,csw|7pwibn
+A|5|rejuran|64|33|8c,8c,8c,8c,bf,mr,oc,uk,1yi,uy,xc,17n,yl,1ug,1c9,1ez,1i6,1zc,1j7,1ki,2oo,18s,1n6,3mh,53a,4vv,399,3jc,381,396,2n7,2ag,day,dvt,54p,9qa,9ps|lb00,lb00,lb00,lb00,x3jb,1pw20,1tp5u,2dm3q,5gwui,2j3k2,2qtw5,3ot7q,3auzr,5zho7,4g9mo,4hhm9,53rkk,6s4gn,4rhp7,5671l,8cqjw,451cf,57ia7,cauml,ij3nf,hkvv9,bholn,cyvog,bao3s,bdg0i,8qvqs,6w3gz,1h9qgg,173y8x,f2g0z,tw92e,ttteg|9|1u48ss2
+T|5|rejuran|1|B0FT2GXB2Q|7|REJURAN 60 c-PDRN|2us||wqna,14eed,xlrm,14t7m,159iq,1s8s1,1etz6,1modu,d9kto,3oyrz,5yov9,fqdme,fhbxe|163ev0w
+T|5|rejuran|2|B08YDX2VJC|1|REJURAN 30ml c-PDRN|||,,,,,,,,,ndoxc,g8p,,|1qgw89f
+T|5|rejuran|3|B0FRLL3YQ3|6|REJURAN (5) c-PDRN|1ue||1p2uu,1xksr,14trb,152ss,1ewaw,xsb8,wsfu,s0u2,2cx94,8tm0b,2tqa1,44v9c,44v9c|3k1zbn
+T|5|rejuran|4|B0FSJFS883|7|REJURAN 50ml PDRN c-PDRN DOT|8oi||2qruv,3od2v,1yifg,2owov,2xm3e,2wzly,2y94v,1s4vg,wmlua,3q51i,3ld2j,6231i,6231i|l936qy
+T|5|rejuran|5|B0FQ4Q1DSK|6|REJURAN 120mL c-PDRN PDRN PHA|2oo||1jn82,1urg0,12tqb,1dvzg,11s20,zqwc,1ge9k,vhvg,30eia,17845,j9ei,229z7,229z7|19tfjxv
+T|5|rejuran|6|B0FSCNSNS6|4|REJURAN 50ml PDRN c-PDRN|3b6||e68u,5x4t,d9qx,jskv,d9qx,d9qx,c0r6,c0r6,ibbf,k6zw,dm8z,kid9,q4e6|1dpo5s0
+A|1|biodance|53|28|lu4,3mk,3fm,tor,e0v,rom,11if,1zd5,3wey,376j,38at,3gkq,3omb,4k06,68pj,3fxy,3imx,3l3i,3iky,bpj,6n6e,62qp,3s84,4pk5,8qw0,6p73,5110,5e7e,4nb5,6jch,62hy,eeer,76ho,86q2,df84,gqx8,bvf7|d4iq,38yj,1yy1,h0rf,98j9,dvue,ky5n,14bir,2lx04,1rt1p,1t9mb,1w1tu,27qxq,2vzub,3ihxi,1wypv,1ylxw,2231u,1zupo,aqu9,3xi3a,39pq9,21lpz,2scwp,54m1n,4514k,2y3yv,36amv,2kwzm,3mip6,3gls0,8k9ru,45bl6,4qknu,7rduq,a13qt,72ucl|15|l9blpg
+T|1|biodance|1|B0FPMN9D69|7|BIODANCE Bio-Collagen Real Deep Mask for|1gs||4qr6h,3b9fo,2jcms,2jcms,23xb3,2b31j,2a9kj,5qcxl,23f50,2byfq,5esik,5ygsb,2zmm4|1798o32
+T|1|biodance|2|B0H1RDP1NS|3|BIODANCE Hydrogel Eye Patches for Under|1rw||,,fw,3txy,3txy,j5si,jh8g,1mfpc,15n88,1fm0w,1gklc,2e9pk,2e9pk|bpm32b
+T|1|biodance|3|B0GVY1ZX7W|2|BIODANCE Collagen Peptides Jelly Serum M|1b7||,,,,19l,cduj,ceou,lkuo,fa9q,et00,b8ke,iv5b,iv5b|1ye3gdk
+T|1|biodance|4|B0FPBYW22N|4|BIODANCE Firming Collagen Peptide Face S|1gr||3uqd,8c2b,4e3f,7uc7,4u8d,5dlg,3b6n,5laq,3igr,4eu5,3xhv,7a4w,7a4w|1bjygn0
+T|1|biodance|5|B0DDYSLHC1|5|Biodance Collagen Gel Toner Pads Pore Mi|1rv||4tpp,9l23,54cy,4o08,3vbx,585x,3bxp,545z,2wv0,44lv,3osf,59fr,59fr|1txqkk1
+T|1|biodance|6|B0FPBYSRHD|3|BIODANCE Pore Perfecting Collagen Peptid|28k||374u,3s7x,2tct,3uc7,2r8h,2vh2,25h0,3h2k,30gm,3kln,3kln,4tf2,4tf2|wblup4
+A|2|biodance|30|13|,,,,,,,,e,6y,i2,15o,1xg,3h0,3h0,2p8,1xg,15o,i9,lk,1e0,2an,37a,xy8,15qs,14s2,usq,zd1,1nw9,1bom,1ake,2709,2l33,1gyz,1e5d,2eyf,2ec6|,,,,,,,,4x,26e,5nu,d2e,ls0,1377,1377,uhl,ls0,d2e,5zs,6xk,fqz,pnq,10bi,auz3,diud,d2gf,9ul1,bkwm,jvnd,ftk2,gg1p,v83x,ygcz,ljse,kg73,zxwn,zpep|0|bx0h9r
+T|2|biodance|1|B0GLF551F9|6|BIODANCE Bio-Collagen Hydrogel Overnight|v2||cf7o,cdf0,9dnb,ames,i523,ecuh,b7as,fqz4,m5c6,8zae,95lq,hi1t,hi1t|1iw4gnn
+T|2|biodance|2|B0H87MNBTM|3|BIODANCE Collagen Peptide Hydrogel Under|1gi||,,,,,qf,2u0i,awd0,6jf0,7hqp,7hqp,ce5t,ce5t|1f4k8ng
+T|2|biodance|3|B0H8C43NVH|2|BIODANCE Collagen Peptide Jelly Serum Fa|yr||,,,,,hx,zz0,2530,2fd0,2hft,1nnb,1umc,1umc|bai7au
+T|2|biodance|4|B0GLFBJR6S|4|BIODANCE Collagen Hydrogel Non-Irritatin|1am||12qk,nsf,eyb,ou1,1508,p0h,mab,1659,1n0b,ryw,t6v,tdn,tdn|p22g5p
+A|3|biodance|32|17|,,,,,,,,ci,15o,i2,15o,2rb,2w9,2zi,71s,5qm,5rq,51w,4j3,5jl,5ld,4v4,644,632,7tf,ae2,a1d,grs,b86,joy,ns1,qwh,qkz,oa5,s2u,s5v|,,,,,,,,4gw,ewb,6ge,ewb,zmh,11p1,135w,2jq1,217b,22iy,1tu3,1mn1,202w,215l,1sdv,2asw,2c3k,325i,42xu,3z46,6svz,4kt9,7n0u,9q8m,bah9,a4sl,8t0j,bq74,brhu|1|1dwleya
+T|3|biodance|1|B0GP6VSDLL|5|Biodance Bio-Collagen Real Deep Mask 4er|zd||1zwm,2c4j,3b9c,365s,5pa0,42ao,5ujm,5ujm,5x1v,4w1z,4s1t,5ncp,5pup|1p5uwfx
+T|3|biodance|2|B0H947VMPV|2|Biodance Collagen Peptide Augenpads Anti|1oz||,,,,,or,sru,1bye,1v4y,2cno,1jb3,3f7k,3f7k|zlereh
+T|3|biodance|3|B0H947R2VS|2|BIODANCE Collagen Peptide Jelly Serum Sp|19j||,,,,,hz,36t,18n3,1le9,wtn,vlt,1dzo,1dzo|4apj2v
+T|3|biodance|4|B0GSW3Z2NF|5|BIODANCE Kollagen-Gel-Toner-Pads Porenmi|1fx||aab,esb,hbo,h9u,rbd,b9c,h8w,qml,13jv,pec,q48,i7p,gti|au79p6
+A|4|biodance|38|24|,,,,,,,,,,,,1xg,3ny,3st,5sc,48s,4z9,3dq,2a5,33f,6ik,cn7,dws,cy5,em6,eml,ekv,f5l,fdp,h5g,jb6,e9p,one,m0i,n7e,neo|,,,,,,,,,,,,qsc,1f8l,1guz,2648,1k13,1upz,198b,vj0,1757,2jno,4xd4,5gdy,527o,5u6s,5vur,5zfs,6ckn,6hto,7d4a,8jkz,6n2z,apr4,9ebh,bd0z,bh31|1|9cf352
+T|4|biodance|1|B0GT4DHV3X|5|BIODANCE Bio-Collagen Real Deep Masque V|1d2||4s7d,51gw,5434,4ygc,5jt1,5qe8,5qfu,5ilu,3emk,553m,5577,6emc,6g3x|uin07m
+T|4|biodance|2|B0HCV5RB6Y|2|BIODANCE Collagen Peptide Under Eye Patc|1uj||,,,,,bi,szr,1cbl,1cbl,2hr7,21hn,2e29,2e29|gex2kc
+T|4|biodance|3|B0HCV87KRK|2|BIODANCE Collagen Peptides Jelly Serum M|19u||,,,,,,1wq,vt5,vt5,1qxf,11zx,11e6,11e6|qygb75
+T|4|biodance|4|B0H5JZ2G3M|4|BIODANCE Collagen Gel Toner Pads Gel au|1pp||40v,78r,6is,958,awy,dbh,du7,e7x,du7,eup,d6m,eo6,de9|af8lh8
+A|5|biodance|35|15|46,ci,pp,19u,24e,1cm,1i6,1ky,3me,1hu,2ox,if1,7v6,u3z,9al,8g9,7db,8io,5gy,4lx,7tt,441,6cc,721,8k2,6om,4xs,56n,5gr,4me,6i7,5by,d54,6yu,7r9,c1g,c70|7ymx,nvwr,1kw4u,2v633,4ry56,3av8d,469ix,4lyo6,7d4t8,3l8kw,6h38i,1fey3e,jmu5h,2avxex,n1qvx,l89iy,hem49,juu0d,d6gjf,bdprx,ik5wm,9v9yr,eie5c,g42au,k0hyq,g39hz,bjrdl,c38v0,clndd,axnx1,f08v9,c9jug,vizdf,fvh1w,huh0z,u8lwl,unh6v|1|17a8743
+T|5|biodance|1|B0DZXF7V5Y|9|(4) 100%|208||hjdk0,duu9q,a8rdl,a7pcu,abqgq,8eodh,cc16o,8wv5o,jh96e,a558h,ap7nf,k0du2,k0du2|11x6ain
+T|5|biodance|2|B0DK4LRSYM|5|(60) 100% 10|2jo||1u75f,1lqwv,sutf,121iu,14qeb,14qeb,yqrs,x0vb,4jbqu,1bvs9,1bvs9,2jsxs,2jsxs|toq4iy
+T|5|biodance|3|B0HJ4FW2BS|2|(95ml) 10|28k||,,,,,,,,31n8,186kf,1htwl,28sy8,28sy8|1335sca
+T|5|biodance|4|B0H1WKV899|3|(60) 10|28k||,,,,,,62re,ilk6,3pauc,14z3h,1mj5n,2354q,2i0jq|1cyw2dn
+T|5|biodance|5|B0GXDNCCNV|2|(50ml) 100% 10|1o0||,,,,,4gwo,mwvu,ri8m,2ajsq,v1nf,qlt9,111c0,111c0|z2domc
+T|5|biodance|6|B0HBPFL7KF|4|(30ml) 10|208||iq6v,iq6v,ddkc,iq6v,o2tf,ys2h,dnwc,dnwc,srxr,ig2y,mfii,p2s0,p2s0|1roj0g9
+A|6|biodance|24|18|,,,,,,,,,,6y,nm,16s,1zt,24m,3ud,4r8,4r1,52u,54k,7mk,65m,67w,684,634,8w0,68g,721,6e6,70m,5pt,azi,97z,bel,ate,k8d,kb6|,,,,,,,,,,57b,hou,vsg,1hsn,1lkl,2wct,3lrh,3mav,3v4p,3wfh,5u07,4pnk,4r8j,4r8b,4np5,6ti8,4r3y,5hiu,4zc1,5fo0,3x5e,7ktj,6d9l,8cvx,7zdt,ef7n,eh2u|1|vsskdu
+T|6|biodance|1|B0GYYFM13V|4|BIODANCE Bio-Collagen Real Deep Mask Bes|1ve||4cl0,69iv,4izb,513s,4iq8,51ha,3oko,72wz,5wrk,6lnd,60w6,b8ec,b8ec|1is3kwp
+T|6|biodance|2|B0HH1YBPB7|2|BIODANCE Collagen Peptide Eye Patches An|2gm||,,,,,,,1ed,1e6,16he,1ari,22h5,22h5|1hk58g1
+T|6|biodance|3|B0DDXV5KV4|1|Biodance Collagen Gel Toner Pads Pore Pe|2jd||6x2,f7y,45g,9op,cgb,9op,5hg,e9c,9ve,9jp,9jp,8y0,8y0|jewnvc
+A|8|biodance|35|21|,,,,,,,,16,6y,23,6y,i2,sh,21w,624,689,c54,5j3,4j3,5c6,43b,4iq,2xo,2lu,5am,61p,38m,5wr,74k,awi,c95,jxx,l8p,mng,y55,y5s|,,,,,,,,n4,2ud,up,2ud,7e4,brp,uir,2hpm,2iq3,4yb5,29aw,1vd0,27i9,1pol,1wq5,19d6,149a,2asd,2jy0,1hia,2nfv,3cjd,59p7,5rji,94z6,9sjt,9gsi,hi7i,hj4o|1|13mezbm
+T|8|biodance|1|B0GTSDSWNR|5|BIODANCE Bio-Collagen Real Deep Mask Mas|1dy||vnc,1m94,28zy,xup,25hv,2myw,3487,30hk,5e0s,2yvv,4tgh,75y0,7822|z0yvsl
+T|8|biodance|2|B0HCYHMZLF|2|BIODANCE Eye Patches Parent (Collagen)|1jj||,,,,,xd,swf,swf,1c61,3gi8,2f68,7px0,7px0|14pnfs4
+T|8|biodance|3|B0HCYDV6CN|2|BIODANCE Mist Parent (Collagen)|19k||,,,,,7l,4gf,vtu,18k6,10pd,n0n,12ru,12ru|1csr4p0
+T|8|biodance|4|B0GTT6MT7W|4|BIODANCE Siero Viso ai Peptidi di Collag|1gr||,,,17z,3i4,2oc,f83,asi,asi,hsv,gap,emt,dh6|n7r4ti
+A|9|biodance|33|19|,,,,,,,,,,,,,,,,,dy,1av,qj,19p,268,26o,1kq,2as,4ry,3wu,3x7,e03,4eq,99b,8mo,aps,qud,j3m,vyq,w1t|,,,,,,,,,,,,,,,,,5ov,jcm,bdi,jbr,wop,whz,o4v,y9y,1zcw,1mi1,1qym,60b7,21d0,3y0w,40bc,55bm,c15q,8lk8,gsfc,gu8y|1|15pk89z
+T|9|biodance|1|B0GP5LMRV4|5|BIODANCE Bio-Collagen Real Deep Mask - M|1b8||u42,1t94,1hyc,1aca,5hbq,1pog,39ap,20h2,236n,5anv,3pcl,6tzg,6tzg|1fszk3i
+T|9|biodance|2|B0HD68XD2M|2|BIODANCE Parches de Ojos con Peptidos de|1rm||,,,,,xl,fmm,154k,2210,3v5m,2cbu,7zww,7zww|1ai8qw8
+T|9|biodance|3|B0HD696F6C|2|BIODANCE Bruma Serum Jelly con Peptidos|19u||,,,,,,m1,iql,iql,y50,zdn,11cm,11cm|1xuaaff
+T|9|biodance|4|B0GMWP14QZ|4|Biodance Collagen Real Gel Toner Pads -|1gn||17a,2ek,17a,556,57s,17a,11e,22t,3go,ud9,qdx,atd,atd|1pyilzn
+A|1|clio|224|51|e8a,b20,af8,bl3,9i7,9ho,etg,aok,k8y,cjw,b3j,mm0,jx1,kv3,ctk,gg5,j09,h0g,hyu,dn5,s76,cyq,dqh,rox,ov3,py0,mr9,hou,hno,lkd,op3,s5f,ice,j0j,o2o,1a5z,1a30|52b6,3vio,3zvl,47mg,34sx,3ckr,4rrd,3gx9,7zb2,585s,4gez,9ogy,8jbn,9ae9,57b9,6zh5,7zny,78g6,7gpf,5pol,bvqj,5e84,5kua,by9m,alll,bxv5,a5u4,7ts6,7jx4,9av0,bbvy,csoz,8fd0,8ewo,bd9l,ldcs,ldg6|6|1azcalu
+T|1|clio|1|B0H5VQK7RH|11|CLIO Kill Lash Superproof Mascara Waterp|15e||4kph,4gd3,46iz,32jh,346y,3lpi,4p8g,5rqx,3f8r,443v,49r2,9kzb,9kzb|jp3hzy
+T|1|clio|2|B0C72LG95X|13|CLIO Kill Cover Mesh Glow Essential Cush|1xg||1a8c,1tca,1byq,146g,137d,18ru,10yj,qbn,9c9,mtn,vea,1vik,1vik|10u6z52
+T|1|clio|3|B0CYT4MH2V|14|CLIO Pro Eye Palette Air 12-Color All Ma|25r||p43,vgu,tag,p43,ckl,huc,t69,1fv3,pdz,i72,1dst,1cle,1cle|1gdotya
+T|1|clio|4|B0DL5PBZMQ|9|CLIO Sharp So Simple Waterproof Pencil L|ua||mhi,inp,iaf,g1t,kvf,na5,u87,v22,jwl,nwi,q7j,1ego,1ego|1xgwuhv
+T|1|clio|5|B09SNSMC8W|8|CLIO Extreme Gelpresso Pencil Eyeliner G|15n||pko,oqq,e3z,fs6,exq,gn4,8pz,k42,c1u,fd1,nrs,1gml,1gml|g9onc9
+T|1|clio|6|B0GRY3FJ82|5|CLIO Muse Master Eyeshadow Palette Korea|1xg||,,,,sd,5mh,d0k,dz7,a4f,bum,lsx,1g30,1g30|wqni7b
+A|2|clio|12|7|8z,6n,8z,90,b3,90,87,av,b0,9h,9u,6x,60,6f,58,5x,71,76,71,70,8p,a4,cn,fm,dg,86,b8,cm,d2,if,ll,ht,9e,lp,ki,kv,l2|3na,2rv,3na,3o4,4im,3o3,3ac,48l,4ao,3kk,3ql,2od,2bu,2if,1ym,2a5,2qf,2sn,2q4,2pi,3d7,3vi,4zj,62d,588,3da,4jv,50e,530,7lj,74t,5x9,3ch,7vb,7hb,7ia,7nt|19|4g9a2a
+A|3|clio|8|6|,,,,,,f,14,11,x,1h,1c,1b,t,m,11,1d,20,22,1l,1i,1i,31,3c,2v,13,2q,2n,40,4m,3u,49,50,4g,4e,4l,4q|,,,,,,8f,n0,lj,ii,tj,qy,rs,gv,d8,ln,sm,14t,164,xk,xi,vz,1ul,229,1q2,p9,1n9,1np,2mi,36i,2kq,2xi,3n6,2xd,2wb,2my,2qs|60|7mx9h
+A|4|clio|12|7|5,m,j,e,a,a,c,j,i,d,10,s,q,s,15,t,11,1v,1z,v,1c,1e,1p,2t,2s,26,3m,41,3j,3t,3m,3q,49,3b,3y,5d,5l|2r,fk,dd,9j,6g,6k,6y,bs,aq,7w,k0,fz,eh,gf,n6,gu,l9,117,14f,j4,uf,vu,131,1ux,1s7,1ht,2g4,2o8,2c5,2lg,2gr,2k2,2zn,23t,2p9,3hc,3nx|88|7x1z83
+A|5|clio|230|99|4hz,6hl,4pf,4xn,4lw,4lc,3zw,3nj,3tw,3np,4b9,4jw,41v,64x,4ws,4fy,43y,44j,4fa,4a8,48t,4oi,60z,70g,7j7,88j,7n7,7o0,65p,5ha,5zv,66e,6wk,6n6,6cg,5fo,5i6|98pus,dim0w,8tdhu,9aihe,8sngp,8xu0t,7hd9n,6vxkm,7eik0,6zdhq,86epu,8ujpx,7pyt0,c5iuo,9akpi,89wo8,7pk9v,7t2qg,8ado5,8dd2p,8f868,93ykk,bieo7,dt5tz,eevd6,g3ry7,euzex,esa1k,bpl8b,anc38,b6b1d,b8fma,cz2rc,bykmm,b9xw7,a2oxo,aaho8|40|qn7t70
+T|5|clio|1|B0H6FBNTT8|9|[CLIO] 15g KILL COVER CUSHION (FOUNWEAR|2gm||du9m,iiao,n07j,uz24,xw8r,xw8r,1e2gw,11ycw,1cu3o,1tree,1nv1y,1gask,1ajdw|j3f3uh
+T|5|clio|2|B0H6X3C2VB|4|[CLIO] 15g KILL COVER CUSHION (MESH GLOW|1uo||swvk,svp8,1akeb,xpk0,o5al,o449,wvoi,wvoi,wvoi,liut,u7zq,uo83,uo83|1uv9tkg
+T|5|clio|3|B0H6J78PZ7|8|CLIO ESSENTIAL LIPCHEEK TAP 1 03 ROSY BL|15e||yzg3,1ntoy,1bw8w,wmj5,s1r7,l01i,gntr,joql,gntr,k3z7,k3z7,imb9,imb9|162eaak
+T|5|clio|4|B0CL1J6FWH|3|(CLIO) CLIO KILL COVER HIGH GLOW CUSHION|2gm||vzvg,q7i4,m17l,m17l,m17l,hg12,mi8r,hpui,qk90,9do9,ic5n,npar,npar|1mqrsry
+T|5|clio|5|B0H6ZZZK6F|12|CLIO PRO EYE PALETTE AIR 1 10 SEASON PLU|320||11x1e,1y8g9,16bva,1g2tc,n9l8,h6ua,lb0i,lwpr,wuxf,mpg5,hwpe,aq40,h2co|t178og
+T|5|clio|6|B0DDPWV2CX|14|CLIO CRYSTAL GLAM TINT (01 VINTAGE APPLE|13g||p946,p946,p946,j0hi,p946,p946,loqy,loqy,loqy,lapz,lapz,2ffx,2ffx|1k8xl5t
+A|6|clio|83|41|11e,1bu,14y,19c,wu,zf,16f,156,1ce,14o,v4,ub,v2,vy,sq,r9,nm,ld,od,pz,lk,mm,n2,sk,t2,rc,yy,10t,1dw,18b,12y,14j,119,137,16y,1hl,1iz|bbz,f7z,cgu,f94,7u8,a9b,ek6,ept,iix,f43,dl8,dxc,esw,efx,e2c,coh,a7j,602,93g,cd6,a7k,bpe,by6,glj,h5s,fdn,nak,p8p,10tl,yut,v0v,uih,tzq,qhj,rw2,vtl,xap|57|etiykm
+T|6|clio|1|B0B6DTSW7M|8|CLIO Kill Lash Superproof Mascara Length|1nv||85o,6ik,6ik,7kt,5b5,6ik,5ti,aq3,58i,85e,9rj,avb,avb|7nlu7w
+A|8|clio|10|6|f,b,e,j,m,h,n,s,q,o,t,q,p,l,f,n,n,1r,o,q,r,11,r,y,z,j,z,1u,2k,6e,76,64,4e,6a,6g,46,49|aj,7d,96,cd,dk,b5,ea,h5,g4,f0,i0,g8,fl,ct,9c,f5,ei,130,f9,h3,hk,ok,gr,l8,mh,c0,nm,1c7,1s2,468,524,49l,36a,3vg,40w,30v,32w|58|1utfh2w
+A|9|clio|10|8|2,2,2,2,2,2,4,3,k,9,e,j,f,8,6,b,f,g,m,e,i,l,e,m,p,e,b,m,l,24,1q,15,1d,1p,2u,38,36|17,16,14,13,12,11,25,1k,el,6h,9c,cp,a4,5h,4a,7o,ab,aw,fu,bd,cg,gi,al,gx,i5,b2,8q,gh,f7,1lv,1cd,x6,15y,1bv,25q,28d,25q|100|6vwh19
+A|1|peripera|293|59|1pcz,1ld9,n9h,q85,ott,jl9,ryy,f7a,1doj,k2d,fwp,19wl,s7j,13yq,hoo,ijl,jnh,mow,rw5,h0j,16t9,fk7,ebl,wqs,rhd,zja,hmq,enx,dhq,ght,hl0,ewt,bxa,cip,diy,lyd,m7r|h089,gnux,66dz,6t3u,5srt,4lck,78pr,426n,dr0y,51pc,4c8h,dfms,7ohc,blg0,4uxs,5377,5bht,67ku,7ipq,4i30,bkd7,48ci,3wfq,9daq,7led,9m2j,4w4e,40u9,3qws,4lmi,57j2,4csy,3imi,3pba,3zgm,6g7d,6ji7|6|1sbg49g
+T|1|peripera|1|B0BSPDF7T4|96|Peripera Ink The Velvet Lip Tint Highly|ri||2nhq,3f9k,1981,170l,14of,1ky4,1pnn,1fwf,19k4,18kq,1i7b,2u2s,2uua|x29f85
+T|1|peripera|2|B0GN5XTWMN|33|Peripera Mood Glowy Tint Watery Glow Fin|zu||qm9,19c1,kuy,j0y,isg,tjz,oz5,t6k,ihj,yhr,10mu,1hkc,1jk0|6say7m
+T|1|peripera|3|B0F24797WY|11|PERIPERA Speedy Skinny Brow Mascara (02|rr||,,z0,ou,445,2r1,be1,d22,b55,b06,des,r5l,r5l|1m07onj
+T|1|peripera|4|B0DP6YFW51|8|PERIPERA Speedy Skinny Brow (09 Taupe Br|ua||904,aie,904,904,7q4,91o,axi,b3n,9e7,9cf,b06,lk8,lk8|1wcta48
+T|1|peripera|5|B0BG1ZWDGG|22|Peripera Ink Peel Off Lip Stain - Long L|18f||1dkl,14nm,lwl,agp,6zz,cyk,r32,7te,6ee,72b,5mb,ay6,ay6|vj0q0g
+A|2|peripera|68|12|2r,31,2t,37,2o,1h,1p,1p,18,1c,12,13,11,1d,18,1h,13,1z,1w,l4,lk,nn,lf,py,pn,sj,ov,cn,yj,zm,zg,zu,y3,10i,zx,107,10c|yq,ye,w0,100,uq,jf,n4,mr,g7,hs,ds,e5,dj,if,gi,i7,dv,r5,qj,75t,7do,88d,7am,97y,91s,a8v,8oa,4ow,c4o,chn,ctc,cyg,c0v,dm6,d2p,b5f,b98|97|2weg9a
+T|2|peripera|1|B0F24KQTHH|18|Peripera Ink the Velvet Lip Tint - High|1d5||5wl,5wl,5wl,yd,86c,86c,8p4,8p4,8p4,8yf,8yf,6sr,6sr|1tui6ms
+A|3|peripera|13|2|7,7,7,7,6,6,6,6,6,7,9,a,9,c,9,a,9,7,5,13,17,p,1r,23,2x,11,z,2j,2t,4u,4y,4p,2w,2i,2c,2b,2g|4c,44,44,3y,3v,3s,3p,3p,3u,49,52,67,5k,79,5l,5q,5a,47,2t,ne,q0,ev,125,19c,1rg,mk,l1,1j2,1ov,2xd,2yy,2te,1qj,1v7,1q0,1k7,1nf|100|1ai10ye
+A|4|peripera|14|6|6,5,f,5,a,o,e,c,5,4,7,4,e,d,5,9,j,a,f,k,7,g,e,e,r,m,i,a,9,o,o,r,r,n,12,x,y|3d,2z,8s,2y,5m,dr,89,6o,2z,2h,44,2g,7l,72,2s,59,ak,5i,86,b9,40,9c,7r,7v,fr,ds,bb,69,5t,ew,bi,de,dg,af,kz,kn,l1|100|n2wvib
+A|5|peripera|313|87|6ar,87u,953,8ve,6jc,621,4r5,4ps,4xe,3jy,408,5be,638,7jx,6tr,5p5,4xh,4qe,4am,4e2,48s,464,4mk,5xh,7jt,7gd,6tv,7hh,6si,6ea,5ym,68u,7cm,5zi,6a0,6up,6ue|62csm,8jiuo,933ui,8mgcg,6fk79,61ul6,4rrop,4r4il,4y0i8,3olli,45aub,59fs2,5wwov,7ypl7,6nc0f,5eq19,4pjzp,4m7mp,44f8i,45ab7,40bg4,3yogg,4abqk,5tfyb,7tn95,7yt9o,768t2,7n5ec,6vwhd,6js2n,5vkbr,67q15,71j3h,61n57,662f0,6w6ci,6x5r5|61|1uoo91j
+T|5|peripera|1|B0FV8GNFHX|24|(PERIPERA) INK GLASTING LIP GLOSS (02 1)|xc||lvik,xl2w,ugor,p4hk,somx,o8xc,oopr,c8uu,1c5ql,hljb,m3ee,oy16,oy16|f1q0zp
+T|5|peripera|2|B0G64FL4HB|6|peripera / (05 )|10o||,85au,23x8,dd0z,ag7p,goo2,nspo,120wk,sg9m,nl6u,epln,l5x6,l5x6|15bymh3
+T|5|peripera|3|B0FZGV4WDP|11|peripera / (14 F: )|16s||1quhh,zeki,eih3,8xeg,esdv,mois,int7,jzjy,8xes,clzb,gqof,gvrr,iy6w|u6a32d
+T|5|peripera|4|B0HJW17QWB|13|peripera () #27 4g|13q||,,,,,,,,,,f0nw,oips,oips|1gd5atc
+T|5|peripera|5|B0BY7L3W7H|8|[] PERIPERA WATER BARE TINT (#006 SOFTLY|||1y7v,1y7v,1y7v,7ho4,bofk,1y7v,1zcr,afo0,afo0,ahs8,ahs8,ambk,ambk|13vtffk
+T|5|peripera|6|B0FW4824HL|6|peripera MOOD IN SHADE EYE STICK P01|16s||2fmw,4v1l,9jj7,3qjj,9jj7,9jj7,9pco,9pco,9pco,9pco,9pco,9pco,9pco|play6h
+A|6|peripera|177|77|4ip,5v2,4ee,4qg,4on,3eo,3kb,2tr,3ni,2zz,2bt,26q,1zn,220,1us,1hk,23j,1ro,1oo,22x,31f,31a,3h6,4ma,3gq,2zw,3us,2qa,3l5,2lp,313,2j5,2ct,39e,55x,45o,44y|y6a,1006,q0t,p3h,pnv,e7u,g7x,bst,igi,dpo,7ia,7bv,6xd,7lw,6x9,5ot,ay8,58s,4jw,bfu,bve,d9a,hdh,u08,hs4,f2u,qyy,cdg,r92,gzg,vzx,wdk,up6,16gj,1wk4,1gsb,1gim|71|ybsu1
+T|6|peripera|1|B0HGP9PZ25|20|Peripera Mood Glowy Tint Watery Glow Fin|10o||,,,,,,,,,as7,103q,rtu,rsa|1k13kha
+T|6|peripera|2|B097HKZ677|16|Peripera Ink the Velvet Lip Tint - High|||79c,79c,79c,1bq,79c,79c,f3l,eoz,cls,c5a,drg,7d7,75v|1k9mxe7
+T|6|peripera|3|B0GQDRY8KZ|19|PERIPERA Ink Mood Glowy Tint (005 CHERRY|||3qr,1zk,7uo,3m1,8u0,ri,8ze,8ze,8ze,9hd,9f2,8rv,8n3|1sxz3zi
+A|8|peripera|7|5|i,g,m,e,d,c,d,b,a,a,9,9,b,e,b,b,g,9,9,j,e,9,11,11,d,g,c,c,b,s,m,t,k,m,r,t,s|bt,ar,fp,8z,8n,8b,94,7c,64,65,5x,5n,70,90,6p,6v,ac,5v,5j,9j,7d,51,lj,mr,7p,9k,7a,72,6i,f5,au,g1,ak,dk,fp,g5,fy|100|10h2imq
+A|9|peripera|0|0|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,|0|tdi9v9
+A|1|goodal|49|23|6wl,3s3,393,3d8,3pr,357,4iu,3nw,851,3j1,430,76m,8qz,enz,a0b,axd,d2k,cik,d5r,91i,sjy,9xc,b8y,gjs,fcg,dpz,8l5,5wm,8f1,7yi,97p,brf,8e8,6nl,8tu,cl6,cj3|4832,2dwi,22hi,2540,2bxa,20c9,2wi9,2cxr,5d5d,26r8,2mwj,4n24,4qwh,7kyr,59io,5ug2,7d2u,6sm0,75su,4im9,gg9e,52tv,6868,9tcc,8lrm,6z48,45e5,35ry,4ttw,4myw,5mxx,753k,52wt,41e2,5h7w,7zt2,7yei|2|p2kyx7
+T|1|goodal|1|B0HDBF49VG|8|GOODAL Vitamin C Dark spot brightening S|1ou||5lve,3zqz,2lew,1ho2,2boz,2jfq,2pgk,3sx3,2pgk,1wff,2tkb,4k7u,4k7u|1bmxdhn
+T|1|goodal|2|B0GW8N7FGH|3|GOODAL Vitamin C Eye Patches - Hydrogel|1gi||11nj,1058,fho,mki,z3p,l28,n5b,11jd,ll3,lne,11n7,120q,120q|txad9y
+T|1|goodal|3|B0GW79KBDT|4|GOODAL Heartleaf Soothing Moisture Sunsc|1p4||cg0,asa,5t3,5t3,94k,7gt,v77,pyz,qa9,hd3,jab,jd1,jd1|gnc25m
+T|1|goodal|4|B0GR96P5M8|4|GOODAL Green Tangerine Vitamin C Cream [|1qi||e05,8gp,702,72q,df9,df9,e8b,hld,av9,bim,dbm,tsi,tsi|jge24c
+A|2|goodal|12|12|2f,2d,2y,9d,c4,hn,9c,bz,c4,c2,c3,9c,89,86,8m,99,5r,65,9a,5z,8n,5i,5a,5c,5g,9i,6j,8g,ag,a5,b2,dv,9h,8i,97,8y,9a|1ow,1o0,20d,5r9,7ch,akc,5px,785,7cs,7b3,7bc,5pv,4zb,4x0,58k,5nu,3ju,3t2,5mu,3o8,57m,3c1,36p,37u,3b4,5ro,40r,5e2,6ek,69d,6d1,7o9,59c,4m9,4yz,4wg,51g|16|1gvsf07
+A|5|goodal|17|15|q5,wh,th,vo,v1,h9,dg,eo,gz,d1,aj,ah,99,bz,9g,96,bu,d4,fn,bu,e2,l9,h0,cv,cy,eg,dk,ep,cq,cn,bs,bm,yv,si,g7,d7,dc|295r2,359rz,2z04z,33pdv,30j5q,x6j7,oja6,s34n,uj3z,lvkp,izee,nb76,l96a,ujbu,ngkn,ol3m,uzh3,p769,u17u,ww06,120j9,1giz9,187w7,10e1t,10kiz,11p7a,qgn9,sr4l,133np,12zfa,11txd,11zah,1yfny,1ntin,xoyj,rd97,rpau|38|140o7nc
+T|5|goodal|1|B07G416XCF|1|GOODAL/CLIO/C70 Green Tangerine Vita C T|258||,3zak,3zak,3g6r,,,,,1buas,12qag,ew9k,8xrc,8xrc|1095prz
+T|5|goodal|2|B09VK94MSL|1|[] C 40ml GOODAL GREEN TANGERINE VITA C|2je||54xk,54xk,3bxh,4g9v,3ctl,54xk,5dv6,5dv6,5dv6,5kir,5kir,5dei,5dei|1tqmbir
+T|5|goodal|3|B0CN6KVYNV|3|[] GOODAL C 70 GOODAL GREEN TANGERINE VI|2fi||flj8,flj8,4po0,431l,mlbw,m6i9,mqw5,n8hi,4t5c,51po,51po,51po,51po|xknc54
+T|5|goodal|4|B09VKKLC2N|1|GOODAL C 50ml Green Tangerine Vita C Cre|20i||28sx,2i8n,2jdh,3qwp,1cbm,1jvz,1ic0,28qy,2son,2sk8,1uow,2bii,2hv3|yu7ybs
+T|5|goodal|5|B0BD4XV8K2|1|[] CC 60 GOODAL GREEN TANGERINE VITA C E|1sz||3vrj,2jba,2jba,2uhs,2jba,1thj,29ew,215f,3rri,2gze,24t6,1qbk,1prd|mddb9q
+T|5|goodal|6|B07PFVR36Z|1|goodal() C|24y||y6i,u5t,v8n,vo0,10gl,sz5,vu3,tr4,1o8d,2jh4,1k81,10ur,10mc|11h82un
+A|1|atopalm|32|23|2el,1v0,1zv,27z,2a9,21h,24s,2cy,2hj,1rd,1tv,2hf,24r,2dj,1th,1tj,2jb,2eu,344,37l,7v2,2kd,2j9,748,7ai,9qr,49x,584,5e9,5jm,55e,fwx,88n,89q,6xy,dik,doe|1i9t,167x,19am,1cqg,1dd7,18re,17tr,1c86,1h0q,z5y,1132,1igr,1bip,1gry,1436,zoz,1e7q,1ces,1wph,1vmm,50px,1ktb,1kek,4gst,4r4h,6fl8,2mm2,37vo,37bs,3cbi,36la,b2k9,5qcc,57n6,4l52,8itm,8n0h|9|178slx9
+T|1|atopalm|1|B0HCYYRYN2|3|ATOPALM MLE Eczema Cream 2.2 fl oz (65ml|1dp||2o01,4amk,1awi,1itf,15by,1alv,1lbk,3os0,1vgp,1g13,18iw,2xb2,2xb2|hh22k6
+T|1|atopalm|2|B0GSWMVZH5|1|ATOPALM MLE Eczema Cream 65ml and 160ml|3a7||,,,,,,,19f9,n42,prj,k5t,iw8,kfu|12gle9w
+T|1|atopalm|3|B0GS4RFFHC|4|ATOPALM MLE Lotion 300ml 10.1 Fl Oz for|2p7||jul,sb3,jul,jog,eay,cgi,da3,o8r,da3,g1f,g1f,v9s,v9s|nsixin
+T|1|atopalm|4|B0HDRQFHJL|3|ATOPALM Tok Tok Facial Sun Pact SPF43 PA|1mb||aai,bnw,224,66b,kkz,kkz,d80,1oqm,osb,evj,bwx,uqn,uqn|5n9t7n
+T|1|atopalm|5|B0G25MBR1J|1|ATOPALM MLE Eczema Cream and MLE Lotion|39i||,,,,,,,p8b,bj0,b13,bca,kt1,md3|qu8a2a
+T|1|atopalm|6|B09L4S4ZL3|1|ATOPALM Panthenol Cream Deep Hydration F|2bb||32v,32v,32v,54r,bag,bag,7u5,cbd,7u5,a8k,7yo,kwd,kwd|z3dy3i
+A|2|atopalm|13|13|67,5m,54,5q,6q,7t,6n,5r,53,45,4g,7o,8m,72,5k,5k,53,83,g2,gt,hs,a2,ct,em,ii,k7,gy,ho,hm,g6,jv,n3,of,jf,jv,n6,n6|31q,2tb,2hz,2x9,3hl,3vs,3b0,2u3,2k8,23q,28q,3r5,49n,3ht,2w0,2wb,2k8,3st,7fa,7x0,8op,4w0,6er,73b,8vc,9kj,8cr,8kz,8fm,7yt,9d3,ayi,ccq,9zh,9xn,ayh,ayc|69|1viiq2v
+A|5|atopalm|10|10|ck,ar,6m,6d,6k,6k,6h,5u,6d,5g,5s,5d,5m,5m,72,6s,5q,8r,89,5o,6i,5k,5l,5t,6y,5h,5y,ah,60,4i,59,55,5h,56,56,3p,3j|ps9n,odak,etv2,f496,fs9h,fhq8,f31x,dfmk,emla,dawx,esbm,dwti,eule,fo63,h9ds,hmxo,f917,oqz6,o1ly,f2co,h2nn,ehf7,euaq,fykx,ibob,fpup,gngg,s9s2,fh2w,d1ej,9gfl,9gfw,a9bi,6vhr,70q2,4z58,4odm|59|80zzly
+T|5|atopalm|1|B083JQ68X9|1|MLE65mL|2sr||2jpg,240q,28vb,3lnh,29qm,1r9s,1hhp,49l6,49l6,4865,4865,1s92,1mx7|1td8u5c
+T|5|atopalm|2|B0DQ7BTN4Z|1|MLE200mL (ATOPALM)|2u8||1mmo,18u9,1w7h,3eun,zj6,vw8,s48,xcm,1rwe,13yd,1f9l,1r70,1pxr|ngfdul
+T|5|atopalm|3|B0019V25EI|1|MLE 120mL|1ms||,,,22t2,,,xbb,ozh,t8n,lz2,rwy,w4i,tj4|8oxag7
+T|5|atopalm|4|B07JCZ1Z6B|1|120ml|1c7||wjb,pa7,ppt,xbh,10wp,v7m,144s,13on,1bte,xe8,lde,jkp,hzk|7upvaz
+A|1|zeroid|21|17|1g8,120,157,13k,168,12i,156,111,1cn,13u,x0,1am,1oj,270,uj,159,1cp,13n,16i,12j,17i,w8,x3,1bt,1q7,2ic,1a8,2r4,27m,2db,1o0,3ce,2al,2p6,26p,3k2,3k5|11f3,pue,s8i,rdj,tbr,qwg,soc,q4j,yol,sj7,n33,x7w,17to,1f98,jtv,rnd,uh2,qs0,tu5,qp0,tfz,m2l,muz,yo8,1752,1rxb,uza,1wiy,1j68,1miv,13pd,2bhg,1kyf,1udp,1hny,2gcj,2ggk|12|1fct887
+T|1|zeroid|1|B0C4FRSKYY|3|ZEROID Intensive Cream 2.7 fl oz (80ml)|1xf||2gl,ecb,52k,h8p,f7o,h8p,a6j,rrl,dvt,ftz,ftz,rhl,rhl|1x4a91g
+T|1|zeroid|2|B0GRTXT92X|2|ZEROID Soothing Cream 2.7 fl oz (80ml)|1xf||aqc,aqc,4j4,aqc,8x3,8x3,4nb,dn9,7ad,94e,94e,f8b,f8b|1n5obgz
+A|2|zeroid|8|7|2m,2b,32,2v,2c,2r,2i,35,32,2w,2x,2p,38,2x,2z,36,2l,2c,4v,3e,2b,2i,26,2y,3f,21,36,89,4c,3w,5c,57,5a,8t,97,96,96|1xo,1pr,294,23e,1rg,21t,1uy,2e3,2aj,261,25p,1zn,2d1,25y,26g,2ck,1ww,1r9,3r1,2i3,1pq,1uo,1m2,26g,2hz,1hn,2bu,60c,35x,2ux,39c,36q,38h,49i,4ho,4lg,4lc|71|g6ymn2
+A|5|zeroid|18|16|1w,1o,1v,1x,30,2o,2q,2v,2i,29,2e,2y,2s,35,38,3u,4r,42,46,4b,47,4t,6a,6e,84,7t,9u,dg,8l,9u,8b,9j,7x,8k,96,bm,bo|6a9x,5j54,60aa,6gnr,9b08,8n9e,90fw,8n2b,7n24,72c8,7a5d,9xmo,9nkw,ac73,9oda,blt2,ezgs,ck3m,da7n,cwgq,bupb,dkhh,ikxi,ik4s,nugj,l4r9,ue3q,11pnb,riby,v3ip,opnj,ppdu,n8kg,pzv7,s01j,z6mh,z438|91|w1c4f0
+T|5|zeroid|1|B0FDBG2JL1|2|ZEROID() / 80ml|2s0||4qc7,4kwx,cb6f,ayao,bwor,bar7,6fys,60bi,490j,5seu,7l7i,8e0t,87k9|tohkgw
+T|5|zeroid|2|B0FDX8Q9DN|2|ZEROID() / 450ml|3mk||3wvi,19uh,1s9d,27t6,1fws,3p6a,1o8q,1dke,26r4,4884,3u2v,3m3p,3u0y|th8rxm
+T|5|zeroid|3|B0793L69G8|1|ZEROID() / 80ml|3e8||38bo,1u98,29cc,4xom,2lml,2s5l,2jcg,41vx,3usc,33mw,3bch,3gzt,3pzd|1x8e1c8
+T|5|zeroid|4|B07BNLSWHD|1|ZEROID() 5%/ 60ml|2bc||1wzp,1dh6,27rb,3da2,1wf0,22p3,2p1b,312t,312t,2b9a,2bmm,4tm0,4tm0|xrbfr
+T|5|zeroid|5|B07XCPRT5K|1|ZEROID() / 100ml|2p8||1mjh,1jyg,1p9t,3x0s,1gs7,2zs2,2dw9,29wn,1rw1,2azn,2cb0,25ny,21az|16qevii
+T|5|zeroid|6|B06XWMWRDL|1|ZEROID() / 200ml|2p8||r88,14bv,1ys5,41lb,18ji,15o3,1j3x,1tly,1jho,1lo0,287h,22rt,254y|2yyma4
+A|1|realbarrier|27|21|1ly,13p,1av,18v,17m,xr,167,13i,12m,x8,15u,13g,17z,19u,133,149,1tv,1dr,1gb,172,18i,154,12h,1av,1fo,1xl,136,1rb,19p,1av,yd,19v,127,yj,10f,21w,21x|pit,eaa,gcx,eha,e4y,e0m,jo6,k95,k62,hz3,nsq,mor,o7g,q2h,m0l,nep,13y4,t4i,uao,obk,ph5,na8,lg5,qzq,u1t,16u4,myj,13pi,rrn,tbl,kme,t0h,ni0,lq2,nz8,1b15,1b1w|24|1c5tzxu
+T|1|realbarrier|1|B0HD9VJFYL|2|Real Barrier Extreme Cream 1.7 fl oz (50|1uc||i7l,sr4,cgk,sr4,gak,i7l,b00,j00,d00,cuy,f69,xts,xts|101w942
+A|2|realbarrier|15|15|1e,17,1j,20,1e,1j,1d,1h,1o,1q,1t,1j,25,1y,2o,2s,3r,4o,4s,3p,46,4l,65,7j,6x,5j,3j,51,4m,6o,7h,4q,4v,61,6i,fx,g0|yy,tc,13m,1g5,zi,12n,yg,111,164,177,18x,12n,1ib,1cn,1uf,1xc,2ls,39p,3cx,2k1,2ww,3aa,4d2,5bx,4wd,3yo,2h1,3j1,372,4jl,4jq,31c,325,3hw,3su,as5,asc|59|gdjgm6
+A|5|realbarrier|18|13|2y,39,74,6x,5p,7r,an,7c,7h,5k,3v,4w,57,5y,8f,br,8d,9a,86,77,8x,61,8j,bs,iw,c6,io,kf,db,dz,e6,bv,d3,8h,9v,ln,lo|61x5,6t79,fx7h,fx3l,co9c,hwg3,oxsb,ggno,gzyb,c19a,8e4m,aaj2,b3bm,9q0v,e8od,qqdx,hpdw,kd2n,hmxa,fxrs,kaou,d9cm,jis4,rtco,19s2c,str9,193sx,1d84e,w82w,xj28,xozj,s6bd,vdq5,k7s4,nxbf,1idso,1ifeo|33|1cz2abm
+T|5|realbarrier|1|B0FDBBBYC3|3|Real Barrier() Original/ 50ml|2mg||tdwj,hbw1,o9g1,sd0f,hbw1,mgci,m6gg,fcjo,h2ry,aj3x,aj3x,uddt,uddt|afmzqu
+T|5|realbarrier|2|B0FB9PLL2S|3|Real Barrier() Original/ 200ml|2ar||4xkc,4xkc,9v4p,dgcd,4xkc,4xkc,4xs0,4xs0,4xs0,4zjk,4zjk,a2du,a2du|3so270
+T|5|realbarrier|3|B0FWKS3J2D|2|Real Barrier() 10/|2s0||77vz,35lh,77vz,4rvn,77vz,2wxe,3w61,5k5b,5mti,2ehl,5lls,6ppr,6q4q|1ev7f2u
+T|5|realbarrier|4|B0C9PTVW82|1|Real Barrier() Original 50ml|2mg||,,,,,,,,1auv,ima,ygv,25ha,2cse|ic8qdr
+T|5|realbarrier|5|B0D4CYZ5WN|1|Real Barrier() / 50ml|2bc||1ccu,12vl,1i14,vb9,15p2,1ieq,1ksn,14o4,1fph,ss9,zuc,16qf,15n4|1mnsv5m
+T|5|realbarrier|6|B07GW9DPM5|1|Neopharm Real Barrier Extreme Essence To|2jd||til,o1c,ze5,p8q,mfh,rvv,mcj,ocm,m75,lqk,fpl,mqc,nge|s9znkn
+A|1|centellian24|106|61|6bh,4s0,42m,3pi,4uo,4w6,47k,4bk,7dz,3xm,3yw,5w9,6cp,5ty,45n,3l3,3kg,3su,3fc,328,a2b,9qz,hdr,ils,uub,1fkp,18oz,18wj,1le4,1amg,rmx,1u0s,1dd0,1mrb,2cdc,3pee,3pub|51m3,3ku2,33px,2xy9,3pch,3mj5,2z5o,31jz,5dln,2vnk,28qu,42ug,4dux,47vl,33gv,2u5u,2vtl,3002,2q7y,2fop,8wz2,8hwe,eii8,fpmp,rewo,18opa,13bg6,13rvx,1v646,15izk,njp1,1ishc,149jb,1a71m,1x0t7,33wzs,33wbp|2|1b1aelj
+T|1|centellian24|1|B0HG9V9YSD|4|CENTELLIAN 24 Madeca Cream Time Reverse|28i||fk1m,s02w,ls29,ls29,fxti,nf3h,9mrc,mh3s,eyfc,kfyj,s2tk,17wv9,17wv9|1gfisbd
+T|1|centellian24|2|B0HKHR8LLK|3|CENTELLIAN 24 360 Shot PDRN Firming Eye|25s||,14a,5cr,kch,i7e,1hjl,1giz,9edd,9edd,96my,godr,lg3u,lg3u|g8k9b5
+T|1|centellian24|3|B0HN6NPB3N|2|CENTELLIAN 24 Expert Madeca Cream Active|2n0||46o,9rk,1xr5,2pnm,49gj,51d0,40vu,az50,5hki,3x9z,apau,gftk,gftk|13my1ga
+T|1|centellian24|4|B0HN6VBVXT|3|CENTELLIAN 24 Madeca Cream Time Reverse|375||6nyb,7ova,6nyb,7ova,3l7e,3l7e,1cxo,29k4,uzq,2vob,5nl9,ch8x,bkmr|1l08qou
+T|1|centellian24|5|B0HBWPL9PQ|2|CENTELLIAN 24 Madeca Cream Time Reverse|2e3||,,,1gq,3635,2gqg,2ej0,3rz0,2ej0,3y5i,1cth,5wbr,5wbr|ya1cci
+T|1|centellian24|6|B0H5VMN6ZQ|3|CENTELLIAN 24 Madeca Derma Shield Vital|1sg||,,,xn,1jk,558,70z,d1t,isb,19ik,1b3m,b6q,cr1|1ukwr3n
+A|2|centellian24|20|17|2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,1,1,1,7,3,2,1,6,7,v,5q,hq,185,1c7,2kk,6k7,b4r,5u5,7r8,lew,lew|13,11,11,11,11,11,11,11,v,u,t,s,s,q,q,q,q,q,q,3f,1k,u,p,2y,3g,fm,2s1,7h2,i78,ksn,yi8,2kgt,4bx9,2kb7,3gc2,87rq,87s3|1|aw3bjp
+T|2|centellian24|1|B0DFY92NDB|1|Centellian 24 Madeca Cream Time Reverse|15n||,,jw,679,gwu,gwu,lxl,1c93,2bcf,zlw,19s5,3ex0,3ex0|x9qxfa
+T|2|centellian24|2|B0HM439MXX|2|Centellian 24 Expert Madeca Cream Active|1sf||,,,,,yw,3mz,ltu,10dq,gcr,ptl,2f62,2f62|y1nyq5
+T|2|centellian24|3|B0G48T5CM2|1|Centellian 24 360 Shot PDRN Firming Eye|1cv||,,,,,ez,20b,a1h,k2x,abj,i7n,15hc,15hc|1p6pvo0
+T|2|centellian24|4|B0FVY91T1Q|1|Centellian 24 Madeca Cream Time Reverse|18f||,,,,,bj,2ac,5c4,5c4,j18,j18,a6p,a6p|1k2tn5o
+A|5|centellian24|71|51|1ux,1xx,19l,257,2ij,29d,1i1,1qi,299,1jb,2cg,30a,275,4bz,2p9,2u0,2vj,35m,2gq,2fx,2ys,1sz,2kq,55z,72i,4k1,3ui,45t,3wx,49b,3xm,3a5,6np,3kw,47e,1w9,1l8|1z8jx,22e1b,1h9x3,2wffu,3llgw,3jhuo,2goc2,2qe18,3zkk8,2meyk,44c70,5fbol,3xhsn,7pu09,4uia8,52o3a,5gdbw,5wdld,4e3py,495qu,5gf5g,395xl,4r8kf,a3ktf,ep9gd,93n5d,6u1bv,7a9b9,70aei,8hrmm,7hndm,62kk4,d64ve,6mlis,8a86z,3dvou,2sbob|15|18nef1x
+T|5|centellian24|1|B0GJR8NV19|7|Centellian24 50ml|1x0||6c0fm,3ekcy,4fqc2,4q18b,4qa8v,5dub8,3tmz6,2uc7y,6ifvf,2vc50,3kh00,1fm3o,ozro|1izjegh
+T|5|centellian24|2|B0FS7QVSVC|1|Centellian24 PDRN 50ml|2gw||,,,29y9,4qw3,ftmy,nh0u,u6gi,2slj0,1eq95,2hisu,aadc,aadc|1ljeker
+T|5|centellian24|3|B0CW97BXJT|2|Centellian24/24 50ml (6) 2 Madeca Cream|2b2||2hh7e,ybn4,vmk6,vn6p,xgj6,12vy3,w9rm,cxuu,lkfe,hsap,e579,stt4,stt4|f34kzx
+T|5|centellian24|4|B0FVY91T1Q|1|Centellian24 80ml|||,,,,,1fzx,9ito,fvdg,159kk,9m2c,g0rw,,|hb00e2
+T|5|centellian24|5|B0BTHKBMHG|1|Centellian24/24 300ml Madeca Toning Esse|1hw||il4i,671i,671i,671i,33ir,33ir,67do,33ou,33ou,67uc,67uc,68jc,68jc|e8bgll
+T|5|centellian24|6|B0GYWVPBDW|3|Centellian24/24 10 30ml/|||,,,,,,3ekb,40ul,40ul,4io9,6qcm,2e0p,2c30|6nhg44
+A|1|vt|117|76|2f2,21d,35q,9cb,7fi,5ib,65m,f0b,11z5,hbs,fj4,192w,12wu,1aqs,mwh,qe7,tvb,y35,18vc,wrz,3t4k,14n3,us2,21vy,2fbd,2pi7,1d8o,18i8,1a86,1aft,xka,2dx5,1meg,1li0,1rhp,2o4d,2sf6|1do5,156e,1sho,5z4n,691f,3dro,3tw8,9paw,q0sv,bcpa,9w2s,t679,p1tp,uc0d,eabi,ggt6,iriy,ls9w,rd6c,j82l,2aiyq,mkjj,hf01,17qc1,1gsj2,1lxaw,t0qs,pum2,rg5q,rn95,ki8r,1id65,1080n,v5jq,108ao,1j4sd,1lmeh|1|1jgr2rj
+T|1|vt|1|B0D7977KNQ|4|VT COSMETICS Reedle Shot 100 CICA Spicul|1ta||jgcd,hv6h,bazr,8pt3,88v5,88v5,621k,glps,958d,71b4,5ye3,dneu,d2f0|1k6pnt4
+T|1|vt|2|B0GGQMYLXM|1|VT COSMETICS PDRN Reedle Shot Brush Hair|1xg||,,,wz,4o7,aa1,8dw,1al3,3d4f,2egi,8070,c62u,c62u|1scsibz
+T|1|vt|3|B0H3KBZ3D5|2|VT COSMETICS PDRN Reedle Shot Eye Cream|1t0||,,,2c1,mai,1ity,1757,64q9,3wgj,3jzd,5kuz,66ux,8t5n|1qff2q2
+T|1|vt|4|B0CYZSN6DF|7|VT COSMETICS CICA Daily Soothing Mask 30|1mc||a7pu,cmx3,2u1t,34nx,59w1,4j8n,2lqs,5528,3jlm,3svr,40yj,5ji3,606x|1gir98g
+T|1|vt|5|B0CRKPZ9PQ|1|VT COSMETICS PDRN 100 Essence Intensive|208||56vo,872n,3jv5,306z,3jv5,3jv5,2gfr,56p9,3jqr,2xbo,2xbo,4qv9,4qv9|12skw7b
+T|1|vt|6|B0FCMH43M9|1|VT COSMETICS PDRN Capsule Cream 100 1.69|1e0||1gum,1vy8,1gum,1gum,1gum,1gum,11ad,33v3,2oy5,1rog,1g3n,291s,291s|1qkvhae
+A|2|vt|61|41|e,d,d,h,n,o,p,m,l,c,c,f,9g,j6,ny,x5,1jx,11p,uu,1ck,34y,1wj,38y,4h0,637,88e,5cb,53n,43l,4hx,66b,7q2,7q9,5im,4ck,5sh,5st|6a,5v,5p,7s,a4,au,b2,a1,9e,59,5p,7d,4uw,9q2,cj9,gv5,sws,k1k,gbw,q9h,1npg,zvm,1oy4,2f0e,3bbd,4d0g,2vj1,2shi,28ai,2eq5,35x6,422v,41ay,2uut,2a1q,2ptj,2q6i|4|p9e89h
+T|2|vt|1|B0HF1Z6DN2|4|VT COSMETICS CICA Reedle Shot 100 Serum|1ad||1ohq,2hei,1jtn,13h4,ttz,11gf,1n8d,25xo,25xo,1baf,105l,11yk,111j|1p3umu3
+T|2|vt|2|B0HFQ7GTQJ|2|VT COSMETICS PDRN 100 Essence Intensive|1xb||r2x,r2x,h5g,fcg,h5g,djg,ej0,pmx,g8j,efl,al1,ddh,ddh|8b8t8
+T|2|vt|3|B0GJSH76FC|5|VT COSMETICS CICA Daily Soothing Mask (3|12l||ab8,cc8,81p,6ws,6z3,6z3,6t8,5jx,7ua,btn,5fi,cd8,cd8|1dmbyly
+T|2|vt|4|B0HDXVSV5B|1|VT COSMETICS Reedle Shot Firming Eye Cre|177||,a8,l2,4rr,2v2,4rr,5oo,c6k,ffi,7yt,7yt,azu,azu|15jj233
+A|3|vt|77|68|6,7,5,4,b,7,6,8,h,e,b,m,1j,4r,5m,8b,8r,b5,9h,b0,uq,165,1px,3d1,5j5,716,5f2,4dc,3ss,3is,3gb,3l6,355,2yx,2hp,3au,3ev|2a,2l,1q,1p,40,2g,2g,38,83,6q,58,b0,w8,1yb,2fj,3g5,3qb,4zg,4ia,60b,htu,otk,10b7,2053,3e4c,4ddp,3ink,2tje,2hqd,2ay6,243i,26if,1y19,1py0,1kn8,1wop,1z4z|13|14040oz
+T|3|vt|1|B0FDJ9954S|4|VT COSMETICS CICA Reedle Shot 100 Mikron|1k7||1h38,1v90,12c7,js0,owy,hxv,ipr,lej,ipr,ivy,clw,erk,erk|1gh5znb
+T|3|vt|2|B0CRKPZ9PQ|1|VT COSMETICS PDRN 100 Essence 1 01 fl. O|1x5||wur,wur,kt3,im8,im8,gfe,buq,e0b,e0b,9v9,7ob,bv1,doq|1r7dkhs
+A|4|vt|70|64|5,4,4,4,3,3,t,7,6,5,b,b,c,d,j,g,h,26,2t,4b,9b,zr,op,ya,1bl,1bh,170,17v,15d,174,113,z0,yg,13h,xi,15p,16z|1k,1e,1d,1a,x,x,ao,2n,1w,1r,3o,3i,3z,4e,6n,60,6b,1i9,1v0,2w5,5hw,mba,fhw,lgu,uuw,vvu,tiz,t31,rvz,tmr,p1i,nry,n1j,pfi,m9r,qlc,rpv|48|1dekn64
+A|5|vt|277|153|455y,3ibz,2lx5,2fi5,32f8,2pyc,1msg,27n2,5mug,1qnp,2e4m,5n80,1zwp,6uti,2j7d,2wl3,30kj,46sw,2kys,2nyl,63jg,1ytq,2yl7,4dic,4wes,485f,39qa,2p9w,2yfo,2ucr,2bs7,2a2l,3upc,2m7o,2mo1,4aod,4ag2|7f6us2,6arwkf,4s7tmx,49mw0w,59m3d0,4tg27w,2s12uh,3rac1d,9zqqf2,2puscw,3wtvmp,addq5q,39okpv,caui1q,4h0gzn,52vtrq,51pgi7,782qq1,495zyg,4fanwa,aog7w4,3awygx,4t1vgz,7fz3f6,8em5o4,74axnb,5g9xhn,4cl70v,4r92si,4ixbfz,3qsce4,3prbhn,6s2xb0,4d8ndw,4b5oyj,7qclcn,7qhf6w|1|tjhnxg
+T|5|vt|1|B0BGRG6W7V|25|VTCOSMETICS() (1.CICA )|1v8||3ikbmh,2wl8yw,1rsigs,1q5wkf,2amq2o,1w0yuq,1qkft4,1lvili,2yw7au,1igelf,1l9wnm,3cxkjs,3cs89k|dzzo94
+T|5|vt|2|B0DF7FWRJX|23|VTCOSMETICS() (3.S 300 )|3ne||1gp0u7,187zbc,1azhqw,11k4fa,x9y5l,vkwo3,lmh9q,pb4hd,18ggc7,19gdc4,122431,1i0r1x,1i0r1x|1il8qbz
+T|5|vt|3|B0H3ZRM6ZS|4|VTCOSMETICS() VT 3 (CICA )|i2||5ez7g,5ez7g,5ez7g,5ez7g,5ez7g,5ez7g,5taq0,5taq0,932ce,82mo9,9laqy,b976w,b976w|16eav0b
+T|5|vt|4|B0CPLGCXLZ|6|VTCOSMETICS() CICA ( (510ml))|1j0||9ia2s,8p5o2,572uu,4r3r6,52v4g,5idrk,516rg,4z3rg,9pin0,47mcp,4ne4z,97krm,97krm|9y7i7v
+T|5|vt|5|B0GWPPDJWK|4|VTCOSMETICS() PDRN+ 100|21c||10dmmj,10dmmj,ltrz4,9gi4f,7519j,8bkmw,4up1k,4up1k,a25yo,4maz9,3oyhk,8jlaw,8jlaw|6fg1o5
+T|5|vt|6|B0FW4S2WG4|3|VTCOSMETICS() 3 ((60))|xm||7i93r,5trkm,5hjvs,578ko,578ko,66mzs,5shle,5hyxg,804as,4cmi4,4cmi4,7yhno,7yhno|qxdezx
+A|6|vt|16|14|,,,,,2,1,n,p,b,7,e,m,b,1m,4x,bi,ep,ls,kj,tp,l7,ly,mm,st,pe,pl,rd,q9,lz,q9,ms,ct,fk,p4,rg,re|,,,,,,,hv,p6,an,63,bs,qm,c8,1gu,4i3,afo,db8,k6b,iv8,rf5,jo5,kmz,l3y,qwa,niz,nr3,pr7,ouk,kyr,qd6,mx6,cqd,fc8,ovw,owj,ov2|14|gv9hq9
+T|6|vt|1|B0C2TQ24VY|1|VT COSMETICS CICA Reedle Shot 100 Daily|2a5||lgv,ixy,ixy,ixy,ixy,dw3,kzn,fe5,6zw,6yi,9qp,adn,adn|1fqbwr3
+A|8|vt|100|91|3,2,2,6,d,d,g,a,p,u,r,i,r,k,16,20,5o,bw,i6,e7,jf,pr,1ae,2b3,319,2wg,2s6,23v,22x,1xj,204,27w,306,20a,22h,2ex,2ex|1a,17,16,2c,4s,5x,6l,3s,cd,j6,fj,9c,ft,a3,qr,19m,3cq,6y9,b32,9fm,cwc,fdp,t5x,1gfp,1yul,1uzi,1u59,1gom,1epz,1apk,1cbr,1el0,1uak,19fx,1ccp,1in0,1ik4|30|f4kpmc
+A|9|vt|77|69|,,,,,,,,,,,1,7,2,t,8,6,1a,3j,7t,hn,op,mx,1ag,1gz,1nb,1dl,1l7,1ed,1g3,1eo,1ah,17u,1cb,1c2,1j4,1lv|,,,,,,,,,,,l,2y,11,hl,4s,37,tt,2sz,5no,cjp,gih,fqu,wc2,10io,167l,z5b,15fv,103j,10ja,zgp,wfo,uoo,xfz,yow,10z4,12y8|45|1rt6n7k
+A|1|eqqualberry|45|34|,1e,1i,18r,226,2w4,2tj,229,3o0,2vb,3oj,45i,8o1,9xf,and,hds,jjp,kkg,ffq,csf,v8o,1581,1hzx,2k1v,38p8,3q6i,2p5a,48vg,576c,4qtu,3g5z,5flu,32dt,4091,4eft,6x6c,6wrd|,tm,ua,nsx,13uq,1k04,1iuv,13vu,1z6e,1jf3,20cx,29kb,4s7y,5hhi,5vm5,9km6,apgl,bdxe,8i2b,704o,hbrd,mdp0,svwn,1drtw,1rn3t,23mai,1gof3,2bvqa,2ydzm,2oeca,239j3,3ddyr,220ac,2qrbn,3296l,4nvhh,4n8ws|1|gk9wr2
+T|1|eqqualberry|1|B0H5VCY63D|3|EQQUALBERRY NAD+ Peptide Boosting Facial|1p3||g8v6,kvyy,3hbu,3y1e,3y1e,6ynn,3vym,kkz0,mfp8,vmy3,wj3r,1iy52,1j21u|1vyg674
+T|1|eqqualberry|2|B0H2H3PJKZ|3|EQQUALBERRY Vitamin Illuminating Serum f|1rv||xtrg,tuhv,xtrg,1dqts,1dqts,1dqts,11ggg,1p5ln,pwgr,r2wc,pgxy,q9yb,q9yb|126wtxh
+T|1|eqqualberry|3|B0GVN7XK5F|2|EQQUALBERRY NAD+ Peptide Boosting Firmin|1ru||,1jb,a45,hgz,hvp2,mzlx,i7iu,lirj,fmhl,jk95,kf6c,1188m,1188m|o6ods9
+T|1|eqqualberry|4|B0HGQ4XLMG|2|EQQUALBERRY Bakuchiol Plumping Serum Por|1rv||6o1c,6o1c,3c0o,6o1c,6o1c,3c0o,2gm0,3cu0,14a0,1o2q,75gr,mcfq,mcfq|p7lk4n
+T|1|eqqualberry|5|B0H75B6Z8J|1|EQQUALBERRY NAD+ Peptide Boosting Serum|4h3||,,,,,,,,1sn,3kwf,7o7r,5olf,4ne9|2dpcdw
+T|1|eqqualberry|6|B0GVN8V6TL|2|EQQUALBERRY Vitamin Illuminating Cream f|207||hh,c8zr,7clg,h5e2,m1sd,7clg,8z4x,5lga,3doo,3jpq,2p9e,47xg,4r1i|1b69w1t
+A|2|eqqualberry|22|22|,,,,,,,,,,,,,,,,,2g,d3,ez,136,15c,1ez,1s8,217,1kq,188,162,ym,1an,zz,1i9,156,25b,2c7,3f2,3ja|,,,,,,,,,,,,,,,,,161,65c,6yb,i7a,j4x,njx,tkw,xii,q3p,kmh,kgl,hbn,nf3,gko,oxo,j8v,11qz,14lz,1nrs,1qnn|6|1swhs8a
+T|2|eqqualberry|1|B0D8W1YVBX|1|EQQUALBERRY Vitamin Illuminating Serum f|15o||bud,9cm,83q,5lz,347,5lz,5li,9bu,6ua,kb2,kb2,j1f,j1f|1bm96rc
+T|2|eqqualberry|2|B0FGQ3J31K|1|EQQUALBERRY NAD+ Peptide Boosting Facial|15o||,,19m,483,2j9,2j9,10l,216,216,32x,80d,i3o,i3o|1gmytb
+A|5|eqqualberry|2|2|q,n,r,t,r,18,o,o,t,q,11,x,l,e,e,g,k,m,m,i,h,j,g,f,f,e,j,h,b,e,d,e,g,h,c,a,a|1dou,194e,1fxs,1klu,279n,2uh8,1su1,2j21,2lc9,2f0u,5e4c,59fj,2m5d,rqp,qax,ufq,2b0j,34pe,3926,2g2q,1y8x,1y1u,1ry8,1pqs,1p92,1lhu,1v2k,1pla,1f0e,1jk9,1g00,1huj,1m4w,ic4,e0q,cse,d72|100|wndkcv
+T|5|eqqualberry|1|B09GXTV1MJ|1|210ml w OK|1xg||ii0,gyn,qql,min,cpt,hy1,ffv,ig9,lx9,ic4,e0q,cse,d72|3r2to3
+A|1|celimax|51|44|250,2iv,2pe,2xp,4v0,6ig,5fz,5uk,8nq,6pp,6yi,a9z,etj,fbf,eoq,gv2,mln,l6g,kvc,nex,1gxh,19q1,19k0,1uhw,245l,2e0z,1n99,2u2c,2o5k,2dqy,1ymd,3avy,4p7u,40o2,3b5o,5pew,5p99|178p,1e68,1ilt,1mmk,2n58,3het,2xj6,35z6,4t5f,3sqx,47gr,6ae3,9nw7,9tj3,91wr,a3pr,det7,cn8f,cfb6,dtyj,uvnr,q4gn,q02g,135za,19gz7,1fe45,108ae,1nfc9,1jtar,1ggw5,13ggr,1wq91,2sd2a,29vcx,1vod2,37enn,37azz|1|1k657a
+T|1|celimax|1|B0HBW3N3S9|3|celimax The Vita A Retinal Shot Tighteni|1fo||r5uj,w9c5,nt1s,182f8,xvfz,trvw,nbu6,1d15a,1x6ly,1av1w,11lfc,1sia3,1sia3|1x94gic
+T|1|celimax|2|B0DHKSF81K|1|celimax Pore+Dark Spot Brightening Cream|15n||6uxf,6uxf,4cdz,6uxf,bfjp,bfjp,9e5m,5mw6,9e5m,9fsn,9fsn,fcs0,fcs0|1agjc6g
+T|1|celimax|3|B0GS97T2MV|1|celimax The Vita-A Retinal Shot Tighteni|2bc||,,,,,,,13n,2t40,8ggf,8ggf,enyy,enyy|13q1r0y
+T|1|celimax|4|B0GZNCHQX3|1|celimax TXA Body Clarifying Pad Body Exf|1qi||,,,,,,u5,16q7,74d6,72kl,32bc,7a1c,7a1c|1an6733
+T|1|celimax|5|B0DK4WKPZW|1|celimax The Vita A Retinol Shot Tighteni|1dp||2ka0,3hu0,15y0,1mq0,2ka0,3120,1y8r,44ah,44ah,3apm,2is2,3mp5,3mp5|6pjoog
+T|1|celimax|6|B0GY14XSSW|1|celimax Pore+Skin Clarifying Daily Sunsc|1gi||,,,,,sc,2i2,p0f,15op,13ft,13ft,1fuo,1fuo|8c02au
+A|2|celimax|33|31|d,7,7,5,2a,27,2b,29,2i,2i,2h,2i,35,50,5k,5q,97,8w,9d,6n,js,103,28t,38p,3dy,3oe,4n2,3e5,am9,8u5,698,fip,gt1,k6b,fgq,ng8,njd|6k,3d,36,2j,zh,y9,100,yu,137,13b,130,139,1fy,284,2ht,2lw,45a,49b,4t9,3ef,8s0,fvl,z55,1evv,1iaa,1nyw,22bu,1jz9,4o44,3w92,2pat,6mlr,7fq0,9cmy,7l98,b81o,bai4|2|f4s088
+T|2|celimax|1|B0GRC86ZWT|2|celimax The Vita A Retinal Shot Tighteni|17c||17is,19ch,1jfn,vlw,356b,2t9f,1qgz,4po9,4u37,5flh,3g79,5psc,5psc|1ak6ovi
+T|2|celimax|2|B0HCWYXGF3|1|celimax Pore Dark Spot Brightening Cream|1af||322,4a2,7y4,965,ukh,bm6,a0r,12ji,1hyi,21i4,21i4,2b98,2b98|1r61cly
+T|2|celimax|3|B0GS97T2MV|1|celimax The Vita-A Retinal Shot Tighteni|1p4||,,,,,,,a9,tn,hbp,ukn,1ngu,1ngu|1b6fo9k
+T|2|celimax|4|B0GZNCHQX3|1|celimax TXA Body Clarifying Pad 50 Pads|1ko||,,,,,,vc,4fv,dbl,oa6,drd,bxl,bxl|11yyudg
+A|5|celimax|36|28|6j,6d,6i,6g,72,5b,5h,56,76,84,80,97,7v,7a,9d,7e,6y,aw,e9,fj,im,eu,eg,hr,lv,l5,1cy,29j,6tf,ejs,f2h,eha,xlw,o8k,qra,vmo,uuf|87cj,7yeg,84yd,808k,9fv3,7w03,7pwh,76dy,agvx,cgq3,c1fm,e1dv,caq3,bp4q,eouc,bni7,b8lh,ggkl,m28z,p204,tp0v,nlpm,nmal,tl35,10hna,12hf0,2iffz,4mdsx,exl5d,w3iys,uc8uj,t3x2d,1vno2t,1d2j96,1kbcg3,1vzb70,1sykfi|3|144iaiy
+T|5|celimax|1|B0HJYT62FC|3|CELIMAX() A 15ml|21w||,54e5,yng0,2mi4d,bdiiv,q917i,ngl3c,ngl3c,1iqp7s,149qe6,16yyl4,19iuuc,16iq3g|1m118v1
+T|5|celimax|2|B0GS97T2MV|1|CELIMAX() A 50ml|2jo||,,,,,,,,,3djb,4s8t6,8uac0,8uac0|12glwae
+T|5|celimax|3|B0DHKSF81K|1|CELIMAX() 35ml|1xg||,,,2ny1,twxn,29l3d,26drc,136vo,26drc,25gru,25gru,28eoc,28eoc|cdk5oh
+T|5|celimax|4|B0DK4WKPZW|1|CELIMAX() A 30ml|2gw||,,,1it9,g85u,9qhx,t7e0,zp14,2pcmo,16rhj,1jx6b,2qxcc,2qxcc|1teix7g
+T|5|celimax|5|B0CZ8FPVW4|1|CELIMAX() 30ml|20s||ox3z,ke00,12ifz,tg7z,fuw0,ke00,np4i,np4i,26zr0,14pa0,z9wo,25990,25990|1m6elwu
+T|5|celimax|6|B0GMPYV787|2|CELIMAX() 50ml|2gw||,,,6j92,p8hr,11m4b,1eom4,ukb4,1xm68,12scr,w3q9,1ppvi,1ppvi|11hpuid
+A|1|dralthea|69|52|2jo,3nu,49s,3i4,4g7,6h3,8n3,7br,jbr,g3f,9gr,ens,ewp,q2t,10l7,s7x,11t3,10r2,194p,19i9,28mq,1b7l,1dao,1son,1t87,2v3m,2co4,2qq7,2zek,32sg,2hdn,4mfa,3sli,45j8,44op,75mk,75io|1ux0,2px6,36f7,2jxt,3c6b,4q15,66d4,50ff,dx7a,btdr,6tgi,ahwy,aoxh,jbcn,rbbz,l3k4,s3os,rdbj,xll0,yiib,1nduy,xya5,wdtt,1584o,15prf,1uenp,1jfy8,1mth3,1tiar,1ubmt,1lj7l,33lpr,2gxzw,2owct,2n979,4wymq,4x6ng|1|wt0zfh
+T|1|dralthea|1|B0FKSWWK4R|5|Dr.Althea 345 Relief Cream 1.69 Fl Oz (V|230||ugoz,1bt1l,10ntt,123do,15sn4,13ynt,12l79,1z95x,1f3nk,1gr6x,19oxv,2v89p,2v89p|14fuaeb
+T|1|dralthea|2|B0GR4XCVQS|3|Dr.Althea 147 Barrier Cream 1.69 Fl Oz (|1zy||2keq,3pha,4a0j,34y0,26uz,3s8s,34uf,5p14,5n0a,8ol8,9a81,ddqs,d64w|pj77bx
+T|1|dralthea|3|B0G4W2FT6S|1|Dr.Althea 345 Relief Cream Mist Duo Kore|3ma||,177,24g1,24g1,24g1,4o6h,1969,5fr3,73zf,68vu,chro,cah6,cah6|1p8o8la
+T|1|dralthea|4|B0FMWQPD5H|2|Dr.Althea 345 Relief Cream Mist Korean V|1ja||1p9a,2big,2big,34ui,4oit,5071,41r8,7l5m,78x2,72fe,7qm8,bxzb,bxzb|190dn0b
+T|1|dralthea|5|B0CY51CWSW|2|Dr.Althea Vitamin C Boosting Serum Korea|1ue||3lue,70zc,3k61,4hwc,72np,44y1,3npo,7gyx,4oi0,76m2,48k7,75az,75az|yltqhj
+T|1|dralthea|6|B0DXZNF751|3|Dr.Althea Pure Grinding Cleansing Balm K|1rm||22qf,22qf,1nt3,22qf,1nvl,1nt3,15ja,1wbq,1vsa,25r0,2c9h,4crw,4crw|17h20o1
+A|2|dralthea|55|41|7v,a1,7y,ao,8m,jl,y4,th,s7,gr,ar,11a,2c4,4cq,2qm,4ux,3u4,3d9,1mj,2ou,5pf,3u7,4tm,76p,8cq,97v,ap6,9he,br5,cma,bm1,dze,a26,cr8,c2n,jl2,jqq|4h0,5l8,4bd,5p8,4nd,adj,hhf,epp,eah,8k7,5br,ihh,15ky,252g,1c5r,2clv,1v0v,1ndl,skf,1b9d,2rqw,1uvp,2btu,3h03,43a1,4ksq,5bga,4hay,5ov7,6cq5,5p68,6tzk,51fw,6d0m,626m,98pn,9aul|2|8wltwd
+T|2|dralthea|1|B0GSPMLWLT|4|Dr.Althea 345 Relief Cream Korean Skinca|1fx||35bl,3jig,3kuc,2ion,3bjz,48h3,3f0r,435g,2sxc,427f,3enj,53tt,538z|n0btod
+T|2|dralthea|2|B0GH64V4NZ|2|Dr.Althea 345 Relief Cream Mist Korean V|1eu||,se,95i,czy,pfd,n5d,noa,zml,mix,mfw,mfw,11an,10ff|19lrlgn
+T|2|dralthea|3|B0GS4MJNG8|3|Dr.Althea 147 Barrier Cream Korean Skinc|1ls||c5p,c5p,7v8,9aq,c5p,bz0,9mn,bcx,akt,dax,ez8,squ,tfs|p1p0eo
+T|2|dralthea|4|B0HHHY69N1|2|Dr.Althea Vitamin C Boosting Serum Korea|1iq||a35,b8w,hrb,in7,hrb,8vn,9t5,cfb,76z,aia,aia,ciu,ciu|klcrcu
+A|5|dralthea|71|61|jx,vm,12q,w2,1d7,16w,164,12a,1pa,17s,1c1,1rs,1ee,39t,1lj,1r8,2hh,1zl,1of,2ao,319,2cq,2g5,36h,44k,3kj,3ub,4ec,5u6,5ke,5y4,42j,8l6,6wl,6lo,9ma,9ow|fa0h,v216,1amre,xhzf,1i89j,1fnp0,1lioa,1lmjq,2hynm,1th9i,24avk,2uzja,2cemf,62g9x,2ksof,2xqgn,4p3we,37vmt,2mk23,4e32t,5oncg,4sgvd,4wbbu,5u70g,7t2vz,6yvzz,7u798,8nxnl,bcdna,b1yk7,bnw1r,7ex08,gmb2f,easd8,de2ew,jn47v,jr0bu|15|a2vf3m
+T|5|dralthea|1|B0FPC592M9|2|345 50ml PDRN Dr.Althea|230||41b9u,41b9u,41b9u,41b9u,5nfs6,5nfs6,5xhyg,48hyw,9bhxk,5xwt6,7n11i,b2b4c,b2b4c|rw1dfu
+T|5|dralthea|2|B0H41LYTWJ|2|Dr.Althea 345 60ml/100ml|18g||,,4mps,glnh,y3dz,160es,2s30c,zpzu,3gyuc,2nqke,1n0in,2cvk0,2cvk0|y5gwcy
+T|5|dralthea|3|B0DNQ3Z2XY|1|345 50ml 2 PDRN Dr.Althea|3zw||ex8f,ove2,1ipuw,1ipuw,1so0j,22m65,154h8,5r9m,tdhg,225gp,sipt,14v0y,14v0y|bboouy
+T|5|dralthea|4|B0GPPRTD32|1|147 50ml Dr.Altrhea|28k||,,,,,,2vwc,km4o,qi60,kx7a,kx7a,14eh4,14eh4|xfzdbr
+T|5|dralthea|5|B0GJCJVNYP|1|ABC 100ml UP 3 Dr.althea|25s||,,,,,,,1dc2,98vc,ei6m,ei6m,l068,l068|1eh24y2
+T|5|dralthea|6|B0D1J91PW4|2|21 Dr.Althea|25s||qd67,bye5,h42k,bvfa,l4ix,h42k,902o,4i1c,2hxo,di40,di40,ji5s,ji5s|1j79hoq
+A|1|romand|296|89|px2,yaa,qjv,ptt,r88,r6k,ppy,mt9,w34,7z8,6r3,7gg,6yz,6sj,5lk,5o2,73z,8g0,5of,4kl,5zh,56y,77y,8h7,7d4,7vk,8fy,aeg,bxt,cgf,awh,dzw,dyp,ca6,dmb,h2w,hg7|bhc8,faqp,blr9,b797,by8k,by3w,b6g9,9whj,emcm,3eyy,30tf,3f10,32sh,2z25,2hza,2k1j,37oq,3mnd,2hxb,23bl,2nis,2d3c,38rl,3obs,33tt,3nuu,49cn,5iue,6bpg,6c6r,58it,6jqx,6bh0,5qfm,6dt7,87v0,8gb2|7|11zcyid
+T|1|romand|1|B0GG7CKRPK|5|rom nd Volume Hack Trio 3 Step Plumping|2mg||,3vi,1a2n,1whg,26cv,1xua,1i2o,1fg8,15jy,113t,19gk,1yu0,21gg|r1ihwe
+T|1|romand|2|B0GFMDPJ4Q|38|rom nd Juicy Lasting Tint Glossy Lip Tin|18f||fya,i17,e92,vrw,z7w,ywe,w0g,1bfg,1a3g,zff,xo2,162f,175b|1kufg1e
+T|1|romand|3|B0CSNDMBKD|14|rom nd Glasting Color Gloss Plumping Lip|12w||527,3cg,9rl,bzg,bzg,dfp,da3,r49,q06,jio,tie,11d2,11d2|189ocsy
+T|1|romand|4|B0GCZP9C12|16|rom nd Glasting Melting Balm Korean Lip|12w||9km,kzz,gbi,h0r,khp,m0a,f4k,l9t,lej,i12,gv2,scd,scd|6fxx33
+T|1|romand|5|B0HLMZ9N6Y|15|rom nd Better Than Palette Eyeshadow Pal|1uh||7mt,ayp,5ow,83y,9ip,dmm,6tk,chy,83o,c9t,gp8,ils,k9d|1v5oe7w
+T|1|romand|6|B0HJZR6ZZT|8|rom nd Han All Fix Mascara Waterproof Cu|15o||7aj,8tg,8nz,8dl,8l6,9o7,4pw,8hw,gok,epq,93z,eo1,ft2|g9zwk7
+A|2|romand|156|46|2oa,337,37d,36a,358,303,333,2o2,40k,3nj,418,4gr,575,64m,4h3,48p,4pg,52g,3oy,37z,3rd,2xf,2fw,368,31r,3k1,45i,2q7,3ji,37c,3gf,2ys,3j0,2p8,28a,1z2,2ld|ycu,15fo,176r,16qm,16l6,14vm,166z,zfb,1jx5,1gca,1lab,1qfr,20jw,2d6f,1rem,1pre,1u8e,1wyr,1ff6,19xw,1ifb,16s3,y8g,18pv,18m3,1di9,1nvk,110j,1em5,18v0,1e4e,144v,1cnj,y0x,s97,u3f,12f3|57|11xeko
+A|3|romand|45|14|1xz,1yg,23t,213,296,1eu,18f,177,16h,1bh,18r,1cj,1fq,2og,19j,1jx,1w5,2fs,1jz,xm,us,11s,q6,u5,qw,wl,wf,y4,128,xk,p3,11f,1fk,106,1bb,178,19z|r5u,rhs,ta4,s7o,w8u,kys,izk,i23,hpe,k7z,ikl,l0b,m2o,14ar,jzv,o7i,tk9,11he,ne6,f1i,eae,hbm,c45,dkg,c0a,eds,eeh,eeu,gfq,fkw,ays,g04,l93,dzp,hwu,im5,k4e|39|6k7kux
+A|4|romand|134|40|zh,15l,1d6,137,1jy,1h7,1km,1mn,1od,1l8,1ra,1si,1mz,27c,21l,23q,22o,1hu,17d,1ka,1c2,1f4,1cu,1he,1b0,1jf,1pf,1ps,1wt,1oq,1ku,1ki,1t3,1kt,1r4,1xy,1w7|dy4,hbv,jx8,g0b,m82,kvf,njw,onj,pgz,mvb,oyu,pbu,nfy,wzo,tim,vi3,u4n,mgb,i56,nqw,j5y,m8f,joc,lkx,j7a,n2t,qy5,s23,v0o,ris,o9z,owp,shw,m9h,r7a,uxg,uhm|99|tw858g
+A|5|romand|761|213|2z4p,38fv,3hwz,2m8i,2y02,2fuw,1gel,1pfi,37dv,19yi,1wpa,2sfz,1g4x,4qmy,22hv,1p2r,243o,20bm,1dpk,1jvl,32y5,12ga,1vfh,2i3q,2izg,26uf,1fkt,1fph,1pgp,1fq9,1m11,1iit,2em9,1epe,1p9h,3dmv,361t|39ntw4,3mype7,3nmkub,2um9zj,34q8cz,2g8yb2,1hkrph,1p7qpv,3751dy,1b7gqd,1xx1gi,2tm88f,1he5i8,4xtt51,24ka4z,1plctl,26lwq9,21oixk,1fzyn8,1m1u71,37cjxk,15mne8,1yfouv,2mkzb7,2jg091,2ajgyl,1gd5mf,1g95vj,1ptv95,1ftrxs,1kn5sq,1gx38p,2db3sg,1ei54h,1ovj5u,3ealju,37nftp|8|r29qb8
+T|5|romand|1|B0BJP35P2X|24|rom nd HAN ALL BROW CARA (03 )|sb||rbbu2,mxxmq,e6mss,bw042,gclm9,bpe4d,gfkut,fr6d4,uh6os,ck5x8,gqusp,1guf8a,1a0smy|x35ka7
+T|5|romand|2|B0B422GR3P|19|rom ndBetter Than Palette (04 ) []|1yu||78sp1,96t97,4skxb,54e71,60cvp,3unv5,3ofmq,3lha9,6gwew,5lnjf,6ogy0,8oivy,8vaem|xedi9k
+T|5|romand|3|B0CP7VFLDC|41|rom nd GLASTING COLOR GLOSS (22 )|10o||5o0qi,4eov4,1v5aj,249vl,2pn0o,2ki8v,4nloi,54kkv,5b1df,49ph8,5fgft,b3xx0,azxl6|bbtkzt
+T|5|romand|4|B0DLGXFTV5|48|[rom nd/] (01 )|rs||3mdoy,2r3ff,1dbgm,1vx4e,239wz,2oilk,3ec0g,3zia4,4wefa,33hvo,483ir,8ag01,8ag01|55gxdg
+T|5|romand|5|B0BP1DPDDH|22|GLASTING MELTING BALM (06 )|10o||8j7kb,57ukv,302xv,2x9q1,436f6,4uewz,46ep6,3oq4i,79we8,4cmp2,4x3sh,68r1s,68r1s|15ics2m
+T|5|romand|6|B0GT9158JF|11|rom nd() JUICY FLASH LIP OIL (01 )|159||,,,,,,dr3r,16v7k,3ribg,2ak5x,2gkd9,4jx1i,4jx1i|pyy1hc
+A|6|romand|143|121|pi,12g,18g,1a7,1aj,1i7,1j5,1db,1co,16l,1mn,1be,1cq,1eb,1f0,1en,1h8,18d,166,yx,12s,102,13o,17i,16a,18c,13t,14z,1e1,1f7,1hd,1ji,1mx,1cw,1bl,1b5,1c2|i0g,ppc,t0s,tcv,udo,yov,xzf,uuu,u8x,pkr,10mc,se2,vfu,whr,xyo,yl7,103a,syz,qw0,lve,qm8,p1r,pkt,t63,rtu,uub,q4y,ui5,yxx,zoh,12s6,14k4,15zr,uao,ugl,ujo,vg6|90|qzjmqt
+A|8|romand|134|43|wb,t2,1ar,16s,1f6,131,1e8,1lm,1mc,1he,268,24p,229,26m,28h,2hm,24p,21o,13b,22o,1kc,1or,1es,1nh,1ga,1vs,1oq,1g2,1yd,1k0,1pd,1hj,1r1,1ru,1kp,1q5,1rw|dqn,csc,k9h,jks,nx7,hug,no8,r1q,qtp,py8,10b9,10am,10il,13ix,13mo,17o3,13iq,x8p,k1r,zgu,rb7,tfg,m57,tly,miu,xdz,tvl,oe4,zke,qpy,yq5,ujf,zac,zwk,ul9,106x,11no|94|r4mqqx
+T|8|romand|1|B08P9JYTJT|12|rom nd - Tinta labbra effetto lucido e a|16q||7be,7be,7be,7be,7be,7be,7lf,7ea,7lf,7uw,7uw,85o,85o|z2n0e3
+A|9|romand|118|49|ow,ta,o9,uz,104,14z,11h,16e,1f7,13k,1es,1hq,1fx,21o,1wg,1ld,1u5,1nl,18s,1e2,1h4,1aa,106,xe,11m,1ft,yu,165,1jd,1b3,15r,1bv,16i,12q,17a,1id,1ks|a7z,bye,9uh,cj2,eh7,gje,fdw,iyk,m89,go1,ky0,m1f,llj,wnz,t6h,mz6,ssz,o3h,ir9,jws,n94,k3c,f0n,dn7,hlz,lb1,eny,icf,o2m,kn5,hwg,lbp,jgh,fnp,jev,px3,qwh|98|im45kg
+A|1|manyo|45|37|g5x,gbr,gx4,grb,gwu,goy,d57,bco,n6a,a70,9nc,cl5,c6h,em8,97p,8xw,asi,bgp,azv,9mr,kf1,btr,aeb,ie6,qkl,m5k,cqi,ekr,du5,myi,grl,py8,olp,por,shf,15v6,1611|7rq4,7u5t,820t,7yyp,7vqs,7q9u,64sv,5b5l,azny,4snn,4jf6,5wvr,614o,7ntn,45vz,3zyj,57c9,5m41,51c7,4b8f,9epb,5pq7,535d,8r3e,csr6,al1o,5n7y,6l7m,6fuz,ambh,7ny5,cfzn,bq6i,bvpy,cwhd,hyf4,i11g|1|s240m9
+T|1|manyo|1|B0CJBY28XJ|5|MANYO Pure Cleansing Oil Makeup Remover|1ay||78aq,6kkw,2j5k,3guz,369o,5iy5,3gh4,5c4o,5c4o,5ek6,5ek6,8oh1,8oh1|779prr
+T|1|manyo|2|B08ZN13FNL|1|MANYO Galactomy Enzyme Peeling Gel Gentl|12w||1qv0,17ip,17ip,17ip,xuj,1h6u,1770,xlg,xlg,1985,1tbr,2q07,2q07|19gxznf
+T|1|manyo|3|B0GGGJJQZX|1|MANYO Glutathione 7 Dark Spot Serum Patc|1ou||,,,,gy,cm1,nrf,1za9,1jfz,1cac,1q30,1bpx,1bpx|56zw5x
+T|1|manyo|4|B0GGH9DCKK|1|MANYO Glutathione 7 Dark Spot Serum Radi|1ja||,,,,jn,ldd,m0x,10pj,1fe5,19k5,19k5,1p2r,1p2r|1vmg4e2
+T|1|manyo|5|B0CTQJGRBG|3|MANYO Pure Deep Cleansing Foam Blackhead|zu||yha,wlb,jjz,gq1,gq1,rve,gi6,s8q,hz2,hhd,t4x,vt2,vt2|1qri3fo
+T|1|manyo|6|B08DTTL17D|1|MANYO Bifida Night Serum Barrier Care Hy|1dq||p8n,cmc,fzh,eaw,p8n,p8n,ec6,mn0,ec6,mjw,cs2,lz9,lz9|1y2fxw
+A|2|manyo|29|25|1sf,148,1bv,18w,17d,16y,15m,vj,184,zy,xm,15d,15o,19h,xn,15y,12n,162,131,v6,11v,f4,ez,lf,ro,l0,j0,qi,k4,nh,x3,1xe,1up,1y5,1vy,33d,33d|zsx,m62,pq3,ork,nvd,no7,mq5,hmm,o73,ji1,ikl,m7v,mkp,oug,ikv,med,l7f,nfq,lhe,gnx,kgg,7ws,7rr,bnt,etu,be2,a6i,ex3,b62,cua,ek9,sz4,s4c,ru1,r5v,17fp,17g5|15|1vw8nua
+T|2|manyo|1|B0CDLHSZVH|2|MANYO Pure Cleansing Oil Makeup Remover|104||5ft,5ft,3vv,515,57h,57h,7i4,i8q,i8q,hea,hea,tnx,tnx|1ivifc4
+A|3|manyo|9|7|o3,gb,fr,g5,l6,m4,n9,ic,qd,li,i0,m8,sg,xc,ih,sg,kr,q4,jt,du,li,7x,8f,ex,go,c6,9s,fu,b5,b8,gw,dd,cd,oj,lt,or,mi|f3a,aal,9xp,a6o,d4d,dlw,e92,bs8,g5h,dao,at6,doi,hla,kn1,bn5,hk8,cpe,fzq,ce2,8nm,d7y,4rm,5jb,8rk,9xg,7jl,68c,9vz,6zt,71j,95a,77t,6mq,bv6,anp,b6g,9s4|16|1youdek
+A|4|manyo|16|14|2j,d,g,1v,2g,2r,2n,2s,2p,2n,j,27,36,39,2t,2j,2m,2e,25,33,1z,4i,22,31,34,37,32,31,3x,3x,6m,4q,79,5q,71,63,5z|1px,7n,9a,1bf,1ql,1wd,1tv,1ww,1vu,1th,by,1ir,28e,29n,1xw,1rx,1sw,1o9,1ia,26u,1dx,37h,1ei,26h,288,28t,25z,25v,2lu,2p4,47t,2yh,4m2,3kn,4ca,3uj,3si|68|xa6kt
+A|5|manyo|66|51|t2k,oup,g9x,ggq,bed,fk2,48h,6ut,hc7,7nc,6w9,bp2,6xg,qoa,bp4,bz4,btg,ery,ayd,bqw,t5e,9f1,bul,hik,bwr,bbg,2x1,675,6hz,8wz,bxi,9mn,j0k,9la,b87,lqa,l48|1hqrth,19cdlb,sglgm,sscwl,jms2s,t53zr,8a280,d5kan,w20zi,e0kzh,cy4th,lsn3d,d25z4,1d17xo,lild9,loea1,lhfc3,q4sxb,jghat,kscs0,1gia3b,hwvv9,lttjt,wcbi5,n2g8w,m90rc,6wgjn,bp3rf,c3ped,ggz1m,mqmt6,ies7d,100oai,hrfz4,l42o4,15923b,141492|2|4sx3pb
+T|5|manyo|1|B0BX7W57VJ|11|MANYO() 200ml|25i||4x6si,263wo,107mx,60bh8,6iyr1,8gnu0,a1t46,7942s,g92b2,6nfg0,7cdax,goqyu,fbpue|1gjaz6j
+T|5|manyo|2|B0GGH9DCKK|1|MANYO() 7 30ml 99%|2a1||,,,,,2vbk,2gh6o,43gn4,5qg3k,3xq8k,5if4s,8y24w,8y24w|agpenm
+T|5|manyo|3|B0G4W6QCXR|2|MANYO() 3.0 60ml|2l2||,,,66yq,wv06,1upi9,3fzno,2140s,3li9o,1s1rn,35h6o,46kiw,46kiw|blfwau
+T|5|manyo|4|B08ZMZTBS4|1|MANYO() (210ml) 93.69% 2|1w0||2416a,6c3iv,3sux,rvmp,1732d,1732d,28ms0,1f2fc,28ms0,1aavn,14urx,25wec,25wec|eyq78o
+T|5|manyo|5|B0DW433N45|4|MANYO 200ml|1y7||2hut3,1nely,oply,1e06t,mfpl,15o19,1kunv,wwe7,24edw,m5rg,vp1s,1g02g,1g02g|ezx3wo
+T|5|manyo|6|B0H1J597NV|1|MANYO() 200ml 99%|1op||,,,,,,,2g21,mgoi,79ou,79ou,1ykic,1ykic|zybyry
+A|6|manyo|7|7|2r,2s,2m,2h,2g,2o,22,2h,1q,3g,2z,2q,2i,30,2o,2i,3c,2z,2w,2s,26,2p,2k,2b,26,2s,31,34,3g,42,3t,42,3l,4u,4i,7i,7j|22t,23q,1yl,1va,1ud,20a,1k5,1v8,1ak,33a,2tc,2g2,26n,2uh,2g6,2at,38o,2os,2gh,2i5,209,2kv,2et,24w,255,2ks,2u7,2vd,3lg,431,3wz,4bq,3qq,4c3,41j,6f6,6g2|71|15gcm83
+A|8|manyo|22|21|2a,11,n,c,u,1a,z,2g,1x,1n,1n,2p,27,1m,2m,21,3g,2c,2j,1x,25,25,24,25,2v,2s,2t,3c,3j,63,6o,7l,7d,8a,8c,9h,9d|1i8,n8,ep,81,io,sl,ln,1nr,199,12x,138,1ug,1d0,116,1py,1bm,2ce,1ja,1m6,19x,1el,1f3,1e2,1ev,1wv,1x2,1y6,29r,2cq,4aa,4gv,4tb,4vp,4sa,52m,6aw,66m|98|16hqbaw
+A|9|manyo|16|16|1e,8,5,5,f,m,e,l,s,1h,1s,1z,1w,1x,28,1u,1w,30,2a,25,25,2b,2c,3i,2r,23,2b,3g,38,3r,4t,46,61,5h,65,5g,5i|zi,6e,3y,3u,d4,hq,ab,fo,jr,11w,19s,1ek,1cd,1df,1l4,1b7,1di,27r,1on,1k9,1ih,1lo,1nn,2hp,1xg,1gz,1ms,2ec,27h,2le,38l,2u9,45a,3f3,3wx,3fb,3fn|92|d8w0h9
+A|1|tonymoly|316|117|s3h,10sx,j5q,k1k,p1w,qij,g4v,hdi,jhn,jwg,kw1,ohh,kxq,120r,kd7,llu,kcv,yxr,plk,jfe,10yi,pdm,p90,115k,1bmn,29dt,rfh,tz2,12p5,z3p,mvt,oyf,n5d,rbn,qwf,1c4b,1d7t|avxr,e0io,73zi,7m0c,9iwi,a09l,67qo,6t3c,7wl7,7nd1,8cxt,9mql,8ii3,fo3q,876t,8j96,84zc,dfox,9y8y,7pzk,ebou,9o44,9ser,eoqj,iiug,ttq9,a9xe,bas7,e0ab,ciwc,8p21,9y4g,8x6o,9x0v,99zz,gq8c,gkfg|5|8k9bzs
+T|1|tonymoly|1|B0HBQPRC9J|47|TONYMOLY Halloween Korean Face Sheet Mas|b4||1jrn,3yr6,1f5u,1vu5,1m97,1n1o,17h8,1kxh,1nzr,1xvd,277c,5728,5ej9|mtaj33
+T|1|tonymoly|2|B0FRG6YB4F|3|TONYMOLY Korean Blackhead Sebum Remover|yq||4ley,7now,2926,2e03,2lqh,2krz,1jm8,2hd8,1tlo,259o,1mw4,2l42,2l42|404w1v
+T|1|tonymoly|3|B0H1DVKCHC|4|TONYMOLY Plump-kin Pumpkin Retinol Under|1ko||jqw,ev3,dr8,e6j,cv2,ejd,9wz,c5n,a8c,e0j,srv,1voa,1f4q|1l9hjyo
+T|1|tonymoly|4|B0FFNBZXHW|5|TONYMOLY Wonder Ceramide Mochi Milky Ton|1ko||13w2,1263,j8n,qjm,wxq,10qz,yf8,15tr,l3i,wzt,mz3,17la,17la|1r33rv8
+T|1|tonymoly|5|B0FRGFSXFP|2|TONYMOLY I'm Rice Enzyme Cleanser - Rice|zf||p8v,gk8,f5b,f5b,f5b,f5b,fr3,fr3,fr3,n05,n05,yii,yii|t7267c
+T|1|tonymoly|6|B0F6SZ8268|21|TONYMOLY x Squishmallows Korean Sheet Fa|xc||op5,29wo,ahc,b2l,z08,y1v,bmt,atm,883,8ao,bxg,mb9,mj5|vgtqdk
+A|2|tonymoly|24|24|41,3x,3t,3p,43,40,3u,2h,2n,2x,31,2z,38,47,3l,31,7v,g1,ez,69,al,b9,hx,ca,lk,oq,r2,zr,zy,118,cx,b6,7t,8p,9k,g7,gb|145,12g,13u,12d,165,15u,13k,pv,pt,tn,wh,u4,ya,17f,136,we,1xm,3mg,3hj,1t5,33g,30f,5eb,3ds,5zl,59p,66z,8so,9u7,bby,42t,3py,2w9,3aw,461,6g7,6ha|35|l2p505
+A|3|tonymoly|5|5|7,5,4,6,6,4,6,6,4,7,9,7,5,14,22,1x,2n,5n,5s,1s,4h,3c,4k,3x,9s,ci,a0,7z,7s,a4,66,3i,1q,3z,45,6d,68|2f,1h,1a,25,20,1f,27,20,1g,29,38,2e,1k,g6,sx,se,10z,2d2,22g,pc,1qr,1br,1qn,1ju,3s2,4u8,46l,3a9,32k,403,3d3,1wf,w5,1uq,1x1,307,2yn|31|p6e0t
+A|4|tonymoly|26|26|25,3e,2l,2t,2g,2p,2g,2n,1z,1g,1y,2h,27,24,3k,3j,4g,4a,3d,2w,37,37,2n,37,3i,4r,3e,3k,4m,3v,39,2r,2j,32,2q,3a,3b|129,1o2,19m,1fg,18v,1ej,173,1b6,y2,oi,x1,140,xh,wo,1g7,1g3,1vy,1sv,1gk,1aa,1k6,1mt,1a0,1g2,1o2,262,1ke,1mt,29i,1r5,1vo,1j5,1f7,20z,1re,1yi,1xv|100|13wboj3
+A|5|tonymoly|132|76|1cu,12c,119,12k,ws,t6,vr,vo,vu,wj,u3,w4,zh,194,112,yx,wd,13k,ya,wo,yg,tr,vs,118,15k,185,1ao,1io,1f9,19t,1b9,1yx,2my,1zv,1rm,28d,27b|26mil,1r9rh,1qbnh,1r86n,1ksli,19fz3,1fnbk,1gnbp,1d0k6,1g496,1c2hq,1edut,1jyfs,20ldl,1mr23,1lbpl,1hlgc,1vltg,1oh77,1h7p3,1ksws,1cgtp,1imny,1rw97,25jo6,2li81,2c5hp,2v507,2cppy,22elz,25nia,34fkd,3t63u,312qy,2uz3i,3c3ga,3b2oe|68|y1gkwh
+T|5|tonymoly|1|B0H28FTDWY|18|TONYMOLY 100 (N01)|1mc||,,,,,,,10h2t,s0uf,tjnm,q5vo,puv4,pxx3|180vh1r
+T|5|tonymoly|2|B0HM38NT9F|2|TONYMOLY () CICA|1mc||e3yg,a2tr,a2tr,a2tr,a2tr,1mgb,18up,6i10,ji30,aksc,aksc,k960,k960|jn2sew
+T|5|tonymoly|3|B0GK7B1HX8|4|TONYMOLY () Black 4g (Black )|104||gq8,1649,210a,210a,5asj,5asj,6036,5vil,qt1o,bpcr,5ui5,8cxc,8cxc|1gldvvo
+T|5|tonymoly|4|B0HLL924P8|4|TONYMOLY /// (19 )|18g||,,,,,,,,,,,ksc3,j8as|mdf13t
+T|5|tonymoly|5|B0H455ZPT8|6|TONYMOLY GET IT WATERFUL BUTTER (09 )|||20dg,6a6v,9juy,5gpj,4f6k,1l7h,2qug,50nl,5dwr,6nw5,8o1d,ccs,c0e|p7he7t
+T|5|tonymoly|6|B0GN1YTWN4|11|TONYMOLY () I'm Avocado 10 - ()|104||,,c2u,2995,2vyq,4ih8,5xcs,57ly,54g7,6sml,5oun,34ok,2xzq|1hzojrz
+A|6|tonymoly|18|18|8o,9c,8t,91,7r,6u,6p,6g,6f,6n,6n,6a,5y,7s,6e,6l,5v,8s,79,5w,6c,6b,57,5t,4w,6c,52,51,5q,66,6j,5x,6h,68,5e,66,65|28i,2pe,2nr,2ln,27n,22l,22o,1zd,1x3,24b,21g,1wq,1xv,2p9,21i,26v,20m,2yn,2ma,26e,2fc,2gu,1z3,2zc,26z,2u8,27u,2c5,2gm,2t8,32g,2m8,35k,2r5,2k5,2v2,2ul|80|1s5gr65
+A|8|tonymoly|25|24|2d,2k,2f,25,2i,2t,23,2i,2i,2y,2r,27,2d,3o,4e,42,57,6d,4f,4e,77,62,5h,5g,6j,a4,51,6r,61,5c,4y,45,3o,3z,48,42,40|13g,16b,14w,102,16t,1a5,z8,17t,166,18y,12z,x9,zi,1fn,1rg,1nc,28y,2tv,1v4,1tm,3dj,2mp,2i9,2eu,2sy,4bg,23x,35t,2ue,2k7,37e,2pa,2f0,2nv,2tb,2n5,2mb|95|18vi12k
+A|9|tonymoly|25|23|1o,1k,1o,1d,2f,1w,1w,23,1k,1q,1j,1m,1i,2u,40,5r,6g,6w,5k,3c,3o,3x,4n,46,4f,49,40,3t,3c,3j,33,2t,2u,2s,36,2w,2w|ti,sx,vi,p8,17c,x5,tk,vp,qq,tq,qt,sq,tl,1e4,1td,2j5,2u4,2ww,2mz,1k3,1ol,1pu,1zk,1s7,1xu,1t9,1uh,1vq,1m9,26v,1qy,1i2,1j6,1ev,1kn,1h0,1hd|95|k6avym
