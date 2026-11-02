@@ -51,7 +51,7 @@
 | `BL` | **미국 해상 수입 B/L** 월별 선적(건수·중량 t·TEU) — ImportYeti(미국 세관 적하목록) · 12곳(삼양·농심·빙그레·CJ·아모레·LG생건·코스맥스·실리콘투·토니모리·에이블씨엔씨). 트렌드 탭 '○○ 미국 해상 선적(B/L)'(2026-10-24) | `fetch_bl.py`(`bl.yml` 하루 1회) |
 | `KBPH` | K뷰티 브랜드 국면 지도 — 아마존 **미국** 33개 브랜드(+ `mk` 유럽 5개국 · 일본 · 캐나다 · 10/21)(이퀄베리 10/21 추가) + 틱톡샵 미국 공식 샵 29곳(`tt` · FastMoss 180일 주별 · 2026-10-21)(**비상장 경쟁사 포함** · 아누아·스킨1004·조선미녀·셀리맥스 …)의 월 판매량(Keepa Product Finder 웹 · 36개월) → 점유율이 평소(1년 평균)보다 높은가 × 직전 기간보다 늘었나로 네 칸. 아마존 Top100 탭 KBCH 접힘 바로 아래 접힘(2026-10-21). **수집은 크롬 세션 월 1회** | `kbeauty/phase.py`(원재료 `kbeauty/data/phase/`) |
 | `ISM` | **종목별 분기 손익 모델**의 실적 재료 — 전용 모델 없는 51종목의 DART 연결 분기 손익 + 부문 표(파서 `ism_seg_*.py` · 시드 `ism_seed/*.json`). 화면 엔진 `js/ism.js` · 설계 `js/ism_spec.js` → 종목 페이지 손익 탭(2026-10-24) | `fetch_ism.py` |
-| `CASINO` · `GRANK` · `ECOS` · `STEAMM` · `TOURS` · `ISMSRCH` · `ISMKP` | ISM 동인 — 카지노 월 공시(파라다이스·롯데관광·GKL) · 게임 한국 매출순위(gamerscroll) · 한은 소매업태 판매지수(+ 소비자물가 숙박 4항목 `t:"cpi"` — 호텔 ADR 탭 · 2026-10-29) · SteamCharts 월평균 동접 · K-pop 투어 공연일·매출 · 네이버 월별 검색(2023~) · Keepa 지누스(크롬 수동) | `fetch_casino.py` · `fetch_grank.py` · `fetch_ecos.py` · `fetch_steamm.py` · `fetch_tours.py` · `fetch_ismsrch.py` · `ism_keepa.py` |
+| `CASINO` · `GRANK` · `ECOS` · `STEAMM` · `TOURS` · `ISMSRCH` · `ISMKP` | ISM 동인 — 카지노 월 공시(파라다이스·롯데관광·GKL) · 게임 한국 매출순위(gamerscroll) · 한은 소매업태 판매지수(+ 소비자물가 숙박 4항목 `t:"cpi"` — 호텔 ADR 탭 · 2026-10-29) · SteamCharts 월평균 동접 · K-pop 투어 공연일·매출 · 네이버 월별 검색(2023~) · Keepa 지누스(일요일 Keepa 통합 회차 · 28일마다) | `fetch_casino.py` · `fetch_grank.py` · `fetch_ecos.py` · `fetch_steamm.py` · `fetch_tours.py` · `fetch_ismsrch.py` · `ism_keepa.py` |
 | `RETAIL` | **산업부 주요 유통업체 매출동향**(월간 보도자료 붙임) — 백화점3사·대형마트4사·편의점4사·SSM4사의 품목 YoY·구매건수/단가/점포당 매출 + 실액(조원, 조사표본 추정 '24.01~). 유통 5종목 종목 페이지 손익 탭 `#spRetail`(`renderRetail`, 2026-10-28). **수집은 사용자 PC 크롬 예약 작업 '유통업체 매출동향 월간 수집'** — 아래 절 | `retail_ingest.py`(raw JSON → 블록) |
 | `ADR` | **호텔 ADR 추적** — 리츠 IR 월별 ADR·OCC(신한서부티엔디리츠가 빌려준 4곳 · 2019-12~) + 회사 IR 분기(신라 사업장별 투숙률 2011~·매출 2015~ · GS피앤엘·서부T&D 2025~) + 증권사 ADR 언급 + **Google 호텔 선행 판매가(일별 · 2026-10-29~)** + **KAYAK 월별 검색가**(`kayak` · 26곳 · 주 1회 · 2026-01~) + 통계청 소비자물가 호텔숙박료(`ECOS` 의 K02101 · 2010~) + **공시 바텀업 ADR**(`bu` · DART 객실 매출 ÷ 판매 객실 · 신라 2011~ · GS 2023~ · 서부T&D 가용 객실당 2018~). 호텔신라·GS피앤엘·서부T&D 종목 페이지 손익 탭 `#spAdr`(`renderAdr`). 원자료는 `hotel_adr/data/`(손으로) · 선행 판매가·KAYAK 은 아침 크롬 사슬 8번 · DART 는 `hotel_adr/dart.py`(events.yml 05시) — 아래 절 | `hotel_adr/build.py` |
 
@@ -2346,6 +2346,8 @@ KBCH 는 과제(브랜드×나라 230개)마다 안 팔리는 상품까지 전�
 이제 나라마다 Finder 두 번(A 배지 피크 ≥ 50 · B 지금 30만 위 안)만 부르고 받은 객체 하나로 세 계산을 한다 — 계산식은 그대로(`keepa.js fromRows` · `phase_keepa*.js fromObjs`).
 빠지는 것 = 배지가 한 번도 없고 지금 30만 위 밖인 상품. 첫 회차에 옛 회차와 같은 달끼리 견준다(`week_recv.py --compare`). KBCH 일본이 가타카나 표기 상품을 새로 잡는다(옛 과제는 라틴 표기만).
 일요일 한 회차가 둘 다 만든다 — 월·화·수 회사 채널 회차는 없앴다.
+**Keepa 를 쓰는 곳은 이 일요일 회차 하나다**(2026-11-03 사용자 "필요 없는 예약 작업을 없애고 한 번에 통합") — 지누스(ISMKP)도 28일마다 같이 받는다 · 다른 세션은 Finder 를 돌리지 않는다 ·
+한도(꽉 차면 약 2.6만 상품 · 시간당 5% 회복) 90% 이상에서 시작 · 밑이면 월·화로 미룬다. 예약 작업 원문은 `kbeauty/RUNBOOK.md` 1-g 끝(토·일·월·화 · 수요일 뺌 — 앱에서 사람이 바꾼다).
 
 ## K뷰티 브랜드 국면 지도 — 피어 안에서 몫이 늘고 있나 (2026-10-21 · `KBPH` · `renderKbPhase`)
 
@@ -2724,8 +2726,8 @@ steam SteamCharts 월평균 · kpoptour 투어 그로스(미보고 회차 = 그 
 
 - 현대백화점 '제조(지누스)' 부문 = 지누스 아마존 미국 판매액 × 계수(최근 4분기). 지누스 매출 ÷ 아마존 판매액 2.6~3.7배(2024Q3~2026Q2) · 검산 지누스 35%→15% · 회사 전체 10%→5%.
   10/24 수집: 브랜드 zinus · 역대 월판매 피크 ≥ 50 · 910개(홈·키친 카테고리가 판매액의 99% · 상위 12개는 전부 매트리스) · 2026-09 $10.1M/월 · 3Q26E 지누스 169(옛 전년비) → 141.
-- 수집 = **사람 크롬의 keepa.com**(Pro 로그인)에서 `ism_keepa/keepa_brand.js` 를 붙여 넣는다(주석에 순서) → 덤프를 `ism_keepa/<키>.json` 으로 → 합계 대조 → `python ism_keepa.py`.
-  자동이 아니다 — watchdog 45일(`ISMKP`)이 다시 받으라고 알린다. 월 1회면 충분하다(분기 계수).
+- 수집 = 일요일 Keepa 통합 회차(`kbeauty/RUNBOOK.md` 1-g 7-b · 2026-11-03~)가 마지막 수집이 28일 넘었으면 같은 탭에서 `ism_keepa/keepa_brand.js` 를 붙여 넣어 받는다(약 900개 ≈ 한도 4%) → `ism_keepa/<키>.json` → `python ism_keepa.py`.
+  따로 돌리지 않는다(Keepa 는 일요일 한 회차만 · 한도 관리). watchdog 45일(`ISMKP`)은 그대로.
 - ⚠ 판매액은 배지 아랫값 × 그달 가격이라 하한이다. 2024 상반기는 가격이 잡힌 몫(`pc`)이 0.55~0.66 이라 판매액이 낮게 잡혀 계수가 4.7 로 튄다 — 최근 4분기 계수라 영향 없음.
 - K뷰티 바구니(KBPH)에 넣지 말 것 — 비중의 분모가 바뀐다. 화장품 밖 브랜드는 이 블록에 키를 더한다(엔진 지표 `kp`).
 

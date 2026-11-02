@@ -29,9 +29,8 @@
 5. **한 번만(2026-10-18 등록 · 끝나면 이 줄을 지울 것)** — PC 셸 도구(`mcp__remote-devices__device_bash`)가 붙어 있으면 루트 CLAUDE.md
    '아마존 7개국 Top100 → 아직 남은 것'의 PC 클론 동기화를 한다(트래커 메시지 끄기 · scraper 가격 수정 반영). 수집이 끝난 뒤에 · 트래커가 다 돈 뒤(07시 이후 권장)에.
    PC 클론 경로는 PC 에서 `AmazonBeautyTracker` 작업의 실행 파일 경로(`schtasks /query /tn AmazonBeautyTracker /v /fo list`)로 확인한다.
-6. **K뷰티 채널(KBCH · Keepa) — 이 세션은 하지 않는다(2026-10-30~).** 이 PC 의 Claude 데스크톱 앱 예약 작업 `kbph-weekly`('K뷰티 Keepa 주간 수집' ·
-   일·월·화·수 06:50 · 국면이 없는 날 `ingest.py --due` 면)가 덤프를 PC 받기 서버로 받아 올린다(`kbeauty/RUNBOOK.md` '1-f'). 이 세션에선 10/26 아침 회차가
-   덤프를 옮겨 적다 안전 필터 오탐으로 끊겨 KBCH 가 10/20 뒤로 멈췄다. 같은 크롬·같은 Keepa 한도를 두 세션이 나눠 쓰지 않게 여기서 Keepa 를 손대지 말 것.
+6. **Keepa(KBCH · 국면 · 지누스) — 이 세션은 손대지 않는다.** Keepa 는 일요일 PC 예약 작업 한 회차만 쓴다(`kbeauty/RUNBOOK.md` 맨 위 'Keepa 를 쓰는 곳' 절 · 2026-11-03).
+   다른 세션이 Finder 를 돌리면 데이터 한도가 줄어 일요일 회차가 중간에 끊긴다.
 7. **K뷰티 국면 지도(KBPH) — 이 세션은 하지 않는다(2026-10-27~).** 이 PC 의 Claude 데스크톱 앱 예약 작업 `kbph-weekly`(일요일 06:50 · 빠지면 월·화)가
    덤프를 PC 받기 서버로 받아 올린다(`kbeauty/RUNBOOK.md` '1-e'). 이 세션에선 10/26·10/27 아침 덤프를 옮겨 적다 안전 필터 오탐으로 멈췄고
    국면 덤프는 더 커서다. 같은 크롬을 두 세션이 동시에 몰지 않게 여기서 국면을 손대지 말 것.
@@ -129,7 +128,7 @@ python3 amazon-beauty-tracker/subcat/push.py
   `[새 브랜드 확인] …` 줄을 찍는다(2026-10-23 사용자 "사전에 없는 브랜드 일정 규모 이상 되면 나한테 물어봐"). 한 번 물은 브랜드는 `unknown_asked.json` 에 적혀 다시 안 묻는다.
   처리(묻지 않는다 · 2026-10-27 사용자 "너가 찾아보고 비한국 비상장이면 무시"): 웹으로 운영사를 찾아 → 한국 회사 아님·상장 아님 = `--decide "이름=무시(사유)"` · 한국 브랜드(비상장 포함) = config.json `brands` 맨 뒤 한 줄(상태 N · 운영사 이름) + `--decide "이름=추가(사유)"` · 상장사·상장 준비 소속 = 같은 식으로 넣고 상태 L/P · 국적이 끝내 불명이면 무시하고 보고에 한 줄.
 - 끝나면 만든 탭을 닫는다(`tabs_close_mcp`).
-- 그다음 '아침 수집 — 이 세션' 6번(Keepa · 조건부) → 8번(호텔 ADR · 매일).
+- 그다음 '아침 수집 — 이 세션' 8번(호텔 ADR · 매일). Keepa(6·7번)는 이 세션에서 안 한다.
 
 ## 4. 보고 (한 줄)
 
@@ -158,6 +157,6 @@ python3 amazon-beauty-tracker/subcat/push.py
 1) cd /home/claude/coverage-dashboard → git status 가 깨끗하면 git pull -q --ff-only → python3 amazon-beauty-tracker/subcat/ingest.py --today 와 python3 amazon-beauty-tracker/subcat/lists.py --today. 둘 다 종료코드 0 이면 '오늘 이미 수집됨' 한 줄로 끝. 하나만 0 이면 빠진 쪽만 한다.
 2) 윈도우 크롬 기다리기: mcp__claude-in-chrome__list_connected_browsers 에 osPlatform 이 Windows 인 브라우저가 없으면 Bash 로 sleep 240 하고 다시 본다 — 처음 본 때부터 최대 90분(10/10 실측: PC 는 05:15 에 깨는데 크롬 확장은 05:53 에 붙었다). 보이면 select_browser 로 그 브라우저를 고르고 RUNBOOK 순서대로: 미국 세부 카테고리 수집 → 덤프 옮기기 → ingest.py --check → ingest.py → 1-b(같은 탭에서 미국 → 영·독·프·이·스·일 lists.js · 덤프는 get_page_text 로 · block 인 나라는 끝에 한 번만 다시) → lists.py --check → lists.py → unknown_check.py(그날 덤프들) → push.py(한 번에). 아마존 /dp/ 는 열지 않고, 세부 카테고리가 BLOCKED 면 다시 돌리지 않는다. 배포 여부는 push.py 가 정한다. 사용자가 열어 둔 탭은 건드리지 않고, 만든 탭은 닫는다.
 3) 90분 안에 안 보이면 수집하지 말고 멈추고, 같은 날 13:20 KST 에 이 메시지와 같은 내용으로 send_later 를 하나 건다(이름 '아마존 세부 카테고리 아침 수집 (MM/DD 13:20)' · 이미 있으면 안 건다 · 지금이 13:20 회차면 더 걸지 않는다).
-3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 6번(K뷰티 채널 · Keepa 주 1회)과 7번(국면 지도 — 이 세션은 안 함)·8번(호텔 ADR · Google 호텔 · 매일)을 조건대로.
+3-b) 그 뒤 RUNBOOK '아침 수집 — 이 세션' 8번(호텔 ADR · Google 호텔 · 매일)을 조건대로(Keepa 는 손대지 않는다).
 4) 보고(반말 2~3줄): [AMZSUB] 줄 · 7개국 한 줄(lists.py 의 [AMZL] 줄 — 나라별 상태·한국 자리) · push.py 의 '배포:' 줄 · unknown_check.py 가 [새 브랜드 확인] 줄을 내면 운영사를 웹으로 찾아 묻지 말고 정리한다 — 비한국·비상장 = --decide 무시 · 한국 브랜드 = config.json brands 맨 뒤에 넣고 --decide 추가(RUNBOOK 3단계 아래 처리 규칙) · 보고엔 한 줄(무시 n · 추가 n · 상장사 소속이면 이름). 실패면 어디서 왜 멈췄는지.
 ```

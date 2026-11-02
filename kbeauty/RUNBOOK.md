@@ -2,6 +2,22 @@
 
 왜 이렇게 생겼는지는 루트 `CLAUDE.md` 의 'K뷰티 채널 모델' 절. 여기는 크롬 도구가 붙은 세션(또는 사람)이 따라 하는 순서다.
 
+## Keepa 를 쓰는 곳은 일요일 한 회차뿐이다 (2026-11-03 · 사용자 "필요 없는 예약 작업을 없애고 한 번에 통합해서 사용량 관리")
+
+Keepa 데이터 한도(Pro 웹)는 꽉 차면 약 2.6만 상품 · 1% ≈ 260개 · 시간당 5%쯤 다시 찬다(비우면 약 20시간 · 11/02 실측: 10% 남은 채 미국 2,600개에서 0%).
+한도 표시(`#widget__bucket_quota` 'Quota: N%')는 **남은 양**이고 **새 탭에서만** 맞다.
+
+| 무엇 | 언제 | Keepa |
+|---|---|---|
+| 일요일 통합 회차(아래 1-g) — 국면(KBPH 미국·유럽·일본·캐나다) + 회사 채널(KBCH) + 지누스(ISMKP · 28일마다) | PC 예약 작업 `kbph-weekly` 일 06:50 · 빠지면 월·화 | **유일하게 쓴다** |
+| 토요일 로그인 점검 | 같은 작업 토 06:50 | 페이지만 연다(한도 거의 안 씀) |
+| 월~수 회사 채널 회차(옛 1-f) · 클라우드 아침 사슬의 Keepa(옛 1-c-1) · 지누스 따로 받기 | — | **없앴다** |
+
+- 다른 세션(클라우드 대화 포함)은 Keepa Finder 를 돌리지 않는다 — 한도를 반쯤 쓰면 일요일 회차가 중간에 끊긴다(11/01 국면 + 11/02 시험이 그랬다).
+  꼭 손으로 돌려야 하면 일요일 회차 20시간 전까지 끝낼 것.
+- 일요일 회차는 **한도 90% 이상에서 시작**한다. 밑이면 시작하지 않고 다음 날(월·화)로 미룬다. 회차마다 시작·끝 %를 보고에 적는다 — 그걸로 다음 기준을 다시 잡는다.
+- 끝까지 못 받은 나라는 지난 회차 값이 남는다(덮어쓰지 않는다). 받은 나라만 올리고, 빠진 나라는 다음 날 그 나라만(`__KW.start(tasks,{doms:[…]})`).
+
 ## 언제
 
 > 2026-10-30 부터 Keepa(KBCH)는 **이 PC 예약 작업**이 한다 — 아래 '1-f'. 클라우드 아침 사슬은 Keepa 를 건너뛴다. 아래 '언제'는 옛 경로 기록이다.
@@ -183,7 +199,7 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
 
 **언제** — 일요일 1회(`kbph-weekly` · 06:50). 빠지면 월·화가 이어받는다. 차례 = `python kbeauty/phase_brief.py --due` 가 0. KBCH 모드는 `python kbeauty/ingest.py --due` 가 찍는 `모드 full|recent`.
 
-1. 1-e 의 1~4번(멈출 조건 · 받기 서버 · 크롬 새 탭 keepa.com · 한도 확인 · 보내기 함수). **시작 전 한도 %를 적는다.**
+1. 1-e 의 1~4번(멈출 조건 · 받기 서버 · 크롬 새 탭 keepa.com · 한도 확인 · 보내기 함수). **시작 전 한도 %를 적는다 — 90% 밑이면 시작하지 않는다**(맨 위 'Keepa 를 쓰는 곳' 절).
 2. 차례로 붙여 넣는다(javascript_tool · 주석은 지워도 된다): `kbeauty/keepa.js` → `kbeauty/phase_keepa.js` → `kbeauty/phase_keepa_eu.js` → `kbeauty/keepa_week.js`(→ `kw v1 ready`).
 3. `__KW.start(<kbeauty/keepa_tasks.json 내용>)` → 40초마다 `__KW.status()` 가 `done` 까지(8개국 · 나라마다 `A n B n 합 n` 로그). 끝나면 한도 %를 다시 적는다.
    - 어느 나라가 `A 0` 이거나 `domain-fail` 이면 `__KW.start(tasks, {doms:[그 나라]})` 로 그 나라만 다시(다른 나라 행은 지워지니 `__KW.rows` 를 먼저 다른 변수에 담아 두고 합친다).
@@ -194,7 +210,16 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
    나라 합계가 최근 12개월 0.97 밑이면(빠진 꼬리 상품이 생각보다 크면) 저장하지 말고 보고 — B 의 30만 위를 넓힌다.
 7. `python kbeauty/week_recv.py <파일>` → KBCH(ingest) · 국면 미국(phase_recv us) · 유럽·일본·캐나다(phase_recv eu) 저장 → FastMoss(1-e 의 7번 · 그대로) →
    `python kbeauty/phase.py` → `python kbeauty/phase_brief.py`(미리보기) → `python kbeauty/push.py --phase` → 만든 탭 닫기.
-8. 보고: 나라별 상품 수(`__KW.count()`) · 한도 전후 % · `[KBCH]`·`[KBPH]` 줄 · 첫 회차면 비교 결과.
+7-b. **지누스(ISMKP) — 마지막 수집(`public/index.html` 의 `const ISMKP` asOf)이 28일 넘었고 한도가 10% 이상 남았을 때만.** 같은 keepa.com 탭에서
+   `ism_keepa/keepa_brand.js` 주석 0~2번대로(브랜드 zinus · 미국 · 약 900개 ≈ 한도 4%) → `ism_keepa/zinus.json` → `python ism_keepa.py` → 같은 push 에 싣는다.
+8. 보고: 나라별 상품 수(`__KW.count()`) · 한도 전후 % · `[KBCH]`·`[KBPH]` 줄 · 지누스 받았나 · 첫 회차면 비교 결과.
+
+**예약 작업 원문(`kbph-weekly` · 토·일·월·화 06:50 · 수요일은 뺀다 — 2026-11-03)** — 앱의 작업 편집에서 지시문을 이걸로 바꾼다:
+```
+[K뷰티 Keepa 주간] 작업 폴더 C:\Users\user\Desktop\asd. 절차 원본은 kbeauty/RUNBOOK.md — 맨 위 'Keepa 를 쓰는 곳은 일요일 한 회차뿐이다' 절과 1-e(준비 1~4번 · FastMoss 7번 · 올리기 8번) · 1-g(통합 수집 · 지누스 7-b) · 1-f(토요일 로그인 점검 · 알림).
+토요일 = 로그인 점검만. 일·월·화 = git pull 뒤 `python kbeauty/phase_brief.py --due` 가 0 일 때만 1-g 통합 수집(새 탭 한도 90% 밑이면 시작하지 말고 '한도 N% — 내일로' 보고). 그 밖의 날·조건이면 한 줄로 끝.
+Keepa 에 로그인하지 않는다(풀려 있으면 알림만). 사용자 탭은 건드리지 않고 만든 탭은 닫는다. 멈추거나 일부만 받으면 python telegram_send.py msg 로 한 번 알린다.
+```
 
 ## 사람이 고칠 것
 
