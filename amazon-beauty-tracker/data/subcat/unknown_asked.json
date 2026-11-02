@@ -184,5 +184,19 @@
    "뷰티 전체 Top100(FR)"
   ],
   "decision": "무시(중국계 아마존 잡화 셀러 · 일본식 때수건)"
+ },
+ "farmacy": {
+  "name": "Farmacy",
+  "asked": "2026-11-03",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ]
+ },
+ "sonatural": {
+  "name": "so natural",
+  "asked": "2026-11-03",
+  "why": [
+   "세부 카테고리 Top10 최근 7일 중 4일"
+  ]
  }
 }
