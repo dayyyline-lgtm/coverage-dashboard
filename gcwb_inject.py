@@ -12,7 +12,7 @@ if '"name": "녹십자웰빙"' not in line:
     assert line.endswith("]};"); s = s[:k] + line[:-3] + ", " + ROW + "]};" + s[e:]
 if '"녹십자웰빙": { "2026.12"' not in s:
     i = s.find('  "에이피알": { "2026.12"'); j = s.find("\n", i)
-    s = s[:j + 1] + '  "녹십자웰빙": { "2026.12": {rev:57.4, op:3.9} },   // 2026-11-02 분기 손익 모델(gcwbmodel.js) 기본값 — 4Q 판관비 계절성·상품 저마진 반영 · 판가 3개월분 2.5\n' + s[j + 1:]
+    s = s[:j + 1] + '  "녹십자웰빙": { "2026.12": {rev:64.7, op:5.9} },   // 2026-11-02 분기 손익 모델(gcwbmodel.js) 기본값 — 매출 YoY 1~3Q 평균(+32.8%) · 판관비 고정비 4Q25 수준 + 변동비(상품·매출 연동)\n' + s[j + 1:]
 if 'js/gcwbmodel.js' not in s:
     s = s.replace('<script src="js/aprmodel.js"></script>', '<script src="js/aprmodel.js"></script>\n<script src="js/gcwbmodel.js"></script>', 1)
 open(HTML, "w", encoding="utf-8").write(s)

@@ -5,8 +5,11 @@
      — Lm·Om·Gm 은 1Q25~2Q26 여섯 분기 회귀(라이넥 65% 고정 · 기타 제품 78% · 상품·자회사 17%). 오차 ±10억 안쪽.
    판관비 = 성격별: 인건비·임차·연구개발·판촉 = 전년 동기 × 증가율(고정비) · 지급수수료 = 상품 × 9.5% + 보령 코프로모션 · 운반비 = 매출 × 1.25%
    3Q26 = 잠정실적(매출·영업이익·순이익) — 판관비는 위 식 추정(≈), 매출총이익은 영업이익 + 판관비 역산(≈), 라이넥은 영업이익에 맞춘 역산(가정 칸 L3). */
-const GCWB_DEF={Lm:65, Om:78.4, Gm:17.1, q4:-0.8, price:20, L3:14.5, L4g:5, L27g:8, iv3:0.8, iv4:1.7, oth26:-15, oth27:0, gd4:30, gd27:12, sb27:10,
+const GCWB_DEF={Lm:65, Om:78.4, Gm:17.1, q4:-0.8, price:20, L3:14.5, L4g:5, L27g:8, iv3:0.8, iv4:1.7, oth26:-15, oth27:0, rg4:null, fx4:0, gd27:12, sb27:10,
   feeR:9.5, frR:1.25, hr26:6, hr27:8, ad26:22, ad27:10, rnd27:10, pe:12, ini:3.0};
+// 2026-11-02 사용자 "고정비·최소 변동비를 나눠서 · 4Q 매출 YoY 는 1~3Q 평균 유지" →
+//   4Q26 매출 = 4Q25 × (1 + rg4 · 비우면 1Q26·2Q26·3Q26P 매출 YoY 평균) · 라이넥·기타 제품·자회사는 각자 식, 나머지 = 상품
+//   4Q26 판관비 = 고정비(인건비·광고·임차·연구개발·판촉·그 밖) 4Q25 × (1 + fx4) + 변동비(지급수수료 = 상품 연동 · 운반비 = 매출 연동)
 let gcwbOpen; try{ gcwbOpen=JSON.parse(localStorage.getItem("gcwbOpen")||"{}"); }catch(e){ gcwbOpen={}; }
 function gcwbAsmGet(){ try{ return JSON.parse(localStorage.getItem("gcwbAsm")||"{}")||{}; }catch(e){ return {}; } }
 function gcwbAsmSave(a){ try{ localStorage.setItem("gcwbAsm",JSON.stringify(a)); }catch(e){} }
@@ -24,15 +27,18 @@ function gcwbBuild(){
   // 3Q26 — 잠정실적 + 구성 추정
   { const Lv=A.L3, Lp=Lv/3*pc("price"), oth=Q["2025Q3"].oth*(1+pc("oth26")), sub=3.5;
     Q["2026Q3"]={q:"2026Q3", act:false, ir:true, rev:P3.rev, op:P3.op, np:P3.np, Lv, Lp, iv:0, L:Lv+Lp, oth, sub, goods:P3.rev-Lv-Lp-oth-sub, est:{gp:1,sga:1,mix:1}}; }
-  { const b=Q["2025Q4"], Lv=b.L*(1+pc("L4g")), Lp=Lv*pc("price");
-    Q["2026Q4"]={q:"2026Q4", act:false, Lv, Lp, iv:0, L:Lv+Lp, oth:b.oth*(1+pc("oth26")), goods:b.goods*(1+pc("gd4")), sub:3.19}; }
+  const yoy3=["2026Q1","2026Q2","2026Q3"].map(k=>Q[k].rev/Q[`2025${k.slice(4)}`].rev-1), rgAvg=yoy3.reduce((a,b)=>a+b,0)/3;
+  { const b=Q["2025Q4"], Lv=b.L*(1+pc("L4g")), Lp=Lv*pc("price"), rg=A.rg4!=null?pc("rg4"):rgAvg, rev=b.rev*(1+rg), oth=b.oth*(1+pc("oth26")), sub=3.19;
+    Q["2026Q4"]={q:"2026Q4", act:false, Lv, Lp, iv:0, L:Lv+Lp, oth, sub, rev, rg, goods:rev-(Lv+Lp)-oth-sub}; }
   const v26=["2026Q1","2026Q2","2026Q3","2026Q4"].reduce((s,k)=>s+Q[k].Lv,0), sh=["2025Q1","2025Q2","2025Q3","2025Q4"].map(k=>Q[k].L), t25=sh.reduce((a,b)=>a+b,0);
   ["2027Q1","2027Q2","2027Q3","2027Q4"].forEach((k,i)=>{ const b=Q[`2026Q${i+1}`], Lv=v26*(1+pc("L27g"))*sh[i]/t25, Lp=Lv*pc("price"), iv=i===2?A.iv3:i===3?A.iv4:0;
     Q[k]={q:k, act:false, Lv, Lp, iv, L:Lv+Lp+iv, oth:b.oth*(1+pc("oth27")), goods:b.goods*(1+pc("gd27")), sub:b.sub*(1+pc("sb27"))}; });
   COLS.slice(6).forEach((k,j)=>{ const o=Q[k], y=k.slice(0,4), b=Q[`${+y-1}${k.slice(4)}`].sg, f=y==="2026";
     if(o.rev==null) o.rev=o.L+o.oth+o.goods+o.sub;
     o.gpM=o.Lv*pc("Lm")+o.Lp+o.iv*pc("Lm")+o.oth*pc("Om")+(o.goods+o.sub)*pc("Gm")+(k.endsWith("Q4")?A.q4:0);
-    const sg={hr:b.hr*(1+pc(f?"hr26":"hr27")), ad:b.ad*(1+pc(f?"ad26":"ad27")), rent:b.rent*(f?1.2:1.05), rnd:b.rnd*(f?1:1+pc("rnd27")), promo:b.promo*1.05, misc:b.misc*(f?1.1:1.05),
+    const x4=1+pc("fx4"), sg=k==="2026Q4"
+      ? {hr:b.hr*x4, ad:b.ad*x4, rent:b.rent*x4, rnd:b.rnd*x4, promo:b.promo*x4, misc:b.misc*x4, fee:o.goods*pc("feeR")+(boryung[k]||0), fr:o.rev*pc("frR")}
+      : {hr:b.hr*(1+pc(f?"hr26":"hr27")), ad:b.ad*(1+pc(f?"ad26":"ad27")), rent:b.rent*(f?1.2:1.05), rnd:b.rnd*(f?1:1+pc("rnd27")), promo:b.promo*1.05, misc:b.misc*(f?1.1:1.05),
       fee:o.goods*pc("feeR")+(boryung[k]||0), fr:o.rev*pc("frR")};
     sg.tot=GCWB_SGL.reduce((s,[kk])=>s+sg[kk],0); o.sg=sg; o.sga=sg.tot;
     if(o.ir){ o.gp=o.op+o.sga; o.gpRes=o.gp-o.gpM; } else { o.gp=o.gpM; o.op=o.gp-o.sga; }
@@ -47,7 +53,7 @@ function gcwbBuild(){
     const sg={}; GCWB_SGL.forEach(([kk])=>{ sg[kk]=qs.reduce((a,o)=>a+((o.sg||{})[kk]||0),0); });
     Y[y]={q:y, yr:true, act:y==="2025", rev:s("rev"), L:s("L"), Lv:s("Lv"), Lp:s("Lp"), iv:s("iv"), oth:s("oth"), goods:s("goods"), sub:s("sub"), gp:s("gp"), sga:s("sga"), op:s("op"),
       nonop:s("nonop"), fin:s("fin"), eq:s("eq"), np:s("np"), core:s("core"), sg}; });
-  return {Q, Y, COLS, A, G};
+  return {Q, Y, COLS, A, G, yoy3, rgAvg};
 }
 function renderGcwbModel(host){
   if(!host) return;
@@ -64,13 +70,13 @@ function renderGcwbModel(host){
   const LS=(typeof LIVE!=="undefined"&&LIVE.stocks&&LIVE.stocks[name])||{}, mc=LS.mktcapEok?LS.mktcapEok/10:null;
   const open={rev:true, sga:false, ...gcwbOpen};
   const ROWS=[
-    {t:"매출액", k:"rev", em:1, tg:"rev"}, {t:"YoY", r:"yoy"},
+    {t:"매출액", k:"rev", em:1, tg:"rev", tip:o=>o.q==="2026Q4"?`4Q25 × (1+${fmt(o.rg*100,1)}%) — ${A.rg4!=null?"가정 칸 값":"1Q26·2Q26·3Q26P 매출 YoY 평균"}`:""}, {t:"YoY", r:"yoy"},
     {t:"라이넥", g:"rev", k:"L", tip:o=>o.act?"DART '주요 제품 등에 관한 사항' 라이넥주 매출(누적 차분)":o.ir?`영업이익 ${f1(o.op)}에 맞춘 역산 — 물량 ${f2(o.Lv)} + 9월 인상분 ${f2(o.Lp)}`:""},
     {t:"· 물량(판가 제외)", g:"rev", k:"Lv", sm:1, tip:o=>o.act?"":o.q==="2026Q4"?`4Q25 × (1${A.L4g>=0?"+":""}${A.L4g}%) — 2Q·3Q 급증분 일부 되돌림 가정`:o.q.startsWith("2027")?`2026 물량 합 × (1+${A.L27g}%) × 2025 분기 비중`:""},
     {t:"· 판가 인상분", g:"rev", k:"Lp", sm:1, tip:o=>o.act?"":`물량 × ${A.price}% — 원가 없음(전액 매출총이익)`},
     {t:"· IV 고용량", g:"rev", k:"iv", sm:1},
     {t:"기타 제품(영양주사제 등)", g:"rev", k:"oth", tip:o=>o.act?"별도 매출실적 제품(전문의약품+기타) − 라이넥":""},
-    {t:"상품", g:"rev", k:"goods", tip:o=>o.act?"별도 매출실적 상품(전문의약품·건기식·기타)":o.ir?"잠정 매출 − 라이넥 − 기타 제품 − 자회사(역산)":""},
+    {t:"상품", g:"rev", k:"goods", tip:o=>o.act?"별도 매출실적 상품(전문의약품·건기식·기타)":(o.ir||o.q==="2026Q4")?`${o.ir?"잠정":"4Q26E"} 매출 − 라이넥 − 기타 제품 − 자회사(역산)`:""},
     {t:"자회사·조정(연결 − 별도)", g:"rev", k:"sub", sm:1},
     {t:"매출총이익", k:"gp", em:1, est:"gp"}, {t:"매출총이익률", p:o=>o.gp/o.rev, sub:1, est:"gp"},
     {t:"판매비와관리비", k:"sga", tg:"sga", est:"sga"}, {t:"판관비율", p:o=>o.sga/o.rev, sub:1, est:"sga"},
@@ -123,7 +129,7 @@ function renderGcwbModel(host){
   const fair=y7.core*A.pe+A.ini, perSh=fair/sh*1000, perShD=fair/shD*1000;   // 십억 · 원
   const px=LS.price||null;
   const head=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-    ${card("4Q26E 매출 / 영업이익", `${f1(q4.rev)} / ${f1(q4.op)}`, `${vs(q4,cq["2026Q4"])}<br>판가 3개월 ${f2(q4.Lp)} · 4Q 판관비 ${f1(q4.sga)}(4Q25 ${f1(Q["2025Q4"].sga)})`)}
+    ${card("4Q26E 매출 / 영업이익", `${f1(q4.rev)} / ${f1(q4.op)}`, `${vs(q4,cq["2026Q4"])}<br>매출 YoY ${pc(q4.rg)}(1~3Q 평균) · 판가 3개월 ${f2(q4.Lp)} · 4Q 판관비 ${f1(q4.sga)}(4Q25 ${f1(Q["2025Q4"].sga)})`)}
     ${card("2026E 매출 / 영업이익", `${f1(y6.rev)} / ${f1(y6.op)}`, vs(y6,cy["2026"]))}
     ${card("2027E 매출 / 영업이익", `${f1(y7.rev)} / ${f1(y7.op)}`, `이익률 ${fmt(y7.op/y7.rev*100,1)}% · 판가 연중 ${f1(y7.Lp)} · IV ${f1(y7.iv)}`)}
     ${card(`적정 시총(27E × ${A.pe}배)`, `${fmt0(fair*10)}억`, `지분법·파생 제외 순이익 ${f1(y7.core)} × ${A.pe} + 이니바이오 ${f1(A.ini)} · 주당 ${fmt0(perSh)}원(CB ${fmt(cb.left,0)}십억 전환 시 ${fmt0(perShD)}원)${px?` · 현재가 ${fmt0(px)}원 대비 ${pc(perSh/px-1)}`:""}`)}
@@ -133,7 +139,9 @@ function renderGcwbModel(host){
     <b>매출총이익</b> 라이넥 물량 × ${A.Lm}% + 판가 인상분 100% + 기타 제품 × ${A.Om}% + (상품 + 자회사) × ${A.Gm}% + 4Q ${f1(A.q4)} — 1Q25~2Q26 회귀(4Q 조정은 4Q25 −1.6 의 절반 · 4Q24 는 오히려 이익률이 높았다)
     <br><b>왜 이익률이 떨어졌나</b> 상품 매출이 1Q26 +92% · 2Q26 +62%(이익률 약 17% · 지급수수료 9.5% 를 빼면 남는 게 거의 없다) → 매출 +37%(1H26)인데 매출총이익 +17%
     <br><b>라이넥</b> 1Q26 +1% · 2Q26 +45% · 3Q26P 역산 ${f1(r3.L)}(물량 ${pc(r3.Lv/Q["2025Q3"].L-1)} YoY) — 9월 인상 전 선매입일 수 있어 4Q26 물량은 4Q25 × (1${A.L4g>=0?"+":""}${A.L4g}%)
-    <br><b>판관비</b> 전년 동기 × 증가율(인건비 +${A.hr26}·${A.hr27}% · 광고 +${A.ad26}·${A.ad27}% · 임차 +20·5% · 연구개발 0·+${A.rnd27}%) · 지급수수료 = 상품 × ${A.feeR}% + 보령 코프로모션(라이넥 2차 병원 매출 × 30%) · 운반비 = 매출 × ${A.frR}%
+    <br><b>4Q26 매출</b> 4Q25 × (1 + ${fmt(q4.rg*100,1)}%) — 1Q26 ${pc(B.yoy3[0])} · 2Q26 ${pc(B.yoy3[1])} · 3Q26P ${pc(B.yoy3[2])} 평균 유지 가정 · 라이넥(물량 ${A.L4g>=0?"+":""}${A.L4g}% + 판가)·기타 제품·자회사를 뺀 나머지가 상품(${pc(q4.goods/Q["2025Q4"].goods-1)} YoY) — 상품 매출 1억당 영업이익은 약 0.06억(이익률 17.1% − 지급수수료 9.5% − 운반 1.25%)
+    <br><b>4Q26 판관비</b> 고정비(인건비·광고·임차·연구개발·판촉·그 밖) = 4Q25 × (1${A.fx4>=0?"+":""}${A.fx4}%) ${f1(q4.sga-q4.sg.fee-q4.sg.fr)} + 변동비(지급수수료 ${f2(q4.sg.fee)} · 운반비 ${f2(q4.sg.fr)})
+    <br><b>판관비(3Q26·2027)</b> 전년 동기 × 증가율(인건비 +${A.hr26}·${A.hr27}% · 광고 +${A.ad26}·${A.ad27}% · 임차 +20·5% · 연구개발 0·+${A.rnd27}%) · 지급수수료 = 상품 × ${A.feeR}% + 보령 코프로모션(라이넥 2차 병원 매출 × 30%) · 운반비 = 매출 × ${A.frR}%
     <br><b>3Q26P</b> 매출·영업이익·순이익 = 잠정실적(11/2) · 판관비 ${f1(r3.sga)}(≈ 위 식) · 매출총이익 = 영업이익 + 판관비(≈ ${fmt(r3.gp/r3.rev*100,1)}% · 회귀식보다 ${sign(r3.gpRes,1)}) — 3분기보고서(11월 중순)가 들어오면 실제 값으로
     <br><b>영업 밖</b> 이자 분기 −1.15 · 지분법(이니바이오) 2026 −1.1 · 2027 −0.9 · CB 파생 평가손익 0 · 세율 22% · CB 잔여 ${fmt(cb.left,0)}십억(전환가 ${fmt0(cb.px)}원 · ${fmt(cb.left/cb.px*1000,2)}백만주)</div>`;
   const fv=v=>v==null?"":String(v), U=gcwbAsmGet();
@@ -141,7 +149,7 @@ function renderGcwbModel(host){
   const asm=`<details class="fold" data-fold="gcwb_asm"${(()=>{ try{ return localStorage.getItem("fold_gcwb_asm")==="1"?" open":""; }catch(e){ return ""; } })()}><summary>가정 바꾸기 <span class="sub">라이넥 물량·판가·상품 성장·이익률·판관비·배수 — 이 브라우저에 기억</span></summary><div style="padding:8px 0">
     <div style="display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px">
       ${inp("L3","3Q26 라이넥 물량",0.5,"십억")}${inp("L4g","4Q26 라이넥 물량 YoY",1)}${inp("L27g","2027 라이넥 물량 성장",1)}${inp("price","공급가 인상률",1)}
-      ${inp("iv3","IV 3Q27",0.1,"십억")}${inp("iv4","IV 4Q27",0.1,"십억")}${inp("gd4","4Q26 상품 YoY",1)}${inp("gd27","2027 상품 성장",1)}${inp("oth26","2026 기타 제품 YoY",1)}
+      ${inp("iv3","IV 3Q27",0.1,"십억")}${inp("iv4","IV 4Q27",0.1,"십억")}${inp("rg4","4Q26 매출 YoY(빈칸=1~3Q 평균)",1,"%",60)}${inp("fx4","4Q26 고정비 증가(4Q25 대비)",1)}${inp("gd27","2027 상품 성장",1)}${inp("oth26","2026 기타 제품 YoY",1)}
       ${inp("Lm","라이넥 이익률",1)}${inp("Om","기타 제품 이익률",1)}${inp("Gm","상품·자회사 이익률",0.5)}${inp("q4","4Q 원가 조정",0.1,"십억")}
       ${inp("feeR","지급수수료(상품 대비)",0.5)}${inp("hr26","인건비 2026H2",1)}${inp("ad26","광고 2026H2",1)}${inp("pe","Target P/E",0.5,"배")}
       <button data-gcwbreset style="font-size:11.5px">기본값으로</button></div></div></details>`;
