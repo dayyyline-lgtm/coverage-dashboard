@@ -824,6 +824,7 @@ const NEWS_ALIAS={
   "시프트업":["시프트업","니케","스텔라블레이드"],
   "카카오게임즈":["카카오게임즈","카겜","도깨비의세계","도깨비의 세계","오딘"],
   "디어유":["디어유","DearU","Dear U"],
+  "녹십자웰빙":["녹십자웰빙","GC녹십자웰빙","라이넥","이니바이오","이니보"],
   "롯데관광개발":["롯데관광개발","롯데관광"], "파라다이스":["파라다이스"],
   "GS피앤엘":["GS피앤엘","지에스피앤엘"], "서부T&D":["서부T&D","서부티앤디","서부티엔디"],
   "티앤엘":["티앤엘","T&L"],
@@ -9917,7 +9918,7 @@ function renderStockTab(name){
     const mid=SP_MODEL[name], kb=!mid&&typeof kbHas==="function"&&kbHas(name);
     // 공통 분기 손익 모델(ism.js · 2026-10-24) — 전용 손익 모델 4종목은 fetch_ism.SKIP 이라 ISM.s 에 없다.
     //   펄어비스는 전용 모델이 '판매 추정'(붉은사막 GAMEEST)이라 손익은 ISM 이 맡는다 → 손익을 위에, 판매 추정을 아래에(2026-10-25 · 전엔 !mid 로 가려졌다)
-    const ism=typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name];
+    const ism=(typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name])||(name==="녹십자웰빙"&&typeof renderGcwbModel==="function"&&typeof GCWBMODEL!=="undefined");   // 녹십자웰빙 = 전용 모델(gcwbmodel.js · 2026-11-02)
     const rt=typeof RETAIL_MAP!=="undefined"&&RETAIL_MAP[name]&&typeof RETAIL!=="undefined";
     const adr=typeof ADR_MAP!=="undefined"&&ADR_MAP[name]&&typeof ADR!=="undefined";   // 호텔 ADR 추적(2026-10-29) — 호텔신라·GS피앤엘·서부T&D
     body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
@@ -9941,6 +9942,7 @@ function renderStockTab(name){
     drawQuarter(Qs);
     // 에이피알 = 비용 구조 모델(aprmodel.js · 2026-10-30 — 3Q26 컨콜 뒤 사용자 "물류비·마케팅비 개선을 가정하지 말고"). 나머지는 공통 엔진
     if(ism){ try{ if(name==="에이피알"&&typeof renderAprModel==="function"&&typeof APRMODEL!=="undefined"&&APRMODEL.q) renderAprModel(document.getElementById("spIsm"));
+      else if(name==="녹십자웰빙"&&typeof renderGcwbModel==="function") renderGcwbModel(document.getElementById("spIsm"));
       else renderIsm(name, document.getElementById("spIsm")); }catch(err){ console.error("분기 손익 모델", err); } }
     // 산업부 유통업체 매출동향(2026-10-28 · RETAIL) — 유통 5종목
     if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
