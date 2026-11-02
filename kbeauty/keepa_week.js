@@ -12,14 +12,22 @@
      3) __KW.build('full'|'recent') → KBCH(__KBK.L) · 국면 미국(KBPH dump) · 유럽·일본·캐나다(KBPHEU.save) 를 한 번에 짓는다
      4) __KW.bundle() → 길이·검산값 · __KW.show(i) 로 나눠 띄워 get_page_text(줄바꿈은 '~') → 파일 → python3 kbeauty/week_recv.py <파일>
         (이 PC 받기 서버가 있으면 __send('kw_'+날짜, __KW.text) 로 한 번에)
+   v2 (2026-11-03 · 사용자 "Keepa 사용량 관리 · 최적화"):
+     - 한도 예산: __KW.start(tasks, {quota: <새 탭에서 본 남은 %>}) → 예산 = % × 260 상품(꽉 차면 약 2.6만 · 11/02 실측). 나라마다 예상 상품 수(EXP · 지난 회차 실측으로 덮어씀 opt.exp)를
+       남은 예산과 견줘 모자라면 그 나라는 건너뛴다(중간에 끊겨 반쪽이 되느니 통째로 다음 회차로). 예산은 A·B 행을 따로 센다(겹친 상품도 두 번 · 보수적).
+     - 끊김 감지: 질의가 0개거나 페이지가 덜 차면 그 나라를 '불완전'(W.bad)으로 두고 build 에서 뺀다(지난 회차 값이 남는다). 두 질의 연속 0개면 한도 소진으로 보고 멈춘다.
+     - 나라 순서 = 중요도(미국 → 영국 → 독일 → 일본 → 프랑스 → 스페인 → 이탈리아 → 캐나다) — 한도가 모자라면 뒤에서부터 빠진다.
+     - bundle 에 @@USE@@ 한 줄(나라별 A·B·합·초·불완전 · 시작 %) → week_recv.py 가 data/keepa_usage.csv 에 쌓는다 — 다음 회차 EXP 의 근거.
 */
 (function () {
   'use strict';
-  const W = window.__KW = {v: 1, state: 'idle', log: [], rows: {}, err: '', parts: {}};
+  const W = window.__KW = {v: 2, state: 'idle', log: [], rows: {}, err: '', parts: {}};
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const DOMS = [1, 2, 3, 4, 8, 9, 5, 6], MK = {1: 'us', 2: 'uk', 3: 'de', 4: 'fr', 8: 'it', 9: 'es', 5: 'jp', 6: 'ca'};
+  const DOMS = [1, 2, 3, 5, 4, 9, 8, 6], MK = {1: 'us', 2: 'uk', 3: 'de', 4: 'fr', 8: 'it', 9: 'es', 5: 'jp', 6: 'ca'};
   const NAMES = {1: 'United States', 2: 'United Kingdom', 3: 'Germany', 4: 'France', 5: 'Japan', 6: 'Canada', 8: 'Italy', 9: 'Spain'};
   const RANK_B = 300000, RANK_NB = 150000;
+  // 나라별 예상 행 수(A 행 + B 행) — 첫 통합 회차 전이라 옛 회사 채널 회차(10/20 · 브랜드×나라 전 상품) 크기로 넉넉히. 회차가 쌓이면 opt.exp 로 실측을 넘긴다.
+  const EXP = {1: 7700, 2: 2600, 3: 2100, 5: 2600, 4: 1700, 9: 1500, 8: 1600, 6: 1700}, PER_PCT = 260;
   // 국면 브랜드 목록 — 미국 = phase_keepa.js 의 BRANDS · 유럽·캐나다 = + d'alba · centellian24 · 일본 = 가타카나 표기 포함(RUNBOOK 1-d)
   const US = (window.BRANDS || []).slice();
   const EU = US.concat(["d'alba", 'centellian24']);
@@ -62,11 +70,13 @@
     }
     const M = W.rows[d] = W.rows[d] || {};
     const pages = Math.max(1, g.paginationGetTotalPages ? g.paginationGetTotalPages() : 1);
-    let got = 0, stop = false;
+    let got = 0, stop = false, short = 0;
     for (let p = 0; p < pages && !stop; p++) {
       if (p > 0) g.paginationGoToPage(p);
       const st = p * 100, en = Math.min(st + 100, g.getDisplayedRowCount());
-      for (let k = 0; k < 50; k++) { let c = 0; for (let i = st; i < en; i++) { const r = g.getDisplayedRowAtIndex(i); if (r && r.data && r.data.asin && r.data.domainId === d) c++; } if (c >= en - st) break; await sleep(400); }
+      let c = 0;
+      for (let k = 0; k < 50; k++) { c = 0; for (let i = st; i < en; i++) { const r = g.getDisplayedRowAtIndex(i); if (r && r.data && r.data.asin && r.data.domainId === d) c++; } if (c >= en - st) break; await sleep(400); }
+      if (c < en - st) short++;
       for (let i = st; i < en; i++) {
         const r = g.getDisplayedRowAtIndex(i); if (!r || !r.data || !r.data.asin || r.data.domainId !== d) continue;
         const o = r.data; if (stopRank && rankOf(o) > stopRank) { stop = true; continue; }
@@ -75,25 +85,35 @@
       W.cur = MK[d] + ' ' + tag + ' ' + (p + 1) + '/' + pages;
     }
     if (pages > 1) g.paginationGoToPage(0);
-    return {n: got, pages};
+    return {n: got, pages, short};
   };
 
   W.start = (tasks, opt) => {
     W.tasks = tasks; W.opt = opt || {}; W.rows = {}; W.log = []; W.err = ''; W.state = 'run'; W.t0 = Date.now(); W.parts = {}; W.text = '';
+    W.bad = {}; W.use = {}; W.spent = 0; const exp = Object.assign({}, EXP, W.opt.exp || {});
+    const budget = W.opt.quota > 0 ? W.opt.quota * PER_PCT * 0.95 : Infinity;   // 5% 여유
     const B = new Set(); tasks.forEach(t => t.b.forEach(x => B.add(x))); US.concat(EU, JP).forEach(x => B.add(x));
     W.brands = [...B];
     const doms = (W.opt.doms || DOMS);
     (async () => {
+      let zeros = 0;
       for (const d of doms) {
         const t0 = Date.now();
-        if (!(await setDomain(d))) { W.log.push(MK[d] + ' domain-fail'); continue; }
+        if (W.spent + exp[d] > budget) { W.log.push(MK[d] + ' 건너뜀(예산 ' + Math.round(budget - W.spent) + ' < 예상 ' + exp[d] + ')'); W.use[MK[d]] = {skip: 1}; continue; }
+        if (!(await setDomain(d))) { W.log.push(MK[d] + ' domain-fail'); W.use[MK[d]] = {fail: 'domain'}; continue; }
         const base = {productType: {values: ['0'], filterType: 'set'}, brand: {filterType: 'autocomplete', filter: W.brands.join('###'), type: 'isOneOf'}};
         let a = await run1(d, {f: Object.assign({}, base, {monthlySoldPeak: {filterType: 'number', type: 'greaterThanOrEqual', filter: 50, filterTo: null}}), s: [{colId: 'monthlySold', sort: 'desc'}], t: 'g'}, 'a');
         if (a.n <= 0) { await sleep(3000); a = await run1(d, {f: Object.assign({}, base, {monthlySoldPeak: {filterType: 'number', type: 'greaterThanOrEqual', filter: 50, filterTo: null}}), s: [{colId: 'monthlySold', sort: 'desc'}], t: 'g'}, 'a'); }
         await sleep(1500);
         const b = await run1(d, {f: Object.assign({}, base, {SALES_current: {filterType: 'number', type: 'inRange', filter: 1, filterTo: RANK_B}}), s: [{colId: 'SALES_current', sort: 'asc'}], t: 'g'}, 'b', RANK_B);
-        const M = W.rows[d] || {}, all = Object.values(M);
-        W.log.push(MK[d] + ' A ' + a.n + ' B ' + b.n + ' 합 ' + all.length + ' (B만 ' + all.filter(e => !e.a).length + ') ' + Math.round((Date.now() - t0) / 1000) + 's');
+        const M = W.rows[d] || {}, all = Object.values(M), sec = Math.round((Date.now() - t0) / 1000);
+        W.spent += Math.max(0, a.n) + Math.max(0, b.n);
+        const bad = a.n <= 0 || b.n <= 0 || a.short || b.short;
+        if (bad) W.bad[d] = 1;
+        W.use[MK[d]] = {a: a.n, b: b.n, u: all.length, s: sec, bad: bad ? 1 : 0};
+        W.log.push(MK[d] + ' A ' + a.n + ' B ' + b.n + ' 합 ' + all.length + ' (B만 ' + all.filter(e => !e.a).length + ') ' + sec + 's' + (bad ? ' 불완전' : ''));
+        for (const r of [a, b]) zeros = r.n <= 0 ? zeros + 1 : 0;   // 질의 연속 0개 수(나라를 넘어 이어 센다)
+        if (zeros >= 2) { W.log.push('멈춤 — 두 질의 연속 0개(한도 소진 의심)'); break; }
         await sleep(1500);
       }
       W.state = 'done'; W.t1 = Date.now();
@@ -106,13 +126,15 @@
   W.build = mode => {
     const out = [];
     // ① KBCH — 나라마다 A∪B 전부
+    const ok = d => W.rows[d] && !W.bad[d];   // 불완전한 나라는 뺀다 — 지난 회차 값이 남는다
+    if (Object.keys(W.bad).length) out.push('불완전 ' + Object.keys(W.bad).map(d => MK[d]).join(','));
     if (window.__KBK && W.tasks) {
-      const byD = {}; for (const d in W.rows) byD[d] = Object.values(W.rows[d]).map(e => e.o);
+      const byD = {}; for (const d in W.rows) if (ok(d)) byD[d] = Object.values(W.rows[d]).map(e => e.o);
       out.push('KBCH ' + window.__KBK.fromRows(W.tasks, Object.assign({}, W.opt, {mode: mode || W.opt.mode || 'full'}), byD));
       W.parts.kbch = window.__KBK.L.join('\n');
     }
     // ② 국면 미국 — A(국면 브랜드) + B 만(배지 한 번도 없음 · 15만 위 안) → 옛 질의 두 번과 같은 행
-    if (window.KBPH && window.KBPH.fromObjs && W.rows[1]) {
+    if (window.KBPH && window.KBPH.fromObjs && ok(1)) {
       const L = low(US), es = Object.values(W.rows[1]).filter(e => L.has(String(e.o.brand || '').toLowerCase()));
       const A = es.filter(e => e.a).map(e => e.o), Bo = es.filter(e => !e.a && rankOf(e.o) > 0 && rankOf(e.o) <= RANK_NB).map(e => e.o);
       window.KBPH.fromObjs(A, Bo); window.KBPH.dump();
@@ -123,7 +145,7 @@
     if (window.KBPHEU && window.KBPHEU.fromObjs) {
       const sv = {};
       for (const d of [2, 3, 4, 8, 9, 5, 6]) {
-        if (!W.rows[d]) continue;
+        if (!ok(d)) continue;
         const L = low(phList(d)), A = Object.values(W.rows[d]).filter(e => e.a && L.has(String(e.o.brand || '').toLowerCase())).map(e => e.o);
         window.KBPHEU.fromObjs(A); out.push(window.KBPHEU.save(MK[d])); sv[MK[d]] = sessionStorage.getItem('kbeu_' + MK[d]) || '';
       }
@@ -138,6 +160,7 @@
     if (P.kbch) s.push('@@KBCH@@\n' + P.kbch);
     if (P.us) s.push('@@US@@\n' + P.us);
     if (P.eu) s.push('@@EU@@\n' + P.eu);
+    s.push('@@USE@@\n' + JSON.stringify({q: W.opt.quota || null, spent: W.spent, sec: Math.round(((W.t1 || Date.now()) - W.t0) / 1000), c: W.use}));
     W.text = s.join('\n') + '\n@@END@@';
     return 'len ' + W.text.length + ' h ' + jh(W.text) + ' · 덩어리(2.2만 자) ' + Math.ceil(W.text.length / 22000);
   };

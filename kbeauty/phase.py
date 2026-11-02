@@ -92,20 +92,31 @@ def build_mk(d):
     files = sorted((SRC / "eu").glob("20??-??-??*.txt"))
     if not files:
         return None
-    # 같은 날 파일이 여럿이면(유럽 · 일본·캐나다 따로 받은 날) 다 읽는다 — 나라가 겹치면 뒤 파일이 이긴다
-    last = files[-1].name[:10]
-    out, cur = {}, None
-    lines = []
+    # 나라마다 가장 최근 파일의 덩어리를 쓴다(2026-11-03 · 통합 수집이 한도로 몇 나라만 받은 날 · 월·화에 빠진 나라만 받은 날이 생긴다).
+    #   예전엔 마지막 날짜 파일만 읽어, 하루에 몇 나라만 받으면 나머지 나라가 통째로 빠졌다. 파일 이름 순 = 날짜 순 · 같은 날 여럿이면 뒤 파일이 이긴다.
+    blocks = {}
     for f in files:
-        if f.name[:10] == last:
-            lines += f.read_text(encoding="utf-8").splitlines()
+        cur_k, buf = None, []
+        for ln in f.read_text(encoding="utf-8").splitlines() + ["D|"]:
+            p = ln.strip().split("|")
+            if p and p[0] == "D":
+                if cur_k:
+                    blocks[cur_k] = (f.name[:10], buf)
+                cur_k, buf = (p[1] if len(p) > 1 else None), [ln]
+            elif cur_k:
+                buf.append(ln)
+    out, cur, lines = {}, None, []
+    for k, (fd, buf) in blocks.items():
+        p = buf[0].strip().split("|")
+        if p[3] != d["months"][0]:   # 미국과 첫 달이 다르다 = 달이 바뀌기 전에 받은 옛 덩어리 → 그 나라는 다음 회차까지 뺀다
+            print(f"  [mk] {k} 첫 달 {p[3]} ≠ 미국 {d['months'][0]} ({fd} 파일) — 이번엔 뺀다")
+            continue
+        lines += buf
     for ln in lines:
         p = ln.strip().split("|")
         if not p or not p[0]:
             continue
         if p[0] == "D":
-            if p[3] != d["months"][0]:
-                raise SystemExit(f"유럽 {p[1]} 첫 달 {p[3]} ≠ 미국 {d['months'][0]}")
             cur = {"cur": MK_CUR[p[1]], "asOf": p[2], "rows": int(p[4]), "b": {}, "ref": len(p) > 5 and p[5] == "r"}
             out[p[1]] = cur
         elif p[0] == "H":

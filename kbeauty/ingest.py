@@ -169,6 +169,18 @@ def save_keepa(res, raw_text):
     for a in res["A"]:
         u, v = a["U"][-1] if a["U"] else 0, a["V"][-1] if a["V"] else 0
         rec.append({"asof": res["date"], "d": a["d"], "k": a["k"], "u": u, "v": v})
+    # 실패한 과제(X · 통합 수집이 한도로 그 나라를 건너뛴 경우 등)는 직전 회차의 최근 30일 값을 이 날짜로 잇는다
+    # — 블록은 마지막 회차 날짜 한 줄만 읽어서, 안 이으면 그 나라가 통째로 빈다(2026-11-03). meta.carry 에 몇 개 이었는지 남긴다.
+    failed = {(x["d"], x["k"]) for x in res["X"]} - got if not add else set()
+    carried = 0
+    if failed:
+        last = {}
+        for r in rec:
+            key = (int(r["d"]), r["k"])
+            if key in failed and r["asof"] < res["date"] and r["asof"] >= last.get(key, {}).get("asof", ""):
+                last[key] = r
+        for r in last.values():
+            rec.append(dict(r, asof=res["date"])); carried += 1
     rec.sort(key=lambda r: (r["asof"], r["k"], int(r["d"])))
     with open(rp, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["asof", "d", "k", "u", "v"])
@@ -180,6 +192,11 @@ def save_keepa(res, raw_text):
         with open(DATA / "keepa_top.csv", encoding="utf-8", newline="") as f:
             keep_top = [r for r in csv.reader(f)][1:]
         keep_top = [r for r in keep_top if (int(r[1]), r[2]) not in got]
+    if failed and (DATA / "keepa_top.csv").exists():   # 실패한 과제는 직전 상위 묶음을 이 날짜로 잇는다
+        with open(DATA / "keepa_top.csv", encoding="utf-8", newline="") as f:
+            prev = [r for r in csv.reader(f)][1:]
+        pd_ = max((r[0] for r in prev if (int(r[1]), r[2]) in failed), default="")
+        keep_top += [[res["date"]] + r[1:] for r in prev if r[0] == pd_ and (int(r[1]), r[2]) in failed]
     with open(DATA / "keepa_top.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(["asof", "d", "k", "i", "g", "n", "t", "p", "u13", "v13"])
@@ -204,7 +221,7 @@ def save_keepa(res, raw_text):
     # full = 마지막 전체(36개월) 회차 · sig = 그때 과제 목록 — --due 가 다음 모드를 정한다
     meta = {"date": res["date"], "MS": MS, "MC": MC, "mode": res["mode"], "tasks": res["tasks"],
             "full": res["date"] if full else om.get("full", ""), "sig": tasks_sig() if full else om.get("sig", ""),
-            "fail": [f"{x['d']}:{x['k']}:{x['why']}" for x in res["X"]]}
+            "fail": [f"{x['d']}:{x['k']}:{x['why']}" for x in res["X"]], "carry": carried}
     mp.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
     return len(new)
 

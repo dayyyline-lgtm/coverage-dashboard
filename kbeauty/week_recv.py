@@ -2,6 +2,7 @@
 """Keepa 주간 통합 수집(keepa_week.js) 덤프 → 회사 채널(KBCH) · 국면 미국 · 국면 유럽·일본·캐나다 (2026-11-01).
 
   python3 kbeauty/week_recv.py <덤프> [--compare] [--date D] [--dry] [--only KBCH]
+  python3 kbeauty/week_recv.py --todo   이번 주 못 받은 나라(월·화 이어받기용 doms) · 종료코드 0 = 있음 · 1 = 없음
     덤프 = __KW.bundle() 의 본문(@@KBCH@@ · @@US@@ · @@EU@@ 구획 · 끝 @@END@@).
     --compare  KBCH 를 저장하기 전에 지금 data/keepa_month.csv(직전 회차)와 같은 달끼리 견준다
                — 통합 수집은 '배지가 한 번도 없고 지금 30만 위 밖' 상품을 안 받는다. 그 몫이 옛 숫자에서 얼마였는지 본다.
@@ -35,7 +36,7 @@ def split(t):
     t = t[: t.rfind("@@END@@")].rstrip("\n")
     out, cur, buf = {}, None, []
     for l in t.split("\n"):
-        if l in ("@@KBCH@@", "@@US@@", "@@EU@@"):
+        if l in ("@@KBCH@@", "@@US@@", "@@EU@@", "@@USE@@"):
             if cur:
                 out[cur] = "\n".join(buf)
             cur, buf = l.strip("@"), []
@@ -44,6 +45,31 @@ def split(t):
     if cur:
         out[cur] = "\n".join(buf)
     return out
+
+
+def save_use(txt, date):
+    """@@USE@@ (keepa_week.js v2) → data/keepa_usage.csv — 나라별 A·B 행 · 받은 상품 · 초 · 불완전 · 시작 한도 %.
+    다음 회차 예상치(__KW.start 의 opt.exp)와 한도 기준을 이 실측으로 다시 잡는다."""
+    import json
+    try:
+        u = json.loads(txt.strip())
+    except Exception:
+        print("[한도] @@USE@@ 를 못 읽음")
+        return
+    p = HERE / "data" / "keepa_usage.csv"
+    rows = []
+    if p.exists():
+        rows = [r for r in csv.DictReader(open(p, encoding="utf-8")) if r["date"] != date]
+    for m, c in (u.get("c") or {}).items():
+        rows.append({"date": date, "mk": m, "q": u.get("q") or "", "a": c.get("a", ""), "b": c.get("b", ""), "u": c.get("u", ""),
+                     "s": c.get("s", ""), "bad": c.get("bad", ""), "skip": c.get("skip", ""), "fail": c.get("fail", "")})
+    with open(p, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["date", "mk", "q", "a", "b", "u", "s", "bad", "skip", "fail"])
+        w.writeheader()
+        w.writerows(rows)
+    print(f"[한도] 시작 {u.get('q')}% · 받은 행 {u.get('spent')} (≈ {round((u.get('spent') or 0) / 260)}%) · {u.get('sec')}초 · "
+          + " · ".join(f"{m} {c.get('a', '-')}+{c.get('b', '-')}" + (" 불완전" if c.get("bad") else "") + (" 건너뜀" if c.get("skip") else "")
+                       for m, c in (u.get("c") or {}).items()))
 
 
 def ymstr(m):
@@ -95,7 +121,29 @@ def compare(kb):
         print(f"     {MK.get(r[1], r[1])} {r[2]}: {r[0]:.3f} (옛 {r[3]:,.0f} → 새 {r[4]:,.0f})")
 
 
+DOM = {"us": 1, "uk": 2, "de": 3, "fr": 4, "jp": 5, "ca": 6, "it": 8, "es": 9}
+
+
+def todo():
+    """이번 주 통합 회차에서 못 받은 나라 — 월·화 회차가 그 나라만 받는다(__KW.start(tasks, {quota, doms:[…]})).
+    최근 7일 keepa_usage.csv 에서 나라마다 마지막 기록이 완전(a·b > 0 · 불완전·건너뜀·실패 아님)이면 받은 것.
+    종료코드 0 = 받을 나라 있음(doms 를 찍는다) · 1 = 없음."""
+    p = HERE / "data" / "keepa_usage.csv"
+    since = (dt.date.fromisoformat(phase_recv.kst_today()) - dt.timedelta(days=6)).isoformat()
+    last = {}
+    if p.exists():
+        for r in csv.DictReader(open(p, encoding="utf-8")):
+            if r["date"] >= since and r["mk"] in DOM:
+                last[r["mk"]] = r
+    ok = {m for m, r in last.items() if not (r["bad"] or r["skip"] or r["fail"]) and (r["a"] or "0") not in ("0", "-1") and (r["b"] or "0") not in ("0", "-1")}
+    need = [DOM[m] for m in ["us", "uk", "de", "jp", "fr", "es", "it", "ca"] if m not in ok]
+    print("doms " + (",".join(map(str, need)) if need else "없음") + f" · 이번 주 받은 나라 {sorted(ok)}")
+    return 0 if need else 1
+
+
 def main():
+    if "--todo" in sys.argv:
+        sys.exit(todo())
     ap = argparse.ArgumentParser()
     ap.add_argument("file")
     ap.add_argument("--compare", action="store_true")
@@ -112,6 +160,8 @@ def main():
     if a.dry:
         return
     date = a.date or phase_recv.kst_today()
+    if "USE" in P:
+        save_use(P["USE"], date)
     only = set(a.only.upper().split(","))
     P = {k: v for k, v in P.items() if k in only}
     if "KBCH" in P:
