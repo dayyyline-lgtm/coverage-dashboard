@@ -173,18 +173,20 @@ def main():
     start = end - datetime.timedelta(days=LOOKBACK_DAYS)
     keep_from = (end - datetime.timedelta(days=KEEP_FROM_DAYS)).strftime("%Y-%m-%d")
 
-    events, ir_hits = [], 0
+    events, ir_hits, n_fail, n_try = [], 0, 0, 0
     for idx, r in enumerate(records, 1):
         nm = r["name"]
         sc = name2code.get(nm)
         cc = cmap.get(sc) if sc else None
         if not cc:
             print(f"  [{idx}/{len(records)}] {nm}: 기업코드 없음"); continue
+        n_try += 1
         try:
             d = json.loads(get(
                 f"https://opendart.fss.or.kr/api/list.json?crtfc_key={DART_API_KEY}"
                 f"&corp_code={cc}&bgn_de={start:%Y%m%d}&end_de={end:%Y%m%d}&page_count=100").decode("utf-8"))
         except Exception as e:
+            n_fail += 1
             print(f"  [{idx}/{len(records)}] {nm}: 조회 실패 {str(e)[:40]}"); continue
 
         n_co = 0
@@ -230,6 +232,10 @@ def main():
             continue
         seen.add(k); uniq.append(e)
 
+    # 조회가 절반 넘게 실패하면(DART 응답 없음 · 2026-11-03 14시 회차 56개 전부 timed out → 빈 배열로 덮어 캘린더가 비었다) 옛 블록을 그대로 둔다
+    if n_try and n_fail * 2 > n_try:
+        print(f"\n[SKIP] DART 조회 {n_fail}/{n_try} 실패 — 이벤트 블록을 건드리지 않습니다")
+        return
     block = "const DART_EVENTS = " + json.dumps(uniq, ensure_ascii=False) + ";"
     if "const DART_EVENTS =" in html:
         html = re.sub(r"const DART_EVENTS = \[.*?\];", block, html, count=1, flags=re.S)
