@@ -60,6 +60,7 @@ window.KBPH=window.KBPH||{};
   K.dump=function(){
     const KM=k=>(k+21564000)*60000, now=Date.now(), today=new Date(), months=[], ML=[];
     for(let j=35;j>=0;j--){ const d=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth()-j,1)); months.push([d.getTime(),Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)]); ML.push(d.toISOString().slice(0,7)); }
+    // ⚠ VDL 은 동명 브랜드(전기자전거·USB 케이블)가 섞인다(2026-11-03 · 15개 중 7개) — LG 브랜드는 제목으로 그런 상품을 뺀다.
     // 그달 판매량 = 그달 마지막 7일 배지의 중앙값(2026-10-22) — 배지는 '지난 30일 구매'라 월말 값이 곧 그달 한 달치다(kbeauty/keepa.js 와 같은 식).
     //   예전엔 그달 동안의 배지를 시간 평균했는데, 그러면 반 달 밀려 6월 하순 프라임데이가 7월로 넘어갔다(라네즈 2026-06 14.6만 → 7월 38.7만 · 월말식 42.1만 → 12.0만).
     //   진행 중인 달 = 지금까지 마지막 7일(= 최근 30일 한 달치).
@@ -67,7 +68,7 @@ window.KBPH=window.KBPH||{};
       const at=t=>{ let v=0; for(let i=0;i<pts.length&&pts[i][0]<=t;i++) v=Math.max(pts[i][1],0); return v; };
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
         a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
-    const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
+    const B={}, rows=Object.values(K.rows).filter(r=>!(LG_BRANDS.includes(r.rb)&&/\bbike|bicycle|ebike|\bcable|charg|\busb\b|\btire|scooter|battery|phone case|motor|helmet|\bpedal/i.test(r.t))).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } r.nb=r.nbq&&!r.first?1:0; });
     // ── 배지 구간 안의 위치를 순위로 정한다(2026-10-22 · 사용자 "구간이 거칠다 — 20~30% 변화가 안 보인다") ──
     //   배지 = 구간 아랫값(50·100·200…900·1천·2천…9천·1만·2만…·10만+). 구간 안 어디쯤인지는 그달 평균 판매 순위(historicalSalesRankAverages · 이번 달 = 30일 평균)로 정한다:
