@@ -191,7 +191,7 @@ function renderAprModel(host){
       if(!cons[k]) cons[k]={op:v, n:{op:r.post!=null?r.n:r.np}, src:`증권사 리포트 평균 · 리비전 트래커`};
       else if(/^\d{4}$/.test(k)) cons[k].opT={v, n:r.post!=null?r.n:r.np, post:r.post!=null}; });
   }
-  const cols=B.COLS.map(q=>Q[q]).filter(Boolean).concat(["2025","2026","2027"].map(y=>Y[y]).filter(Boolean));
+  const cols=B.COLS.filter(q=>is25Get()||!q.startsWith("2025")).map(q=>Q[q]).filter(Boolean).concat(["2025","2026","2027"].map(y=>Y[y]).filter(Boolean));
   const nextQ=(cols.find(o=>!o.yr&&!o.act)||{}).q;
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?(o.ir?"P":""):"E"}`;
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
@@ -307,11 +307,12 @@ function renderAprModel(host){
       <label>4Q26 관세 환급 <input data-apra="refund" type="number" step="1" value="${fv(A.refund)}" style="width:52px"> 십억 <span class="g">컨콜 '남은 것 100억 미만'</span></label>
       <button data-aprreset style="font-size:11.5px">기본값으로</button></div></div></details>`;
   const D=APRMODEL;
-  host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 — 비용 구조 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · P 잠정실적 · E 우리 추정 · ≈ 컨콜 비율·역산 · ▸ 세부</span></div>
+  host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 — 비용 구조 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · P 잠정실적 · E 우리 추정 · ≈ 컨콜 비율·역산 · ▸ 세부</span><span style="float:right">${is25Btn()}</span></div>
     ${head}
     <div class="tbl-wrap"><table class="mini-tbl ism-t"><thead><tr><th class="l">${attr(name)}</th>${th}</tr></thead><tbody>${body}${consRow}</tbody></table></div>
     ${method}${asm}
     <p class="note">실적 DART 연결(손익 · 판관비 주석 ${(Object.keys(D.src||{}).sort().pop()||"").replace("-",".")}까지) · ${attr(APR_IR["2026Q3"].src)} · 환율 ECB 월평균 · 칸에 마우스 = 식</p>`;
+  is25Bind(host,()=>renderAprModel(host));
   host.querySelectorAll("[data-aprtg]").forEach(el=>el.addEventListener("click",()=>{ const g=el.dataset.aprtg; aprOpen={...open}; aprOpen[g]=!open[g];
     try{ localStorage.setItem("aprOpen",JSON.stringify(aprOpen)); }catch(e){} renderAprModel(host); }));
   host.querySelectorAll("[data-apra]").forEach(i=>i.addEventListener("change",()=>{ const a={...aprAsmGet()};

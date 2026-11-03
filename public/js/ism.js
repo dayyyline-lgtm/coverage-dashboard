@@ -395,7 +395,7 @@ function renderIsm(name, host){
   const R0=(typeof byName!=="undefined"&&byName[name])||{};
   if(R0.rev27!=null&&!cons["2027"]) cons["2027"]={rev:R0.rev27, op:R0.op27, np:null, xl:1};
   const cOf=q=>{ const c=cons[q]; return c?{q, yr:q.length===4, act:false, cOnly:true, seg:{}, rev:c.rev, op:c.op, npp:c.np}:null; };
-  const cols=ISM_COLS.map(q=>Q[q]||(!hasSpec&&q>B.lastAct?cOf(q):null)).filter(Boolean)
+  const cols=ISM_COLS.filter(q=>is25Get()||!q.startsWith("2025")).map(q=>Q[q]||(!hasSpec&&q>B.lastAct?cOf(q):null)).filter(Boolean)
     .concat(["2025","2026","2027"].map(y=>(Y[y]&&(Y[y].act||hasSpec))?Y[y]:cOf(y)).filter(Boolean));
   const nextQ=(cols.find(o=>!o.yr&&!o.act)||{}).q;
   const lab=o=>o.yr?`${o.q}${o.act?"A":o.cOnly?"C":"E"}`:`${c2QLab(o.q)}${o.act?"":o.cOnly?"C":"E"}`;
@@ -488,11 +488,12 @@ function renderIsm(name, host){
     if(bt.length){ const e=bt.map(r=>r.rev/r.revA-1), m=e.reduce((t,v)=>t+Math.abs(v),0)/e.length;
       const tip=bt.map(r=>`${c2QLab(r.q)} 매출 ${fmt(r.rev,1)} vs 실제 ${fmt(r.revA,1)}`+(r.op!=null&&r.opA!=null?` · 영업이익 ${fmt(r.op,1)} vs ${fmt(r.opA,1)}`:"")).join("\n");
       btLine=`<div class="note" style="margin-top:4px"><b title="${attr("그 분기 직전까지의 실적으로 계수·성장률·이익률을 다시 맞추고, 그 분기 지표를 넣어 매출을 맞혀 본 것 — 지표가 맞으면 모델이 얼마나 맞나\n"+tip)}" style="text-decoration:underline dotted;cursor:help">지난 분기 맞히기</b> 매출 오차 ${bt.map(r=>`${c2QLab(r.q)} ${pc(r.rev/r.revA-1)}`).join(" · ")} — 평균 ${fmt(m*100,0)}%</div>`; } }
-  host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 모델 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · E 우리 추정 · C 컨센 · ▸ 세부</span></div>
+  host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 모델 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · E 우리 추정 · C 컨센 · ▸ 세부</span><span style="float:right">${is25Btn()}</span></div>
     ${head}
     <div class="tbl-wrap"><table class="mini-tbl ism-t"><thead><tr><th class="l">${attr(name)}</th>${th}</tr></thead><tbody>${body}${consRow}</tbody></table></div>
     ${method}${btLine}${asm}
     <p class="note">실적 DART ${D.fs==="OFS"?"별도":"연결"}(${(Object.keys(D.src||{}).sort().pop()||"").replace("-",".")}까지)${D.segHow?` · 부문 ${attr(D.segHow)}`:""} · 칸에 마우스 = 추정 식</p>`;
+  is25Bind(host,()=>renderIsm(name, host));
   host.querySelectorAll("[data-ismtg]").forEach(el=>el.addEventListener("click",()=>{ const g=el.dataset.ismtg, o=ismOpen[name]=ismOpen[name]||{...open}; o[g]=!o[g];
     try{ localStorage.setItem("ismOpen",JSON.stringify(ismOpen)); }catch(e){} renderIsm(name, host); }));
   const upd=()=>{ const a={seg:{}};

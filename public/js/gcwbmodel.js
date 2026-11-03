@@ -93,7 +93,7 @@ function renderGcwbModel(host){
   const f1=v=>(v==null||!isFinite(v))?"—":fmt(v,1), f2=v=>(v==null||!isFinite(v))?"—":fmt(v,2);
   const pc=v=>(v==null||!isFinite(v))?"—":`<span class="${cls(v)}">${sign(v*100,0)}%</span>`;
   const chg=(c,b)=>(c==null||b==null||!(b>0))?"—":pc(c/b-1);
-  const cols=COLS.map(k=>Q[k]).concat(["2025","2026","2027"].map(y=>Y[y]));
+  const cols=COLS.filter(k=>is25Get()||!k.startsWith("2025")).map(k=>Q[k]).concat(["2025","2026","2027"].map(y=>Y[y]));   // 2025 분기는 기본 접힘(is25)
   const nextQ="2026Q4";
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":o.ir?"P":"E"}`;
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[`${+o.q.slice(0,4)-1}${o.q.slice(4)}`];
@@ -204,7 +204,7 @@ function renderGcwbModel(host){
       ${inp("Lm","라이넥 이익률",1)}${inp("Om","기타 제품 이익률",0.5)}${inp("Gm","상품·자회사 이익률",0.5)}${inp("q4","4Q 연말 원가 조정",0.1,"십억")}
       ${inp("hrQ4","4Q 인건비 배수",0.01,"배")}${inp("adQ4","4Q 광고 배수",0.01,"배")}${inp("feeR","지급수수료(상품 대비)",0.1)}${inp("hr27","2027 인건비",1)}${inp("ad27","2027 광고",1)}${inp("bor","보령 수수료율",1)}${inp("pe","Target P/E",0.5,"배")}
       <button data-gcwbreset style="font-size:11.5px">기본값으로</button></div></div></details>`;
-  host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 — 라이넥·상품·판관비 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · P 잠정실적 · E 우리 추정 · ≈ 역산·추정 · ▸ 세부 · 칸에 마우스 = 식</span></div>
+  host.innerHTML=`<div class="sub-h" style="margin:2px 0 8px">분기 손익 — 라이넥·상품·판관비 <span class="th-sub" style="display:inline;margin-left:6px">십억원 · P 잠정실적 · E 우리 추정 · ≈ 역산·추정 · ▸ 세부 · 칸에 마우스 = 식</span><span style="float:right">${is25Btn()}</span></div>
     ${head}
     <div class="tbl-wrap"><table class="mini-tbl ism-t"><thead><tr><th class="l">${attr(name)}</th>${th}</tr></thead><tbody>${body}</tbody></table></div>
     ${method}${asm}${cat}${plant}
@@ -214,5 +214,6 @@ function renderGcwbModel(host){
   host.querySelectorAll("[data-gcwba]").forEach(i=>i.addEventListener("change",()=>{ const a={};
     host.querySelectorAll("[data-gcwba]").forEach(x=>{ if(x.value!=="") a[x.dataset.gcwba]=+x.value; });
     gcwbAsmSave(a); renderGcwbModel(host); }));
+  is25Bind(host,()=>renderGcwbModel(host));
   const rb=host.querySelector("[data-gcwbreset]"); if(rb) rb.addEventListener("click",()=>{ try{ localStorage.removeItem("gcwbAsm"); }catch(e){} renderGcwbModel(host); });
 }

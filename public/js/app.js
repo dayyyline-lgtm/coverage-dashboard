@@ -5680,7 +5680,7 @@ function renderDwModel(){
   </div>`;
 
   // ── 분기 손익표 ──
-  const qCols=(A.show25?dwQs("2025Q1","2025Q4"):[]).concat(dwQs("2026Q1","2027Q4"));
+  const qCols=(is25Get()?dwQs("2025Q1","2025Q4"):[]).concat(dwQs("2026Q1","2027Q4"));
   const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
@@ -5816,7 +5816,7 @@ function renderDwModel(){
   const tbl=`<div class="sub-h" style="margin:14px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결 · 부문 = DART · 칸에 마우스를 올리면 계산식</span>
       <span style="margin-left:auto;display:flex;gap:6px">
       <button class="theme-btn" id="dwOpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
-      <button class="theme-btn" id="dwShow25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+      <button class="theme-btn" id="dwShow25" style="padding:4px 10px;font-size:11.5px">${is25Get()?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
     <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
     <thead>${head1}${head2}</thead><tbody>${ROWS.map(rowHtml).join("")}
     ${cmp("컨센 매출 / 영업이익(네이버)",o=>{ const c=cons[o.q]; return c?`${f1(c.rev)} / ${f1(c.op)}`:""; },"border-top:2px solid var(--line)")}
@@ -5884,7 +5884,7 @@ function dwBind(){
     const sh=e.target.closest("[data-dwshop]"); if(sh){ dwAsmGet().shopImp=+sh.dataset.dwshop; dwAsmSave(); renderDwModel(); return; }
     const ni=e.target.closest("[data-dwnin]"); if(ni){ dwAsmGet().ninImp=+ni.dataset.dwnin; dwAsmSave(); renderDwModel(); return; }
     if(e.target.closest("#dwReset")){ dwAsm={...DW_ASM0, show25:dwAsmGet().show25}; dwAsmSave(); renderDwModel(); return; }
-    if(e.target.closest("#dwShow25")){ const A=dwAsmGet(); A.show25=A.show25?0:1; dwAsmSave(); renderDwModel(); return; }
+    if(e.target.closest("#dwShow25")){ try{ localStorage.setItem("is25", is25Get()?"0":"1"); }catch(err){} renderDwModel(); return; }
     const tg=e.target.closest("[data-dwtg]"); if(tg){ const O=dwOpenGet(), k=tg.dataset.dwtg; O[k]=O[k]?0:1; dwOpenSave(); renderDwModel(); return; }
     if(e.target.closest("#dwOpenAll")){ const O=dwOpenGet(), ks=[...new Set([...document.querySelectorAll("#dwBox [data-dwtg]")].map(x=>x.dataset.dwtg))],
       all=ks.every(k=>O[k]); ks.forEach(k=>O[k]=all?0:1); dwOpenSave(); renderDwModel(); }
@@ -7033,6 +7033,10 @@ function c2AsmSave(){ const d={_v:C2_V};
 
 const c2QAdd=(q,n)=>{ let k=+q.slice(0,4)*4+(+q.slice(-1)-1)+n; return `${Math.floor(k/4)}Q${k%4+1}`; };
 const c2QLab=q=>`${q.slice(-1)}Q${q.slice(2,4)}`;                      // 2026Q3 → 3Q26
+// 분기 손익표 2025 분기 접기 — 모든 분기 IS 표(컴투스·대원·카카오·디어유·에이피알·녹십자웰빙·ISM) 공통 설정 하나 · 기본 접힘(2026-11-03 사용자)
+const is25Get=()=>{ try{ return localStorage.getItem("is25")==="1"; }catch(e){ return false; } };
+const is25Btn=()=>`<button class="theme-btn" data-is25 style="padding:4px 10px;font-size:11.5px">${is25Get()?"2025 분기 접기":"2025 분기 펼치기"}</button>`;
+function is25Bind(host, rerender){ host.querySelectorAll("[data-is25]").forEach(b=>b.addEventListener("click",e=>{ e.stopPropagation(); try{ localStorage.setItem("is25", is25Get()?"0":"1"); }catch(err){} rerender(); })); }
 const c2QOf=d=>`${d.slice(0,4)}Q${Math.floor((+d.slice(5,7)-1)/3)+1}`;
 const c2QStart=q=>`${q.slice(0,4)}-${String((+q.slice(-1)-1)*3+1).padStart(2,"0")}-01`;
 const c2DAdd=(d,n)=>new Date(Date.parse(d+"T00:00:00Z")+n*864e5).toISOString().slice(0,10);
@@ -7305,7 +7309,7 @@ function renderC2Model(){
   </div>`;
 
   // ── 분기 손익표 ───────────────────────────────────────────────────
-  const qCols=(A.show25?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
+  const qCols=(is25Get()?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
   const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
@@ -7454,7 +7458,7 @@ function renderC2Model(){
   const tbl=`<div class="sub-h" style="margin:16px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">게임별 분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결 · 칸에 마우스를 올리면 계산식</span>
       <span style="margin-left:auto;display:flex;gap:6px">
       <button class="theme-btn" id="c2OpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
-      <button class="theme-btn" id="c2Show25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+      <button class="theme-btn" id="c2Show25" style="padding:4px 10px;font-size:11.5px">${is25Get()?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
     <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
     <thead>${head1}${head2}</thead>
     <tbody>${ROWS.map(rowHtml).join("")}
@@ -7601,7 +7605,7 @@ function c2Bind(){
     if(s){ const A=c2AsmGet(), S=C2_SCN[s.dataset.c2scn]; A.zg=[...S.zg]; A.za=[...S.za]; c2AsmSave(); renderC2Model(); return; }
     if(e.target.closest("#c2Reset")){ c2Asm={...C2_ASM0, zg:[...C2_ASM0.zg], za:[...C2_ASM0.za], show25:c2AsmGet().show25};
       c2AsmSave(); renderC2Model(); return; }
-    if(e.target.closest("#c2Show25")){ const A=c2AsmGet(); A.show25=A.show25?0:1; c2AsmSave(); renderC2Model(); return; }
+    if(e.target.closest("#c2Show25")){ try{ localStorage.setItem("is25", is25Get()?"0":"1"); }catch(err){} renderC2Model(); return; }
     const tg=e.target.closest("[data-c2tg]");
     if(tg){ const O=c2OpenGet(), k=tg.dataset.c2tg; O[k]=O[k]?0:1; c2OpenSave(); renderC2Model(); return; }
     if(e.target.closest("#c2OpenAll")){ const O=c2OpenGet(), ks=[...new Set([...document.querySelectorAll("#c2Box [data-c2tg]")].map(x=>x.dataset.c2tg))],
@@ -7903,7 +7907,7 @@ function renderKgModel(){
     +`</tbody></table></div></div></details>`;
 
   // ── 분기 손익표 ───────────────────────────────────────────────────
-  const qCols=(A.show25?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
+  const qCols=(is25Get()?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
   const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
@@ -8011,7 +8015,7 @@ function renderKgModel(){
   const tbl=`<div class="sub-h" style="margin:16px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결(계속영업) · 칸에 마우스를 올리면 계산식</span>
       <span style="margin-left:auto;display:flex;gap:6px">
       <button class="theme-btn" id="kgOpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
-      <button class="theme-btn" id="kgShow25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+      <button class="theme-btn" id="kgShow25" style="padding:4px 10px;font-size:11.5px">${is25Get()?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
     <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
     <thead>${head1}${head2}</thead>
     <tbody>${ROWS.map(rowHtml).join("")}
@@ -8096,7 +8100,7 @@ function kgBind(){
     const s=e.target.closest("[data-kgscn]");
     if(s){ const A=kgAsmGet(), S=KG_SCN[s.dataset.kgscn]; A.dg=[...S.dg]; A.da=[...S.da]; kgAsmSave(); renderKgModel(); return; }
     if(e.target.closest("#kgReset")){ kgAsm={...KG_ASM0, dg:[...KG_ASM0.dg], da:[...KG_ASM0.da], show25:kgAsmGet().show25}; kgAsmSave(); renderKgModel(); return; }
-    if(e.target.closest("#kgShow25")){ const A=kgAsmGet(); A.show25=A.show25?0:1; kgAsmSave(); renderKgModel(); return; }
+    if(e.target.closest("#kgShow25")){ try{ localStorage.setItem("is25", is25Get()?"0":"1"); }catch(err){} renderKgModel(); return; }
     const tg=e.target.closest("[data-kgtg]");
     if(tg){ const O=kgOpenGet(), k=tg.dataset.kgtg; O[k]=O[k]?0:1; kgOpenSave(); renderKgModel(); return; }
     if(e.target.closest("#kgOpenAll")){ const O=kgOpenGet(), ks=[...new Set([...document.querySelectorAll("#kgBox [data-kgtg]")].map(x=>x.dataset.kgtg))],
@@ -8430,7 +8434,7 @@ function renderDyModel(){
   </div>`;
 
   // ── 분기 손익표 ───────────────────────────────────────────────────
-  const qCols=(A.show25?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
+  const qCols=(is25Get()?["2025Q1","2025Q2","2025Q3","2025Q4"]:[]).concat(["2026Q1","2026Q2","2026Q3","2026Q4","2027Q1","2027Q2","2027Q3","2027Q4"]);
   const cols=[...qCols.map(q=>Q[q]), Y["2025"], Y["2026"], Y["2027"]];
   const prevOf=o=>o.yr?Y[String(+o.q-1)]:Q[c2QAdd(o.q,-4)];
   const lab=o=>o.yr?`${o.q}${o.act?"A":"E"}`:`${c2QLab(o.q)}${o.act?"":"E"}`;
@@ -8545,7 +8549,7 @@ function renderDyModel(){
   const tbl=`<div class="sub-h" style="margin:16px 0 8px;display:flex;align-items:center;flex-wrap:wrap;gap:6px">분기 손익 <span class="th-sub" style="display:inline;margin-left:2px">십억원 · 연결 · 칸에 마우스를 올리면 계산식</span>
       <span style="margin-left:auto;display:flex;gap:6px">
       <button class="theme-btn" id="dyOpenAll" style="padding:4px 10px;font-size:11.5px">${allOpen?"세부 모두 접기":"세부 모두 펼치기"}</button>
-      <button class="theme-btn" id="dyShow25" style="padding:4px 10px;font-size:11.5px">${A.show25?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
+      <button class="theme-btn" id="dyShow25" style="padding:4px 10px;font-size:11.5px">${is25Get()?"2025 분기 접기":"2025 분기 펼치기"}</button></span></div>
     <div class="tbl-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums">
     <thead>${head1}${head2}</thead>
     <tbody>${ROWS.map(rowHtml).join("")}
@@ -8624,7 +8628,7 @@ function dyBind(){
     const s=e.target.closest("[data-dyscn]");
     if(s){ const A=dyAsmGet(), S=DY_SCN[s.dataset.dyscn]; Object.keys(S).forEach(k=>A[k]=S[k]); dyAsmSave(); renderDyModel(); return; }
     if(e.target.closest("#dyReset")){ dyAsm={...DY_ASM0, show25:dyAsmGet().show25}; dyAsmSave(); renderDyModel(); return; }
-    if(e.target.closest("#dyShow25")){ const A=dyAsmGet(); A.show25=A.show25?0:1; dyAsmSave(); renderDyModel(); return; }
+    if(e.target.closest("#dyShow25")){ try{ localStorage.setItem("is25", is25Get()?"0":"1"); }catch(err){} renderDyModel(); return; }
     const tg=e.target.closest("[data-dytg]");
     if(tg){ const O=dyOpenGet(), k=tg.dataset.dytg; O[k]=O[k]?0:1; dyOpenSave(); renderDyModel(); return; }
     if(e.target.closest("#dyOpenAll")){ const O=dyOpenGet(), ks=[...new Set([...document.querySelectorAll("#dyBox [data-dytg]")].map(x=>x.dataset.dytg))],
