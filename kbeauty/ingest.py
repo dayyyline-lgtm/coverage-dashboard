@@ -34,7 +34,7 @@ INDEX = REPO / "public" / "index.html"
 CFG = HERE / "config.json"
 IR = HERE / "ir.json"
 
-REC = re.compile(r"^(H|F|A|T|X|FH|S|D|E|END)\|")
+REC = re.compile(r"^(H|F|A|T|X|FH|S|D|V|W|E|END)\|")
 
 
 def b36(s):

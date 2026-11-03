@@ -2368,6 +2368,15 @@ PC 트래커(curl_cffi · 작업 스케줄러 05:15/06:45)는 **고치지 않고
 - ⚠ events.yml 커밋 스텝이 `kbeauty/data` 를 git add 한다 — 이 폴더가 main 에서 없어지면 add 가 통째로 실패해 그날 수집 전체가 안 올라간다. 지우지 말 것.
 - 분기 실적이 나오면 `ir.json` 에 한 칸 → 다음 블록부터 k·범위·비중이 바뀐다. 새 브랜드·회사는 `config.json` → `--tasks`(다음 회차 저절로 full).
 
+### 틱톡 홍보 영상·크리에이터 — FastMoss 같은 응답에서 (2026-11-03 · 사용자 "틱톡도 가능하면" → "FastMoss 영상 데이터")
+- 샵 상세 '최근 180일' 응답(`recentData` · d_type 180)의 `trend[]` 한 줄에 판매(inc_sold_count·inc_sale_amount) 말고도 **inc_aweme_count(그날 새로 잡힌 상품 연결 영상)**·**inc_author_count(그날 처음 그 샵을 홍보한 크리에이터)**·inc_live_count 가 같이 온다 — **요청을 늘리지 않는다.**
+- `fastmoss.js` **v4** 가 그 셋을 `V|샵|첫날|영상…|크리에이터…|라이브…` 줄로 덤프(D 줄 바로 뒤) → `ingest.py` 가 `data/fm_social.csv`(date,s,a,c,l · 받은 날과 그 뒤는 버림) → `KBCH.tt.so` → app.js `injectTiktokSocial`:
+  회사마다 '○○ 틱톡 새 홍보 영상(FastMoss)' · '○○ 틱톡 새 홍보 크리에이터(FastMoss)' 두 주제 · 계열 = 브랜드(같은 브랜드 샵 합산) · 주별 합(월~일 완결 주 · 26주).
+- ⚠ 브랜드 언급 전체(해시태그)가 아니라 **샵 상품 링크가 걸린 영상**만이다. 구독이 미국만이라 미국 공식 샵(`tt` 18곳)만.
+- 로더 버전 키 `fmx_v` 가 '4' 다(RUNBOOK 1-c-2). **v3 훅이 걸린 탭에 v4 를 붙이면 응답이 옛 객체로 가서 grab 이 'no response'** — 페이지를 새로 열고 붙일 것(11/3 실측).
+- ingest 의 줄 정규식(REC)·END 검산·FASTMOSS 줄 고르기에 V·W 를 넣었다(그 전엔 W 줄이 REC 에서 빠져 END 가 어긋날 수 있었다).
+- 11/3 첫 회차는 V 줄만 따로 넣었다(18샵 · 5/7~11/2) — 판매 D 줄은 다음 정기 회차가 채운다.
+
 ### Keepa 주간 통합 수집 (2026-11-01 · `kbeauty/keepa_week.js` · `week_recv.py` · RUNBOOK 1-g)
 사용자: "데이터베이스에 쌓이면 한꺼번에 되는 거 아니었나 — 깔끔하게 정리해 봐". 국면(KBPH)과 회사 채널(KBCH)이 같은 Keepa 상품을 따로 두 번 불렀고,
 KBCH 는 과제(브랜드×나라 230개)마다 안 팔리는 상품까지 전부 받아 한도를 바닥냈다(10/20 회차 2.1만 개 · KBCH 가 10/20 에 멈춘 이유).
