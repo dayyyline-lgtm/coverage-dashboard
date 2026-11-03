@@ -11272,6 +11272,8 @@ const COS_GRP=[
   {id:"amore", k:"아모레퍼시픽 브랜드", co:"아모레퍼시픽", lab:"아모레퍼시픽", t:b=>b.co==="아모레퍼시픽", what:"아모레퍼시픽의"},
   //   구다이글로벌(상장 준비) — 바구니엔 조선미녀·스킨1004·라운드랩(티르티르·스킨푸드·라카는 바구니 밖). (10/21 조선미녀를 엔에프씨에서 뺀 뒤로 엔에프씨와 같이 켤 수 있다)
   {id:"neo", k:"네오팜 브랜드", co:"네오팜", lab:"네오팜", t:b=>b.co==="네오팜", what:"네오팜의"},
+  // 2026-11-03 사용자 "lg생건 브랜드사 통합으로 뜨게" — 빌리프·더페이스샵·CNP·VDL·힌스·오휘·후·숨37·닥터그루트(더크렘샵·피지오겔은 K뷰티 바구니 밖). 멤버 2개 이상이 바구니에 들어야 버튼이 뜬다.
+  {id:"lgh", k:"LG생활건강 브랜드", co:"LG생활건강", lab:"LG생활건강", t:b=>b.co==="LG생활건강", what:"LG생활건강의"},
   {id:"goodai", k:"구다이글로벌 브랜드", co:"구다이글로벌", lab:"구다이글로벌", t:(b,k)=>["beauty of joseon","skin1004","round lab"].includes(k), what:"구다이글로벌(상장 준비)의"}];
 let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id, g.id==="nfc"?cosLs("cosNfc","0"):"0")==="1"; }); return o; })();
 // 아마존 시장 고르기(2026-10-21 사용자 "유럽도 아마존 좀 해 주라") — 국면 칸 전부가 KBB() 를 바탕으로 쓴다(KBV 모아보기도 그 위에서).
@@ -11565,7 +11567,7 @@ function renderCosPhase(){
     <div class="chart-box" style="margin-top:6px"><div class="asd-h">${cosUHead(US,MKL)}</div><div id="cpU"></div></div>
     <details class="fold" data-fold="cpQT"${foldOpen("cpQT")} style="margin-top:8px${US.v==="stk"&&US.p==="q"?"":";display:none"}"><summary>브랜드 × 분기 표 <span class="g" style="font-weight:400">(누르면 아래 카드에 그 브랜드)</span></summary><div id="cpQT" style="margin-top:6px"></div></details></div>`;
   box.innerHTML=`${mkBtns}${allH}<div class="cp-bar"><div class="seg"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">채널</span>${modeBtn("amz","아마존")}${modeBtn("tt","틱톡샵",1)}${modeBtn("sum","아마존+틱톡샵 합산",1)}</div>${perBtns}
-      <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
+      <div class="seg" style="margin-left:auto" title="누른 회사·고객사 브랜드를 한 줄로 합쳐 본다"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px">모아보기</span>${COS_GRP.filter(g=>cosGrpMem(g).length>=2).map(g=>`<button data-cpg="${g.id}" class="${cosGrp[g.id]?"active":""}" title="${attr(cosGrpMem(g).map(k=>KBB().b[k].ko).join(" · ")+" 를 한 브랜드처럼 합쳐 본다 — 비중의 분모(바구니)는 그대로 · 다시 누르면 풀린다")}">${g.lab}</button>`).join("")}</div>
       <div class="seg" title="${attr("비상장 = 상장사가 없는 브랜드(엔에프씨 ODM 고객사는 비상장이라도 남긴다) · 숨겨도 비중의 분모(바구니)는 그대로라 남은 브랜드의 숫자는 안 바뀐다")}">${[["all","비상장 보기"],["small",`비상장 소형 숨김 ${smList.length}`],["listed",`비상장 숨김 ${unList.length}`]].map(([v,t])=>`<button data-cpu="${v}" class="${unl===v?"active":""}" title="${attr(v==="all"?"전 브랜드":v==="small"?"비중이 두 채널 다 2% 미만인 비상장 — "+smList.map(r=>r.ko).join(" · "):"상장사·엔에프씨 ODM 고객사만 — 숨기는 것: "+unList.map(r=>r.ko).join(" · "))}">${t}</button>`).join("")}</div></div>
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>

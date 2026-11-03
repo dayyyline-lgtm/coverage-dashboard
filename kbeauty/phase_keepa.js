@@ -14,7 +14,11 @@
    ⚠ 행의 monthlySoldHistory 는 '바뀐 날만' 찍힌 계단 이력이다(마지막 값이 오늘까지 이어진다). historicalSalesRankAverages 는 36칸 순환 버퍼
      (칸 = (연×12+월(0부터)) mod 36 · 2026-09 = 20번 칸 — 진행 중인 달 칸은 달이 끝나야 채워져 3년 전 값이 남아 있다.
      10/22 확인: 배지가 바뀐 달에 순위가 같은 방향으로 움직인 비율이 이 칸 매칭이면 84%, 한 칸 어긋나면 47%) — 화면에선 '최고 순위'를 안 쓰므로(CLAUDE.md) 지금은 집계하지 않는다. */
-var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"];
+// 2026-11-03 LG생활건강 K뷰티 브랜드 추가(사용자 "lg생건 브랜드사 통합으로 뜨게") — 더페이스샵·CNP·VDL·힌스·오휘·후·숨37·닥터그루트(빌리프는 원래 있음).
+//   더크렘샵(미국 태생 · 미국 SKU 1,300여 개)·피지오겔(유럽 태생)은 K뷰티 비중의 분모를 키워 넣지 않는다. 표기 여럿 → LGV 로 하나로 합친다.
+var LG_BRANDS=["the face shop","cnp","cnp laboratory","vdl","hince","o hui","ohui","whoo","the history of whoo","su:m37","sum37","dr.groot","dr. groot"];
+var LGV={"cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum37":"su:m37","dr. groot":"dr.groot"};
+var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"].concat(LG_BRANDS);
 var KBPH_QUERY={f:{productType:{values:["0"],filterType:"set"},brand:{filterType:"autocomplete",filter:BRANDS.join("###"),type:"isOneOf"},monthlySoldPeak:{filterType:"number",type:"greaterThanOrEqual",filter:50,filterTo:null}},s:[{colId:"monthlySold",sort:"desc"}],t:"g"};
 // 배지 없는 상품(세트·듀오·번들) 두 번째 질의(2026-10-23 · 사용자 "Keepa 번들 놓치는 거 개선 안 됨?") — 아마존이 세트 상품엔 '지난달 N개 구매' 배지를 안 붙여서
 //   위 질의(역대 배지 피크 ≥ 50)에 아예 안 걸린다. 10/22 확인: 세부 카테고리 Top100 에 든 바구니 브랜드 SKU 488개 중 68개(14%)가 바구니 밖이었고 거의 다 세트·번들
@@ -28,7 +32,7 @@ window.KBPH=window.KBPH||{};
   K.rows={}; K.done=false; K.log=[]; K.nbq=false; K.nbMax=0; K.sn=new Set();
   K.collect=function(){ (window.__kwNodes?(f=>window.__kwNodes.forEach(d=>f({data:d}))):(f=>api().forEachNode(f)))(n=>{ const d=n.data; if(!d||!d.asin||d.domainId!==1) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
     if(K.nbq){ const rc=(s.current&&s.current[3])||-1; if(rc>K.nbMax) K.nbMax=rc; K.sn.add(d.asin); if(K.rows[d.asin]) return; }
-    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':b)((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
+    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':(LGV[b]||b))((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
       bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0,hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1,
       bx:(h=>({s:h.length?String(h[h.length-1]):'',t:h.length>1?+h[h.length-2]:0}))(d.buyBoxSellerIdHistory||[]),no:d.COUNT_NEW_current==null?-1:d.COUNT_NEW_current}; }); };
   // 가격(센트) — 바이박스 → 신품 최저 → 아마존가 · 30·90·180·365일 평균을 구간으로 풀어 달 나이에 맞춘다(kbeauty/keepa.js 와 같은 식 · 2026-10-21 금액 환산)

@@ -176,6 +176,7 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "isntree": "isntree", "tonymoly": "tonymoly", "innisfree": "innisfree", "romand": "rom&nd", "medicube": "medicube",
           "missha": "missha", "dalba": "d'alba piedmont", "cosrx": "cosrx", "laneige": "laneige", "belif": "belif", "rejuran": "rejuran",
           "biodance": "biodance", "equalberry": "eqqualberry",
+          "tfs": "the face shop", "drgroot": "dr.groot", "hince": "hince",   # LG생활건강 미국 공식 샵(2026-11-03 · 키는 KBCH fm_shops.csv 와 같다)
           "clio": "clio",
           "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
 RW_N = 7              # 3달·1달 창의 기준점 수(14일 간격 · 최근 12주) — phase_keepa.js 의 RWN 과 같게
@@ -341,6 +342,13 @@ def main():
                 f = l.split("|")
                 if f[0] == "S" and f[2] == "US" and TT_MAP.get(f[3]):
                     seen[f[1]] = (f[3], f[5])
+        # 회사 채널 모델(KBCH)이 이미 아는 미국 공식 샵 중 TT_MAP 에 있고 국면 덤프엔 아직 없는 것(2026-11-03 LG생활건강 — 다음 회차부터 같이 받는다)
+        shp = HERE / "data" / "fm_shops.csv"
+        if shp.exists():
+            import csv
+            for r in csv.DictReader(shp.open(encoding="utf-8")):
+                if r.get("r") == "US" and r.get("k") in ("tfs", "drgroot", "hince") and r["s"] not in seen:   # LG 셋만 — 다른 브랜드의 둘째 샵(메디큐브 USA 등)은 국면에 안 넣는다
+                    seen[r["s"]] = (r["k"], r.get("name", ""))
         for sid, (k, nm) in seen.items():
             print(f"{sid}\tawait window.__FMX.grab('{sid}','US','{k}')\t# {nm}")
         print(f"# {len(seen)}곳 · 새 샵은 TT_MAP 에도 넣을 것")

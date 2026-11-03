@@ -35,6 +35,14 @@ def jhash(t):
     return h
 
 
+# 직전 파일에 없는 새 브랜드의 한글 이름·회사(2026-11-03 LG생활건강 추가 · 사용자 "lg생건 브랜드사 통합으로 뜨게")
+NEW_META = {"the face shop": {"ko": "더페이스샵", "co": "LG생활건강"}, "cnp": {"ko": "CNP", "co": "LG생활건강"},
+            "vdl": {"ko": "VDL", "co": "LG생활건강"}, "hince": {"ko": "힌스", "co": "LG생활건강"},
+            "o hui": {"ko": "오휘", "co": "LG생활건강"}, "whoo": {"ko": "후", "co": "LG생활건강"},
+            "su:m37": {"ko": "숨37", "co": "LG생활건강"}, "dr.groot": {"ko": "닥터그루트", "co": "LG생활건강"},
+            "belif": {"ko": "빌리프", "co": "LG생활건강"}}
+
+
 def kst_today():
     return (dt.datetime.utcnow() + dt.timedelta(hours=9)).date().isoformat()
 
@@ -50,7 +58,7 @@ def do_us(t, sku):
     old = json.loads(prev[-1].read_text(encoding="utf-8"))
     miss = []
     for k, x in d["b"].items():
-        o = old["b"].get(k)
+        o = old["b"].get(k) or NEW_META.get(k)
         if not o:
             miss.append(k)
             continue

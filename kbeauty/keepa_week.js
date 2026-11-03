@@ -34,7 +34,7 @@
   const JP = ['アトパーム(atopalm)', 'センテリアン24', 'クリオ(clio)', 'コースアールエックス(cosrx)', 'イニスフリー(innisfree)', 'ラネージュ(laneige)', 'ミシャ(missha)', '雪花秀 ソルファス(sulwhasoo)',
     'abib', 'anua', 'axis-y', 'beauty of joseon', 'biodance', 'celimax', 'centellian 24', 'clio', 'clio professional', "d'alba piedmont", "d'alba", 'dr.althea', 'goodal', 'haruharu',
     'innisfree', 'isntree', 'laneige', 'ma:nyo', 'medi-peel', 'medicube', 'mixsoon', 'numbuzin', 'peripera', 'real barrier', 'rejuran', 'rom&nd', 'round lab', 'skin1004', 'some by mi',
-    'sulwhasoo', 'tonymoly', 'torriden', 'vt cosmetics', 'zeroid'];
+    'sulwhasoo', 'tonymoly', 'torriden', 'vt cosmetics', 'zeroid', 'belif'].concat(window.LG_BRANDS || []);   // + LG생활건강(2026-11-03 · phase_keepa.js LG_BRANDS)
   const phList = d => d === 1 ? US : d === 5 ? JP : EU;
   const low = a => new Set(a.map(x => String(x).toLowerCase()));
 
