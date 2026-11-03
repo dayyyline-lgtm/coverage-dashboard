@@ -2573,6 +2573,48 @@ const topicsOf0=n=>{
     TREND_OWNER[name]={[ks[0]]:stocks[0]};     // 업종 지표 — 주목할 추이 칩은 첫 종목 이름으로 한 번만
   });
 })();
+/* 틱톡 홍보 영상·크리에이터(KBCH.tt.so · FastMoss '최근 180일' 같은 응답의 inc_aweme_count·inc_author_count · 2026-11-03 사용자 "틱톡도 — FastMoss 영상 데이터").
+   샵 상품이 걸린 **새 영상 수**와 그 영상을 올린 **새 크리에이터 수**(그날 처음 그 샵을 홍보한 사람) — 판매(틱톡샵 매출)의 앞쪽 신호.
+   회사마다 두 주제(영상 · 크리에이터) · 계열 = 브랜드(같은 브랜드 샵은 더한다) · 주별 합(월~일 · 완결된 주만 · 최근 26주).
+   ⚠ 브랜드 언급 전체가 아니다 — FastMoss 가 그 샵 상품 링크로 묶은 영상만(TikTok 전체 해시태그 아님). 구독(Pro)이 미국만이라 미국 공식 샵만. */
+(function injectTiktokSocial(){
+  if(typeof KBCH==="undefined"||!KBCH.tt||!KBCH.tt.so) return;
+  const SO=KBCH.tt.so, BR=KBCH.brands||{};
+  const day=s=>new Date(s+"T00:00:00Z"), iso=d=>d.toISOString().slice(0,10);
+  let last=null;
+  Object.values(SO).forEach(x=>{ const e=new Date(day(x.d0).getTime()+(x.a.length-1)*864e5); if(!last||e>last) last=e; });
+  if(!last) return;
+  const end=new Date(last.getTime()-((last.getUTCDay()+7)%7)*864e5);           // 마지막 날 이전(포함) 일요일 = 완결된 주의 끝
+  const NW=26, weeks=[]; for(let w=NW-1;w>=0;w--) weeks.push(new Date(end.getTime()-(w*7+6)*864e5));
+  const byCo={};
+  Object.entries(SO).forEach(([sid,x])=>{
+    const co=(BR[x.k]||{}).co, ko=(BR[x.k]||{}).ko||x.k; if(!co) return;
+    const d0=day(x.d0).getTime();
+    const wk=arr=>weeks.map(w0=>{ let t=0,n=0; for(let i=0;i<7;i++){ const j=Math.round((w0.getTime()+i*864e5-d0)/864e5); if(j>=0&&j<arr.length){ t+=arr[j]||0; n++; } } return n===7?t:null; });
+    const c=(byCo[co]=byCo[co]||{}); const e=(c[ko]=c[ko]||{a:weeks.map(()=>null),c:weeks.map(()=>null)});
+    const wa=wk(x.a), wc=wk(x.c);
+    e.a=e.a.map((v,i)=>wa[i]==null?v:(v||0)+wa[i]); e.c=e.c.map((v,i)=>wc[i]==null?v:(v||0)+wc[i]);
+  });
+  const lab=weeks.map(d=>`${d.getUTCMonth()+1}/${d.getUTCDate()}`);
+  const nf=v=>v==null?"—":Math.round(v).toLocaleString("ko-KR");
+  Object.entries(byCo).forEach(([co,bs])=>{
+    [["a","틱톡 새 홍보 영상","편(주간 · 샵 상품이 걸린 새 영상)","편"],["c","틱톡 새 홍보 크리에이터","명(주간 · 그 샵을 처음 홍보한 크리에이터)","명"]].forEach(([k,nm,unit,us])=>{
+      const names=Object.keys(bs).filter(b=>bs[b][k].some(v=>v>0)); if(!names.length) return;
+      const raw=names.map(b=>bs[b][k]);
+      const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+      const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+      const li=weeks.length-1;
+      const note=names.map((b,i)=>{ const a=raw[i], v=a[li], p4=li>=4?a[li-4]:null;
+        return `${b} ${lab[li]} 주 ${nf(v)}${us}`+(p4>0&&v!=null?`(4주 전 대비 ${v/p4-1>=0?"+":""}${((v/p4-1)*100).toFixed(0)}%)`:""); }).join(" · ");
+      const name=`${co} ${nm}(FastMoss)`;
+      TREND.groups[name]={products:names, productsGoogle:names, months:lab, naver:norm, google:norm, rawSer:raw,
+        only:"naver", freq:"week", peak, unit, unitShort:us, peakDot:true,
+        srcName:`FastMoss 틱톡샵(미국 공식 샵) 상세 '최근 180일' · ${k==="a"?"그날 새로 잡힌 상품 연결 영상 수(inc_aweme_count)":"그날 새로 그 샵을 홍보한 크리에이터 수(inc_author_count)"} · 주별 합(월~일 · 완결된 주만) · 같은 브랜드 샵은 합산 · 해시태그 전체가 아니라 샵 상품이 걸린 영상만 · 수집 ${KBCH.tt.asOf||""}`,
+        reviewNote:note};
+      (TREND_STOCK[co]=TREND_STOCK[co]||[]).push(name);
+    });
+  });
+})();
 /* 서울시 상권분석서비스 추정매출(SEOULSALES · fetch_seoul.py · OA-15572 · 2026-11-03) — 서울 상권 안 가게의 업종별 카드 추정매출(분기 · 억원).
    계열 = 업종 전체 + 관광특구(명동·이태원·동대문·종로청계·잠실·강남 마이스) 몫. 분기라 작년 같은 분기와(yoyLag 4) · 주목할 추이 신호는 안 쓴다(분기라 느리다). */
 (function injectSeoulTrends(){

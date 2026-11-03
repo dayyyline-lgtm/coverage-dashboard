@@ -73,7 +73,7 @@ Pro 한도: 상세 500회/일 · 검색 300회/일 · 이력 180일 — 한 회�
 
 0. 불러오기 — fastmoss.com 은 CSP 가 `eval`·`new Function` 을 막고 인라인 스크립트와 raw.githubusercontent fetch 는 연다:
    ```js
-   if(localStorage.getItem('fmx_v')!=='3'){ localStorage.setItem('fmx_code', await (await fetch('https://raw.githubusercontent.com/dayyyline-lgtm/coverage-dashboard/main/kbeauty/fastmoss.js')).text()); localStorage.setItem('fmx_v','3'); }
+   if(localStorage.getItem('fmx_v')!=='4'){ localStorage.setItem('fmx_code', await (await fetch('https://raw.githubusercontent.com/dayyyline-lgtm/coverage-dashboard/main/kbeauty/fastmoss.js')).text()); localStorage.setItem('fmx_v','4'); }
    const s=document.createElement('script'); s.textContent=localStorage.getItem('fmx_code'); document.head.appendChild(s); window.__FMX.status()
    ```
    → `shops 0 · err 0 · -`(새 회차면 `window.__FMX.reset()` 먼저). 페이지를 옮길 때마다(navigate) 다시 붙인다 — 버퍼는 localStorage(`fmx_buf`)라 남는다.

@@ -16,13 +16,14 @@
      FH|v|날짜|샵 수
      S|seller_id|지역|브랜드키|통화|샵 이름|첫날
      D|seller_id|첫날|판매량…|판매액…     ← 일별(36진수 · 판매액은 통화 단위 반올림)
+     V|seller_id|첫날|새 홍보 영상…|새 크리에이터…|라이브…   ← 일별(36진수 · v4 2026-11-03 · 같은 응답의 inc_aweme_count·inc_author_count·inc_live_count — 요청 추가 없음)
      W|seller_id|지역|브랜드키|날짜|7일 판매량|7일 판매액 USD|누적 판매액 USD|이름   ← 잠긴 지역 검색 목록 스냅샷(snapRow · 36진수)
      E|seller_id|사유
      END|줄 수|crc
 */
 (function () {
   'use strict';
-  const V = 3;
+  const V = 4;
   const KEY = 'fmx_buf';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
@@ -77,9 +78,11 @@
     const cur = (L.total_info && L.total_info.currency) || (tr[0] && tr[0].currency) || '';
     const d0 = tr[0].dt, days = [];
     const t0 = Date.parse(d0 + 'T00:00:00Z');
-    for (const r of tr) { const i = Math.round((Date.parse(r.dt + 'T00:00:00Z') - t0) / 864e5); days[i] = [r.inc_sold_count || 0, r.inc_sale_amount || 0]; }
-    for (let i = 0; i < days.length; i++) if (!days[i]) days[i] = [0, 0];
-    buf.shops[sid] = {r: region, k: key, n: name, c: clean(cur, 6) || 'USD', d0, u: days.map(x => b36(x[0])).join(','), v: days.map(x => b36(x[1])).join(',')};
+    for (const r of tr) { const i = Math.round((Date.parse(r.dt + 'T00:00:00Z') - t0) / 864e5); days[i] = [r.inc_sold_count || 0, r.inc_sale_amount || 0, r.inc_aweme_count || 0, r.inc_author_count || 0, r.inc_live_count || 0]; }
+    for (let i = 0; i < days.length; i++) if (!days[i]) days[i] = [0, 0, 0, 0, 0];
+    // 틱톡 소셜(v4) — 그 샵 상품이 걸린 새 영상 수·새로 홍보한 크리에이터 수·라이브 수(같은 '최근 180일' 응답)
+    buf.shops[sid] = {r: region, k: key, n: name, c: clean(cur, 6) || 'USD', d0, u: days.map(x => b36(x[0])).join(','), v: days.map(x => b36(x[1])).join(','),
+      a: days.map(x => b36(x[2])).join(','), au: days.map(x => b36(x[3])).join(','), l: days.map(x => b36(x[4])).join(',')};
     delete buf.err[sid];
     buf.date = new Date().toISOString().slice(0, 10);
     save(buf);
@@ -127,6 +130,7 @@
     push(['FH', V, buf.date || new Date().toISOString().slice(0, 10), ids.length]);
     for (const id of ids) { const x = buf.shops[id]; push(['S', id, x.r, x.k, x.c, x.n, x.d0]); }
     for (const id of ids) { const x = buf.shops[id]; push(['D', id, x.d0, x.u, x.v]); }
+    for (const id of ids) { const x = buf.shops[id]; if (x.a != null) push(['V', id, x.d0, x.a, x.au, x.l]); }
     for (const id of Object.keys(buf.snap || {}).sort()) { const x = buf.snap[id]; push(['W', id, x.r, x.k, x.d, b36(x.u7), b36(x.v7), b36(x.vt), x.n]); }
     for (const id of Object.keys(buf.err || {}).sort()) push(['E', id, clean(buf.err[id], 20)]);
     L.push(['END', L.length + 1, crc32(L.join('\n'))].join('|'));

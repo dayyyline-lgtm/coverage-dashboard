@@ -16,6 +16,7 @@
   data/keepa_curves.csv  asof,d,n,bins,a,b1,b2,tag
   data/fm_daily.csv      date,r,s,u,v       — 틱톡샵 샵별 일별 판매량·판매액(USD 등 샵 통화). 같은 날은 갈아 끼운다.
   data/fm_shops.csv      s,r,k,name,cur,first — 샵 사전(FastMoss seller_id · 지역 · 브랜드 키)
+  data/fm_social.csv     date,s,a,c,l       — 틱톡샵 샵별 일별 새 홍보 영상·새 크리에이터·라이브(fastmoss.js v4 V 줄 · 2026-11-03). 같은 날은 갈아 끼운다.
   data/keepa/<날짜>.txt · data/fastmoss/<날짜>.txt — 덤프 원문(검산용)
 """
 import csv
@@ -85,7 +86,7 @@ def _key(line):
         return "|".join(f[:2]) + "|"
     if t in ("S", "E", "W"):
         return "|".join(f[:2]) + "|"
-    if t == "D":
+    if t in ("D", "V"):
         return "|".join(f[:3]) + "|"
     if t == "END":
         return "END|" + f[1] + "|"
@@ -234,7 +235,7 @@ def parse_fm(lines):
     if not H:
         return None
     h = H.split("|")
-    res = {"date": h[2], "S": {}, "D": {}, "E": [], "W": []}
+    res = {"date": h[2], "S": {}, "D": {}, "E": [], "W": [], "V": {}}
     for l in lines:
         f = l.split("|")
         if f[0] == "W":       # W|샵ID|지역|브랜드키|날짜|7일 판매량|7일 판매액(USD)|누적 판매액(USD)|이름
@@ -243,6 +244,9 @@ def parse_fm(lines):
             res["S"][f[1]] = {"s": f[1], "r": f[2], "k": f[3], "cur": f[4], "name": f[5], "first": f[6]}
         elif f[0] == "D":
             res["D"][f[1]] = {"first": f[2], "u": [b36(x) for x in f[3].split(",")], "v": [b36(x) for x in f[4].split(",")]}
+        elif f[0] == "V":     # V|샵ID|첫날|새 홍보 영상…|새 크리에이터…|라이브… (fastmoss.js v4 · 2026-11-03)
+            res["V"][f[1]] = {"first": f[2], "a": [b36(x) for x in f[3].split(",")], "c": [b36(x) for x in f[4].split(",")],
+                              "l": [b36(x) for x in f[5].split(",")]}
         elif f[0] == "E":
             res["E"].append({"s": f[1], "why": f[2]})
     return res
@@ -288,9 +292,28 @@ def save_fm(res, raw_text):
         w = csv.DictWriter(f, fieldnames=["date", "r", "s", "u", "v"])
         w.writeheader()
         w.writerows(sorted(rows.values(), key=lambda r: (r["s"], r["date"])))
+    if res.get("V"):
+        save_social(res)
     if res.get("W"):
         save_snap(res["W"])
     return n
+
+
+def save_social(res):
+    """틱톡 소셜(새 홍보 영상 · 새 크리에이터 · 라이브) 일별 — fm_social.csv · 같은 (샵, 날)은 갈아 끼운다 · 받은 날과 그 뒤는 버린다(진행 중)."""
+    sp = DATA / "fm_social.csv"
+    rows = {(r["s"], r["date"]): r for r in load_csv(sp)}
+    for s, x in res["V"].items():
+        d0 = dt.date.fromisoformat(x["first"])
+        for i, (a, c, l) in enumerate(zip(x["a"], x["c"], x["l"])):
+            day = (d0 + dt.timedelta(days=i)).isoformat()
+            if day >= res["date"]:
+                continue
+            rows[(s, day)] = {"date": day, "s": s, "a": a, "c": c, "l": l}
+    with open(sp, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["date", "s", "a", "c", "l"])
+        w.writeheader()
+        w.writerows(sorted(rows.values(), key=lambda r: (r["s"], r["date"])))
 
 
 def save_snap(ws):
@@ -396,6 +419,21 @@ def build_block():
         if fixed:
             tt[s]["fx"] = [len(fixed), (d0 + dt.timedelta(days=fixed[0])).isoformat(), (d0 + dt.timedelta(days=fixed[-1])).isoformat()]
         fm_last = max(fm_last, d1.isoformat())
+    # 틱톡 소셜(2026-11-03) — 샵별 일별 [새 홍보 영상, 새 크리에이터, 라이브] · 트렌드 탭 '○○ 틱톡 홍보 영상·크리에이터'(app.js injectTiktokSocial)
+    social = {}
+    sod = {}
+    for r in load_csv(DATA / "fm_social.csv"):
+        sod.setdefault(r["s"], []).append(r)
+    for s, rs in sod.items():
+        rs.sort(key=lambda r: r["date"])
+        d0 = dt.date.fromisoformat(rs[0]["date"])
+        n = (dt.date.fromisoformat(rs[-1]["date"]) - d0).days + 1
+        A, C, L = [0] * n, [0] * n, [0] * n
+        for r in rs:
+            i = (dt.date.fromisoformat(r["date"]) - d0).days
+            A[i], C[i], L[i] = int(r["a"]), int(r["c"]), int(r["l"])
+        sh = shops.get(s, {})
+        social[s] = {"k": sh.get("k", ""), "n": sh.get("name", ""), "d0": d0.isoformat(), "a": A, "c": C, "l": L}
     snap = {}
     for r in load_csv(DATA / "fm_snap.csv"):
         e = snap.setdefault(r["s"], {"r": r["r"], "k": r["k"], "n": r["name"], "h": []})
@@ -412,7 +450,7 @@ def build_block():
         "asOf": max(meta.get("date", ""), fm_last),
         "kp": {"asOf": meta.get("date", ""), "months": yms, "b": kpb, "r30": k30, "h30": hist30, "top": top, "curves": curves,
                "fail": meta.get("fail", [])},
-        "tt": {"asOf": fm_last, "s": tt, "w": snap},
+        "tt": {"asOf": fm_last, "s": tt, "w": snap, "so": social},
         "fx": {"cols": ["USD", "GBP", "EUR", "JPY", "CAD"], "m": fx},
         "dom": {k: v[:2] for k, v in cfg["domains"].items()},
         "co": cfg["companies"],
@@ -492,7 +530,7 @@ def main(argv):
             return 2
         lines = [good[k][0] for k in order if k in good]
         # END = 앞 줄 전체의 CRC — 덩어리가 빠지거나 순서가 틀리면 여기서 잡힌다
-        for kind, pre in (("KEEPA", ("H|", "F|", "A|", "T|", "X|")), ("FASTMOSS", ("FH|", "S|", "D|", "E|"))):
+        for kind, pre in (("KEEPA", ("H|", "F|", "A|", "T|", "X|")), ("FASTMOSS", ("FH|", "S|", "D|", "V|", "W|", "E|"))):
             body = [l for l in lines if l.startswith(pre) and not l.startswith("END|")]
             ends = [l for l in lines if l.startswith("END|")]
             if not body:
@@ -502,14 +540,14 @@ def main(argv):
             if not ok and not check:
                 return 3
         kl = [l for l in lines if l[:2] in ("H|", "F|", "A|", "T|", "X|") or (l.startswith("END|") and False)]
-        fl = [l for l in lines if l[:3] == "FH|" or l[:2] in ("S|", "D|", "E|")]
+        fl = [l for l in lines if l[:3] == "FH|" or l[:2] in ("S|", "D|", "V|", "W|", "E|")]
         res_k = parse_keepa(kl) if kl else None
         res_f = parse_fm(fl) if fl else None
         if check:
             if res_k:
                 print(f"[KEEPA] {res_k['date']} · 과제 {res_k['tasks']} · 브랜드·나라 {len(res_k['A'])} · 실패 {len(res_k['X'])} · 곡선 {len(res_k['F'])}")
             if res_f:
-                print(f"[FASTMOSS] {res_f['date']} · 샵 {len(res_f['S'])} · 일별 {len(res_f['D'])} · 실패 {len(res_f['E'])}")
+                print(f"[FASTMOSS] {res_f['date']} · 샵 {len(res_f['S'])} · 일별 {len(res_f['D'])} · 소셜 {len(res_f['V'])} · 실패 {len(res_f['E'])}")
             return 0
         if res_k:
             raw = "\n".join(kl) + "\n"
