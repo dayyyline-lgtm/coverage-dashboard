@@ -2596,6 +2596,11 @@ const topicsOf0=n=>{
     e.a=e.a.map((v,i)=>wa[i]==null?v:(v||0)+wa[i]); e.c=e.c.map((v,i)=>wc[i]==null?v:(v||0)+wc[i]);
   });
   const lab=weeks.map(d=>`${d.getUTCMonth()+1}/${d.getUTCDate()}`);
+  // FastMoss 쪽 집계 구멍 — 모든 샵이 같은 주에 한꺼번에 꺼진다(5/7~5/18 창 시작 · 6/9~6/22 · 11/3 실측). 전체 합이 중앙값의 40% 밑인 주는 비운다.
+  const tot=weeks.map((_,i)=>Object.values(byCo).reduce((t,bs)=>t+Object.values(bs).reduce((u,e)=>u+(e.a[i]||0),0),0));
+  const med=[...tot].sort((x,y)=>x-y)[Math.floor(tot.length/2)]||0;
+  const gap=tot.map(t=>med>0&&t<med*0.4);
+  Object.values(byCo).forEach(bs=>Object.values(bs).forEach(e=>{ e.a=e.a.map((v,i)=>gap[i]?null:v); e.c=e.c.map((v,i)=>gap[i]?null:v); }));
   const nf=v=>v==null?"—":Math.round(v).toLocaleString("ko-KR");
   Object.entries(byCo).forEach(([co,bs])=>{
     [["a","틱톡 새 홍보 영상","편(주간 · 샵 상품이 걸린 새 영상)","편"],["c","틱톡 새 홍보 크리에이터","명(주간 · 그 샵을 처음 홍보한 크리에이터)","명"]].forEach(([k,nm,unit,us])=>{
@@ -2609,7 +2614,7 @@ const topicsOf0=n=>{
       const name=`${co} ${nm}(FastMoss)`;
       TREND.groups[name]={products:names, productsGoogle:names, months:lab, naver:norm, google:norm, rawSer:raw,
         only:"naver", freq:"week", peak, unit, unitShort:us, peakDot:true,
-        srcName:`FastMoss 틱톡샵(미국 공식 샵) 상세 '최근 180일' · ${k==="a"?"그날 새로 잡힌 상품 연결 영상 수(inc_aweme_count)":"그날 새로 그 샵을 홍보한 크리에이터 수(inc_author_count)"} · 주별 합(월~일 · 완결된 주만) · 같은 브랜드 샵은 합산 · 해시태그 전체가 아니라 샵 상품이 걸린 영상만 · 수집 ${KBCH.tt.asOf||""}`,
+        srcName:`FastMoss 틱톡샵(미국 공식 샵) 상세 '최근 180일' · ${k==="a"?"그날 새로 잡힌 상품 연결 영상 수(inc_aweme_count)":"그날 새로 그 샵을 홍보한 크리에이터 수(inc_author_count)"} · 주별 합(월~일 · 완결된 주만) · 같은 브랜드 샵은 합산 · 해시태그 전체가 아니라 샵 상품이 걸린 영상만 · 모든 샵이 함께 꺼진 주(FastMoss 집계 구멍)는 비움${gap.some(x=>x)?` (${lab.filter((_,i)=>gap[i]).join("·")})`:""} · 수집 ${KBCH.tt.asOf||""}`,
         reviewNote:note};
       (TREND_STOCK[co]=TREND_STOCK[co]||[]).push(name);
     });
