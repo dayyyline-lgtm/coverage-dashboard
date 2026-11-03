@@ -263,7 +263,7 @@ const STALE_H = {LIVE:30, NEWS:30, TRADE:960, AMAZON:168, KMJAMZ:120, AMZSUB:48,
    화면 맨 위(시세 스트립 아래)에 '지연된 것만' 칩으로 띄우고, 전체는 펼쳐서 본다. */
 const FRESH_LIMITS = [
   ["LIVE","시세·컨센",30],["NEWS","종목 뉴스",30],["TREND","검색 트렌드",200],["TRADE","수출입(관세청)",960],
-  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["CASINO","카지노 월간 실적",960],["GRANK","게임 매출순위(gamerscroll)",48],["ECOS","소매판매 지수(ECOS)",1080],["RETAIL","산업부 유통업체 매출동향(크롬 예약)",1080],["STEAMM","Steam 월별 동접",960],["TOURS","K-pop 투어",720],["ISMSRCH","네이버 월별 검색(손익 모델)",960],["ISMKP","Keepa 지누스(손익 모델)",1080],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
+  ["C2MODEL","컴투스 모델",960],["DWMODEL","대원미디어 모델",3120],["ISM","종목별 분기 손익(DART)",3120],["CASINO","카지노 월간 실적",960],["GRANK","게임 매출순위(gamerscroll)",48],["ECOS","소매판매 지수(ECOS)",1080],["SHOPINS","네이버 쇼핑인사이트",216],["KOSIS","통계청 온라인쇼핑 거래액",1080],["SEOULSALES","서울 상권 카드 추정매출",3120],["RETAIL","산업부 유통업체 매출동향(크롬 예약)",1080],["STEAMM","Steam 월별 동접",960],["TOURS","K-pop 투어",720],["ISMSRCH","네이버 월별 검색(손익 모델)",960],["ISMKP","Keepa 지누스(손익 모델)",1080],["KGMODEL","카카오게임즈 모델",3120],["DYMODEL","디어유 모델(+버블 앱 순위)",96],["AMAZON","아마존 트래커(환산 재료)",168],["CIRCLE","써클차트 앨범",216],["SPOTIFY","Spotify",48],
   ["STEAM","Steam 동접",48],["TOURISM","방한 관광객",240],["SHOP","해외 쇼핑",240],["CHZZK","치지직",30],
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
@@ -2504,6 +2504,114 @@ const topicsOf0=n=>{
   });
   TREND_OWNER[name]={"호텔숙박료":"호텔신라"};   // 주목할 추이 칩은 한 번만 — 호텔신라 이름으로(없으면 TREND_STOCK 첫 종목 파라다이스로 붙는다)
 })();
+/* 네이버 쇼핑인사이트(SHOPINS · fetch_shopins.py · 2026-11-03 사용자 "국내 데이터 자동으로 — 네이버 쇼핑인사이트") — 네이버쇼핑 안에서 그 키워드로 상품을 누른 양.
+   검색 트렌드(관심)보다 구매 쪽에 가깝다. 값 = 요청 안 최고=100(그룹 안 계열끼리만 비교 · 그룹끼리 높이 비교 금지) · 주별 104주 · 완결된 주만.
+   경쟁사가 섞인 그룹은 계열 주인(own)을 TREND_OWNER 로 — 남의 계열이 우리 종목 신호로 뜨지 않게.
+   연령별 = 대표 브랜드의 월별 클릭 비중(그달 6개 연령 합=100) — 새 수요층(10·20대)이 들어오는지. abs100 축(원래부터 0~100). */
+(function injectShopInsTrends(){
+  if(typeof SHOPINS==="undefined") return;
+  const md=d=>`${+d.slice(5,7)}/${+d.slice(8,10)}`;
+  Object.entries(SHOPINS.g||{}).forEach(([name,g])=>{
+    if(!g.s||!g.s.some(r=>(r||[]).some(v=>v>0))) return;
+    const keep=g.s.map((r,i)=>(r||[]).some(v=>v>0)?i:-1).filter(i=>i>=0);
+    const s=keep.map(i=>g.s[i].map(v=>v==null?0:v)), labs=keep.map(i=>g.labels[i]);
+    TREND.groups[name]={products:labs, productsGoogle:labs, months:g.w.map(md), naver:s, google:s, only:"naver", freq:"week", peakDot:true,
+      srcName:`네이버 데이터랩 쇼핑인사이트 · ${g.catNm} 카테고리 안 키워드 클릭 추이 · 이 그룹 안 최고=100(다른 그룹과 높이 비교 불가) · 주별 · 완결된 주만 · 수집 ${SHOPINS.asOf||""}`};
+    (g.stocks||[]).forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
+    if(g.own&&Object.keys(g.own).length) TREND_OWNER[name]=g.own;
+  });
+  const AG=["10대","20대","30대","40대","50대","60대+"];
+  Object.entries(SHOPINS.age||{}).forEach(([lab,a])=>{
+    if(!a.m||a.m.length<6||!a.s) return;
+    const name=`${lab} 쇼핑클릭 연령 비중`;
+    const s=a.s.map(r=>(r||[]).map(v=>v==null?null:v));
+    const li=a.m.length-1, y=li>=12?li-12:null;
+    const note=AG.map((g,i)=>`${g} ${s[i][li]==null?"—":s[i][li].toFixed(1)+"%"}`+(y!=null&&s[i][y]!=null&&s[i][li]!=null?`(${(s[i][li]-s[i][y]>=0?"+":"")}${(s[i][li]-s[i][y]).toFixed(1)}%p)`:"")).join(" · ");
+    TREND.groups[name]={products:AG, productsGoogle:AG, months:a.m.map(m=>`${m.slice(2,4)}.${+m.slice(5,7)}`), naver:s, google:s, only:"naver", freq:"month",
+      abs100:"클릭 비중 % (그달 6개 연령 합=100)", unit:"%", unitShort:"%", peakDot:true,
+      srcName:`네이버 데이터랩 쇼핑인사이트 · '${a.kw}' 연령별 클릭 · 그달 연령 합=100 으로 비중 환산 · 월별(지난달까지) · 괄호 = 작년 같은 달 대비 %p`,
+      reviewNote:`${a.m[li]} ${note}`};
+    (TREND_STOCK[a.stock]=TREND_STOCK[a.stock]||[]).push(name);
+    TREND_OWNER[name]={};                     // 비중 계열은 신호로 쓰지 않는다(합이 100 이라 한쪽이 오르면 다른 쪽이 내린다)
+  });
+})();
+/* 통계청 온라인쇼핑동향(KOSIS · fetch_kosis.py · DT_1KE10051 · 2026-11-03) — 상품군별 온라인쇼핑 거래액(월 · 억원).
+   업종 전체 지표라 이름 하나를 여러 종목이 같이 쓴다(전국 호텔 숙박료와 같은 방식). 계절이 커서 작년 같은 달과(yoyCmp) · 신호는 첫 계열만 · 문턱 ±15%. */
+(function injectKosisTrends(){
+  if(typeof KOSIS==="undefined"||!KOSIS.online||!KOSIS.online.s) return;
+  const S=KOSIS.online.s, keys=Object.keys(S);
+  const find=re=>keys.find(k=>re.test(k.replace(/\s/g,"")));
+  const REC=(typeof DATA!=="undefined"&&DATA.records)?DATA.records:[];
+  const bySub=sub=>REC.filter(r=>r.sub===sub).map(r=>r.name);
+  const PLAN=[
+    ["온라인쇼핑 거래액 · 화장품", [/^화장품/], bySub("화장품").concat(["파마리서치"])],
+    ["온라인쇼핑 거래액 · 음식료", [/^음.?식료품/, /^농축수산물/], bySub("음식료").filter(n=>n!=="KT&G")],
+    ["온라인쇼핑 거래액 · 패션", [/^의복/, /^신발/, /^가방/, /^패션용품/], ["신세계","롯데쇼핑","현대백화점"]],
+    ["온라인쇼핑 거래액 · 전체", [/^(합계|계|총계)$/, /^음식서비스/, /^e쿠폰/], bySub("유통")],
+    ["온라인쇼핑 거래액 · 여행·레저", [/^여행/, /^문화및레저/], bySub("레져")],
+    ["온라인쇼핑 거래액 · 아동·유아용품", [/^아동/], ["SAMG엔터"]],
+    ["온라인쇼핑 거래액 · 음반·비디오·악기", [/^음반/], ["하이브","JYP Ent.","에스엠","와이지엔터"]],
+  ];
+  const ek=v=>v==null||isNaN(v)?"—":Math.abs(v)>=1e4?`${+(v/1e4).toFixed(2)}조`:`${Math.round(v).toLocaleString("ko-KR")}억`;
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const unitDiv=/백만/.test(KOSIS.online.unit||"백만원")?100:1;     // 백만원 → 억원
+  PLAN.forEach(([name,res,stocks])=>{
+    const ks=res.map(find).filter(Boolean); if(!ks.length||!stocks.length) return;
+    const M=[...new Set(ks.flatMap(k=>Object.keys(S[k])))].sort(); if(M.length<25) return;
+    const raw=ks.map(k=>M.map(m=>{ const v=S[k][m]; return v==null?null:Math.round(v/unitDiv); }));
+    const yoyAt=(i,j)=>j>=12?pct(raw[i][j],raw[i][j-12]):null;
+    const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const li=M.length-1, mo=+M[li].slice(5,7);
+    const s3=(a,e)=>{ let t=0; for(let i=e-2;i<=e;i++){ if(i<0||a[i]==null) return null; t+=a[i]; } return t; };
+    const notes=ks.map((k,i)=>{ const a=raw[i]; return `${k} ${mo}월 ${ek(a[li])}(전년동월비 ${sg(yoyAt(i,li))}) · 최근 3개월 전년비 ${sg(pct(s3(a,li),s3(a,li-12)))}`; });
+    TREND.groups[name]={products:ks, productsGoogle:ks, months:M.map(m=>`${m.slice(2,4)}.${+m.slice(5,7)}`), naver:norm, google:norm, rawSer:raw, rawFull:raw,
+      yoyAt, only:"naver", freq:"month", peak, unit:"억원(월 · 온라인쇼핑 거래액)", unitShort:"억원", realFmt:ek, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0], sigTh:15,
+      srcName:`통계청 온라인쇼핑동향 · KOSIS ${KOSIS.online.tbl} ${KOSIS.online.nm} · 운영형태 계 · 월 · 최근 달은 잠정 · 업종 전체(회사 매출 아님) · 작년 같은 달과 비교`,
+      reviewNote:notes.join(" · ")};
+    stocks.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
+    TREND_OWNER[name]={[ks[0]]:stocks[0]};     // 업종 지표 — 주목할 추이 칩은 첫 종목 이름으로 한 번만
+  });
+})();
+/* 서울시 상권분석서비스 추정매출(SEOULSALES · fetch_seoul.py · OA-15572 · 2026-11-03) — 서울 상권 안 가게의 업종별 카드 추정매출(분기 · 억원).
+   계열 = 업종 전체 + 관광특구(명동·이태원·동대문·종로청계·잠실·강남 마이스) 몫. 분기라 작년 같은 분기와(yoyLag 4) · 주목할 추이 신호는 안 쓴다(분기라 느리다). */
+(function injectSeoulTrends(){
+  if(typeof SEOULSALES==="undefined"||!SEOULSALES.q) return;
+  const Q=Object.keys(SEOULSALES.q).sort(); if(Q.length<5) return;
+  const inds=new Set(Q.flatMap(q=>Object.keys(SEOULSALES.q[q])));
+  const REC=(typeof DATA!=="undefined"&&DATA.records)?DATA.records:[];
+  const bySub=sub=>REC.filter(r=>r.sub===sub).map(r=>r.name);
+  const PLAN=[
+    ["화장품", bySub("화장품"), true],
+    ["편의점", ["BGF리테일","GS리테일"], false],
+    ["슈퍼마켓", ["GS리테일","롯데쇼핑"], false],
+    ["일반의류", ["신세계","롯데쇼핑","현대백화점"], true],
+    ["PC방", ["크래프톤","펄어비스","NC"], false],
+  ];
+  const ql=q=>`${q.slice(2,4)}.${q[4]}Q`;
+  const ek=v=>v==null||isNaN(v)?"—":Math.abs(v)>=1e4?`${+(v/1e4).toFixed(2)}조`:`${Math.round(v).toLocaleString("ko-KR")}억`;
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  PLAN.forEach(([ind,stocks,tour])=>{
+    if(!inds.has(ind)||!stocks.length) return;
+    const row=k=>Q.map(q=>{ const r=(SEOULSALES.q[q]||{})[ind]; return r&&r[k]!=null?r[k]:null; });
+    const lab=[`${ind} 전체`].concat(tour?[`${ind} 관광특구`]:[]);
+    const raw=[row(0)].concat(tour?[row(2)]:[]);
+    const yoyAt=(i,j)=>j>=4?pct(raw[i][j],raw[i][j-4]):null;
+    const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const li=Q.length-1, f=row(3), y20=row(4), a0=raw[0];
+    const sh=(x,j)=>(x[j]!=null&&a0[j]>0)?x[j]/a0[j]*100:null;
+    const shTxt=(x,nm)=>{ const v=sh(x,li), p=li>=4?sh(x,li-4):null; return v==null?"":` · ${nm} 비중 ${v.toFixed(1)}%`+(p!=null?`(${v-p>=0?"+":""}${(v-p).toFixed(1)}%p)`:""); };
+    const notes=lab.map((n,i)=>`${n} ${ql(Q[li])} ${ek(raw[i][li])}(전년동분기비 ${sg(yoyAt(i,li))})`).join(" · ")+shTxt(f,"여성")+shTxt(y20,"20대");
+    const name=`서울 상권 카드 추정매출 · ${ind}`;
+    TREND.groups[name]={products:lab, productsGoogle:lab, months:Q.map(ql), naver:norm, google:norm, rawSer:raw, rawFull:raw,
+      yoyAt, yoyLag:4, yoyLab:"전년동분기비", only:"naver", freq:"month", peak, unit:"억원(분기 · 카드 추정매출)", unitShort:"억원", realFmt:ek, niceTicks:true, minPts:9, peakDot:true, yoyCmp:true, sigIdx:[],
+      srcName:`서울시 상권분석서비스(추정매출-상권) · 서울신용보증재단 · 카드사 매출 기반 추정 · 서울 상권 안 가게만(서울 전체 아님) · 분기 · 관광특구 = 명동·이태원·동대문·종로청계·잠실·강남 마이스 · 작년 같은 분기와 비교`,
+      reviewNote:notes};
+    stocks.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
+    TREND_OWNER[name]={};
+  });
+})();
 /* 디시 갤러리 순위(BUZZ.dc) — 글 수(DCGALL)가 '양' 이라면 이쪽은 '전체 마이너갤 대비 상대 온도'다.
    글이 줄어도 순위가 버티면 판 전체가 식은 것이고, 글은 그대로인데 순위가 밀리면 우리만 식은 것이다.
    ⚠ 순위는 작을수록 뜨겁다 — 다른 순위 계열과 같이 (301−순위)/300 으로 뒤집어 그리고 축·표는 실제 순위.
@@ -2775,7 +2883,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|온라인쇼핑 거래액|카드 추정매출/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -3304,7 +3412,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
         momTxt=d==null?"":` · ${FREQ_LAB[FREQ]||"전기"} ${d>0?`<span class="up">▲${d}</span>`:d<0?`<span class="down">▼${-d}</span>`:"변동 없음"}`; }
       else if(G.yoyCmp&&G.yoyAt&&G.rawFull){                 // 계절이 큰 월 매출 — 작년 같은 달과(전체 계열 기준)
         const r=G.rawFull[i]||[], l=r.map((v,j)=>v==null?-1:j).filter(j=>j>=0).pop(), y=l!=null?G.yoyAt(i,l):null;
-        momTxt=` · 전년동월비 ${y==null?"—":`<span class="${cls(y)}">${sign(y,1)}%</span>`}`; }
+        momTxt=` · ${G.yoyLab||"전년동월비"} ${y==null?"—":`<span class="${cls(y)}">${sign(y,1)}%</span>`}`; }
       else if(!G.snapshot&&!G.stack){
         const mom=(FREQ==="date")?weekOverWeek(ser):((li!=null&&li>0&&ser[li-1]>0)?(ser[li]/ser[li-1]-1)*100:null);
         momTxt=` · ${FREQ==="date"?"최근 7일":U.u+"비"} ${mom==null?"—":`<span class="${cls(mom)}">${sign(mom,0)}%</span>`}`; }
@@ -3359,9 +3467,9 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"curS",label:'최근값<span class="th-sub">마지막 수집일</span>',render:r=>`${r.curT}${r.when?`<span class="th-sub">${r.when}</span>`:""}`},
     ...(yoyT?[
-      {key:"mom",label:'전년동월비<span class="th-sub">작년 같은 달 대비</span>',render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom,1)}%</span>`},
-      {key:"b2S",label:'작년 같은 달<span class="th-sub">그때 값</span>',render:r=>r.b2T},
-      {key:"q",label:'최근 3개월 전년비<span class="th-sub">작년 같은 3개월 대비</span>',render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,1)}%</span>`},
+      {key:"mom",label:G.yoyLag===4?'전년동분기비<span class="th-sub">작년 같은 분기 대비</span>':'전년동월비<span class="th-sub">작년 같은 달 대비</span>',render:r=>r.mom==null?"—":`<span class="${cls(r.mom)}">${sign(r.mom,1)}%</span>`},
+      {key:"b2S",label:(G.yoyLag===4?'작년 같은 분기':'작년 같은 달')+'<span class="th-sub">그때 값</span>',render:r=>r.b2T},
+      {key:"q",label:G.yoyLag===4?'최근 3개 분기 전년비<span class="th-sub">작년 같은 3개 분기 대비</span>':'최근 3개월 전년비<span class="th-sub">작년 같은 3개월 대비</span>',render:r=>r.q==null?"—":`<span class="${cls(r.q)}">${sign(r.q,1)}%</span>`},
       ...(hasWin?[
         {key:"hiS",label:"구간 고점",render:r=>r.hiT},
         {key:"hi",label:"고점 대비",render:r=>r.hi==null?"—":`<span class="${cls(r.hi)}">${sign(r.hi,0)}%</span>`},
@@ -3397,8 +3505,9 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
       const rf=G.rawFull[i]||[], L=li!=null?li+(rf.length-ser.length):null;
       const s3=e=>{ let t=0; for(let k=e-2;k<=e;k++){ if(k<0||rf[k]==null) return null; t+=rf[k]; } return t; };
       row.mom=L!=null?G.yoyAt(i,L):null;
-      const pv=(L!=null&&L-12>=0)?rf[L-12]:null; row.b2S=pv==null?-1e18:pv; row.b2T=pv==null?"—":trendRealFmt(G,pv);
-      const a3=L!=null?s3(L):null, b3=L!=null?s3(L-12):null; row.q=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
+      const LG=G.yoyLag||12;                              // 분기 계열(서울 상권 추정매출)은 4
+      const pv=(L!=null&&L-LG>=0)?rf[L-LG]:null; row.b2S=pv==null?-1e18:pv; row.b2T=pv==null?"—":trendRealFmt(G,pv);
+      const a3=L!=null?s3(L):null, b3=L!=null?s3(L-LG):null; row.q=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
       let hi=-1,hj=-1; ser.forEach((v,j)=>{ if(v!=null&&v>hi){ hi=v; hj=j; } });
       row.hiS=hj<0?-1e18:R(hj); row.hiT=hj<0?"—":`${trendRealFmt(G,R(hj))}<span class="th-sub">${M[hj]||""}</span>`;
       row.hi=(hasWin&&hi>0&&cur!=null)?(cur/hi-1)*100:null;
@@ -6837,10 +6946,10 @@ function trendCands(){
       if(G.yoyCmp&&freq==="month"){                       // 계절이 큰 월 매출(유통 실액) — 작년 같은 달 · 최근 3개월 vs 작년 같은 3개월
         if(G.sigIdx&&!G.sigIdx.includes(pi)) return;      // 신호는 업태 합계만
         const r=(G.rawFull||G.rawSer||series)[pi]||[]; let l=-1; for(let i=r.length-1;i>=0;i--) if(r[i]!=null){ l=i; break; }
-        if(l<14) return;
-        const y1=G.yoyAt?G.yoyAt(pi,l):(r[l-12]>0?(r[l]/r[l-12]-1)*100:null);
+        const LG=G.yoyLag||12; if(l<LG+2) return;
+        const y1=G.yoyAt?G.yoyAt(pi,l):(r[l-LG]>0?(r[l]/r[l-LG]-1)*100:null);
         const s3=e=>{ let t=0; for(let i=e-2;i<=e;i++){ if(r[i]==null) return null; t+=r[i]; } return t; };
-        const a3=s3(l), b3=s3(l-12), y3=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
+        const a3=s3(l), b3=s3(l-LG), y3=(a3!=null&&b3>0)?(a3/b3-1)*100:null;
         const mag=Math.max(Math.abs(y1||0),Math.abs(y3||0)); if(mag<(G.sigTh||25)) return;   // sigTh — 물가(호텔 숙박료)는 10%
         keep(pi,{prod:prods[pi]||gname, wow:y1, win:y3, isHigh:false, score:mag, freq, yoy:true});
         return;

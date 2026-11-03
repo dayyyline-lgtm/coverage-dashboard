@@ -54,6 +54,9 @@
 | `CASINO` · `GRANK` · `ECOS` · `STEAMM` · `TOURS` · `ISMSRCH` · `ISMKP` | ISM 동인 — 카지노 월 공시(파라다이스·롯데관광·GKL) · 게임 한국 매출순위(gamerscroll) · 한은 소매업태 판매지수(+ 소비자물가 숙박 4항목 `t:"cpi"` — 호텔 ADR 탭 · 2026-10-29) · SteamCharts 월평균 동접 · K-pop 투어 공연일·매출 · 네이버 월별 검색(2023~) · Keepa 지누스(일요일 Keepa 통합 회차 · 28일마다) | `fetch_casino.py` · `fetch_grank.py` · `fetch_ecos.py` · `fetch_steamm.py` · `fetch_tours.py` · `fetch_ismsrch.py` · `ism_keepa.py` |
 | `RETAIL` | **산업부 주요 유통업체 매출동향**(월간 보도자료 붙임) — 백화점3사·대형마트4사·편의점4사·SSM4사의 품목 YoY·구매건수/단가/점포당 매출 + 실액(조원, 조사표본 추정 '24.01~). 유통 5종목 종목 페이지 손익 탭 `#spRetail`(`renderRetail`, 2026-10-28). **수집은 사용자 PC 크롬 예약 작업 '유통업체 매출동향 월간 수집'** — 아래 절 | `retail_ingest.py`(raw JSON → 블록) |
 | `ADR` | **호텔 ADR 추적** — 리츠 IR 월별 ADR·OCC(신한서부티엔디리츠가 빌려준 4곳 · 2019-12~) + 회사 IR 분기(신라 사업장별 투숙률 2011~·매출 2015~ · GS피앤엘·서부T&D 2025~) + 증권사 ADR 언급 + **Google 호텔 선행 판매가(일별 · 2026-10-29~)** + **KAYAK 월별 검색가**(`kayak` · 26곳 · 주 1회 · 2026-01~) + 통계청 소비자물가 호텔숙박료(`ECOS` 의 K02101 · 2010~) + **공시 바텀업 ADR**(`bu` · DART 객실 매출 ÷ 판매 객실 · 신라 2011~ · GS 2023~ · 서부T&D 가용 객실당 2018~). 호텔신라·GS피앤엘·서부T&D 종목 페이지 손익 탭 `#spAdr`(`renderAdr`). 원자료는 `hotel_adr/data/`(손으로) · 선행 판매가·KAYAK 은 아침 크롬 사슬 8번 · DART 는 `hotel_adr/dart.py`(events.yml 05시) — 아래 절 | `hotel_adr/build.py` |
+| `SHOPINS` | **네이버 쇼핑인사이트** — 쇼핑 카테고리 안 브랜드 클릭 추이(주별 104주 · 완결된 주만 · 17그룹) + 대표 브랜드 11개 연령별 클릭 비중(월별 24개월). 트렌드 탭 종목별 주제 '○○ 쇼핑클릭' (2026-11-03) | `fetch_shopins.py`(events.yml 05시) |
+| `KOSIS` | **통계청 온라인쇼핑동향** 상품군별 거래액(KOSIS DT_1KE10051 · 운영형태 계 · 월 · 백만원). 트렌드 탭 '온라인쇼핑 거래액 · ○○'(업종 지표 · 여러 종목 공유 · 2026-11-03) | `fetch_kosis.py`(키 `KOSIS_API_KEY`) |
+| `SEOULSALES` | **서울시 상권분석 카드 추정매출**(OA-15572 · VwsmTrdarSelngQq · 분기) 업종별 [매출 억원 · 건수 · 관광특구 매출 · 여성 · 20대]. 트렌드 탭 '서울 상권 카드 추정매출 · ○○'(2026-11-03) | `fetch_seoul.py`(키 `SEOUL_API_KEY`) |
 
 각 스크립트는 **해당 블록만 정규식으로 교체**하므로 서로 덮어쓰지 않는다.
 데이터 변동이 없으면 파일을 건드리지 않는다(Cloudflare 무료 빌드 500회/월 절약).
@@ -1984,6 +1987,22 @@ PC 트래커(curl_cffi · 작업 스케줄러 05:15/06:45)는 **고치지 않고
   대형마트처럼 점포당 매출과 합계가 3% 넘게 갈리면 점포 수 변화를 산수로(합계 ÷ 점포당) 적는다.
   깨우는 것 = 커밋 메시지에 '유통업체 매출동향'이 든 index.html push(월간 예약 작업 커밋) + 백업 schedule(매월 20~31일 KST 11:47~19:47 매시). 같은 달은 한 번만(`retail_report_sent.json` — 지우지 말 것) · 다시 보내려면 workflow_dispatch force.
   보내는 곳은 GitHub Actions(secrets) — 클라우드 세션은 텔레그램에 못 붙는다. 점검은 `RETAIL_FONT_DIR=… python retail_report.py --png <폴더>`(그림 + brief.html · tables.html). `telegram_send.send_rich`·`send_photos` 는 다른 수집기도 쓸 수 있다.
+
+## 국내 자동 연동 3종 — 쇼핑인사이트 · KOSIS 온라인쇼핑 · 서울 상권 추정매출 (2026-11-03 · 사용자 "국내 데이터 어디서 따올 수 있는지 · 자동으로 대시보드에")
+
+사용자가 고른 셋(같은 질문에서 핀터레스트는 **보류**, 틱톡은 **FastMoss 영상 데이터** — 아래 '틱톡 영상' 절). 셋 다 공식 API · GitHub Actions(events.yml 평일 05시)에서 돈다.
+화면은 전부 트렌드 탭(app.js `injectShopInsTrends` · `injectKosisTrends` · `injectSeoulTrends` — `injectHotelCpiTrends` 바로 아래).
+
+| | 무엇 | 키 | 주의 |
+|---|---|---|---|
+| 쇼핑인사이트 | 네이버쇼핑 안 키워드 **클릭** 추이(검색 트렌드보다 구매 쪽) · `GROUPS`(그룹당 5계열) · `AGE`(대표 브랜드 연령 비중) | 데이터랩 키 그대로 — **앱 '사용 API'에 데이터랩(쇼핑인사이트) 체크 필요**. 막히면 API HUB 키(`NCP_APIGW_KEY_ID`·`NCP_APIGW_KEY`, 선택)로 재시도 | 값은 **요청 안 최고=100** — 그룹끼리 높이 비교 금지. 경쟁사 섞인 그룹은 `own` → TREND_OWNER. 연령 비중은 신호로 안 쓴다(합 100) |
+| KOSIS | 상품군별 온라인쇼핑 거래액(월) → 화장품·음식료·패션·전체·여행레저·아동·음반 7그룹(업종 지표라 여러 종목 공유 · `DATA.records` 의 sub 로 종목을 고른다) | `KOSIS_API_KEY`(KOSIS 공유서비스 무료) | itmId·objL1·objL2 = ALL 로 받고 **이름**(C1_NM='계' · ITM_NM '거래액')으로 고른다 — 코드 몰라도 된다. 마지막 달 12개월 앞부터 다시 받아 잠정치 수정 반영 |
+| 서울 상권 | 업종별 분기 카드 추정매출 · 관광특구 몫 · 여성·20대 비중(요약 줄) → 화장품·편의점·슈퍼마켓·일반의류·PC방 | `SEOUL_API_KEY`(서울 열린데이터광장 무료) | **서울 '상권 안' 가게만**(서울 전체 아님). `THSMON_SELNG_AMT` 는 이름과 달리 분기 합. 분기라 `yoyLag:4`·`yoyLab` 로 표를 '전년동분기비'로 · 신호 안 씀(`sigIdx:[]`). 첫 백필은 회차당 6분기 |
+
+- 키가 없으면 KOSIS·서울은 **조용히 건너뛴다**(health 기록도 안 남긴다 — 키 넣기 전 매일 알림 방지). 쇼핑인사이트 권한이 없으면 health 에 남아 watchdog 이 알린다(고치라는 뜻).
+- 자리 표시 블록(`asOf:""`)이 index.html 에 있다 — precheck 가 '상수 사라짐'을 보기 때문. 지우지 말 것.
+- 이 작업 공간에서는 openapi.naver.com · kosis.kr · openapi.seoul.go.kr 에 못 닿는다 → 첫 확인은 Actions 로그. 서울 API 필드는 `sample` 키로 크롬에서 확인했다(2026-11-03 · 2Q26 21,133행).
+- 차트 중요도(topicTier): '온라인쇼핑 거래액'·'카드 추정매출' = 1 핵심(실제 거래) · 쇼핑클릭 = 2 보조.
 
 ## 호텔 ADR 추적 — 호텔 3종목 손익 탭 (2026-10-29 · `ADR` · `hotel_adr/` · `renderAdr`)
 
