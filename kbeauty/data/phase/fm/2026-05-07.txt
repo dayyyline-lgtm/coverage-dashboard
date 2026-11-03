@@ -1,0 +1,8 @@
+FH|3|2026-05-07|3|vg3hao
+S|7495545980900641649|US|drgroot|USD|Dr. Groot Hair|2026-04-24|154iky7
+S|7495710637520750880|US|tfs|USD|The Face Shop US|2026-04-24|1v8yon
+S|8653834563460567685|US|hince|USD|hince|2026-04-24|1exet01
+D|7495545980900641649|2026-04-24|jx,tl,l3,l5,gg,hv,m7,nb,ud,pf,my,ku,mt|xqo,1j0d,15wy,160f,unj,w4k,12fz,12x6,1iax,16go,zd2,wda,10ce|16bbd9q
+D|7495710637520750880|2026-04-24|1z,2g,1h,2f,2n,34,4o,4y,4h,32,3v,49,40|11u,18f,nt,154,1jn,1rl,31u,2v8,2uq,1pu,2em,2sh,2l7|155un9g
+D|8653834563460567685|2026-04-24|g,1o,1a,g,s,u,1v,20,13,k,1n,25,1c|6r,np,ho,62,ao,bq,pm,ru,eq,8p,og,ws,kc|1j03bnb
+END|8|1jr2mwy
