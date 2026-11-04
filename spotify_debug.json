@@ -1,5 +1,5 @@
 {
- "asOf": "2026-11-04 05:16 KST",
+ "asOf": "2026-11-05 05:16 KST",
  "token_ok": true,
  "zero_count": 26,
  "total": 26,
@@ -454,22 +454,8 @@
    "aid": "28ot3wh4oNmoFOdVajibBl",
    "fol": null,
    "pop": null,
-   "err": "HTTP 403 artists/3Nrfpe0tUJi4K4DXYWgMUX/top-track · {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }",
-   "raw": {
-    "has_followers": false,
-    "followers_total": null,
-    "has_popularity": false,
-    "popularity": null,
-    "keys": [
-     "external_urls",
-     "href",
-     "id",
-     "images",
-     "name",
-     "type",
-     "uri"
-    ]
-   }
+   "err": "RuntimeError: HTTP 503 artists/28ot3wh4oNmoFOdVajibBl · ",
+   "raw": null
   },
   {
    "label": "블랙핑크",
