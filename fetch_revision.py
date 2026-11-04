@@ -38,8 +38,17 @@ URL = SITE + "/data.js"
 SRC = "리비전 트래커"
 
 
+def _access_headers():
+    """트래커를 Cloudflare Access 로 잠근 뒤(2026-11-04 사용자 결정) 봇이 통과하는 열쇠.
+    Access 의 서비스 토큰 두 값을 GitHub Secrets(CF_ACCESS_CLIENT_ID/SECRET)로 받는다.
+    시크릿이 없으면 빈 dict — 잠그기 전엔 예전처럼 그냥 받는다."""
+    import os
+    cid, sec = os.environ.get("CF_ACCESS_CLIENT_ID"), os.environ.get("CF_ACCESS_CLIENT_SECRET")
+    return {"CF-Access-Client-Id": cid, "CF-Access-Client-Secret": sec} if cid and sec else {}
+
+
 def _fetch():
-    req = urllib.request.Request(URL, headers=ua(referer=SITE + "/"))
+    req = urllib.request.Request(URL, headers={**ua(referer=SITE + "/"), **_access_headers()})
     with urllib.request.urlopen(req, timeout=40) as r:
         s = r.read().decode("utf-8")
     i = s.find("=")

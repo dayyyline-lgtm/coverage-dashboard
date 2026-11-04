@@ -155,6 +155,11 @@ const MY_EST = { "달바글로벌": { "2026.06": {rev:190.0, op:43.0} } };   // 
 - 저쪽은 사용자가 리포트를 올려야 움직이므로 몇 주씩 그대로인 게 정상이다 → `watchdog.LIMITS` 에 **넣지 않았다**.
   최신 리포트가 45일 넘으면 섹션에 경고 한 줄이 뜬다.
 - ⚠ 저쪽 `RT_DATA` 구조(`computed[].sec1~sec5`)를 바꾸면 여기가 깨진다. 저쪽 CLAUDE.md 에도 적어 뒀다.
+- **트래커 사이트 잠금(2026-11-04 사용자 "외부에서 보고 카피할 수 있나, 그것만은 막고 싶다")**: 점검 결과 첫 화면·`data.js`(3.3MB, 추정치·검수 메모 전부)·`/api/status` 가
+  로그인 없이 열렸다(쓰기 API 는 패스코드 서버 검사). Cloudflare Access 로 잠그기로 하고, `fetch_revision.py` 가 서비스 토큰 헤더
+  (`CF-Access-Client-Id/Secret` ← Secrets `CF_ACCESS_CLIENT_ID/SECRET`)를 붙이게 했다 — 시크릿이 없으면 예전처럼 그냥 받는다.
+  잠근 뒤 시크릿을 안 넣으면 이 스텝이 로그인 화면만 받아 'data.js 형식이 바뀜'으로 실패한다(health 에 남음).
+  ⚠ 여기 `REVISION`(계산 결과)은 공개 저장소의 `public/index.html` 에 그대로 실린다 — 트래커를 잠가도 저장소에서는 보인다. 사용자에게 알렸다.
 
 ### 연간·분기 실적 = `LIVE.cons.series`
 

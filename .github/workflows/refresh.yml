@@ -340,6 +340,10 @@ jobs:
         if: steps.gate.outputs.go == '1'
         timeout-minutes: 3
         continue-on-error: true   # 타임아웃이 시세 커밋까지 막지 않게(극장가 스텝 주석 참고)
+        env:
+          # 트래커를 Cloudflare Access 로 잠근 뒤 통과용 서비스 토큰(2026-11-04). 없으면 예전처럼 그냥 받는다.
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: python runstep.py "리비전 트래커" fetch_revision.py
 
       # 극장가 흥행(영화 흥행 탭) — 대원미디어 '극장판 치이카와'(9/30) + 흥행작 3편. KOBIS 웹 통계라 키 불필요.
