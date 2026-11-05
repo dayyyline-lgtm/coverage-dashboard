@@ -2504,6 +2504,62 @@ const topicsOf0=n=>{
   });
   TREND_OWNER[name]={"호텔숙박료":"호텔신라"};   // 주목할 추이 칩은 한 번만 — 호텔신라 이름으로(없으면 TREND_STOCK 첫 종목 파라다이스로 붙는다)
 })();
+/* 호텔 3종목 표 — 화면(renderAdr)과 아래 트렌드 주입이 같이 쓴다. 주입이 로드 때 돌아서 여기 둔다(renderAdr 옆에 두면 const TDZ). */
+const ADR_MAP={
+  "호텔신라":{reit:["stay_ghm","stay_mapo"], ir:"shilla", irh:["shilla_seoul","shilla_jeju","shilla_stay"], ota:["shilla_seoul","shilla_jeju","stay_ghm","stay_mapo"],
+    kayak:["shilla_seoul","shilla_jeju","stay_all"], kmore:["stay_ghm","stay_mapo","stay_yeoksam","stay_seocho","stay_samsung","stay_sdm","stay_guro","stay_dongtan","stay_hud","stay_jeju","stay_iho"]},
+  "GS피앤엘":{reit:["nt_ddm"], ir:"gs", irh:["gic","westin","pjeju","ninetree"], ota:["gic","westin","pjeju","nt_md2","nt_ddm"],
+    kayak:["gic","westin","pjeju","nt5"], kmore:["nt_md1","nt_md2","nt_ins","nt_ddm","nt_pg","nt_ys"]},
+  "서부T&D":{reit:["gm_ys"], ir:"seobu", irh:["dragoncity"], ota:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"],
+    kayak:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"], kmore:[]}};
+/* 예약 사이트 호텔 가격 — Google 호텔 선행 판매가(일) · KAYAK 검색가(월) · 호텔 3종목(2026-11-05 사용자 "트렌드에 붙여 줘").
+   재료는 호텔 ADR 추적(ADR.ota · ADR.kayak)과 같다. 값은 만원 그대로 — 한 축에 겹쳐 호텔끼리 수준도 본다.
+   일별은 달력 그대로(수집이 빈 날 = null → 선이 끊기고 점만 남는다) · KAYAK 진행 중인 달은 뺀다(부분 기간을 완결과 섞지 않는다).
+   신호(주목할 추이 · 개요 트렌드 급변)는 안 쓴다(sigIdx 빈 배열) — Google 은 숙박일이 매주 바뀌어(목·일) 일별 움직임에 날짜 효과가 섞이고, KAYAK 은 계절이 크다.
+   회사 자기 호텔 가격이라 그 종목 주제 맨 앞에 둔다. */
+(function injectHotelPriceTrends(){
+  if(typeof ADR==="undefined") return;
+  const man=v=>v==null||isNaN(v)?"—":`${Math.abs(v-Math.round(v))<1e-6?Math.round(v):(+v).toFixed(1)}만원`;
+  const sg=v=>`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const md=d=>`${+d.slice(5,7)}/${+d.slice(8,10)}`;
+  const group=(raw,o)=>{ const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    return Object.assign({productsGoogle:o.products, naver:norm, google:norm, rawSer:raw, only:"naver", peak, unitShort:"만원", realFmt:man, niceTicks:true, sigIdx:[], endPad:104}, o); };
+  // 차트 끝 라벨에 들어가게 짧게 — 전체 이름은 ADR 칸(renderAdr)에 있다
+  const SHORT={shilla_seoul:"서울신라",shilla_jeju:"제주신라",stay_ghm:"스테이 광화문",stay_mapo:"스테이 마포",stay_all:"신라스테이 11곳",gic:"그랜드IC",westin:"웨스틴",pjeju:"파르나스 제주",
+    nt_md2:"나인트리 명동II",nt_ddm:"나인트리 동대문",nt5:"나인트리 5곳",dragoncity:"드래곤시티",gm_ys:"그랜드 머큐어",ns_ys:"노보텔 스위트",nv_ys:"노보텔",is_ys:"이비스 스타일"};
+  const O=ADR.ota||{}, idx=O.idx||{}, KY=(ADR.kayak||{}).h||{}, obs=O.obs||[];
+  const days=[];
+  if(obs.length) for(let t=Date.parse(obs[0]+"T00:00:00Z"), e=Date.parse(obs[obs.length-1]+"T00:00:00Z"); t<=e; t+=864e5) days.push(new Date(t).toISOString().slice(0,10));
+  const stays=[...new Set((O.rows||[]).map(r=>r[1]))].sort().map(md).join("·");
+  Object.keys(ADR_MAP).forEach(stock=>{
+    if(!R.some(r=>r.name===stock)) return;
+    const cfg=ADR_MAP[stock], add=[];
+    // ① Google 호텔 — 호텔마다 지수(idx.al · 천원)를 만원으로
+    const ok=cfg.ota.filter(k=>idx[k]&&idx[k].al&&idx[k].al.some(v=>v!=null));
+    if(days.length>=2&&ok.length){
+      const raw=ok.map(k=>{ const m={}; obs.forEach((d,i)=>{ const v=idx[k].al[i]; if(v!=null) m[d]=Math.round(v)/10; }); return days.map(d=>m[d]==null?null:m[d]); });
+      const name=`${stock} 선행 판매가(Google 호텔)`, labs=ok.map(k=>SHORT[k]||k);
+      TREND.groups[name]=group(raw,{products:labs, months:days.map(md), freq:"date", unit:"만원(1박 · 세금 제외)",
+        srcName:"Google 호텔 · 공개 최저가(세금 포함 ÷ 1.1) · 관측일 2주 뒤·6주 반 뒤의 수·토 4박 평균 · 법인·단체 할인이 섞인 실제 ADR 보다 높아 추이로 볼 것 · 숙박일이 매주 바뀌어(목·일) 그날 움직임엔 날짜 효과가 섞인다 · 선이 끊긴 곳 = 수집이 빈 날",
+        reviewNote:`${md(O.last)} 관측 · 숙박일 ${stays} · `+labs.map((n,i)=>`${n} ${man(raw[i][raw[i].length-1])}`).join(" · ")});
+      add.push(name);
+    }
+    // ② KAYAK — 끝난 달만(천원 → 만원)
+    const kk=cfg.kayak.filter(k=>KY[k]&&(KY[k].m||[]).some(r=>r[3]!=="c"&&r[2]!=null));
+    const yms=[...new Set(kk.flatMap(k=>KY[k].m.filter(r=>r[3]!=="c"&&r[2]!=null).map(r=>r[0])))].sort();
+    if(yms.length>=2){
+      const raw=kk.map(k=>{ const m={}; KY[k].m.forEach(r=>{ if(r[3]!=="c"&&r[2]!=null) m[r[0]]=Math.round(r[2])/10; }); return yms.map(y=>m[y]==null?null:m[y]); });
+      const name=`${stock} 월별 검색가(KAYAK)`, labs=kk.map(k=>SHORT[k]||KY[k].n);
+      const qn=k=>{ const q=(KY[k].q||[]).filter(r=>r[2]===3).pop(); return q?`${SHORT[k]||KY[k].n} ${q[0].slice(-1)}Q${q[0].slice(2,4)} ${man(Math.round(q[1])/10)}`+(q[3]!=null?`(전분기비 ${sg(q[3])})`:""):""; };
+      TREND.groups[name]=group(raw,{products:labs, months:yms.map(y=>`${y.slice(2,4)}.${+y.slice(5,7)}`), freq:"month", unit:"만원(1박 · 검색가 월평균)",
+        srcName:"KAYAK 호텔 페이지 · 사용자가 지난 12개월 검색한 요금의 숙박월별 평균(전 객실 타입 · 세금 포함) · 그달 평균 원/달러로 환산 · 수준은 실제 ADR 보다 높아 변화만 볼 것 · 지난 달은 끝난 뒤 첫 수집 값 · 주 1회 수집 · 진행 중인 달은 뺌",
+        reviewNote:kk.map(qn).filter(Boolean).join(" · ")});
+      add.push(name);
+    }
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).unshift(...add);
+  });
+})();
 /* 네이버 쇼핑인사이트(SHOPINS · fetch_shopins.py · 2026-11-03 사용자 "국내 데이터 자동으로 — 네이버 쇼핑인사이트") — 네이버쇼핑 안에서 그 키워드로 상품을 누른 양.
    검색 트렌드(관심)보다 구매 쪽에 가깝다. 값 = 요청 안 최고=100(그룹 안 계열끼리만 비교 · 그룹끼리 높이 비교 금지) · 주별 104주 · 완결된 주만.
    경쟁사가 섞인 그룹은 계열 주인(own)을 TREND_OWNER 로 — 남의 계열이 우리 종목 신호로 뜨지 않게.
@@ -2930,7 +2986,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|온라인쇼핑 거래액|카드 추정매출/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -2945,7 +3001,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트|극장|업계 매출/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장|업계 매출|판매가|검색가/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";
@@ -3213,7 +3269,7 @@ function drawTrend(){
     return;
   }
   const A=yAxisInfo(G);                       // 이 그룹의 y축 정체(지수·실측·순위)
-  const W=box.clientWidth||1000, H=360, pad={l:A.pad,r:70,t:26,b:36};
+  const W=box.clientWidth||1000, H=360, pad={l:A.pad,r:G.endPad||70,t:26,b:36};   // endPad — 끝 라벨 이름이 긴 그룹(호텔 예약 가격)
   // 점이 하나뿐인 계열(수집 첫날의 앱순위 등)은 M.length-1 == 0 이라 0/0 = NaN 이 된다.
   // 그러면 <polyline points="NaN,.."> 로 SVG 가 통째로 깨진다. 그땐 가운데에 점 하나만 찍는다.
   const sx=i=>M.length<2?pad.l+(W-pad.l-pad.r)/2:pad.l+i/(M.length-1)*(W-pad.l-pad.r);
@@ -3227,8 +3283,8 @@ function drawTrend(){
   A.ticks(ymax).forEach(t=>{ const y=sy(t.v);
     s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
     s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${t.label}</text>`;});
-  const step=Math.max(1,Math.ceil(M.length/12));   // 라벨이 빽빽하면 솎아낸다(일별 대응)
-  M.forEach((m,i)=>{ if(i%step===0 || i===M.length-1) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
+  const step=Math.max(1,Math.ceil(M.length/12),Math.ceil(M.length*38/(W-pad.l-pad.r)));   // 라벨이 빽빽하면 솎아낸다(일별 대응 · 휴대폰 폭은 라벨 하나에 38px)
+  M.forEach((m,i)=>{ const end=M.length-1; if(i===end || (i%step===0 && end-i>=step)) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
   const SM=(G.smooth&&G.smooth[trendSrc])||null;          // 7일 추세선(일별 계열 · 켰을 때만)
   const ends=[];
   series.forEach((ser,pi)=>{
@@ -6970,6 +7026,7 @@ function trendCands(){
     //   ② 기준선 가드: 비교 대상 주가 구간 최고 주의 1/4 밑이면 %를 내지 않는다(저점발 +482%).
     // 주별·월별: 전기비 · 4기 전 대비(기준선 가드 동일).
     series.forEach((raw,pi)=>{
+      if(G.sigIdx&&!G.sigIdx.includes(pi)) return;        // 신호는 sigIdx 계열만(유통 = 업태 합계 · 호텔 예약 가격 = 없음)
       const a=raw||[]; let li=-1; for(let i=a.length-1;i>=0;i--) if(a[i]!=null){ li=i; break; }
       if(li<0) return;
       if(freq==="date"){
@@ -6991,7 +7048,6 @@ function trendCands(){
         return;
       }
       if(G.yoyCmp&&freq==="month"){                       // 계절이 큰 월 매출(유통 실액) — 작년 같은 달 · 최근 3개월 vs 작년 같은 3개월
-        if(G.sigIdx&&!G.sigIdx.includes(pi)) return;      // 신호는 업태 합계만
         const r=(G.rawFull||G.rawSer||series)[pi]||[]; let l=-1; for(let i=r.length-1;i>=0;i--) if(r[i]!=null){ l=i; break; }
         const LG=G.yoyLag||12; if(l<LG+2) return;
         const y1=G.yoyAt?G.yoyAt(pi,l):(r[l-LG]>0?(r[l]/r[l-LG]-1)*100:null);
@@ -13629,13 +13685,6 @@ function retailGrid(grid, ch){
    ③ 증권사 ADR 언급(원문 표현) ④ Google 호텔 선행 판매가 — 아침 크롬 수집(2026-10-29~ 매일 · hotel_adr/ota.js).
    주기 버튼 하나(일·주·월·분기)가 차트 셋을 같이 움직인다 — 자료마다 가장 촘촘한 주기보다 잘게는 못 쪼갠다
    (OTA 일 → 리츠 월 → 회사 IR 분기). 세 달이 다 없는 분기는 선에 잇지 않고 빈 원으로 따로 둔다(부분 기간을 완결 기간과 섞지 않는다). */
-const ADR_MAP={
-  "호텔신라":{reit:["stay_ghm","stay_mapo"], ir:"shilla", irh:["shilla_seoul","shilla_jeju","shilla_stay"], ota:["shilla_seoul","shilla_jeju","stay_ghm","stay_mapo"],
-    kayak:["shilla_seoul","shilla_jeju","stay_all"], kmore:["stay_ghm","stay_mapo","stay_yeoksam","stay_seocho","stay_samsung","stay_sdm","stay_guro","stay_dongtan","stay_hud","stay_jeju","stay_iho"]},
-  "GS피앤엘":{reit:["nt_ddm"], ir:"gs", irh:["gic","westin","pjeju","ninetree"], ota:["gic","westin","pjeju","nt_md2","nt_ddm"],
-    kayak:["gic","westin","pjeju","nt5"], kmore:["nt_md1","nt_md2","nt_ins","nt_ddm","nt_pg","nt_ys"]},
-  "서부T&D":{reit:["gm_ys"], ir:"seobu", irh:["dragoncity"], ota:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"],
-    kayak:["dragoncity","gm_ys","ns_ys","nv_ys","is_ys"], kmore:[]}};
 /* KAYAK 검색가(ADR.kayak · hotel_adr/kayak.js 주 1회 · 2026-10-29~) — 호텔 페이지의 '지난 12개월 KAYAK 사용자 검색가' 달별 평균.
    달러로 쌓인 값을 그달 원/달러로 환산(build.py) · 끝난 달은 끝난 뒤 첫 수집 값 · 수준은 ADR 이 아니다(전 객실 타입) — 변화만 본다.
    리츠가 실제 ADR 을 내는 호텔(그랜드 머큐어·신라스테이 광화문·마포)로 3Q/2Q 를 맞대 보는 검증 줄을 같이 띄운다. */
