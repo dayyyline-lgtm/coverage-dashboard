@@ -1523,7 +1523,8 @@ const REP=(LIVE.researches||[]);
 
 
 
-let trendSrc="naver";
+let trendSrc="naver", trendSrcPick="naver";   // trendSrc = 지금 그리는 출처 · trendSrcPick = 사람이 고른 출처. 그 출처가 없는 주제에서만 잠깐 바꾸고 다음 주제에서 되돌린다
+// 2026-11-06: 탭이 구글 전용 주제('주목할 추이' 1위 — 카자흐 HnB 검색)로 열리면 구글이 그대로 남아, 스킨부스터 등 두 출처 그룹 14개가 구글로 열렸다(리쥬란 선만 보임)
 /* 트렌드 ↔ 종목 매핑 — 주제를 전부 펼치지 않고 종목 버튼으로 고른다.
    한 종목이 주제를 여럿 가지면(SAMG엔터) 아래에 주제 버튼 줄이 하나 더 생긴다.
    키워드 자체는 fetch_trends.py 의 GROUPS 에 있고, 여기는 '어느 종목 이야기냐'만 잇는다. */
@@ -1542,6 +1543,7 @@ const TREND_STOCK={
   "달바글로벌":["K-뷰티 브랜드","러시아 K-뷰티(얀덱스)","달바 러시아 제품군(얀덱스)"],
   "아모레퍼시픽":["러시아 K-뷰티(얀덱스)"],   // 라네즈
   "파마리서치":["스킨부스터"],         // 리쥬란
+  "앨엔씨바이오":["스킨부스터"],       // 리투오 — 파마리서치와 같은 비교 그룹(2026-11-06)
   "리센스메디컬":["쿨로아600"],        // 쿨로아
   "SAMG엔터":["티니핑 국가별","변신로봇 IP","변신로봇 IP 러시아"],
   "NC":["아이온2 국가별","아스트라에 오라티오"],   // 아스오라 = 2026 하반기 서브컬처 신작
@@ -1561,7 +1563,7 @@ const TREND_STOCK={
    아로마티카 계열이 빠지자 에이피알 헤더·유니버스 보드에 '🧊 아로마티카 지난주보다 −63%'가 떴다.
    · 여기 없는 계열(경쟁사·비커버리지 브랜드)은 차트 맥락용이다. 어느 종목의 신호로도 쓰지 않는다.
    · 주인 종목이 그 그룹을 주제로 갖고 있지 않으면 역시 뺀다(눌러도 갈 차트가 없다).
-     코스알엑스(아모레)·려·닥터그루트(LG생건)·리투오(앨엔씨바이오)가 그 경우다. 주제를 붙이면 바로 살아난다.
+     코스알엑스(아모레)·려·닥터그루트(LG생건)가 그 경우다. 주제를 붙이면 바로 살아난다.
    · 그룹에 남의 계열이 섞이면(경쟁사를 나란히 놓으면) 여기에 적을 것. 나라별·제품군처럼 전부 한 종목 것이면 안 적는다.
    · 계열 이름은 그룹의 products(네이버 쪽 표기) 그대로다. */
 const TREND_OWNER={
@@ -2346,7 +2348,11 @@ function injectCompanyStack(items, opt){
 })();
 /* 데이터 있는 주제만. 게임사는 동접·리뷰(실측 플레이)가 검색보다 중요하므로 앞으로 당긴다.
    앨범판매(써클)는 엔터 실물수요라 검색보다 앞. 나머지는 삽입 순서를 유지(안정 정렬). */
-const topicsOf=n=>tierSort(topicsOf0(n));
+// 그 종목을 열면 먼저 보일 주제 — 등급 정렬은 그대로 두고 맨 앞으로만 꺼낸다. 2026-11-06 사용자 "리쥬란 리투오 비교 어디 갔어"
+//   (검색은 10/24 에 보조로 내려갔고 10/29 방한객이 ★ 로 들어와 파마리서치에서 세 번째로 밀렸다)
+const TREND_FIRST={"파마리서치":"스킨부스터","앨엔씨바이오":"스킨부스터"};
+const TOPIC_LAB={"스킨부스터":"스킨부스터 비교(리쥬란·리투오 등)"};      // 주제 버튼 글씨만 — 그룹 이름은 수집기·TREND 블록 키라 그대로
+const topicsOf=n=>{ const l=tierSort(topicsOf0(n)), f=TREND_FIRST[n]; return (f&&l.includes(f))?[f,...l.filter(g=>g!==f)]:l; };
 const topicsOf0=n=>{
   const list=(TREND_STOCK[n]||[]).filter(g=>TREND.groups[g]);
   const pri=g=> g.includes("동접")?0 : (g.includes("예약순위")||g.includes("판매순위")||g.includes("매출순위"))?1
@@ -3238,7 +3244,7 @@ function drawTrend(){
   }
   const G=viewGroup(G0);                     // 선택된 기간(주별/일별)에 맞는 뷰
   const avail=srcOfGroup(G);
-  if(!avail.includes(trendSrc)) trendSrc=avail[0];   // 없는 출처가 선택돼 있으면 되돌린다
+  trendSrc=avail.includes(trendSrcPick)?trendSrcPick:avail[0];   // 고른 출처가 없는 주제만 다른 출처로
   const series=G[trendSrc], M=G.months||TREND.months;
   // 표시 단위(일/주/월)별 용어 — 하위호환: 옛 daily 플래그도 인식
   const FREQ=G.freq||(G.daily?"date":"month");
@@ -6686,7 +6692,7 @@ function renderTrendSegs(){
   if(subs.length>1){
     row.style.display="";
     document.getElementById("trendTopicSeg").innerHTML=subs
-      .map(g=>{ const t=topicTier(g); return `<button data-grp="${attr(g)}" class="${g===trendGroup?'active':''}" title="${TIER_NAME[t]} 지표"${t===3?' style="opacity:.7"':''}>${t===1?'★ ':''}${g}</button>`; }).join("");
+      .map(g=>{ const t=topicTier(g); return `<button data-grp="${attr(g)}" class="${g===trendGroup?'active':''}" title="${TIER_NAME[t]} 지표"${t===3?' style="opacity:.7"':''}>${t===1?'★ ':''}${TOPIC_LAB[g]||g}</button>`; }).join("");
   }else{
     row.style.display="none";
     document.getElementById("trendTopicSeg").innerHTML="";
@@ -6695,6 +6701,7 @@ function renderTrendSegs(){
   // 예전엔 항상 떠 있어서, 해외 국가별 주제에서 '네이버'를 눌러도
   // 구글 값을 복사해 둔 탓에 같은 그래프가 나왔다.
   const G=TREND.groups[trendGroup], avail=srcOfGroup(G);
+  if(G) trendSrc=avail.includes(trendSrcPick)?trendSrcPick:avail[0];
   const srow=document.getElementById("trendSrcRow");
   if(G && avail.length>1){
     srow.style.display="";
@@ -9185,7 +9192,7 @@ dyBind();          // 디어유 손익 모델 — 가정 입력·시나리오
 c2Bind();          // 컴투스 손익 모델 — 가정 입력·시나리오·2025 펼치기(위임, change 이벤트)
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
-  trendSrc=b.dataset.src;
+  trendSrc=trendSrcPick=b.dataset.src;
   document.querySelectorAll("#trendSeg button").forEach(x=>x.classList.toggle("active",x===b));
   drawTrend();
 });
