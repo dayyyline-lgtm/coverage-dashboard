@@ -1523,7 +1523,7 @@ const REP=(LIVE.researches||[]);
 
 
 
-let trendSrc="naver", trendSrcPick="naver";   // trendSrc = 지금 그리는 출처 · trendSrcPick = 사람이 고른 출처. 그 출처가 없는 주제에서만 잠깐 바꾸고 다음 주제에서 되돌린다
+let trendSrc="naver", trendSrcPick="both";   // trendSrc = 지금 그리는 출처 · trendSrcPick = 사람이 고른 것(both = 네이버·구글 같이 · 기본). 그 출처가 없는 주제에서만 잠깐 바꾸고 다음 주제에서 되돌린다
 // 2026-11-06: 탭이 구글 전용 주제('주목할 추이' 1위 — 카자흐 HnB 검색)로 열리면 구글이 그대로 남아, 스킨부스터 등 두 출처 그룹 14개가 구글로 열렸다(리쥬란 선만 보임)
 /* 트렌드 ↔ 종목 매핑 — 주제를 전부 펼치지 않고 종목 버튼으로 고른다.
    한 종목이 주제를 여럿 가지면(SAMG엔터) 아래에 주제 버튼 줄이 하나 더 생긴다.
@@ -3051,8 +3051,8 @@ function weekOverWeek(ser){
   return (cur!=null&&prev>0)?(cur/prev-1)*100:null;
 }
 /* 화면에 적는 값은 실제 단위로 — 정규화 지수(0–100)가 아니라 명·건·원·순위. 사람 수에 소수점을 붙이지 않는다. */
-function trendReal(G, pi, i){
-  const ser=(G[trendSrc]||G.naver||[])[pi]||[];
+function trendReal(G, pi, i, src){
+  const ser=(G[src||trendSrc]||G.naver||[])[pi]||[];
   if(G.rawSer&&G.rawSer[pi]) return G.rawSer[pi][i];
   const v=ser[i]; if(v==null) return null;
   if(G.rankN) return Math.round(G.rankOf?G.rankOf(v):(G.rankN+1-v));   // 순위는 뒤집힌 점수로 그리므로 되돌린다
@@ -3232,8 +3232,27 @@ function trendYLab(G,v){
   return v>=10?String(Math.round(v)):v.toFixed(1);
 }
 
+/* 두 출처가 다 있는 주제는 네이버·구글 차트를 위아래로 같이 그린다(2026-11-06 사용자 "네이버도 있고 구글도 있고 다 해 줘야지").
+   버튼으로 번갈아 보면 구글 쪽을 못 보고 지나간다. 날짜축이 같아 위아래로 견주면 괴리가 바로 보인다.
+   ⚠ 값은 출처마다 자기 고점=100 이라 높이끼리 견주면 안 된다 — 머리줄에 적어 둔다. 한 출처만 보는 버튼은 그대로 있다. */
+const TREND_EL=[{chart:"trendChart",legend:"trendLegend",table:"trendTable",title:"trendTblTitle"},
+                {chart:"trendChart2",legend:"trendLegend2",table:"trendTable2",title:"trendTblTitle2"}];
+let trendEl=TREND_EL[0], trendH=360;
 function drawTrend(){
-  const box=document.getElementById("trendChart"); if(!box) return;
+  const $=id=>document.getElementById(id), G0=TREND.groups[trendGroup], V=viewGroup(G0), avail=srcOfGroup(V);
+  const both=!!G0&&avail.length>1&&trendSrcPick==="both";
+  ["trendBox2","trendTblBox2","trendSrcH"].forEach(id=>{ $(id).style.display=both?"":"none"; });
+  trendH=both?280:360;
+  if(both){
+    $("trendSrcH").innerHTML=`<b>네이버</b> · 국내 검색`;
+    $("trendSrcH2").innerHTML=`<b>구글</b> · ${V.geo==="KR"?"국내":(V.geo||"전세계")} 검색 · 출처마다 자기 고점=100 이라 위아래 높이끼리 견주지 말 것`;
+    trendEl=TREND_EL[1]; drawTrendOne("google");
+  }
+  trendEl=TREND_EL[0];
+  drawTrendOne(both?"naver":(avail.includes(trendSrcPick)?trendSrcPick:avail[0]));   // 고른 출처가 없는 주제만 다른 출처로
+}
+function drawTrendOne(src){
+  const box=document.getElementById(trendEl.chart); if(!box) return;
   const G0=TREND.groups[trendGroup];
   if(!G0){                                  // 종목 미선택 상태
     box.innerHTML=`<div class="ov-empty">위에서 <b>종목</b>을 고르면 트렌드가 표시됩니다.</div>`;
@@ -3243,8 +3262,7 @@ function drawTrend(){
     return;
   }
   const G=viewGroup(G0);                     // 선택된 기간(주별/일별)에 맞는 뷰
-  const avail=srcOfGroup(G);
-  trendSrc=avail.includes(trendSrcPick)?trendSrcPick:avail[0];   // 고른 출처가 없는 주제만 다른 출처로
+  trendSrc=src;
   const series=G[trendSrc], M=G.months||TREND.months;
   // 표시 단위(일/주/월)별 용어 — 하위호환: 옛 daily 플래그도 인식
   const FREQ=G.freq||(G.daily?"date":"month");
@@ -3275,7 +3293,7 @@ function drawTrend(){
     return;
   }
   const A=yAxisInfo(G);                       // 이 그룹의 y축 정체(지수·실측·순위)
-  const W=box.clientWidth||1000, H=360, pad={l:A.pad,r:G.endPad||70,t:26,b:36};   // endPad — 끝 라벨 이름이 긴 그룹(호텔 예약 가격)
+  const W=box.clientWidth||1000, H=trendH, pad={l:A.pad,r:G.endPad||70,t:26,b:36};   // endPad — 끝 라벨 이름이 긴 그룹(호텔 예약 가격)
   // 점이 하나뿐인 계열(수집 첫날의 앱순위 등)은 M.length-1 == 0 이라 0/0 = NaN 이 된다.
   // 그러면 <polyline points="NaN,.."> 로 SVG 가 통째로 깨진다. 그땐 가운데에 점 하나만 찍는다.
   const sx=i=>M.length<2?pad.l+(W-pad.l-pad.r)/2:pad.l+i/(M.length-1)*(W-pad.l-pad.r);
@@ -3453,6 +3471,7 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut, opt){
         <span class="v" style="color:${c}">${cur}</span>${ww!=null?`<span class="src ${cls(ww)}" title="최근 7일 합 vs 그 전 7일 합">${sign(ww,0)}%</span>`:""}</div>${s}</div>`;
   }).join("")+`</div>`;
   // 칸마다 호버 툴팁 — 격자는 칸이 작아 x축 라벨이 양끝뿐이라, 중간 시점 값은 이걸로만 읽힌다
+  const drawnSrc=trendSrc;      // 커서를 올리는 시점엔 trendSrc 가 다른 출처일 수 있다(네이버·구글 같이 보기)
   [...box.querySelectorAll(".sm-cell")].forEach((cell,ci)=>{
     const ser=series[ci]||[];
     attachChartTip(cell,{W,H,pad,n:M.length,xOf:sx,
@@ -3460,7 +3479,7 @@ function drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut, opt){
       const v=ser[i]; if(v==null) return null;
       const d=(i>0&&ser[i-1]>0&&!G.rankN)?(v/ser[i-1]-1)*100:null;
       return `<div class="tt-h">${PRODUCTS[ci]} · ${M[i]}</div>`
-        +`<div class="tt-r"><span class="k">값</span><span class="v">${trendRealFmt(G, trendReal(G,ci,i))}`
+        +`<div class="tt-r"><span class="k">값</span><span class="v">${trendRealFmt(G, trendReal(G,ci,i,drawnSrc))}`
         +`${d==null?"":` <span class="${cls(d)}" style="font-size:10.5px">전일 ${sign(d,0)}%</span>`}</span></div>`;
     }});
   });
@@ -3507,7 +3526,7 @@ function drawTrendStack(box, G, PRODUCTS, series, M, gc, mut){
 function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   const FREQ=nativeFreq(G);
   const COL=G.colors||TREND.colors, F=G.fmt||(x=>x);   // 스택은 자체 색/장수 포맷을 쓴다
-  document.getElementById("trendLegend").innerHTML=
+  document.getElementById(trendEl.legend).innerHTML=
     PRODUCTS.map((p,i)=>{
       const ser=series[i]||[];
       // 마지막으로 값이 있는 날 — 맨 끝이 비어 있으면(그 출처가 오늘치를 아직 안 줌) 예전엔 '최근 null' 이 찍혔다
@@ -3564,7 +3583,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   // 표 — 전부 실제 값. 일별은 '최근 7일 vs 그 전 7일'(하루 튐에 안 흔들린다) + 4주 전 같은 요일 값.
   //   (2026-09-26 이전엔 7일 평균 열이 따로 있고 변화도 평균끼리였다 — 화면의 선·숫자와 안 맞아 헷갈렸다.)
   const P=G._win, hasWin=!!(P&&M.length>(U.n+1)&&!G.snapshot);
-  const tt=document.getElementById("trendTblTitle");
+  const tt=document.getElementById(trendEl.title);
   const daily=FREQ==="date";
   const bk1=daily?7:1, bk2=daily?28:(U.n||4);
   const lab1=daily?"최근 7일":U.u+"비", lab2=daily?"4주 전":U.back+" 전";
@@ -3572,7 +3591,7 @@ function fillTrendLegendTable(G, PRODUCTS, series, M, U){
   const isRank=!!(G.rankN&&G.rawSer);
   // 계절이 큰 월별 계열(yoyCmp — 유통 실액 · 호텔 숙박료 물가)은 표도 작년 같은 달과 견준다(2026-10-29) — 전월비는 8월→9월 같은 계절 낙차만 보여 준다
   const yoyT=!isRank&&!!(G.yoyCmp&&G.yoyAt&&G.rawFull&&FREQ==="month");
-  makeTable(document.getElementById("trendTable"),[
+  makeTable(document.getElementById(trendEl.table),[
     {key:"p",label:"키워드",l:true,render:r=>`<span class="nm-cell"><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${r.color};margin-right:6px"></span>${r.p}</span>`},
     {key:"curS",label:'최근값<span class="th-sub">마지막 수집일</span>',render:r=>`${r.curT}${r.when?`<span class="th-sub">${r.when}</span>`:""}`},
     ...(yoyT?[
@@ -6700,13 +6719,13 @@ function renderTrendSegs(){
   // 출처 줄 — 그 주제가 실제로 두 출처를 다 가질 때만 띄운다.
   // 예전엔 항상 떠 있어서, 해외 국가별 주제에서 '네이버'를 눌러도
   // 구글 값을 복사해 둔 탓에 같은 그래프가 나왔다.
-  const G=TREND.groups[trendGroup], avail=srcOfGroup(G);
+  const G=TREND.groups[trendGroup], avail=srcOfGroup(viewGroup(G));
   if(G) trendSrc=avail.includes(trendSrcPick)?trendSrcPick:avail[0];
   const srow=document.getElementById("trendSrcRow");
   if(G && avail.length>1){
     srow.style.display="";
     document.querySelectorAll("#trendSeg button").forEach(x=>
-      x.classList.toggle("active", x.dataset.src===trendSrc));
+      x.classList.toggle("active", x.dataset.src===trendSrcPick));
   }else{
     srow.style.display="none";
   }
@@ -9192,7 +9211,7 @@ dyBind();          // 디어유 손익 모델 — 가정 입력·시나리오
 c2Bind();          // 컴투스 손익 모델 — 가정 입력·시나리오·2025 펼치기(위임, change 이벤트)
 document.getElementById("trendSeg").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b) return;
-  trendSrc=trendSrcPick=b.dataset.src;
+  trendSrcPick=b.dataset.src;
   document.querySelectorAll("#trendSeg button").forEach(x=>x.classList.toggle("active",x===b));
   drawTrend();
 });

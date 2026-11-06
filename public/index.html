@@ -409,6 +409,8 @@
   #tradeHs code{background:var(--chip);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--muted)}
   @media(max-width:640px){ #tradeHs{text-align:left;font-size:11px} }
   .trend-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:12px;font-size:13px}
+  .trend-src-h{font-size:13px;color:var(--muted);margin:0 0 8px}
+  .trend-src-h b{color:var(--text);font-weight:700}
   .trend-legend .li{display:flex;align-items:center;gap:7px;font-weight:600}
   /* 국가별처럼 계열마다 스케일·출처가 다른 건 겹치지 않고 격자로 나눠 그린다 */
   .sm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
@@ -959,8 +961,9 @@
       <div class="ctl-row" id="trendTopicRow" style="display:none"><span class="ctl-label">주제</span><div class="seg" id="trendTopicSeg"></div></div>
       <div class="ctl-row" id="trendSrcRow" style="display:none"><span class="ctl-label">출처</span>
         <div class="seg" id="trendSeg">
-          <button data-src="naver" class="active">네이버</button>
-          <button data-src="google">구글</button>
+          <button data-src="both" class="active" title="두 차트를 위아래로 — 날짜축이 같아 괴리가 바로 보인다">네이버·구글 같이</button>
+          <button data-src="naver">네이버만</button>
+          <button data-src="google">구글만</button>
         </div>
       </div>
       <div class="ctl-row" id="trendFreqRow" style="display:none"><span class="ctl-label">구간</span>
@@ -970,11 +973,22 @@
     </div>
     <div class="sub-h" id="trendTopicNow"></div>
     <div class="chart-box">
+      <div class="trend-src-h" id="trendSrcH" style="display:none"></div>
       <div id="trendChart"></div>
       <div class="trend-legend" id="trendLegend"></div>
     </div>
+    <!-- 두 출처가 다 있는 주제는 구글 차트·표를 아래에 같이 그린다(2026-11-06 · drawTrend) -->
+    <div class="chart-box" id="trendBox2" style="display:none;margin-top:12px">
+      <div class="trend-src-h" id="trendSrcH2"></div>
+      <div id="trendChart2"></div>
+      <div class="trend-legend" id="trendLegend2"></div>
+    </div>
     <div class="sub-h" id="trendTblTitle">최근값</div>
     <div class="tbl-wrap"><table id="trendTable"></table></div>
+    <div id="trendTblBox2" style="display:none">
+      <div class="sub-h" id="trendTblTitle2"></div>
+      <div class="tbl-wrap"><table id="trendTable2"></table></div>
+    </div>
     <p class="note" id="trendFoot">네이버는 국내 검색, 구글은 해외 수요 — 두 값의 괴리 자체가 시그널.</p>
 
     <!-- 게임 판매·매출 추정 — 순위가 아니라 공시 판매량에서 매출을 세운다. 게임 종목일 때만 뜬다. -->
