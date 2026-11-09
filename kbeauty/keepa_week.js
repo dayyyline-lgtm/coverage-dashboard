@@ -21,7 +21,10 @@
 */
 (function () {
   'use strict';
-  const W = window.__KW = {v: 2, state: 'idle', log: [], rows: {}, err: '', parts: {}};
+  const W = window.__KW = {v: 3, state: 'idle', log: [], rows: {}, err: '', parts: {}};
+  // Finder 브랜드 필터는 앞 50개 표기만 먹는다(2026-11-09 실측 — 79개를 넣으니 주소·결과에 앞 50개만 남아 아누아·조선미녀·스킨1004·토리든·토니모리 등
+  // 19개 브랜드가 통째로 빠졌다). 그래서 50개씩 나눠 묶음마다 A·B 를 부르고 상품을 합친다(같은 상품은 asin 으로 한 번).
+  const MAXB = 50;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const DOMS = [1, 2, 3, 5, 4, 9, 8, 6], MK = {1: 'us', 2: 'uk', 3: 'de', 4: 'fr', 8: 'it', 9: 'es', 5: 'jp', 6: 'ca'};
   const NAMES = {1: 'United States', 2: 'United Kingdom', 3: 'Germany', 4: 'France', 5: 'Japan', 6: 'Canada', 8: 'Italy', 9: 'Spain'};
@@ -56,14 +59,22 @@
   const rankOf = o => { const c = o.stats && o.stats.current; return c && c[3] > 0 ? c[3] : 0; };
 
   // 한 질의 — 결과 표를 끝까지 넘기며 상품 객체를 모은다. stopRank 가 있으면(순위 오름차순) 그 순위를 넘는 쪽에서 멈춘다(필터 키가 안 먹을 때 대비).
-  const run1 = async (d, q, tag, stopRank) => {
-    const want = low(W.brands);
+  // want = 이번 묶음의 브랜드 — 첫 줄이 이 묶음 브랜드여야 새 결과로 본다(앞 묶음 결과가 남아 있는 표를 새 결과로 읽지 않게).
+  // 표 서명(줄 수 · 첫 줄 asin · 쪽 수) — 앞 질의 결과가 아직 떠 있는지 가린다.
+  const sig = () => { const g = grid(); if (!g) return ''; const n = g.getDisplayedRowCount(), r = n > 0 ? g.getDisplayedRowAtIndex(0) : null;
+    return n + '|' + (r && r.data ? r.data.asin : '') + '|' + (g.paginationGetTotalPages ? g.paginationGetTotalPages() : ''); };
+  const run1 = async (d, q, tag, stopRank, want) => {
+    want = want || low(W.brands);
+    const prev = sig();
     location.hash = '#!finder/' + encodeURIComponent(JSON.stringify(q));
     let g = null, zero = 0;
     for (let i = 0; ; i++) {
       await sleep(500); g = grid();
       if (i > 90) return {n: -1};
       if (!g) continue;
+      // 앞 질의 표가 그대로면 아직 새 결과가 아니다(2026-11-09 시험: 이탈리아 B 가 바로 앞 A 의 301줄을 그대로 읽었다 — 정상은 1,000줄 안팎).
+      // 결과가 정말 같을 수도 있어 12초 뒤엔 받아들인다.
+      if (prev && i < 24 && sig() === prev) continue;
       const n = g.getDisplayedRowCount(), r = n > 0 ? g.getDisplayedRowAtIndex(0) : null;
       if (r && r.data && r.data.asin && r.data.domainId === d && want.has(String(r.data.brand || '').toLowerCase())) break;
       zero = n === 0 ? zero + 1 : 0; if (zero >= 40) return {n: 0};
@@ -94,6 +105,7 @@
     const budget = W.opt.quota > 0 ? W.opt.quota * PER_PCT * 0.95 : Infinity;   // 5% 여유
     const B = new Set(); tasks.forEach(t => t.b.forEach(x => B.add(x))); US.concat(EU, JP).forEach(x => B.add(x));
     W.brands = [...B];
+    W.chunks = []; for (let i = 0; i < W.brands.length; i += MAXB) W.chunks.push(W.brands.slice(i, i + MAXB));
     const doms = (W.opt.doms || DOMS);
     (async () => {
       let zeros = 0;
@@ -101,14 +113,25 @@
         const t0 = Date.now();
         if (W.spent + exp[d] > budget) { W.log.push(MK[d] + ' 건너뜀(예산 ' + Math.round(budget - W.spent) + ' < 예상 ' + exp[d] + ')'); W.use[MK[d]] = {skip: 1}; continue; }
         if (!(await setDomain(d))) { W.log.push(MK[d] + ' domain-fail'); W.use[MK[d]] = {fail: 'domain'}; continue; }
-        const base = {productType: {values: ['0'], filterType: 'set'}, brand: {filterType: 'autocomplete', filter: W.brands.join('###'), type: 'isOneOf'}};
-        let a = await run1(d, {f: Object.assign({}, base, {monthlySoldPeak: {filterType: 'number', type: 'greaterThanOrEqual', filter: 50, filterTo: null}}), s: [{colId: 'monthlySold', sort: 'desc'}], t: 'g'}, 'a');
-        if (a.n <= 0) { await sleep(3000); a = await run1(d, {f: Object.assign({}, base, {monthlySoldPeak: {filterType: 'number', type: 'greaterThanOrEqual', filter: 50, filterTo: null}}), s: [{colId: 'monthlySold', sort: 'desc'}], t: 'g'}, 'a'); }
-        await sleep(1500);
-        const b = await run1(d, {f: Object.assign({}, base, {SALES_current: {filterType: 'number', type: 'inRange', filter: 1, filterTo: RANK_B}}), s: [{colId: 'SALES_current', sort: 'asc'}], t: 'g'}, 'b', RANK_B);
+        // 묶음마다 A·B. 뒤 묶음(작은 브랜드)은 그 나라에 상품이 없어 0개일 수 있다 — 0 이 '실패'인지는 첫 묶음과 나라 합계로만 본다.
+        const a = {n: 0, short: 0}, b = {n: 0, short: 0}; let first = null, fail = 0;
+        for (let ci = 0; ci < W.chunks.length; ci++) {
+          const ch = W.chunks[ci], want = low(ch), tg = W.chunks.length > 1 ? (ci + 1) + '/' + W.chunks.length : '';
+          const base = {productType: {values: ['0'], filterType: 'set'}, brand: {filterType: 'autocomplete', filter: ch.join('###'), type: 'isOneOf'}};
+          const qa = {f: Object.assign({}, base, {monthlySoldPeak: {filterType: 'number', type: 'greaterThanOrEqual', filter: 50, filterTo: null}}), s: [{colId: 'monthlySold', sort: 'desc'}], t: 'g'};
+          let ra = await run1(d, qa, 'a', 0, want);
+          if (ra.n <= 0 && ci === 0) { await sleep(3000); ra = await run1(d, qa, 'a', 0, want); }
+          await sleep(1500);
+          const rb = await run1(d, {f: Object.assign({}, base, {SALES_current: {filterType: 'number', type: 'inRange', filter: 1, filterTo: RANK_B}}), s: [{colId: 'SALES_current', sort: 'asc'}], t: 'g'}, 'b', RANK_B, want);
+          if (ra.n < 0 || rb.n < 0) fail++;
+          if (ci === 0) first = {a: ra.n, b: rb.n};
+          a.n += Math.max(0, ra.n); b.n += Math.max(0, rb.n); a.short += ra.short || 0; b.short += rb.short || 0;
+          if (tg) W.log.push(MK[d] + ' 묶음 ' + tg + ' A ' + ra.n + ' B ' + rb.n);
+          await sleep(1500);
+        }
         const M = W.rows[d] || {}, all = Object.values(M), sec = Math.round((Date.now() - t0) / 1000);
-        W.spent += Math.max(0, a.n) + Math.max(0, b.n);
-        const bad = a.n <= 0 || b.n <= 0 || a.short || b.short;
+        W.spent += a.n + b.n;
+        const bad = fail || first.a <= 0 || first.b <= 0 || a.n <= 0 || b.n <= 0 || a.short || b.short;
         if (bad) W.bad[d] = 1;
         W.use[MK[d]] = {a: a.n, b: b.n, u: all.length, s: sec, bad: bad ? 1 : 0};
         W.log.push(MK[d] + ' A ' + a.n + ' B ' + b.n + ' 합 ' + all.length + ' (B만 ' + all.filter(e => !e.a).length + ') ' + sec + 's' + (bad ? ' 불완전' : ''));

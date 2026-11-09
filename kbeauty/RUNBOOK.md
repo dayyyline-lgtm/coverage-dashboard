@@ -129,6 +129,16 @@ python3 kbeauty/push.py                                              # 배포 �
 4. `python3 kbeauty/phase.py` → `[KBPH] 갱신 …` 확인 → `python3 kbeauty/phase_brief.py`(미리보기 — 숫자가 이상하면 올리지 말고 멈춘다) → `python3 kbeauty/push.py --phase`.
 5. 올라가면 `phase_brief.yml` 이 텔레그램을 보낸다. 같은 asOf 는 한 번만(`data/phase/brief_state.json` — 지난번 칸과 견줘 '칸 바뀜'을 낸다 · 지우지 말 것).
 
+## 통합 수집기 v3 고친 것 (2026-11-09 · 이 PC 크롬에서 손으로 돌리다 발견)
+
+- **Finder 브랜드 필터는 앞 50개 표기만 먹는다.** v2 는 79개를 한 질의에 넣어 뒤쪽 29개(아누아·조선미녀·스킨1004·토리든 등 비상장 경쟁 브랜드 + 토니모리·롬앤·마녀공장…)가
+  통째로 빠졌다 — 미국 국면 브랜드 45 → 26, 유럽·캐나다도 절반. 그대로 올렸으면 'K뷰티 내 비중'의 분모가 바뀌어 지도 전체가 틀어진다. v3 = 50개씩 나눠 묶음마다 A·B.
+- **바로 앞 질의 표를 새 결과로 읽던 경쟁 조건.** 이탈리아 B 가 직전 A 의 301줄을 그대로 읽었다(정상 1,007). v3 = 표 서명(줄 수·첫 asin·쪽 수)이 바뀔 때까지(최대 12초) 기다린다.
+  v2 의 첫 실회차가 성공했어도 B 가 가끔 비었을 것이다.
+- v3 시험(11/09 · 이탈리아만): A 301+282 · B 1,007+1,086 → 국면 브랜드 31(11/01 30) · 상품 2,098. **전 나라 회차·첫 회차 비교(1-g 6번)는 아직** — 11/09 의 잘린 회차는 버렸다.
+- **이 PC(윈도 dayline) 크롬에서 붙여 넣는 법**: keepa.com 은 열리고 몇 초 뒤 meta CSP 를 걸어 그 뒤엔 eval 이 막힌다. 스크립트를 127.0.0.1 받기 서버의 팝업(postMessage)으로
+  탭에 넘겨 keepa.com 의 sessionStorage 에 넣어 두고 → 같은 탭을 keepa.com 으로 다시 navigate 한 **바로 다음 호출**에서 `(0,eval)(sessionStorage.getItem(…))` 로 올린다.
+
 ## 1-e. 국면 주간 회차를 이 PC 예약 작업으로 (2026-10-27~ · 1-d 를 대신한다)
 
 > 2026-11-01 부터 Keepa 단계(아래 5·6번)는 **1-g 통합 수집**이 한다(회사 채널까지 한 번에). 1~4번(준비)·7번(FastMoss)·8번(올리기)은 그대로.
@@ -205,7 +215,7 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
 **언제** — 일요일 1회(`kbph-weekly` · 06:50). 빠지면 월·화가 이어받는다. 차례 = `python kbeauty/phase_brief.py --due` 가 0. KBCH 모드는 `python kbeauty/ingest.py --due` 가 찍는 `모드 full|recent`.
 
 1. 1-e 의 1~4번(멈출 조건 · 받기 서버 · 크롬 새 탭 keepa.com · 한도 확인 · 보내기 함수). **시작 전 한도 %를 적는다**(새 탭 `#widget__bucket_quota`) — 20% 밑이면 시작하지 않고 '한도 N% — 내일로'.
-2. 차례로 붙여 넣는다(javascript_tool · 주석은 지워도 된다): `kbeauty/keepa.js` → `kbeauty/phase_keepa.js` → `kbeauty/phase_keepa_eu.js` → `kbeauty/keepa_week.js`(→ `kw v2 ready`).
+2. 차례로 붙여 넣는다(javascript_tool · 주석은 지워도 된다): `kbeauty/keepa.js` → `kbeauty/phase_keepa.js` → `kbeauty/phase_keepa_eu.js` → `kbeauty/keepa_week.js`(→ `kw v3 ready` · 브랜드 50개씩 나눠 검색 — Finder 브랜드 필터는 앞 50개만 먹는다 · 2026-11-09).
 3. `__KW.start(<kbeauty/keepa_tasks.json 내용>, {quota: <1번의 %>})`(월·화 이어받기면 `doms:[--todo 의 번호]` 도) → 40초마다 `__KW.status()` 가 `done` 까지
    (나라마다 `A n B n 합 n` 로그 · '건너뜀'·'불완전'·'멈춤' 이 뜨면 그 나라는 월·화가 받는다). 끝나면 새 탭에서 한도 %를 다시 적는다.
 4. `__KW.build('<KBCH 모드>')` → `KBCH done · 230/230 … | US A n NB n fit … | uk brands … | …` 를 확인 → `__KW.bundle()`(len · h).
