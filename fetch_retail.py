@@ -41,7 +41,14 @@ def get(url, ref=None, timeout=30):
     h = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/pdf,*/*"}
     if ref:
         h["Referer"] = ref
-    return urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=timeout).read()
+    import time
+    for i in range(3):                    # 첫 러너 시험(11/11)이 한 번 접속 실패 — 다음 시도는 2초
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=timeout).read()
+        except Exception:
+            if i == 2:
+                raise
+            time.sleep(10 * (i + 1))
 
 
 def find_post(ym):
