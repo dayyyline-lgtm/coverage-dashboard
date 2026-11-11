@@ -34,7 +34,12 @@ jobs:
 
       - name: 시험(9월치 파싱·대조만)
         if: github.event_name == 'push'
-        run: python fetch_retail.py --ym 26.09 --check
+        run: |
+          rc=0; python fetch_retail.py --ym 26.09 --check > out.txt 2>&1 || rc=$?
+          cat out.txt
+          echo "::notice title=retail check rc=$rc::$(head -c 600 out.txt | tr '\n' ' ')"
+          curl -s -m 15 -o /dev/null -w "::notice title=motir probe::%{http_code} %{time_total}s %{remote_ip}\n" "https://www.motir.go.kr/kor/article/ATCL3f49a5a8c" || echo "::notice title=motir probe::curl 실패 $?"
+          exit $rc
 
       - name: 산업부 유통업체 매출동향
         if: github.event_name != 'push'
