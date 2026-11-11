@@ -11,6 +11,9 @@ on:
       - "public/index.html"
   schedule:
     - cron: "47 2-10 20-31 * *"
+  workflow_run:                      # 자동 수집(retail.yml)이 넣은 커밋은 봇 토큰이라 push 로는 안 깨어난다
+    workflows: ["유통업체 매출동향 수집"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       force:
