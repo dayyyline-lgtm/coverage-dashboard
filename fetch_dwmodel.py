@@ -92,20 +92,46 @@ def _n(s):
     return -v if neg else v
 
 
+def _viewer_notes(rcept):
+    """DART 뷰어의 '연결재무제표 주석' 화면 HTML — 공시 당일엔 document.xml 이 아직 없다(status 014 '파일이 존재하지 않습니다').
+    2026-11-12 대원미디어 3Q 분기보고서가 그랬다. 뷰어는 접수 직후부터 열린다."""
+    ua = {"User-Agent": "Mozilla/5.0"}
+    h = urllib.request.urlopen(urllib.request.Request(f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}", headers=ua),
+                               timeout=60).read().decode("utf-8", errors="replace")
+    nodes = re.findall(r"node\d+\['text'\] = \"([^\"]+)\";\s*node\d+\['id'\] = \"\d+\";\s*node\d+\['rcpNo'\] = \"\d+\";\s*"
+                       r"node\d+\['dcmNo'\] = \"(\d+)\";\s*node\d+\['eleId'\] = \"(\d+)\";\s*node\d+\['offset'\] = \"(\d+)\";\s*"
+                       r"node\d+\['length'\] = \"(\d+)\"", h)
+    for txt, dcm, ele, off, ln in nodes:
+        if "연결재무제표 주석" in txt:
+            raw = urllib.request.urlopen(urllib.request.Request(
+                f"https://dart.fss.or.kr/report/viewer.do?rcpNo={rcept}&dcmNo={dcm}&eleId={ele}&offset={off}&length={ln}&dtd=dart4.xsd",
+                headers=ua), timeout=90).read()
+            try:
+                return raw.decode("utf-8")
+            except UnicodeDecodeError:
+                return raw.decode("cp949", errors="replace")
+    return None
+
+
 def seg_tables(rcept):
     """보고서 원문에서 '영업부문별 경영성과' 표 → [당기 누적, 전기 누적] (천원 → 십억)."""
     b = urllib.request.urlopen(f"https://opendart.fss.or.kr/api/document.xml?crtfc_key={C2.DART_KEY}"
                                f"&rcept_no={rcept}", timeout=90).read()
-    z = zipfile.ZipFile(io.BytesIO(b))
-    t = z.read(max(z.namelist(), key=lambda n: z.getinfo(n).file_size)).decode("utf-8", errors="replace")
+    try:
+        z = zipfile.ZipFile(io.BytesIO(b))
+        t = z.read(max(z.namelist(), key=lambda n: z.getinfo(n).file_size)).decode("utf-8", errors="replace")
+    except zipfile.BadZipFile:
+        t = _viewer_notes(rcept)
+        if not t:
+            return None
     i = t.find("영업부문별")
     if i < 0:
         return None
-    body = t[i:i + 20000]
+    body = t[i:i + 40000]
     rows = []
-    for tr in re.findall(r"<TR[^>]*>(.*?)</TR>", body, re.S):
-        cells = [_html.unescape(re.sub(r"<[^>]+>", "", c)).strip()
-                 for c in re.findall(r"<T[DHE][^>]*>(.*?)</T[DHE]>", tr, re.S)]
+    for tr in re.findall(r"<TR[^>]*>(.*?)</TR>", body, re.S | re.I):
+        cells = [_html.unescape(re.sub(r"<[^>]+>", "", c)).replace(" ", " ").strip()
+                 for c in re.findall(r"<T[DHE][^>]*>(.*?)</T[DHE]>", tr, re.S | re.I)]
         if cells:
             rows.append(cells)
     tabs, head = [], None
