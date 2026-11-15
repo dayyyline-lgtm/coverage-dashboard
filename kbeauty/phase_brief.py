@@ -516,6 +516,14 @@ def due():
     return last < mon
 
 
+MKN = {"uk": "영국", "de": "독일", "fr": "프랑스", "it": "이탈리아", "es": "스페인", "jp": "일본", "ca": "캐나다"}
+
+
+def fresh_mk(d):
+    """이번 회차(KBPH asOf)에 새로 받은 아마존 시장 — 미국 + mk 중 asOf 가 같은 나라."""
+    return sorted(["us"] + [k for k, x in (d.get("mk") or {}).items() if x.get("asOf") == d["asOf"]])
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--send", action="store_true")
@@ -526,19 +534,33 @@ def main():
         return 0 if due() else 1
     d = load()
     prev = json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else None
+    mk = fresh_mk(d)
+    # 같은 날 다시 받은 회차(2026-11-15 사용자 "같은 날짜라도 깔끔하게 다시 보내 · 늘 이렇게"):
+    #   아침 판 뒤에 빠진 나라를 다시 받아 새로 받은 시장이 늘면 '수정본'을 다시 보낸다.
+    #   칸 바뀜은 아침 판이 아니라 지난주 판(base)과 견준다 — 아침 판끼리 견주면 '빠졌던 나라가 들어온 것'이 칸 바뀜처럼 보인다.
+    same = bool(prev and prev.get("asOf") == d["asOf"])
+    base = (prev or {}).get("base") if same else prev
+    added = [k for k in mk if k not in ((prev or {}).get("mk") or [])] if same else []
+    redo = same and (bool(added) or a.force)
     R = build(d)
-    text, st = message(d, R, prev)
+    text, st = message(d, R, base)
+    if redo:
+        head, rest = text.split("\n", 1)
+        note = (f"아침 판 뒤에 새로 받은 {'·'.join(MKN[k] for k in MKN if k in added)} 아마존을 넣어 다시 보냄" if added else "다시 보냄") \
+            + f" · 칸 바뀜은 지난주({(base or {}).get('asOf', '—')[5:].replace('-', '/')}) 대비"
+        text = f"{head.replace('</b>', ' · 수정본</b>')}\n<i>{note}</i>\n{rest}"
     print(text)
     print(f"\n[{len(text)}자]")
     if not a.send:
         return 0
-    if prev and prev.get("asOf") == d["asOf"] and not a.force:
-        print(f"KBPH {d['asOf']} 는 이미 보냈다 — 안 보낸다")
+    if same and not redo:
+        print(f"KBPH {d['asOf']} 는 이미 보냈다(새로 받은 시장 없음) — 안 보낸다")
         return 0
     if send(text):
-        STATE.write_text(json.dumps({"asOf": d["asOf"], "sent": kst_now().isoformat(timespec="minutes"), "end": R["end"], "q": st},
+        STATE.write_text(json.dumps({"asOf": d["asOf"], "sent": kst_now().isoformat(timespec="minutes"), "end": R["end"], "q": st,
+                                     "mk": mk, "base": base},
                                     ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        print("보냄")
+        print("보냄" + (" (수정본)" if redo else ""))
     return 0
 
 
