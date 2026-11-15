@@ -135,7 +135,7 @@ def todo():
         for r in csv.DictReader(open(p, encoding="utf-8")):
             if r["date"] >= since and r["mk"] in DOM:
                 last[r["mk"]] = r
-    ok = {m for m, r in last.items() if not (r["bad"] or r["skip"] or r["fail"]) and (r["a"] or "0") not in ("0", "-1") and (r["b"] or "0") not in ("0", "-1")}
+    ok = {m for m, r in last.items() if not any((r[c] or "0") not in ("0", "") for c in ("bad", "skip", "fail")) and (r["a"] or "0") not in ("0", "-1") and (r["b"] or "0") not in ("0", "-1")}
     need = [DOM[m] for m in ["us", "uk", "de", "jp", "fr", "es", "it", "ca"] if m not in ok]
     print("doms " + (",".join(map(str, need)) if need else "없음") + f" · 이번 주 받은 나라 {sorted(ok)}")
     return 0 if need else 1
