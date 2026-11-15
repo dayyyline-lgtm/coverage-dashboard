@@ -134,7 +134,11 @@ def save_keepa(res, raw_text):
         (DATA / "keepa" / f"{res['date']}-add.txt").write_text(raw_text, encoding="utf-8", newline="\n")
         res = dict(res, date=om.get("date") or res["date"])
     else:
-        (DATA / "keepa" / f"{res['date']}.txt").write_text(raw_text, encoding="utf-8", newline="\n")
+        # 같은 날 두 번째 회차(2026-11-15 · 일요일 회차가 몇 나라만 받고, 그날 저녁 빠진 나라만 다시 받은 경우)는 아침 덤프를 덮지 않는다
+        dp, n = DATA / "keepa" / f"{res['date']}.txt", 2
+        while dp.exists():
+            dp, n = DATA / "keepa" / f"{res['date']}-r{n}.txt", n + 1
+        dp.write_text(raw_text, encoding="utf-8", newline="\n")
     MS, MC = res["MS"], res["MC"]
     full = res["mode"] in ("full", "add")
     first = MS if full else MC - 2
@@ -166,13 +170,15 @@ def save_keepa(res, raw_text):
     rec = []
     if rp.exists():
         with open(rp, encoding="utf-8", newline="") as f:
-            rec = [r for r in csv.DictReader(f) if r["asof"] != res["date"] or (add and (int(r["d"]), r["k"]) not in got)]
+            # 같은 날 다시 받으면 이번에 받은 과제만 갈아 끼우고, 그날 먼저 받은 다른 과제 줄은 남긴다(2026-11-15)
+            rec = [r for r in csv.DictReader(f) if r["asof"] != res["date"] or (int(r["d"]), r["k"]) not in got]
     for a in res["A"]:
         u, v = a["U"][-1] if a["U"] else 0, a["V"][-1] if a["V"] else 0
         rec.append({"asof": res["date"], "d": a["d"], "k": a["k"], "u": u, "v": v})
     # 실패한 과제(X · 통합 수집이 한도로 그 나라를 건너뛴 경우 등)는 직전 회차의 최근 30일 값을 이 날짜로 잇는다
     # — 블록은 마지막 회차 날짜 한 줄만 읽어서, 안 이으면 그 나라가 통째로 빈다(2026-11-03). meta.carry 에 몇 개 이었는지 남긴다.
     failed = {(x["d"], x["k"]) for x in res["X"]} - got if not add else set()
+    failed -= {(int(r["d"]), r["k"]) for r in rec if r["asof"] == res["date"]}   # 그날 먼저 받은 과제는 실패가 아니다
     carried = 0
     if failed:
         last = {}
@@ -193,6 +199,9 @@ def save_keepa(res, raw_text):
         with open(DATA / "keepa_top.csv", encoding="utf-8", newline="") as f:
             keep_top = [r for r in csv.reader(f)][1:]
         keep_top = [r for r in keep_top if (int(r[1]), r[2]) not in got]
+    if not add and (DATA / "keepa_top.csv").exists():   # 같은 날 먼저 받은 과제의 상위 묶음은 남긴다(2026-11-15)
+        with open(DATA / "keepa_top.csv", encoding="utf-8", newline="") as f:
+            keep_top += [r for r in list(csv.reader(f))[1:] if r[0] == res["date"] and (int(r[1]), r[2]) not in got]
     if failed and (DATA / "keepa_top.csv").exists():   # 실패한 과제는 직전 상위 묶음을 이 날짜로 잇는다
         with open(DATA / "keepa_top.csv", encoding="utf-8", newline="") as f:
             prev = [r for r in csv.reader(f)][1:]
@@ -212,7 +221,8 @@ def save_keepa(res, raw_text):
     cur = []
     if cp.exists():
         with open(cp, encoding="utf-8", newline="") as f:
-            cur = [r for r in csv.DictReader(f) if r["asof"] != res["date"]]
+            newd = {str(c["d"]) for c in res["F"]}   # 같은 날 다시 받으면 이번에 받은 나라 곡선만 갈아 끼운다
+            cur = [r for r in csv.DictReader(f) if r["asof"] != res["date"] or str(r["d"]) not in newd]
     for c in res["F"]:
         cur.append({"asof": res["date"], "d": c["d"], "n": c["n"], "bins": c["bins"], "a": c["a"], "b1": c["b1"], "b2": c["b2"], "tag": c["tag"]})
     with open(cp, "w", encoding="utf-8", newline="") as f:
@@ -222,7 +232,7 @@ def save_keepa(res, raw_text):
     # full = 마지막 전체(36개월) 회차 · sig = 그때 과제 목록 — --due 가 다음 모드를 정한다
     meta = {"date": res["date"], "MS": MS, "MC": MC, "mode": res["mode"], "tasks": res["tasks"],
             "full": res["date"] if full else om.get("full", ""), "sig": tasks_sig() if full else om.get("sig", ""),
-            "fail": [f"{x['d']}:{x['k']}:{x['why']}" for x in res["X"]], "carry": carried}
+            "fail": [f"{x['d']}:{x['k']}:{x['why']}" for x in res["X"] if (x["d"], x["k"]) in failed], "carry": carried}
     mp.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
     return len(new)
 

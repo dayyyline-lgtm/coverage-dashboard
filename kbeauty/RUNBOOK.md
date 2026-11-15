@@ -139,6 +139,13 @@ python3 kbeauty/push.py                                              # 배포 �
 - **이 PC(윈도 dayline) 크롬에서 붙여 넣는 법**: keepa.com 은 열리고 몇 초 뒤 meta CSP 를 걸어 그 뒤엔 eval 이 막힌다. 스크립트를 127.0.0.1 받기 서버의 팝업(postMessage)으로
   탭에 넘겨 keepa.com 의 sessionStorage 에 넣어 두고 → 같은 탭을 keepa.com 으로 다시 navigate 한 **바로 다음 호출**에서 `(0,eval)(sessionStorage.getItem(…))` 로 올린다.
 
+## 통합 수집기 v4 — 쪽 기다림 20초 → 90초 (2026-11-15)
+
+- 11/10·11/15 두 주 연속 유럽(영·프)·캐나다가 '불완전'이거나 예산에 밀려 빠졌다. 원인: 한도를 많이 쓴 뒤엔 Keepa 가 결과 쪽을 30~60초에 채우는데(화면은 빙글빙글),
+  v3 는 쪽마다 20초만 기다리고 넘어가 그 쪽 상품이 통째로 빠졌다(short) → 나라 전체를 '불완전'으로 버렸다. 11/15 저녁 같은 나라를 90초 기다림으로 다시 돌리니 short 0.
+- 그래서 미·영·독·일(약 2.3만 행 · 한도 약 90%)을 일요일에 받으면 프·스·이·캐는 늘 월·화 이어받기에 기댄다. 이어받기가 안 돌면 그 나라 국면이 몇 주씩 묵는다 —
+  `python kbeauty/week_recv.py --todo` 를 확인할 것. 묶음 로그에 `short a/b`(빈 쪽 수)가 찍힌다.
+
 ## 1-e. 국면 주간 회차를 이 PC 예약 작업으로 (2026-10-27~ · 1-d 를 대신한다)
 
 > 2026-11-01 부터 Keepa 단계(아래 5·6번)는 **1-g 통합 수집**이 한다(회사 채널까지 한 번에). 1~4번(준비)·7번(FastMoss)·8번(올리기)은 그대로.
@@ -215,7 +222,7 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
 **언제** — 일요일 1회(`kbph-weekly` · 06:50). 빠지면 월·화가 이어받는다. 차례 = `python kbeauty/phase_brief.py --due` 가 0. KBCH 모드는 `python kbeauty/ingest.py --due` 가 찍는 `모드 full|recent`.
 
 1. 1-e 의 1~4번(멈출 조건 · 받기 서버 · 크롬 새 탭 keepa.com · 한도 확인 · 보내기 함수). **시작 전 한도 %를 적는다**(새 탭 `#widget__bucket_quota`) — 20% 밑이면 시작하지 않고 '한도 N% — 내일로'.
-2. 차례로 붙여 넣는다(javascript_tool · 주석은 지워도 된다): `kbeauty/keepa.js` → `kbeauty/phase_keepa.js` → `kbeauty/phase_keepa_eu.js` → `kbeauty/keepa_week.js`(→ `kw v3 ready` · 브랜드 50개씩 나눠 검색 — Finder 브랜드 필터는 앞 50개만 먹는다 · 2026-11-09).
+2. 차례로 붙여 넣는다(javascript_tool · 주석은 지워도 된다): `kbeauty/keepa.js` → `kbeauty/phase_keepa.js` → `kbeauty/phase_keepa_eu.js` → `kbeauty/keepa_week.js`(→ `kw v4 ready` · 브랜드 50개씩 나눠 검색 — Finder 브랜드 필터는 앞 50개만 먹는다 · 2026-11-09 · v4 = 쪽마다 90초까지 기다린다 · 2026-11-15).
 3. `__KW.start(<kbeauty/keepa_tasks.json 내용>, {quota: <1번의 %>})`(월·화 이어받기면 `doms:[--todo 의 번호]` 도) → 40초마다 `__KW.status()` 가 `done` 까지
    (나라마다 `A n B n 합 n` 로그 · '건너뜀'·'불완전'·'멈춤' 이 뜨면 그 나라는 월·화가 받는다). 끝나면 새 탭에서 한도 %를 다시 적는다.
 4. `__KW.build('<KBCH 모드>')` → `KBCH done · 230/230 … | US A n NB n fit … | uk brands … | …` 를 확인 → `__KW.bundle()`(len · h).

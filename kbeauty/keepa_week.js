@@ -21,7 +21,7 @@
 */
 (function () {
   'use strict';
-  const W = window.__KW = {v: 3, state: 'idle', log: [], rows: {}, err: '', parts: {}};
+  const W = window.__KW = {v: 4, state: 'idle', log: [], rows: {}, err: '', parts: {}};
   // Finder 브랜드 필터는 앞 50개 표기만 먹는다(2026-11-09 실측 — 79개를 넣으니 주소·결과에 앞 50개만 남아 아누아·조선미녀·스킨1004·토리든·토니모리 등
   // 19개 브랜드가 통째로 빠졌다). 그래서 50개씩 나눠 묶음마다 A·B 를 부르고 상품을 합친다(같은 상품은 asin 으로 한 번).
   const MAXB = 50;
@@ -70,7 +70,7 @@
     let g = null, zero = 0;
     for (let i = 0; ; i++) {
       await sleep(500); g = grid();
-      if (i > 90) return {n: -1};
+      if (i > 240) return {n: -1};   // v4: 45초 → 2분(Keepa 가 느린 날 첫 행이 늦게 찬다)
       if (!g) continue;
       // 앞 질의 표가 그대로면 아직 새 결과가 아니다(2026-11-09 시험: 이탈리아 B 가 바로 앞 A 의 301줄을 그대로 읽었다 — 정상은 1,000줄 안팎).
       // 결과가 정말 같을 수도 있어 12초 뒤엔 받아들인다.
@@ -86,7 +86,8 @@
       if (p > 0) g.paginationGoToPage(p);
       const st = p * 100, en = Math.min(st + 100, g.getDisplayedRowCount());
       let c = 0;
-      for (let k = 0; k < 50; k++) { c = 0; for (let i = st; i < en; i++) { const r = g.getDisplayedRowAtIndex(i); if (r && r.data && r.data.asin && r.data.domainId === d) c++; } if (c >= en - st) break; await sleep(400); }
+      // v4(2026-11-15): 쪽마다 20초 → 90초까지 기다린다. 한도를 많이 쓴 뒤엔 Keepa 가 쪽을 30~60초에 채워 20초에 끊으면 그 쪽이 통째로 빠지고 나라가 '불완전'이 됐다(11/15 아침 영국 · 저녁 영·프 — 같은 회차를 90초로 다시 돌리니 short 0).
+      for (let k = 0; k < 225; k++) { c = 0; for (let i = st; i < en; i++) { const r = g.getDisplayedRowAtIndex(i); if (r && r.data && r.data.asin && r.data.domainId === d) c++; } if (c >= en - st) break; await sleep(400); }
       if (c < en - st) short++;
       for (let i = st; i < en; i++) {
         const r = g.getDisplayedRowAtIndex(i); if (!r || !r.data || !r.data.asin || r.data.domainId !== d) continue;
@@ -126,7 +127,7 @@
           if (ra.n < 0 || rb.n < 0) fail++;
           if (ci === 0) first = {a: ra.n, b: rb.n};
           a.n += Math.max(0, ra.n); b.n += Math.max(0, rb.n); a.short += ra.short || 0; b.short += rb.short || 0;
-          if (tg) W.log.push(MK[d] + ' 묶음 ' + tg + ' A ' + ra.n + ' B ' + rb.n);
+          if (tg) W.log.push(MK[d] + ' 묶음 ' + tg + ' A ' + ra.n + ' B ' + rb.n + ' short ' + (ra.short || 0) + '/' + (rb.short || 0));
           await sleep(1500);
         }
         const M = W.rows[d] || {}, all = Object.values(M), sec = Math.round((Date.now() - t0) / 1000);

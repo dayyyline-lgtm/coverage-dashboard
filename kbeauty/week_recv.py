@@ -59,7 +59,9 @@ def save_use(txt, date):
     p = HERE / "data" / "keepa_usage.csv"
     rows = []
     if p.exists():
-        rows = [r for r in csv.DictReader(open(p, encoding="utf-8")) if r["date"] != date]
+        # 같은 날 다시 받은 나라만 갈아 끼운다 — 그날 먼저 받은 나라 줄은 남긴다(2026-11-15 · 저녁에 빠진 나라만 다시 받은 회차)
+        got = set((u.get("c") or {}).keys())
+        rows = [r for r in csv.DictReader(open(p, encoding="utf-8")) if r["date"] != date or r["mk"] not in got]
     for m, c in (u.get("c") or {}).items():
         rows.append({"date": date, "mk": m, "q": u.get("q") or "", "a": c.get("a", ""), "b": c.get("b", ""), "u": c.get("u", ""),
                      "s": c.get("s", ""), "bad": c.get("bad", ""), "skip": c.get("skip", ""), "fail": c.get("fail", "")})
