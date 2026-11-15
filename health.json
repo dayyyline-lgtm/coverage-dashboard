@@ -1,6 +1,14 @@
 {
  "네이버 쇼핑인사이트": {
-  "t": "2026-11-15 05:56",
+  "t": "2026-11-16 05:35",
   "msg": "인증 실패(쇼핑인사이트 권한 없음) legacy 401 {\"errorMessage\":\"Scope Status Invalid : Authentication failed. (인증에 실"
+ },
+ "올리브영": {
+  "t": "2026-11-16 05:19",
+  "msg": "HTTPError HTTP Error 403: Forbidden (종료코드 1)"
+ },
+ "ECOS 소매판매": {
+  "t": "2026-11-16 05:38",
+  "msg": "백화점 URLError; 대형마트 URLError; 면세점 URLError; 슈퍼마켓·잡화점 URLError; 체인 슈퍼마켓 URLError; 편의점 URLError; 가전·통신기기 URLError; 인터넷 쇼핑 URLError; 홈쇼핑 URLError; 호텔숙박료 URLError; 여관숙박료 URLError; 콘도이용료 URLError; 숙박 서비스 UR"
  }
 }
