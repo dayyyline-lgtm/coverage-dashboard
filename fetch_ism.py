@@ -71,7 +71,7 @@ def reports(corp):
     return out
 
 
-def segs_of(nm, rep, getdoc=None):
+def segs_of(nm, rep, getdoc=None, cache=None):
     """정기보고서마다 부문 표 → 분기 부문 손익.
        파서가 "_prev"(같은 표의 전년 같은 기간 = 재작성 비교치)를 주면 그 기준끼리 따로 차분해서 원래 값 위에 덮는다
        (LG생활건강 2026 부문 재분류처럼 — 기준이 다른 누적끼리 빼면 안 된다)."""
@@ -79,15 +79,30 @@ def segs_of(nm, rep, getdoc=None):
     if not fn:
         return {}, None, set()
     cum, rest, three = {}, {}, {}
+    cache = cache if cache is not None else {}
+    # 캐시(2026-11-17) — 보고서마다 파서가 읽은 값을 접수번호와 함께 남겨 두고, 같은 접수번호면 원문을 다시 받지 않는다.
+    #   예전엔 새 보고서 하나에 2025.03~ 원문 전부(7개 · 대형사는 수십 MB)를 다시 받아 실적 시즌에 종목당 4분이 걸렸다.
+    #   원문은 남은 것만 4개씩 동시에 받는다.
+    need = [rc for ym, rc in rep.items() if ym >= SEG_FROM and (cache.get(ym) or {}).get("rc") != rc]
+    if need and getdoc is None:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(4) as ex:
+            list(ex.map(lambda r: _safe_doc(r), need))
     for ym, rc in sorted(rep.items()):
         if ym < SEG_FROM:
             continue
         q = f"{ym[:4]}Q{PERIOD[ym[5:]]}"
-        try:
-            d, kind = fn((getdoc or doc)(rc), q)
-        except Exception as e:
-            print(f"   [{nm}] {ym} 부문 파싱 실패: {type(e).__name__} {str(e)[:80]}")
-            continue
+        c = cache.get(ym)
+        if c and c.get("rc") == rc:
+            d, kind = json.loads(json.dumps(c["d"])), c["k"]
+        else:
+            try:
+                d, kind = fn((getdoc or doc)(rc), q)
+            except Exception as e:
+                print(f"   [{nm}] {ym} 부문 파싱 실패: {type(e).__name__} {str(e)[:80]}")
+                continue
+            if d:
+                cache[ym] = {"rc": rc, "k": kind, "d": json.loads(json.dumps(d))}
         if not d:
             continue
         pv = d.pop("_prev", None)
@@ -103,6 +118,13 @@ def segs_of(nm, rep, getdoc=None):
     for k, v in three.items():
         out.setdefault(k, {}).update(v)
     return {k: out[k] for k in sorted(out)}, (fn.__doc__ or "").strip().splitlines()[0], restq
+
+
+def _safe_doc(rc):
+    try:
+        return doc(rc)
+    except Exception:
+        return None                                   # 실패는 본 반복에서 다시 받다 기록된다
 
 
 def seed_of(nm):
@@ -192,7 +214,9 @@ def main():
                     ofsq.append(k)
             q = {k: q[k] for k in sorted(q)}
         fs = "OFS" if q and len(ofsq) == len(q) else "CFS"
-        seg, how, restq = segs_of(nm, rep)
+        cache = {} if allp else dict(prev.get("segCum") or {})
+        seg, how, restq = segs_of(nm, rep, cache=cache)
+        import ism_lib as _L; _L._DOC.clear()             # 원문 캐시는 종목 안에서만 — 50종목 원문을 다 들고 있으면 러너 메모리가 찬다
         sd = seed_of(nm)
         qfix, basis, old = {}, {}, {}
         fy = sd.pop("_fy", None)
@@ -218,7 +242,7 @@ def main():
             fails.append(f"{nm}: 분기 {len(prev['q'])}→{len(q)} — 이전 값 유지")
             continue
         out["s"][nm] = {"corp": corp, "fs": fs, "q": q, "seg": seg or prev.get("seg") or {}, "segHow": how or prev.get("segHow"),
-                        "src": rep}
+                        "src": rep, "segCum": cache}
         if ofsq and fs == "CFS":
             out["s"][nm]["ofs"] = sorted(ofsq)              # 별도로 채운 분기(화면이 표시)
         if qfix:
