@@ -24,7 +24,8 @@ KST = datetime.timezone(datetime.timedelta(hours=9))
 #   주말엔 러너 회차가 12·20시 둘뿐이라 한 번 막히면 그날 예매·일별이 통째로 빈다(10/4 실제로 그랬다).
 #   인자 없이 부르면 KOBIS 예매·일별만 받는다(좌석 --seats 는 boxseats.yml 몫).
 COLLECTORS = [("게임머니", "fetch_gamemoney.py"), ("올리브영", "fetch_beauty.py"),
-              ("극장가(KOBIS)", "fetch_boxoffice.py")]
+              ("극장가(KOBIS)", "fetch_boxoffice.py"),
+              ("다이소몰", "fetch_daiso.py")]
 
 
 def git(*a):
@@ -62,7 +63,7 @@ def main():
         #   대신 평일 20:30 은 생략(다음 날 06시 배포에 실림) · 주말 08:30 도 생략(06시 직후라 바뀐 게 적다) → 빌드 수 그대로.
         t = datetime.datetime.now(KST)
         quiet = t.hour >= 7 and (t.weekday() < 5 or t.hour < 20)
-        c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영·KOBIS) {now} KST" + (" [CI Skip]" if quiet else ""))
+        c = git("commit", "-m", f"한국 IP 수집(게임머니·올리브영·KOBIS·다이소) {now} KST" + (" [CI Skip]" if quiet else ""))
         if "nothing to commit" in (c.stdout + c.stderr):
             print("변동 없음 — push 생략"); return 0
         p = git("push", "origin", "main")

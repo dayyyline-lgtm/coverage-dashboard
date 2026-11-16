@@ -268,7 +268,7 @@ const FRESH_LIMITS = [
   ["SOOP","SOOP",30],["TOPTOON","탑툰챗",30],["AICHAT","AI챗 앱순위",30],["GAMEMONEY","게임머니",30],
   ["GAMEBIT","쌀먹 거래대금",30],["DCGALL","디시 글수",30],["APPRANK","앱 매출순위",30],["STORERANK","스토어 순위",30],
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
-  ["QOO10","Qoo10 JP 뷰티",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
+  ["QOO10","Qoo10 JP 뷰티",40],["DAISO","다이소몰",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
   ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],["ADR","호텔 ADR(Google 호텔 아침 크롬)",168],
 ];
 
@@ -11580,7 +11580,7 @@ function cosRenderPane(t){
   if(t==="top"){ run(renderKmj,"한투 Top100"); run(renderAmzTrend,"브랜드별 추이"); }
   if(t==="brand") run(renderAmzBrand,"브랜드별 상세");
   if(t==="sub") run(renderAmzSub,"미국 세부 카테고리");
-  if(t==="raw"){ run(renderKbOverview,"회사 채널 모델"); run(renderKmj,"제품별 순위"); run(renderQoo10,"Qoo10"); }
+  if(t==="raw"){ run(renderKbOverview,"회사 채널 모델"); run(renderKmj,"제품별 순위"); run(renderQoo10,"Qoo10"); run(renderDaiso,"다이소몰"); }
 }
 (function cosTabsInit(){
   const el=document.getElementById("cosTabs"); if(!el) return;
@@ -12612,6 +12612,38 @@ function renderQoo10(){
       <div class="fold-b"><div class="tbl-wrap"><table>
         <thead><tr><th style="text-align:right">순위</th><th style="text-align:left">브랜드</th><th style="text-align:left">상품</th><th style="text-align:right">가격</th><th style="text-align:right">리뷰</th></tr></thead>
         <tbody>${iRows}</tbody></table></div></div></details>`;
+}
+/* ══ 다이소몰 누적 주문(DAISO · fetch_daiso.py · 2026-11-17) ══════════════════════════════════
+   커버리지 종목의 다이소 전용 브랜드(본셉 = 토니모리 · VT · 마데카21 · 어퓨 · 리얼베리어 · 미모 바이 마몽드 · 더페이스샵 · 트윙클팝).
+   상품마다 누적 주문 수를 매일 찍고 어제와 둘 다 있는 상품만 뺀다 = 그날 온라인 주문(매장 판매는 안 보인다).
+   Qoo10 접힘 바로 아래에 JS 로 붙인다(index.html 무편집). */
+function renderDaiso(){
+  if(typeof DAISO==="undefined"||!DAISO.s) return;
+  let fold=document.getElementById("dsoFold");
+  if(!fold){ const q=document.querySelector('details[data-fold="q10"]'); if(!q) return;
+    fold=document.createElement("details"); fold.id="dsoFold"; fold.className="fold side-fold"; fold.dataset.fold="daiso"; fold.style.marginTop="8px";
+    fold.innerHTML=`<summary><span class="sf-t">다이소몰 · 누적 주문</span><span class="sf-s" id="dsoSum"></span></summary><div class="fold-b"><div id="dsoBox"></div></div>`;
+    q.insertAdjacentElement("afterend", fold); }
+  const BR={"토니모리":"본셉","브이티":"VT","동국제약":"마데카21","에이블씨엔씨":"어퓨","네오팜":"리얼베리어","아모레퍼시픽":"미모 바이 마몽드","LG생활건강":"더페이스샵","클리오":"트윙클팝"};
+  const sum=(a,n)=>{ const v=(a||[]).slice(-n).filter(x=>x!=null); return v.length?v.reduce((t,x)=>t+x,0):null; };
+  const nd=(a,n)=>(a||[]).slice(-n).filter(x=>x!=null).length;
+  const rows=Object.entries(DAISO.s).sort((x,y)=>(y[1].c.slice(-1)[0]||0)-(x[1].c.slice(-1)[0]||0)).map(([st,v])=>{
+    const t=(DAISO.top||{})[st]||[], o1=sum(v.o,1), o7=sum(v.o,7), w7=sum(v.w,7), n7=nd(v.o,7);
+    return `<tr><td style="text-align:left"><span class="clickable" data-stock="${attr(st)}" style="font-weight:700">${attr(st)}</span> <span style="color:var(--muted2);font-size:11px">${attr(BR[st]||"")}</span></td>
+      <td style="text-align:right">${v.n.slice(-1)[0]||0}개</td>
+      <td style="text-align:right">${amzNum(v.c.slice(-1)[0]||0)}</td>
+      <td style="text-align:right">${o1!=null?amzNum(o1):"—"}</td>
+      <td style="text-align:right">${o7!=null?amzNum(o7)+(n7<7?` <span style="color:var(--muted2);font-size:10.5px">(${n7}일)</span>`:""):"—"}</td>
+      <td style="text-align:right">${w7!=null?fmt(w7/100,1)+"억":"—"}</td>
+      <td style="text-align:left;color:var(--muted);font-size:11.5px;white-space:normal;max-width:300px">${t[0]?attr(t[0][0])+` · ${amzNum(t[0][2])}`:""}</td></tr>`; }).join("");
+  const d0=Object.values(DAISO.s).map(v=>v.d[0]).sort()[0];
+  const ds=document.getElementById("dsoSum"); if(ds) ds.textContent=`${fmtUpd(DAISO.asOf)||""} · ${d0} 부터`;
+  document.getElementById("dsoBox").innerHTML=`
+    <p class="note" style="margin:-4px 0 10px">다이소몰 상품마다 <b>누적 주문 수</b>를 매일 찍어 어제와 뺀 값(둘 다 있는 상품만) — 온라인 주문만이고 매장 판매는 안 보인다.
+      토니모리 '신채널'(다이소·올리브영·PX · 3Q26 84억)의 대리 지표로 쌓는 중 — 몇 분기 쌓이면 손익 모델 검산에 넣는다.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th style="text-align:left">종목 · 다이소 브랜드</th><th style="text-align:right">상품</th><th style="text-align:right">누적 주문</th><th style="text-align:right">어제 주문</th><th style="text-align:right">7일 주문</th><th style="text-align:right">7일 주문액</th><th style="text-align:left">1위 상품 · 누적</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
 }
 (function amzInit(){
   const seg=document.getElementById("amzMetricSeg");
