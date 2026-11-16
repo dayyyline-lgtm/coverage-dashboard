@@ -130,6 +130,20 @@ def load_block(html):
     return (json.loads(m.group(1)), m) if m else (None, None)
 
 
+def save(html, out):
+    """ISM 블록을 다시 써 넣고 파일에 저장 → 새 html."""
+    o = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "s": out["s"]}
+    block = "const ISM = " + json.dumps(o, ensure_ascii=False, separators=(",", ":")) + ";"
+    m = re.search(r"^const ISM = (\{.*?\});$", html, re.M | re.S)
+    if m:
+        html = html[:m.start()] + block + html[m.end():]
+    else:
+        a = re.search(r"^const TREND = ", html, re.M)
+        html = html[:a.start()] + block + "\n" + html[a.start():]
+    open(HTML, "w", encoding="utf-8").write(html)
+    return html
+
+
 def main():
     if not C2.DART_KEY:
         note_health("분기 손익(ISM)", "DART 키 없음"); print("DART 키 없음"); sys.exit(1)
@@ -138,6 +152,12 @@ def main():
     old = old or {"s": {}}
     only = next((a.split("=", 1)[1].split(",") for a in sys.argv if a.startswith("--only=")), None)
     allp = "--all" in sys.argv
+    # 시간 예산(분) — 실적 시즌엔 새 보고서가 수십 개라 원문(document.xml)만 수백 개다. 스텝 시간 제한에 잘리면 그때까지 받은 것도
+    #   전부 사라졌다(2026-11-13·15 events 취소 · 11-17 ism.yml 20분 취소). 예산을 넘기면 새 종목을 시작하지 않고 저장 —
+    #   남은 종목은 src 가 안 바뀌어 다음 회차가 이어받는다. 종목 하나 끝날 때마다 파일에도 쓴다.
+    budget = float(next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--budget=")), "12")) * 60
+    t0 = time.time()
+    left = []
     C = corps(html)
     out = {"s": dict(old.get("s") or {})}
     fails, done = [], 0
@@ -152,6 +172,8 @@ def main():
         time.sleep(0.3)
         if not allp and prev.get("src") == rep and prev.get("q") and ((nm not in SEG and not seed_of(nm)) or prev.get("seg")):
             continue                                      # 새 보고서 없음
+        if time.time() - t0 > budget:
+            left.append(nm); continue                     # 예산 초과 — 다음 회차로
         try:
             q = C2.dart_quarters("CFS", Y0, corp)
         except Exception as e:
@@ -209,20 +231,15 @@ def main():
             out["s"][nm]["segFy"] = fy                      # 연간 새/옛 분류 겹침(새/옛 비율용)
         done += 1
         lq = sorted(q)[-1] if q else "-"
-        print(f"[ISM] {nm:10} {fs} 분기 {len(q)}개(마지막 {lq} 매출 {q.get(lq, {}).get('rev')}) · 부문 {len(seg)}개 분기")
+        print(f"[ISM] {nm:10} {fs} 분기 {len(q)}개(마지막 {lq} 매출 {q.get(lq, {}).get('rev')}) · 부문 {len(seg)}개 분기", flush=True)
+        html = save(html, out)                            # 종목마다 저장 — 잘려도 여기까지는 남는다
+    if left:
+        print(f"[ISM] 시간 예산 {budget / 60:.0f}분 초과 — 다음 회차로 넘긴 종목 {len(left)}: {', '.join(left)}")
     note_health("분기 손익(ISM)", ("; ".join(fails[:4]) if len(fails) > max(3, len(C) // 4) else None))
     if not done and m:
         print("[ISM] 새 보고서 없음"); return
-    out["asOf"] = datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST")
-    out = {"asOf": out["asOf"], "s": out["s"]}
-    block = "const ISM = " + json.dumps(out, ensure_ascii=False, separators=(",", ":")) + ";"
-    if m:
-        html = html[:m.start()] + block + html[m.end():]
-    else:
-        a = re.search(r"^const TREND = ", html, re.M)
-        html = html[:a.start()] + block + "\n" + html[a.start():]
-    open(HTML, "w", encoding="utf-8").write(html)
-    print(f"[ISM] 블록 갱신 {len(block) // 1024}KB · 이번에 받은 종목 {done} · 실패 {len(fails)}")
+    html = save(html, out)
+    print(f"[ISM] 이번에 받은 종목 {done} · 넘긴 종목 {len(left)} · 실패 {len(fails)}")
     for f in fails:
         print("   ", f)
 

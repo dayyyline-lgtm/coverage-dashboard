@@ -34,7 +34,7 @@ jobs:
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           ARGS: ${{ inputs.args }}
-        run: python runstep.py "분기 손익(ISM)" fetch_ism.py $ARGS
+        run: python runstep.py "분기 손익(ISM)" fetch_ism.py --budget=15 $ARGS   # 시간 예산 15분(스텝 20분 안) — 넘긴 종목은 다음 실행이 잇는다
 
       - name: 변경분 커밋
         run: |
