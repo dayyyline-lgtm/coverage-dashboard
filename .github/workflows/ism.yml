@@ -1,0 +1,61 @@
+# 종목별 분기 손익 재료(ISM)만 따로 — fetch_ism.py → const ISM (2026-11-17 신설)
+#
+# 평소엔 아침 수집(events.yml)의 한 스텝이다. 실적 시즌(분기말 45일)엔 보고서가 하루에 몰리는데
+# events.yml 이 취소·지연되면(11/13·11/15 취소) 손익 탭이 며칠씩 옛 분기에 멈춘다 — 그때 손으로 돌린다.
+# 파서를 고쳤으면 args 에 --only=종목 또는 --all.
+name: ism
+
+on:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "fetch_ism.py 인자 (비우면 새 보고서가 나온 종목만 · --only=토니모리 · --all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  ism:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 종목별 분기 손익 재료
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          ARGS: ${{ inputs.args }}
+        run: python runstep.py "분기 손익(ISM)" fetch_ism.py $ARGS
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html health.json; then
+            echo "변경 없음 - 커밋 생략"; exit 0
+          fi
+          git add public/index.html health.json
+          git commit -m "분기 손익 재료(ISM) $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST')"
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "푸시 밀림 - 재시도 $i"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              if python merge_blocks.py && GIT_EDITOR=true git rebase --continue; then
+                sleep $((i * 3)); continue
+              fi
+              git rebase --abort || true
+              echo "리베이스 충돌 - 이번 회차 커밋 포기"; exit 1
+            fi
+            sleep $((i * 3))
+          done
+          echo "푸시 5회 실패"; exit 1
