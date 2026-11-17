@@ -5808,6 +5808,7 @@ function dwAuto(mv, A){
 function dwParams(mv){ const A=dwAsmGet(), au=dwAuto(mv, A), P={...A};
   Object.keys(au).forEach(k=>{ if(k[0]!=="_"&&A[k]==null) P[k]=+au[k].toFixed(1); }); P._auto=au; P._shop=dwShop(P); P._nin=dwNin(P); return P; }
 
+const DW_DET=["card","lcG","lcB","lcL","pbB","pbL","cgG","cgP","cgB","cgO","gsG","psP","sgL","sgR","sgF","sgA","sgD","sgT","sgO"];   // DART 주석 세부(실적 분기만)
 function dwBuild(P, mv){
   const D=DWMODEL, act=new Set(dwActQ()), last=[...act].pop(), Q={};
   const sgv=(q,k)=>(D.seg[q]&&D.seg[q][DW_SEG[k]])||[0,0];
@@ -5821,8 +5822,27 @@ function dwBuild(P, mv){
       [o.lc,o.lcOp]=sgv(q,"lc"); [o.ds,o.dsOp]=sgv(q,"ds"); [o.bc,o.bcOp]=sgv(q,"bc"); [o.pb,o.pbOp]=sgv(q,"pb"); [o.adj,o.adjOp]=sgv(q,"adj");
       o.lcEx=o.lc-o.mv; o.lcExOp=o.lcOp-o.mvOp;
       let ir=DW_IR[q]; o.irEst=!ir;
-      if(!ir){ const b=Q[c2QAdd(q,-4)], t=b&&!b.lite?b.n+b.t+b.s:0; ir=t?[b.n,b.t,b.s].map(v=>v/t*o.ds):[o.ds,0,0]; }
+      const dq=(D.det||{})[q]||{}, rt=dq.rt||{}, cg=dq.cg, sg=dq.sg, R=(k,i)=>rt[k]?rt[k][i]:null;
+      o.card=R("제품",1);                                                    // 유통 '제품매출' = 자체 제작 카드(유희왕·뱅가드 등)
+      if(!ir){ const b=Q[c2QAdd(q,-4)], pyO=b&&!b.lite?b.dsO:0;
+        // TCG = DART 자체 제작 카드 + 최근 4분기 평균 (IR TCG − DART 카드) — 차이는 IR 이 TCG 로 세는 수입 카드 상품
+        const gq=Object.keys(DW_IR).filter(x=>x<q&&D.det&&D.det[x]&&D.det[x].rt&&D.det[x].rt["제품"]).sort().slice(-4);
+        const gap=gq.length?gq.reduce((t,x)=>t+DW_IR[x][1]-D.det[x].rt["제품"][1],0)/gq.length:0;
+        const t=o.card!=null?o.card+gap:(b&&!b.lite?b.t/(b.ds||1)*o.ds:0), rest=o.ds-t-pyO;
+        // 닌텐도·Shop = 나머지를 그 분기 수입 모델 추정 비중으로(없으면 전년 동기 비중)
+        const ne=P._nin?P._nin.est(q):null, se=P._shop?P._shop.est(q):null;
+        const wn=(ne&&se)?ne.v/(ne.v+se.v):(b&&!b.lite&&b.n+b.s)?b.n/(b.n+b.s):0.7;
+        ir=[rest*wn, t, rest*(1-wn)];
+        o.irWhy={t:o.card!=null?`IR 미입력 — DART 자체 제작 카드 ${fmt(o.card,1)} + 최근 ${gq.length}분기 평균 (IR TCG − DART 카드) ${fmt(gap,1)} (${gq.map(c2QLab).join("·")})`:"IR 미입력 — DART 유통을 전년 동기 비중으로 나눔",
+          n:`IR 미입력 — 유통 ${fmt(o.ds,1)} − TCG ${fmt(t,1)} − 기타 ${fmt(pyO,1)} = ${fmt(rest,1)} 를 ${ne&&se?`수입 모델 추정(닌텐도 ${fmt(ne.v,1)} · Shop ${fmt(se.v,1)})`:"전년 동기"} 비중 ${fmt(wn*100,0)}% 로 나눔`};
+        o.irWhy.s=o.irWhy.n; }
       [o.n,o.t,o.s]=ir; o.dsO=o.ds-(o.n+o.t+o.s);
+      // DART 주석 세부 — 매출 유형(부문 × 유형) · 매출원가 · 판관비 (실적 분기만)
+      o.lcG=R("상품",0); o.lcB=R("방송",0); o.lcL=R("라이선스",0); o.pbB=R("제품",3); o.pbL=R("라이선스",3);
+      if(cg){ o.cgG=cg["상품"]; o.cgP=cg["제품"]; o.cgB=cg["방송"]; o.cgO=cg["그 밖"]||0;
+        const gs=R("상품",5); o.gmG=(gs&&o.cgG!=null)?(gs-o.cgG)/gs:null; o.gsG=gs;
+        const ps=(R("제품",5)||0)+(R("라이선스",5)||0); o.gmP=(ps&&o.cgP!=null)?(ps-o.cgP)/ps:null; o.psP=ps; }
+      if(sg){ o.sgL=sg["인건비"]; o.sgR=sg["임차료"]; o.sgF=sg["지급수수료"]; o.sgA=sg["광고선전비"]; o.sgD=sg["상각비"]; o.sgT=sg["운반비"]; o.sgO=sg["그 밖"]; }
       ["rev","cogs","gp","sga","op","pbt","np","npp"].forEach(k=>o[k]=f[k]);
       o.nonop=o.pbt-o.op; o.tax=o.pbt-o.np; o.minor=o.np-o.npp;
     } else {
@@ -5873,7 +5893,9 @@ function dwBuild(P, mv){
     "nonop","pbt","tax","np","minor","npp","mvBox","mvRoy","mvAud"], Y={};
   ["2024","2025","2026","2027"].forEach(y=>{ const qq=[1,2,3,4].map(k=>Q[`${y}Q${k}`]); if(qq.some(x=>!x)) return;
     const o={q:y, yr:1, act:qq.every(x=>x.act), lite:qq.some(x=>x.lite)}; K.forEach(k=>o[k]=qq.reduce((s,x)=>s+(x[k]||0),0));
-    o.opm=o.rev?o.op/o.rev:null; o.gpm=o.rev?o.gp/o.rev:null; o.irEst=qq.some(x=>x.irEst); Y[y]=o; });
+    o.opm=o.rev?o.op/o.rev:null; o.gpm=o.rev?o.gp/o.rev:null; o.irEst=qq.some(x=>x.irEst);
+    DW_DET.forEach(k=>{ o[k]=qq.every(x=>x[k]!=null)?qq.reduce((s,x)=>s+x[k],0):null; });
+    o.gmG=(o.gsG&&o.cgG!=null)?(o.gsG-o.cgG)/o.gsG:null; o.gmP=(o.psP&&o.cgP!=null)?(o.psP-o.cgP)/o.psP:null; Y[y]=o; });
   return {Q, Y, last};
 }
 
@@ -5929,18 +5951,37 @@ function renderDwModel(){
     {k:"lc", t:"라이선스/콘텐츠", i:1, b:1, g:"rev"},
     {k:"mv", t:"치이카와 극장판 (흥행 모델)", i:2, z:1, g:"rev"},
     {k:"lcEx", t:"라이선스·콘텐츠 (영화 제외)", i:2, g:"rev"},
+    {k:"lcL", t:"유형 · 로열티·라이선스 (기간 인식)", i:2, g:"rev", d:1},
+    {k:"lcB", t:"유형 · 방송·배급 판권", i:2, g:"rev", d:1},
+    {k:"lcG", t:"유형 · 상품 판매", i:2, g:"rev", d:1},
     {k:"ds", t:"유통", i:1, b:1, g:"rev"},
     {k:"n", t:"닌텐도 (IR)", i:2, g:"rev", ir:1},
     {k:"t", t:"TCG (IR)", i:2, g:"rev", ir:1},
+    {k:"card", t:"└ 자체 제작 카드 (DART 유통 제품매출)", i:3, g:"rev", d:1},
     {k:"s", t:"Shop — 매장·이치방쿠지 (IR)", i:2, g:"rev", ir:1},
     {k:"dsO", t:"기타 (DART 유통 − IR 합)", i:2, g:"rev"},
     {k:"bc", t:"방송", i:1, b:1, g:"rev"},
     {k:"pb", t:"출판", i:1, b:1, g:"rev"},
+    {k:"pbB", t:"서적 (제품매출)", i:2, g:"rev", d:1},
+    {k:"pbL", t:"웹툰·라이선스 (기간 인식)", i:2, g:"rev", d:1},
     {k:"adj", t:"내부거래 조정", i:1, g:"rev"},
     {k:"gp", t:"매출총이익", b:1, tg:"cost", top:1},
     {k:"gpm", t:"GPM", r:"gpm"},
     {k:"cogs", t:"매출원가", i:1, g:"cost"},
+    {k:"cgG", t:"상품원가 (닌텐도·Shop 등)", i:2, g:"cost", d:1},
+    {k:"cgG", t:"상품 매출총이익률", r:"gmG", i:2, g:"cost"},
+    {k:"cgP", t:"제품원가 (카드·서적·라이선스)", i:2, g:"cost", d:1},
+    {k:"cgP", t:"제품 매출총이익률", r:"gmP", i:2, g:"cost"},
+    {k:"cgB", t:"방송원가", i:2, g:"cost", d:1},
+    {k:"cgO", t:"그 밖", i:2, g:"cost", d:1},
     {k:"sga", t:"판관비", i:1, g:"cost"},
+    {k:"sgL", t:"인건비 (급여·퇴직·복리후생)", i:2, g:"cost", d:1},
+    {k:"sgF", t:"지급수수료", i:2, g:"cost", d:1},
+    {k:"sgR", t:"지급임차료 (매장)", i:2, g:"cost", d:1},
+    {k:"sgA", t:"광고선전비", i:2, g:"cost", d:1},
+    {k:"sgD", t:"감가·무형 상각비", i:2, g:"cost", d:1},
+    {k:"sgT", t:"운반비", i:2, g:"cost", d:1},
+    {k:"sgO", t:"그 밖", i:2, g:"cost", d:1},
     {k:"mvPa", t:"그중 치이카와 P&A", i:2, z:1, g:"cost"},
     {k:"op", t:"영업이익", em:1, hl:1, tg:"op"},
     {k:"opm", t:"영업이익률", r:"opm"},
@@ -5998,7 +6039,9 @@ function renderDwModel(){
     if(row.r==="yoy"){ const p=prevOf(o); v=p?chg(o[row.k],p[row.k]):"—"; }
     else if(row.r==="qoq"){ v=o.yr?"":chg(o[row.k],(Q[c2QAdd(o.q,-1)]||{})[row.k]); }
     else if(row.r==="opyoy"){ const p=prevOf(o); v=p?opChg(o[row.k],p[row.k]):"—"; }
-    else if(row.r==="opm"||row.r==="gpm"){ const x=o[row.r]; v=x==null?"—":fmt(x*100,1)+"%"; }
+    else if(["opm","gpm","gmG","gmP"].includes(row.r)){ const x=o[row.r]; v=x==null?"—":fmt(x*100,1)+"%";
+      if(row.r==="gmG"&&x!=null) tip=`(상품매출 ${fmt(o.gsG,1)} − 상품원가 ${fmt(o.cgG,1)}) ÷ 상품매출 — DART 주석`;
+      if(row.r==="gmP"&&x!=null) tip=`(제품·라이선스 매출 ${fmt(o.psP,1)} − 제품원가 ${fmt(o.cgP,1)}) ÷ 제품·라이선스 매출 — DART 주석`; }
     else if(row.m==="hdr"){ v=""; }
     else if(["jp","cn","sm","sr"].includes(row.m)){ const x=iv(o,row.m), I=SH&&!o.yr?SH.inp[o.q]:null;
       v=x==null?"—":row.m==="sr"?`<span class="${cls(x)}">${sign(x,1)}</span>`:fmt(x,1);
@@ -6026,7 +6069,10 @@ function renderDwModel(){
     else { const x=o[row.k];
       v=(o.lite&&!LITE.has(row.k))?"—":(MVK.has(row.k)&&!x)?"—":f1(x);
       tip=(o.why&&o.why[row.k])||(MVK.has(row.k)&&x?`흥행 모델 ${A.scn} 경로 — 최종 ${mv?man(mv.v):"—"}명 중 ${lab(o)} 귀속 ${man(o.mvAud)}명`:"");
-      if(row.ir&&o.irEst){ v+=`<sup style="color:var(--warn)">*</sup>`; tip="IR 분해 미입력 — DART 유통을 전년 동기 비중으로 나눔"; } }
+      if(row.ir&&o.irEst){ v+=`<sup style="color:var(--warn)">*</sup>`; tip=(o.irWhy&&o.irWhy[row.k])||"IR 분해 미입력 — DART 유통을 전년 동기 비중으로 나눔"; }
+      if(row.d){ if(x==null){ v="—"; tip=o.act?"DART 주석에 이 칸이 없다":"DART 주석 세부 — 실적 분기만(추정 칸은 합계만 세운다)"; }
+        else if(!tip) tip=row.k==="card"?`DART 연결 주석 '부문 × 매출 유형'에서 유통 부문의 제품매출 — 대원이 직접 만드는 카드(유희왕·뱅가드·디지몬 등). IR 의 TCG 는 수입 카드 상품까지 넣어 이보다 크다${o.t?` (TCG 의 ${fmt(x/o.t*100,0)}%)`:""}`
+          :"DART 연결 주석 — 누적 차분(4Q = 연간 − 3Q 누적)"; } }
     let st=thS(o,k)+(row.em?`font-weight:800;border-top:${EM};border-bottom:${EM};`:row.b?"font-weight:700;":"")
       +(row.r?"font-size:11px;color:var(--muted);":"")+(row.z?"color:var(--accent);font-weight:700;":"");
     if(row.hl) st+=`background:${k===nextQ?"color-mix(in srgb, var(--accent) 24%, transparent)":"color-mix(in srgb, var(--accent) 7%, transparent)"};`;

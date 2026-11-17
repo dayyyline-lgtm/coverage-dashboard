@@ -15,7 +15,10 @@
        nsHw = 중국산 게임기 '기타'(9504.50-9000 — 스위치 본체·조이콘 등 · TV 전용인 PS5·엑스박스는 -1000 이라 빠진다)
        nsSw = 일본산 9504.90-9090 '기타' = **스위치 실물 게임카드**(2026-09-29 확인 — 일본의 대한국 HS950450 수출과 월별 상관 0.84 ·
               연간 비율 0.98~1.17 · 일본이 개수를 적은 달 개당 24~30달러·47~117g = 포장 게임). 한국 결정사례는 없어 데이터로 한 추론이다.
-  segCum {"2026-06": {...누적...}} · src {"2026-06": 접수번호}   원 누적값과 출처(다음 실행의 캐시)
+  det  {"2026Q3": {rt:{유형:[라이선스/콘텐츠,유통,방송,출판,조정,합계]}, cg:{상품,제품,방송,…,합계}, sg:{인건비,임차료,…,합계}}}
+       연결 주석 '부문 × 매출 유형'(수익) · 매출원가 구성 · 판관비 구성 — 누적 차분(2026-11-17 사용자 "DART 뜯어서 IS 세세히").
+       **유통의 '제품매출' = 자체 제작 카드(TCG)** — IR 의 TCG(DW_IR)보다 작다(수입 카드 상품이 빠진다 · 1Q25 만 같았다).
+  segCum {"2026-06": {...누적...}} · detCum(det 의 누적) · src {"2026-06": 접수번호}   원 누적값과 출처(다음 실행의 캐시)
   reclass {"2026-12": "2025-12 비교치 재분류: 방송 14.0→…"}   새 보고서의 전기 표가 우리 전년 값과 부문별로 다를 때(경고)
   ⚠ 부문은 **그 해 보고서의 원래 값**만 쓴다. 이 회사는 재분류 뒤 1Q·반기 비교치는 옛 기준, 3Q·사업보고서 비교치는
     새 기준으로 싣는다(2024 사업보고서에서 방송 일부 → 라이선스/콘텐츠) — 재작성 비교치를 쓰면 3Q24 방송 −5.3,
@@ -113,17 +116,93 @@ def _viewer_notes(rcept):
     return None
 
 
-def seg_tables(rcept):
-    """보고서 원문에서 '영업부문별 경영성과' 표 → [당기 누적, 전기 누적] (천원 → 십억)."""
+def doc_text(rcept):
+    """보고서 원문(가장 큰 문서) — 공시 당일 document.xml 이 없으면 뷰어의 연결 주석 화면."""
     b = urllib.request.urlopen(f"https://opendart.fss.or.kr/api/document.xml?crtfc_key={C2.DART_KEY}"
                                f"&rcept_no={rcept}", timeout=90).read()
     try:
         z = zipfile.ZipFile(io.BytesIO(b))
-        t = z.read(max(z.namelist(), key=lambda n: z.getinfo(n).file_size)).decode("utf-8", errors="replace")
+        return z.read(max(z.namelist(), key=lambda n: z.getinfo(n).file_size)).decode("utf-8", errors="replace")
     except zipfile.BadZipFile:
-        t = _viewer_notes(rcept)
-        if not t:
-            return None
+        return _viewer_notes(rcept)
+
+
+def _rows(body):
+    out = []
+    for tr in re.findall(r"<TR[^>]*>(.*?)</TR>", body, re.S | re.I):
+        cells = [_html.unescape(re.sub(r"<[^>]+>", "", c)).replace("\xa0", " ").strip()
+                 for c in re.findall(r"<T[DHE][^>]*>(.*?)</T[DHE]>", tr, re.S | re.I)]
+        if cells:
+            out.append(cells)
+    return out
+
+
+# 판관비 묶음 — 주석 계정 이름(공백 지움) → 화면 줄. 없는 계정은 '그 밖'
+SGA_MAP = {"급여": "인건비", "퇴직급여": "인건비", "주식보상비": "인건비", "복리후생비": "인건비",
+           "지급임차료": "임차료", "지급수수료": "지급수수료", "광고선전비": "광고선전비",
+           "감가상각비": "상각비", "무형자산상각비": "상각비", "사용권자산상각비": "상각비", "운반비": "운반비"}
+COGS_MAP = {"상품매출원가": "상품", "제품매출원가": "제품", "방송원가": "방송", "방송매출원가": "방송"}
+RT_KEY = {("한", "상품매출"): "상품", ("한", "제품매출"): "제품", ("한", "방송수익"): "방송", ("한", "기타매출"): "기타",
+          ("기", "제품매출"): "라이선스", ("기", "방송수익"): "방송L", ("기", "기타매출"): "기타L"}
+
+
+def detail_tables(t):
+    """연결 주석 세 표의 **당기 누적**(천원 → 십억):
+      rt   '부문 × 매출 유형'(수익 주석) {"상품": [라이선스/콘텐츠, 유통, 방송, 출판, 조정, 합계], "제품": …}
+           유통의 '제품' = 자체 제작 카드(유희왕·뱅가드 등 TCG) · 출판의 '제품' = 서적 · 기간에 걸친 '제품(라이선스)' = 로열티·웹툰
+      cg   매출원가 구성 {"상품":…, "제품":…, "방송":…, "합계":…}
+      sg   판관비 구성(SGA_MAP 으로 묶음) {"인건비":…, …, "그 밖":…, "합계":…}
+    연결 주석이 별도 주석보다 앞에 있어 첫 표가 연결이다."""
+    out = {}
+    # 1) 부문 × 매출 유형 — 머리 칸이 '라이선스/콘텐츠'로 시작하고 '상품매출' 줄이 있는 첫 표 = 당기 누적
+    for m in re.finditer(r"<TABLE[^>]*>(.*?)</TABLE>", t, re.S | re.I):
+        rows = _rows(m.group(1))
+        if not rows or len(rows[0]) < 6 or "라이선스/콘텐츠" not in rows[0][1].replace(" ", ""):
+            continue
+        if not any("상품매출" in "".join(r[:2]) for r in rows[1:3]):
+            continue
+        d, sect = {}, ""
+        for r in rows[1:]:
+            if len(r) == 8:
+                sect, r = r[0].replace(" ", "")[:1], r[1:]
+            if len(r) != 7:
+                continue
+            k = RT_KEY.get((sect, re.sub(r"\(.*?\)|\s", "", r[0])))
+            vals = [_n(x) for x in r[1:]]
+            if k and None not in vals:
+                d[k] = [round(v / 1e6, 3) for v in vals]
+        if d:
+            out["rt"] = d
+        break
+    # 2) 매출원가 · 판관비 — 열은 [3개월, 누적, 3개월, 누적](분기·반기) 또는 [당기, 전기](사업보고서) → 누적 칸
+    for key, name, mp in (("cg", "매출원가의 구성", COGS_MAP), ("sg", "판매비와관리비의 구성", SGA_MAP)):
+        i = t.find(name)
+        if i < 0:
+            continue
+        m = re.search(r"<TABLE[^>]*>(.*?)</TABLE>", t[i:i + 30000], re.S | re.I)
+        if not m:
+            continue
+        rows = _rows(m.group(1))
+        col = 1 if any("누적" in "".join(r) for r in rows[:2]) else 0
+        d = {}
+        for r in rows:
+            nm = r[0].replace(" ", "")
+            if nm in ("구분", "3개월") or len(r) <= col + 1:
+                continue
+            v = _n(r[col + 1])
+            if v is None:
+                continue
+            g = "합계" if nm.startswith("합계") else mp.get(nm, "그 밖")
+            d[g] = round(d.get(g, 0) + v / 1e6, 3)
+        if "합계" in d:
+            out[key] = d
+    return out
+
+
+def seg_tables(t):
+    """보고서 원문에서 '영업부문별 경영성과' 표 → [당기 누적, 전기 누적] (천원 → 십억)."""
+    if not t:
+        return None
     i = t.find("영업부문별")
     if i < 0:
         return None
@@ -259,11 +338,18 @@ def main():
     except Exception as e:
         reps = {}
         warn.append(f"DART 목록: {str(e)[:50]}")
+    det_cum = keep(copy.deepcopy(old.get("detCum", {})))
     for per, rc in sorted(reps.items()):
-        if src.get(per) == rc and per in seg_cum:
+        if src.get(per) == rc and per in seg_cum and per in det_cum:
             continue
         try:
-            tb = seg_tables(rc)
+            txt = doc_text(rc)
+            tb = seg_tables(txt)
+            dt = detail_tables(txt or "")
+            if dt.get("cg") and dt.get("sg"):
+                det_cum[per] = dt
+            else:
+                warn.append(f"{per} 원가·판관비 표 없음")
         except Exception as e:
             warn.append(f"{per} 원문 실패")
             print(f"  {per} {rc} 원문 실패: {str(e)[:60]}")
@@ -312,6 +398,33 @@ def main():
             print(f"  {k} 부문 이상 {bad} — 기준이 섞인 것으로 보고 뺌")
             del seg[k]
 
+    # 세부(매출 유형 · 원가 · 판관비) 누적 → 분기. 4Q = 연간 − 3Q 누적. 합계가 연결 손익과 1% 넘게 어긋나면 그 칸은 뺀다.
+    det = {}
+    for y in sorted({p[:4] for p in det_cum}):
+        ps = [f"{y}-{m}" for m in ("03", "06", "09", "12")]
+        for q, per in enumerate(ps, 1):
+            cur, base = det_cum.get(per), ({} if q == 1 else det_cum.get(ps[q - 2]))
+            if cur is None or base is None:
+                continue
+            qk, o = f"{y}Q{q}", {}
+            for part in ("rt", "cg", "sg"):
+                c, b = cur.get(part) or {}, base.get(part) or {}
+                if not c or (q > 1 and not b):
+                    continue
+                if part == "rt":
+                    o[part] = {k: [round(v - (b.get(k) or [0] * len(c[k]))[i], 3) for i, v in enumerate(c[k])] for k in c}
+                else:
+                    o[part] = {k: round(v - b.get(k, 0), 3) for k, v in c.items()}
+            f = fin.get(qk) or {}
+            if o.get("cg") and f.get("cogs") and abs(o["cg"]["합계"] - f["cogs"]) > 0.01 * abs(f["cogs"]) + 0.05:
+                warn.append(f"{qk} 원가 합계 불일치"); o.pop("cg")
+            if o.get("sg") and f.get("sga") and abs(o["sg"]["합계"] - f["sga"]) > 0.01 * abs(f["sga"]) + 0.05:
+                warn.append(f"{qk} 판관비 합계 불일치"); o.pop("sg")
+            if o.get("rt") and f.get("rev") and abs(sum(v[-1] for v in o["rt"].values()) - f["rev"]) > 0.01 * f["rev"] + 0.05:
+                warn.append(f"{qk} 매출 유형 합계 불일치"); o.pop("rt")
+            if o:
+                det[qk] = o
+
     try:
         imp = imports()
     except Exception as e:
@@ -329,7 +442,8 @@ def main():
     note_health("대원미디어 모델", (" · ".join(warn))[:160] if warn else None)
 
     out = {"asOf": datetime.datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"), "stock": "대원미디어",
-           "fin": fin, "seg": seg, "imp": imp, "reclass": notes, "segCum": seg_cum, "src": src}
+           "fin": fin, "seg": seg, "det": det, "imp": imp, "reclass": notes, "segCum": seg_cum,
+           "detCum": det_cum, "src": src}
     if warn:
         print("  경고:", " · ".join(warn))
     for k in sorted(fin)[-6:]:
@@ -337,13 +451,18 @@ def main():
         chk = sum(v[0] for v in s.values())
         print(f"  {k} 매출 {f.get('rev', 0):6.1f} 영업 {f.get('op', 0):5.1f} 순 {f.get('npp', 0):5.1f} | 부문 합 {chk:6.1f} · "
               + " ".join(f"{n[:2]} {v[0]:.1f}/{v[1]:.1f}" for n, v in s.items()))
+    for k in sorted(det)[-4:]:
+        d = det[k]
+        print(f"  {k} 세부 · 카드(유통 제품) {d.get('rt', {}).get('제품', [0, 0])[1]:.1f} · 원가 "
+              + " ".join(f"{n} {v:.1f}" for n, v in d.get("cg", {}).items()) + " · 판관비 "
+              + " ".join(f"{n} {v:.1f}" for n, v in d.get("sg", {}).items()))
     if "--dry-run" in sys.argv:
         return
     if imp.get("jpToy"):
         ks = sorted(imp["jpToy"])[-4:]
         print("  수입($M) 일본 완구", {k: imp["jpToy"][k] for k in ks}, "· 중국 피규어", {k: imp["cnFig"].get(k) for k in ks})
         print("  수입($M) 닌텐도 본체(중국)", {k: imp.get("nsHw", {}).get(k) for k in ks}, "· 게임카드(일본)", {k: imp.get("nsSw", {}).get(k) for k in ks})
-    if all(old.get(k) == out.get(k) for k in ("fin", "seg", "src", "reclass", "imp")):
+    if all(old.get(k) == out.get(k) for k in ("fin", "seg", "det", "src", "reclass", "imp")):
         print("변동 없음 — index.html 그대로 둠")
         return
     open(HTML, "w", encoding="utf-8").write(C2._put(html, "DWMODEL", out))
