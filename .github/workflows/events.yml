@@ -81,8 +81,9 @@ jobs:
     needs: gate
     if: needs.gate.outputs.go == '1'
     runs-on: ubuntu-24.04
-    # 실측 32~35분(2026-09-23). 스텝마다 상한 + 전체 55분 컷. 06:00 안에 끝난다.
-    timeout-minutes: 55
+    # 실측 32~35분(2026-09-23) → 43~55분(2026-11 · 수집기가 늘었다). 11/15 은 55분 컷에 걸려 맨 뒤 채용·KT&G 가 잘렸다 →
+    # 75분(2026-11-17). 레터에 필요한 스텝은 앞쪽이라 늦어져도 06:15 안 · 실적 시즌 ISM 은 자체 시간 예산(12분)으로 끊는다.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
