@@ -256,5 +256,13 @@
    "세부 카테고리 Top10 최근 7일 중 4일"
   ],
   "decision": "무시(운영사 우크라이나 등록 quiabeauty.com · 중국 생산 후기 · 비한국·비상장)"
+ },
+ "numbuzen": {
+  "name": "Numbuzen",
+  "asked": "2026-11-18",
+  "why": [
+   "뷰티 전체 Top100(JP)"
+  ],
+  "decision": "추가(넘버즈인 오타 표기 · 비나우 비상장 · 기존 numbuzin 줄에 패턴만 더함)"
  }
 }
