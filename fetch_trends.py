@@ -341,6 +341,17 @@ GROUPS = {
         "freq":   "week",
         "n":      26,
     },
+    # ── 삼립 (2026-11-17 추가) ───────────────────────────
+    # 코스트코 상품명이 'Samlip Soft Cheesecake' 라 미국 검색은 'soft cheesecake' 가 본선이다.
+    #   2026-11-17 구글 실측(미국 · 2023-01~ 주별): 'soft cheesecake' 25년 평균 21 → 26년 평균 61(5월 말 고점),
+    #   관련 급상승 검색어가 samlip(급등)·costco soft cheesecake(+1,450%)·korean soft cheesecake(+800%) — 삼립 현상이다.
+    #   'samlip' 단독은 검색량이 작아 0 이 많다(하루짜리 튐도 있다). 같은 그룹에 둬서 상대 크기만 본다.
+    "삼립 미국 검색(구글)": {
+        "google": ["soft cheesecake", "samlip", "korean cheesecake"],
+        "geo":    "US",
+        "freq":   "week",
+        "n":      52,
+    },
     # ── 게임 ──────────────────────────────────────────────
     # 신작 출시가 주가에 직결되는 섹터라 검색 스파이크가 곧 이벤트다.
     "배틀그라운드(크래프톤)": {

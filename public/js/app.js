@@ -1555,6 +1555,8 @@ const TREND_STOCK={
   "탑코미디어":["웹툰 플랫폼","탑툰챗","AI 챗봇 경쟁","제타(경쟁)","네오나(경쟁)"],   // 본업 경쟁 · 신사업 추이 · 상대위치 · 경쟁사 단독
   // 빙그레 — 국내 IP(일별) · 메로나 해외(주별, 계절성이라 6개월) · 브랜드 인지도(주별)
   "빙그레":["빙그레 IP","메로나 국가별","바나나맛우유 국가별","빙그레 브랜드(해외)"],
+  // 삼립(2026-11-17) — 미국 코스트코 'Samlip Soft Cheesecake' 검색(구글 미국 · 주별). 시흥 수출 프록시는 TRADE 에서 저절로 붙는다
+  "삼립":["삼립 미국 검색(구글)"],
   // 녹십자웰빙(2026-11-03) — 라이넥·영양주사 = 의원 비급여 수요 · 마운자로 = 상품 매출 · 이니보 = 톡신(지분법 이니바이오)
   "녹십자웰빙":["태반주사(라이넥)","미용 영양주사","비만치료제(마운자로)","톡신 브랜드(이니보)"],
 };
@@ -9356,7 +9358,7 @@ window.addEventListener("resize",()=>{
     ["색조 상세", ["색조 합계","색조-립","색조-아이","색조-파우더"]],
     ["마스크팩", ["마스크팩 전체","마스크팩","기타 조제화장품"]],
     ["헤어",     ["헤어 총계","샴푸","린스"]],
-    ["음식료",   ["라면","만두"]],
+    ["음식료",   ["라면","만두","케이크"]],
   ];
   let groupIdx=0;
   const groupOf=lbl=>{const g=ITEM_GROUPS.findIndex(([,ls])=>ls.includes(lbl));return g<0?0:g;};
@@ -9418,6 +9420,10 @@ window.addEventListener("resize",()=>{
     //   26-04-01 해태아이스크림 흡수합병으로 해태 물량도 빙그레 것이 됐다.
     "빙그레":     {items:["빙과","가공유","빙과(남양주)","바나나맛우유(남양주)"], mkt:["US","CN","VN","PH"],
                  note:"메로나·투게더(빙과) + 바나나맛우유(가공유) — 국가별은 업계 합계, 남양주는 빙그레 제조지 프록시(210500 의 85.9%)"},
+    // 삼립(2026-11-17) — 코스트코 소프트 치즈케이크(25.09~)·미니 보름달(26.05~)이 케이크(1905901030)로 나간다.
+    //   국가별은 다른 한국 업체도 섞인 업계 합계, 시흥(본사·시화공장)은 6자리 190590 이라 비스킷 등도 섞인다.
+    "삼립":      {items:["케이크","케이크·빵(시흥)"], mkt:["US","CA","JP"],
+                 note:"코스트코 치즈케이크·보름달 = 케이크(1905901030) — 국가별은 업계 합계(미국이 증가분 대부분), 시흥은 삼립 제조지 프록시(190590 · 나라 구분 없음)"},
   };
   const coOf=nm=>CO_TRADE[nm]||null;
   const relItems=nm=>{ const c=CO_TRADE[nm]; return c?c.items:[]; };   // 없으면 [] (수출 관련 없음)
@@ -10214,7 +10220,8 @@ function renderStockTab(name){
     const ism=(typeof renderIsm==="function"&&typeof ISM!=="undefined"&&ISM.s&&ISM.s[name])||(name==="녹십자웰빙"&&typeof renderGcwbModel==="function"&&typeof GCWBMODEL!=="undefined");   // 녹십자웰빙 = 전용 모델(gcwbmodel.js · 2026-11-02)
     const rt=typeof RETAIL_MAP!=="undefined"&&RETAIL_MAP[name]&&typeof RETAIL!=="undefined";
     const adr=typeof ADR_MAP!=="undefined"&&ADR_MAP[name]&&typeof ADR!=="undefined";   // 호텔 ADR 추적(2026-10-29) — 호텔신라·GS피앤엘·서부T&D
-    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+    const sl=name==="삼립"&&typeof renderSamlip==="function"&&typeof SAMLIP!=="undefined";   // 삼립 해외(코스트코) 추적(2026-11-17 · js/samlip.js)
+    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(sl?`<div id="spSamlip" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
       <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
@@ -10240,6 +10247,7 @@ function renderStockTab(name){
     // 산업부 유통업체 매출동향(2026-10-28 · RETAIL) — 유통 5종목
     if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
     if(adr){ try{ renderAdr(name, document.getElementById("spAdr")); }catch(err){ console.error("호텔 ADR", err); } }
+    if(sl){ try{ renderSamlip(document.getElementById("spSamlip")); }catch(err){ console.error("삼립 해외 추적", err); } }
     // 화장품 브랜드사 — 아마존(Keepa)·틱톡샵 채널 모델(2026-10-20 · KBCH)
     if(kb){ try{ renderKbModel(name, document.getElementById("spKb")); }catch(err){ console.error("채널 모델", err); } }
     if(mid){

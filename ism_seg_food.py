@@ -138,6 +138,40 @@ def p_binggrae(t, q):
     return {"냉장": [num(v[a], u), None], "냉동": [num(v[b], u), None]}, "cum"
 
 
+@seg("삼립")
+def p_samlip(t, q):
+    """주석 '영업부문에 대한 공시' — BAKERY·FOOD·유통·기타 부문 영업수익·영업이익(부문간 제거 전 · 제거는 '그 밖·조정')"""
+    # 양식이 둘이다(2026-11-17 원문 2024Q3·2025Q3·2026Q1·2026Q3 로 확인).
+    #   ① 2026 반기·3분기: 부문이 열 — 영업수익·영업이익 두 줄 × [부문별 3개월·누적] × BAKERY·FOOD·유통·기타·제거·합계
+    #   ② 1분기·사업보고서·2025 이전: 부문이 행 — 행마다 [영업수익, 영업이익] 또는 [3개월, 누적, 3개월, 누적]
+    # '사업의 내용' 매출실적 표도 BAKERY·FOOD·유통이 들어 있어 '영업이익' 이 든 표만 고른다(그 표엔 이익이 없다).
+    rows, u = _find(t, ["BAKERY", "FOOD", "유통", "영업이익"], "영업부문에 대한 공시")
+    if not rows:
+        rows, u = _find(t, ["BAKERY", "FOOD", "유통", "영업이익"])
+    if not rows:
+        return {}, "cum"
+    keys = ("BAKERY", "FOOD", "유통", "기타")
+    d = {}
+    rev = _vals(rows, ["영업수익", "수익(매출액)", "매출액"])
+    op = _vals(rows, ["영업이익(손실)", "영업이익"])
+    if rev and op and len(rev) >= 8 and len(op) >= 8:            # ① 부문이 열
+        st = 2 if len(rev) >= 12 else 1                          # [3개월, 누적] 쌍이면 누적(뒤 칸)
+        for j, k in enumerate(keys):
+            d[k] = [num(rev[j * st + st - 1], u), num(op[j * st + st - 1], u)]
+        return d, "cum"
+    for lab, v in labeled(rows):                                 # ② 부문이 행
+        up = (lab or "").upper()
+        k = ("BAKERY" if "BAKERY" in up else "FOOD" if "FOOD" in up else
+             "유통" if "유통" in lab else "기타" if "기타" in lab else None)
+        if not k or k in d:
+            continue
+        if len(v) >= 4:
+            d[k] = [num(v[1], u), num(v[3], u)]
+        elif len(v) >= 2:
+            d[k] = [num(v[0], u), num(v[1], u)]
+    return d, "cum"
+
+
 @seg("CJ제일제당")
 def p_cj(t, q):
     """주석 영업부문 — 식품·바이오·물류(CJ대한통운) 외부매출·영업이익(F&C 는 2025 중 중단영업)"""
