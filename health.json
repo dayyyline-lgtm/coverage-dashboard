@@ -2,9 +2,5 @@
  "네이버 쇼핑인사이트": {
   "t": "2026-11-19 05:30",
   "msg": "인증 실패(쇼핑인사이트 권한 없음) legacy 401 {\"errorMessage\":\"Scope Status Invalid : Authentication failed. (인증에 실"
- },
- "게임머니": {
-  "t": "2026-11-19 05:18",
-  "msg": "전부 실패: 제우스:오만의신/아테나1 HTTPError HTTP Error 404: Not Found; 제우스:오만의신/아테나2 HTTPError HTTP Error 404: Not Found; 제우스:오만의신/아테나3 HTTP (종료코드 1)"
  }
 }
