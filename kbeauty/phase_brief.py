@@ -512,8 +512,12 @@ def due():
     mon = now - dt.timedelta(days=(now.weekday() + 1) % 7)   # 가장 최근 일요일(오늘이 일요일이면 오늘)
     files = sorted((HERE / "data" / "phase").glob("20??-??-??.json"))
     last = dt.date.fromisoformat(files[-1].name[:10]) if files else dt.date(2000, 1, 1)
-    print(f"마지막 국면 원재료 {last} · 이번 주 일요일 {mon} → {'차례' if last < mon else '이미 받음'}")
-    return last < mon
+    # 파일 이름 = Keepa asOf(미국 날짜). 일요일 06:50 KST 회차는 미국이 아직 토요일이라 asOf 가 토요일로 찍힌다
+    # (2026-11-22 회차 → 2026-11-21.json). 토요일 회차는 로그인 점검만 하므로 토요일 asOf = 이번 주 일요일 회차로 본다.
+    # 전엔 last < 일요일 이라 월요일이 8개국을 처음부터 다시 돌고(미·영·독·일), 빠진 프·스·이·캐는 또 한도에 밀렸다.
+    got = last >= mon - dt.timedelta(days=1)
+    print(f"마지막 국면 원재료 {last} · 이번 주 일요일 {mon} → {'이미 받음' if got else '차례'}")
+    return not got
 
 
 MKN = {"uk": "영국", "de": "독일", "fr": "프랑스", "it": "이탈리아", "es": "스페인", "jp": "일본", "ca": "캐나다"}
