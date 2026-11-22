@@ -1,0 +1,303 @@
+H|8|2026-11-22|24286|24322|230|recent|1b1uzwr
+F|2|4590|24|12.2505|-0.5765|-1.1432|own|1s12uvi
+F|4|1517|26|11.1965|-0.6921|-0.8224|own|61ush1
+F|8|1911|25|11.5053|-0.7090|-0.8433|own|kyf1v0
+X|1|medicube|no-domain|pgwaeh
+A|2|medicube|243|188|9jio,nnko,9hf0|3up58,9d5u2,3u7w0|8|shusd3
+T|2|medicube|1|B0HN54FBCL|6|medicube Toner Pads Zero Pore Pad 2.0 fo|tg||3iq2,b5hd,chtk,ha27,uuch,tona,oevq,vz0o,zrvh,ukhn,xqht,464vx,lbzx|15w87ys
+T|2|medicube|2|B0G7VWP49L|3|medicube Jelly Cream with Collagen Niaci|v4||xda,25v0,2uzs,7ckp,99ou,7ckp,bmio,9r7m,brp8,a6ja,a6ja,m11b,9jx9|1x13fya
+T|2|medicube|3|B0G6K9M5SJ|3|medicube Jelly Gel Mask with Salmon DNA|ox||1ta0,47zn,4d7f,agaq,aps4,agaq,8ezn,f1nb,crid,90av,6yf5,lt3w,biz4|s1tlx5
+T|2|medicube|4|B0DNDYDG2Y|5|medicube PDRN Pink Peptide Serum with Sa|qd||1rrz,2cha,2z0a,4oyk,7tll,7tll,ak8w,7jls,ak8w,a8wk,avrz,az1p,7vxl|ct36ve
+X|3|medicube|no-domain|148kpid
+A|4|medicube|204|157|1sdx,2pzy,1upw|wbyz,1beog,xa1c|4|ujwgi6
+T|4|medicube|1|B0FL2CPQSX|6|medicube Zero Pore Pad 2.0 Pads Exfolian|yv||6v1,chr,ifh,p9j,1k4h,1fx2,1d29,1tst,1hfg,3p8j,3p8i,79jd,33g1|pmsj27
+T|4|medicube|2|B0FPCC599C|1|medicube Body Peel Shot a l'Acide hypoch|15e||,,,,,os,5oa,20y9,20y9,5pk0,38hc,3pzr,1j69|1s2qtd7
+T|4|medicube|3|B0GHMZXX8Y|1|medicube Stick Baume Multi Volume PDRN P|15e||,,,,,,,,9v,13o5,1zen,42of,2scx|a8x5ds
+T|4|medicube|4|B0HKJG4N6V|3|medicube Jelly Creme au Collagene Niacin|12m||b31,hoe,pme,g8e,u53,t0f,10g3,10g3,10g3,1pp7,25to,2ts6,1jsa|1w8v6ss
+X|5|medicube|no-domain|5va8ds
+X|6|medicube|no-domain|1frice2
+A|8|medicube|209|159|3010,61af,3bvq|1gtac,2vmt9,1q77j|3|8is20w
+T|8|medicube|1|B0GT81WM3M|6|medicube Toner Pads Zero Pore Pad 2.0|sq||asl,d3r,jdf,lz0,185i,zjx,1ua8,1q23,2ml9,7a5d,6q5h,bigy,3u1k|1qzjegh
+T|8|medicube|2|B0HN5JKHHD|3|medicube Jelly Cream with Collagen Niaci|15e||bsu,eht,rl9,e67,14eu,n81,23eq,2dzk,2rz6,5kh6,4ysc,blrq,57x0|138njeq
+T|8|medicube|3|B0H1YKCHDC|5|medicube PDRN Pink Peptide Serum with Sa|rt||d1a,kky,yax,kky,1pqv,yax,26n4,2iqo,51hc,55ri,5mne,9ne6,3lds|f5ltxp
+T|8|medicube|4|B0HN55RP4F|5|medicube Capsule Cream with Deep Vitamin|15e||pom,pom,1air,1c0t,1ig9,1mo1,2884,1ynr,2aev,4u7a,2vix,7i7s,4khm|17gi130
+X|9|medicube|no-domain|1iyf5zv
+X|1|aprilskin|no-domain|478bn
+A|2|aprilskin|7|6|1t,1f,1j|y8,r3,sx|44|99num8
+X|3|aprilskin|no-domain|1rga5y6
+A|4|aprilskin|8|6|r,u,p|jy,o6,ks|93|e1ncvo
+X|5|aprilskin|no-domain|55iq1k
+X|6|aprilskin|no-domain|taaa4b
+A|8|aprilskin|5|4|o,t,n|ib,o3,gp|93|t48pa0
+X|9|aprilskin|no-domain|afkrrp
+X|1|forment|no-domain|n5fe3u
+A|2|forment|0|0|,,|,,|0|1s5fa8s
+X|5|forment|no-domain|1fm7iko
+X|1|dalba|no-domain|m2yq15
+A|2|dalba|39|25|eb0,jw9,f0l|658y,8eff,6b8b|1|1tiper7
+T|2|dalba|1|B0CRGKF744|4|d'alba Piedmont Italian White Truffle Fi|zf||5t7h,5n1e,2c84,6a9a,759n,4zrd,4qje,6ccp,6hbg,3cux,3qgs,5kc5,3o71|n9j4al
+T|2|dalba|2|B09SZ5JX2Y|1|d'alba Piedmont Italian White Truffle Do|zf||3na,13e,9hd,10gw,1tn6,1f21,tii,1sxi,24qi,13a4,13a4,1eg9,138n|7x5vp5
+T|2|dalba|3|B0HGXMJJT8|5|d'alba Piedmont White Truffle Waterfull|vy||grd,grd,ifo,k3z,va8,va8,nt1,nt1,nt1,nfl,l17,otz,yuf|1vgmriv
+T|2|dalba|4|B0CW68D8CW|2|d'alba Piedmont Italian White Truffle Do|1fy||9w6,eyy,a1j,eyy,dcp,dcp,b0r,9h9,9h9,80r,80r,9cl,7u1|rhrqx5
+X|3|dalba|no-domain|176wkni
+A|4|dalba|39|28|297,2q3,29j|1bfm,1j1p,1ajr|18|1vsy4ic
+T|4|dalba|1|B0D95BXNYJ|2|d'alba Piedmont Truffe Blanche Italienne|1dw||f0u,s61,eou,a9l,hj0,is3,xei,uuy,tl6,klp,tbd,vic,t12|1jcoe29
+X|5|dalba|no-domain|gthv9i
+X|6|dalba|no-domain|usx5he
+A|8|dalba|37|27|2c3,1r4,21g|1iko,15ci,19uh|6|1fzi2f2
+T|8|dalba|1|B0FPD4TRRT|3|d'alba Piedmont Tartufo Bianco Italiano|1je||3ia8,2cex,11is,1rp1,2n5g,wp5,11e3,131t,131t,vsf,wn9,krj,s3t|1y6owkp
+X|9|dalba|no-domain|1b1c4bb
+X|1|missha|no-domain|mjmlml
+A|2|missha|105|81|35y,3be,39e|x5h,yqa,zad|19|1vbr9wx
+X|3|missha|no-domain|ngvlha
+A|4|missha|145|116|10d,13b,153|hjb,jyk,kil|92|1u48lb1
+X|5|missha|no-domain|p843jv
+X|6|missha|no-domain|1cycp09
+A|8|missha|174|129|22y,2e7,278|102d,18je,13fo|60|123hyw5
+X|9|missha|no-domain|jfuub5
+X|1|apieu|no-domain|1uncg7h
+A|2|apieu|0|0|,,|,,|0|6vdn18
+X|3|apieu|no-domain|9zwoui
+A|4|apieu|27|18|4x,4y,5r|2dw,2a6,2il|97|1bh1o5s
+X|5|apieu|no-domain|10ew4aq
+X|6|apieu|no-domain|1lw5y6e
+A|8|apieu|0|0|,,|,,|0|s90p0o
+X|9|apieu|no-domain|656snn
+X|1|cosrx|no-domain|nth4zy
+A|2|cosrx|118|87|1eoy,1mfk,1j4e|ikkl,klbt,j3ic|0|19p2sqr
+T|2|cosrx|1|B0H4M2TS8F|7|COSRX Advanced Snail 92 All in One Cream|x8||57ed,5xwz,48zz,3r2f,52gs,4tua,46hh,59gb,5auy,494y,3ya0,55di,4onh|dobnsk
+T|2|cosrx|2|B0CMT68F39|2|COSRX Advanced Snail 96 Mucin Power Esse|rr||6yh3,6yh3,46a9,47sv,47wr,47wr,4c3t,4ebe,4ebe,44yg,44yg,3qki,3qki|1hmob19
+T|2|cosrx|3|B0H5D283KG|4|COSRX 6 Peptide Collagen Booster Serum 1|11l||3rvq,3kal,2c20,21y0,21y0,1ru0,1hdm,1kko,1pb8,27ri,2jfi,38cy,2lgn|1n83s54
+T|2|cosrx|4|B0H4ZLSFFX|2|COSRX Ultra-Light Invisible Sunscreen SP|pm||nlr,nlr,e5u,old,1h2j,41fg,6cje,3vne,3ygg,26qa,1dy5,1h3c,1896|l72p2w
+X|3|cosrx|no-domain|101gx1l
+A|4|cosrx|91|89|5c2,6k0,593|2i0p,2zkj,2dw4|11|11r2sel
+T|4|cosrx|1|B01LEJ5MSK|1|COSRX Advanced Snail 92 Creme Tout en Un|z0||keg,keg,keg,cx5,keg,keg,d7j,91d,3h5,9t5,b48,iyi,aqr|18k2t39
+T|4|cosrx|2|B0DLKCCPYZ|1|COSRX Peptide Collagen Hydrogel Eye Patc|118||5ts,45v,45v,5ts,7hq,7hq,87n,585,3qe,90u,90u,8kl,5xn|1jxajpd
+T|4|cosrx|3|B0HCCGVXB6|1|COSRX Advanced Snail 96% Mucin Power Ess|yv||kgb,y36,cyc,a85,7hz,8v2,9ec,858,6w4,7jk,7jk,8fc,7aw|11wfekk
+X|5|cosrx|no-domain|arosw1
+X|6|cosrx|no-domain|wjkvr9
+A|8|cosrx|98|89|5hf,6jt,5dy|2mzg,30yz,2hm2|10|1m3oa4i
+T|8|cosrx|1|B0F8VN4HT6|2|COSRX Advanced Snail 92 Crema tutto in u|16n||kuc,lpb,c6m,84o,auo,8nq,9ll,a2q,8qd,87r,aqr,bt5,bt5|1lqvkqj
+T|8|cosrx|2|B0HM3BCS85|1|COSRX Siero al collagene peptide con pep|1bx||n8h,eps,d60,6yy,d60,8ip,8yo,acb,bpy,9yv,9yv,9z6,8na|1ry7bjv
+T|8|cosrx|3|B00PBX3L7K|1|COSRX Essenza di bava di lumaca 96 100ml|16r||izn,izn,are,889,5p3,889,7vu,7vu,6o6,7pc,8w0,9x0,8r0|w2uztm
+X|9|cosrx|no-domain|1dvssnk
+X|1|laneige|no-domain|7llxr8
+A|2|laneige|95|52|6fj,h7t,f9y|3b1o,83sa,75l9|6|11ij9dy
+T|2|laneige|1|B0HFXRM4M7|7|LANEIGE Lip Sleeping Mask Berry Korean O|vo||44b,kpo,3r4,68r,7w2,4za,5y4,728,72e,bbr,1daf,36qf,2qrw|a7fit
+T|2|laneige|2|B0HFXZH3VV|8|LANEIGE Lip Glowy Balm Vanilla Hydrating|u9||2x7,gz4,4y7,44y,1wj,ya,z9,3vv,4v4,58y,fyy,15f9,175c|1e3hc5o
+T|2|laneige|3|B0HFXLN26G|3|LANEIGE Water Bank Blue Hyaluronic Cream|1i5||80,51,32,2d,5p,3o,3m,1pd,154,3ci,7ha,pyb,i10|18tc7xx
+T|2|laneige|4|B0HLQ9BC31|4|LANEIGE Cream Skin Cerapeptide Toner Moi|1jb||,,,,,,,,,,8v7,mjo,fn2|9dzgc
+X|3|laneige|no-domain|v0vi6t
+A|4|laneige|74|46|mc,jr,mq|jrh,ftg,i47|71|1snw9nq
+X|5|laneige|no-domain|1v5qyme
+X|6|laneige|no-domain|mkmlwv
+A|8|laneige|89|56|q7,yx,197|kwu,pb0,xax|74|ewt4g3
+X|9|laneige|no-domain|57hv35
+X|1|sulwhasoo|no-domain|1prrqj8
+A|2|sulwhasoo|19|19|55,5c,4v|54x,4u6,56d|92|1crxoia
+X|3|sulwhasoo|no-domain|g7a1yh
+A|4|sulwhasoo|10|10|2g,2d,29|4hg,4ba,40c|100|1dbcols
+X|5|sulwhasoo|no-domain|1kp7anj
+X|6|sulwhasoo|no-domain|1euptn0
+A|8|sulwhasoo|13|13|3w,3y,31|7ii,8rf,6in|100|h3ckz8
+X|9|sulwhasoo|no-domain|1xqed0i
+X|1|illiyoon|no-domain|1itlzmk
+A|2|illiyoon|11|7|46u,5x5,47p|1tnt,2bw5,1kxw|1|9vo7nx
+T|2|illiyoon|1|B0D2L3D2DL|3|ILLIYOON Ceramide Ato Concentrate Cream|jf||13wn,13wn,xfc,11bc,xfc,vqy,11m4,1eq3,1j06,141f,1fgw,1wqi,17i2|p1dqum
+T|2|illiyoon|2|B0D2L1TNN3|3|ILLIYOON Ceramide Ato Lotion 350ml(11.83|12v||83p,4zc,4zc,3ch,2r4,9ax,93z,c0u,8dm,9l3,8z6,9ic,7aa|7nvx7x
+X|5|illiyoon|no-domain|12p4ybp
+X|1|aestura|no-domain|15ba4yv
+A|2|aestura|19|2|2yq,4my,4wn|22d8,3c9y,3d1t|4|l7et1l
+T|2|aestura|1|B0HRB6J23T|15|AESTURA ATOBARRIER365 CREAM with Ceramid|205||38e9,2n5h,25du,25du,2ow2,26wm,1r1d,2ssh,2l2u,21dr,22d8,3c9y,3d1t|c5hvv3
+X|5|aestura|no-domain|yu3w3p
+X|1|mamonde|no-domain|np0l65
+A|2|mamonde|0|0|,,|,,|0|sswyq0
+X|5|mamonde|no-domain|1g6f8b3
+X|1|hanyul|no-domain|o1hvmw
+A|2|hanyul|3|3|g,k,m|eg,he,kd|100|gtrive
+X|5|hanyul|no-domain|pth3e6
+X|1|mise|no-domain|zn88
+A|2|mise|16|10|ck,jd,kg|5q7,8a6,9dt|39|190pivm
+X|5|mise|no-domain|1mv6cpr
+X|1|iope|no-domain|1ldqyjy
+A|2|iope|2|2|k,g,g|ox,k1,jh|89|ddclbb
+X|5|iope|no-domain|7holbd
+X|1|belif|no-domain|cbmzhp
+A|2|belif|30|15|bh,cq,de|8ui,9nf,9u5|51|bzgs7b
+X|3|belif|no-domain|1wwj9wq
+A|4|belif|41|28|81,8c,9x|6wz,6nv,89s|98|18c43i9
+X|5|belif|no-domain|qgqwo2
+X|6|belif|no-domain|3lofae
+A|8|belif|0|0|,,|,,|0|1fraq6u
+X|9|belif|no-domain|1k6gyb7
+X|1|tfs|no-domain|1g1s5i9
+A|2|tfs|20|19|fq,jj,hr|5it,79f,6kh|17|x17s67
+X|3|tfs|no-domain|5af628
+A|4|tfs|28|27|6j,6b,5i|3h7,3h1,2ze|61|1uhpul
+X|5|tfs|no-domain|dulnya
+X|6|tfs|no-domain|91kge3
+A|8|tfs|16|16|66,66,79|35i,37g,4gi|86|e57dpf
+X|9|tfs|no-domain|w7wqxy
+X|1|cnp|no-domain|1trt1gc
+A|2|cnp|6|6|1s,2p,2p|xm,1a6,1aa|53|rhh1ww
+X|3|cnp|no-domain|jan765
+A|4|cnp|3|3|9,g,c|84,cp,91|100|6vpy0q
+X|5|cnp|no-domain|sp7rb3
+X|6|cnp|no-domain|wr6q2u
+A|8|cnp|3|3|k,g,c|ib,f1,bo|100|1xqcptn
+X|9|cnp|no-domain|9ktr8b
+X|1|vdl|no-domain|31vcxk
+A|2|vdl|0|0|,,|,,|0|d49xl4
+X|5|vdl|no-domain|znorq3
+X|1|hince|no-domain|vnqhq5
+A|2|hince|2|2|i,d,c|bu,5a,6d|100|3r5sw2
+X|3|hince|no-domain|1a3n116
+A|4|hince|2|2|g,7,5|cc,6s,57|100|zmtbuv
+X|5|hince|no-domain|aoxde
+X|6|hince|no-domain|mwe73q
+A|8|hince|2|2|b,8,6|8i,2p,2j|100|1yk1ayz
+X|9|hince|no-domain|152qher
+X|1|ohui|no-domain|1ofaf6f
+A|2|ohui|0|0|,,|,,|0|15z1jwv
+X|5|ohui|no-domain|3vhplc
+X|1|whoo|no-domain|109p6tv
+A|2|whoo|1|1|4,4,4|a2,b8,9q|100|16ryuds
+X|5|whoo|no-domain|o0alhw
+X|1|sum37|no-domain|1kj8iy
+A|2|sum37|0|0|,,|,,|0|bjbdug
+X|5|sum37|no-domain|wwxyqt
+X|1|cremeshop|no-domain|kt0fqk
+A|2|cremeshop|5|4|b,2c,1d|fk,x0,mh|91|w68dhp
+X|5|cremeshop|no-domain|of7rx3
+X|1|physiogel|no-domain|1qrrd6k
+A|2|physiogel|18|11|7n,8g,9h|50a,4zr,5f6|81|uylwmx
+X|5|physiogel|no-domain|1usvah3
+X|1|drgroot|no-domain|13ep6wt
+A|2|drgroot|4|4|8m,8y,dq|9pu,98r,emk|11|r5v5sy
+X|5|drgroot|no-domain|sp736n
+X|1|aromatica|no-domain|nczt0o
+A|2|aromatica|16|9|er,l6,ky|7zp,awg,9d4|8|lze64b
+X|3|aromatica|no-domain|1d3lrdh
+A|4|aromatica|25|18|bw,8g,cd|7gl,4mj,6uy|72|17xf0sq
+X|5|aromatica|no-domain|jn1kib
+X|6|aromatica|no-domain|h5o7ao
+A|8|aromatica|29|26|vy,172,v0|hzu,ob0,h3v|22|1gse6jh
+X|9|aromatica|no-domain|vkd5ge
+X|1|ts|no-domain|12o3hgx
+X|1|rejuran|no-domain|1szp9qy
+A|2|rejuran|21|15|if,i4,j5|iil,hwu,ix1|21|7wfmf4
+T|2|rejuran|1|B0GGHV93X1|5|REJURAN Turnover Ampoule c-PDRN Original|3e8||25z,77x,77x,4by,77x,fvt,g8p,g8p,841,7vz,dmv,cv5,cv5|1oyhekg
+X|5|rejuran|no-domain|x8uig
+X|1|biodance|no-domain|1ewrziy
+A|2|biodance|37|18|1e65,2f1z,1sdn|kd0k,woih,nmvc|0|1s1oe8f
+T|2|biodance|1|B0GLF551F9|6|BIODANCE Bio-Collagen Hydrogel Overnight|pp||c1v6,c086,93ng,abu3,hnm6,dyqc,bj4i,g7fw,mt2c,8ziq,95ra,frzn,bzzt|4qr5tf
+T|2|biodance|2|B0H87MNBTM|3|BIODANCE Collagen Peptide Hydrogel Under|14z||,,,,,pb,2s3w,ap14,6f0o,7fgk,7fgk,bd3s,7gc0|h7e11o
+T|2|biodance|3|B0H8C43NVH|2|BIODANCE Collagen Peptide Jelly Serum Fa|r1||,,,,,hs,zbo,23p0,2dsc,2fsf,1mio,1pmc,1azo|1jtqb6g
+T|2|biodance|4|B0GLFBJR6S|5|BIODANCE Collagen Hydrogel Non-Irritatin|103||12u7,nuo,ezq,osq,14ym,p11,mb2,1642,1myy,s5r,tdz,pr6,okp|nsrv53
+X|3|biodance|no-domain|yvjtau
+A|4|biodance|42|25|mgf,nel,id1|9uel,b5em,916w|1|1c7ahxo
+T|4|biodance|1|B0GT4DHV3X|5|BIODANCE Bio-Collagen Real Deep Masque V|1bs||4sgj,51i3,540s,4ycb,5jcw,5pqq,5mo1,5evt,3btw,59bs,59lb,6iwv,472f|1fch23q
+T|4|biodance|2|B0HCV5RB6Y|3|BIODANCE Collagen Peptide Under Eye Patc|1gr||,,,,,b8,stx,1c1v,1c1v,2jq7,231r,25bj,30ra|1rwpm4f
+T|4|biodance|3|B0HCV87KRK|2|BIODANCE Collagen Peptides Jelly Serum M|12z||,,,,,,1we,vnl,vnl,1ref,12bx,ynx,kkp|1wznmj6
+T|4|biodance|4|B0H5JZ2G3M|5|Parent for TONERPADS (Collagen)|1b3||3zd,762,6d4,8wp,ao6,ct0,dwh,e85,dwh,fz9,dop,ea5,7bw|1hdoo16
+X|5|biodance|no-domain|1x8vz5v
+X|6|biodance|no-domain|nx8pvt
+A|8|biodance|39|21|mmy,y1j,b6z|9upo,gtd9,5pui|1|8yvmmz
+T|8|biodance|1|B0GTSDSWNR|6|BIODANCE Bio-Collagen Real Deep Mask Mas|12u||ve5,1lrv,28cp,xli,24pq,2lqy,34zw,2y05,5784,35e1,548k,78q2,1w75|1kfdn82
+T|8|biodance|2|B0HCYHMZLF|3|BIODANCE Hydrogel Eye Patches for Under|1dw||,,,,,w6,rnf,rnf,1a31,3kbb,2hnt,73f0,2o8q|10i7j1x
+T|8|biodance|3|B0HCYDV6CN|2|BIODANCE Collagen Jelly Serum Mist|17i||,,,,,,4fk,vnl,18bf,10zh,n6z,11zt,7h6|nl4gog
+T|8|biodance|4|B0GTT5MHG7|4|Biodance Toner Pads (Collagen)|18f||2d8,3y2,2d8,4z3,3y2,e24,drv,bnb,e28,m0u,gpx,a7x,6fo|15ckrfk
+X|9|biodance|no-domain|bu2l9k
+X|1|clio|no-domain|1mbf5ci
+A|2|clio|13|8|kl,kx,og|7zm,6ya,877|20|171vlep
+X|3|clio|no-domain|nqkxwx
+A|4|clio|12|8|32,4k,5d|1vg,2ps,3ao|86|3w3ufx
+X|5|clio|no-domain|1p1q39
+X|6|clio|no-domain|d9qwfb
+A|8|clio|11|7|6g,46,4c|43m,2yo,2rp|58|ij0epf
+X|9|clio|no-domain|18qm3dp
+X|1|peripera|no-domain|99eskz
+A|2|peripera|55|11|zu,xx,z2|ct1,bpy,cfg|97|osydyz
+T|2|peripera|1|B0F24KQTHH|18|Peripera Ink the Velvet Lip Tint - High|15n||67m,67m,67m,xz,8lm,8lm,9cw,9cw,9cw,8qp,8qp,8jz,8jz|1qgow81
+X|3|peripera|no-domain|1te5prz
+A|4|peripera|17|5|y,v,1o|kt,ko,154|100|stbbl2
+X|5|peripera|no-domain|uy95ka
+X|6|peripera|no-domain|1hb92g0
+A|8|peripera|7|5|r,t,n|fk,au,a9|100|115t3ho
+X|9|peripera|no-domain|1gd6j5t
+X|1|goodal|no-domain|nbam46
+A|2|goodal|12|12|97,8y,9d|4yw,4z9,554|16|10cwddj
+X|5|goodal|no-domain|qjr2wg
+X|1|atopalm|no-domain|qe0ui9
+A|2|atopalm|13|13|jv,n7,nm|9sv,aa0,ahq|68|1km2pis
+X|5|atopalm|no-domain|1emh7df
+X|1|zeroid|no-domain|nwoio8
+A|2|zeroid|9|8|9b,98,8t|4la,4h8,486|71|1i332wa
+X|5|zeroid|no-domain|py1l72
+X|1|realbarrier|no-domain|1qalzxk
+A|2|realbarrier|17|17|6w,g5,ag|423,atp,6jz|64|zw5uv9
+X|5|realbarrier|no-domain|1qe6chn
+X|1|centellian24|no-domain|b0bf4p
+A|2|centellian24|21|17|7r8,lex,97o|34j2,98ii,41h8|1|1rj6ne3
+T|2|centellian24|1|B0HQCL5G3H|2|Centellian 24 Madeca Cream Time Reverse|12v||,,p0,69i,h30,h30,omm,1igi,2ije,1bqf,1kck,4mhf,1slf|151443p
+T|2|centellian24|2|B0HRTP1JMT|2|Centellian 24 Expert Madeca Cream Active|ve||,,,,,x6,3fw,knc,yew,fwi,p3z,2fsz,u79|es4mph
+T|2|centellian24|3|B0G48T5CM2|1|Centellian 24 360 Shot PDRN Firming Eye|p3||,,,,,f8,1wf,9i3,j06,9sj,ha3,12s4,rp8|i29kcv
+T|2|centellian24|4|B0D2XPMCJK|1|CENTELLIAN24 Madeca Cream Time Reverse S|1jj||,,,,,jg,u7,1oe,1oe,3ng,5qk,hhl,8qt|1kqioyx
+X|5|centellian24|no-domain|lttibq
+X|1|vt|no-domain|lqrhnx
+A|2|vt|64|43|4d3,5sg,4wv|289a,2o45,29n0|4|13c1qb8
+T|2|vt|1|B0HF1Z6DN2|4|VT COSMETICS CICA Reedle Shot 100 Serum|15v||1p7i,2isx,1kes,1420,u8s,121z,1o60,27h6,27h6,1a8y,yxk,11ml,u27|1nzmoy1
+T|2|vt|2|B0HFQ7GTQJ|2|VT COSMETICS PDRN 100 Essence Intensive|1gj||r3d,r3d,h5q,fcp,h5q,djo,eyl,qef,gpy,eap,ahg,cqr,9cf|1twlbd4
+T|2|vt|3|B0GJSH76FC|5|VT COSMETICS CICA Daily Soothing Mask (3|wt||agq,cih,859,702,72e,72e,6hu,58b,7gt,c87,5oy,c1r,b4v|d2vw4j
+T|2|vt|4|B0HDXVSV5B|2|VT COSMETICS Reedle Shot Firming Eye Cre|y2||,cn,q0,4rh,2uw,4rh,5d0,bhk,eju,7nq,7nq,az2,8nw|g9kcmg
+X|3|vt|no-domain|1cm1hfk
+A|4|vt|78|71|xu,15u,1gz|mll,p9t,v62|47|1wb94jz
+X|5|vt|no-domain|oegieu
+X|6|vt|no-domain|c35xbh
+A|8|vt|101|90|23i,2fy,2bj|1c9q,1h6n,1f8i|31|p5saha
+X|9|vt|no-domain|york0r
+X|1|eqqualberry|no-domain|1gf2ir3
+A|2|eqqualberry|28|26|2c7,3f2,5k9|14ql,1igs,2ngf|7|122vtkq
+T|2|eqqualberry|1|B0D8W1YVBX|1|EQQUALBERRY Vitamin Illuminating Serum f|xb||c4z,9kz,8az,5r0,370,5r0,5on,9h2,6y4,kau,kau,h53,8kk|kfou4h
+T|2|eqqualberry|2|B0HQCGNWPF|2|EQQUALBERRY NAD+ Peptide Boosting Facial|xb||,,198,46q,2ig,2ig,zk,1z5,1z5,328,7yk,gwr,s6l|1btn1th
+X|5|eqqualberry|no-domain|1gd0ykc
+X|1|celimax|no-domain|1hmetf4
+A|2|celimax|37|35|fgu,ngc,m4m|7jg8,amxp,a0l2|2|1wna51x
+T|2|celimax|1|B0GRC86ZWT|2|celimax The Vita A Retinal Shot Tighteni|y6||17p4,19iv,1jnt,vqg,35nf,2tor,1njz,4hr0,4lyy,5nbl,3kzr,59ul,59ul|1yhgfze
+T|2|celimax|2|B0HCWYXGF3|1|celimax Pore Dark Spot Cream With Niacin|x0||336,4bm,810,99h,uvk,bqe,9p7,11b2,1g8a,1ym8,1ym8,29cm,1wu2|nh7t6b
+T|2|celimax|3|B0GS97T2MV|1|celimax The Vita-A Retinal Shot Tighteni|1kt||,,,,,,,ae,u1,ftm,rx8,1mvg,161w|120o0id
+T|2|celimax|4|B0GZNCHQX3|1|celimax TXA Body Clarifying Pad 50 Pads|1gs||,,,,,,ur,4cy,d2u,o79,dpq,bp9,8kx|gfiha5
+X|5|celimax|no-domain|b5798y
+X|1|dralthea|no-domain|1suvgtm
+A|2|dralthea|57|44|c2e,jks,g8k|61jb,94j5,75dd|2|1mzxjx8
+T|2|dralthea|1|B0GSPMLWLT|3|Dr.Althea 345 Relief Cream Korean Skinca|1cc||9pe,11bt,1g9c,san,1krq,38ht,2tix,32o0,271a,2o0p,20q3,3qj8,1nke|1npanx4
+T|2|dralthea|2|B07PK2P2XB|1|Dr.Althea 345 Relief Cream PDRN Hyaluron|1cw||2y7j,2k1q,25vx,1rq4,1rq4,zei,lvi,10gi,lvi,1ek0,1ek0,1ao0,21c0|11co34z
+T|2|dralthea|3|B0GH64V4NZ|2|Dr.Althea 345 Relief Cream Mist Korean V|zk||,si,97s,d3k,pm2,n9z,nfk,zfk,mcg,mfq,mfq,100e,kz6|18s7v4j
+T|2|dralthea|4|B0GS4MJNG8|3|Dr.Althea 147 Barrier Cream Korean Skinc|190||c9x,c9x,7xy,9dx,c9x,c39,9af,aww,a2j,d9i,ezx,t08,mrn|x6u2nq
+X|5|dralthea|no-domain|1adwd6b
+X|1|romand|no-domain|1y1hf1w
+A|2|romand|153|46|28d,1ye,23z|sys,tue,v7m|56|90n1tm
+X|3|romand|no-domain|1xah5o7
+A|4|romand|136|42|1r3,1xt,21l|r6g,vnn,xkq|99|mwvjne
+X|5|romand|no-domain|1wqxvn6
+X|6|romand|no-domain|847aj4
+A|8|romand|134|43|1kl,1q2,1ps|v3h,zc4,yvx|94|188zcsq
+T|8|romand|1|B08P9JYTJT|12|rom nd - Tinta labbra effetto lucido e a|1ec||7eu,7eu,7eu,7eu,7eu,7eu,7u3,7mj,7u3,7uf,7uf,87z,87z|aqfr3m
+X|9|romand|no-domain|1t9tp4o
+X|1|manyo|no-domain|wtcrdl
+A|2|manyo|29|25|1vw,337,21o|r80,121l,oy1|15|1wywkz5
+T|2|manyo|1|B0CDLHSZVH|2|MANYO Pure Cleansing Oil Makeup Remover|qd||59s,59s,3rk,4xh,53y,53y,79s,hn7,hn7,hkx,hkx,ooz,eku|57bxmf
+X|3|manyo|no-domain|192v59a
+A|4|manyo|16|14|6v,5y,5v|48l,3pc,3p2|67|1mc3vhn
+X|5|manyo|no-domain|1gy2ja
+X|6|manyo|no-domain|o3emz6
+A|8|manyo|23|22|85,9b,8t|51s,6ch,5wo|97|brnx7i
+X|9|manyo|no-domain|141odtz
+X|1|tonymoly|no-domain|2398g8
+A|2|tonymoly|25|25|9g,g1,e7|44m,6fj,5fu|34|515fwv
+X|3|tonymoly|no-domain|1kyg6tg
+A|4|tonymoly|24|24|2q,34,37|1rg,1sk,1rv|100|8o7bk4
+X|5|tonymoly|no-domain|kd4p5d
+X|6|tonymoly|no-domain|1s1daqj
+A|8|tonymoly|25|25|45,3z,42|2qs,22k,21w|94|qrg662
+X|9|tonymoly|no-domain|16timre
