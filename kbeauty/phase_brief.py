@@ -243,6 +243,27 @@ def build(d):
                     a = EW.setdefault(k, [[0] * 9 for _ in range(7)])
                     EW[k] = [[p + q for p, q in zip(r1, r2)] for r1, r2 in zip(a, x["rw"])]
         res["eu"] = Chan(M, U, e, None, {"b": EW} if EW else None)
+    # 아마존 전 지역(미국 + 일곱 나라) — YoY 파트(2026-11-23 · 틱톡샵은 작년 자료가 없어 아마존만)
+    if mk:
+        UA, WAA, okw = {}, {}, bool(WA)
+        for k, b in B.items():
+            UA[k] = [(x or 0) for x in b["u"]]
+            if okw:
+                WAA[k] = [list(r) for r in (WA.get(k) or [[0] * 9] * 7)]
+        for code, _ in MK:
+            if code not in mk:
+                continue
+            for k, x in mk[code]["b"].items():
+                a2 = UA.setdefault(k, [0] * len(M))
+                for j in range(len(M)):
+                    a2[j] += x["u"][j] or 0
+                if okw:
+                    if not x.get("rw"):
+                        okw = False
+                        continue
+                    w0 = WAA.setdefault(k, [[0] * 9 for _ in range(7)])
+                    WAA[k] = [[p_ + q_ for p_, q_ in zip(r1, r2)] for r1, r2 in zip(w0, x["rw"])]
+        res["amz"] = Chan(M, UA, e, None, {"b": WAA} if okw and WAA else None)
     return res
 
 
@@ -615,20 +636,33 @@ def rich(d, R, prev, note=None):
             inc = a_ <= cur[1] and b_ >= cur[0]
             inp = a_ <= prv[1] and b_ >= prv[0]
             if inc != inp:
-                out.append(f"{'최근' if inc else '직전'}에 {name}")
-        return f" <i>({', '.join(out)})</i>" if out else ""
+                out.append(("최근" if inc else "직전", name.replace("일본 프라임 감사제", "감사제")))
+        if not out:
+            return ""
+        part = [f"{w}: {'·'.join(n for x, n in out if x == w)}" for w in ("직전", "최근") if any(x == w for x, _ in out)]
+        return f" <i>({' / '.join(part)})</i>"
 
     def regtab(rows, cap, cur=None, prv=None):
         t = (f"<table bordered><caption>{cap}</caption><tr>" + _th("지역·채널", "left") + _th("", "left") + _th("판매") + "</tr>")
         tag = (lambda n: evtag(n, cur, prv)) if (cur and prv) else (lambda n: "")
         return t + "".join("<tr>" + _td(n + tag(n), "left") + _td(bar(v, 0.2, 8), "left") + _td(_sgg(v)) + "</tr>" for n, v in rows if v is not None) + "</table>"
 
-    def brtab(items, cap, head):
+    def brtab(items, cap, head, step=0.05):
         if not items:
-            return ""
+            return f"<p><i>{cap.split(' (')[0]} — +10% 넘게 늘어난 브랜드 없음</i></p>"
         t = (f"<table bordered><caption>{cap}</caption><tr>" + _th("브랜드", "left") + _th("", "left") + _th(head) + _th("비중") + "</tr>")
-        return t + "".join("<tr>" + _td(B(nmk(k)), "left") + _td(bar(g, 0.05, 8), "left") + _td(B(pctg(g))) + _td(shp(sv)) + "</tr>"
+        return t + "".join("<tr>" + _td(B(nmk(k)), "left") + _td(bar(g, step, 8), "left") + _td(B(pctg(g))) + _td(shp(sv)) + "</tr>"
                            for k, g, sv in items) + "</table>"
+
+    # ── 1년(YoY) — 아마존만(틱톡샵은 2026-04 부터라 작년이 없다) · 2026-11-23 사용자 "YoY 도 좋은 애들"
+    A = R.get("amz") or R["us"]
+    yr = [("아마존 전 지역", R.get("amz")), ("아마존 미국", R["us"]), ("아마존 유럽5", R.get("eu")), ("아마존 일본", R.get("jp")), ("아마존 캐나다", R.get("ca"))]
+    yrows = [(n, C.base(True)) for n, C in yr if C is not None]
+    H.append(f"<h3>1년 기준 (YoY)</h3>")
+    H.append(regtab(yrows, f"지역별 판매 · 작년 같은 {n3} 대비 · 아마존만 (🟥/🟦 1칸 = 20%)"))
+    AY = A.rows(True)
+    top = sorted([(k, r["x"] / 100 - 1, r["s"]) for k, r in AY.items() if r["s"] >= MIN and r["x"] >= 110], key=lambda z: -z[1])[:5]
+    H.append(brtab(top, f"몫이 늘어난 브랜드 (아마존 전 지역 몫 · 작년 같은 {n3} 대비 · +10% 이상 · 🟥 1칸 = 20%)", "몫 YoY", 0.2))
 
     # ── 3달 · 1달
     for w, lab, f in ((3, n3, "x"), (1, n1, "y")):
@@ -639,8 +673,8 @@ def rich(d, R, prev, note=None):
         prv = (cur[0] - dt.timedelta(days=dd), cur[0] - dt.timedelta(days=1)) if rw else None
         H.append(regtab(rows, f"지역별 판매 · 직전 {lab} 대비 (🟥/🟦 1칸 = 20%)", cur if w == 1 else None, prv if w == 1 else None))
         top = sorted([(k, r[f] / 100 - 1, r["s"] if w == 3 else S1.get(k, r["s"])) for k, r in S.items()
-                      if r["s"] >= MIN and r[f] >= 100.5], key=lambda z: -z[1])[:5]
-        H.append(brtab(top, f"몫이 늘어난 브랜드 (K뷰티 안 몫 · 직전 {lab} 대비 · 🟥 1칸 = 5%)", "몫 변화"))
+                      if r["s"] >= MIN and r[f] >= 110], key=lambda z: -z[1])[:5]
+        H.append(brtab(top, f"몫이 늘어난 브랜드 (K뷰티 안 몫 · 직전 {lab} 대비 · +10% 이상 · 🟥 1칸 = 5%)", "몫 변화"))
 
     # ── 1주 (지난주 수집 대비)
     pa, ps = PV.get("a1") or {}, PV.get("s1") or {}
@@ -654,9 +688,9 @@ def rich(d, R, prev, note=None):
         cur = (e0 - dt.timedelta(days=29), e0) if rw else None
         prv = (pe - dt.timedelta(days=29), pe) if rw else None
         H.append(regtab(rows, "지역별 최근 30일 판매 · 한 주 사이 변화 (🟥/🟦 1칸 = 20%)", cur, prv))
-        top = sorted([(k, S1[k] / ps[k] - 1, S1[k]) for k in S1 if ps.get(k) and S1[k] >= MIN and S1[k] / ps[k] - 1 >= 0.005],
+        top = sorted([(k, S1[k] / ps[k] - 1, S1[k]) for k in S1 if ps.get(k) and S1[k] >= MIN and S1[k] / ps[k] - 1 >= 0.10],
                      key=lambda z: -z[1])[:5]
-        H.append(brtab(top, "몫이 늘어난 브랜드 (최근 30일 몫 · 한 주 사이 · 🟥 1칸 = 5%)", "몫 변화"))
+        H.append(brtab(top, "몫이 늘어난 브랜드 (최근 30일 몫 · 한 주 사이 · +10% 이상 · 🟥 1칸 = 5%)", "몫 변화"))
         if prev_all:
             up = sorted([k for k, r in S.items() if r["s"] >= MIN and prev_all.get(k) and GOOD[r["q"]] > GOOD[prev_all[k]]], key=lambda k: -S[k]["s"])
             if up:
