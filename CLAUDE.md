@@ -2400,7 +2400,16 @@ PC 트래커(curl_cffi · 작업 스케줄러 05:15/06:45)는 **고치지 않고
 - ⚠ events.yml 커밋 스텝이 `kbeauty/data` 를 git add 한다 — 이 폴더가 main 에서 없어지면 add 가 통째로 실패해 그날 수집 전체가 안 올라간다. 지우지 말 것.
 - 분기 실적이 나오면 `ir.json` 에 한 칸 → 다음 블록부터 k·범위·비중이 바뀐다. 새 브랜드·회사는 `config.json` → `--tasks`(다음 회차 저절로 full).
 
-### 틱톡 홍보 영상·크리에이터 — FastMoss 같은 응답에서 (2026-11-03 · 사용자 "틱톡도 가능하면" → "FastMoss 영상 데이터")
+### 틱톡샵 = EchoTik (2026-11-23~ · FastMoss 구독 끝 · `kbeauty/echotik.js` → `echotik_recv.py`)
+
+사용자: FastMoss 결제가 계속 실패 → "너무 비싸서 EchoTik 으로" → **Pro**(Basic 은 샵 판매 분석이 안 된다). 절차 `kbeauty/RUNBOOK.md` 1-c-2'.
+- 같은 틱톡 판매자 ID 로 일별 판매량·판매액·새 영상·라이브·크리에이터(누적)를 90일 준다. 받은 덤프는 **FastMoss 형식으로 바꿔** `data/phase/fm/` 에 넣는다
+  (`FH|E1`) → phase.py(KBPH)·ingest.py(KBCH)·화면은 그대로. FastMoss 이력(4/24~11/14)은 안 건드리고 그 다음 날부터 이어 붙인다.
+- 겹친 81일 비교: **판매량은 같은 물건**(합 0.96~1.06배 · 주별 0.98~1.08) · **판매액은 EchoTik 이 1.2~3배**(할인 전 가격으로 보인다) → 샵별 배수(앞 4주 FastMoss ÷ EchoTik ·
+  `data/phase/et_k.json` · 지우지 말 것)로 FastMoss 수준에 맞춘다. 크리에이터는 정의가 달라(EchoTik 누적 차이가 1/2~1/10) 같은 배수로 맞춘다.
+- 화면 문구·트렌드 그룹 이름의 'FastMoss' 는 그대로 둔다(그룹 이름은 블록 키). KBPH `tt.src` 만 'FastMoss ~11/14 · EchoTik 11/15~'.
+
+## 틱톡 홍보 영상·크리에이터 — FastMoss 같은 응답에서 (2026-11-03 · 사용자 "틱톡도 가능하면" → "FastMoss 영상 데이터")
 - 샵 상세 '최근 180일' 응답(`recentData` · d_type 180)의 `trend[]` 한 줄에 판매(inc_sold_count·inc_sale_amount) 말고도 **inc_aweme_count(그날 새로 잡힌 상품 연결 영상)**·**inc_author_count(그날 처음 그 샵을 홍보한 크리에이터)**·inc_live_count 가 같이 온다 — **요청을 늘리지 않는다.**
 - `fastmoss.js` **v4** 가 그 셋을 `V|샵|첫날|영상…|크리에이터…|라이브…` 줄로 덤프(D 줄 바로 뒤) → `ingest.py` 가 `data/fm_social.csv`(date,s,a,c,l · 받은 날과 그 뒤는 버림) → `KBCH.tt.so` → app.js `injectTiktokSocial`:
   회사마다 '○○ 틱톡 새 홍보 영상(FastMoss)' · '○○ 틱톡 새 홍보 크리에이터(FastMoss)' 두 주제 · 계열 = 브랜드(같은 브랜드 샵 합산) · 주별 합(월~일 완결 주 · 26주).

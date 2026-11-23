@@ -63,7 +63,26 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
    본문을 한 글자도 바꾸지 말고 `/tmp/kbk/part_N.txt`. 덤프하면 본문이 바뀌니 끝나면 탭을 닫는다(수집기는 탭 안 메모리에만 있다 — 닫기 전에 1-c-3 의 `--check` 를 통과시킬 것).
    - ⚠ `javascript_tool` 반환값은 1천 자 남짓에서 잘리고, `= & ? ;` 가 섞인 반환은 크롬 도구가 쿼리 문자열로 보고 가린다 — 수집기 반환은 그 글자 없이 짧게 만들어 뒀다. 우회하지 말 것.
 
-## 1-c-2. FastMoss (fastmoss.com 탭 · 사용자 Pro 로그인 세션)
+## 1-c-2'. 틱톡샵은 EchoTik 으로 (2026-11-23~ · FastMoss 구독 끝 → EchoTik Pro · 아래 1-c-2 는 옛 경로)
+
+사용자: "FastMoss 너무 비싸서 EchoTik 으로" → Pro 결제(샵 상세 하루 500 · 90일 · 전 지역 · Basic 은 '샵 판매 분석 불가'라 안 된다).
+1. echotik.live 에 로그인된 크롬 탭에서 `kbeauty/echotik.js` 를 붙여 넣는다(raw.githubusercontent 에서 받아 eval 해도 된다).
+2. `await __ET.run('<샵ID들>')` — 샵 ID 는 `kbeauty/data/fm_shops.csv` 의 s(틱톡 판매자 ID · FastMoss 와 같다) 전부. 샵당 요청 4건 · 약 15초 · 41곳 10분.
+   API = `/api/v1/data/sellers/<ID>/analysis?tag=basic.sales.trending&dateRange=90`(+ `&indicator=total_sale_gmv_amt&start_time=&end_time=` 판매액) ·
+   `tag=basic.video.trending`(새 영상·라이브) · `tag=basic.influencer.trending`(크리에이터 누적 → 하루 차이). 토큰 = localStorage 'token'(Bearer). dateRange 180 은 Pro 도 막힌다.
+3. 덤프를 파일로: `__ET.lines().join('\n')` 를 Blob 으로 내려받아(내려받기 폴더) `device_stage_files` 로 옮긴다 — 안 되면 `__ET.plan()`·`__ET.dump(a,b)` → get_page_text.
+4. `python3 kbeauty/echotik_recv.py <파일>` — 줄 CRC·END 검산 → `data/phase/et/<날짜>.txt` 원문 → 샵마다 **FastMoss 마지막 날 다음부터** EchoTik × 이어 붙이기 배수를
+   FastMoss 형식(`FH|E1|…`)으로 `data/phase/fm/<날짜>.txt` 에 쓴다. 배수 = 이어 붙이는 자리 앞 4주 FastMoss 합 ÷ EchoTik 합(판매량·판매액·영상·크리에이터 따로) ·
+   처음 한 번 정해 `data/phase/et_k.json` 에 둔다(**지우지 말 것** — 다음 주부터 같은 배수).
+5. `python3 kbeauty/ingest.py kbeauty/data/phase/fm/<날짜>.txt`(KBCH) → `python3 kbeauty/phase.py`(KBPH) → 커밋·push(국면 원재료 push 가 브리핑을 깨운다 ·
+   같은 asOf 라도 틱톡샵이 일주일 넘게 늘면 '수정본').
+
+11/23 첫 회차 비교(겹친 8/25~11/13 · `echotik_recv.py --compare`): 판매량 합은 거의 같다(샵 대부분 FastMoss ÷ EchoTik 0.96~1.06 · 주별 합계 0.98~1.08 ·
+날짜 어긋남 없음) · **판매액은 EchoTik 이 1.2~3배**(단가가 FastMoss 보다 높고 출렁인다 — 할인 전 가격으로 보인다. 메디큐브 FM $30 vs ET $96) → 배수로 FastMoss 수준에 맞춘다 ·
+새 영상 0.9~1.2배 · 새 크리에이터는 EchoTik 누적 차이가 FastMoss 의 1/2~1/10(정의가 다르다 — 배수로 맞춘다).
+haruharu·isntree 는 양쪽 다 0, MEDICUBE USA(KBCH 쪽 샵)는 FastMoss 자료가 없어 배수 1.
+
+## 1-c-2. FastMoss (옛 경로 · 2026-11-23 까지) (fastmoss.com 탭 · 사용자 Pro 로그인 세션)
 
 ⚠ **로그인된 브라우저에서만.** 10/21 기준 사용자 노트북 크롬(윈도우)에만 로그인돼 있고 사슬이 도는 집 PC 크롬은 아니다 — 거기 로그인되면 매주 같이 돈다.
 로그인 여부: `https://www.fastmoss.com/ko/dashboard` 를 열어 로그인 창이 뜨면 이 단계는 건너뛴다(대신 로그인하지 않는다).

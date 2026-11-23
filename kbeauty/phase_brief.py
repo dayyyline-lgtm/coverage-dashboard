@@ -545,12 +545,24 @@ def main():
     same = bool(prev and prev.get("asOf") == d["asOf"])
     base = (prev or {}).get("base") if same else prev
     added = [k for k in mk if k not in ((prev or {}).get("mk") or [])] if same else []
-    redo = same and (bool(added) or a.force)
+    # 틱톡샵 일별이 일주일 넘게 늘었을 때도 수정본(2026-11-23 · FastMoss → EchoTik 으로 바꾼 날 11/14 → 11/22)
+    tte = ((d.get("tt") or {}).get("end") or "")
+    ptte = (prev or {}).get("tte") or ""
+    tmore = bool(same and tte and ptte and (dt.date.fromisoformat(tte) - dt.date.fromisoformat(ptte)).days >= 7)
+    if same and tte and not ptte:          # 옛 상태 파일엔 tte 가 없다 — 이번 주는 아침 판이 FastMoss 11/14 까지였다
+        tmore = tte >= "2026-11-21"
+        ptte = "2026-11-14"
+    redo = same and (bool(added) or tmore or a.force)
     R = build(d)
     text, st = message(d, R, base)
     if redo:
         head, rest = text.split("\n", 1)
-        note = (f"아침 판 뒤에 새로 받은 {'·'.join(MKN[k] for k in MKN if k in added)} 아마존을 넣어 다시 보냄" if added else "다시 보냄") \
+        parts = []
+        if added:
+            parts.append(f"새로 받은 {'·'.join(MKN[k] for k in MKN if k in added)} 아마존")
+        if tmore:
+            parts.append(f"틱톡샵 {ptte[5:].replace('-', '/')} → {tte[5:].replace('-', '/')}")
+        note = (f"아침 판 뒤에 {' · '.join(parts)}을 넣어 다시 보냄" if parts else "다시 보냄") \
             + f" · 칸 바뀜은 지난주({(base or {}).get('asOf', '—')[5:].replace('-', '/')}) 대비"
         text = f"{head.replace('</b>', ' · 수정본</b>')}\n<i>{note}</i>\n{rest}"
     print(text)
@@ -562,7 +574,7 @@ def main():
         return 0
     if send(text):
         STATE.write_text(json.dumps({"asOf": d["asOf"], "sent": kst_now().isoformat(timespec="minutes"), "end": R["end"], "q": st,
-                                     "mk": mk, "base": base},
+                                     "mk": mk, "base": base, "tte": tte},
                                     ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print("보냄" + (" (수정본)" if redo else ""))
     return 0
