@@ -485,6 +485,186 @@ def message(d, R, prev):
     return "\n".join(L), st
 
 
+# ── 리치 메시지(2026-11-23 · 사용자 "텔레 메시지를 표로 하든 깔끔하게 시각화 — PNG 이미지는 말고") ──
+# sendRichMessage 의 테두리 표(<table bordered>) — retail_report 와 같은 양식. 평문(message)은 실패했을 때의 대체본.
+def _td(s, al="right"):
+    return f'<td align="{al}">{s}</td>'
+
+
+def _th(s, al="right"):
+    return f'<th align="{al}">{s}</th>'
+
+
+def _sg(v):
+    """비중 지수(100=그대로) → 증감 % 글자. 105 이상 굵게."""
+    return "—" if v is None else (B(pct(v)) if v >= 105 else pct(v))
+
+
+def _sgg(v):
+    return "—" if v is None else (B(pctg(v)) if v >= 0.05 else pctg(v))
+
+
+def co_rows(d, C, n=8):
+    """상장사 합산 — (회사, 비중, 비중 변화 지수, 판매 증감)."""
+    by = {}
+    for k, b in d["b"].items():
+        if b.get("co"):
+            by.setdefault(b["co"], []).append(k)
+    e = C.e
+    if C.W:
+        cu = lambda k: C.wv(k, RI["c"][3])
+        pu = lambda k: C.wv(k, RI["p"][3])
+    else:
+        cu = lambda k: ssum(C.U[k], e - 2, e)
+        pu = lambda k: ssum(C.U[k], e - 5, e - 3)
+    tc, tp = sum(cu(k) for k in C.U), sum(pu(k) for k in C.U)
+    out = []
+    for co, ks in by.items():
+        c = sum(cu(k) for k in ks if k in C.U)
+        p = sum(pu(k) for k in ks if k in C.U)
+        if c and p and tc and tp:
+            out.append((co, c / tc, 100 * (c / tc) / (p / tp), c / p - 1))
+    out.sort(key=lambda z: -z[1])
+    return sorted(out[:n], key=lambda z: -z[2])
+
+
+def rich(d, R, prev, note=None):
+    M, end = R["M"], R["end"]
+    e = M.index(end)
+    md = lambda x: f"{int(x[5:7])}/{int(x[8:10])}" if x else "—"
+    now = kst_now()
+    pq = (prev or {}).get("q") or {}
+    has_t = "tt" in R
+    SA = R.get("all") or R.get("sum")
+    rw = (SA if has_t else R["us"]).W
+    n3, n1 = ("3달", "1달") if rw else ("3개월", "1개월")
+    # 창 설명
+    if rw:
+        t0 = R.get("rwT") or d["asOf"]
+        if has_t and SA.W and R.get("ttRw"):
+            t0 = min(t0, R["ttRw"])
+        e0 = dt.date.fromisoformat(t0)
+        sp = lambda n: f"{md((e0 - dt.timedelta(days=n - 1)).isoformat())}~{md(e0.isoformat())}"
+        win = f"판정 최근 3달({sp(90)}) vs 직전 3달 · 조짐 최근 1달({sp(30)}) vs 직전 1달"
+    else:
+        c3, p3 = mlab(M, e, 3)
+        win = f"판정 {c3} vs {p3}"
+    head = f"K뷰티 국면 주간 · {now.month}/{now.day}({'월화수목금토일'[now.weekday()]})" + (" · 수정본" if note else "")
+    H = [f"<h2>{head}</h2>"]
+    sub = f"{win} · 수집 아마존 {md(d['asOf'])} · 틱톡샵 {md(R.get('ttEnd'))}"
+    H.append(f"<p><i>{esc(note) + '<br>' if note else ''}{sub}</i></p>")
+
+    S = SA.rows(False) if has_t else R["us"].rows(True)
+    prev_all = (pq.get("sumall") or (pq.get("sum") if pq.get("sumdef") == "all" else None)) if has_t else pq.get("us")
+    basis = "rw" if rw else ("r30" if (has_t and SA.R) else "m1")
+    if pq and pq.get("basis", "m1") != basis:
+        prev_all = None
+
+    # 1) 요약 — 판매 증감(세로 표 · 휴대폰 폭에 맞게)
+    g1 = None
+    if has_t and SA.W:
+        g1 = (SA.rcmp(next(iter(SA.U)), 1, 1) or {}).get("gb")
+    cols = []
+    if has_t:
+        cols += [(f"전 지역 합산 · {n3}", SA.base(False))]
+        if g1 is not None:
+            cols += [(f"전 지역 합산 · {n1}", g1)]
+        cols += [(f"틱톡샵 미국 · {n3}", R["tt"].base(False))]
+    cols += [("아마존 미국 · YoY", R["us"].base(True))]
+    for code, lab in [("eu", "아마존 유럽5 · YoY"), ("jp", "아마존 일본 · YoY"), ("ca", "아마존 캐나다 · YoY")]:
+        if code in R:
+            cols.append((lab, R[code].base(True)))
+    t = "<table bordered><caption>판매 증감 · 추적 브랜드 합계(비상장 포함)</caption><tr>" + _th("채널·기간", "left") + _th("판매") + "</tr>"
+    t += "".join("<tr>" + _td(esc(c), "left") + _td(_sgg(v)) + "</tr>" for c, v in cols) + "</table>"
+    ups = [f"{B(nm(d, k))} {pct(r['x'])}" for k, r in sorted(S.items(), key=lambda z: -z[1]["x"]) if r["s"] >= 0.005 and r["sp"] >= 0.003 and r["x"] >= 105][:3]
+    dns = [f"{nm(d, k)} {pct(r['x'])}" for k, r in sorted(S.items(), key=lambda z: z[1]["x"]) if r["s"] >= 0.005 and r["sp"] >= 0.003 and r["x"] <= 95][:3]
+    lines = []
+    if ups:
+        lines.append(f"비중↑ {n3}  " + ", ".join(ups))
+    if dns:
+        lines.append(f"비중↓ {n3}  " + ", ".join(dns))
+    H.append("<h3>요약</h3>" + t + (f"<p>{'<br>'.join(lines)}</p>" if lines else ""))
+
+    # 2) 국면 — 칸마다 표 하나 · 비중 0.5% 이상 · 비중 큰 순
+    big = {k: r for k, r in S.items() if r["s"] >= 0.005}
+    H.append(f"<h3>국면 · {'아마존 8개국 + 틱톡샵 미국 합산' if has_t else '아마존 미국'}</h3>")
+    for q in ORD:
+        ks = sorted([k for k, r in big.items() if r["q"] == q], key=lambda k: -big[k]["s"])
+        if not ks:
+            continue
+        t = (f"<table bordered><caption>{QI[q]} · {len(ks)}개</caption><tr>" + _th("브랜드", "left") + _th("비중")
+             + _th(f"비중 {n3}") + _th(f"비중 {n1}") + _th(f"판매 {n3}") + (_th("지난주", "left") if prev_all else "") + "</tr>")
+        for k in ks:
+            r = big[k]
+            was = (prev_all or {}).get(k)
+            ch = ""
+            if was and was != r["q"]:
+                ch = f"{QS[was]}→{QS[r['q']]}"
+                ch = B(ch) if GOOD[r["q"]] > GOOD[was] else ch
+            nmk = nm(d, k) + ("*" if d["b"].get(k, {}).get("co") else "")
+            t += ("<tr>" + _td(B(nmk) if q == "성장 가속" else nmk, "left") + _td(shp(r["s"])) + _td(_sg(r["x"])) + _td(_sg(r["y"]))
+                  + _td(pctg(r["g"][0])) + (_td(ch, "left") if prev_all else "") + "</tr>")
+        H.append(t + "</table>")
+    small = len(S) - len(big)
+    H.append(f"<p><i>* 상장사 · 비중 = 바구니 판매량 중 몫 · 비중 {n3}·{n1} = 그 몫이 직전 같은 기간보다 몇 % 늘었나 · 판매 = 판매량 자체 증감"
+             + (f" · 비중 0.5% 미만 {small}개는 뺐다" if small else "") + "</i></p>")
+
+    # 3) 상장사
+    if has_t:
+        t = (f"<table bordered><caption>상장사 · 전 지역 합산 · 비중 {n3} 변화 좋은 순</caption><tr>"
+             + _th("회사", "left") + _th("비중") + _th(f"비중 {n3}") + _th(f"판매 {n3}") + "</tr>")
+        for co, s_, y, g in co_rows(d, SA):
+            t += "<tr>" + _td(B(esc(co)) if y >= 100 else esc(co), "left") + _td(shp(s_)) + _td(_sg(y)) + _td(_sgg(g)) + "</tr>"
+        H.append("<h3>상장사</h3>" + t + "</table>")
+
+    # 4) 채널 — 미국 두 채널의 1달 비중 변화 큰 쪽
+    def mv(rows, f, n=3):
+        v = sorted([(k, r) for k, r in rows.items() if r["s"] >= 0.005 and r["sp"] >= 0.003], key=lambda z: -z[1][f])
+        up = [f"{B(nm(d, k))} {pct(r[f])}" for k, r in v[:n] if r[f] >= 105]
+        dn = [f"{nm(d, k)} {pct(r[f])}" for k, r in v[::-1][:n] if r[f] <= 95]
+        return "<br>".join(up) or "—", "<br>".join(dn) or "—"
+    chs = []
+    U = R["us"]
+    if U.W:
+        r1 = {k: {"s": x["sc"], "sp": x["sp"], "z": x["y"]} for k in U.U for x in [U.rcmp(k, 1, 1)] if x and x["y"] is not None}
+        chs.append(("아마존 미국", f"비중 {n1}", *mv(r1, "z")))
+    else:
+        chs.append(("아마존 미국", "비중 YoY", *mv(U.rows(True), "x")))
+    if has_t:
+        T = R["tt"]
+        chs.append(("틱톡샵 미국", f"비중 {n1 if (T.W or T.R) else 'QoQ'}", *mv(T.rows(False), "y" if (T.R or T.W) else "x")))
+    t = "<table bordered><caption>채널별 · 비중이 크게 움직인 브랜드</caption><tr>" + _th("채널", "left") + _th("기준", "left") + _th("늘었다", "left") + _th("줄었다", "left") + "</tr>"
+    for a, b, c, d_ in chs:
+        t += "<tr>" + _td(B(a), "left") + _td(b, "left") + _td(c, "left") + _td(d_, "left") + "</tr>"
+    H.append("<h3>채널</h3>" + t + "</table>")
+
+    # 5) 시장 — 아마존 미국 밖 상위 3 브랜드
+    mrows = []
+    for code, lab in [("eu", "유럽5"), ("jp", "일본"), ("ca", "캐나다")]:
+        if code not in R:
+            continue
+        rows = R[code].rows(True)
+        top = sorted([(k, r) for k, r in rows.items() if r["s"] >= 0.01], key=lambda z: -z[1]["s"])[:3]
+        cells = [f"{B(nm(d, k)) if r['q'] == '성장 가속' else nm(d, k)} {shp(r['s'])} {QI[r['q']].split()[0]}" for k, r in top]
+        mrows.append((lab, R[code].base(True), cells + [""] * (3 - len(cells))))
+    if mrows:
+        t = ("<table bordered><caption>아마존 다른 시장 · 판매 YoY · 비중 상위 3 브랜드(비중 · 국면)</caption><tr>"
+             + _th("시장", "left") + _th("판매 YoY") + _th("1위", "left") + _th("2위", "left") + _th("3위", "left") + "</tr>")
+        for lab, g, cells in mrows:
+            t += "<tr>" + _td(B(lab), "left") + _td(_sgg(g)) + "".join(_td(c, "left") for c in cells) + "</tr>"
+        H.append("<h3>시장</h3>" + t + "</table>")
+
+    # 6) 바이박스 경고
+    bx = bx_lines(d)
+    if bx:
+        H.append("<h3>주의 · 아마존 미국 바이박스 없음</h3><p><i>수요가 아니라 판매 경로 문제 · 다음 달 판매가 꺾인다</i><br>"
+                 + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
+
+    H.append(f"<p><i>🟢 가속 = 3달↑·1달↑ · 🟡 둔화 = 3달↑·1달↓ · 🔵 반등 = 3달↓·1달↑ · 🔴 하락 = 둘 다↓ · 굵게 = 좋아진 것"
+             f"{' · 첫 회 — 다음 주부터 지난주 칸이 붙는다' if not pq else ''}</i><br><a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
+    return "".join(H)
+
+
 def send(text):
     tok = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
@@ -504,6 +684,26 @@ def send(text):
         with urllib.request.urlopen(urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage", data=data), timeout=30) as r:
             ok = ok and r.status == 200
     return ok
+
+
+def send_rich(html, text):
+    """리치(테두리 표)로 먼저 · 안 되면 예전 HTML 평문(send)."""
+    sys.path.insert(0, str(HERE.parent))
+    try:
+        import telegram_send as tg
+    except Exception as ex:
+        print(f"telegram_send 를 못 불러옴({ex}) — 평문으로")
+        return send(text)
+    if not tg.configured():
+        print("텔레그램 토큰·챗ID 가 없다 — 보내지 않는다")
+        return False
+    p = {"chat_id": tg.CHAT_ID, "rich_message": {"html": html[:30000]}}
+    res = tg._api("sendRichMessage", body=json.dumps(p, ensure_ascii=False).encode("utf-8"), ctype="application/json; charset=utf-8")
+    if res.get("ok"):
+        print("리치 전송 성공")
+        return True
+    print(f"리치 실패 {str(res)[:200]} — 평문으로")
+    return send(text)
 
 
 def due():
@@ -533,6 +733,7 @@ def main():
     ap.add_argument("--send", action="store_true")
     ap.add_argument("--due", action="store_true")
     ap.add_argument("--force", action="store_true", help="같은 asOf 라도 다시 보낸다")
+    ap.add_argument("--html", help="리치 메시지 html 을 이 파일에 쓴다(점검용)")
     a = ap.parse_args()
     if a.due:
         return 0 if due() else 1
@@ -555,6 +756,7 @@ def main():
     redo = same and (bool(added) or tmore or a.force)
     R = build(d)
     text, st = message(d, R, base)
+    note = None
     if redo:
         head, rest = text.split("\n", 1)
         parts = []
@@ -565,14 +767,18 @@ def main():
         note = (f"아침 판 뒤에 {' · '.join(parts)}을 넣어 다시 보냄" if parts else "다시 보냄") \
             + f" · 칸 바뀜은 지난주({(base or {}).get('asOf', '—')[5:].replace('-', '/')}) 대비"
         text = f"{head.replace('</b>', ' · 수정본</b>')}\n<i>{note}</i>\n{rest}"
+    html = rich(d, R, base, note if redo else None)
     print(text)
-    print(f"\n[{len(text)}자]")
+    print(f"\n[{len(text)}자 · 리치 {len(html)}자]")
+    if a.html:
+        pathlib.Path(a.html).write_text(html, encoding="utf-8")
+        print(f"리치 html → {a.html}")
     if not a.send:
         return 0
     if same and not redo:
         print(f"KBPH {d['asOf']} 는 이미 보냈다(새로 받은 시장 없음) — 안 보낸다")
         return 0
-    if send(text):
+    if send_rich(html, text):
         STATE.write_text(json.dumps({"asOf": d["asOf"], "sent": kst_now().isoformat(timespec="minutes"), "end": R["end"], "q": st,
                                      "mk": mk, "base": base, "tte": tte},
                                     ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
