@@ -679,8 +679,8 @@ def rich(d, R, prev, note=None):
     else:
         c3, p3 = mlab(M, e, 3)
         win = f"{c3} vs {p3}"
-    head = f"K뷰티 국면 주간 · {now.month}/{now.day}({'월화수목금토일'[now.weekday()]})" + (" · 수정본" if note else "")
-    H = [f"<h2>{head}</h2>", f"<p><i>{esc(note) + '<br>' if note else ''}{win}</i></p>"]
+    head = f"K뷰티 국면 주간 · {now.month}/{now.day}({'월화수목금토일'[now.weekday()]})" + ""
+    H = [f"<h2>{head}</h2>", f"<p><i>{win}</i></p>"]
 
     S = SA.rows(False) if has_t else R["us"].rows(True)
     prev_all = (pq.get("sumall") or (pq.get("sum") if pq.get("sumdef") == "all" else None)) if has_t else pq.get("us")
@@ -1087,7 +1087,6 @@ def main():
         if tmore:
             parts.append(f"틱톡샵 {int(tte[5:7])}/{int(tte[8:10])}까지")
         note = (" · ".join(parts) + " 반영") if parts else "다시 보냄"
-        text = f"{head.replace('</b>', ' · 수정본</b>')}\n<i>{note}</i>\n{rest}"
     html = rich(d, R, base, note if redo else None)
     print(text)
     print(f"\n[{len(text)}자 · 리치 {len(html)}자]")
