@@ -818,7 +818,8 @@ def rich(d, R, prev, note=None):
             if u1.get(k) and pu1.get(k) and t1 and tp1:
                 c["w"] = (u1[k] / t1) / (pu1[k] / tp1) - 1
             col_[k] = c
-            gv[k] = (r["g"][0], r["g"][1])
+            gv[k] = (SY[k]["g"][0] if k in SY else None, r["g"][0], r["g"][1],
+                     (u1[k] / pu1[k] - 1) if u1.get(k) and pu1.get(k) else None)   # 1년(아마존만) · 3달 · 1달 · 1주
         hn = lambda k: sum(1 for v in col_[k].values() if v >= 0.10)
         up = lambda k: bool(pq_.get(k) and GOOD[SC[k]["q"]] > GOOD[pq_[k]])
         fs = lambda k: SC[k]["q"] == "성장 가속" or (up(k) and SC[k]["q"] in ("성장 가속", "반등 중"))
@@ -828,29 +829,34 @@ def rich(d, R, prev, note=None):
         if len(pk) < TOPN:   # 모자라면 3달·1달 몫이 는 브랜드로 채운다(틱톡샵은 1년 칸이 없어 기준을 넘기 어렵다)
             ex = [k for k in SC if k not in pk and SC[k]["s"] >= MIN and (col_[k]["3"] > 0 or col_[k]["1"] > 0)]
             pk += sorted(ex, key=lambda k: -sc_(k))
-        return {"pk": pk[:TOPN], "gv": gv, "m3": gb(C, 3)}
+        return {"pk": pk[:TOPN], "gv": gv, "m3": gb(C, 3), "yr": CY is not None}
 
     CA, CT = chan_pick("amz", R.get("amz"), R.get("amz")), chan_pick("tt", R.get("tt"), None)
     if CA or CT:
-        ea, et = HIT.get(("아마존 전 지역", "1달"), False), HIT.get(("틱톡샵 미국", "1달"), False)
-        def cc(P_, i_, e1):
+        EV = {"amz": [False, False, HIT.get(("아마존 전 지역", "1달"), False), HIT.get(("아마존 전 지역", "1주"), False)],
+              "tt": [False, False, HIT.get(("틱톡샵 미국", "1달"), False), HIT.get(("틱톡샵 미국", "1주"), False)]}
+        CL = {"amz": [0, 1, 2, 3] if (CA and CA["yr"]) else [1, 2, 3], "tt": [0, 1, 2, 3] if (CT and CT["yr"]) else [1, 2, 3]}   # 틱톡샵은 작년 자료가 없어 1년 칸이 없다
+        def cc(P_, i_, key):
+            cl = CL[key]
             if not P_ or i_ >= len(P_["pk"]):
-                return _td("") + _td("") + _td("")
+                return "".join(_td("") for _ in range(len(cl) + 1))
             k = P_["pk"][i_]
-            g3, g1 = P_["gv"][k]
-            return (_td(nmk(k), "left") + _td(cell(g3, 0.30, 1.0))
-                    + _td((pctg(g1) + "†") if (e1 and g1 is not None) else cell(g1, 0.30, 1.0)))
+            g = P_["gv"][k]
+            return (_td(nmk(k), "left")
+                    + "".join(_td((pctg(g[c]) + "†") if (EV[key][c] and g[c] is not None) else cell(g[c], 0.30, 1.0)) for c in cl))
+        LB = ["1년", n3, n1, "1주"]
         t = ("<table bordered><caption>채널별 좋아지는 브랜드 — 판매 증감</caption><tr>" + _th("#")
-             + _th("아마존", "left") + _th(n3) + _th(n1) + _th("틱톡샵", "left") + _th(n3) + _th(n1) + "</tr>")
+             + _th("아마존", "left") + "".join(_th(LB[c]) for c in CL["amz"])
+             + _th("틱톡샵", "left") + "".join(_th(LB[c]) for c in CL["tt"]) + "</tr>")
         for i_ in range(TOPN):
             if (not CA or i_ >= len(CA["pk"])) and (not CT or i_ >= len(CT["pk"])):
                 break
-            t += "<tr>" + _td(str(i_ + 1)) + cc(CA, i_, ea) + cc(CT, i_, et) + "</tr>"
+            t += "<tr>" + _td(str(i_ + 1)) + cc(CA, i_, "amz") + cc(CT, i_, "tt") + "</tr>"
         H.append(t + "</table>")
         au = []
         for lab, P_ in (("아마존", CA), ("틱톡샵", CT)):
             if P_ and P_["m3"] is not None:
-                fx = [k for k in P_["pk"] if P_["gv"][k][0] is not None and P_["gv"][k][0] > P_["m3"]]
+                fx = [k for k in P_["pk"] if P_["gv"][k][1] is not None and P_["gv"][k][1] > P_["m3"]]
                 au.append(f"{lab} {len(fx)}/{len(P_['pk'])}개가 3달 시장({pctg(P_['m3'])})보다 빠름")
         au = [" · ".join(au)] if au else []
         names = {nm(d, k) for P_ in (CA, CT) if P_ for k in P_["pk"]}
