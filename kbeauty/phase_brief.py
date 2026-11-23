@@ -669,8 +669,23 @@ def rich(d, R, prev, note=None):
     except Exception:
         pass
 
-    def say(auto, key):
-        nt = NOTE.get(key) or []
+    NAMES = {nm(d, k) for k in d["b"]}   # 바구니 브랜드 한글 이름
+
+    def audit(key, lines, ok_names):
+        """검수 — 이유 줄이 ① 55자 안 ② 이름을 대는 브랜드가 이 표에 있는가. 어긋나면 그 줄을 빼고 로그에 남긴다."""
+        out = []
+        for x in lines:
+            bad = [n for n in NAMES if n and n in x and n not in ok_names]
+            if len(x) > 55:
+                print(f"[검수] {key} 이유 줄이 길다({len(x)}자) — 뺌: {x}")
+            elif bad:
+                print(f"[검수] {key} 이유 줄에 표에 없는 브랜드({'·'.join(bad)}) — 뺌: {x}")
+            else:
+                out.append(x)
+        return out
+
+    def say(auto, key, ok_names=None):
+        nt = audit(key, NOTE.get(key) or [], ok_names if ok_names is not None else NAMES)
         auto = [x for x in auto if x][: (1 if nt else 2)]   # 한두 줄 — 이유가 있으면 숫자 한 줄 + 이유
         ls = [f"▸ {x}" for x in auto] + [f"→ {esc(x)}" for x in nt[:2]]
         if ls:
@@ -702,10 +717,10 @@ def rich(d, R, prev, note=None):
     au = []
     if len(r3) >= 2:
         hi, lo = max(r3, key=lambda x: x[1]), min(r3, key=lambda x: x[1])
-        au.append(f"3달은 {sh(hi[0])}({pctg(hi[1])}){ig(sh(hi[0]))} 가장 빠르고 {sh(lo[0])}({pctg(lo[1])}){ig(sh(lo[0]))} 가장 느림")
+        au.append(f"3달 최고 {sh(hi[0])} {pctg(hi[1])} · 최저 {sh(lo[0])} {pctg(lo[1])}")
     tv, av = (RV.get("틱톡샵 미국") or [None] * 4)[2], (RV.get("아마존 전 지역") or [None] * 4)[2]
     if tv is not None and av is not None and (tv > 0) != (av > 0):
-        au.append(f"1달은 틱톡샵 {pctg(tv)} vs 아마존 {pctg(av)} — 채널이 반대로 움직임")
+        au.append(f"1달 틱톡샵 {pctg(tv)} · 아마존 {pctg(av)} — 반대 방향")
     say(au, "region")
 
     # 브랜드 고르기 — 비중 변화로(두 기간 이상 +10% 또는 빠르게 좋아지는 국면)
@@ -743,12 +758,12 @@ def rich(d, R, prev, note=None):
         au = []
         if m3 is not None:
             fx = [k for k in pick if GV[k][1] is not None and GV[k][1] > m3]
-            au.append(f"3달 시장(전 지역 {pctg(m3)})보다 빨리 큰 브랜드 {len(pick)}개 중 {len(fx)}개" + (f" · 가장 빠른 브랜드 {nm(d, max(fx, key=lambda k: GV[k][1]))}({pctg(max(GV[k][1] for k in fx))})" if fx else ""))
+            au.append(f"{len(pick)}개 중 {len(fx)}개가 3달 시장({pctg(m3)})보다 빠름" + (f" · 1위 {nm(d, max(fx, key=lambda k: GV[k][1]))} {pctg(max(GV[k][1] for k in fx))}" if fx else ""))
         ww = [(k, GV[k][3]) for k in pick if GV[k][3] is not None]
         if ww:
             k_, v_ = max(ww, key=lambda x: x[1])
-            au.append(f"1주는 {nm(d, k_)}({pctg(v_)}){ig(nm(d, k_))} 가장 좋아짐")
-        say(au, "sales")
+            au.append(f"1주 1위 {nm(d, k_)} {pctg(v_)}")
+        say(au, "sales", {nm(d, k) for k in pick})
 
         # ③ 비중 변화율 — 시장 대비 몫이 늘었나 · 국면
         t = ("<table bordered><caption>좋아지는 브랜드 — K뷰티 안 비중 변화율</caption><tr>" + _th("브랜드", "left")
@@ -769,10 +784,10 @@ def rich(d, R, prev, note=None):
             for k in pick:
                 a, b = (ttc.cmp(k, 1, 1) if k in ttc.U else None), (amc.cmp(k, 1, 1) if k in amc.U else None)
                 if a and b and a.get("g") is not None and b.get("g") is not None and a["g"] > 0 and a["g"] - b["g"] >= 0.5:
-                    dr.append(f"{nm(d, k)}({pctg(a['g'])})")
+                    dr.append(nm(d, k))
             if dr:
-                au.append("1달 몫을 틱톡샵이 끌어올린 브랜드 — " + " · ".join(dr))
-        say(au, "share")
+                au.append("1달 몫은 틱톡샵이 끌었다 — " + "·".join(dr))
+        say(au, "share", {nm(d, k) for k in pick})
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
