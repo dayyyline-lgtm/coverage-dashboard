@@ -563,103 +563,92 @@ def rich(d, R, prev, note=None):
         prev_all = None
     MIN = 0.01   # 표에 올리는 비중 문턱
 
-    # 2026-11-23 3차(사용자 "표 하나에 숫자 하나 · 막대로 · 몫 변화 순서대로 · 메디큐브 빼면은 필요 없다"):
-    #   ① 판매 증감(시장별) ② 비중 변화(브랜드 · 변화 큰 순) ③ 상장사(변화 큰 순) ④ 국면(이름만). 막대는 이모지 네모(🟥 늘었다 · 🟦 줄었다).
+    # 2026-11-23 6차(사용자 "지역별 3달 → 지역별 1달 → 3달 기준 브랜드 긍정 5개 이내 → 1달 기준 → WoW 로 좋아진 애들"):
+    #   지역은 나빠진 것도 다(🟦) · 브랜드는 좋은 것만 5개까지 · 표 하나에 숫자 하나 + 네모 막대 · WoW = 지난주 브리핑 대비.
+    PV = (prev or {}).get("v") or {}
+
     def bar(v, step, cap):
-        """증감률(소수) → 네모 막대. step 마다 한 칸 · cap 칸 넘으면 '…'."""
         if v is None:
             return ""
         n = int(abs(v) / step + 0.5)
         if n == 0 and abs(v) >= step * 0.25:
             n = 1
-        sq = "🟥" if v > 0 else "🟦"
-        return sq * min(n, cap) + ("…" if n > cap else "")
+        return ("🟥" if v > 0 else "🟦") * min(n, cap) + ("…" if n > cap else "")
 
-    # ① 판매 — 시장마다 판매량이 얼마나 늘었나
-    g1 = (SA.rcmp(next(iter(SA.U)), 1, 1) or {}).get("gb") if (has_t and SA.W) else None
-    rows = []
-    if has_t:
-        rows.append((f"전 지역 합산 · {n3}", SA.base(False)))
-        if g1 is not None:
-            rows.append((f"전 지역 합산 · {n1}", g1))
-        rows.append((f"틱톡샵 미국 · {n3}", R["tt"].base(False)))
-    rows.append(("아마존 미국 · YoY", R["us"].base(True)))
-    for code, lab in [("eu", "아마존 유럽5 · YoY"), ("jp", "아마존 일본 · YoY"), ("ca", "아마존 캐나다 · YoY")]:
-        if code in R:
-            rows.append((lab, R[code].base(True)))
-    # 2026-11-23 5차: 시장(지역)은 나빠진 것도 다 보낸다 · 종목·회사는 좋은 것만 · WoW = 지난주 브리핑 숫자 대비
-    PV = (prev or {}).get("v") or {}
-    def wow(now, was, pp=100):
+    def wpp(now, was):
         if now is None or was is None:
             return "—"
-        dv = (now - was) * pp
-        return "0.0%p" if abs(dv) < 0.05 else f"{'▲' if dv > 0 else '▼'}{abs(dv):.1f}%p"
-    def wowr(now, was):
-        """비중 WoW = 지난주 비중 대비 몇 % 늘었나(상대 · 작은 브랜드도 보이게)."""
-        if not now or not was:
-            return "—"
-        dv = (now / was - 1) * 100
-        return "0%" if abs(dv) < 0.5 else f"{'▲' if dv > 0 else '▼'}{abs(dv):.0f}%"
-    V = {"sales": {c: v for c, v in rows if v is not None}, "b": {}, "co": {}}
-    t = ("<table bordered><caption>① 판매 — 시장별 증감 (🟥 늘었다 · 🟦 줄었다 · 1칸 = 20%)</caption><tr>"
-         + _th("시장 · 기간", "left") + _th("", "left") + _th("증감") + _th("WoW") + "</tr>")
-    t += "".join("<tr>" + _td(esc(c), "left") + _td(bar(v, 0.2, 8), "left") + _td(_sgg(v)) + _td(wow(v, (PV.get("sales") or {}).get(c)))
-                 + "</tr>" for c, v in rows)
-    H.append(t + "</table>")
+        dv = (now - was) * 100
+        return "0%p" if abs(dv) < 0.5 else f"{'▲' if dv > 0 else '▼'}{abs(dv):.0f}%p"
 
-    # ② 비중 — K뷰티 안 몫이 늘었나 줄었나 · 변화 큰 순
-    big = sorted([(k, r) for k, r in S.items() if r["s"] >= MIN and r["x"] >= 100.5], key=lambda z: -z[1]["x"])
-    V["b"] = {k: r["s"] for k, r in S.items()}
-    t = (f"<table bordered><caption>② 몫이 늘어난 브랜드 ({n3} 몫 변화 큰 순 · 비중 1% 이상 · * 상장사)</caption><tr>"
-         + _th("브랜드", "left") + _th("", "left") + _th("몫 변화") + _th("비중") + _th("비중 WoW") + "</tr>")
-    for k, r in big:
-        nmk = nm(d, k) + ("*" if d["b"].get(k, {}).get("co") else "")
-        t += ("<tr>" + _td(B(nmk) if r["x"] >= 105 else nmk, "left") + _td(bar(r["x"] / 100 - 1, 0.05, 8), "left")
-              + _td(_sg(r["x"])) + _td(shp(r["s"])) + _td(wowr(r["s"], (PV.get("b") or {}).get(k))) + "</tr>")
-    H.append(t + "</table>")
+    # 지역(채널) 판매 증감 — 같은 길이의 직전 기간 대비
+    REG = [("전 지역 합산", SA if has_t else None), ("미국 합산", R.get("sum") if has_t else None), ("아마존 미국", R["us"]),
+           ("틱톡샵 미국", R.get("tt")), ("아마존 유럽5", R.get("eu")), ("아마존 일본", R.get("jp")), ("아마존 캐나다", R.get("ca"))]
 
-    # ③ 상장사 — 회사로 묶은 몫 변화 · 큰 순
-    if has_t:
-        allco = co_rows(d, SA, n=99)
-        V["co"] = {co: s_ for co, s_, y, g in allco}
-        t = (f"<table bordered><caption>③ 몫이 늘어난 상장사 ({n3})</caption><tr>"
-             + _th("회사", "left") + _th("", "left") + _th("몫 변화") + _th("비중") + _th("비중 WoW") + "</tr>")
-        for co, s_, y, g in [z for z in co_rows(d, SA) if z[2] >= 100.5]:
-            t += ("<tr>" + _td(B(esc(co)) if y >= 105 else esc(co), "left") + _td(bar(y / 100 - 1, 0.05, 8), "left")
-                  + _td(_sg(y)) + _td(shp(s_)) + _td(wowr(s_, (PV.get("co") or {}).get(co))) + "</tr>")
+    def gb(C, w):
+        if C is None:
+            return None
+        x = C.cmp(next(iter(C.U)), w, w)
+        return x and x.get("gb")
+
+    V = {"r3": {}, "r1": {}, "b": {k: r["s"] for k, r in S.items()}}
+    EVT = [("10/7~8 빅딜데이", "2026-10-07", "2026-10-08"), ("블프 위크", "2026-11-19", "2026-11-30")]
+    for w, key, lab in ((3, "r3", n3), (1, "r1", n1)):
+        rows = [(nmr, gb(C, w)) for nmr, C in REG]
+        rows = [(nmr, v) for nmr, v in rows if v is not None]
+        V[key] = dict(rows)
+        evn = ""
+        if rw and w == 1:   # 행사 표시는 1달 표에만(3달은 늘 행사가 하나쯤 든다)
+            days = 90 if w == 3 else 30
+            c0, c1 = e0 - dt.timedelta(days=days - 1), e0
+            p0, p1 = c0 - dt.timedelta(days=days), c0 - dt.timedelta(days=1)
+            hit = [(n, "직전" if p0 <= dt.date.fromisoformat(x) <= p1 else "최근") for n, x, y in EVT
+                   if p0 <= dt.date.fromisoformat(x) <= c1]
+            if hit:
+                evn = " · " + " · ".join(f"{where} {lab}에 {n}" for n, where in hit)
+        t = (f"<table bordered><caption>{'①' if w == 3 else '②'} 지역별 판매 · {lab} (직전 {lab} 대비 · 🟥/🟦 1칸 = {'20' if w == 3 else '20'}%{esc(evn)})</caption><tr>"
+             + _th("지역·채널", "left") + _th("", "left") + _th("증감") + _th("WoW") + "</tr>")
+        t += "".join("<tr>" + _td(nmr, "left") + _td(bar(v, 0.2, 8), "left") + _td(_sgg(v)) + _td(wpp(v, (PV.get(key) or {}).get(nmr))) + "</tr>"
+                     for nmr, v in rows)
         H.append(t + "</table>")
 
-    # ④ 국면 — 이름만 · 칸 안은 비중 큰 순 · 지난주보다 좋아진 칸은 굵게
-    t = (f"<table bordered><caption>④ 국면 — 가속·반등 브랜드 ({'아마존 8개국 + 틱톡샵 미국' if has_t else '아마존 미국'} · 비중 1% 이상)</caption>")
-    for q in ("성장 가속", "반등 중"):   # 좋은 칸만
-        ks = sorted([k for k, r in S.items() if r["q"] == q and r["s"] >= MIN], key=lambda k: -S[k]["s"])
-        if not ks:
-            continue
-        def one(k):
-            w = nm(d, k)
-            was = (prev_all or {}).get(k)
-            if was and was != S[k]["q"] and GOOD[S[k]["q"]] > GOOD[was]:
-                return B(f"{w}↑")
-            return B(w) if q == "성장 가속" else w
-        t += "<tr>" + _td(QI[q], "left") + _td(", ".join(one(k) for k in ks), "left") + "</tr>"
-    H.append(t + "</table>")
-    if prev_all:
-        ch = [(k, prev_all[k], r["q"]) for k, r in S.items() if k in prev_all and prev_all[k] != r["q"] and r["s"] >= MIN]
-        good = sorted([z for z in ch if GOOD[z[2]] > GOOD[z[1]]], key=lambda z: -S[z[0]]["s"])
-        bad = sorted([z for z in ch if GOOD[z[2]] < GOOD[z[1]]], key=lambda z: -S[z[0]]["s"])
-        L = []
-        if good:
-            L.append("지난주보다 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[a]}→{QS[b]}") for k, a, b in good))
-        if False and bad:
-            L.append("지난주보다 나빠짐  " + ", ".join(f"{nm(d, k)} {QS[a]}→{QS[b]}" for k, a, b in bad))
-        if L:
-            H.append(f"<p>{'<br>'.join(L)}</p>")
+    # 브랜드 — 좋은 것만 5개까지 (비중 1% 이상 · * 상장사)
+    def nmk(k):
+        return nm(d, k) + ("*" if d["b"].get(k, {}).get("co") else "")
+
+    def btab(title, f, unit_note):
+        v = sorted([(k, r) for k, r in S.items() if r["s"] >= MIN and r[f] >= 100.5], key=lambda z: -z[1][f])[:5]
+        if not v:
+            return
+        t = (f"<table bordered><caption>{title} ({unit_note})</caption><tr>" + _th("브랜드", "left") + _th("", "left")
+             + _th("몫 변화") + _th("비중") + "</tr>")
+        t += "".join("<tr>" + _td(B(nmk(k)), "left") + _td(bar(r[f] / 100 - 1, 0.05, 8), "left") + _td(_sg(r[f])) + _td(shp(r["s"])) + "</tr>"
+                     for k, r in v)
+        H.append(t + "</table>")
+
+    btab(f"③ 브랜드 · {n3} 기준 몫이 늘어난 5", "x", f"K뷰티 안 몫이 직전 {n3}보다 몇 % 늘었나 · 🟥 1칸 = 5%")
+    btab(f"④ 브랜드 · {n1} 기준 몫이 늘어난 5", "y", f"직전 {n1} 대비")
+
+    # WoW — 지난주 브리핑보다 비중이 커진 브랜드 5
+    pb = PV.get("b") or {}
+    ww = sorted([(k, r["s"] / pb[k] - 1) for k, r in S.items() if r["s"] >= MIN and pb.get(k)], key=lambda z: -z[1])
+    ww = [(k, g) for k, g in ww if g >= 0.005][:5]
+    if ww:
+        t = ("<table bordered><caption>⑤ WoW · 지난주보다 비중이 커진 5 (지난주 브리핑 대비 · 🟥 1칸 = 2%)</caption><tr>"
+             + _th("브랜드", "left") + _th("", "left") + _th("WoW") + _th("비중") + "</tr>")
+        t += "".join("<tr>" + _td(B(nmk(k)), "left") + _td(bar(g, 0.02, 8), "left") + _td(f"▲{g * 100:.0f}%") + _td(shp(S[k]["s"])) + "</tr>"
+                     for k, g in ww)
+        H.append(t + "</table>")
+    if prev_all:   # 칸이 좋아진 브랜드 — 한 줄
+        up = sorted([k for k, r in S.items() if r["s"] >= MIN and prev_all.get(k) and GOOD[r["q"]] > GOOD[prev_all[k]]], key=lambda k: -S[k]["s"])
+        if up:
+            H.append("<p>칸이 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[prev_all[k]]}→{QS[S[k]['q']]}") for k in up[:6]) + "</p>")
 
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>시장은 전부 · 브랜드·회사는 좋은 것만(나빠진 쪽은 대시보드) · WoW = 지난주 브리핑 대비(판매는 증감률 차이 %p · 비중은 지난주 비중 대비 %) · 🟢 가속 3달↑·1달↑ · 🔵 반등 3달↓·1달↑ (비중 기준)</i><br>"
+    H.append(f"<p><i>지역은 전부 · 브랜드는 좋은 것만(비중 1% 이상 · * 상장사 · 나빠진 쪽은 대시보드) · WoW = 지난주 브리핑 대비(판매 %p · 비중 %)</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
