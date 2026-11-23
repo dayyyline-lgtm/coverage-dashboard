@@ -66,16 +66,26 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
 ## 1-c-2'. 틱톡샵은 EchoTik 으로 (2026-11-23~ · FastMoss 구독 끝 → EchoTik Pro · 아래 1-c-2 는 옛 경로)
 
 사용자: "FastMoss 너무 비싸서 EchoTik 으로" → Pro 결제(샵 상세 하루 500 · 90일 · 전 지역 · Basic 은 '샵 판매 분석 불가'라 안 된다).
-1. echotik.live 에 로그인된 크롬 탭에서 `kbeauty/echotik.js` 를 붙여 넣는다(raw.githubusercontent 에서 받아 eval 해도 된다).
-2. `await __ET.run('<샵ID들>')` — 샵 ID 는 `kbeauty/data/fm_shops.csv` 의 s(틱톡 판매자 ID · FastMoss 와 같다) 전부. 샵당 요청 4건 · 약 15초 · 41곳 10분.
+1. 크롬 새 탭 `https://echotik.live/board`(사용자 탭은 건드리지 않는다) → javascript_tool 로 불러오기:
+   ```js
+   const s=document.createElement('script'); s.textContent=await (await fetch('https://raw.githubusercontent.com/dayyyline-lgtm/coverage-dashboard/main/kbeauty/echotik.js?'+Date.now())).text(); document.head.appendChild(s); __ET.reset(); __ET.status()
+   ```
+   → `shops 0 · err 0 · - · login yes`. **login no 면 로그인하지 말고 멈춘다**(사용자가 평소 크롬에서 로그인해 둬야 한다 · 토요일 점검이 미리 알린다).
+   버퍼는 sessionStorage(`__ET`)라 같은 탭 안에선 남는다 — 페이지를 옮기면 다시 붙인다.
+2. `python kbeauty/echotik_recv.py --ids` 가 찍는 샵 ID 줄(`fm_shops.csv` 전부 · 틱톡 판매자 ID = FastMoss 와 같다)을 그대로 → `await __ET.run('<그 줄>')`.
+   샵당 요청 4건 · 약 15초 · 41곳 10분(javascript_tool 이 그보다 먼저 끝나면 `__ET.status()` 로 shops 가 다 찰 때까지 본다 · 탭을 앞에 둔다).
+   끝나면 `ERR` 가 있는 샵만 다시 `__ET.run('<그 샵>')`(이미 받은 샵은 건너뛴다).
    API = `/api/v1/data/sellers/<ID>/analysis?tag=basic.sales.trending&dateRange=90`(+ `&indicator=total_sale_gmv_amt&start_time=&end_time=` 판매액) ·
    `tag=basic.video.trending`(새 영상·라이브) · `tag=basic.influencer.trending`(크리에이터 누적 → 하루 차이). 토큰 = localStorage 'token'(Bearer). dateRange 180 은 Pro 도 막힌다.
-3. 덤프를 파일로: `__ET.lines().join('\n')` 를 Blob 으로 내려받아(내려받기 폴더) `device_stage_files` 로 옮긴다 — 안 되면 `__ET.plan()`·`__ET.dump(a,b)` → get_page_text.
+3. 덤프를 파일로: **이 PC 예약 작업**이면 받기 서버로 `__send('et_'+오늘, __ET.text())`(1-e 4번 함수) → `python kbeauty/phase_recv.py hash .claude/recv/et_<오늘>.txt` 의 len·h 확인.
+   echotik.live 가 폼 전송을 막으면 Blob 으로 내려받기 폴더에 받는다. **클라우드 세션**이면 Blob 내려받기 → `device_stage_files` · 그것도 안 되면 `__ET.plan()`·`__ET.dump(a,b)` → get_page_text.
 4. `python3 kbeauty/echotik_recv.py <파일>` — 줄 CRC·END 검산 → `data/phase/et/<날짜>.txt` 원문 → 샵마다 **FastMoss 마지막 날 다음부터** EchoTik × 이어 붙이기 배수를
    FastMoss 형식(`FH|E1|…`)으로 `data/phase/fm/<날짜>.txt` 에 쓴다. 배수 = 이어 붙이는 자리 앞 4주 FastMoss 합 ÷ EchoTik 합(판매량·판매액·영상·크리에이터 따로) ·
    처음 한 번 정해 `data/phase/et_k.json` 에 둔다(**지우지 말 것** — 다음 주부터 같은 배수).
 5. `python3 kbeauty/ingest.py kbeauty/data/phase/fm/<날짜>.txt`(KBCH) → `python3 kbeauty/phase.py`(KBPH) → 커밋·push(국면 원재료 push 가 브리핑을 깨운다 ·
-   같은 asOf 라도 틱톡샵이 일주일 넘게 늘면 '수정본').
+   같은 asOf 라도 틱톡샵이 일주일 넘게 늘면 '수정본'). 예약 작업에선 1-e 8번의 push.py 가 이 파일들까지 싣는다.
+   ⚠ 받는 쪽은 샵마다 '이미 들어 있는 마지막 날'(국면 덤프 + KBCH fm_daily) 다음 날부터만 쓴다 — 같은 날을 두 번 넣지 않는다.
+   EchoTik 은 90일만 주므로 **2주 넘게 건너뛰지 말 것**(빈 날은 못 메운다 · 90일 안이면 다음 회차가 저절로 메운다).
 
 11/23 첫 회차 비교(겹친 8/25~11/13 · `echotik_recv.py --compare`): 판매량 합은 거의 같다(샵 대부분 FastMoss ÷ EchoTik 0.96~1.06 · 주별 합계 0.98~1.08 ·
 날짜 어긋남 없음) · **판매액은 EchoTik 이 1.2~3배**(단가가 FastMoss 보다 높고 출렁인다 — 할인 전 가격으로 보인다. 메디큐브 FM $30 vs ET $96) → 배수로 FastMoss 수준에 맞춘다 ·
@@ -167,7 +177,7 @@ python3 kbeauty/push.py                                              # 배포 �
 
 ## 1-e. 국면 주간 회차를 이 PC 예약 작업으로 (2026-10-27~ · 1-d 를 대신한다)
 
-> 2026-11-01 부터 Keepa 단계(아래 5·6번)는 **1-g 통합 수집**이 한다(회사 채널까지 한 번에). 1~4번(준비)·7번(FastMoss)·8번(올리기)은 그대로.
+> 2026-11-01 부터 Keepa 단계(아래 5·6번)는 **1-g 통합 수집**이 한다(회사 채널까지 한 번에). 1~4번(준비)·7번(틱톡샵 · 2026-11-23 부터 EchoTik)·8번(올리기)은 그대로.
 
 사용자: "일요일 국면 수집을 이 PC 예약 작업으로 옮겨 줘 — 오늘처럼 로컬로 덤프 받는 방식으로". 클라우드 아침 사슬(05:30)은 10/26·10/27 아침
 덤프를 파일로 옮겨 적다가 안전 필터 오탐으로 세션이 멈췄다(수집은 끝났는데 못 올림). 국면 덤프는 더 크다(미국 6.5만 자 · 유럽·일본·캐나다 11만 자).
@@ -194,11 +204,12 @@ python3 kbeauty/push.py                                              # 배포 �
 6. **유럽 5개국 · 일본 · 캐나다** — 1-d 의 2번. 나라마다 `KBPH.save(m)` 으로 sessionStorage `kbeu_<m>` 에 모은 뒤 한 번에:
    `__send('kbph_eu_'+오늘, ['uk','de','fr','it','es'].map(m=>sessionStorage.getItem('kbeu_'+m)).join('\n')+'\n@@JPCA@@\n'+['jp','ca'].map(m=>sessionStorage.getItem('kbeu_'+m)).join('\n'))`
    (빠진 나라가 있으면 보내지 않는다 — 지난 회차 값이 남는다) → `python kbeauty/phase_recv.py eu .claude/recv/kbph_eu_<오늘>.txt`.
-7. **FastMoss** — 1-d 의 3번(로그인돼 있을 때만 · 캡차면 멈춤). `dump` 로 띄운 뒤 `__send('kbph_fm_'+오늘, document.getElementById('fmxdump').textContent)` →
-   `python kbeauty/phase_recv.py fm .claude/recv/kbph_fm_<오늘>.txt`. fastmoss.com 이 폼 전송을 막으면(받은 파일이 안 생기면) 예전처럼 get_page_text 로 옮긴다.
+7. **틱톡샵 = EchoTik**(2026-11-23~ · FastMoss 구독 끝) — 1-c-2' 1~3번(로그인돼 있을 때만) → `python kbeauty/echotik_recv.py .claude/recv/et_<오늘>.txt`
+   (FastMoss 형식 덤프를 `data/phase/fm/<오늘>.txt` 에 쓴다) → `python kbeauty/ingest.py kbeauty/data/phase/fm/<오늘>.txt`(KBCH 틱톡 칸).
+   로그인이 풀려 있으면 이 단계만 건너뛰고 아마존은 그대로 올린다(틱톡샵·합산은 지난 값 · 보고와 알림에 적는다).
 8. `python kbeauty/phase.py` → `python kbeauty/phase_brief.py`(미리보기 — 숫자가 이상하면 올리지 말고 멈춘다) → `python kbeauty/push.py --phase` → 만든 탭을 닫는다.
    올라가면 `phase_brief.yml` 이 텔레그램 '💄 K뷰티 국면 주간'을 보낸다(사용자가 정한 주간 브리핑 · 같은 asOf 는 한 번만).
-9. 보고(2~3줄): `[KBPH]` 줄 · 받은 나라 · FastMoss 받았나 · push.py 의 배포 줄 · 멈췄으면 어디서 왜.
+9. 보고(2~3줄): `[KBPH]` 줄 · 받은 나라 · EchoTik 받았나(샵 수 · 끝날) · push.py 의 배포 줄 · 멈췄으면 어디서 왜.
 
 ## 1-f. 회사 채널(KBCH) 주간 회차 · 토요일 로그인 점검 · 멈춤 알림 — 이 PC 예약 작업 (2026-10-30~)
 
@@ -223,9 +234,10 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
 4. `__send('kbk_'+오늘, window.__KBK.L.join('
 '))` → `python kbeauty/phase_recv.py hash .claude/recv/kbk_<오늘>.txt` 의 len·h 가 같은지 →
    `python kbeauty/ingest.py --check .claude/recv/kbk_<오늘>.txt` → `python kbeauty/ingest.py .claude/recv/kbk_<오늘>.txt` → `python kbeauty/push.py`(배포 생략 표시).
-5. 만든 탭을 닫는다. FastMoss(1-c-2)는 회사 채널에선 받지 않는다(국면 회차가 미국 공식 샵을 받는다 · 회사 채널의 틱톡샵 칸은 지난 덤프).
+5. 만든 탭을 닫는다. 틱톡샵(1-c-2')은 회사 채널에선 따로 받지 않는다(국면 회차가 미국 공식 샵을 받는다 · 회사 채널의 틱톡샵 칸은 지난 덤프).
 
-**토요일 로그인 점검** — 크롬 새 탭에서 keepa.com 을 열어 계정 이름·한도를 보고, `https://www.fastmoss.com/ko/dashboard` 를 열어 로그인 창이 뜨는지 본다.
+**토요일 로그인 점검** — 크롬 새 탭에서 keepa.com 을 열어 계정 이름·한도를 보고, `https://echotik.live/board` 를 열어 javascript_tool `!!localStorage.getItem('token')` 이
+true 인지 본다(2026-11-23 부터 FastMoss 대신 EchoTik · false 거나 로그인 화면이면 풀린 것).
 둘 중 하나라도 풀려 있으면 알림(사용자가 그날 평소 크롬에서 로그인해 두면 일요일 회차가 그대로 돈다). 둘 다 되면 알림 없이 끝. 만든 탭은 닫는다.
 
 **알림** — 멈추거나 일부만 받으면 끝내기 전에 `python telegram_send.py msg "⚠️ K뷰티 Keepa 주간: <어디서 왜 · 사용자가 할 일>"` 한 번(사용자가 정한 알림 · 잘 끝나면 안 보낸다).
@@ -249,7 +261,7 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
    받기 서버가 없으면(클라우드 세션) `__KW.show(i)` 로 나눠 띄워 get_page_text — 본문 줄바꿈은 '~' · 덩어리마다 len·h 를 맞춘다.
 6. **첫 회차(2026-11 첫 통합 회차)만**: `python kbeauty/week_recv.py <파일> --compare --dry` — 옛 회차(지금 `keepa_month.csv`)와 같은 달끼리 판매량 비를 본다.
    나라 합계가 최근 12개월 0.97 밑이면(빠진 꼬리 상품이 생각보다 크면) 저장하지 말고 보고 — B 의 30만 위를 넓힌다.
-7. `python kbeauty/week_recv.py <파일>` → KBCH(ingest) · 국면 미국(phase_recv us) · 유럽·일본·캐나다(phase_recv eu) 저장 → FastMoss(1-e 의 7번 · 그대로) →
+7. `python kbeauty/week_recv.py <파일>` → KBCH(ingest) · 국면 미국(phase_recv us) · 유럽·일본·캐나다(phase_recv eu) 저장 → 틱톡샵 EchoTik(1-e 의 7번) →
    `python kbeauty/phase.py` → `python kbeauty/phase_brief.py`(미리보기) → `python kbeauty/push.py --phase` → 만든 탭 닫기.
 7-b. **지누스(ISMKP) — 마지막 수집(`public/index.html` 의 `const ISMKP` asOf)이 28일 넘었고 한도가 10% 이상 남았을 때만.** 같은 keepa.com 탭에서
    `ism_keepa/keepa_brand.js` 주석 0~2번대로(브랜드 zinus · 미국 · 약 900개 ≈ 한도 4%) → `ism_keepa/zinus.json` → `python ism_keepa.py` → 같은 push 에 싣는다.
@@ -257,10 +269,10 @@ KBCH 가 10/20 뒤로 멈췄다 → 국면과 같은 예약 작업 `kbph-weekly`
 
 **예약 작업 원문(`kbph-weekly` · 토·일·월·화 06:50 · 수요일은 뺀다 — 2026-11-03)** — 앱의 작업 편집에서 지시문을 이걸로 바꾼다:
 ```
-[K뷰티 Keepa 주간] 작업 폴더 C:\Users\user\Desktop\asd. 절차 원본은 kbeauty/RUNBOOK.md — 맨 위 'Keepa 를 쓰는 곳은 일요일 한 회차뿐이다' 절과 1-e(준비 1~4번 · FastMoss 7번 · 올리기 8번) · 1-g(통합 수집 · 지누스 7-b) · 1-f(토요일 로그인 점검 · 알림).
+[K뷰티 Keepa 주간] 작업 폴더 C:\Users\user\Desktop\asd. 절차 원본은 kbeauty/RUNBOOK.md — 맨 위 'Keepa 를 쓰는 곳은 일요일 한 회차뿐이다' 절과 1-e(준비 1~4번 · 틱톡샵 EchoTik 7번 = 1-c-2' · 올리기 8번) · 1-g(통합 수집 · 지누스 7-b) · 1-f(토요일 로그인 점검 · 알림).
 토요일 = 로그인 점검만. 일·월·화 = git pull 뒤 `python kbeauty/phase_brief.py --due` 가 0 이면 1-g 통합 수집(8개국) · 1 이면 `python kbeauty/week_recv.py --todo` 가 0 일 때 그 나라만(1-g 3번 doms) · 둘 다 아니면 한 줄로 끝.
 새 탭 한도 %를 __KW.start 에 quota 로 넘긴다(모자란 나라는 저절로 건너뛰고 다음 날 이어받는다 · 20% 밑이면 시작하지 말고 '한도 N% — 내일로').
-Keepa 에 로그인하지 않는다(풀려 있으면 알림만). 사용자 탭은 건드리지 않고 만든 탭은 닫는다. 멈추거나 일부만 받으면 python telegram_send.py msg 로 한 번 알린다.
+Keepa·EchoTik 에 로그인하지 않는다(풀려 있으면 알림만). 사용자 탭은 건드리지 않고 만든 탭은 닫는다. 멈추거나 일부만 받으면 python telegram_send.py msg 로 한 번 알린다.
 ```
 
 ## 사람이 고칠 것

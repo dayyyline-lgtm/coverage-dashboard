@@ -2,6 +2,7 @@
 """EchoTik 덤프(echotik.js) → 국면(KBPH)·회사 채널(KBCH)이 읽는 FastMoss 형식 덤프 (2026-11-23 · FastMoss 구독 끝 → EchoTik Pro).
 
   python3 kbeauty/echotik_recv.py <덤프 파일들> [--date D] [--check] [--compare]
+  python3 kbeauty/echotik_recv.py --ids          # __ET.run 에 넘길 샵 ID 전부(fm_shops.csv)
 
 하는 일
   1. 줄마다 CRC · END 검산 → 원문을 data/phase/et/<날짜>.txt 에 둔다.
@@ -182,11 +183,19 @@ def ratios(fm, et):
 
 def main(argv):
     ap = argparse.ArgumentParser()
-    ap.add_argument("files", nargs="+")
+    ap.add_argument("files", nargs="*")
+    ap.add_argument("--ids", action="store_true", help="__ET.run 에 넘길 샵 ID 목록(fm_shops.csv 전부)")
     ap.add_argument("--date")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--compare", action="store_true")
     a = ap.parse_args(argv)
+    if a.ids:
+        ids = sorted({r["s"] for r in csv.DictReader(open(HERE / "data" / "fm_shops.csv", encoding="utf-8"))})
+        print(" ".join(ids))
+        print(f"[{len(ids)}곳]", file=sys.stderr)
+        return 0
+    if not a.files:
+        ap.error("덤프 파일을 주거나 --ids")
     body, end, bad = read(a.files)
     if bad:
         print(f"CRC 불일치 {len(bad)}줄: {bad[:5]}")

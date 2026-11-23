@@ -2,6 +2,7 @@
 //
 // 쓰는 법 — echotik.live 에 로그인된 크롬 탭(아무 페이지)에서 이 파일을 붙여 넣고:
 //   await __ET.run('<샵ID> <샵ID> …')   // 샵 하나에 요청 4건 · 1.5초 간격 · 샵당 약 15초(서버가 느리다)
+//   __send('et_'+오늘, __ET.text())      // 받기 서버로(RUNBOOK 1-e 4번) · 없으면 아래 plan/dump
 //   __ET.plan()                          // 덤프 덩어리 나누기 → "0-15,15-30,…"
 //   __ET.dump(a,b)                       // 본문 <pre> 에 띄운다 → get_page_text → 파일
 //   python3 kbeauty/echotik_recv.py <파일들> [--date D]
@@ -57,6 +58,8 @@
     E.log.push('DONE'); return E.log.filter(x => /ERR/.test(x)).join(' ; ') || 'all ok ' + L.length;
   };
   E.reset = () => { sessionStorage.removeItem(KEY); return 'cleared'; };
+  E.status = () => { const b = load(); return 'shops ' + Object.keys(b.s || {}).length + ' · err ' + Object.keys(b.err || {}).length + ' · ' + (b.date || '-') + ' · login ' + (tok() ? 'yes' : 'no'); };
+  E.text = () => E.lines().join('\n') + '\n';
   E.lines = () => {
     const buf = load(), L = [], push = a => { const s = a.join('|'); L.push(s + '|' + crc32(s)); };
     const ids = Object.keys(buf.s || {}).sort();

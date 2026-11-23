@@ -2408,6 +2408,8 @@ PC 트래커(curl_cffi · 작업 스케줄러 05:15/06:45)는 **고치지 않고
 - 겹친 81일 비교: **판매량은 같은 물건**(합 0.96~1.06배 · 주별 0.98~1.08) · **판매액은 EchoTik 이 1.2~3배**(할인 전 가격으로 보인다) → 샵별 배수(앞 4주 FastMoss ÷ EchoTik ·
   `data/phase/et_k.json` · 지우지 말 것)로 FastMoss 수준에 맞춘다. 크리에이터는 정의가 달라(EchoTik 누적 차이가 1/2~1/10) 같은 배수로 맞춘다.
 - 화면 문구·트렌드 그룹 이름의 'FastMoss' 는 그대로 둔다(그룹 이름은 블록 키). KBPH `tt.src` 만 'FastMoss ~11/14 · EchoTik 11/15~'.
+- **주간 회차도 EchoTik**(2026-11-23 사용자 "바꿔 이제"): 이 PC 예약 작업 `kbph-weekly` 는 앱에 저장돼 있어 클라우드에서 못 고친다 — 대신 그 작업이 따르는 RUNBOOK(1-e 7번 · 1-g 7번 · 1-f 토요일 점검)을
+  EchoTik 으로 바꿨다. 샵 ID 는 `echotik_recv.py --ids` · 받기는 `__send('et_'+오늘, __ET.text())` · 90일만 주므로 2주 넘게 건너뛰지 말 것.
 
 ## 틱톡 홍보 영상·크리에이터 — FastMoss 같은 응답에서 (2026-11-03 · 사용자 "틱톡도 가능하면" → "FastMoss 영상 데이터")
 - 샵 상세 '최근 180일' 응답(`recentData` · d_type 180)의 `trend[]` 한 줄에 판매(inc_sold_count·inc_sale_amount) 말고도 **inc_aweme_count(그날 새로 잡힌 상품 연결 영상)**·**inc_author_count(그날 처음 그 샵을 홍보한 크리에이터)**·inc_live_count 가 같이 온다 — **요청을 늘리지 않는다.**
