@@ -607,10 +607,16 @@ def rich(d, R, prev, note=None):
             return sum(C.wv(k, RI["c"][1]) for k in C.U)
         return sum((C.U[k][C.e] or 0) for k in C.U)
 
-    def cell(v, bold_at=None):
+    def BU(t):
+        return f"<b><u>{t}</u></b>"
+
+    def cell(v, bold_at=None, strong=0.30, both=False):
+        """강조 — 크게 움직인 칸(|v| ≥ strong, 지역은 아래쪽도) = 굵게+밑줄 · bold_at 이상 = 굵게."""
         if v is None:
             return "—"
         t = pctg(v)
+        if v >= strong or (both and v <= -strong):
+            return BU(t)
         return B(t) if bold_at is not None and v >= bold_at else t
 
     def nmk(k):
@@ -636,7 +642,7 @@ def rich(d, R, prev, note=None):
     if rw:
         WIN["1달"] = ((e0 - dt.timedelta(days=29), e0), (e0 - dt.timedelta(days=59), e0 - dt.timedelta(days=30)))
         WIN["1주"] = ((e0 - dt.timedelta(days=29), e0), (pe - dt.timedelta(days=29), pe))
-    notes = []
+    notes, HIT = [], {}   # HIT[(지역, 기간)] = 그 칸 비교에 한쪽에만 든 행사가 있다 → † · 강조 안 함
     for col, (cur, prv) in WIN.items():
         side = {"직전": [], "최근": []}
         for name, a_, b_, regs in EVT:
@@ -644,6 +650,8 @@ def rich(d, R, prev, note=None):
             inc, inp = a_ <= cur[1] and b_ >= cur[0], a_ <= prv[1] and b_ >= prv[0]
             if inc != inp:
                 side["최근" if inc else "직전"].append(name)
+                for r_ in regs:
+                    HIT[(r_, col)] = True
         txt = " / ".join(f"{w} {'·'.join(v)}" for w, v in side.items() if v)
         if txt:
             notes.append(f"{col}: {txt}")
@@ -652,11 +660,14 @@ def rich(d, R, prev, note=None):
     t = ("<table bordered><caption>지역별 판매 증감</caption><tr>" + _th("지역·채널", "left") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
     for n, C, Y in REG:
         w1 = (V["a1"][n] / pa[n] - 1) if pa.get(n) else None
-        t += ("<tr>" + _td(n, "left") + _td(cell(Y.base(True) if Y is not None else None)) + _td(cell(gb(C, 3)))
-              + _td(cell(gb(C, 1))) + _td(cell(w1)) + "</tr>")
+        vals = [Y.base(True) if Y is not None else None, gb(C, 3), gb(C, 1), w1]
+        ev = [False, False, HIT.get((n, "1달"), False), HIT.get((n, "1주"), False)]
+        hot = any(v is not None and v >= 0.30 and not e for v, e in zip(vals[1:], ev[1:]))   # 최근(3달·1달·1주)에 +30% 넘은 지역(행사 칸 빼고)
+        cs = [(pctg(v) + "†") if (e and v is not None) else cell(v, both=True) for v, e in zip(vals, ev)]
+        t += ("<tr>" + _td(BU(n) if hot else n, "left") + "".join(_td(c) for c in cs) + "</tr>")
     H.append(t + "</table>")
     H.append(f"<p><i>1년 = 작년 같은 {n3}(아마존만 · 틱톡샵은 작년 자료 없음) · {n3}·{n1} = 직전 같은 기간 · 1주 = 지난주 수집({md((prev or {}).get('asOf'))}) 대비 최근 30일"
-             + (("<br>행사 — " + " · ".join(notes)) if notes else "") + "</i></p>")
+             + (("<br>† 행사가 한쪽 기간에만 들어 강조 안 함 — " + " · ".join(notes)) if notes else "") + "</i></p>")
 
     # ② 브랜드 표 — 어느 기간이든 +10% 넘은 브랜드
     A = R.get("amz") or R["us"]
@@ -673,11 +684,15 @@ def rich(d, R, prev, note=None):
     pick.sort(key=lambda k: -sum(1 for v in col[k].values() if v >= 0.10) * 10 - S[k]["s"])
     pick = pick[:10]
     if pick:
-        t = ("<table bordered><caption>몫이 늘어난 브랜드 (K뷰티 안 몫 변화 · 굵게 = +10% 이상)</caption><tr>" + _th("브랜드", "left")
+        t = ("<table bordered><caption>몫이 늘어난 브랜드 (K뷰티 안 몫 변화)</caption><tr>" + _th("브랜드", "left")
              + _th("비중") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
         for k in pick:
             c = col[k]
-            t += ("<tr>" + _td(nmk(k), "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w")) + "</tr>")
+            hits = sum(1 for v in c.values() if v >= 0.10)
+            co = bool(d["b"].get(k, {}).get("co"))
+            nmx = nmk(k)
+            nmx = BU(nmx) if (co and hits >= 3) else B(nmx) if hits >= 2 else nmx   # 상장사 · 세 기간 이상 +10% = 굵게+밑줄
+            t += ("<tr>" + _td(nmx, "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w")) + "</tr>")
         H.append(t + "</table>")
     if prev_all:
         up = sorted([k for k, r in S.items() if r["s"] >= MIN and prev_all.get(k) and GOOD[r["q"]] > GOOD[prev_all[k]]], key=lambda k: -S[k]["s"])
@@ -688,7 +703,7 @@ def rich(d, R, prev, note=None):
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>브랜드는 어느 기간이든 +10% 넘은 것만(비중 1% 이상 · * 상장사 · 나빠진 쪽은 대시보드) · 비중 = 추적 브랜드 판매량 중 몫 · 1년 몫은 아마존 전 지역 기준</i><br>"
+    H.append(f"<p><i>강조 — <b><u>굵게+밑줄</u></b> = ±30% 넘게 움직인 칸 · 최근에 +30% 넘은 지역 · 세 기간 이상 +10% 넘은 상장사 / <b>굵게</b> = +10% 이상 · 두 기간 이상 좋은 브랜드<br>브랜드는 어느 기간이든 +10% 넘은 것만(비중 1% 이상 · * 상장사 · 나빠진 쪽은 대시보드) · 비중 = 추적 브랜드 판매량 중 몫 · 1년 몫은 아마존 전 지역 기준</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
