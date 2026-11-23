@@ -680,30 +680,30 @@ def rich(d, R, prev, note=None):
             col[k]["w"] = S1[k] / ps[k] - 1
         if k in AY:
             col[k]["y"] = AY[k]["x"] / 100 - 1
-    pick = [k for k in S if S[k]["s"] >= MIN and sum(1 for v in col[k].values() if v >= 0.10) >= 2]   # 한 기간만 반짝 오른 브랜드(미샤 1달만 +11%)는 뺀다
-    pick.sort(key=lambda k: -sum(1 for v in col[k].values() if v >= 0.10) * 10 - S[k]["s"])
-    pick = pick[:10]
+    hitn = lambda k: sum(1 for v in col[k].values() if v >= 0.10)
+    upq = lambda k: bool(prev_all and prev_all.get(k) and GOOD[S[k]["q"]] > GOOD[prev_all[k]])   # 지난주보다 국면 칸이 좋아짐
+    # 후보 = 두 기간 이상 +10%(한 기간만 반짝은 뺀다 — 11/23 미샤) + 빠르게 좋아지는 국면(지금 가속 칸 · 또는 이번 주 칸이 올라와 가속·반등)
+    fast = lambda k: S[k]["q"] == "성장 가속" or (upq(k) and S[k]["q"] in ("성장 가속", "반등 중"))
+    pick = [k for k in S if S[k]["s"] >= MIN and (hitn(k) >= 2 or fast(k))]
+    pick.sort(key=lambda k: -(hitn(k) * 10 + (5 if fast(k) else 0)) - S[k]["s"])
+    pick = pick[:6]
     if pick:
-        t = ("<table bordered><caption>몫이 늘어난 브랜드 (K뷰티 안 몫 변화)</caption><tr>" + _th("브랜드", "left")
-             + _th("비중") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
+        t = ("<table bordered><caption>좋아지는 브랜드 (K뷰티 안 비중 변화율)</caption><tr>" + _th("브랜드", "left")
+             + _th("비중") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + _th("국면") + "</tr>")
         for k in pick:
             c = col[k]
             hits = sum(1 for v in c.values() if v >= 0.10)
             co = bool(d["b"].get(k, {}).get("co"))
             nmx = nmk(k)
             nmx = BU(nmx) if (co and hits >= 3) else B(nmx) if hits >= 2 else nmx   # 상장사 · 세 기간 이상 +10% = 굵게+밑줄
-            t += ("<tr>" + _td(nmx, "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w")) + "</tr>")
+            t += ("<tr>" + _td(nmx, "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w"))
+                  + _td((B(QS[S[k]["q"]] + "↑") if upq(k) else QS[S[k]["q"]])) + "</tr>")
         H.append(t + "</table>")
-    if prev_all:
-        up = sorted([k for k, r in S.items() if r["s"] >= MIN and prev_all.get(k) and GOOD[r["q"]] > GOOD[prev_all[k]]], key=lambda k: -S[k]["s"])
-        if up:
-            H.append("<p>국면 칸이 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[prev_all[k]]}→{QS[S[k]['q']]}") for k in up[:6]) + "</p>")
-
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · 브랜드는 두 기간 이상 +10%</i><br>"
+    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · ↑ = 지난주보다 국면이 좋아짐</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
