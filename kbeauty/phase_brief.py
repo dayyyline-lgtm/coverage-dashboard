@@ -627,8 +627,14 @@ def rich(d, R, prev, note=None):
         x = SA.cmp(k, 1, 1) if has_t else R["us"].cmp(k, 1, 1)
         if x:
             S1[k] = x["sc"]
-    V = {"a1": {n: abs1(C) for n, C, Y in REG}, "s1": S1, "b": {k: r["s"] for k, r in S.items()}, "e0": e0.isoformat() if rw else None}
-    pa, ps = PV.get("a1") or {}, PV.get("s1") or {}
+    U1 = {}
+    for k in S:
+        if has_t and SA.W:
+            U1[k] = SA.wv(k, RI["c"][1])
+        elif has_t and SA.R and k in SA.R:
+            U1[k] = SA.R[k][0]
+    V = {"a1": {n: abs1(C) for n, C, Y in REG}, "s1": S1, "u1": U1, "b": {k: r["s"] for k, r in S.items()}, "e0": e0.isoformat() if rw else None}
+    pa, ps, pu = PV.get("a1") or {}, PV.get("s1") or {}, PV.get("u1") or {}
 
     # 행사 — 비교하는 두 기간 중 한쪽에만 든 것(지역별)
     EVT = [("빅딜데이", "2026-10-07", "2026-10-08", ("전 지역 합산", "아마존 전 지역", "아마존 미국", "아마존 유럽5", "아마존 캐나다")),
@@ -699,11 +705,21 @@ def rich(d, R, prev, note=None):
             t += ("<tr>" + _td(nmx, "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w"))
                   + _td((B(QS[S[k]["q"]] + "↑") if upq(k) else QS[S[k]["q"]])) + "</tr>")
         H.append(t + "</table>")
+        # ③ 같은 브랜드의 실제 판매 증감(2026-11-23 사용자 "실제 성장률도") — 1년 = 아마존 전 지역 3달 YoY · 3달·1달 = 전 지역 합산 직전比 · 1주 = 지난주 수집 30일 판매 대비
+        t = ("<table bordered><caption>같은 브랜드 판매 증감</caption><tr>" + _th("브랜드", "left")
+             + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
+        for k in pick:
+            g3, g1 = S[k]["g"]
+            gy = AY[k]["g"][0] if k in AY else None
+            gw = U1[k] / pu[k] - 1 if pu.get(k) and U1.get(k) else None
+            evb = [False, False, HIT.get(("전 지역 합산", "1달"), False), HIT.get(("전 지역 합산", "1주"), False)]   # 지역 표 전 지역 합산과 같은 행사 표시
+            t += ("<tr>" + _td(nmk(k), "left") + "".join(_td((pctg(v) + "†") if (e and v is not None) else cell(v, 0.30, 1.0)) for v, e in zip((gy, g3, g1, gw), evb)) + "</tr>")
+        H.append(t + "</table>")
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · ↑ = 지난주보다 국면이 좋아짐</i><br>"
+    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · ↑ = 지난주보다 국면이 좋아짐 · 판매는 위 지역 표의 전 지역 합산과 견줄 것</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
