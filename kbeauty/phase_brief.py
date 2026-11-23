@@ -680,7 +680,7 @@ def rich(d, R, prev, note=None):
             col[k]["w"] = S1[k] / ps[k] - 1
         if k in AY:
             col[k]["y"] = AY[k]["x"] / 100 - 1
-    pick = [k for k in S if S[k]["s"] >= MIN and any(v >= 0.10 for v in col[k].values())]
+    pick = [k for k in S if S[k]["s"] >= MIN and sum(1 for v in col[k].values() if v >= 0.10) >= 2]   # 한 기간만 반짝 오른 브랜드(미샤 1달만 +11%)는 뺀다
     pick.sort(key=lambda k: -sum(1 for v in col[k].values() if v >= 0.10) * 10 - S[k]["s"])
     pick = pick[:10]
     if pick:
@@ -703,7 +703,7 @@ def rich(d, R, prev, note=None):
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · 브랜드는 +10% 넘은 것만</i><br>"
+    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · 브랜드는 두 기간 이상 +10%</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
