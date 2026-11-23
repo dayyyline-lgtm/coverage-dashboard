@@ -1,4 +1,18 @@
 {
+ "_prod": {
+  "Zero Pore Pad": "제로모공패드",
+  "Jelly Gel Mask": "젤리 마스크",
+  "PDRN Pink Peptide Serum": "PDRN 세럼",
+  "Booster Pro": "부스터 프로",
+  "Collagen Volume Multi Balm": "멀티밤",
+  "Capsule Cream": "캡슐크림",
+  "Madeca Cream Time Reverse": "마데카 크림",
+  "360 Shot PDRN": "PDRN 아이크림",
+  "Real Deep Mask": "딥 마스크",
+  "Hydrogel Eye Patches": "아이패치",
+  "Collagen Peptides Jelly Serum": "젤리 세럼",
+  "Collagen Gel Toner Pads": "토너패드"
+ },
  "_설명": "K뷰티 국면 주간 브리핑 — 표마다 끝에 붙는 '→ 이유' 한 줄. 키 = KBPH asOf · region(지역) · sales(판매 증감) · share(비중 변화율) · ch(채널별 순위). 그 주 수집 뒤 리서치해서 손으로(RUNBOOK 1-g 7-a). 55자 안 · 그 표에 없는 브랜드 이름이 들어가면 검수에서 빠진다. · top = #결론 1·2·3등 브랜드 한글 이름 → 이유 한 줄(70자 안).",
  "2026-11-21": {
   "region": [
@@ -15,10 +29,10 @@
   ],
   "top": {
    "메디큐브": [
-    "빅딜데이 미국 매출 +85% · 유럽 첫 참가에서 나라별 최대 일매출(10/14 회사 발표)"
+    "빅딜데이 미국 +85% · 유럽 첫 참가(10/14 발표)"
    ],
    "동국제약": [
-    "빅딜데이 아마존 매출 +1,104%(10/14 회사 발표) · 영국 부츠 70곳·슈퍼드러그 입점(11/6)"
+    "빅딜데이 +1,104%(10/14) · 영국 부츠 입점(11/6)"
    ]
   }
  }
