@@ -662,11 +662,34 @@ def rich(d, R, prev, note=None):
         if txt:
             notes.append(f"{col}: {txt}")
 
+    # 표마다 끝에 한두 줄 — ▸ = 숫자에서 바로 읽은 것(매주 저절로) · → = 이유(brief_note.json · 그 주에 리서치해서 손으로)
+    NOTE = {}
+    try:
+        NOTE = json.loads((HERE / "data" / "phase" / "brief_note.json").read_text(encoding="utf-8")).get(d["asOf"][:10], {})
+    except Exception:
+        pass
+
+    def say(auto, key):
+        nt = NOTE.get(key) or []
+        auto = [x for x in auto if x][: (1 if nt else 2)]   # 한두 줄 — 이유가 있으면 숫자 한 줄 + 이유
+        ls = [f"▸ {x}" for x in auto] + [f"→ {esc(x)}" for x in nt[:2]]
+        if ls:
+            H.append("<p>" + "<br>".join(ls) + "</p>")
+
+    def ig(w):   # 이/가 — 받침(숫자는 읽는 소리로)
+        c = w.strip()[-1:] if w.strip() else ""
+        if c.isdigit():
+            return "이" if c in "013678" else "가"
+        o = ord(c) - 0xAC00 if c else -1
+        return "이" if 0 <= o <= 11171 and o % 28 else "가"
+
     # ① 지역 표
     t = ("<table bordered><caption>지역별 판매 증감</caption><tr>" + _th("지역·채널", "left") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
+    RV = {}
     for n, C, Y in REG:
         w1 = (V["a1"][n] / pa[n] - 1) if pa.get(n) else None
         vals = [Y.base(True) if Y is not None else None, gb(C, 3), gb(C, 1), w1]
+        RV[n] = vals
         ev = [False, False, HIT.get((n, "1달"), False), HIT.get((n, "1주"), False)]
         hot = any(v is not None and v >= 0.30 and not e for v, e in zip(vals[1:], ev[1:]))   # 최근(3달·1달·1주)에 +30% 넘은 지역(행사 칸 빼고)
         cs = [(pctg(v) + "†") if (e and v is not None) else cell(v, both=True) for v, e in zip(vals, ev)]
@@ -674,8 +697,18 @@ def rich(d, R, prev, note=None):
     H.append(t + "</table>")
     evn = sorted({x for v in notes for x in re.findall(r"빅딜데이|일본 감사제|블프", v)}, key=["빅딜데이", "일본 감사제", "블프"].index)
     H.append("<p><i>1년 = 작년 대비(아마존만) · 1주 = 지난주 대비" + (f" · † = 행사({'·'.join(evn)}) 때문" if evn else "") + "</i></p>")
+    sh = lambda n: n.replace("아마존 ", "").replace("틱톡샵 미국", "틱톡샵")
+    r3 = [(n, v[1]) for n, v in RV.items() if n not in ("전 지역 합산", "아마존 전 지역") and v[1] is not None]
+    au = []
+    if len(r3) >= 2:
+        hi, lo = max(r3, key=lambda x: x[1]), min(r3, key=lambda x: x[1])
+        au.append(f"3달은 {sh(hi[0])}({pctg(hi[1])}){ig(sh(hi[0]))} 가장 빠르고 {sh(lo[0])}({pctg(lo[1])}){ig(sh(lo[0]))} 가장 느림")
+    tv, av = (RV.get("틱톡샵 미국") or [None] * 4)[2], (RV.get("아마존 전 지역") or [None] * 4)[2]
+    if tv is not None and av is not None and (tv > 0) != (av > 0):
+        au.append(f"1달은 틱톡샵 {pctg(tv)} vs 아마존 {pctg(av)} — 채널이 반대로 움직임")
+    say(au, "region")
 
-    # ② 브랜드 표 — 어느 기간이든 +10% 넘은 브랜드
+    # 브랜드 고르기 — 비중 변화로(두 기간 이상 +10% 또는 빠르게 좋아지는 국면)
     A = R.get("amz") or R["us"]
     AY = A.rows(True)
     col = {k: {} for k in S}
@@ -694,7 +727,31 @@ def rich(d, R, prev, note=None):
     pick.sort(key=lambda k: -(hitn(k) * 10 + (5 if fast(k) else 0)) - S[k]["s"])
     pick = pick[:6]
     if pick:
-        t = ("<table bordered><caption>좋아지는 브랜드 (K뷰티 안 비중 변화율)</caption><tr>" + _th("브랜드", "left")
+        # ② 같은 브랜드의 실제 판매 증감(2026-11-23 사용자 "실제 성장률도 · 판매 증감이 두 번째") — 1년 = 아마존 전 지역 3달 YoY · 3달·1달 = 전 지역 합산 직전比 · 1주 = 지난주 수집 30일 판매 대비
+        t = ("<table bordered><caption>좋아지는 브랜드 — 판매 증감</caption><tr>" + _th("브랜드", "left")
+             + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
+        GV = {}
+        for k in pick:
+            g3, g1 = S[k]["g"]
+            gy = AY[k]["g"][0] if k in AY else None
+            gw = U1[k] / pu[k] - 1 if pu.get(k) and U1.get(k) else None
+            GV[k] = (gy, g3, g1, gw)
+            evb = [False, False, HIT.get(("전 지역 합산", "1달"), False), HIT.get(("전 지역 합산", "1주"), False)]   # 지역 표 전 지역 합산과 같은 행사 표시
+            t += ("<tr>" + _td(nmk(k), "left") + "".join(_td((pctg(v) + "†") if (e and v is not None) else cell(v, 0.30, 1.0)) for v, e in zip(GV[k], evb)) + "</tr>")
+        H.append(t + "</table>")
+        m3 = (RV.get("전 지역 합산") or [None] * 4)[1]
+        au = []
+        if m3 is not None:
+            fx = [k for k in pick if GV[k][1] is not None and GV[k][1] > m3]
+            au.append(f"3달 시장(전 지역 {pctg(m3)})보다 빨리 큰 브랜드 {len(pick)}개 중 {len(fx)}개" + (f" · 가장 빠른 브랜드 {nm(d, max(fx, key=lambda k: GV[k][1]))}({pctg(max(GV[k][1] for k in fx))})" if fx else ""))
+        ww = [(k, GV[k][3]) for k in pick if GV[k][3] is not None]
+        if ww:
+            k_, v_ = max(ww, key=lambda x: x[1])
+            au.append(f"1주는 {nm(d, k_)}({pctg(v_)}){ig(nm(d, k_))} 가장 좋아짐")
+        say(au, "sales")
+
+        # ③ 비중 변화율 — 시장 대비 몫이 늘었나 · 국면
+        t = ("<table bordered><caption>좋아지는 브랜드 — K뷰티 안 비중 변화율</caption><tr>" + _th("브랜드", "left")
              + _th("비중") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + _th("국면") + "</tr>")
         for k in pick:
             c = col[k]
@@ -705,21 +762,22 @@ def rich(d, R, prev, note=None):
             t += ("<tr>" + _td(nmx, "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w"))
                   + _td((B(QS[S[k]["q"]] + "↑") if upq(k) else QS[S[k]["q"]])) + "</tr>")
         H.append(t + "</table>")
-        # ③ 같은 브랜드의 실제 판매 증감(2026-11-23 사용자 "실제 성장률도") — 1년 = 아마존 전 지역 3달 YoY · 3달·1달 = 전 지역 합산 직전比 · 1주 = 지난주 수집 30일 판매 대비
-        t = ("<table bordered><caption>같은 브랜드 판매 증감</caption><tr>" + _th("브랜드", "left")
-             + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
-        for k in pick:
-            g3, g1 = S[k]["g"]
-            gy = AY[k]["g"][0] if k in AY else None
-            gw = U1[k] / pu[k] - 1 if pu.get(k) and U1.get(k) else None
-            evb = [False, False, HIT.get(("전 지역 합산", "1달"), False), HIT.get(("전 지역 합산", "1주"), False)]   # 지역 표 전 지역 합산과 같은 행사 표시
-            t += ("<tr>" + _td(nmk(k), "left") + "".join(_td((pctg(v) + "†") if (e and v is not None) else cell(v, 0.30, 1.0)) for v, e in zip((gy, g3, g1, gw), evb)) + "</tr>")
-        H.append(t + "</table>")
+        au = []
+        ttc, amc = R.get("tt"), R.get("amz")
+        if ttc and amc:   # 1달 몫을 어느 채널이 끌었나 — 틱톡샵 판매가 아마존보다 50%p 넘게 빨랐던 브랜드
+            dr = []
+            for k in pick:
+                a, b = (ttc.cmp(k, 1, 1) if k in ttc.U else None), (amc.cmp(k, 1, 1) if k in amc.U else None)
+                if a and b and a.get("g") is not None and b.get("g") is not None and a["g"] > 0 and a["g"] - b["g"] >= 0.5:
+                    dr.append(f"{nm(d, k)}({pctg(a['g'])})")
+            if dr:
+                au.append("1달 몫을 틱톡샵이 끌어올린 브랜드 — " + " · ".join(dr))
+        say(au, "share")
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · ↑ = 지난주보다 국면이 좋아짐 · 판매는 위 지역 표의 전 지역 합산과 견줄 것</i><br>"
+    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · ↑ = 지난주보다 국면이 좋아짐 · ▸ = 숫자 · → = 이유</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V

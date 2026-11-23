@@ -262,7 +262,11 @@ true 인지 본다(2026-11-23 부터 FastMoss 대신 EchoTik · false 거나 로
 6. **첫 회차(2026-11 첫 통합 회차)만**: `python kbeauty/week_recv.py <파일> --compare --dry` — 옛 회차(지금 `keepa_month.csv`)와 같은 달끼리 판매량 비를 본다.
    나라 합계가 최근 12개월 0.97 밑이면(빠진 꼬리 상품이 생각보다 크면) 저장하지 말고 보고 — B 의 30만 위를 넓힌다.
 7. `python kbeauty/week_recv.py <파일>` → KBCH(ingest) · 국면 미국(phase_recv us) · 유럽·일본·캐나다(phase_recv eu) 저장 → 틱톡샵 EchoTik(1-e 의 7번) →
-   `python kbeauty/phase.py` → `python kbeauty/phase_brief.py`(미리보기) → `python kbeauty/push.py --phase` → 만든 탭 닫기.
+   `python kbeauty/phase.py` → `python kbeauty/phase_brief.py`(미리보기) → **7-a 이유 적기** → `python kbeauty/push.py --phase` → 만든 탭 닫기.
+7-a. **브리핑 이유 한두 줄(2026-11-23 사용자 "표 끝날 때마다 한두 줄 정리 · 리서치해서 이유를")** — 미리보기의 표 셋(지역 · 판매 증감 · 비중 변화율)과 ▸ 줄을 보고,
+   크게 움직인 칸(±30% · † 행사 칸 · 1주 1위 브랜드)의 이유를 웹 검색으로 찾는다(행사 일정 · 회사 발표 기사 · 신제품·입점 소식).
+   `kbeauty/data/phase/brief_note.json` 에 KBPH asOf 날짜 키로 `region`·`sales`·`share` 한 줄씩(각 60자 안팎 · 출처가 회사 발표면 '(회사 발표)').
+   **확인한 것만 적는다 — 짐작은 쓰지 않는다.** 못 찾으면 그 칸은 비워 둔다(▸ 숫자 줄만 나간다). brief_note.json 도 같은 push 에 싣는다.
 7-b. **지누스(ISMKP) — 마지막 수집(`public/index.html` 의 `const ISMKP` asOf)이 28일 넘었고 한도가 10% 이상 남았을 때만.** 같은 keepa.com 탭에서
    `ism_keepa/keepa_brand.js` 주석 0~2번대로(브랜드 zinus · 미국 · 약 900개 ≈ 한도 4%) → `ism_keepa/zinus.json` → `python ism_keepa.py` → 같은 push 에 싣는다.
 8. 보고: `[한도]` 줄(week_recv.py 가 찍는다 — 나라별 행 · 건너뜀·불완전) · 한도 전후 % · `[KBCH]`·`[KBPH]` 줄 · 지누스 받았나 · 첫 회차면 비교 결과 · 남은 나라(`--todo`).
