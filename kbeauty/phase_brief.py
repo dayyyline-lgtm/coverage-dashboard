@@ -733,11 +733,78 @@ def rich(d, R, prev, note=None):
         au.append(f"1달 틱톡샵 {pctg(tv)} · 아마존 {pctg(av)} — 반대 방향")
     say(au, "region")
 
-    # ②·③ 채널별 좋은 3개 브랜드(2026-11-23 사용자 "좋은 3개사만 아마존·틱톡 나눠서 각각 한 표로")
-    #   고르기 = 그 채널 안 비중 변화(두 기간 이상 +10% 또는 빠르게 좋아지는 국면) · 표의 숫자 = 실제 판매 증감
-    def chan_block(label, key, C, CY, hitkey):
+    # 2026-11-23 16차(사용자 "종목은 5개씩 순위 · 좋아지는 브랜드 판매 증감·비중 변화도 각각 · 아마존·틱톡은 한 표로") —
+    #   ② 좋아지는 브랜드 판매 증감 ③ 같은 5개 비중 변화율 ④ 아마존·틱톡샵 채널별 순위 나란히(한 표). 브랜드 표는 5개 · 순위 칸.
+    TOPN = 5
+    A = R.get("amz") or R["us"]
+    AY = A.rows(True)
+    col = {k: {} for k in S}
+    for k, r in S.items():
+        col[k]["3"] = r["x"] / 100 - 1
+        col[k]["1"] = r["y"] / 100 - 1
+        if ps.get(k) and k in S1:
+            col[k]["w"] = S1[k] / ps[k] - 1
+        if k in AY:
+            col[k]["y"] = AY[k]["x"] / 100 - 1
+    hitn = lambda k: sum(1 for v in col[k].values() if v >= 0.10)
+    upq = lambda k: bool(prev_all and prev_all.get(k) and GOOD[S[k]["q"]] > GOOD[prev_all[k]])   # 지난주보다 국면 칸이 좋아짐
+    # 후보 = 두 기간 이상 +10%(한 기간만 반짝은 뺀다 — 11/23 미샤) + 빠르게 좋아지는 국면(지금 가속 칸 · 또는 이번 주 칸이 올라와 가속·반등)
+    fast = lambda k: S[k]["q"] == "성장 가속" or (upq(k) and S[k]["q"] in ("성장 가속", "반등 중"))
+    pick = [k for k in S if S[k]["s"] >= MIN and (hitn(k) >= 2 or fast(k))]
+    pick.sort(key=lambda k: -(hitn(k) * 10 + (5 if fast(k) else 0)) - S[k]["s"])
+    pick = pick[:TOPN]
+    if pick:
+        # ② 판매 증감 — 1년 = 아마존 전 지역 3달 YoY · 3달·1달 = 전 지역 합산 직전比 · 1주 = 지난주 수집 30일 판매 대비
+        t = ("<table bordered><caption>좋아지는 브랜드 — 판매 증감</caption><tr>" + _th("#") + _th("브랜드", "left")
+             + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
+        GV = {}
+        evb = [False, False, HIT.get(("전 지역 합산", "1달"), False), HIT.get(("전 지역 합산", "1주"), False)]   # 지역 표 전 지역 합산과 같은 행사 표시
+        for i_, k in enumerate(pick, 1):
+            g3, g1 = S[k]["g"]
+            gy = AY[k]["g"][0] if k in AY else None
+            gw = U1[k] / pu[k] - 1 if pu.get(k) and U1.get(k) else None
+            GV[k] = (gy, g3, g1, gw)
+            t += ("<tr>" + _td(str(i_)) + _td(nmk(k), "left")
+                  + "".join(_td((pctg(v) + "†") if (e and v is not None) else cell(v, 0.30, 1.0)) for v, e in zip(GV[k], evb)) + "</tr>")
+        H.append(t + "</table>")
+        m3 = (RV.get("전 지역 합산") or [None] * 4)[1]
+        au = []
+        if m3 is not None:
+            fx = [k for k in pick if GV[k][1] is not None and GV[k][1] > m3]
+            au.append(f"{len(pick)}개 중 {len(fx)}개가 3달 시장({pctg(m3)})보다 빠름" + (f" · 1위 {nm(d, max(fx, key=lambda k: GV[k][1]))} {pctg(max(GV[k][1] for k in fx))}" if fx else ""))
+        ww = [(k, GV[k][3]) for k in pick if GV[k][3] is not None]
+        if ww:
+            k_, v_ = max(ww, key=lambda x: x[1])
+            au.append(f"1주 1위 {nm(d, k_)} {pctg(v_)}")
+        say(au, "sales", {nm(d, k) for k in pick})
+
+        # ③ 비중 변화율 — 시장 대비 몫이 늘었나 · 국면
+        t = ("<table bordered><caption>좋아지는 브랜드 — K뷰티 안 비중 변화율</caption><tr>" + _th("#") + _th("브랜드", "left")
+             + _th("비중") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + _th("국면") + "</tr>")
+        for i_, k in enumerate(pick, 1):
+            c = col[k]
+            co = bool(d["b"].get(k, {}).get("co"))
+            nmx = nmk(k)
+            nmx = BU(nmx) if (co and hitn(k) >= 3) else B(nmx) if hitn(k) >= 2 else nmx   # 상장사 · 세 기간 이상 +10% = 굵게+밑줄
+            t += ("<tr>" + _td(str(i_)) + _td(nmx, "left") + _td(shp(S[k]["s"])) + "".join(_td(cell(c.get(x), 0.10)) for x in ("y", "3", "1", "w"))
+                  + _td((B(QS[S[k]["q"]] + "↑") if upq(k) else QS[S[k]["q"]])) + "</tr>")
+        H.append(t + "</table>")
+        au = []
+        ttc, amc = R.get("tt"), R.get("amz")
+        if ttc and amc:   # 1달 몫을 어느 채널이 끌었나 — 틱톡샵 판매가 아마존보다 50%p 넘게 빨랐던 브랜드
+            dr = []
+            for k in pick:
+                a, b = (ttc.cmp(k, 1, 1) if k in ttc.U else None), (amc.cmp(k, 1, 1) if k in amc.U else None)
+                if a and b and a.get("g") is not None and b.get("g") is not None and a["g"] > 0 and a["g"] - b["g"] >= 0.5:
+                    dr.append(nm(d, k))
+            if dr:
+                au.append("1달 몫은 틱톡샵이 끌었다 — " + "·".join(dr))
+        say(au, "share", {nm(d, k) for k in pick})
+
+    # ④ 채널별 순위 — 아마존 · 틱톡샵 나란히 한 표(그 채널 안 비중 변화로 골라 순위 · 칸 숫자 = 그 채널 판매 증감)
+    def chan_pick(key, C, CY):
         if C is None:
-            return
+            return None
         SC = C.rows(False)
         SY = CY.rows(True) if CY is not None else {}
         u1, pu1 = U1C.get(key) or {}, PV.get("u1" + key) or {}
@@ -751,44 +818,43 @@ def rich(d, R, prev, note=None):
             if u1.get(k) and pu1.get(k) and t1 and tp1:
                 c["w"] = (u1[k] / t1) / (pu1[k] / tp1) - 1
             col_[k] = c
-            gv[k] = (SY[k]["g"][0] if k in SY else None, r["g"][0], r["g"][1], (u1[k] / pu1[k] - 1) if u1.get(k) and pu1.get(k) else None)
+            gv[k] = (r["g"][0], r["g"][1])
         hn = lambda k: sum(1 for v in col_[k].values() if v >= 0.10)
         up = lambda k: bool(pq_.get(k) and GOOD[SC[k]["q"]] > GOOD[pq_[k]])
         fs = lambda k: SC[k]["q"] == "성장 가속" or (up(k) and SC[k]["q"] in ("성장 가속", "반등 중"))
         sc_ = lambda k: hn(k) * 10 + (5 if fs(k) else 0) + sum(v for v in col_[k].values() if v > 0)
         pk = [k for k in SC if SC[k]["s"] >= MIN and (hn(k) >= 2 or fs(k))]
         pk.sort(key=lambda k: -sc_(k))
-        if len(pk) < 3:   # 모자라면 3달·1달 몫이 는 브랜드로 채운다(틱톡샵은 1년 칸이 없어 기준을 넘기 어렵다)
+        if len(pk) < TOPN:   # 모자라면 3달·1달 몫이 는 브랜드로 채운다(틱톡샵은 1년 칸이 없어 기준을 넘기 어렵다)
             ex = [k for k in SC if k not in pk and SC[k]["s"] >= MIN and (col_[k]["3"] > 0 or col_[k]["1"] > 0)]
             pk += sorted(ex, key=lambda k: -sc_(k))
-        pk = pk[:3]
-        if not pk:
-            return
-        ev = [False, False, HIT.get((hitkey, "1달"), False), HIT.get((hitkey, "1주"), False)]
-        cols = [0, 1, 2, 3] if CY is not None else [1, 2, 3]   # 틱톡샵은 작년 자료가 없어 1년 칸을 뺀다
-        t = (f"<table bordered><caption>{label} — 좋은 3개 브랜드 · 판매 증감</caption><tr>" + _th("브랜드", "left")
-             + _th("비중") + "".join(_th(["1년", n3, n1, "1주"][i]) for i in cols) + _th("국면") + "</tr>")
-        for k in pk:
-            co = bool(d["b"].get(k, {}).get("co"))
-            nmx = nmk(k)
-            nmx = BU(nmx) if (co and hn(k) >= 3) else B(nmx) if hn(k) >= 2 else nmx
-            t += ("<tr>" + _td(nmx, "left") + _td(shp(SC[k]["s"]))
-                  + "".join(_td((pctg(gv[k][i]) + "†") if (ev[i] and gv[k][i] is not None) else cell(gv[k][i], 0.30, 1.0)) for i in cols)
-                  + _td(B(QS[SC[k]["q"]] + "↑") if up(k) else QS[SC[k]["q"]]) + "</tr>")
-        H.append(t + "</table>")
-        m3 = gb(C, 3)
-        au = []
-        if m3 is not None:
-            fx = [k for k in pk if gv[k][1] is not None and gv[k][1] > m3]
-            au.append(f"{len(pk)}개 중 {len(fx)}개가 3달 {label} 시장({pctg(m3)})보다 빠름")
-        ww = [(k, gv[k][3]) for k in pk if gv[k][3] is not None]
-        if ww:
-            k_, v_ = max(ww, key=lambda x: x[1])
-            au.append(f"1주 1위 {nm(d, k_)} {pctg(v_)}")
-        say(au, key, {nm(d, k) for k in pk})
+        return {"pk": pk[:TOPN], "gv": gv, "m3": gb(C, 3)}
 
-    chan_block("아마존", "amz", R.get("amz"), R.get("amz"), "아마존 전 지역")
-    chan_block("틱톡샵", "tt", R.get("tt"), None, "틱톡샵 미국")
+    CA, CT = chan_pick("amz", R.get("amz"), R.get("amz")), chan_pick("tt", R.get("tt"), None)
+    if CA or CT:
+        ea, et = HIT.get(("아마존 전 지역", "1달"), False), HIT.get(("틱톡샵 미국", "1달"), False)
+        def cc(P_, i_, e1):
+            if not P_ or i_ >= len(P_["pk"]):
+                return _td("") + _td("") + _td("")
+            k = P_["pk"][i_]
+            g3, g1 = P_["gv"][k]
+            return (_td(nmk(k), "left") + _td(cell(g3, 0.30, 1.0))
+                    + _td((pctg(g1) + "†") if (e1 and g1 is not None) else cell(g1, 0.30, 1.0)))
+        t = ("<table bordered><caption>채널별 좋아지는 브랜드 — 판매 증감</caption><tr>" + _th("#")
+             + _th("아마존", "left") + _th(n3) + _th(n1) + _th("틱톡샵", "left") + _th(n3) + _th(n1) + "</tr>")
+        for i_ in range(TOPN):
+            if (not CA or i_ >= len(CA["pk"])) and (not CT or i_ >= len(CT["pk"])):
+                break
+            t += "<tr>" + _td(str(i_ + 1)) + cc(CA, i_, ea) + cc(CT, i_, et) + "</tr>"
+        H.append(t + "</table>")
+        au = []
+        for lab, P_ in (("아마존", CA), ("틱톡샵", CT)):
+            if P_ and P_["m3"] is not None:
+                fx = [k for k in P_["pk"] if P_["gv"][k][0] is not None and P_["gv"][k][0] > P_["m3"]]
+                au.append(f"{lab} {len(fx)}/{len(P_['pk'])}개가 3달 시장({pctg(P_['m3'])})보다 빠름")
+        au = [" · ".join(au)] if au else []
+        names = {nm(d, k) for P_ in (CA, CT) if P_ for k in P_["pk"]}
+        say(au, "ch", names)
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
