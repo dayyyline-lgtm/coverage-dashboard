@@ -584,14 +584,15 @@ def rich(d, R, prev, note=None):
     for code, lab in [("eu", "아마존 유럽5 · YoY"), ("jp", "아마존 일본 · YoY"), ("ca", "아마존 캐나다 · YoY")]:
         if code in R:
             rows.append((lab, R[code].base(True)))
-    t = ("<table bordered><caption>① 판매 — 얼마나 더 팔렸나 (추적 브랜드 판매량 합계 · 🟥 1칸 = 20%)</caption><tr>"
+    t = ("<table bordered><caption>① 판매 — 늘어난 시장 (추적 브랜드 판매량 합계 · 🟥 1칸 = 20%)</caption><tr>"
          + _th("시장 · 기간", "left") + _th("", "left") + _th("증감") + "</tr>")
+    rows = [(c, v) for c, v in rows if v is not None and v > 0]   # 2026-11-23 4차 사용자 "안 좋은 거 말고 좋은 것만"
     t += "".join("<tr>" + _td(esc(c), "left") + _td(bar(v, 0.2, 10), "left") + _td(_sgg(v)) + "</tr>" for c, v in rows)
     H.append(t + "</table>")
 
     # ② 비중 — K뷰티 안 몫이 늘었나 줄었나 · 변화 큰 순
-    big = sorted([(k, r) for k, r in S.items() if r["s"] >= MIN], key=lambda z: -z[1]["x"])
-    t = (f"<table bordered><caption>② 비중 — 누가 몫을 가져갔나 ({n3} · 몫이 직전 {n3}보다 몇 % 늘었나 · 🟥 1칸 = 5%)</caption><tr>"
+    big = sorted([(k, r) for k, r in S.items() if r["s"] >= MIN and r["x"] >= 100.5], key=lambda z: -z[1]["x"])
+    t = (f"<table bordered><caption>② 비중 — 몫이 늘어난 브랜드 ({n3} · 몫이 직전 {n3}보다 몇 % 늘었나 · 🟥 1칸 = 5%)</caption><tr>"
          + _th("브랜드", "left") + _th("", "left") + _th("몫 변화") + _th("비중") + "</tr>")
     for k, r in big:
         nmk = nm(d, k) + ("*" if d["b"].get(k, {}).get("co") else "")
@@ -601,16 +602,16 @@ def rich(d, R, prev, note=None):
 
     # ③ 상장사 — 회사로 묶은 몫 변화 · 큰 순
     if has_t:
-        t = (f"<table bordered><caption>③ 상장사 — 회사로 묶은 몫 변화 ({n3})</caption><tr>"
+        t = (f"<table bordered><caption>③ 상장사 — 몫이 늘어난 회사 ({n3})</caption><tr>"
              + _th("회사", "left") + _th("", "left") + _th("몫 변화") + _th("비중") + "</tr>")
-        for co, s_, y, g in co_rows(d, SA):
+        for co, s_, y, g in [z for z in co_rows(d, SA) if z[2] >= 100.5]:
             t += ("<tr>" + _td(B(esc(co)) if y >= 105 else esc(co), "left") + _td(bar(y / 100 - 1, 0.05, 8), "left")
                   + _td(_sg(y)) + _td(shp(s_)) + "</tr>")
         H.append(t + "</table>")
 
     # ④ 국면 — 이름만 · 칸 안은 비중 큰 순 · 지난주보다 좋아진 칸은 굵게
-    t = (f"<table bordered><caption>④ 국면 — 방향만 ({'아마존 8개국 + 틱톡샵 미국' if has_t else '아마존 미국'} · 비중 1% 이상)</caption>")
-    for q in ORD:
+    t = (f"<table bordered><caption>④ 국면 — 가속·반등 ({'아마존 8개국 + 틱톡샵 미국' if has_t else '아마존 미국'} · 비중 1% 이상)</caption>")
+    for q in ("성장 가속", "반등 중"):   # 좋은 칸만
         ks = sorted([k for k, r in S.items() if r["q"] == q and r["s"] >= MIN], key=lambda k: -S[k]["s"])
         if not ks:
             continue
@@ -629,7 +630,7 @@ def rich(d, R, prev, note=None):
         L = []
         if good:
             L.append("지난주보다 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[a]}→{QS[b]}") for k, a, b in good))
-        if bad:
+        if False and bad:
             L.append("지난주보다 나빠짐  " + ", ".join(f"{nm(d, k)} {QS[a]}→{QS[b]}" for k, a, b in bad))
         if L:
             H.append(f"<p>{'<br>'.join(L)}</p>")
@@ -638,7 +639,7 @@ def rich(d, R, prev, note=None):
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>🟢 가속 3달↑·1달↑ · 🟡 둔화 3달↑·1달↓ · 🔵 반등 3달↓·1달↑ · 🔴 하락 둘 다↓ (비중 기준)</i><br>"
+    H.append(f"<p><i>좋은 것만 보낸다 — 줄어든 쪽·둔화·하락은 대시보드에 · 🟢 가속 3달↑·1달↑ · 🔵 반등 3달↓·1달↑ (비중 기준)</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     return "".join(H)
 
