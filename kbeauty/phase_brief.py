@@ -560,51 +560,79 @@ def rich(d, R, prev, note=None):
         prev_all = None
     MIN = 0.01   # 표에 올리는 비중 문턱
 
-    # 요약 — 판매 두 숫자 + 칸 바뀜(비중 1% 이상만)
-    g1 = (SA.rcmp(next(iter(SA.U)), 1, 1) or {}).get("gb") if (has_t and SA.W) else None
-    L = ["판매  " + (f"{n3} {B(pctg(SA.base(False)))}" if has_t else f"아마존 미국 YoY {B(pctg(R['us'].base(True)))}")
-         + (f" · {n1} {B(pctg(g1))}" if g1 is not None else "")]
-    if prev_all:
-        ch = [(k, prev_all[k], r["q"]) for k, r in S.items() if k in prev_all and prev_all[k] != r["q"] and r["s"] >= MIN]
-        good = sorted([z for z in ch if GOOD[z[2]] > GOOD[z[1]]], key=lambda z: -S[z[0]]["s"])
-        bad = sorted([z for z in ch if GOOD[z[2]] < GOOD[z[1]]], key=lambda z: -S[z[0]]["s"])
-        if good:
-            L.append("지난주보다 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[b]}") for k, _, b in good))
-        if bad:
-            L.append("지난주보다 나빠짐  " + ", ".join(f"{nm(d, k)} {QS[b]}" for k, _, b in bad))
-    H.append(f"<p>{'<br>'.join(L)}</p>")
+    # 2026-11-23 3차(사용자 "표 하나에 숫자 하나 · 막대로 · 몫 변화 순서대로 · 메디큐브 빼면은 필요 없다"):
+    #   ① 판매 증감(시장별) ② 비중 변화(브랜드 · 변화 큰 순) ③ 상장사(변화 큰 순) ④ 국면(이름만). 막대는 이모지 네모(🟥 늘었다 · 🟦 줄었다).
+    def bar(v, step, cap):
+        """증감률(소수) → 네모 막대. step 마다 한 칸 · cap 칸 넘으면 '…'."""
+        if v is None:
+            return ""
+        n = int(abs(v) / step + 0.5)
+        if n == 0 and abs(v) >= step * 0.25:
+            n = 1
+        sq = "🟥" if v > 0 else "🟦"
+        return sq * min(n, cap) + ("…" if n > cap else "")
 
-    # 국면 — 칸마다 한 줄
-    t = (f"<table bordered><caption>국면 · {'아마존 8개국 + 틱톡샵 미국' if has_t else '아마존 미국'} · 숫자 = K뷰티 내 비중</caption><tr>"
-         + _th("국면", "left") + _th("브랜드", "left") + "</tr>")
+    # ① 판매 — 시장마다 판매량이 얼마나 늘었나
+    g1 = (SA.rcmp(next(iter(SA.U)), 1, 1) or {}).get("gb") if (has_t and SA.W) else None
+    rows = []
+    if has_t:
+        rows.append((f"전 지역 합산 · {n3}", SA.base(False)))
+        if g1 is not None:
+            rows.append((f"전 지역 합산 · {n1}", g1))
+        rows.append((f"틱톡샵 미국 · {n3}", R["tt"].base(False)))
+    rows.append(("아마존 미국 · YoY", R["us"].base(True)))
+    for code, lab in [("eu", "아마존 유럽5 · YoY"), ("jp", "아마존 일본 · YoY"), ("ca", "아마존 캐나다 · YoY")]:
+        if code in R:
+            rows.append((lab, R[code].base(True)))
+    t = ("<table bordered><caption>① 판매 — 얼마나 더 팔렸나 (추적 브랜드 판매량 합계 · 🟥 1칸 = 20%)</caption><tr>"
+         + _th("시장 · 기간", "left") + _th("", "left") + _th("증감") + "</tr>")
+    t += "".join("<tr>" + _td(esc(c), "left") + _td(bar(v, 0.2, 10), "left") + _td(_sgg(v)) + "</tr>" for c, v in rows)
+    H.append(t + "</table>")
+
+    # ② 비중 — K뷰티 안 몫이 늘었나 줄었나 · 변화 큰 순
+    big = sorted([(k, r) for k, r in S.items() if r["s"] >= MIN], key=lambda z: -z[1]["x"])
+    t = (f"<table bordered><caption>② 비중 — 누가 몫을 가져갔나 ({n3} · 몫이 직전 {n3}보다 몇 % 늘었나 · 🟥 1칸 = 5%)</caption><tr>"
+         + _th("브랜드", "left") + _th("", "left") + _th("몫 변화") + _th("비중") + "</tr>")
+    for k, r in big:
+        nmk = nm(d, k) + ("*" if d["b"].get(k, {}).get("co") else "")
+        t += ("<tr>" + _td(B(nmk) if r["x"] >= 105 else nmk, "left") + _td(bar(r["x"] / 100 - 1, 0.05, 8), "left")
+              + _td(_sg(r["x"])) + _td(shp(r["s"])) + "</tr>")
+    H.append(t + f"</table><p><i>비중 1% 이상 · * 상장사 · 비중 = 추적 브랜드 판매량 중 그 브랜드 몫</i></p>")
+
+    # ③ 상장사 — 회사로 묶은 몫 변화 · 큰 순
+    if has_t:
+        t = (f"<table bordered><caption>③ 상장사 — 회사로 묶은 몫 변화 ({n3})</caption><tr>"
+             + _th("회사", "left") + _th("", "left") + _th("몫 변화") + _th("비중") + "</tr>")
+        for co, s_, y, g in co_rows(d, SA):
+            t += ("<tr>" + _td(B(esc(co)) if y >= 105 else esc(co), "left") + _td(bar(y / 100 - 1, 0.05, 8), "left")
+                  + _td(_sg(y)) + _td(shp(s_)) + "</tr>")
+        H.append(t + "</table>")
+
+    # ④ 국면 — 이름만 · 칸 안은 비중 큰 순 · 지난주보다 좋아진 칸은 굵게
+    t = (f"<table bordered><caption>④ 국면 — 방향만 ({'아마존 8개국 + 틱톡샵 미국' if has_t else '아마존 미국'} · 비중 1% 이상)</caption>")
     for q in ORD:
         ks = sorted([k for k, r in S.items() if r["q"] == q and r["s"] >= MIN], key=lambda k: -S[k]["s"])
         if not ks:
             continue
-        cell = ", ".join((B if q == "성장 가속" else str)(f"{nm(d, k)} {shp(S[k]['s'])}") for k in ks)
-        t += "<tr>" + _td(QI[q], "left") + _td(cell, "left") + "</tr>"
+        def one(k):
+            w = nm(d, k)
+            was = (prev_all or {}).get(k)
+            if was and was != S[k]["q"] and GOOD[S[k]["q"]] > GOOD[was]:
+                return B(f"{w}↑")
+            return B(w) if q == "성장 가속" else w
+        t += "<tr>" + _td(QI[q], "left") + _td(", ".join(one(k) for k in ks), "left") + "</tr>"
     H.append(t + "</table>")
-
-    # 상장사 — 비중 · 3달 비중 변화
-    if has_t:
-        t = (f"<table bordered><caption>상장사 · K뷰티 내 비중</caption><tr>" + _th("회사", "left") + _th("비중") + _th(f"{n3} 변화") + "</tr>")
-        for co, s_, y, g in co_rows(d, SA):
-            t += "<tr>" + _td(B(esc(co)) if y >= 105 else esc(co), "left") + _td(shp(s_)) + _td(_sg(y)) + "</tr>"
-        H.append(t + "</table>")
-
-    # 시장 — 판매 증감 + 비중 1·2위
-    def top2(rows):
-        v = sorted([(k, r) for k, r in rows.items() if r["s"] >= MIN], key=lambda z: -z[1]["s"])[:2]
-        return ", ".join(f"{nm(d, k)} {QI[r['q']].split()[0]}" for k, r in v)
-    mk = [("아마존 미국", f"YoY {pctg(R['us'].base(True))}", top2(R["us"].rows(True)))]
-    if has_t:
-        mk.append(("틱톡샵 미국", f"{n3} {pctg(R['tt'].base(False))}", top2(R["tt"].rows(False))))
-    for code, lab in [("eu", "아마존 유럽5"), ("jp", "아마존 일본"), ("ca", "아마존 캐나다")]:
-        if code in R:
-            mk.append((lab, f"YoY {pctg(R[code].base(True))}", top2(R[code].rows(True))))
-    t = "<table bordered><caption>시장별 · 판매 증감과 비중 1·2위</caption><tr>" + _th("시장", "left") + _th("판매") + _th("1·2위", "left") + "</tr>"
-    t += "".join("<tr>" + _td(a, "left") + _td(b) + _td(c, "left") + "</tr>" for a, b, c in mk)
-    H.append(t + "</table>")
+    if prev_all:
+        ch = [(k, prev_all[k], r["q"]) for k, r in S.items() if k in prev_all and prev_all[k] != r["q"] and r["s"] >= MIN]
+        good = sorted([z for z in ch if GOOD[z[2]] > GOOD[z[1]]], key=lambda z: -S[z[0]]["s"])
+        bad = sorted([z for z in ch if GOOD[z[2]] < GOOD[z[1]]], key=lambda z: -S[z[0]]["s"])
+        L = []
+        if good:
+            L.append("지난주보다 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[a]}→{QS[b]}") for k, a, b in good))
+        if bad:
+            L.append("지난주보다 나빠짐  " + ", ".join(f"{nm(d, k)} {QS[a]}→{QS[b]}" for k, a, b in bad))
+        if L:
+            H.append(f"<p>{'<br>'.join(L)}</p>")
 
     bx = bx_lines(d)
     if bx:
