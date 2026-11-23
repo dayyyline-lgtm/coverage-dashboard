@@ -570,7 +570,7 @@ def rich(d, R, prev, note=None):
             t0 = min(t0, R["ttRw"])
         e0 = dt.date.fromisoformat(t0)
         sp = lambda n: f"{md((e0 - dt.timedelta(days=n - 1)).isoformat())}~{md(e0.isoformat())}"
-        win = f"3달 {sp(90)} · 1달 {sp(30)} (각각 직전 같은 기간과 비교)"
+        win = f"3달 {sp(90)} · 1달 {sp(30)}"
     else:
         c3, p3 = mlab(M, e, 3)
         win = f"{c3} vs {p3}"
@@ -666,8 +666,8 @@ def rich(d, R, prev, note=None):
         cs = [(pctg(v) + "†") if (e and v is not None) else cell(v, both=True) for v, e in zip(vals, ev)]
         t += ("<tr>" + _td(BU(n) if hot else n, "left") + "".join(_td(c) for c in cs) + "</tr>")
     H.append(t + "</table>")
-    H.append(f"<p><i>1년 = 작년 같은 {n3}(아마존만 · 틱톡샵은 작년 자료 없음) · {n3}·{n1} = 직전 같은 기간 · 1주 = 지난주 수집({md((prev or {}).get('asOf'))}) 대비 최근 30일"
-             + (("<br>† 행사가 한쪽 기간에만 들어 강조 안 함 — " + " · ".join(notes)) if notes else "") + "</i></p>")
+    evn = sorted({x for v in notes for x in re.findall(r"빅딜데이|일본 감사제|블프", v)}, key=["빅딜데이", "일본 감사제", "블프"].index)
+    H.append("<p><i>1년 = 작년 대비(아마존만) · 1주 = 지난주 대비" + (f" · † = 행사({'·'.join(evn)}) 때문" if evn else "") + "</i></p>")
 
     # ② 브랜드 표 — 어느 기간이든 +10% 넘은 브랜드
     A = R.get("amz") or R["us"]
@@ -703,7 +703,7 @@ def rich(d, R, prev, note=None):
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>강조 — <b><u>굵게+밑줄</u></b> = ±30% 넘게 움직인 칸 · 최근에 +30% 넘은 지역 · 세 기간 이상 +10% 넘은 상장사 / <b>굵게</b> = +10% 이상 · 두 기간 이상 좋은 브랜드<br>브랜드는 어느 기간이든 +10% 넘은 것만(비중 1% 이상 · * 상장사 · 나빠진 쪽은 대시보드) · 비중 = 추적 브랜드 판매량 중 몫 · 1년 몫은 아마존 전 지역 기준</i><br>"
+    H.append(f"<p><i>굵게·밑줄 = 크게 움직인 것 · * 상장사 · 브랜드는 +10% 넘은 것만</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
