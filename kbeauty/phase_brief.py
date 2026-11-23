@@ -554,6 +554,86 @@ def co_rows(d, C, n=8):
 LAST_V = {}
 
 
+def _kkey(k):
+    return re.sub(r"[^a-z0-9]", "", k.lower())
+
+
+def top_products(k, n=2):
+    """KBCH 미국 아마존 판매액 상위 묶음(keepa_top.csv · 최근 30일) — 짧은 이름."""
+    f = HERE / "data" / "keepa_top.csv"
+    if not f.exists():
+        return []
+    import csv
+    kk = _kkey(k)
+    rows = []
+    for r in csv.DictReader(open(f, encoding="utf-8")):
+        if r.get("d") != "1" or _kkey(r.get("k", "")) != kk:
+            continue
+        v = [int(x) for x in (r.get("v13") or "0").split() if x.lstrip("-").isdigit()]
+        rows.append((v[-1] if v else 0, r.get("t") or ""))
+    rows.sort(key=lambda x: -x[0])
+    out = []
+    for v, t in rows[:n]:
+        w = t.split()
+        if len(t) >= 40 and len(w) > 2:   # ingest 가 40자로 잘랐다 — 끝의 잘린 낱말을 버린다
+            w = w[:-1]
+        i = 0
+        while i < len(w) - 1 and kk.startswith(_kkey("".join(w[:i + 1]))) and _kkey("".join(w[:i + 1])):
+            i += 1
+        t = " ".join(w[i:] if i else w)
+        t = re.split(r" (?:for|with|-|–|\|) ", t)[0].strip()
+        out.append(t[:30])
+    return out
+
+
+def concl_html(d, R, S, pick, GV, prev_all, notes, names, hit=None):
+    """#결론 — 1·2·3등 브랜드: 숫자 한 줄 · 끈 곳 · 잘 팔리는 것 · 이유(확인한 것만)."""
+    SA = R.get("all") or R.get("sum")
+    m3 = gbase(SA)
+    L = ["<p><b>#결론</b>" + (f" <i>(3달 시장 {pctg(m3)})</i>" if m3 is not None else "")]
+    for i, k in enumerate(pick[:3], 1):
+        r = S[k]
+        g = GV.get(k) or (None,) * 4
+        q0, q1 = (prev_all or {}).get(k), r["q"]
+        ph = f"{QS.get(q0, q0)}→{QS[q1]}" if q0 and q0 != q1 else QS[q1]
+        head = (f"{i}위 <b>{nm(d, k)}</b>{'*' if d['b'].get(k, {}).get('co') else ''} — 3달 판매 {pctg(g[1])} · "
+                f"비중 {shp(r['sp'])}→{shp(r['s'])} · {ph}")
+        # 끈 곳 — 3달 가장 빨리 큰 지역(그 지역 안 비중 1% 이상) + 1달 틱톡샵·아마존
+        best = None
+        for lab, key in (("미국", "us"), ("유럽5", "eu"), ("일본", "jp"), ("캐나다", "ca"), ("틱톡샵", "tt")):
+            C = R.get(key)
+            if C is None or k not in C.U:
+                continue
+            x = C.cmp(k, 3, 3)
+            if x and x.get("g") is not None and x.get("sc", 0) >= 0.01 and (best is None or x["g"] > best[1]):
+                best = (lab, x["g"])
+        drv = [f"3달 {best[0]} {pctg(best[1])}"] if best else []
+        ttc, amc = R.get("tt"), R.get("amz")
+        if ttc and amc and k in ttc.U and k in amc.U:
+            a, b = ttc.cmp(k, 1, 1), amc.cmp(k, 1, 1)
+            if a and b and a.get("g") is not None and b.get("g") is not None:
+                ht = hit or {}
+                drv.append(f"1달 틱톡샵 {pctg(a['g'])}{'†' if ht.get(('틱톡샵 미국', '1달')) else ''} · 아마존 {pctg(b['g'])}{'†' if ht.get(('아마존 전 지역', '1달')) else ''}")
+        tp = top_products(k)
+        ln = [head]
+        if drv:
+            ln.append("　끈 곳: " + " · ".join(drv))
+        if tp:
+            ln.append("　잘 팔리는 것: " + " · ".join(esc(x) for x in tp) + " <i>(미국 아마존 30일)</i>")
+        nt = [x for x in (notes.get(nm(d, k)) or []) if len(x) <= 70]
+        ln += ["　→ " + esc(x) for x in nt[:1]]
+        L.append("<br>".join(ln))
+    L[-1] += "</p>"
+    return L[0] + "<br>" + "<br><br>".join(L[1:]) + "<p><i>검수: 숫자 = 아래 표와 같은 계산 · → 이유 = 회사 발표·기사로 확인한 것만</i></p>"
+
+
+def gbase(C):
+    if C is None:
+        return None
+    x = C.cmp(next(iter(C.U)), 3, 3)
+    return x and x.get("gb")
+
+
 def rich(d, R, prev, note=None):
     """2026-11-23 2차(사용자 "너무 길고 헷갈려 — 깔끔하게"): 표 셋(국면 · 상장사 · 시장) + 요약 두 줄로 줄였다.
     국면 표 = 칸마다 한 줄(비중 1% 이상 브랜드 · 비중 큰 순) · 숫자 칸을 늘리지 말 것."""
@@ -746,6 +826,12 @@ def rich(d, R, prev, note=None):
             col[k]["w"] = S1[k] / ps[k] - 1
         if k in AY:
             col[k]["y"] = AY[k]["x"] / 100 - 1
+    def GV0(pk):
+        out = {}
+        for k in pk:
+            g3, g1 = S[k]["g"]
+            out[k] = (AY[k]["g"][0] if k in AY else None, g3, g1, (U1[k] / pu[k] - 1) if pu.get(k) and U1.get(k) else None)
+        return out
     hitn = lambda k: sum(1 for v in col[k].values() if v >= 0.10)
     upq = lambda k: bool(prev_all and prev_all.get(k) and GOOD[S[k]["q"]] > GOOD[prev_all[k]])   # 지난주보다 국면 칸이 좋아짐
     # 후보 = 두 기간 이상 +10%(한 기간만 반짝은 뺀다 — 11/23 미샤) + 빠르게 좋아지는 국면(지금 가속 칸 · 또는 이번 주 칸이 올라와 가속·반등)
@@ -753,6 +839,10 @@ def rich(d, R, prev, note=None):
     pick = [k for k in S if S[k]["s"] >= MIN and (hitn(k) >= 2 or fast(k))]
     pick.sort(key=lambda k: -(hitn(k) * 10 + (5 if fast(k) else 0)) - S[k]["s"])
     pick = pick[:TOPN]
+    # #결론 — 맨 위에 1·2·3등(2026-11-23 사용자 "순위랑 1·2·3등 각각 왜 좋았고 어떻게 좋아지고 뉴스나 어떤 제품이 잘 팔리는지 · 검수 짧게 위에")
+    #   ▸ 숫자(아래 표와 같은 계산) · 잘 팔리는 것 = KBCH 미국 아마존 최근 30일 판매액 1·2위 · → 이유 = brief_note.json "top"[브랜드] (확인한 것만)
+    if pick:
+        H.insert(2, concl_html(d, R, S, pick, GV0(pick), prev_all, NOTE.get("top") or {}, NAMES, HIT))
     if pick:
         # ② 판매 증감 — 1년 = 아마존 전 지역 3달 YoY · 3달·1달 = 전 지역 합산 직전比 · 1주 = 지난주 수집 30일 판매 대비
         t = ("<table bordered><caption>좋아지는 브랜드 — 판매 증감</caption><tr>" + _th("#") + _th("브랜드", "left")
