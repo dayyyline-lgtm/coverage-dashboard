@@ -607,9 +607,8 @@ def rich(d, R, prev, note=None):
             if hit:
                 evn = " · " + " · ".join(f"{where} {lab}에 {n}" for n, where in hit)
         t = (f"<table bordered><caption>{'①' if w == 3 else '②'} 지역별 판매 · {lab} (직전 {lab} 대비 · 🟥/🟦 1칸 = {'20' if w == 3 else '20'}%{esc(evn)})</caption><tr>"
-             + _th("지역·채널", "left") + _th("", "left") + _th("증감") + _th("WoW") + "</tr>")
-        t += "".join("<tr>" + _td(nmr, "left") + _td(bar(v, 0.2, 8), "left") + _td(_sgg(v)) + _td(wpp(v, (PV.get(key) or {}).get(nmr))) + "</tr>"
-                     for nmr, v in rows)
+             + _th("지역·채널", "left") + _th("", "left") + _th("증감") + "</tr>")
+        t += "".join("<tr>" + _td(nmr, "left") + _td(bar(v, 0.2, 8), "left") + _td(_sgg(v)) + "</tr>" for nmr, v in rows)
         H.append(t + "</table>")
 
     # 브랜드 — 좋은 것만 5개까지 (비중 1% 이상 · * 상장사)
@@ -629,12 +628,21 @@ def rich(d, R, prev, note=None):
     btab(f"③ 브랜드 · {n3} 기준 몫이 늘어난 5", "x", f"K뷰티 안 몫이 직전 {n3}보다 몇 % 늘었나 · 🟥 1칸 = 5%")
     btab(f"④ 브랜드 · {n1} 기준 몫이 늘어난 5", "y", f"직전 {n1} 대비")
 
-    # WoW — 지난주 브리핑보다 비중이 커진 브랜드 5
+    # ⑤ WoW — 한 파트에서만(2026-11-23 7차 사용자 "WoW 는 WoW 파트를 만들어서 한 파트에서만")
+    #   지역: 3달 판매 증감이 지난주 브리핑보다 어떻게 바뀌었나 · 브랜드: 지난주보다 비중이 커진 5
+    H.append("<h3>⑤ WoW — 지난주 브리핑보다</h3>")
+    p3 = PV.get("r3") or {}
+    wr = [(nmr, p3.get(nmr), v) for nmr, v in (V["r3"] or {}).items() if p3.get(nmr) is not None]
+    if wr:
+        t = ("<table bordered><caption>지역 · 3달 판매 증감 (지난주 → 이번 주)</caption><tr>"
+             + _th("지역·채널", "left") + _th("지난주") + _th("이번 주") + _th("변화") + "</tr>")
+        t += "".join("<tr>" + _td(nmr, "left") + _td(_sgg(a)) + _td(_sgg(b_)) + _td(wpp(b_, a)) + "</tr>" for nmr, a, b_ in wr)
+        H.append(t + "</table>")
     pb = PV.get("b") or {}
     ww = sorted([(k, r["s"] / pb[k] - 1) for k, r in S.items() if r["s"] >= MIN and pb.get(k)], key=lambda z: -z[1])
     ww = [(k, g) for k, g in ww if g >= 0.005][:5]
     if ww:
-        t = ("<table bordered><caption>⑤ WoW · 지난주보다 비중이 커진 5 (지난주 브리핑 대비 · 🟥 1칸 = 2%)</caption><tr>"
+        t = ("<table bordered><caption>브랜드 · 비중이 커진 순 (🟥 1칸 = 2%)</caption><tr>"
              + _th("브랜드", "left") + _th("", "left") + _th("WoW") + _th("비중") + "</tr>")
         t += "".join("<tr>" + _td(B(nmk(k)), "left") + _td(bar(g, 0.02, 8), "left") + _td(f"▲{g * 100:.0f}%") + _td(shp(S[k]["s"])) + "</tr>"
                      for k, g in ww)
@@ -642,13 +650,13 @@ def rich(d, R, prev, note=None):
     if prev_all:   # 칸이 좋아진 브랜드 — 한 줄
         up = sorted([k for k, r in S.items() if r["s"] >= MIN and prev_all.get(k) and GOOD[r["q"]] > GOOD[prev_all[k]]], key=lambda k: -S[k]["s"])
         if up:
-            H.append("<p>칸이 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[prev_all[k]]}→{QS[S[k]['q']]}") for k in up[:6]) + "</p>")
+            H.append("<p>국면 칸이 좋아짐  " + ", ".join(B(f"{nm(d, k)} {QS[prev_all[k]]}→{QS[S[k]['q']]}") for k in up[:6]) + "</p>")
 
     bx = bx_lines(d)
     if bx:
         H.append("<p><b>⚠ 아마존 미국 바이박스 없음</b> <i>(수요 아님 · 다음 달 판매가 꺾임)</i><br>" + "<br>".join(x.lstrip("• ") for x in bx) + "</p>")
 
-    H.append(f"<p><i>지역은 전부 · 브랜드는 좋은 것만(비중 1% 이상 · * 상장사 · 나빠진 쪽은 대시보드) · WoW = 지난주 브리핑 대비(판매 %p · 비중 %)</i><br>"
+    H.append(f"<p><i>지역은 전부 · 브랜드는 좋은 것만(비중 1% 이상 · * 상장사 · 나빠진 쪽은 대시보드) · WoW = 지난주 브리핑 대비 · 지역 변화는 증감률 차이 %p · 브랜드는 지난주 비중 대비 %</i><br>"
              f"<a href=\"{SITE}\">대시보드 · 화장품 트렌드</a></p>")
     global LAST_V
     LAST_V = V
