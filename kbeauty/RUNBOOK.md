@@ -84,7 +84,7 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
 3. 덤프를 파일로: **이 PC 예약 작업**이면 받기 서버로 `__send('et_'+오늘, __ET.text())`(1-e 4번 함수) → `python kbeauty/phase_recv.py hash .claude/recv/et_<오늘>.txt` 의 len·h 확인.
    echotik.live 가 폼 전송을 막으면 Blob 으로 내려받기 폴더에 받는다. **클라우드 세션**이면 Blob 내려받기 → `device_stage_files` · 그것도 안 되면 `__ET.plan()`·`__ET.dump(a,b)` → get_page_text.
 4. `python3 kbeauty/echotik_recv.py <파일>` — 줄 CRC·END 검산 → `data/phase/et/<날짜>.txt` 원문 → 샵마다 **FastMoss 마지막 날 다음부터** EchoTik × 이어 붙이기 배수를
-   FastMoss 형식(`FH|E1|…`)으로 `data/phase/fm/<날짜>.txt` 에 쓴다. 배수 = 이어 붙이는 자리 앞 4주 FastMoss 합 ÷ EchoTik 합(판매량·판매액·영상·크리에이터 따로) ·
+   FastMoss 형식(`FH|E1|…`)으로 `data/phase/fm/<날짜>.txt` 에 쓴다. 배수 = 이어 붙이는 자리 앞 4주 FastMoss 합 ÷ EchoTik 합(판매량·영상·크리에이터 따로 · **판매액은 판매량 × 같은 4주 FastMoss 단가 `p`** — 2026-11-24) ·
    처음 한 번 정해 `data/phase/et_k.json` 에 둔다(**지우지 말 것** — 다음 주부터 같은 배수).
 5. `python3 kbeauty/ingest.py kbeauty/data/phase/fm/<날짜>.txt`(KBCH) → `python3 kbeauty/phase.py`(KBPH) → 커밋·push(국면 원재료 push 가 브리핑을 깨운다 ·
    같은 asOf 라도 틱톡샵이 일주일 넘게 늘면 '수정본'). 예약 작업에선 1-e 8번의 push.py 가 이 파일들까지 싣는다.

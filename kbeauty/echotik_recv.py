@@ -167,6 +167,8 @@ def ratios(fm, et):
         sf = sum(fm[t][j] or 0 for t in ov28 if fm[t][j] is not None and et[t][j] is not None)
         se = sum(et[t][j] or 0 for t in ov28 if fm[t][j] is not None and et[t][j] is not None)
         r28[k] = round(sf / se, 4) if se > 0 and sf > 0 else None
+    uu = sum(fm[t][0] or 0 for t in ov28)
+    r28["p"] = round(sum(fm[t][1] or 0 for t in ov28) / uu, 4) if uu else None   # 이어 붙이는 자리 앞 4주 FastMoss 단가($/개 · 튐 뺀 값)
     r = {"k28": r28, "n": len(ov), "from": ov[0].isoformat() if ov else "", "to": ov[-1].isoformat() if ov else ""}
     for j, k in enumerate(("u", "v", "a", "c")):
         sf = sum(fm[t][j] or 0 for t in ov if fm[t][j] is not None and et[t][j] is not None)
@@ -233,7 +235,7 @@ def main(argv):
         rows.append((shops.get(s, {}).get("k", s), s, r))
         if s not in kall and r["n"] >= 21:
             q = r["k28"]
-            kall[s] = {"k": shops.get(s, {}).get("k", ""), "u": q["u"], "v": q["v"], "a": q["a"], "c": q["c"], "n": r["n"], "from": r["from"], "to": r["to"],
+            kall[s] = {"k": shops.get(s, {}).get("k", ""), "u": q["u"], "v": q["v"], "p": q["p"], "a": q["a"], "c": q["c"], "n": r["n"], "from": r["from"], "to": r["to"],
                        "full": {x: r[x] for x in ("u", "v", "a", "c")}, "cor": r.get("cor"), "pf": r.get("pf"), "pe": r.get("pe")}
     print("샵 | 겹친 날 | 판매량 FM÷ET | 판매액 FM÷ET | 영상 | 크리에이터 | 판매량 상관")
     for k, s, r in sorted(rows):
@@ -269,7 +271,12 @@ def main(argv):
             continue
         d0 = ds[0]
         span = [d0 + dt.timedelta(days=i) for i in range((ds[-1] - d0).days + 1)]
-        D.append(["D", s, d0.isoformat(), ",".join(b36(et[t][0] * ku) for t in span), ",".join(b36(et[t][1] * kv) for t in span)])
+        # 판매액 = EchoTik 판매량 × 이어 붙이기 앞 4주 FastMoss 단가(p) — EchoTik 판매액은 단가 정의가 달라(정가 쪽 · 날마다 2배씩 출렁임)
+        # 배수(v)로 맞추면 주별 오차 중앙 17%(큰 샵 27%), 판매량 × 단가는 11%(10%) — 2026-11-24 겹친 8/25~11/13 세 갈래 백테스트.
+        # 대신 할인으로 단가가 내려가는 건 안 잡힌다(EchoTik 단가도 할인 때 안 내려간다 — 메디큐브 11/13 FastMoss $30→$20, EchoTik $100→$145).
+        kp = kk.get("p")
+        vv_ = [et[t][0] * ku * kp for t in span] if kp else [et[t][1] * kv for t in span]
+        D.append(["D", s, d0.isoformat(), ",".join(b36(et[t][0] * ku) for t in span), ",".join(b36(v) for v in vv_)])
         V.append(["V", s, d0.isoformat(), ",".join(b36((et[t][2] or 0) * ka) for t in span),
                   ",".join(b36((et[t][3] or 0) * kc) for t in span), ",".join(b36(et[t][4] or 0) for t in span)])
     for f in D + V:
