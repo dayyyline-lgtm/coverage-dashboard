@@ -29,7 +29,7 @@ jobs:
       - name: 유럽 운송비(경유가·해상운임)
         env:
           PYTHONIOENCODING: utf-8
-        run: python runstep.py "유럽 운송비" fetch_freight.py
+        run: python runstep.py "유럽 운송비" fetch_freight.py --force-diesel
 
       - name: 변경분 커밋
         run: |

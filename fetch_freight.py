@@ -15,6 +15,7 @@
 
 python fetch_freight.py                 # 러너(events.yml 05시 · freight.yml)
 python fetch_freight.py --xlsx <파일>    # 받아 둔 Oil Bulletin 파일로(로컬 시험 · 첫 시드)
+python fetch_freight.py --force-diesel   # 9일 규칙 무시하고 경유가를 다시 받는다(freight.yml — 손으로 넣은 값을 push 할 때 다운로드 경로도 같이 점검)
 """
 import datetime, io, json, re, sys, urllib.request, zipfile
 import xml.etree.ElementTree as ET
@@ -190,7 +191,7 @@ def main():
     dz = old.get("diesel")
     last = dz["w"][-1] if dz and dz.get("w") else None
     stale = (not last) or (now.date() - datetime.date.fromisoformat(last)).days >= 9
-    if xlsx or stale:
+    if xlsx or stale or "--force-diesel" in sys.argv:
         try:
             data = open(xlsx, "rb").read() if xlsx else get(WOB)
             dz = diesel_from_xlsx(data)
