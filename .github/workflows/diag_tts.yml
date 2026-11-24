@@ -3,7 +3,7 @@ name: 틱톡샵 상품 페이지 탐침(일회성)
 on:
   push:
     branches: [main]
-    paths: ["diag/tts_probe.py", "diag/tts_ids.txt"]
+    paths: ["diag/tts_probe.py", "diag/tts_probe2.py", "diag/tts_ids.txt"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,6 +20,13 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: python diag/tts_probe.py
+      - name: 헤드리스 크롬으로 화면 가격
+        continue-on-error: true
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          pip install -q playwright==1.48.0 && python -m playwright install --with-deps chromium >/dev/null 2>&1
+          python diag/tts_probe2.py
       - name: diag-tts 가지에 올리기
         run: |
           git config user.name  "github-actions[bot]"
