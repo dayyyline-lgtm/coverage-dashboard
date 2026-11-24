@@ -151,7 +151,7 @@ def _fix_price(fm):
     out = {}
     for i, t in enumerate(ds):
         u, v = fm[t][0], fm[t][1]
-        past = sorted(fm[x][1] / fm[x][0] for x in ds[max(0, i - 28):i] if fm[x][0] and fm[x][1])
+        past = sorted(out[x][1] / out[x][0] for x in ds[max(0, i - 28):i] if out[x][0] and out[x][1])   # 고친 값으로 — 튐이 2주 넘게 이어지면 원값 중앙이 튐 쪽으로 간다
         if u and v and len(past) >= 10 and v / u > 2.5 * past[len(past) // 2]:
             v = round(u * past[len(past) // 2])
         out[t] = (u, v) + tuple(fm[t][2:])
@@ -159,7 +159,7 @@ def _fix_price(fm):
 
 
 def ratios(fm, et):
-    fm = _fix_price(fm)
+    fm, et = _fix_price(fm), _fix_price(et)          # 양쪽 다 — EchoTik 도 하루씩 튄다(바이오던스 11/4 단가 $189)
     ov = sorted(set(fm) & set(et))
     ov28 = ov[-28:]                       # 이어 붙이는 자리 바로 앞 4주 — 배수는 여기서 낸다(겹친 기간 앞쪽은 FastMoss 자체 튐이 섞인다)
     r28 = {}
