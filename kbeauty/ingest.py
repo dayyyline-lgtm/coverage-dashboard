@@ -524,7 +524,7 @@ def due():
     return 0 if age >= 6 else 1
 
 
-def audit_vs_phase():
+def audit_vs_phase(want_hits=False):
     """두 수집기 대조(2026-11-24 · 사용자 '이런 실수가 앞으로 없도록') — 같은 미국 아마존을 KBCH(keepa.js · 순위 곡선)와
     국면(phase_keepa.js · 배지 구간 위치)이 따로 센다. 브랜드마다 KBCH ÷ 국면 월 판매액 비율의 중앙값을 '평소'로 두고,
     그 1.6배를 넘는 달(차이 50만 달러 이상)을 경고한다 — 25.11·26.06·26.09 바이오던스(옵션별 곡선값 합산)가 이 검사로 잡힌다.
@@ -534,6 +534,9 @@ def audit_vs_phase():
     if not ph:
         return []
     d = json.loads(ph[-1].read_text(encoding="utf-8"))
+    sys.path.insert(0, str(HERE))
+    from phase import legacy_fix
+    legacy_fix(d)   # 옛 원재료면 국면 쪽 세트 곡선부터 뺀 값과 견준다(phase.py 와 같은 값)
     M = d["months"]
     alias = {"d'alba piedmont": "dalba", "beauty of joseon": "boj", "centellian 24": "centellian24", "vt cosmetics": "vt",
              "the face shop": "tfs", "rom&nd": "romand", "ma:nyo": "manyo", "dr.althea": "dralthea", "real barrier": "realbarrier",
@@ -542,7 +545,7 @@ def audit_vs_phase():
     for r in load_csv(DATA / "keepa_month.csv"):
         if r["d"] == "1":
             kv[(r["k"], r["ym"])] = int(r["v"])
-    warn = []
+    warn, hits = [], []
     for k, b in d["b"].items():
         kk = alias.get(k, k.replace(" ", ""))
         rat = [(M[j], kv[(kk, M[j])] / b["v"][j], kv[(kk, M[j])], b["v"][j]) for j in range(len(M) - 13, len(M) - 1)
@@ -553,14 +556,51 @@ def audit_vs_phase():
         for ym, r, a, p in rat:
             if r >= 1.6 * med and a - p > 500000:
                 warn.append(f"{kk} 미국 {ym} KBCH ${a / 1e6:.1f}M vs 국면 ${p / 1e6:.1f}M (비율 {r:.2f} · 평소 {med:.2f})")
+                hits.append((kk, ym, round(p * med)))
     for w in warn:
         print(f"[KBCH 경고] {w}")
-    return warn
+    return hits if want_hits else warn
+
+
+def patch_vs_phase():
+    """옛 keepa.js(v8 이하)가 출시 달에 옵션별 곡선값을 더해 부풀린 미국 달을 저장된 값으로 바로잡는다(2026-11-24).
+    원재료에 옵션별 순위가 없어 keepa.js v9 를 다시 돌릴 수는 없다 → 국면(배지 기준 · 세트 곡선 뺀 값) × 그 브랜드의 평소
+    KBCH ÷ 국면 비율로 그 달 판매액을 놓고, 판매량은 같은 비율로 줄인다. 고친 줄은 data/keepa_patch.csv 에 남긴다.
+    다음 full 회차가 그 (나라, 브랜드)를 통째로 갈아 끼우면 저절로 v9 값이 된다."""
+    hits = audit_vs_phase(want_hits=True)
+    if not hits:
+        print("[KBCH 보정] 고칠 달 없음")
+        return 0
+    path = DATA / "keepa_month.csv"
+    rows = load_csv(path)
+    idx = {(r["d"], r["k"], r["ym"]): r for r in rows}
+    log = DATA / "keepa_patch.csv"
+    new_log = not log.exists()
+    with open(log, "a", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        if new_log:
+            w.writerow(["patched", "ym", "d", "k", "u_old", "v_old", "u_new", "v_new"])
+        for kk, ym, v_new in hits:
+            r = idx.get(("1", kk, ym))
+            if not r or int(r["v"]) <= v_new:
+                continue
+            u0, v0 = int(r["u"]), int(r["v"])
+            r["u"], r["v"] = str(round(u0 * v_new / v0)), str(v_new)
+            w.writerow([dt.date.today().isoformat(), ym, 1, kk, u0, v0, r["u"], r["v"]])
+            print(f"[KBCH 보정] {kk} 미국 {ym} 판매액 ${v0 / 1e6:.2f}M → ${v_new / 1e6:.2f}M · 판매량 {u0:,} → {int(r['u']):,}")
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        wr = csv.DictWriter(f, fieldnames=["ym", "d", "k", "u", "v"])
+        wr.writeheader()
+        wr.writerows(rows)
+    return 0
 
 
 def main(argv):
     if "--tasks" in argv:
         return make_tasks()
+    if "--patch-phase" in argv:   # 옛 keepa.js 로 부푼 미국 달을 국면 대조로 바로잡고 블록까지 다시(2026-11-24)
+        patch_vs_phase()
+        argv = [a for a in argv if a != "--patch-phase"] + ["--inject"]
     if "--due" in argv:
         return due()
     check = "--check" in argv

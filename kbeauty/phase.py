@@ -76,9 +76,38 @@ def audit(path, d):
     return warn
 
 
+def legacy_fix(d):
+    """옛 코드(2026-11-24 전 · fit 에 nbShared 가 없는 원재료)의 세트 곡선(ub)을 저장된 값으로 바로잡는다.
+    옛 코드는 배지 없는 옵션이 형제의 부모 순위를 달고 있으면 곡선값을 상한 없이 줬다(바이오던스 Pack of 2 · 힌스 호수 옵션 …).
+    새 규칙은 그런 옵션을 옵션당 49개로 막는다 — 배지가 한 번도 없다 = 아마존 기준 월 50개 미만이라서.
+    원재료엔 상품 줄이 없고 브랜드 × 월 ub 합만 있어서 옵션당 49개 몫까지는 못 되살린다 → ub 를 통째로 뺀다
+    (빠지는 것 = 옵션당 월 49개 이하 · Keepa 이력이 빈 진짜 세트). 판매액·신규 SKU 몫은 같은 비율로 줄인다.
+    다음 회차(새 코드)부터는 원재료에 ub 가 새 규칙으로 들어와 이 함수가 아무것도 안 한다."""
+    if "nbShared" in (d.get("fit") or {}):
+        return None
+    tot = {}
+    for k, b in d["b"].items():
+        ub = b.pop("ub", None)
+        if not ub or not any(ub):
+            continue
+        for j, x in enumerate(ub):
+            u = b["u"][j]
+            if not x or not u:
+                continue
+            f = max(u - x, 0) / u
+            b["u"][j] = u - x
+            b["v"][j] = round(b["v"][j] * f)
+            b["nw"][j] = round(b["nw"][j] * f)
+        tot[k] = sum(ub)
+    big = sorted(tot.items(), key=lambda t: -t[1])[:8]
+    print("[KBPH 보정] 옛 세트 곡선 제외:", " · ".join(f"{k} {v:,}" for k, v in big))
+    return {"ub": sum(tot.values()), "n": len(tot)}
+
+
 def build(path):
     d = json.loads(path.read_text(encoding="utf-8"))
     warn = audit(path, d)
+    fix = legacy_fix(d)
     n = len(d["months"])
     for k, b in d["b"].items():
         for f in ("u", "n1k", "nw"):
@@ -94,6 +123,8 @@ def build(path):
         if b.get("rw"):   # 3달·1달 창(2026-10-27 · 기준점 14일 간격 7개 × 0·30·60·90·120·150·365·395·425일 전 배지 아랫값 합) — r30 과 같은 배수
             b["rw"] = [[round(y * rk) for y in a] for a in b["rw"]]
     out = {"asOf": d["asOf"], "src": d["src"], "months": d["months"], "partial": d.get("partial"), "b": d["b"]}
+    if fix:
+        out["fix"] = fix   # 옛 세트 곡선을 뺀 회차(legacy_fix · 2026-11-24)
     if warn:
         out["warn"] = warn[:20]   # 화면·브리핑이 '추정 경고'로 쓸 수 있게(지금은 콘솔만 · 2026-11-24)
     if d.get("r30t"):
