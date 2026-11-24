@@ -270,6 +270,7 @@ const FRESH_LIMITS = [
   ["TWITCH","트위치",30],["BUZZ","지금 화제",40],["BEAUTY","올리브영",40],["JOBS","채용 공고",40],["KTG","KT&G 유라시아",40],
   ["QOO10","Qoo10 JP 뷰티",40],["DAISO","다이소몰",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
   ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],["ADR","호텔 ADR(Google 호텔 아침 크롬)",168],
+  ["FREIGHT","유럽 운송비(경유가·해상운임)",240],
 ];
 
 function ageHours(a){
@@ -2567,6 +2568,55 @@ const ADR_MAP={
     }
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).unshift(...add);
   });
+})();
+/* 유럽 운송비(FREIGHT · fetch_freight.py · 2026-11-24 사용자 "유럽 내 운송비 — 에이피알이 영향받는 가격 · 트럭도 세세하게 · 관련 종목 대시보드에").
+   종목 = 손익 모델에 유럽 매출 칸이 있는 소비재(유럽에서 직접 팔거나 유통) · ctry = 그 종목이 많이 파는 나라(경유가 차트 기본 선).
+   화면(renderFreight · 종목 페이지 손익 탭)과 아래 트렌드 주입이 같이 쓴다 — 주입이 로드 때 돌아서 여기 둔다(아래쪽 const 면 TDZ). */
+const FREIGHT_MAP={
+  "에이피알":{why:"아마존 유럽 5개국 직판·세포라 — 한국→유럽 항공·해상 + 유럽 안 창고·트럭(3Q26 물류비가 이익을 깎음)", ctry:["DE","FR","IT","ES"]},
+  "실리콘투":{why:"유럽(EU)·영국 부문 — 유럽 리테일러로 보내는 유통", ctry:["DE","FR","NL","PL"]},
+  "아모레퍼시픽":{why:"EMEA(코스알엑스·라네즈 아마존 유럽)", ctry:["DE","FR","IT","ES"]},
+  "달바글로벌":{why:"유럽·CIS 매출", ctry:["DE","FR","IT","PL"]},
+  "에이블씨엔씨":{why:"유럽 매출(미샤)", ctry:["DE","FR","ES","PL"]},
+  "농심":{why:"유럽 법인(2025 신설) — 라면 유럽 유통", ctry:["DE","FR","NL","PL"]}};
+const FREIGHT_CN={EU:"EU 평균",DE:"독일",FR:"프랑스",IT:"이탈리아",ES:"스페인",NL:"네덜란드",BE:"벨기에",PL:"폴란드"};
+/* 트렌드 탭 — 이름 둘을 여섯 종목이 같이 쓴다(전국 호텔 숙박료와 같은 방식 · '주목할 추이'에 같은 칩이 여섯 번 서지 않게).
+   비용 지표라 신호(주목할 추이 · 개요 급변)는 안 쓴다(sigIdx 빈 배열 · TREND_OWNER 비움). 경유가는 최근 104주(SHOPINS 처럼 m/d 눈금) — 전체 2022~ 는 종목 페이지. */
+(function injectFreightTrends(){
+  if(typeof FREIGHT==="undefined") return;
+  const stocks=Object.keys(FREIGHT_MAP).filter(st=>R.some(r=>r.name===st)); if(!stocks.length) return;
+  const md=d=>`${+d.slice(5,7)}/${+d.slice(8,10)}`;
+  const add=name=>{ stocks.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); }); TREND_OWNER[name]={}; };
+  const grp=(raw,o)=>{ const peak=Math.max(1e-9,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    return Object.assign({productsGoogle:o.products, naver:norm, google:norm, rawSer:raw, only:"naver", peak, niceTicks:true, sigIdx:[], peakDot:true}, o); };
+  const D=FREIGHT.diesel;
+  if(D&&D.w&&D.w.length>8){
+    const i0=Math.max(0,D.w.length-104), keys=["EU","DE","FR","IT","ES","PL"].filter(k=>D.s[k]);   // 네덜란드·벨기에는 빼 둔다 — 카드 대표가 값이 가장 큰 계열이라 독일(주력 시장)이 서게
+    const raw=keys.map(k=>D.s[k].slice(i0));
+    const li=raw[0].length-1, yo=(a,j)=>(j>=52&&a[j]!=null&&a[j-52])?(a[j]/a[j-52]-1)*100:null;
+    const name="유럽 경유가(주간 · EU 집행위)";
+    TREND.groups[name]=grp(raw,{products:keys.map(k=>FREIGHT_CN[k]), months:D.w.slice(i0).map(md), freq:"week", unit:"€/L(세금 포함)", unitShort:"€",
+      realFmt:v=>v==null||isNaN(v)?"—":`€${(+v).toFixed(3)}`, endPad:84,
+      srcName:`${FREIGHT.srcDiesel||"EU Weekly Oil Bulletin"} · 유럽 트럭 운임의 주간 대용 지표(운행비에서 가장 크게 움직이는 항목 · 운임은 약 한 달 늦게 따라간다) · 최근 104주 — 2022년부터 전체는 종목 페이지 손익 탭 '유럽 운송비'`,
+      reviewNote:`${md(D.w[D.w.length-1])} · `+keys.map((k,i)=>{ const y=yo(raw[i],li); return `${FREIGHT_CN[k]} €${raw[i][li]==null?"—":raw[i][li].toFixed(3)}`+(y==null?"":`(전년비 ${y>=0?"+":""}${y.toFixed(1)}%)`); }).join(" · ")});
+    add(name);
+  }
+  const H=((FREIGHT.wci||{}).h||[]).filter(r=>r[0]>="2026-03-01");
+  if(H.length>4){
+    const t0=Date.parse(H[0][0]+"T00:00:00Z"), t1=Date.parse(H[H.length-1][0]+"T00:00:00Z"), wk=[];
+    for(let t=t0;t<=t1;t+=7*864e5) wk.push(new Date(t).toISOString().slice(0,10));
+    const by={}; H.forEach(r=>by[r[0]]=r);
+    const cols=[[2,"상하이→로테르담"],[3,"상하이→제노바"],[1,"종합 WCI(8개 항로)"]];
+    const raw=cols.map(([j])=>wk.map(d=>by[d]&&by[d][j]!=null?by[d][j]:null));
+    const name="아시아→유럽 해상운임(Drewry WCI · 주간)";
+    const lastOf=a=>{ for(let i=a.length-1;i>=0;i--) if(a[i]!=null) return a[i]; return null; };
+    TREND.groups[name]=grp(raw,{products:cols.map(c=>c[1]), months:wk.map(md), freq:"week", unit:"$/40ft(스팟)", unitShort:"$",
+      realFmt:v=>v==null||isNaN(v)?"—":`$${Math.round(v).toLocaleString()}`, endPad:120,
+      srcName:`${(FREIGHT.wci||{}).src||"Drewry WCI"} · 2026-03 부터 · 선이 끊긴 곳 = 그 주 값을 못 모은 주(기사로 모은 과거값 · 이제 매주 자동으로 덧붙는다)`,
+      reviewNote:cols.map(([,n],i)=>`${n} $${(lastOf(raw[i])||0).toLocaleString()}`).join(" · ")+` · ${md(H[H.length-1][0])} 평가`});
+    add(name);
+  }
 })();
 /* 네이버 쇼핑인사이트(SHOPINS · fetch_shopins.py · 2026-11-03 사용자 "국내 데이터 자동으로 — 네이버 쇼핑인사이트") — 네이버쇼핑 안에서 그 키워드로 상품을 누른 양.
    검색 트렌드(관심)보다 구매 쪽에 가깝다. 값 = 요청 안 최고=100(그룹 안 계열끼리만 비교 · 그룹끼리 높이 비교 금지) · 주별 104주 · 완결된 주만.
@@ -10221,7 +10271,8 @@ function renderStockTab(name){
     const rt=typeof RETAIL_MAP!=="undefined"&&RETAIL_MAP[name]&&typeof RETAIL!=="undefined";
     const adr=typeof ADR_MAP!=="undefined"&&ADR_MAP[name]&&typeof ADR!=="undefined";   // 호텔 ADR 추적(2026-10-29) — 호텔신라·GS피앤엘·서부T&D
     const sl=name==="삼립"&&typeof renderSamlip==="function"&&typeof SAMLIP!=="undefined";   // 삼립 해외(코스트코) 추적(2026-11-17 · js/samlip.js)
-    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(sl?`<div id="spSamlip" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+    const frt=typeof FREIGHT_MAP!=="undefined"&&FREIGHT_MAP[name]&&typeof FREIGHT!=="undefined";   // 유럽 운송비(2026-11-24 · FREIGHT) — 유럽 매출 종목
+    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(sl?`<div id="spSamlip" style="margin-top:14px"></div>`:"")+(frt?`<div id="spFreight" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
       <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
@@ -10248,6 +10299,7 @@ function renderStockTab(name){
     if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
     if(adr){ try{ renderAdr(name, document.getElementById("spAdr")); }catch(err){ console.error("호텔 ADR", err); } }
     if(sl){ try{ renderSamlip(document.getElementById("spSamlip")); }catch(err){ console.error("삼립 해외 추적", err); } }
+    if(frt){ try{ renderFreight(name, document.getElementById("spFreight")); }catch(err){ console.error("유럽 운송비", err); } }
     // 화장품 브랜드사 — 아마존(Keepa)·틱톡샵 채널 모델(2026-10-20 · KBCH)
     if(kb){ try{ renderKbModel(name, document.getElementById("spKb")); }catch(err){ console.error("채널 모델", err); } }
     if(mid){
@@ -14289,4 +14341,164 @@ function renderAdr(name, host){
         const lv=isQ?(s.qq[labels[i]]||{}).v:ECOS.s[s.c].v[labels[i]];
         return `<div class="tt-r"><span class="k">${adrDot(s.col)}${s.n}${s.part(labels[i])?" (진행 중)":""}</span><span class="v">${cm==="yoy"?adrPc(x):fmt(x,1)}${cm==="yoy"&&lv!=null?" · 지수 "+fmt(lv,1):""}</span></div>`; }).join("")});
   }
+}
+
+/* ══ 유럽 운송비 — 경유가 · 트럭운임 · 해상운임 (2026-11-24 · FREIGHT · fetch_freight.py · freight/manual.json) ══════════════
+   사용자: "유럽 내 운송비 가격 추이 — 에이피알이 영향받는 가격, 트럭으로도 옮기니까" → "트럭도 세세하게" → "각 지표가 무엇을 의미하는지 정리하고 관련 종목에".
+   종목 페이지 손익 탭(FREIGHT_MAP 종목). 경유가(주간 · 자동) · 해상(WCI 주간 · 자동) · 도로운임 분기 지수·노선 €/km·프랑스 월간·TIMOCOM·KCCI(손으로 · manual.json).
+   ⚠ 트럭 운임은 주간 무료 지수가 없다 — 경유가가 주간 대용이다(3Q26 운임 상승의 주원인이 경유 · 운임은 한 달쯤 늦게 따라간다). */
+let frSt=(()=>{ try{ return JSON.parse(localStorage.getItem("frSt")||"{}"); }catch(e){ return {}; } })();
+const frSave=()=>{ try{ localStorage.setItem("frSt",JSON.stringify(frSt)); }catch(e){} };
+const FR_COL={EU:"#9aa5b1",DE:"#d8b46a",FR:"#6fa8dc",IT:"#e07a5f",ES:"#81b29a",NL:"#c98aa6",BE:"#5fb3b3",PL:"#a8b561"};
+const frT=d=>Date.parse(d.length===7?d+"-15T00:00:00Z":d+"T00:00:00Z");
+const frDs=t=>{ const d=new Date(t); return `${String(d.getUTCFullYear()).slice(2)}.${d.getUTCMonth()+1}/${d.getUTCDate()}`; };
+const frPc=v=>v==null||!isFinite(v)?"—":`<span class="${v>0?"up":v<0?"down":""}">${v>0?"+":""}${v.toFixed(1)}%</span>`;
+/* 꺾은선 — 시간축(ms) · 값 범위에 맞춘 세로축(경유가 1.3~2.5 처럼 0 에서 안 띄운다) · 점은 선마다 고점 하나 · o.gapDays 넘게 빈 구간은 점선. */
+function frLine(el, S, o){
+  const W=el.clientWidth||860, H=o.h||240, P={l:50,r:o.padR||96,t:12,b:24};
+  const all=S.flatMap(s=>s.pts.filter(p=>p[1]!=null));
+  if(!all.length){ el.innerHTML=`<p class="note">아직 값이 없습니다</p>`; return; }
+  const x0=o.x0!=null?o.x0:Math.min(...all.map(p=>p[0])), x1=Math.max(...all.map(p=>p[0]));
+  const vis=all.filter(p=>p[0]>=x0);
+  let mn=Math.min(...vis.map(p=>p[1])), mx=Math.max(...vis.map(p=>p[1]));
+  const raw=(mx-mn||Math.abs(mx)||1)/5, e10=Math.pow(10,Math.floor(Math.log10(raw))), st=[1,2,2.5,5,10].map(k=>k*e10).find(k=>k>=raw);
+  mn=Math.floor(mn/st)*st; mx=Math.ceil(mx/st)*st; if(mx===mn) mx=mn+st;
+  const sx=t=>P.l+(t-x0)/Math.max(1,x1-x0)*(W-P.l-P.r), sy=v=>H-P.b-(v-mn)/(mx-mn)*(H-P.t-P.b);
+  const cs=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim(), gc=cs("--line"), mut=cs("--muted"), txt=cs("--text");
+  const dec=o.dec!=null?o.dec:(st>=1?0:st>=0.1?1:2);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit" role="img" aria-label="${attr(o.aria||"")}">`;
+  for(let v=mn; v<=mx+st/2; v+=st) s+=`<line x1="${P.l}" y1="${sy(v).toFixed(1)}" x2="${W-P.r}" y2="${sy(v).toFixed(1)}" stroke="${gc}"/><text x="${P.l-6}" y="${(sy(v)+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${mut}">${o.yFmt?o.yFmt(v):(+v).toFixed(dec)}</text>`;
+  // 날짜 눈금 — 1월(긴 창) 또는 매달 1일(1년 이하)
+  const span=(x1-x0)/864e5, d0=new Date(x0);
+  for(let y=d0.getUTCFullYear(), m=d0.getUTCMonth(); ; m++){ if(m>11){ m=0; y++; } const t=Date.UTC(y,m,1); if(t>x1) break; if(t<x0) continue;
+    const show=span>800?m===0:span>370?(m%3===0):true; if(!show) continue;
+    s+=`<text x="${sx(t).toFixed(1)}" y="${H-P.b+15}" text-anchor="middle" font-size="10" fill="${mut}">${m===0?`'${String(y).slice(2)}`:`${m+1}월`}</text>`; }
+  const ends=[];
+  S.forEach(se=>{ const q=se.pts.filter(p=>p[1]!=null&&p[0]>=x0).sort((a,b)=>a[0]-b[0]); if(!q.length) return;
+    let solid="", dash="";
+    q.forEach((p,i)=>{ const X=sx(p[0]).toFixed(1), Y=sy(p[1]).toFixed(1);
+      if(!i){ solid+=`M${X},${Y}`; return; }
+      const gap=(p[0]-q[i-1][0])/864e5>(o.gapDays||1e9);
+      if(gap){ dash+=`M${sx(q[i-1][0]).toFixed(1)},${sy(q[i-1][1]).toFixed(1)}L${X},${Y}`; solid+=`M${X},${Y}`; } else solid+=`L${X},${Y}`; });
+    if(dash) s+=`<path d="${dash}" fill="none" stroke="${se.c}" stroke-width="${(se.w||1.8)*0.8}" stroke-dasharray="3 3" opacity=".7"/>`;
+    s+=`<path d="${solid}" fill="none" stroke="${se.c}" stroke-width="${se.w||1.8}" stroke-linejoin="round" stroke-linecap="round"${se.dash?` stroke-dasharray="${se.dash}"`:""}/>`;
+    const pk=q.reduce((b,p)=>p[1]>b[1]?p:b,q[0]); s+=`<circle cx="${sx(pk[0]).toFixed(1)}" cy="${sy(pk[1]).toFixed(1)}" r="3.3" fill="${se.c}"/>`;
+    const l=q[q.length-1]; ends.push({y:sy(l[1]), t:`${se.n} ${o.endFmt?o.endFmt(l[1]):l[1]}`, c:se.c}); });
+  ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;
+  ends.forEach(e=>{ s+=`<circle cx="${W-P.r+8}" cy="${(e.y-0.5).toFixed(1)}" r="3.6" fill="${e.c}"/><text x="${W-P.r+15}" y="${(e.y+3).toFixed(1)}" font-size="10.5" font-weight="700" fill="${txt}">${attr(e.t)}</text>`; });
+  el.innerHTML=s+"</svg>";
+  const XS=[...new Set(S.flatMap(se=>se.pts.filter(p=>p[1]!=null&&p[0]>=x0).map(p=>p[0])))].sort((a,b)=>a-b);
+  const at=(se,t)=>se.pts.find(p=>p[0]===t&&p[1]!=null);
+  attachChartTip(el,{W,H,pad:P,n:XS.length,xOf:k=>sx(XS[k]), xLab:k=>(o.xLab||frDs)(XS[k]), yLab:Yp=>{ const v=invLin(sy,Yp); return o.yFmt?o.yFmt(v):v.toFixed(dec+1); },
+    pts:k=>S.map(se=>{ const p=at(se,XS[k]); return p?{y:sy(p[1]),c:se.c}:null; }),
+    html:k=>`<div class="tt-h">${(o.xLab||frDs)(XS[k])}</div>`+S.map(se=>{ const p=at(se,XS[k]); if(!p) return "";
+      return `<div class="tt-r"><span class="k"><span style="background:${se.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${attr(se.n)}</span><span class="v">${o.endFmt?o.endFmt(p[1]):p[1]}${p[2]?` · ${p[2]}`:""}</span></div>`; }).join("")});
+}
+function frYoY(w, a, i){            // 52주 전과 — 날짜가 빠진 주(부활절 등)가 있어 ±10일 안 가장 가까운 주
+  const t=frT(w[i])-364*864e5; let j=-1, best=11;
+  for(let k=Math.max(0,i-60);k<i;k++){ const d=Math.abs(frT(w[k])-t)/864e5; if(d<best&&a[k]!=null){ best=d; j=k; } }
+  return (j>=0&&a[i]!=null)?(a[i]/a[j]-1)*100:null;
+}
+function renderFreight(name, host){
+  if(!host||typeof FREIGHT==="undefined") return;
+  const cfg=FREIGHT_MAP[name]; if(!cfg) return;
+  const F=FREIGHT, D=F.diesel||{}, MN=F.man||{}, RD=MN.road||{}, FRm=MN.fr||{}, TM=MN.timocom||{}, KC=MN.kcci||{}, WH=(F.wci||{}).h||[];
+  const W=D.w||[], li=W.length-1;
+  const card=(l,v,sub,tip)=>`<div style="border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:150px;flex:1"${tip?` title="${attr(tip)}"`:""}><div class="g" style="font-size:11px">${l}</div><div style="font-size:18px;font-weight:800;margin:2px 0">${v}</div><div class="g" style="font-size:11px">${sub}</div></div>`;
+  const dz=k=>D.s&&D.s[k]?D.s[k]:null;
+  const eu=dz("EU"), main=cfg.ctry[0];
+  const rq=RD.q||[], rl=rq[rq.length-1], ry=rq.find(r=>r[0]===(rl?`${+rl[0].slice(0,4)-1}${rl[0].slice(4)}`:""));
+  const fm=(FRm.m||[]).filter(r=>r[2]!=="e"), fl=fm[fm.length-1], fpy=fl?(FRm.m||[]).find(r=>r[0]===`${+fl[0].slice(0,4)-1}${fl[0].slice(4)}`):null;
+  const wl=[...WH].reverse().find(r=>r[2]!=null), wy=wl?(()=>{ const t=frT(wl[0])-364*864e5; let b=null,bd=15; WH.forEach(r=>{ if(r[2]==null) return; const d=Math.abs(frT(r[0])-t)/864e5; if(d<bd){ bd=d; b=r; } }); return b; })():null;
+  const kl=[...(KC.w||[])].reverse().find(r=>r[2]!=null);
+  let h=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">유럽 운송비 — 경유가 · 트럭운임 · 해상운임 <span class="th-sub" style="display:inline">${attr(cfg.why)} · 경유 ${W.length?frDs(frT(W[li])):"—"}까지 · 해상 ${wl?frDs(frT(wl[0])):"—"} 평가 · 도로 지수 ${rl?`${rl[0].slice(-1)}Q${rl[0].slice(2,4)}`:"—"}</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      ${card("EU 평균 경유가", eu?`€${eu[li].toFixed(3)}<span class="g" style="font-size:11px">/L</span>`:"—", eu?`전년비 ${frPc(frYoY(W,eu,li))} · 22년 고점 €${Math.max(...eu.slice(0,52).filter(v=>v!=null)).toFixed(2)}`:"", "세금 포함 주유소 가격 · 매주 월요일 · 트럭 운행비의 가장 큰 변동 항목")}
+      ${card(`${FREIGHT_CN[main]} 경유가`, dz(main)?`€${dz(main)[li].toFixed(3)}`:"—", dz(main)?`전년비 ${frPc(frYoY(W,dz(main),li))}`:"", "이 종목이 많이 파는 나라")}
+      ${card("유럽 도로 계약운임 지수", rl?`${fmt(rl[1],1)}`:"—", rl?`${rl[0].slice(-1)}Q${rl[0].slice(2,4)} · 전년 대비 ${ry?sign(rl[1]-ry[1],1)+"p":"—"} · 스팟 ${fmt(rl[2],1)}`:"", RD.src||"")}
+      ${card("프랑스 국내 트럭운임", fl?`€${fl[1].toFixed(3)}<span class="g" style="font-size:11px">/km</span>`:"—", fl?`'${fl[0].slice(2).replace("-",".")}${fpy?` · 전년비 ${frPc((fl[1]/fpy[1]-1)*100)}`:""}`:"", FRm.src||"")}
+      ${card("상하이 → 로테르담", wl?`$${wl[2].toLocaleString()}`:"—", wl?`40ft 스팟 · 1년 전 $${wy?wy[2].toLocaleString():"—"}${wy?` (${frPc((wl[2]/wy[2]-1)*100)})`:""}`:"", (F.wci||{}).src||"")}
+      ${card("부산 → 북유럽(KCCI)", kl?`$${kl[2].toLocaleString()}`:"—", kl?`40ft · ${frDs(frT(kl[0]))}`:"", KC.src||"")}
+    </div>`;
+  // ① 경유가 주간
+  const sel=frSt.cty||["EU",...cfg.ctry], rng=frSt.rng||"all";
+  const btn=(k,v,t,on)=>`<button data-fr${k}="${v}" class="${on?"active":""}">${t}</button>`;
+  h+=`<div class="sub-h" style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">① 경유가 — 주간 <span class="th-sub" style="display:inline">€/L · 세금 포함 · EU 집행위 Weekly Oil Bulletin · 점 = 고점 · 트럭 운임의 주간 대용(운임은 약 한 달 늦게 따라간다)</span>
+      <span class="seg" style="margin-left:auto">${[["1y","1년"],["2y","2년"],["all","2022~"]].map(([k,t])=>btn("rng",k,t,rng===k)).join("")}</span></div>
+    <div class="seg" style="margin:0 0 6px">${Object.keys(FREIGHT_CN).filter(k=>dz(k)).map(k=>btn("cty",k,`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${FR_COL[k]};margin-right:4px"></span>${FREIGHT_CN[k]}`,sel.includes(k))).join("")}</div>
+    <div id="frDz"></div>`;
+  const yoyTbl=()=>{ const ks=Object.keys(FREIGHT_CN).filter(k=>dz(k));
+    const at=(k,i)=>i>=0&&dz(k)[i]!=null?dz(k)[i]:null;
+    const iw=(n)=>Math.max(0,li-n);
+    return `<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">나라</th><th class="ye">${frDs(frT(W[li]))}</th><th>전주비</th><th>4주 전比</th><th>전년비</th><th class="ye">올해 고점</th></tr></thead><tbody>`
+      +ks.map(k=>{ const a=dz(k), v=a[li], yr=W[li].slice(0,4), iy=W.findIndex(d=>d.startsWith(yr)); const pk=Math.max(...a.slice(iy).filter(x=>x!=null)), pkd=W[iy+a.slice(iy).indexOf(pk)];
+        return `<tr${k==="EU"?' style="font-weight:700"':""}><td class="l">${FREIGHT_CN[k]}</td><td>€${v.toFixed(3)}</td><td>${frPc(at(k,iw(1))?(v/at(k,iw(1))-1)*100:null)}</td><td>${frPc(at(k,iw(4))?(v/at(k,iw(4))-1)*100:null)}</td><td>${frPc(frYoY(W,a,li))}</td><td>€${pk.toFixed(3)} <span class="g" style="font-size:10.5px">${frDs(frT(pkd))}</span></td></tr>`; }).join("")
+      +`</tbody></table></div>`; };
+  h+=W.length?yoyTbl():"";
+  // ② 트럭운임
+  const qL=q=>`${q.slice(-1)}Q${q.slice(2,4)}`;
+  const qy=q=>rq.find(r=>r[0]===`${+q.slice(0,4)-1}${q.slice(4)}`);
+  h+=`<div class="sub-h" style="margin-top:14px">② 트럭운임 — 유럽 도로운임 지수(분기) <span class="th-sub" style="display:inline">Upply·Ti·IRU · 2017년 초 = 100 · 계약 = 미리 정한 노선 운임(재계약 때 반영) · 스팟 = 그때그때 잡는 단발 운임 · 회색 = 2025 발표 전년 대비로 역산(개정 시리즈)</span></div>
+    <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${rq.map(r=>`<th class="ye"${r[0].endsWith("Q1")&&r!==rq[0]?' style="border-left:1.5px solid var(--line)"':""}>${qL(r[0])}</th>`).join("")}</tr></thead><tbody>
+      ${[["계약",1],["스팟",2]].map(([t,j])=>`<tr style="font-weight:700"><td class="l">${t} 지수</td>${rq.map(r=>`<td class="${r[3]==="e"?"g":""}"${r[0].endsWith("Q1")&&r!==rq[0]?' style="border-left:1.5px solid var(--line)"':""}>${fmt(r[j],1)}</td>`).join("")}</tr>
+        <tr class="sub-row"><td class="l">└ 전년 대비(p)</td>${rq.map(r=>{ const y=qy(r[0]); return `<td${r[0].endsWith("Q1")&&r!==rq[0]?' style="border-left:1.5px solid var(--line)"':""}>${y?`<span class="${r[j]-y[j]>0?"up":"down"}">${sign(r[j]-y[j],1)}</span>`:"—"}</td>`; }).join("")}</tr>`).join("")}
+      ${(RD.senti||[]).length?`<tr class="sub-row"><td class="l">심리지수(3개월 뒤 운임 기대)</td>${rq.map(r=>{ const z=(RD.senti||[]).find(x=>x[0]===r[0]); return `<td${r[0].endsWith("Q1")&&r!==rq[0]?' style="border-left:1.5px solid var(--line)"':""}>${z?fmt(z[1],1):"—"}</td>`; }).join("")}</tr>`:""}
+    </tbody></table></div>`;
+  const ln=RD.lanes||{}, dm=RD.dom||{};
+  h+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:8px">
+    <div><div class="g" style="font-size:11.5px;margin-bottom:4px">노선별 트럭 한 대(만차) km당 운임 · ${ln.q?qL(ln.q):""} — '트럭을 빌리는 값'에 가장 가까운 숫자(기사 포함)</div>
+      <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">노선</th><th>계약 €/km</th><th>스팟 €/km</th><th>스팟 − 계약</th></tr></thead><tbody>
+      ${(ln.rows||[]).map(r=>`<tr><td class="l">${attr(r[0])}</td><td>${r[1].toFixed(2)}</td><td>${r[2].toFixed(2)}</td><td>${sign((r[2]/r[1]-1)*100,0)}%</td></tr>`).join("")}</tbody></table></div></div>
+    <div><div class="g" style="font-size:11.5px;margin-bottom:4px">독일 국내 운임 지수 · ${dm.q?qL(dm.q):""} (아마존 유럽 최대 시장)</div>
+      <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th><th>지수</th><th>전년 대비</th></tr></thead><tbody>
+      ${(dm.rows||[]).map(r=>`<tr><td class="l">${attr(r[0])}</td><td>${fmt(r[1],1)}</td><td class="up">${sign(r[2],1)}p</td></tr>`).join("")}</tbody></table></div>
+      ${RD.vol?`<p class="note" style="margin-top:4px">${attr(RD.vol)}</p>`:""}</div></div>`;
+  h+=`<div class="sub-h" style="margin-top:14px">③ 프랑스 국내 트럭운임 — 월간 <span class="th-sub" style="display:inline">€/km · Upply UFI Road France · 점선 = 역산 추정 · 경유가(3월 급등)를 한 달 늦게(4월) 따라간 모습이 보인다</span></div>
+    <div id="frFr"></div>
+    ${(TM.m||[]).length?`<div class="tbl-wrap" style="margin-top:6px"><table class="mini-tbl"><thead><tr><th class="l">TIMOCOM 화물 몫 %</th>${TM.m.map(r=>`<th class="ye">'${r[0].slice(2).replace("-",".")}${r[2]==="q"?"<div class='g' style='font-size:10px;font-weight:400'>4Q 평균</div>":""}</th>`).join("")}</tr></thead><tbody><tr><td class="l">화물 등록 ÷ (화물 + 빈 트럭)</td>${TM.m.map(r=>`<td>${r[1]}</td>`).join("")}</tr></tbody></table></div><p class="note">${attr(TM.src||"")} · ${attr(TM.note||"")}</p>`:""}`;
+  // ④ 해상
+  h+=`<div class="sub-h" style="margin-top:14px">④ 해상운임 — 아시아 → 유럽 컨테이너(주간) <span class="th-sub" style="display:inline">$/40ft 스팟 · Drewry WCI(목요일) · 점선 = 그 사이 주를 못 모은 구간 · 한국→유럽 물량을 항공에서 바다로 옮길 때의 기준값</span></div>
+    <div id="frWci"></div>
+    ${(KC.w||[]).length?`<div class="tbl-wrap" style="margin-top:6px"><table class="mini-tbl"><thead><tr><th class="l">KCCI(부산 출발)</th>${KC.w.map(r=>`<th class="ye">${frDs(frT(r[0]))}</th>`).join("")}</tr></thead><tbody>
+      <tr><td class="l">종합(포인트)</td>${KC.w.map(r=>`<td>${r[1]==null?"—":r[1].toLocaleString()}</td>`).join("")}</tr>
+      <tr><td class="l">북유럽 $/40ft</td>${KC.w.map(r=>`<td>${r[2]==null?"—":r[2].toLocaleString()}</td>`).join("")}</tr>
+      <tr><td class="l">지중해 $/40ft</td>${KC.w.map(r=>`<td>${r[3]==null?"—":r[3].toLocaleString()}</td>`).join("")}</tr></tbody></table></div><p class="note">${attr(KC.src||"")} · ${attr(KC.note||"")}</p>`:""}`;
+  // ⑤ 지표 설명
+  h+=frGuide(name);
+  host.innerHTML=h;
+  // 그리기
+  const dzEl=host.querySelector("#frDz");
+  if(dzEl&&W.length){ const now=frT(W[li]), x0=rng==="1y"?now-365*864e5:rng==="2y"?now-730*864e5:null;
+    frLine(dzEl, sel.filter(k=>dz(k)).map(k=>({n:FREIGHT_CN[k], c:FR_COL[k], w:k==="EU"?2.6:1.6, pts:W.map((d,i)=>[frT(d),dz(k)[i]])})),
+      {h:260, x0, yFmt:v=>`€${v.toFixed(2)}`, endFmt:v=>`€${(+v).toFixed(3)}`, aria:"유럽 나라별 주간 경유가"}); }
+  const frEl=host.querySelector("#frFr"), FM=FRm.m||[];
+  if(frEl&&FM.length){ const act=FM.filter(r=>r[2]!=="e"), est=FM.filter((r,i)=>r[2]==="e"||(FM[i+1]&&FM[i+1][2]==="e"));
+    frLine(frEl,[{n:"프랑스 €/km", c:"#6fa8dc", w:2.2, pts:act.map(r=>[frT(r[0]),r[1]])},
+      ...(est.length>1?[{n:"추정", c:"#9aa5b1", w:1.6, dash:"4 3", pts:est.map(r=>[frT(r[0]),r[1]])}]:[])],
+      {h:190, padR:150, xLab:t=>{ const d=new Date(t); return `'${String(d.getUTCFullYear()).slice(2)}.${d.getUTCMonth()+1}`; }, yFmt:v=>`€${v.toFixed(2)}`, endFmt:v=>`€${(+v).toFixed(3)}`, aria:"프랑스 국내 트럭 평균 km당 운임 월별"}); }
+  const wEl=host.querySelector("#frWci");
+  if(wEl&&WH.length){ frLine(wEl,[["상하이→로테르담",2,"#d8b46a",2.4],["상하이→제노바",3,"#e07a5f",1.6],["종합 WCI",1,"#9aa5b1",1.4]].map(([n,j,c,w])=>({n,c,w,pts:WH.filter(r=>r[j]!=null).map(r=>[frT(r[0]),r[j]])})),
+      {h:240, gapDays:10, yFmt:v=>`$${Math.round(v).toLocaleString()}`, endFmt:v=>`$${Math.round(v).toLocaleString()}`, padR:150, aria:"상하이 출발 유럽행 컨테이너 운임 주간"}); }
+  host.querySelectorAll("[data-frrng]").forEach(b=>b.onclick=()=>{ frSt.rng=b.dataset.frrng; frSave(); renderFreight(name, host); });
+  host.querySelectorAll("[data-frcty]").forEach(b=>b.onclick=()=>{ const k=b.dataset.frcty, cur=frSt.cty||["EU",...cfg.ctry];
+    frSt.cty=cur.includes(k)?cur.filter(x=>x!==k):[...cur,k]; if(!frSt.cty.length) frSt.cty=["EU"]; frSave(); renderFreight(name, host); });
+}
+/* 지표 설명 — 무엇을 재나 · 어디서 보나 · 주기 · 이 종목에 어떻게 닿나 · 한계(2026-11-24 사용자 "각각의 지표가 무엇을 의미하는지 정리") */
+function frGuide(name){
+  const R=[
+    ["경유 소비자가","EU 집행위원회 Weekly Oil Bulletin(energy.ec.europa.eu)","주간(월요일 가격 · 목요일쯤 공개) · 자동","나라별 주유소 경유 가격(세금 포함 €/L)","트럭 운행비에서 가장 크게 흔들리는 항목 → 운임 인상 요구의 출발점. 3Q26 유럽 운임 최고치의 주원인","운송사는 유류세 환급·카드 할인을 받아 실제 연료비는 더 낮다 · 나라별 유류세 지원이 끝나는 날 튄다(10월 말·12월 말)"],
+    ["도로운임 지수 — 계약","Upply·Ti·IRU European Road Freight Rate Benchmark(무료 PDF)","분기 · 끝난 분기 약 6주 뒤 · 손으로","화주와 운송사가 미리 정한 노선별 운임의 평균(2017년 초 = 100)","유럽 창고 → 아마존 FBA 창고·리테일러 정기 배송처럼 '정해 둔' 물량의 값. 재계약 때 비용이 한꺼번에 넘어온다","주요 국제 노선 위주 · 2025-05 시리즈 개정(옛 발표값과 섞지 말 것)"],
+    ["도로운임 지수 — 스팟","같은 보고서","분기 · 손으로","운송 거래소에서 그때그때 잡는 단발 운임","급히 더 보내야 할 때(재고 부족·행사 물량)의 값. 수급에 바로 반응해 계약보다 먼저 움직인다","표본이 거래소에 올라온 물량뿐"],
+    ["노선별 €/km","같은 보고서(노선표)","분기 · 손으로","특정 구간을 트럭 한 대(만차 · 기사 포함)로 갈 때 km당 가격","'트럭을 빌리는 값'에 가장 가까운 숫자. 예: 바르샤바→뒤스부르크 1.55유로 × 1,100km ≈ 1,700유로/대","차량만 빌리는 리스·렌트 요금은 공개 지수가 없다(업체 견적) — 유럽 화물은 보통 기사 포함으로 맡긴다"],
+    ["프랑스 국내 €/km","Upply 월간 바로미터(market-insights.upply.com)","월간 · 다음 달 하순 · 손으로","프랑스 국내 트럭 평균 km당 운임(계약+스팟)","월 단위로 경유 → 운임 전가 속도를 볼 수 있는 유일한 무료 자료(3월 경유 +28% → 운임 4월 +7.4%)","프랑스 한 나라"],
+    ["TIMOCOM 화물 몫","TIMOCOM Transport Barometer(보도자료)","월간 · 손으로","화물 거래소에 올라온 화물 : 빈 트럭 중 화물 몫(%)","50 넘으면 트럭이 모자라다 → 스팟운임 상승 압력(운임보다 앞선다)","거래소 한 곳"],
+    ["해상 — Drewry WCI","drewry.co.uk(무료 주간 평가)","주간(목) · 자동","상하이 → 로테르담·제노바 40ft 컨테이너 스팟 운임(할증 포함 · 도착 THC 제외)","한국→유럽 바닷길 컨테이너 한 개 값. 항공을 바다로 옮기면 물류비가 얼마나 주나의 기준","상하이 출발 — 부산 출발은 KCCI"],
+    ["해상 — KCCI","한국해양진흥공사 KCCI(매주 월요일 공표 · 국가물류통합정보센터에도)","주간 · 손으로(사이트 봇 차단)","부산항 출발 13개 항로 운임(북유럽·지중해 $/40ft)","국내 공장에서 나가는 물량에 가장 가까운 해상운임","장기 계약 운임이 아니라 공표 운임"],
+    ["항공 운임","Baltic Air Freight Index(TAC) · WorldACD","주간 · 대시보드 밖(유료)","홍콩·상하이 → 유럽 $/kg · 한국발 유럽행 상승률","에이피알 2Q26 항공 물류비 약 300억 — 재고가 모자라 항공을 쓰는 동안 가장 큰 운송비","한국 → 유럽 노선 숫자는 유료"],
+    ["통행료·인건비","IRU 통행료 지수(116.6 · 전년 +7%) · CNR 장거리 원가지수(프랑스 · 월간)","보고서에 실릴 때","운송사 원가(통행료 · 기사 임금 · 차량)","경유가가 내려도 안 빠지는 부분 — 기사 일자리 약 13%가 비어 있어 구조적","—"]];
+  return `<details class="fold" style="margin-top:14px"><summary>⑤ 지표 설명 — 무엇을 재나 · 어디서 보나 · ${attr(name)}에 어떻게 닿나 <span class="sub">물류 경로: 한국 공장 → (항공·해상) → 유럽 허브 창고 → (트럭) → 아마존 FBA 창고·리테일러 → (아마존 배송 · FBA 수수료에 포함)</span></summary>
+    <div class="tbl-wrap" style="padding:6px 10px 10px"><table class="mini-tbl"><thead><tr><th class="l">지표</th><th class="l">출처</th><th class="l">주기·갱신</th><th class="l">무엇을 재나</th><th class="l">어떻게 닿나</th><th class="l">한계</th></tr></thead><tbody>
+    ${R.map(r=>`<tr>${r.map((c,i)=>`<td class="l" style="white-space:normal;vertical-align:top;font-size:11.5px;line-height:1.45;${i===0?"font-weight:700;min-width:110px":"min-width:130px"}">${attr(c)}</td>`).join("")}</tr>`).join("")}
+    </tbody></table>
+    <p class="note">읽는 순서: 경유가(주간)가 먼저 움직이고 → 스팟운임·프랑스 월간(한 달 뒤) → 계약운임(재계약 분기)이 따라간다. 3Q26 유럽 물동량은 전년보다 줄었는데 운임은 최고였다 — 수요가 아니라 비용으로 오른 것이라 경유가가 내리면 같이 내릴 수 있는 몫이 크다. 아마존 고객 배송(라스트마일)은 FBA 수수료에 들어 있어 이 지표들이 아니라 아마존 수수료 개정으로 본다.</p></div></details>`;
 }

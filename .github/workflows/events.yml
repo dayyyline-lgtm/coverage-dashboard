@@ -263,6 +263,13 @@ jobs:
         timeout-minutes: 3
         run: python runstep.py "ECOS 소매판매" fetch_ecos.py
 
+      # 유럽 운송비(fetch_freight.py → FREIGHT · 2026-11-24) — EU 주간 경유가(Oil Bulletin xlsx · 마지막 값이 9일 안쪽이면 안 받는다) + Drewry WCI 주간 평가.
+      #   유럽 매출 소비재 6종목 손익 탭 '유럽 운송비'·트렌드 탭. 경유가는 목요일, WCI 는 목요일(영국) 공개 → 금요일 05시 회차가 잡는다.
+      - name: 유럽 운송비(경유가·해상운임)
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "유럽 운송비" fetch_freight.py
+
       # ── 국내 자동 연동 3종(2026-11-03 사용자 "국내 데이터 자동으로 대시보드에") ─────────────────
       # 네이버 쇼핑인사이트(fetch_shopins.py → SHOPINS) — 쇼핑 카테고리 안 브랜드 클릭 추이(주별) + 대표 브랜드 연령별 클릭(월별).
       #   데이터랩 키를 같이 쓴다 — 네이버 개발자센터 앱 '사용 API'에 데이터랩(쇼핑인사이트)이 있어야 한다. 없으면 기존 값 유지 + health 기록.

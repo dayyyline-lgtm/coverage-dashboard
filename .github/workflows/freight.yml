@@ -1,0 +1,56 @@
+# 유럽 운송비(fetch_freight.py → const FREIGHT · 2026-11-24 신설)
+#
+# 평소 수집은 events.yml(매일 05시)이 한다. 이 워크플로는 손으로 넣는 값(freight/manual.json)이나 수집기를 고쳐 push 했을 때
+# 바로 한 번 돌려 화면에 싣는 용도다(+ 수동 실행). 배포는 다음 배포 회차가 같이 싣는다(CI 스킵 표시).
+name: freight
+
+on:
+  push:
+    paths: ["fetch_freight.py", "freight/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  freight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 유럽 운송비(경유가·해상운임)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python runstep.py "유럽 운송비" fetch_freight.py
+
+      - name: 변경분 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/index.html health.json watchdog_state.json; then
+            echo "변경 없음 - 커밋 생략"; exit 0
+          fi
+          git add public/index.html health.json watchdog_state.json 2>/dev/null || true
+          git commit -m "유럽 운송비 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "푸시 밀림 - 재시도 $i"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              if python merge_blocks.py && GIT_EDITOR=true git rebase --continue; then
+                sleep $((i * 3)); continue
+              fi
+              git rebase --abort || true
+              echo "리베이스 충돌 - 이번 회차 커밋 포기(다음 실행이 재수집)"; exit 0
+            fi
+            sleep $((i * 3))
+          done
+          echo "푸시 5회 실패"; exit 1
