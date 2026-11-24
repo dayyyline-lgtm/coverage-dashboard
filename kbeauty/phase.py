@@ -41,8 +41,44 @@ def latest():
     return files[-1]
 
 
+def audit(path, d):
+    """추정 검사(2026-11-24 · 바이오던스 Pack of 2 이중 계산 뒤 사용자 '이런 실수가 앞으로 없도록').
+    배지 아랫값 합(uf)은 실측이고 나머지(구간 위치 보정 · 배지 없는 달 채우기 · 세트 곡선 ub)는 추정이다 — 추정이 실측을 압도하거나 회차 사이에 튀면 경고.
+    ① 세트 곡선(ub)이 브랜드 판매량의 30% 초과(2만 개 이상) ② 추정 ÷ 배지 실측 > 1.8배(차이 2만 개 이상) ③ 같은 달 ub 가 직전 회차보다 3배 넘게(2만 개 이상).
+    경고만 한다(값은 안 바꾼다) — 원인을 보고 수집기를 고친다. CLAUDE.md 'Keepa 추정 원칙'."""
+    M = d["months"]; L = len(M) - 1; warn = []
+    files = sorted(SRC.glob("20??-??-??.json")); prev = None
+    older = [f for f in files if f.name < path.name]
+    if older:
+        try:
+            prev = json.loads(older[-1].read_text(encoding="utf-8"))
+        except Exception:
+            prev = None
+    for k, b in d["b"].items():
+        u = b["u"]; uf = b.get("uf", u); ub = b.get("ub") or [0] * len(u)
+        for j in (L - 1, L):
+            if u[j] >= 20000 and ub[j] / u[j] > 0.30:
+                warn.append(f"{k} {M[j]} 세트 곡선 {ub[j]:,} = 판매량의 {ub[j] / u[j]:.0%}")
+            if uf[j] > 0 and u[j] / uf[j] > 1.8 and u[j] - uf[j] > 20000:
+                warn.append(f"{k} {M[j]} 추정 {u[j]:,} = 배지 실측 {uf[j]:,} 의 {u[j] / uf[j]:.1f}배")
+        if prev and k in prev.get("b", {}):
+            pm = prev["months"]; pub = prev["b"][k].get("ub") or [0] * len(pm)
+            for j in (L - 1, L):
+                if M[j] in pm:
+                    was = pub[pm.index(M[j])]
+                    if ub[j] >= 20000 and ub[j] > 3 * max(was, 1000):
+                        warn.append(f"{k} {M[j]} 세트 곡선 {was:,} → {ub[j]:,} (직전 회차 {older[-1].stem} 대비)")
+    fit = d.get("fit") or {}
+    if fit.get("nbShared"):
+        print(f"[KBPH] 부모 순위를 물려받은 배지 없는 옵션 {fit['nbShared']}칸 → 49개 상한 처리됨")
+    for w in warn:
+        print(f"[KBPH 경고] {w}")
+    return warn
+
+
 def build(path):
     d = json.loads(path.read_text(encoding="utf-8"))
+    warn = audit(path, d)
     n = len(d["months"])
     for k, b in d["b"].items():
         for f in ("u", "n1k", "nw"):
@@ -58,6 +94,8 @@ def build(path):
         if b.get("rw"):   # 3달·1달 창(2026-10-27 · 기준점 14일 간격 7개 × 0·30·60·90·120·150·365·395·425일 전 배지 아랫값 합) — r30 과 같은 배수
             b["rw"] = [[round(y * rk) for y in a] for a in b["rw"]]
     out = {"asOf": d["asOf"], "src": d["src"], "months": d["months"], "partial": d.get("partial"), "b": d["b"]}
+    if warn:
+        out["warn"] = warn[:20]   # 화면·브리핑이 '추정 경고'로 쓸 수 있게(지금은 콘솔만 · 2026-11-24)
     if d.get("r30t"):
         out["r30t"] = d["r30t"]
     if d.get("rws") and any(b.get("rw") for b in d["b"].values()):

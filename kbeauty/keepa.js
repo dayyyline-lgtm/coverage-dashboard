@@ -28,7 +28,7 @@
 */
 (function () {
   'use strict';
-  const V = 8;
+  const V = 9;
   if (window.__KBK && window.__KBK.v === V && window.__KBK.state === 'run') return 'already running';
   const K = window.__KBK = {v: V, state: 'idle', tasks: [], i: 0, raw: [], log: [], err: '', t0: 0, t1: 0, L: null, opt: {}};
   // 탭이 뒤로 가면 크롬이 setTimeout 을 1분 단위로 묶는다(집중 제한) — 워커 타이머는 그 제한을 안 받는다. 워커가 막히면(CSP) 그냥 setTimeout.
@@ -282,7 +282,10 @@
           for (const k of kids) { const v = k.ms[j]; if (v > 0) { const m = mid(v); bs += m; bv += m * (k.pc[j] > 0 ? k.pc[j] : pm); if (v >= 100000) cap = true; } }
           const r = shared(kids, j);
           let ru = 0;
-          if (c) { if (r > 0) ru = units(c, r); else if (r === -1) for (const k of kids) ru += units(c, k.rk[j]); }
+          // ⚠ 2026-11-24 고침 — 옵션들은 부모 순위를 같이 쓴다. 순위가 어긋나는 건 출시 달 부분 평균 같은 측정 차이일 뿐이라(바이오던스 마스크:
+          //   25.11 16매 15위 vs 7위 · 26.06 캐비어 신규 71,383위 · 26.09~10 디스커버리 세트) 옵션마다 곡선값을 더하면 같은 수요를 옵션 수만큼 센다
+          //   (미국 마스크 묶음 약 2배). 가장 좋은 순위 하나로 곡선값 한 번만.
+          if (c) { if (r > 0) ru = units(c, r); else if (r === -1) { const rs = kids.map(k => k.rk[j]).filter(x => x > 0); if (rs.length) ru = units(c, Math.min(...rs)); } }
           let u = 0, v = 0;
           if (bs > 0) { if (cap && ru > bs) { u = ru; v = (bv > 0 ? bv / bs : pm) * ru; fromRank += ru - bs; } else { u = bs; v = bv > 0 ? bv : bs * pm; } }
           else if (ru > 0) { const nk = kids.filter(k => k.rk[j] > 0).length || 1; u = nb ? ru : Math.min(ru, 49 * nk); v = u * pm; fromRank += u; }

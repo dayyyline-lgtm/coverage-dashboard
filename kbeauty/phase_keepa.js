@@ -101,9 +101,15 @@ window.KBPH=window.KBPH||{};
         //   ⚠ 배지로 확인할 길이 없는 추정이라 브랜드 블록에 따로 ub 로 싣는다(화면이 비중을 적는다).
         { const pb={}; rows.forEach(r=>{ if(!r.nb&&ko[r.p]!=null) pb[r.b]=pb[r.b]||{}, pb[r.b][r.p]=ko[r.p]; });
           const kb={}; for(const b in pb){ const a=Object.values(pb[b]).sort((x,y)=>x-y); kb[b]=a.length?a[a.length>>1]:0; }
-          let nN=0; for(let j=0;j<36;j++){ const P={}; rows.forEach(r=>{ if(!r.nb) return; const rk=r.rk[j]; if(!(rk>0)) return; const k=r.p+'|'+Math.round(rk); (P[k]=P[k]||{rk,b:r.b,kids:[]}).kids.push(r); });
-            Object.values(P).forEach(g=>{ const e=Math.exp(kb[g.b]||0)*cur(g.rk); if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nN++; }); } K.nNB=nN; }
-        K.fit={a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill,nb:K.nNB||0,nbSku:rows.filter(r=>r.nb).length}; }
+          // ⚠ 2026-11-24 고침 — 순위는 부모 것이다. 배지 있는 형제 옵션(같은 부모 · 같은 순위 ±2위/2%)이 있는 배지 없는 옵션은 세트가 아니다:
+          //   그 순위는 형제들 판매가 만든 것이고 그 판매는 이미 배지로 셌다. 곡선값을 주면 같은 판매를 두 번 센다(바이오던스 Pack of 2 ×5 ·
+          //   11/11 등록 · 부모 B0FPMN9D69 순위 2위를 물려받아 11/21 회차 54.7만 개 · 힌스·미샤·토니모리·롬앤·클리오 호수 옵션 15~66% 상시 과대).
+          //   이런 옵션은 순위로는 판매를 알 수 없다 → 옵션당 49개 상한(배지 없는 달 채우기와 같은 규칙) · K.nNBs 로 센다.
+          const near=(x,y)=>x>0&&y>0&&Math.abs(x-y)<=Math.max(2,Math.min(x,y)*0.02);
+          let nN=0, nS=0; for(let j=0;j<36;j++){ const SB={}; rows.forEach(r=>{ if(r.nb) return; const rk=r.rk[j]; if(rk>0) (SB[r.p]=SB[r.p]||[]).push(rk); });
+            const P={}; rows.forEach(r=>{ if(!r.nb) return; const rk=r.rk[j]; if(!(rk>0)) return; const k=r.p+'|'+Math.round(rk); (P[k]=P[k]||{p:r.p,rk,b:r.b,kids:[]}).kids.push(r); });
+            Object.values(P).forEach(g=>{ const sh=(SB[g.p]||[]).some(x=>near(x,g.rk)); let e=Math.exp(kb[g.b]||0)*cur(g.rk); if(sh){ e=Math.min(e,49*g.kids.length); nS++; } if(!(e>=1)) return; g.kids.forEach(r=>{ r.m[j]=Math.round(e/g.kids.length); }); nN++; }); } K.nNB=nN; K.nNBs=nS; }
+        K.fit={a:+C[0].toFixed(3),b1:+C[1].toFixed(3),b2:+C[2].toFixed(3),bins:pts.length,inb:+(nIn/nAll).toFixed(3),fill:K.nFill,nb:K.nNB||0,nbShared:K.nNBs||0,nbSku:rows.filter(r=>r.nb).length}; }
     }
     rows.forEach(r=>{ const o=B[r.b]=B[r.b]||{u:Array(36).fill(0),uf:Array(36).fill(0),ub:Array(36).fill(0),v:Array(36).fill(0),up:Array(36).fill(0),n1k:Array(36).fill(0),nw:Array(36).fill(0),pw:[0,0],nsku:0,top:null}; o.nsku++;
       const f=r.first?((new Date(r.first).getUTCFullYear()*12+new Date(r.first).getUTCMonth())-(new Date(months[0][0]).getUTCFullYear()*12+new Date(months[0][0]).getUTCMonth())):99;

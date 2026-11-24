@@ -524,6 +524,40 @@ def due():
     return 0 if age >= 6 else 1
 
 
+def audit_vs_phase():
+    """두 수집기 대조(2026-11-24 · 사용자 '이런 실수가 앞으로 없도록') — 같은 미국 아마존을 KBCH(keepa.js · 순위 곡선)와
+    국면(phase_keepa.js · 배지 구간 위치)이 따로 센다. 브랜드마다 KBCH ÷ 국면 월 판매액 비율의 중앙값을 '평소'로 두고,
+    그 1.6배를 넘는 달(차이 50만 달러 이상)을 경고한다 — 25.11·26.06·26.09 바이오던스(옵션별 곡선값 합산)가 이 검사로 잡힌다.
+    경고만 한다. CLAUDE.md 'Keepa 추정 원칙'."""
+    import statistics
+    ph = sorted((HERE / "data" / "phase").glob("20??-??-??.json"))
+    if not ph:
+        return []
+    d = json.loads(ph[-1].read_text(encoding="utf-8"))
+    M = d["months"]
+    alias = {"d'alba piedmont": "dalba", "beauty of joseon": "boj", "centellian 24": "centellian24", "vt cosmetics": "vt",
+             "the face shop": "tfs", "rom&nd": "romand", "ma:nyo": "manyo", "dr.althea": "dralthea", "real barrier": "realbarrier",
+             "o hui": "ohui", "su:m37": "sum37", "dr.groot": "drgroot"}
+    kv = {}
+    for r in load_csv(DATA / "keepa_month.csv"):
+        if r["d"] == "1":
+            kv[(r["k"], r["ym"])] = int(r["v"])
+    warn = []
+    for k, b in d["b"].items():
+        kk = alias.get(k, k.replace(" ", ""))
+        rat = [(M[j], kv[(kk, M[j])] / b["v"][j], kv[(kk, M[j])], b["v"][j]) for j in range(len(M) - 13, len(M) - 1)
+               if b["v"][j] > 200000 and kv.get((kk, M[j]), 0) > 0]
+        if len(rat) < 6:
+            continue
+        med = statistics.median(x[1] for x in rat)
+        for ym, r, a, p in rat:
+            if r >= 1.6 * med and a - p > 500000:
+                warn.append(f"{kk} 미국 {ym} KBCH ${a / 1e6:.1f}M vs 국면 ${p / 1e6:.1f}M (비율 {r:.2f} · 평소 {med:.2f})")
+    for w in warn:
+        print(f"[KBCH 경고] {w}")
+    return warn
+
+
 def main(argv):
     if "--tasks" in argv:
         return make_tasks()
@@ -571,6 +605,7 @@ def main(argv):
     ch = inject(block)
     size = len(json.dumps(block, ensure_ascii=False, separators=(",", ":")))
     print(f"[KBCH] {'갱신' if ch else '변동 없음'} · {size // 1024}KB · keepa {block['kp']['asOf']} · tiktok {block['tt']['asOf']}")
+    audit_vs_phase()
     return 0
 
 

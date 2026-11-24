@@ -4,6 +4,10 @@
 
 ## Keepa 를 쓰는 곳은 일요일 한 회차뿐이다 (2026-11-03 · 사용자 "필요 없는 예약 작업을 없애고 한 번에 통합해서 사용량 관리")
 
+**회차 끝 검사(2026-11-24 · 루트 CLAUDE.md 'Keepa 추정 원칙')** — `python kbeauty/phase.py` 와 `python kbeauty/ingest.py` 가 찍는 `[KBPH 경고]`·`[KBCH 경고]` 줄을 보고서에 그대로 붙인다.
+경고가 새로 생긴 브랜드는 브리핑 전에 Keepa 상품 페이지(`keepa.com/#!product/1-<ASIN>/details` — Parent ASIN · Variation ASINs · Listed since)로 새 옵션이 부모 순위를 물려받았는지 본다.
+`phase_keepa.js` 를 고쳤으면 붙여 넣기 전 `node -e "new Function(require('fs').readFileSync('kbeauty/phase_keepa.js','utf8'))"` 로 문법만 확인.
+
 Keepa 데이터 한도(Pro 웹)는 꽉 차면 약 2.6만 상품 · 1% ≈ 260개 · 시간당 5%쯤 다시 찬다(비우면 약 20시간 · 11/02 실측: 10% 남은 채 미국 2,600개에서 0%).
 한도 표시(`#widget__bucket_quota` 'Quota: N%')는 **남은 양**이고 **새 탭에서만** 맞다.
 
@@ -49,9 +53,9 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
 
 1. 크롬(윈도우 PC)에서 새 탭 → `https://keepa.com/#!finder`. 오른쪽 위에 `PRO`·계정 이름이 보이면 로그인된 것. **로그인돼 있지 않으면 멈춘다** — 대신 로그인하지 않는다.
 2. `javascript_tool`: `localStorage.getItem('kbk_v')`
-   - `kbeauty/keepa.js` 맨 위 `const V`(지금 7)와 같으면 → `new Function(localStorage.getItem('kbk_code'))()` → `kbk v7 ready · timer worker`.
+   - `kbeauty/keepa.js` 맨 위 `const V`(지금 9)와 같으면 → `new Function(localStorage.getItem('kbk_code'))()` → `kbk v7 ready · timer worker`.
    - 다르거나 없으면(새 브라우저 · keepa.js 를 고친 뒤) → 클론의 `kbeauty/keepa.js` 를 그대로 읽어
-     `const SRC = (function(){ <keepa.js 전체> });` 로 감싸 붙여 넣고 `localStorage.setItem('kbk_code','('+SRC.toString()+')()'); localStorage.setItem('kbk_v','7'); SRC()`.
+     `const SRC = (function(){ <keepa.js 전체> });` 로 감싸 붙여 넣고 `localStorage.setItem('kbk_code','('+SRC.toString()+')()'); localStorage.setItem('kbk_v','9'); SRC()`.
      ⚠ keepa.com 은 CSP 로 다른 사이트(raw.githubusercontent)를 못 부른다 — 그래서 fetch 하지 않고 붙여 넣는다. 10/20 집 PC 크롬(keepa.com)에 v7 이 저장돼 있다.
 3. `window.__KBK.start(<kbeauty/keepa_tasks.json 내용>, {mode:'<--due 의 모드>'})` → `started · 158`.
 4. 60초마다 `window.__KBK.status()` — `done · 158/158 · …`(10/20 실측 1,079초 · 과제당 3~13초). **탭을 앞에 둘 것**(뒤로 가면 표가 늦게 찬다).
