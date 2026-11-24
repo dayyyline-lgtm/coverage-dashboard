@@ -265,7 +265,9 @@ def main(argv):
         kv = kk.get("v") or 1
         ka = kk.get("a") or 1
         kc = kk.get("c") or 1
-        last_fm = max(fm[s]) if fm.get(s) else None
+        # 이어 붙이는 자리 = FastMoss 마지막 날(et_k 의 to) — 그 뒤는 회차마다 EchoTik 값으로 다시 쓴다.
+        # EchoTik 은 늦게 잡힌 판매를 나중 날짜에 몰아 넣었다가 고친다(9/26~10/12 겹친 구간에서 확인) → 이미 넣은 날도 새 덤프가 이겨야 한다.
+        last_fm = dt.date.fromisoformat(kk["to"]) if kk.get("to") else (max(fm[s]) if fm.get(s) else None)
         ds = sorted(t for t in et if (last_fm is None or t > last_fm))
         if not ds:
             continue
