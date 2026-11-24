@@ -144,7 +144,22 @@ def et_daily(x):
     return out
 
 
+def _fix_price(fm):
+    """FastMoss 단가 튐(판매량은 평소인데 단가가 몇 배 — 10/13~19 메디큐브 · 10/17~29 바이오던스)을 빼고 배수를 낸다.
+    ingest.build_block·phase.build_tt 와 같은 규칙(직전 28일 중앙 단가의 2.5배 초과 → 판매량 × 중앙 단가). 안 빼면 바이오던스 판매액 배수가 5.9배로 나왔다(2026-11-24)."""
+    ds = sorted(fm)
+    out = {}
+    for i, t in enumerate(ds):
+        u, v = fm[t][0], fm[t][1]
+        past = sorted(fm[x][1] / fm[x][0] for x in ds[max(0, i - 28):i] if fm[x][0] and fm[x][1])
+        if u and v and len(past) >= 10 and v / u > 2.5 * past[len(past) // 2]:
+            v = round(u * past[len(past) // 2])
+        out[t] = (u, v) + tuple(fm[t][2:])
+    return out
+
+
 def ratios(fm, et):
+    fm = _fix_price(fm)
     ov = sorted(set(fm) & set(et))
     ov28 = ov[-28:]                       # 이어 붙이는 자리 바로 앞 4주 — 배수는 여기서 낸다(겹친 기간 앞쪽은 FastMoss 자체 튐이 섞인다)
     r28 = {}
@@ -259,6 +274,14 @@ def main(argv):
                   ",".join(b36((et[t][3] or 0) * kc) for t in span), ",".join(b36(et[t][4] or 0) for t in span)])
     for f in D + V:
         push(f)
+    for f in D:                                            # 이어 붙인 단가 ÷ FastMoss 중앙 단가 — 배수가 틀렸으면 여기서 보인다
+        kk = kall.get(f[1], {})
+        uu = [ub36(x) for x in f[3].split(",")]
+        vv = [ub36(x) for x in f[4].split(",")]
+        if sum(uu) and kk.get("pf"):
+            r = sum(vv) / sum(uu) / kk["pf"]
+            if r > 1.8 or r < 0.55:
+                print(f"[EchoTik 경고] {kk.get('k')} 이어 붙인 단가 ${sum(vv) / sum(uu):.1f} = FastMoss 중앙 ${kk['pf']} 의 {r:.1f}배 — et_k.json 판매액 배수 확인")
     L.append("|".join(["END", str(len(L) + 1), crc36("\n".join(L))]))
     out = PH / "fm" / f"{date}.txt"
     out.write_text("\n".join(L) + "\n", encoding="utf-8", newline="\n")
