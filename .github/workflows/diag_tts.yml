@@ -1,0 +1,33 @@
+name: 틱톡샵 상품 페이지 탐침(일회성)
+# diag/tts_probe.py 나 diag/tts_ids.txt 를 push 하면 돈다 — 결과 원문은 diag-tts 가지에만(main 은 안 건드림).
+on:
+  push:
+    branches: [main]
+    paths: ["diag/tts_probe.py", "diag/tts_ids.txt"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 상품 페이지 받기
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python diag/tts_probe.py
+      - name: diag-tts 가지에 올리기
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan diag-tts-tmp
+          git rm -rf --quiet --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/tts ./tts
+          git add tts
+          git commit -q -m "틱톡샵 상품 페이지 탐침 $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          git push -f origin HEAD:refs/heads/diag-tts
