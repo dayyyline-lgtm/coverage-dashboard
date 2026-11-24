@@ -2513,6 +2513,63 @@ const topicsOf0=n=>{
   });
   TREND_OWNER[name]={"호텔숙박료":"호텔신라"};   // 주목할 추이 칩은 한 번만 — 호텔신라 이름으로(없으면 TREND_STOCK 첫 종목 파라다이스로 붙는다)
 })();
+/* 외국인 카지노 월 공시(CASINO · fetch_casino.py · DART 공정공시 · 2026-11-25 사용자 "카지노 월 데이터도 커버리지 트렌드에 있어야").
+   그 전엔 ISM 손익 모델의 동인으로만 쓰여 화면에 시계열이 없었다.
+   ① 종목 그룹(파라다이스·롯데관광개발): 카지노 매출 · 테이블/머신 매출(+롯데 호텔 매출) — 억원 · 작년 같은 달과 비교(yoyCmp) · 신호 없음
+      (매출은 홀드 = 운에 흔들린다). 드롭은 매출의 7~10배라 같은 축에 두면 매출 선이 바닥에 깔려서 ②로 뺐다.
+   ② 3사 비교(파라다이스·롯데관광개발·GKL — GKL 은 커버리지 밖이라 비교선으로만): 카지노 매출 · 테이블 드롭 · 테이블 홀드율.
+      이름 하나를 두 종목이 같이 쓴다(전국 호텔 숙박료와 같은 방식) · TREND_OWNER 로 카드는 그 종목 선이 대표.
+      신호는 드롭만(수요에 가장 가깝다 · ±25%) — 종목마다 자기 선으로. 홀드율 카드는 변화율을 안 적는다(%끼리의 %는 헷갈린다 · 작년 같은 달 대비 %p 는 요약 줄에).
+   홀드율 = 테이블 매출 ÷ 테이블 드롭(계산값 · 머신은 드롭이 없어 뺀다). 전월 값은 다음 달 공시의 확정치로 덮인다. */
+(function injectCasinoTrends(){
+  if(typeof CASINO==="undefined"||!CASINO.m) return;
+  const CO=["파라다이스","롯데관광개발","GKL"].filter(c=>CASINO.m[c]);
+  const M=[...new Set(CO.flatMap(c=>Object.keys(CASINO.m[c])))].sort(); if(M.length<13) return;
+  const lab=m=>`${m.slice(2,4)}.${+m.slice(5,7)}`, li=M.length-1, mo=+M[li].slice(5,7);
+  const ek=v=>v==null||isNaN(v)?"—":Math.abs(v)>=1e4?`${+(v/1e4).toFixed(2)}조`:`${Math.round(v).toLocaleString("ko-KR")}억`;
+  const pc=v=>v==null||isNaN(v)?"—":`${(+v).toFixed(1)}%`;
+  const sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const ser=(c,f)=>M.map(m=>{ const r=CASINO.m[c][m]; const v=r?r[f]:null; return v==null||v===""?null:Math.round(v*100)/10; });   // 십억원 → 억원(소수 1자리)
+  const hold=c=>M.map(m=>{ const r=CASINO.m[c][m]; return r&&r.t!=null&&r.d>0?Math.round(r.t/r.d*1000)/10:null; });
+  const grp=(raw,o)=>{ const peak=Math.max(1e-9,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const yoyAt=(i,j)=>(j>=12&&raw[i][j]!=null&&raw[i][j-12]>0)?(raw[i][j]/raw[i][j-12]-1)*100:null;
+    return Object.assign({productsGoogle:o.products, months:M.map(lab), naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt, only:"naver", freq:"month", peak,
+      niceTicks:true, minPts:25, peakDot:true}, o); };
+  const SRC="DART 카지노 월간 매출 공정공시(잠정 · 전월 값은 다음 달 공시의 확정치) · 커버리지 대시보드 fetch_casino.py 가 평일 05시에 DART API 로 받음";
+  const upd=`${CASINO.asOf||""} 수집 · ${M[li].slice(0,4)}년 ${mo}월분까지`;
+  // ① 종목 그룹
+  [["파라다이스",[["카지노 매출","c"],["테이블 매출","t"],["머신 매출","mc"]]],
+   ["롯데관광개발",[["카지노 매출","c"],["테이블 매출","t"],["머신 매출","mc"],["호텔 매출","h"]]]].forEach(([stock,cols])=>{
+    if(!CASINO.m[stock]||!R.some(r=>r.name===stock)) return;
+    const raw=cols.map(([,f])=>ser(stock,f)), G=grp(raw,{products:cols.map(c=>c[0])});
+    const hl=hold(stock), hy=hl[li]!=null&&hl[li-12]!=null?hl[li]-hl[li-12]:null;
+    const name=`${stock} 카지노 월 공시`;
+    TREND.groups[name]=Object.assign(G,{unit:"억원(월 · 공시)", unitShort:"억원", realFmt:ek, yoyCmp:true, sigIdx:[],
+      srcName:`${SRC} · 계절과 명절이 커서 작년 같은 달과 비교 · 테이블 드롭은 '카지노 3사 테이블 드롭'에`,
+      reviewNote:`${upd} · `+cols.map(([n],i)=>`${n} ${ek(raw[i][li])}(전년동월비 ${sg(G.yoyAt(i,li))})`).join(" · ")
+        +` · 테이블 홀드율 ${pc(hl[li])}`+(hy==null?"":`(작년 같은 달 ${pc(hl[li-12])} · ${hy>=0?"+":""}${hy.toFixed(1)}%p)`)});
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).push(name);
+  });
+  // ② 3사 비교 — 커버리지 종목 둘에 같이 붙인다
+  const owners=["파라다이스","롯데관광개발"].filter(st=>R.some(r=>r.name===st)); if(!owners.length) return;
+  const OWN={}; owners.forEach(st=>{ OWN[st]=st; });          // 계열 이름 = 회사 이름 → 그 종목 선이 카드 대표·신호 주인(GKL 은 주인 없음)
+  const add=name=>{ owners.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); }); TREND_OWNER[name]=OWN; };
+  [["카지노 3사 매출(월 공시)","c",[]],["카지노 3사 테이블 드롭(월 공시)","d",CO.map((c,i)=>OWN[c]?i:-1).filter(i=>i>=0)]].forEach(([name,f,sig])=>{
+    const raw=CO.map(c=>ser(c,f)), G=grp(raw,{products:CO});
+    TREND.groups[name]=Object.assign(G,{unit:"억원(월 · 공시)", unitShort:"억원", realFmt:ek, yoyCmp:true, sigIdx:sig,
+      srcName:`${SRC}`+(f==="d"?" · 드롭 = 테이블 칩 교환액(머신 제외 · 수요에 가장 가까운 숫자)":"")+" · GKL 은 커버리지 밖(비교선)",
+      reviewNote:`${upd} · `+CO.map((c,i)=>`${c} ${ek(raw[i][li])}(전년동월비 ${sg(G.yoyAt(i,li))})`).join(" · ")});
+    add(name);
+  });
+  { const raw=CO.map(hold), name="카지노 3사 테이블 홀드율(월)";
+    const G=grp(raw,{products:CO}); G.yoyAt=()=>null;           // 카드·표에 '홀드율의 증감률'을 안 낸다(%p 는 요약 줄)
+    TREND.groups[name]=Object.assign(G,{unit:"%(테이블 매출 ÷ 테이블 드롭)", unitShort:"%", realFmt:pc, yoyCmp:true, sigIdx:[],
+      srcName:`${SRC} · 홀드율 = 테이블 매출 ÷ 테이블 드롭(계산값 · 롤링 커미션·VIP 비중에 따라 회사마다 수준이 다르고, 한 달 값은 운에 크게 흔들린다)`,
+      reviewNote:`${upd} · `+CO.map((c,i)=>{ const a=raw[i][li], b=raw[i][li-12];
+        return `${c} ${pc(a)}(작년 같은 달 ${pc(b)}`+(a!=null&&b!=null?` · ${a-b>=0?"+":""}${(a-b).toFixed(1)}%p`:"")+")"; }).join(" · ")});
+    add(name); }
+})();
 /* 호텔 3종목 표 — 화면(renderAdr)과 아래 트렌드 주입이 같이 쓴다. 주입이 로드 때 돌아서 여기 둔다(renderAdr 옆에 두면 const TDZ). */
 const ADR_MAP={
   "호텔신라":{reit:["stay_ghm","stay_mapo"], ir:"shilla", irh:["shilla_seoul","shilla_jeju","shilla_stay"], ota:["shilla_seoul","shilla_jeju","stay_ghm","stay_mapo"],
@@ -3044,7 +3101,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -3059,7 +3116,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트|극장|업계 매출|판매가|검색가/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|카지노/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";
