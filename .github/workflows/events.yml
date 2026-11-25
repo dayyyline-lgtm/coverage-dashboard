@@ -151,6 +151,13 @@ jobs:
         timeout-minutes: 3
         run: python runstep.py "방한관광" fetch_tourism.py
 
+      # 백화점 3사 외국인 노출도(2026-11-25 · DEPTFRN) — 점포 상권 외국인 카드결제 + 소재 구 외국인 방문. 데이터랩 내부 JSON, 키 불필요.
+      #   새 달이 없으면 2요청으로 끝난다 · 새 달이 뜨면 그 달 + 직전 달(수정 반영) 약 64요청.
+      - name: 백화점 외국인 노출도 수집
+        continue-on-error: true
+        timeout-minutes: 3
+        run: python runstep.py "백화점 외국인" fetch_deptfrn.py
+
       # 써클차트 앨범 판매량(월간·주간) — 엔터 실물 수요. 키 불필요.
       - name: 써클차트 앨범판매 수집
         continue-on-error: true

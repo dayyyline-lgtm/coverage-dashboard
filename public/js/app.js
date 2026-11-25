@@ -271,6 +271,7 @@ const FRESH_LIMITS = [
   ["QOO10","Qoo10 JP 뷰티",40],["DAISO","다이소몰",40],["BOXOFFICE","극장가(KOBIS)",30],["KMJAMZ","한투 아마존 Top100",120],
   ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],["ADR","호텔 ADR(Google 호텔 아침 크롬)",168],
   ["FREIGHT","유럽 운송비(경유가·해상운임)",240],
+  ["DEPTFRN","백화점 외국인 노출도(데이터랩 월간)",1080],
 ];
 
 function ageHours(a){
@@ -2675,6 +2676,61 @@ const FREIGHT_CN={EU:"EU 평균",DE:"독일",FR:"프랑스",IT:"이탈리아",ES
     add(name);
   }
 })();
+/* 백화점 외국인 노출도(DEPTFRN · fetch_deptfrn.py · 2026-11-25 사용자 "이거 어케 따는 거야 — 대시보드에 넣게" → "백화점 데이터로 바꿀 수 있나").
+   두 잣대를 같은 산식으로 — 회사 노출 YoY = Σ V(t) ÷ Σ V(t−12) − 1(구·동별 YoY 평균이 아니라 작년 값으로 가중) · 기여 = 증분 ÷ 작년 합 · 가속도 = YoY − 전월 YoY.
+   ① 점포 상권 카드결제(기본 · 백화점 쪽) = 점포가 있는 행정동의 '대형쇼핑몰' 외국인 카드 결제액(백만원)
+   ② 소재 구 방문 = 점포가 있는 서울 구의 외국인 방문자 수(연인원) — 처음 받은 남의 화면(2026.10 현대 +28.2 · 롯데 +24.4 · 신세계 +23.9)을 그대로 재현하는 방식.
+   회사 → 동·구 배정은 블록의 co(수집기 CO 한 곳). 종목 페이지 손익 탭(renderDeptFrn)과 트렌드 주입이 같이 쓴다 — 주입이 로드 때 돌아서 여기 둔다(TDZ). */
+const DF_CO=["현대백화점","롯데쇼핑","신세계"];
+const DF_COL={"현대백화점":"#6fa8dc","롯데쇼핑":"#e07a5f","신세계":"#81b29a"};
+const DF_SHORT={"현대백화점":"현대","롯데쇼핑":"롯데","신세계":"신세계"};
+function dfCalc(mode){
+  const D=DEPTFRN, M=D.months||[], out={};
+  DF_CO.forEach(co=>{
+    const c=(D.co||{})[co]; if(!c) return;
+    const keys=mode==="gu"?c.gu.map(x=>x[0]):c.card;
+    const ser=k=>(mode==="gu"?(D.gu||{})[k]:(D.card||{})[k])||[];
+    const rows=M.map((m,i)=>{
+      if(i<12) return null;
+      let cur=0, base=0, ok=true; const ctb={}, v={};
+      keys.forEach(k=>{ const a=ser(k)[i], b=ser(k)[i-12]; if(a==null||b==null){ ok=false; return; } cur+=a; base+=b; ctb[k]=a-b; v[k]=[a,b]; });
+      if(!ok||!(base>0)) return null;
+      Object.keys(ctb).forEach(k=>ctb[k]=ctb[k]/base*100);
+      return {m, cur, base, d:cur-base, y:(cur/base-1)*100, ctb, v};
+    });
+    rows.forEach((r,i)=>{ if(r&&rows[i-1]) r.acc=r.y-rows[i-1].y;
+      if(r&&rows[i-1]&&rows[i-2]){ const c3=r.cur+rows[i-1].cur+rows[i-2].cur, b3=r.base+rows[i-1].base+rows[i-2].base; r.y3=(c3/b3-1)*100; } });
+    const lev=M.map((m,i)=>{ let s=0; for(const k of keys){ const a=ser(k)[i]; if(a==null) return null; s+=a; } return s; });
+    out[co]={keys, rows, lev};
+  });
+  return out;
+}
+/* 트렌드 탭 — 이름 둘을 세 종목이 같이 쓴다(전국 호텔 숙박료와 같은 방식). 계절이 커서 작년 같은 달과(yoyCmp).
+   신호는 안 쓴다 — 외국인 수요가 매달 +20~40% 라 문턱을 넘는 게 일상이다(칩이 매달 뜨면 잡음). 카드는 TREND_OWNER 로 그 종목 선이 대표. */
+(function injectDeptFrnTrends(){
+  if(typeof DEPTFRN==="undefined"||!DEPTFRN.months||DEPTFRN.months.length<13||!DEPTFRN.co) return;
+  const M=DEPTFRN.months, months=M.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), li=M.length-1, mo=+M[li].slice(4,6);
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const mk=(mode,name,unit,unitShort,realFmt,src)=>{
+    const R=dfCalc(mode), cos=DF_CO.filter(c=>R[c]);
+    const raw=cos.map(c=>R[c].lev.map(v=>v==null?null:(mode==="gu"?v:v/100)));   // 카드 = 억원
+    const yoyAt=(i,j)=>j>=12?pct(raw[i][j],raw[i][j-12]):null;
+    const peak=Math.max(1,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const notes=cos.map((c,i)=>{ const r=R[c].rows[li];
+      return `${DF_SHORT[c]} ${mo}월 ${realFmt(raw[i][li])}(전년동월비 ${sg(yoyAt(i,li))})`+(r&&r.y3!=null?` · 최근 3개월 ${sg(r.y3)}`:""); });
+    TREND.groups[name]={products:cos, productsGoogle:cos, months, naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt, only:"naver", freq:"month", peak,
+      unit, unitShort, realFmt, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[], endPad:96, srcName:src, reviewNote:notes.join(" · ")};
+    DF_CO.forEach(st=>{ if(R[st]) (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
+    const own={}; cos.forEach(c=>own[c]=c); TREND_OWNER[name]=own;
+  };
+  mk("card","백화점 3사 외국인 카드결제 · 점포 상권","억원(월 · 점포가 있는 행정동의 대형쇼핑몰 업종)","억원",
+    v=>v==null||isNaN(v)?"—":`${Math.round(v).toLocaleString("ko-KR")}억`,
+    "백화점 점포 상권 · 한국관광 데이터랩 외국인 관광소비(카드) · 점포가 있는 행정동의 업종 소분류 '대형쇼핑몰' 결제액 합 · 코엑스몰·IFC몰·갤러리아·롯데월드몰이 같은 동이라 섞인다 · 신세계 센텀(우2동)은 2026.01 집계가 끊겨 뺐다 · 종목 페이지 손익 탭에 동별 표");
+  mk("gu","백화점 3사 외국인 방문 · 점포 소재 구","명(월 · 외국인 방문 연인원)","명",
+    v=>v==null||isNaN(v)?"—":v>=1e4?`${(v/1e4).toFixed(1)}만명`:`${Math.round(v).toLocaleString("ko-KR")}명`,
+    "백화점 점포 소재 구 · 한국관광 데이터랩 외국인 방문자 수(SKT 이동통신 · 하루 누적 일정시간 이상 머문 단기 체류 외국인 · 연인원) · 점포가 있는 서울 구의 합 · 여러 구를 다닌 사람은 구마다 잡혀 인원이 아니라 노출 지수 · 백화점 방문이 아니라 그 구 방문");
+})();
 /* 네이버 쇼핑인사이트(SHOPINS · fetch_shopins.py · 2026-11-03 사용자 "국내 데이터 자동으로 — 네이버 쇼핑인사이트") — 네이버쇼핑 안에서 그 키워드로 상품을 누른 양.
    검색 트렌드(관심)보다 구매 쪽에 가깝다. 값 = 요청 안 최고=100(그룹 안 계열끼리만 비교 · 그룹끼리 높이 비교 금지) · 주별 104주 · 완결된 주만.
    경쟁사가 섞인 그룹은 계열 주인(own)을 TREND_OWNER 로 — 남의 계열이 우리 종목 신호로 뜨지 않게.
@@ -3101,7 +3157,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭|외국인 카드결제/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -3116,7 +3172,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|카지노/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|카지노|외국인 카드결제/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";
@@ -6689,6 +6745,7 @@ function renderMovie(){
    소스마다 주기가 다르다: 네이버 검색·편입지표(스포티파이/스팀/유튜브 등)는 매일,
    구글·얀덱스·국가별 검색은 주 1회(월). srcName 으로 소스를 판별해 각 asOf 를 붙인다. */
 const TREND_SRC_ASOF=[
+  ["백화점 점포", ()=>(typeof DEPTFRN!=="undefined")&&DEPTFRN.asOf],   // 한국관광(TOURISM)보다 먼저 — srcName 에 둘 다 들어 있다
   ["Spotify", ()=>(typeof SPOTIFY!=="undefined")&&SPOTIFY.asOf],
   ["스토어", ()=>(typeof STORERANK!=="undefined")&&STORERANK.asOf],
   ["Steam 국가별", ()=>(typeof STORERANK!=="undefined")&&STORERANK.asOf],
@@ -10329,7 +10386,8 @@ function renderStockTab(name){
     const adr=typeof ADR_MAP!=="undefined"&&ADR_MAP[name]&&typeof ADR!=="undefined";   // 호텔 ADR 추적(2026-10-29) — 호텔신라·GS피앤엘·서부T&D
     const sl=name==="삼립"&&typeof renderSamlip==="function"&&typeof SAMLIP!=="undefined";   // 삼립 해외(코스트코) 추적(2026-11-17 · js/samlip.js)
     const frt=typeof FREIGHT_MAP!=="undefined"&&FREIGHT_MAP[name]&&typeof FREIGHT!=="undefined";   // 유럽 운송비(2026-11-24 · FREIGHT) — 유럽 매출 종목
-    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(sl?`<div id="spSamlip" style="margin-top:14px"></div>`:"")+(frt?`<div id="spFreight" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
+    const dfr=typeof DEPTFRN!=="undefined"&&DEPTFRN.co&&DEPTFRN.co[name];   // 백화점 외국인 노출도(2026-11-25 · DEPTFRN) — 백화점 3사
+    body.innerHTML=(ism?`<div id="spIsm"></div>`:"")+(rt?`<div id="spRetail" style="margin-top:14px"></div>`:"")+(adr?`<div id="spAdr" style="margin-top:14px"></div>`:"")+(sl?`<div id="spSamlip" style="margin-top:14px"></div>`:"")+(dfr?`<div id="spDept" style="margin-top:14px"></div>`:"")+(frt?`<div id="spFreight" style="margin-top:14px"></div>`:"")+(mid?`<div id="spModel"></div>`:"")+(kb?`<div id="spKb"></div>`:"")+`
       <div class="sub-h">${mid||ism?"참고: ":""}네이버 컨센 — 연간 <span class="th-sub" style="display:inline">억 원 · A 실적 · E 컨센(2027E 는 엑셀 컨센)</span></div>
       <div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">구분</th>${A.map(a=>`<th class="ye">${a.y}</th>`).join("")}</tr></thead><tbody>
         <tr><td class="l">매출액</td>${A.map(a=>`<td>${eok(a.rev)}</td>`).join("")}</tr>
@@ -10356,6 +10414,7 @@ function renderStockTab(name){
     if(rt){ try{ renderRetail(name, document.getElementById("spRetail")); }catch(err){ console.error("유통업체 매출동향", err); } }
     if(adr){ try{ renderAdr(name, document.getElementById("spAdr")); }catch(err){ console.error("호텔 ADR", err); } }
     if(sl){ try{ renderSamlip(document.getElementById("spSamlip")); }catch(err){ console.error("삼립 해외 추적", err); } }
+    if(dfr){ try{ renderDeptFrn(name, document.getElementById("spDept")); }catch(err){ console.error("백화점 외국인 노출도", err); } }
     if(frt){ try{ renderFreight(name, document.getElementById("spFreight")); }catch(err){ console.error("유럽 운송비", err); } }
     // 화장품 브랜드사 — 아마존(Keepa)·틱톡샵 채널 모델(2026-10-20 · KBCH)
     if(kb){ try{ renderKbModel(name, document.getElementById("spKb")); }catch(err){ console.error("채널 모델", err); } }
@@ -14558,4 +14617,73 @@ function frGuide(name){
     ${R.map(r=>`<tr>${r.map((c,i)=>`<td class="l" style="white-space:normal;vertical-align:top;font-size:11.5px;line-height:1.45;${i===0?"font-weight:700;min-width:110px":"min-width:130px"}">${attr(c)}</td>`).join("")}</tr>`).join("")}
     </tbody></table>
     <p class="note">읽는 순서: 경유가(주간)가 먼저 움직이고 → 스팟운임·프랑스 월간(한 달 뒤) → 계약운임(재계약 분기)이 따라간다. 3Q26 유럽 물동량은 전년보다 줄었는데 운임은 최고였다 — 수요가 아니라 비용으로 오른 것이라 경유가가 내리면 같이 내릴 수 있는 몫이 크다. 아마존 고객 배송(라스트마일)은 FBA 수수료에 들어 있어 이 지표들이 아니라 아마존 수수료 개정으로 본다.</p></div></details>`;
+}
+
+/* ══ 백화점 외국인 노출도 — 점포 상권 카드결제 · 소재 구 방문 (2026-11-25 · DEPTFRN · fetch_deptfrn.py) ══════════════
+   종목 페이지 손익 탭(현대백화점·롯데쇼핑·신세계). 재료·산식은 위 dfCalc 주석. 표 = 3사 같은 달 비교 → 차트 = 3사 노출 YoY →
+   이 회사 동·구별 YoY(최근 12개월)·기여 → 두 잣대 나란히(카드결제 vs 구 방문). 기본 잣대 = 카드결제(사용자 "백화점 데이터로"). */
+let dfSt=(()=>{ try{ return JSON.parse(localStorage.getItem("dfSt")||"{}"); }catch(e){ return {}; } })();
+const dfSave=()=>{ try{ localStorage.setItem("dfSt",JSON.stringify(dfSt)); }catch(e){} };
+function renderDeptFrn(name, host){
+  if(!host||typeof DEPTFRN==="undefined"||!DEPTFRN.months||!DEPTFRN.co||!DEPTFRN.co[name]) return;
+  const D=DEPTFRN, M=D.months, mode=dfSt.m==="gu"?"gu":"card", R=dfCalc(mode), RA=dfCalc(mode==="gu"?"card":"gu");
+  const ml=m=>`'${m.slice(2,4)}.${+m.slice(4,6)}`, mT=m=>frT(`${m.slice(0,4)}-${m.slice(4,6)}`);
+  // 기준 달 = 세 회사가 다 있는 마지막 달
+  let li=M.length-1; while(li>=12&&DF_CO.some(c=>R[c]&&!R[c].rows[li])) li--;
+  if(li<12){ host.innerHTML=`<div class="sub-h">백화점 외국인 노출도</div><p class="note">아직 13개월이 안 쌓였습니다</p>`; return; }
+  const pc=v=>v==null||!isFinite(v)?"—":`<span class="${v>0?"up":v<0?"down":""}">${v>0?"+":""}${v.toFixed(1)}%</span>`;
+  const pp=v=>v==null||!isFinite(v)?"—":`<span class="${v>0?"up":v<0?"down":""}">${v>0?"+":""}${v.toFixed(1)}%p</span>`;
+  const val=v=>v==null?"—":mode==="gu"?`${Math.round(v).toLocaleString("ko-KR")}명`:`${(v/100).toLocaleString("ko-KR",{minimumFractionDigits:1,maximumFractionDigits:1})}억`;
+  const dlt=v=>v==null?"—":(v>=0?"+":"−")+val(Math.abs(v));
+  const nmOf=k=>mode==="gu"?(k.endsWith("구")?k:`${k}구`):((D.dong||{})[k]||[k])[0];
+  const stOf=(co,k)=>mode==="gu"?((D.co[co].gu.find(x=>x[0]===k)||[])[1]||""):((D.dong||{})[k]||[])[1]||"";
+  const btn=(k,v,t,on)=>`<button data-df${k}="${v}" class="${on?"active":""}">${t}</button>`;
+  const ML={card:"점포 상권 카드결제", gu:"소재 구 방문"};
+  let h=`<div class="sub-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">백화점 외국인 노출도 — ${ML[mode]} <span class="th-sub" style="display:inline">${mode==="gu"?"점포가 있는 서울 구의 외국인 방문자 수(연인원) 합":"점포가 있는 행정동의 '대형쇼핑몰' 외국인 카드 결제액 합"} · 한국관광 데이터랩 · ${ml(M[li])}까지 · 갱신 ${fmtUpd(D.asOf)}</span>
+      <span class="seg" style="margin-left:auto">${btn("m","card","점포 상권 카드결제",mode==="card")}${btn("m","gu","소재 구 방문",mode==="gu")}</span></div>`;
+  // ① 3사 비교 — 기준 달
+  const top=r=>{ const e=Object.entries(r.ctb).sort((a,b)=>b[1]-a[1])[0]; return e?`${nmOf(e[0])} (${e[1]>=0?"+":""}${e[1].toFixed(1)}%p)`:"—"; };
+  h+=`<div class="tbl-wrap"><table class="mini-tbl"><thead><tr><th class="l">${M[li].slice(0,4)}.${M[li].slice(4)} 회사</th><th class="l">${mode==="gu"?"소재 구 / 점포":"점포 동"}</th><th>노출 YoY</th><th>전월 대비 가속도</th><th>최근 3개월 YoY</th><th>${mode==="gu"?"방문 연인원":"결제액"} 증분 합</th><th class="l">증가 기여 1위</th></tr></thead><tbody>`
+    +DF_CO.filter(c=>R[c]&&R[c].rows[li]).map(c=>{ const r=R[c].rows[li], cf=D.co[c];
+      return `<tr${c===name?' style="font-weight:700;background:color-mix(in srgb,var(--accent) 9%,transparent)"':""}><td class="l"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${DF_COL[c]};margin-right:5px"></span>${DF_SHORT[c]}</td>
+        <td class="l">${mode==="gu"?`${cf.gu.length}개 구 / ${cf.nStore}곳`:`${cf.card.length}개 동`}</td><td>${pc(r.y)}</td><td>${pp(r.acc)}</td><td>${pc(r.y3)}</td><td>${dlt(r.d)}</td><td class="l">${top(r)}</td></tr>`; }).join("")
+    +`</tbody></table></div>`;
+  // ② 3사 노출 YoY 차트
+  const rng=dfSt.r||"2y";
+  h+=`<div class="sub-h" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">3사 노출 YoY — 월별 <span class="th-sub" style="display:inline">작년 같은 달 대비 · 점 = 고점 · 커서를 올리면 그달 값</span>
+      <span class="seg" style="margin-left:auto">${[["1y","1년"],["2y","2년"],["all","'24.1~"]].map(([k,t])=>btn("r",k,t,rng===k)).join("")}</span></div><div id="dfLine"></div>`;
+  // ③ 이 회사 동·구별
+  // 달 칸 수 = 화면 폭에 맞춘다(넓으면 12개월 · 좁으면 표를 오른쪽 끝에서 시작해 최근 달이 보이게)
+  const fitW=Math.floor(((host.clientWidth||1100)-400)/70), W=Math.min(12,li-11,Math.max(6,fitW)), cols=[]; for(let j=li-W+1;j<=li;j++) cols.push(j);
+  const me=R[name], cf=D.co[name];
+  const ser=k=>(mode==="gu"?D.gu[k]:D.card[k])||[];
+  const yo=(k,j)=>{ const a=ser(k)[j], b=ser(k)[j-12]; return a!=null&&b>0?(a/b-1)*100:null; };
+  const keys=me.keys.slice().sort((a,b)=>(ser(b)[li]||0)-(ser(a)[li]||0));
+  const skip=mode==="card"?(cf.skip||[]):[];
+  const memo=k=>mode==="card"?((D.dong||{})[k]||[])[2]||"":"";
+  const yb=j=>M[j].endsWith("01")&&j!==cols[0]?' style="border-left:1.5px solid var(--line)"':"";
+  h+=`<div class="sub-h" style="margin-top:14px">${DF_SHORT[name]} — ${mode==="gu"?"구별":"점포 동별"} YoY · 최근 ${W}개월 <span class="th-sub" style="display:inline">${M[li].slice(0,4)}.${M[li].slice(4)} 값 · 작년 같은 달 · 기여 = 그 ${mode==="gu"?"구":"동"}의 증분 ÷ 작년 합(다 더하면 노출 YoY)</span></div>
+    <div class="tbl-wrap df-scroll"><table class="mini-tbl"><thead><tr><th class="l">${mode==="gu"?"구 · 점포":"동 · 점포"}</th><th>${ml(M[li])}</th><th>작년</th><th>기여</th>${cols.map(j=>`<th class="ye"${yb(j)}>${ml(M[j])}</th>`).join("")}</tr></thead><tbody>`
+    +`<tr style="font-weight:700"><td class="l">합계 <span class="g" style="font-weight:400;font-size:11px">${mode==="gu"?`${cf.gu.length}개 구`:`${cf.card.length}개 동`}</span></td><td>${val(me.rows[li].cur)}</td><td>${val(me.rows[li].base)}</td><td>${pc(me.rows[li].y)}</td>${cols.map(j=>`<td${yb(j)}>${pc(me.rows[j]?me.rows[j].y:null)}</td>`).join("")}</tr>`
+    +keys.map(k=>`<tr><td class="l" style="white-space:normal;min-width:150px;line-height:1.3">${nmOf(k)}<div class="g" style="font-size:10.5px">${attr(stOf(name,k))}${memo(k)?` · ${attr(memo(k))}`:""}</div></td><td>${val(ser(k)[li])}</td><td>${val(ser(k)[li-12])}</td><td>${pp(me.rows[li].ctb[k])}</td>${cols.map(j=>`<td${yb(j)}>${pc(yo(k,j))}</td>`).join("")}</tr>`).join("")
+    +skip.map(k=>`<tr class="g"><td class="l" style="white-space:normal;min-width:150px;line-height:1.3">${nmOf(k)}<div style="font-size:10.5px">${attr(stOf(name,k))} · ${attr(memo(k))}</div></td><td>${val(ser(k)[li])}</td><td>${val(ser(k)[li-12])}</td><td>—</td>${cols.map(j=>`<td${yb(j)}>${pc(yo(k,j))}</td>`).join("")}</tr>`).join("")
+    +`</tbody></table></div>`;
+  // ④ 두 잣대 나란히 — 이 회사
+  h+=`<div class="sub-h" style="margin-top:14px">${DF_SHORT[name]} — 카드결제 vs 구 방문 YoY <span class="th-sub" style="display:inline">두 선이 벌어지면: 카드결제가 위 = 온 사람이 더 쓴다(객단가) · 아래 = 사람은 늘었는데 점포 상권 결제는 덜 늘었다</span></div><div id="dfBoth"></div>`;
+  h+=`<p class="note">산식: 회사 노출 YoY = 그달 ${mode==="gu"?"구":"동"} 값 합 ÷ 작년 같은 달 합 − 1(구·동별 YoY 를 평균 내지 않는다 — 큰 곳이 많이 반영된다). ${mode==="gu"
+      ?"구 방문 = SKT 이동통신으로 잡은 단기 체류 외국인이 그 구에 하루 일정 시간 넘게 머문 연인원(같은 사람이 이틀이면 2명) — 여러 구를 다닌 사람이 구마다 잡혀 합은 인원이 아니라 노출 지수이고, 백화점이 아니라 그 구 전체 방문이다. 같은 구에 점포가 둘이어도 한 번만 센다."
+      :"카드결제 = 외국인 카드의 국내 결제 중 업종 소분류 '대형쇼핑몰'(백화점·쇼핑몰·대형마트·아울렛)을 점포가 있는 행정동으로 묶은 값 — 같은 동의 남의 몰이 섞인다(메모 칸). 간편결제·현금·국내 카드로 낸 외국인은 안 잡혀 회사 외국인 매출보다 작고, 그 몫이 커지면(중국 간편결제) 증가율이 낮게 나온다. 영등포동은 롯데 영등포점·신세계 타임스퀘어점이 함께 있어 두 회사에 다 들어간다. 월 5억 원 미만인 작은 점포 동은 뺐다."} 전월 대비 가속도 = 이번 달 YoY − 지난달 YoY.</p>`;
+  host.innerHTML=h;
+  host.querySelectorAll(".df-scroll").forEach(w=>{ w.scrollLeft=w.scrollWidth; });   // 달 표가 넓으면 최근 달이 보이게 오른쪽 끝에서 시작
+  const yF=v=>`${v>0?"+":""}${Math.round(v)}%`, eF=v=>`${v>0?"+":""}${(+v).toFixed(1)}%`, xL=t=>{ const d=new Date(t); return `'${String(d.getUTCFullYear()).slice(2)}.${d.getUTCMonth()+1}`; };
+  const pts=(rows)=>M.map((m,i)=>[mT(m), rows[i]?rows[i].y:null]).filter((p,i)=>i<=li);
+  const x0=rng==="all"?null:mT(M[Math.max(12,li-(rng==="1y"?11:23))]);   // 2024 은 2023 기저(관광 회복기)라 구 방문 YoY 가 +150% 로 튀어 최근 움직임을 눌러서 기본은 최근 2년
+  const L=host.querySelector("#dfLine");
+  if(L) frLine(L, DF_CO.filter(c=>R[c]).map(c=>({n:DF_SHORT[c], c:DF_COL[c], w:c===name?2.6:1.6, pts:pts(R[c].rows)})),
+    {h:250, padR:110, x0, xLab:xL, yFmt:yF, endFmt:eF, aria:"백화점 3사 외국인 노출 YoY 월별"});
+  const B=host.querySelector("#dfBoth"), A=mode==="gu"?{c:RA,g:R}:{c:R,g:RA};
+  if(B&&A.c[name]&&A.g[name]) frLine(B,[{n:"카드결제", c:DF_COL[name], w:2.4, pts:pts(A.c[name].rows)},{n:"구 방문", c:"#9aa5b1", w:1.6, dash:"4 3", pts:pts(A.g[name].rows)}],
+    {h:210, padR:110, x0, xLab:xL, yFmt:yF, endFmt:eF, aria:`${name} 점포 상권 카드결제와 소재 구 방문 YoY`});
+  host.querySelectorAll("[data-dfm]").forEach(b=>b.onclick=()=>{ dfSt.m=b.dataset.dfm; dfSave(); renderDeptFrn(name, host); });
+  host.querySelectorAll("[data-dfr]").forEach(b=>b.onclick=()=>{ dfSt.r=b.dataset.dfr; dfSave(); renderDeptFrn(name, host); });
 }
