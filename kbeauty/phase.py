@@ -163,14 +163,20 @@ def build_mk(d):
         return None
     # 나라마다 가장 최근 파일의 덩어리를 쓴다(2026-11-03 · 통합 수집이 한도로 몇 나라만 받은 날 · 월·화에 빠진 나라만 받은 날이 생긴다).
     #   예전엔 마지막 날짜 파일만 읽어, 하루에 몇 나라만 받으면 나머지 나라가 통째로 빠졌다. 파일 이름 순 = 날짜 순 · 같은 날 여럿이면 뒤 파일이 이긴다.
-    blocks = {}
+    # '-add' 파일(2026-11-26) = 그 나라 덩어리에 빠진 브랜드만 나중에 받은 것 — 덩어리를 갈아 끼우지 않고 브랜드 줄만 더한다(자기 검산값 따로).
+    #   phase_keepa_eu.js save(나라, {now: 덩어리 수집일}) 로 창 기준일을 덩어리와 맞춰 받는다. 그 뒤 날짜의 온전한 덩어리가 오면 그쪽이 이긴다(새 덩어리엔 그 브랜드가 들어 있다).
+    blocks, adds = {}, {}
     for f in files:
         cur_k, buf = None, []
         for ln in f.read_text(encoding="utf-8").splitlines() + ["D|"]:
             p = ln.strip().split("|")
             if p and p[0] == "D":
                 if cur_k:
-                    blocks[cur_k] = (f.name[:10], buf)
+                    if "-add" in f.name:
+                        adds.setdefault(cur_k, []).append((f.name, buf))
+                    else:
+                        blocks[cur_k] = (f.name[:10], buf)
+                        adds.pop(cur_k, None)
                 cur_k, buf = (p[1] if len(p) > 1 else None), [ln]
             elif cur_k:
                 buf.append(ln)
@@ -223,6 +229,49 @@ def build_mk(d):
         for x in c["b"].values():
             x["u"] = [round(y * k) for y in x["u"]]
             x["v"] = [round(y * k) for y in x["v"]]
+    # 나중에 받은 브랜드 끼우기 — 검산값은 그 브랜드들만으로 · 보정('r') 안 된 덤프면 위와 같은 시장 상수 k · 이미 있는 브랜드는 덩어리 쪽이 이긴다
+    for m, lst in adds.items():
+        c = out.get(m)
+        if not c:
+            continue
+        for fn, buf in lst:
+            hd = buf[0].strip().split("|")
+            if hd[3] != d["months"][0]:
+                print(f"  [mk] {m} 추가분 {fn} 첫 달 {hd[3]} ≠ {d['months'][0]} — 뺀다")
+                continue
+            if abs((dt.date.fromisoformat(hd[2]) - dt.date.fromisoformat(c["asOf"])).days) > 1:
+                print(f"  [mk] {m} 추가분 {fn} 기준일 {hd[2]} ≠ 덩어리 {c['asOf']} — 창이 어긋난다(그래도 넣는다)")
+            ref, nb = len(hd) > 5 and hd[5] == "r", {}
+            for ln in buf[1:]:
+                p = ln.strip().split("|")
+                if not p or not p[0]:
+                    continue
+                if p[0] == "H":
+                    if _eu_hash(nb) != int(p[1]):
+                        raise SystemExit(f"유럽 추가분 검산 틀림({fn} {m}): {_eu_hash(nb)} ≠ {p[1]}")
+                    continue
+                x = {"u": [int(y, 36) for y in p[2].split(",")], "v": [int(y, 36) for y in p[3].split(",")], "n": int(p[1])}
+                if len(x["u"]) != len(d["months"]) or len(x["v"]) != len(d["months"]):
+                    raise SystemExit(f"유럽 추가분 {p[0]} 길이 {len(x['u'])}/{len(x['v'])}")
+                if len(p) > 4 and p[4]:
+                    x["r30"] = [int(y, 36) for y in p[4].split(",")]
+                if len(p) > 5 and p[5]:
+                    w = [int(y, 36) for y in p[5].split(",")]
+                    if len(w) != 63:
+                        raise SystemExit(f"유럽 추가분 {p[0]} rw 길이 {len(w)} ≠ 63")
+                    x["rw"] = [w[i * 9:(i + 1) * 9] for i in range(7)]
+                nb[p[0]] = x
+            for kk, x in nb.items():
+                if kk in c["b"]:
+                    continue
+                if c["cur"] == "JPY":
+                    x["v"] = [y * 100 for y in x["v"]]
+                if not ref:
+                    x["u"] = [round(y * k) for y in x["u"]]
+                    x["v"] = [round(y * k) for y in x["v"]]
+                c["b"][kk] = x
+            c["add"] = sorted(set(c.get("add", [])) | set(nb))
+            print(f"  [mk] {m} 추가분 {fn} 브랜드 {len(nb)}개 끼움{'' if ref else ' (보정 없음 → 시장 상수 ' + str(k) + ')'}")
     # 최근 30일 창은 보정 안 된 배지 아랫값이라 나라 구분 없이 같은 배수(미국 보정값 ÷ 아랫값)로 수준을 맞춘다 — 틱톡샵 주문 수량과 더해도 무게가 월별 u 와 같게
     for m, c in out.items():
         for x in c["b"].values():

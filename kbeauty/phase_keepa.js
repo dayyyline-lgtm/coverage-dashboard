@@ -25,7 +25,7 @@ var LGV={"cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum
 //   ⚠ 동명 상품: 프리메라 = 라벨 프린터 잉크 카트리지(Primera Technology) · 헤라 = 사프란 · 아이오페 = 남의 세럼(Moptrek) — 제목으로 뺀다(NEW26_X).
 var NEW26=["aromatica","aprilskin","april skin","illiyoon","aestura","mise en scene","miseenscene","mise en scène","ryo","hera","iope","primera","etude","etude house","espoir","tirtir","laka","skinfood","skinfood 1957","a'pieu","apieu"];
 var NEW26V={"april skin":"aprilskin","miseenscene":"mise en scene","mise en scène":"mise en scene","etude house":"etude","skinfood 1957":"skinfood","apieu":"a'pieu"};
-var NEW26_X=/saffron|\bspice|\bink\b|cartridge|printer|moptrek/i;
+var NEW26_X=/saffron|\bspice|\bink\b|cartridge|printer|moptrek|\bwipes?\b/i;
 // 일본 표기(keepa_week.js 의 JP 목록에 붙는다) — 11/26 .co.jp 자동완성: 어퓨는 가타카나 'アピュー'(199개 · a'pieu 는 없다) · 티르티르·에뛰드·라카·아로마티카·에이프릴스킨·미쟝센·스킨푸드(1957)는 미국과 같은 라틴 표기
 var NEW26_JP=["アピュー"];
 var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"].concat(LG_BRANDS,NEW26);   // ⚠ 73개 — Finder 브랜드 칸은 앞 50개만 먹는다: 주간 통합(keepa_week.js)은 50개씩 나눠 부른다 · 아래 KBPH_QUERY 를 손으로 쓸 땐 나눠서

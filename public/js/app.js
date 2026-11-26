@@ -12008,8 +12008,8 @@ function kbSumm(m){
   return {q3, q2, qly, T3:sum(R=>R.T[q3]), Ta3:sum(R=>R.Ta[q3]), Tt3:hasTT3?sum(R=>R.Tt[q3]):null,
     g2:kbGrowth(m,q2,q3), gly:kbGrowth(m,qly,q3), q4:sum(R=>R.q4est), q4t:sum(R=>R.q4est-R.q4a), main,
     est3:ok&&main.every(rg=>m.rows[rg].est[q3]!=null)?est(q3):null, lo3:lo(q3), hi3:hi(q3),
-    est4:ok&&main.every(rg=>m.rows[rg].est[m.nowQ]!=null)?est(m.nowQ):null,
-    ir2:main.length?irPrev(q2):null};
+    est4:ok&&main.every(rg=>m.rows[rg].est[m.nowQ]!=null)?est(m.nowQ):null, lo4:lo(m.nowQ), hi4:hi(m.nowQ),
+    ir2:main.length?irPrev(q2):null, ir3:main.length?irPrev(q3):null};
 }
 /* 성장률 글자 — 'QoQ +7% · YoY +111%(아마존끼리)' */
 const kbGTxt=S=>`QoQ ${kbG(S.g2)} · YoY ${kbG(S.gly)}${S.gly&&!S.gly.tt&&S.Tt3!=null?'<span class="g">(아마존끼리)</span>':""}`;
@@ -12034,7 +12034,10 @@ function renderKbModel(co, host){
       ${sup?kv("회사 매출 ÷ 고객사 판매액",(()=>{ const R=m.rows[m.regions[0]]; return R&&R.ref!=null?`${R.ref.toFixed(2)}배 <span class="g" style="font-size:11px">${R.refLab}</span>`:"—"; })(),`${co} 분기 매출 ÷ 고객사 아마존${anyTT?"·틱톡샵":""} 판매액 · 주문이 판매보다 앞서 흔들린다`)
         :kv("관측 비중(공시 대비)",covs.length?covs.join(" · "):"—",covs.length?`${anyTT?"아마존·틱톡샵":"아마존"} 판매액 ÷ 공시 지역 매출 · ${m.regions.filter(rg=>m.rows[rg].refLab).map(rg=>m.rows[rg].refLab)[0]||""}`:"공시 지역 매출이 아직 없다")}
       ${sup?kv(`${kbQLab(q3)}E 컨센(회사 전체)`,cons&&cons.rev?`${kbEok(cons.rev)}억`:"—",cons&&cons.rev&&S.T3?`고객사 관측 ${kbG(S.g2)} QoQ`:"")
-        :kv(`${kbQLab(q3)}E 지역 매출`,S.est3!=null?`${kbEok(S.est3)}억`:"—",S.est3!=null?`${S.main.join("·")} · 범위 ${kbEok(S.lo3)}~${kbEok(S.hi3)}${S.ir2>0?` · QoQ ${kbPct(S.est3/S.ir2-1)}`:""}${cons&&cons.rev?` · 회사 전체 컨센 ${kbEok(cons.rev)}억`:""}`:"관측 비중 15% 넘는 지역이 없다")}
+        :S.est3!=null?kv(`${kbQLab(q3)}E 지역 매출`,`${kbEok(S.est3)}억`,`${S.main.join("·")} · 범위 ${kbEok(S.lo3)}~${kbEok(S.hi3)}${S.ir2>0?` · QoQ ${kbPct(S.est3/S.ir2-1)}`:""}${cons&&cons.rev?` · 회사 전체 컨센 ${kbEok(cons.rev)}억`:""}`)
+        // 그 분기 공시가 이미 나왔으면(2026-11-26 · 아로마티카 3Q26) 추정할 게 없다 — 다음 분기(진행) 추정으로 넘긴다. 예전엔 '관측 비중 15% 넘는 지역이 없다'로 잘못 적었다
+        :S.est4!=null?kv(`${kbQLab(m.nowQ)}E 지역 매출`,`${kbEok(S.est4)}억`,`${S.main.join("·")} · 범위 ${kbEok(S.lo4)}~${kbEok(S.hi4)}${isFinite(S.ir3)&&S.ir3>0?` · ${kbQLab(q3)} 공시 ${kbEok(S.ir3)}억 대비 ${kbPct(S.est4/S.ir3-1)}`:""}`)
+        :kv(`${kbQLab(q3)}E 지역 매출`,"—",S.main.length?"추정할 공시 계수가 없다":"관측 비중 15% 넘는 지역이 없다")}
     </div>
     <div class="kb-grid">${RG.map((rg,i)=>{ const R=m.rows[rg];
       return `<div class="chart-box" style="padding:10px 12px"><div class="g" style="font-size:12px;margin-bottom:2px"><b style="color:var(--text)">${rg}</b>
