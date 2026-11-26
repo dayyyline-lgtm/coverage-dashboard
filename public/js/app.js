@@ -12532,6 +12532,12 @@ const cosXq=(x,y)=>x>=100?(y>=100?0:2):(y>=100?1:3);
 // 품절 = 신품 재고 0)이 브랜드 최근 30일 판매량의 10% 이상이면 한 줄. 바이박스가 없으면 '장바구니 담기'가 사라져 그 상품 판매가 다음 달에 꺾인다 —
 // 수요가 식은 게 아니라 판매 경로 문제라 국면 판정과 따로 읽어야 한다(센텔리안24 마데카 크림 10/21~).
 // 배지 없는 세트·번들 몫(2026-10-23 · KBPH.b[k].ub — 순위 곡선으로만 추정한 판매량 · 배지로 확인할 길이 없다) — 직전 3개 완결 월 판매량의 3% 이상이면 한 줄.
+// 틱톡샵 앞부분 추정(2026-11-26 · KBPH.tt.est — EchoTik 이 90일만 줘서 관측 전 날을 아마존 같은 브랜드 월 모양 × 관측 첫 30일 배수로 채운 샵)
+function cosTtEst(k){
+  const e=((KBPH.tt||{}).est||{})[k]; if(!e) return "";
+  const d=x=>x.slice(5).replace("-","/");
+  return `<div class="g" style="margin-top:2px" title="EchoTik 은 90일만 준다(${d(e.from)}~). 그 앞(${d(KBPH.tt.start)}~${d(e.to)})은 아마존 미국 같은 브랜드 그달 하루 판매량 × 관측 첫 30일의 틱톡샵 ÷ 아마존 배수(${e.r}배)로 채웠다 · 판매액은 아마존 같은 달 단가. 3달 비교의 직전 3달이 이 추정이다.">${d(KBPH.tt.start)}~${d(e.to)} 추정(아마존 모양 × ${e.r}배)</div>`;
+}
 function cosNbNote(k, mem){
   if(!(cosMk==="us"||cosMk==="all")||typeof KBPH==="undefined"||!KBPH.b) return "";
   const ks=mem&&mem.length?mem:[k]; let ub=0, u=0;
@@ -12663,7 +12669,7 @@ function renderCosPhase(){
       ${cosBxNote(R.mem?null:R.k)}${cosNbNote(R.k,R.mem)}
       <div class="cp-kvs">
         ${kv(`아마존 ${MKL} (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${cosPf(a.s3*100)}`:"—", a&&a.q?mt([[y3N,a.m3,vs(Y3)],[yN(n1A),a.m1,vs(Y1)],[n3A,a.d3,vs(D3)],[n1A,a.d1,vs(D1)]]):"")}
-        ${CT?kv(`틱톡샵 (FastMoss · ${LT3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:(((KBPH.tt||{}).late||{})[R.k]?`<span class="g" title="EchoTik 은 90일만 줘서 그 앞 판매를 모른다 — 바구니에 넣으면 이 샵이 잡힌 달부터 분모가 갑자기 커져 다른 브랜드 몫이 일제히 꺾여 보인다(2026-11-26)">미국 공식 샵 수집 중(${KBPH.tt.late[R.k].slice(5).replace("-","/")}~ · 직전 3달이 없어 아직 바구니 밖)</span>`:'<span class="g">미국 공식 샵 없음</span>'), t&&t.q?mt([[n3T,t.m3,vs(LT3)],[n1T,t.m1,vs(LT1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
+        ${CT?kv(`틱톡샵 (FastMoss · ${LT3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:(((KBPH.tt||{}).late||{})[R.k]?`<span class="g" title="EchoTik 은 90일만 줘서 그 앞 판매를 모른다 — 바구니에 넣으면 이 샵이 잡힌 달부터 분모가 갑자기 커져 다른 브랜드 몫이 일제히 꺾여 보인다(2026-11-26)">미국 공식 샵 수집 중(${KBPH.tt.late[R.k].slice(5).replace("-","/")}~ · 직전 3달이 없어 아직 바구니 밖)</span>`:'<span class="g">미국 공식 샵 없음</span>'), t&&t.q?mt([[n3T,t.m3,vs(LT3)],[n1T,t.m1,vs(LT1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`+cosTtEst(R.k):""):""}
         ${CT?(()=>{ const sm=cosSumStat(R.k, CS);   // 합산(2026-10-21 사용자 "각각 남기고 합산도") — 아마존+틱톡샵 판매량을 더한 비중·판매 증감
           return kv(`${cosMk==="all"?"전 지역 합산 (아마존 8개국 + 틱톡샵":"미국 합산 (아마존 + 틱톡샵"} · ${LS3.cur})`, sm?`${R.s&&R.s.q?pillQ(R.s.q,KBPH_Q[R.s.q])+" ":""}비중 ${cosPf(sm.s3*100)}`:'<span class="g">—</span>',
             sm?mt([[n3S,sm.m3,vs(LS3)+(sm.est?" · 4월 틱톡샵 앞부분 추정":"")],[n1S,sm.m1,vs(LS1)]])+`${CS&&CS.ra?"3달":"3M"} 판매량 ${cosNum(sm.u3)}개 <span class="g">(틱톡 ${Math.round(sm.tf*100)}%)</span>`:""); })():""}
@@ -12770,7 +12776,8 @@ function renderCosPhase(){
       let mp=CT.M.slice(CT.L-5,CT.L-2), mc=CT.M.slice(CT.L-2,CT.L+1), [pa,pb]=inM(mp), [ca,cb]=inM(mc);
       if(CT.ra){ const e=CT.rd(0).getTime(), inD=(t0,t1)=>{ const ix=Wk.map((d,i)=>{ const t=Date.parse(d+"T00:00:00Z"); return t>=t0&&t<=t1?i:-1; }).filter(i=>i>=0); return ix.length?[ix[0],ix[ix.length-1]]:[-1,-1]; };
         [ca,cb]=inD(e-89*864e5,e); [pa,pb]=inD(e-179*864e5,e-90*864e5); }
-      cosShareChart(document.getElementById("cpST"),{lab:Wk.map(d=>d.slice(5).replace("-","/")), s:CT.shW[R.k], n0:0, L:Wk.length-1, part:false, unit:"주",
+      const tE=((KBV().tt||{}).est||{})[R.k], eTo=tE?Wk.reduce((a,d,i)=>Date.parse(d)-6*864e5<=Date.parse(tE.to)?i:a,-1):null;   // 주 첫날이 추정 끝날 이하인 마지막 주
+      cosShareChart(document.getElementById("cpST"),{lab:Wk.map(d=>d.slice(5).replace("-","/")), s:CT.shW[R.k], n0:0, L:Wk.length-1, part:false, unit:"주", eTo:eTo>=0?eTo:null,
         segs:[{a:pa,b:pb,v:t3.sp,lab:LT3.prev},{a:ca,b:cb,v:t3.sc,lab:LT3.cur}]}); }
     else if(document.getElementById("cpST")) document.getElementById("cpST").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
   const VK=cosVU==="krw", aKrw=arr=>CA.M.map((m,j)=>(arr[j]||0)*(kbFx("USD",m)||1400)/1e8), tKrw=(arr,ms)=>ms.map((m,j)=>(arr[j]||0)*(kbFx("USD",m)||1400)/1e8);
@@ -12779,7 +12786,7 @@ function renderCosPhase(){
     if(VK&&!Ab.v) document.getElementById("cpA").innerHTML=`<p class="note" style="padding:20px 0">가격이 없는 브랜드가 섞여 판매액을 못 낸다 — 판매량으로 본다.</p>`;
     else cosYoYBars(document.getElementById("cpA"),{...VO, months:CA.M, u:VK?aKrw(Ab.v):Ab.u, partial:KBV().partial, asOf:KBV().asOf});
     const T=KBV().tt, Tb=CT&&T.b[R.k];
-    if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{...VO, labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:VK?tKrw(Tb.mv,T.months):Tb.mu, v:VK?null:Tb.mv, pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), note:`${(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:""}`});
+    if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{...VO, labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:VK?tKrw(Tb.mv,T.months):Tb.mu, v:VK?null:Tb.mv, pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), em:(()=>{ const e=(T.est||{})[R.k]; return e?T.months.map((m,j)=>m<=e.to.slice(0,7)?j:-1).filter(j=>j>=0):[]; })(), note:`${(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:""}${(T.est||{})[R.k]?` · 빗금 = ${T.est[R.k].to.slice(5).replace("-","/")}까지 추정(아마존 모양 × ${T.est[R.k].r}배 · EchoTik 은 ${T.est[R.k].from.slice(5).replace("-","/")}~)`:""}`});
     else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
   // 추적 브랜드 합계 · 같은 달 3개년(아마존만 — 틱톡샵은 4/24~ 라 전년이 없다)
   if(US.v==="yoy"&&document.getElementById("cpU")){ const ks=Object.keys(KBV().b), uA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+(KBV().b[k].u[j]||0),0)), vA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+((KBV().b[k].v||[])[j]||0),0));
@@ -12983,7 +12990,9 @@ function cosShareChart(el, o){
   // 견주는 두 구간(바로 앞 · 최근)의 평균 비중 — 잣대 통일(2026-10-21): 점선 둘의 높이 차 = 비중 변화
   segs.forEach((sg,si)=>{ const a=Math.max(0,sg.a), b=sg.b, v=sg.v*100, c=si===segs.length-1?"var(--text)":"var(--muted)";
     g+=`<line x1="${xOf(a)}" x2="${xOf(b)}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="${c}" stroke-dasharray="5 4" stroke-width="1.6"/><text x="${(xOf(a)+xOf(b))/2}" y="${yOf(v)-5}" text-anchor="middle" font-size="10" fill="${c}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${sg.lab} ${cosPf(v)}</text>`; });
-  g+=`<polyline points="${idx.map((j,i)=>`${xOf(i).toFixed(1)},${yOf(s[j]).toFixed(1)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
+  const eI=o.eTo!=null?idx.indexOf(o.eTo):-1, pl=(a,b)=>idx.slice(a,b+1).map((j,k)=>`${xOf(a+k).toFixed(1)},${yOf(s[j]).toFixed(1)}`).join(" ");   // eTo = 추정 끝 칸(2026-11-26 · 그 앞은 흐린 점선)
+  if(eI>=0) g+=`<polyline points="${pl(0,eI+1)}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-dasharray="4 3" opacity="0.55" stroke-linejoin="round"/>`;
+  g+=`<polyline points="${pl(Math.max(0,eI+1),idx.length-1)}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
   const iL=idx.length-1;
   g+=`<text x="${W-p.r+4}" y="${yOf(s[o.L])+(base!=null&&Math.abs(s[o.L]-base)/hi*(H-p.t-p.b)<11?(s[o.L]>=base?-6:13):3.5)}" font-size="10.5" font-weight="700" fill="var(--accent)">${cosPf(s[o.L])}</text>`;
   if(o.part) g+=`<line x1="${xOf(iL)}" x2="${xOf(iL+1)}" y1="${yOf(s[o.L])}" y2="${yOf(s[s.length-1])}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="${xOf(iL+1)}" cy="${yOf(s[s.length-1])}" r="3" fill="none" stroke="var(--muted)"/>`;
@@ -13067,8 +13076,9 @@ function cosMonthBars(el, o){
   const st=(()=>{ const r=hi/4, mg=Math.pow(10,Math.floor(Math.log10(r))); return [1,2,2.5,5,10].map(x=>x*mg).find(x=>x>=r)||r; })();
   let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">${cosHatch("cpHatchT")}`;
   for(let v=0; v<=hi; v+=st) g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${yOf(v)}" y2="${yOf(v)}" stroke="var(--line-soft)"/><text x="${p.l-5}" y="${yOf(v)+3.5}" text-anchor="end" font-size="10" fill="var(--muted2)">${(o.fmt||cosNum)(v)}</text>`;
-  o.u.forEach((v0,i)=>{ const part=i===o.pi, v=eu(i), x=cx(i)-bw/2;
-    if(part&&E) g+=`<rect x="${x.toFixed(1)}" y="${yOf(v0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v0)).toFixed(1)}" rx="2" fill="var(--accent)"/>`
+  o.u.forEach((v0,i)=>{ const part=i===o.pi, v=eu(i), x=cx(i)-bw/2, es=(o.em||[]).includes(i);
+    if(es&&!part) g+=`<rect x="${(x+0.5).toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${(bw-1).toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v)).toFixed(1)}" rx="2" fill="url(#cpHatchT)" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+    else if(part&&E) g+=`<rect x="${x.toFixed(1)}" y="${yOf(v0).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v0)).toFixed(1)}" rx="2" fill="var(--accent)"/>`
       +`<rect x="${(x+0.5).toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${(bw-1).toFixed(1)}" height="${Math.max(0,yOf(v0)-yOf(v)).toFixed(1)}" rx="2" fill="url(#cpHatchT)" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4 3"/>`;
     else g+=`<rect x="${x.toFixed(1)}" y="${yOf(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,yOf(0)-yOf(v)).toFixed(1)}" rx="2" fill="${part?"url(#cpHatchT)":"var(--accent)"}"${part?' stroke="var(--accent)" stroke-width="1"':""}/>`;
     g+=`<text x="${cx(i)}" y="${H-p.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${o.labs[i]}</text>`;
@@ -13080,7 +13090,7 @@ function cosMonthBars(el, o){
   el.innerHTML=html;
   attachChartTip(el,{W,H,pad:p,n,xOf:cx,xLab:i=>o.labs[i],pts:()=>[],
     html:i=>{ const $=x=>`$${x>=1e6?(x/1e6).toFixed(1)+"M":Math.round(x/1e3)+"K"}`, pe=i===o.pi&&E, pv=i>0?eu(i-1):0;
-      return `<div class="tt-h">${o.full[i]}${i===o.pi?(E?" (진행 중 · 예측)":" (진행 중)"):""}</div>`
+      return `<div class="tt-h">${o.full[i]}${i===o.pi?(E?" (진행 중 · 예측)":" (진행 중)"):""}${(o.em||[]).includes(i)&&i!==o.pi?" (추정)":""}</div>`
         +(pe?`<div class="tt-r"><span class="k">예측(일할)</span><span class="v">≈${cosVN(eu(i),o)}${pv>0?` <span style="color:${eu(i)>=pv?"var(--up)":"var(--down)"}">≈${eu(i)>=pv?"+":""}${Math.round((eu(i)/pv-1)*100)}%</span>`:""}</span></div>`:"")
         +`<div class="tt-r"><span class="k">${pe?`실제 ${E.lab}`:(o.vlab||"판매량")}</span><span class="v">${cosVN(o.u[i],o)}</span></div>`
         +(o.v?`<div class="tt-r"><span class="k">판매액${pe?` ${E.lab}`:""}</span><span class="v">${$(o.v[i])}${pe?` · 예측 ≈${$(o.v[i]*E.f)}`:""}</span></div>`:""); }});

@@ -131,7 +131,7 @@ def build(path):
         out["r30t"] = d["r30t"]
     if d.get("rws") and any(b.get("rw") for b in d["b"].values()):
         out["rw"] = {"t": d.get("r30t") or d["asOf"], "s": d["rws"]}   # 기준점 0 = 수집일 · s = 기준점 간격(일)
-    tt = build_tt(set(d["b"]) | set(MK_META))   # 미국 아마존에 없는 브랜드(MK_META)도 틱톡샵 공식 샵이 있으면 받는다
+    tt = build_tt(set(d["b"]) | set(MK_META), {"months": d["months"], "b": d["b"]})   # 미국 아마존에 없는 브랜드(MK_META)도 틱톡샵 공식 샵이 있으면 받는다
     if tt:
         out["tt"] = tt
     mk = build_mk(d)
@@ -310,6 +310,12 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "tirtir": "tirtir", "laka": "laka", "etude": "etude", "espoir": "espoir", "hera": "hera", "skinfood": "skinfood",   # 같은 날 EchoTik 에서 찾은 미국 공식 샵 여섯(fm_shops.csv 에 넣음 · 90일치뿐이라 build_tt 가 late 로 뺀다)
           "melaxin": "dr.melaxin", "barber501": "barber501",   # 브랜드501(2026-11-26 · 비상장) — 'Brand Dr.Melaxin'(7495830785034323995 · 미국 틱톡샵 상위권) · BARBER501 Global(7496007994044811682 · 누적 7개)
           "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
+# 늦게 들어온 샵 중 앞부분을 추정으로 채워 바구니에 넣는 샵(2026-11-26 사용자 "무조건 있거든 — 빨리 넣어 줘") — 샵 ID → 같은 브랜드의 아마존 미국 키.
+#   EchoTik 은 90일만 주고 Pro 는 더 앞 기간 조회가 막힌다(start_time·dateRange custom → 100004). 닥터멜락신은 틱톡샵 미국 판매가 메디큐브 다음 급이라
+#   바구니에서 빼면 틱톡샵 비중이 틀리고, 관측 첫날부터만 넣으면 그 달부터 분모가 갑자기 커진다 → 관측 전 날은
+#   [아마존 미국 같은 브랜드 그달 하루 판매량 × 관측 첫 30일의 틱톡샵 ÷ 아마존 배수] 로 채우고 블록 tt.est 에 적는다(화면 '~8/27 추정').
+#   판매액은 이 샵만 관측 날까지 [판매량 × 아마존 같은 달 단가] — EchoTik 판매액은 정가 쪽이라(아마존 단가의 약 2배) FastMoss 단가로 맞춘 다른 샵과 안 맞는다.
+TT_BACKFILL = {"7495830785034323995": "dr.melaxin"}
 RW_N = 7              # 3달·1달 창의 기준점 수(14일 간격 · 최근 12주) — phase_keepa.js 의 RWN 과 같게
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
@@ -318,7 +324,21 @@ def _b36(s):
     return int(s, 36) if s else 0
 
 
-def build_tt(keys):
+def _amz_day(amz, k):
+    """아마존 미국 그 브랜드의 [달 → (하루 판매량, 단가)] — 진행 중인 달도 Keepa 값이 이미 한 달치(배지 평균)라 달 일수로 나눈다."""
+    import calendar
+    b = (amz or {}).get("b", {}).get(k)
+    if not b:
+        return {}
+    out = {}
+    for m, u, v in zip(amz["months"], b.get("u") or [], b.get("v") or []):
+        y, mo = int(m[:4]), int(m[5:7])
+        if u:
+            out[m] = (u / calendar.monthrange(y, mo)[1], (v or 0) / u)
+    return out
+
+
+def build_tt(keys, amz=None):
     """FastMoss 덤프를 **전부** 이어 붙인다(같은 샵·같은 날은 나중 덤프가 이긴다 · 덤프마다 받은 날과 그 뒤는 진행 중이라 버린다).
     FastMoss 는 180일만 주므로 매주 받은 덤프를 버리지 않고 이어야 '평소'·꼬리가 길어진다(2026-10-21)."""
     files = sorted((SRC / "fm").glob("20??-??-??.txt"))
@@ -364,7 +384,7 @@ def build_tt(keys):
         m = dt.date(m.year + (m.month == 12), m.month % 12 + 1, 1)
     nxt = end + dt.timedelta(days=1)
     partial = months[-1] if months and nxt.month == end.month else None
-    b, miss, late = {}, [], {}
+    b, miss, late, est = {}, [], {}, {}
     # 늦게 들어온 샵(2026-11-26) — 받기 시작한 날(fm_shops.csv w0)이 바구니 시작보다 30일 넘게 늦은 샵은 그 앞 판매를 모른다(EchoTik 은 90일만 준다).
     #   바구니에 넣으면 그 샵이 잡히기 시작한 달부터 분모가 갑자기 커져 다른 브랜드 몫이 일제히 꺾여 보인다(라카 미국 공식 샵 = 주 5.8만 개 — 메디큐브 다음 급).
     #   그래서 수집은 하되 바구니에서는 빼고 late 에 첫날을 적는다. 3달 비교 창(직전 3달 포함)이 채워지면 넣을지 사용자에게 물을 것.
@@ -381,8 +401,26 @@ def build_tt(keys):
             miss.append(S.get(sid, {}).get("k", sid))
             continue
         if sid in w0s and dt.date.fromisoformat(w0s[sid]) > start + dt.timedelta(days=30):
-            late[k] = min(late.get(k, w0s[sid]), w0s[sid])
-            continue
+            A = _amz_day(amz, TT_BACKFILL.get(sid))
+            o0 = min(dd) if dd else None
+            obs = [t for t in sorted(dd) if t < o0 + dt.timedelta(days=30)] if o0 else []
+            a30 = sum(A.get(t.isoformat()[:7], (0, 0))[0] for t in obs)
+            if not (A and len(obs) >= 28 and a30 > 0 and all(t.isoformat()[:7] in A for t in (start, o0))):
+                late[k] = min(late.get(k, w0s[sid]), w0s[sid])
+                continue
+            r = sum(dd[t][0] for t in obs) / a30
+            dd = dict(dd)
+            for t in list(dd):                                       # 관측 날 판매액 = 판매량 × 아마존 같은 달 단가
+                p = A.get(t.isoformat()[:7], (0, 0))[1]
+                if p:
+                    dd[t] = (dd[t][0], round(dd[t][0] * p))
+            t = start
+            while t < o0:
+                a, p = A.get(t.isoformat()[:7], (0, 0))
+                dd[t] = (round(a * r), round(a * r * p))
+                t += dt.timedelta(days=1)
+            est[k] = {"to": (o0 - dt.timedelta(days=1)).isoformat(), "from": o0.isoformat(), "r": round(r, 3), "amz": TT_BACKFILL[sid],
+                      "u": sum(dd[x][0] for x in dd if x < o0)}
         ds = sorted(dd)
         U = [dd[t][0] for t in ds]
         V = [dd[t][1] for t in ds]
@@ -450,7 +488,7 @@ def build_tt(keys):
            "e3": [int(gap > 0 and a - dt.timedelta(days=179) < start) for a in anc], "e1": [int(gap > 0 and a - dt.timedelta(days=59) < start) for a in anc]}
     r30 = [(end - dt.timedelta(days=29)).isoformat(), end.isoformat(), (end - dt.timedelta(days=59)).isoformat(), (end - dt.timedelta(days=30)).isoformat()]
     return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "rw": rwm, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
-            "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)), "late": late,
+            "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)), "late": late, "est": est,
             "src": f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss ~11/14 · EchoTik 11/15~ 이어 붙임 · 덤프 {len(files)}개)", "b": b}
 
 
