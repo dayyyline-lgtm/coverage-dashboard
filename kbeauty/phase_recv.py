@@ -48,7 +48,9 @@ NEW_META = {"the face shop": {"ko": "더페이스샵", "co": "LG생활건강"}, 
             "hera": {"ko": "헤라", "co": "아모레퍼시픽"}, "iope": {"ko": "아이오페", "co": "아모레퍼시픽"},
             "primera": {"ko": "프리메라", "co": "아모레퍼시픽"}, "etude": {"ko": "에뛰드", "co": "아모레퍼시픽홀딩스"},
             "espoir": {"ko": "에스쁘아", "co": "아모레퍼시픽홀딩스"}, "tirtir": {"ko": "티르티르"},
-            "laka": {"ko": "라카"}, "skinfood": {"ko": "스킨푸드"}, "a'pieu": {"ko": "어퓨", "co": "에이블씨엔씨"}}
+            "laka": {"ko": "라카"}, "skinfood": {"ko": "스킨푸드"}, "a'pieu": {"ko": "어퓨", "co": "에이블씨엔씨"},
+            # 2026-11-26 브랜드501(비상장 · 사용자 "브랜드501 산하 애들도 해봐 합쳐주기 넣고") — op = 비상장 주인(화면 '비상장 · 브랜드501' · 모아보기 키). 미국에 없는 바버501·호토미 등은 phase.py MK_META
+            "dr.melaxin": {"ko": "닥터멜락신", "op": "브랜드501"}}
 
 
 def kst_today():
@@ -70,7 +72,7 @@ def do_us(t, sku):
         if not o:
             miss.append(k)
             continue
-        for f in ("ko", "co", "sup"):
+        for f in ("ko", "co", "sup", "op"):
             if f in o:
                 x[f] = o[f]
     src = old.get("src", "")

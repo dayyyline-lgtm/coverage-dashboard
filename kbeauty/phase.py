@@ -131,12 +131,14 @@ def build(path):
         out["r30t"] = d["r30t"]
     if d.get("rws") and any(b.get("rw") for b in d["b"].values()):
         out["rw"] = {"t": d.get("r30t") or d["asOf"], "s": d["rws"]}   # 기준점 0 = 수집일 · s = 기준점 간격(일)
-    tt = build_tt(set(d["b"]))
+    tt = build_tt(set(d["b"]) | set(MK_META))   # 미국 아마존에 없는 브랜드(MK_META)도 틱톡샵 공식 샵이 있으면 받는다
     if tt:
         out["tt"] = tt
     mk = build_mk(d)
     if mk:
         out["mk"] = mk
+    if d.get("_mkmeta"):
+        out["meta"] = d.pop("_mkmeta")
     return out
 
 
@@ -144,6 +146,10 @@ def build(path):
 #   D|나라|날짜|첫 달|행 수 · 브랜드 줄 k|SKU 수|u 36개(36진수)|v 36개(현지 통화 · 36진수) · H|검산값
 #   v = 판매량 × 그달 가격(바이박스 → 신품 최저가 → 아마존가 · 미국과 같은 식) — 파운드·유로. 달러·원화 환산은 화면(kbFx · ECB 월평균)에서.
 #   한글 이름·회사·ODM(ko·co·sup)은 미국 바구니(d["b"])에서 가져온다 — 나라마다 바구니는 그 나라에 든 브랜드만.
+# 미국 아마존 바구니에 없고 다른 나라에만 있는 브랜드(2026-11-26 · 브랜드501 의 바버501·호토미·메종드펜세는 일본 아마존에만 있다).
+#   여기 없는 브랜드가 나라 덩어리에만 나오면 예전처럼 멈춘다(오타·동명 브랜드를 걸러 내려고) — 새로 넣을 땐 한 줄 더할 것.
+MK_META = {"barber501": {"ko": "바버501", "op": "브랜드501"}, "hotomi": {"ko": "호토미", "op": "브랜드501"},
+           "maison de p:ensee": {"ko": "메종드펜세", "op": "브랜드501"}, "series y": {"ko": "시리즈와이", "op": "브랜드501"}}
 MK_CUR = {"uk": "GBP", "de": "EUR", "fr": "EUR", "it": "EUR", "es": "EUR", "jp": "JPY", "ca": "CAD"}
 
 
@@ -279,10 +285,14 @@ def build_mk(d):
                 x["r30"] = [round(y * k) for y in x["r30"]]
             if x.get("rw"):
                 x["rw"] = [[round(y * k) for y in a] for a in x["rw"]]
+    meta = {}
     for m, c in out.items():
-        miss = [k for k in c["b"] if k not in d["b"]]
+        miss = [k for k in c["b"] if k not in d["b"] and k not in MK_META]
         if miss:
             raise SystemExit(f"유럽 {m}: 미국 바구니에 없는 브랜드 {miss}")
+        meta.update({k: MK_META[k] for k in c["b"] if k not in d["b"]})
+    if meta:
+        d["_mkmeta"] = meta   # 미국에 없는 브랜드의 한글 이름·주인 — build() 가 블록 meta 로 싣는다(화면 KBB·브리핑 nm 이 읽는다)
     return out
 
 
@@ -298,6 +308,7 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "clio": "clio",
           "aromatica": "aromatica", "aprilskin": "aprilskin", "illiyoon": "illiyoon", "mise": "mise en scene",   # 2026-11-26 추가 브랜드 — KBCH fm_shops.csv 가 이미 받던 미국 공식 샵 넷
           "tirtir": "tirtir", "laka": "laka", "etude": "etude", "espoir": "espoir", "hera": "hera", "skinfood": "skinfood",   # 같은 날 EchoTik 에서 찾은 미국 공식 샵 여섯(fm_shops.csv 에 넣음 · 90일치뿐이라 build_tt 가 late 로 뺀다)
+          "melaxin": "dr.melaxin", "barber501": "barber501",   # 브랜드501(2026-11-26 · 비상장) — 'Brand Dr.Melaxin'(7495830785034323995 · 미국 틱톡샵 상위권) · BARBER501 Global(7496007994044811682 · 누적 7개)
           "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
 RW_N = 7              # 3달·1달 창의 기준점 수(14일 간격 · 최근 12주) — phase_keepa.js 의 RWN 과 같게
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)

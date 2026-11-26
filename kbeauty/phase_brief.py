@@ -302,7 +302,7 @@ def esc(t):
 
 def nm(d, k):
     """브랜드 이름(2026-10-24: 상장사 굵게 → 긍정 항목 굵게로 바꿈 · 굵게는 호출하는 쪽에서 B())."""
-    b = d["b"].get(k) or {}
+    b = d["b"].get(k) or (d.get("meta") or {}).get(k) or {}
     return esc(b.get("ko") or k)
 
 

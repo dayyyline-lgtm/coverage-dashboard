@@ -28,7 +28,11 @@ var NEW26V={"april skin":"aprilskin","miseenscene":"mise en scene","mise en scè
 var NEW26_X=/saffron|\bspice|\bink\b|cartridge|printer|moptrek|\bwipes?\b/i;
 // 일본 표기(keepa_week.js 의 JP 목록에 붙는다) — 11/26 .co.jp 자동완성: 어퓨는 가타카나 'アピュー'(199개 · a'pieu 는 없다) · 티르티르·에뛰드·라카·아로마티카·에이프릴스킨·미쟝센·스킨푸드(1957)는 미국과 같은 라틴 표기
 var NEW26_JP=["アピュー"];
-var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"].concat(LG_BRANDS,NEW26);   // ⚠ 73개 — Finder 브랜드 칸은 앞 50개만 먹는다: 주간 통합(keepa_week.js)은 50개씩 나눠 부른다 · 아래 KBPH_QUERY 를 손으로 쓸 땐 나눠서
+// 2026-11-26 브랜드501(비상장 · 사용자 "브랜드501 산하 애들도 해봐 합쳐주기 넣고") — 닥터멜락신·바버501·호토미·메종드펜세·시리즈와이(미국 상표 주인 Brand501 Corp).
+//   Keepa 자동완성(11/26 · 8개국): dr.melaxin 은 8개국 다 · barber501·hotomi 는 일본만 · 메종드펜세·시리즈와이는 어디에도 없다(표기가 생기면 저절로 들어오게 넣어 둔다).
+var B501=["dr.melaxin","dr. melaxin","melaxin","barber501","barber 501","hotomi","maison de p:ensee","maison de pensee","series y","seriesy"];
+var B501V={"dr. melaxin":"dr.melaxin","melaxin":"dr.melaxin","barber 501":"barber501","maison de pensee":"maison de p:ensee","seriesy":"series y"};
+var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"].concat(LG_BRANDS,NEW26,B501);   // ⚠ 83개 — Finder 브랜드 칸은 앞 50개만 먹는다: 주간 통합(keepa_week.js)은 50개씩 나눠 부른다 · 아래 KBPH_QUERY 를 손으로 쓸 땐 나눠서
 var KBPH_QUERY={f:{productType:{values:["0"],filterType:"set"},brand:{filterType:"autocomplete",filter:BRANDS.join("###"),type:"isOneOf"},monthlySoldPeak:{filterType:"number",type:"greaterThanOrEqual",filter:50,filterTo:null}},s:[{colId:"monthlySold",sort:"desc"}],t:"g"};
 // 배지 없는 상품(세트·듀오·번들) 두 번째 질의(2026-10-23 · 사용자 "Keepa 번들 놓치는 거 개선 안 됨?") — 아마존이 세트 상품엔 '지난달 N개 구매' 배지를 안 붙여서
 //   위 질의(역대 배지 피크 ≥ 50)에 아예 안 걸린다. 10/22 확인: 세부 카테고리 Top100 에 든 바구니 브랜드 SKU 488개 중 68개(14%)가 바구니 밖이었고 거의 다 세트·번들
@@ -42,7 +46,7 @@ window.KBPH=window.KBPH||{};
   K.rows={}; K.done=false; K.log=[]; K.nbq=false; K.nbMax=0; K.sn=new Set();
   K.collect=function(){ (window.__kwNodes?(f=>window.__kwNodes.forEach(d=>f({data:d}))):(f=>api().forEachNode(f)))(n=>{ const d=n.data; if(!d||!d.asin||d.domainId!==1) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
     if(K.nbq){ const rc=(s.current&&s.current[3])||-1; if(rc>K.nbMax) K.nbMax=rc; K.sn.add(d.asin); if(K.rows[d.asin]) return; }
-    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':(LGV[b]||NEW26V[b]||b))((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
+    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':(LGV[b]||NEW26V[b]||B501V[b]||b))((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
       bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0,hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1,
       bx:(h=>({s:h.length?String(h[h.length-1]):'',t:h.length>1?+h[h.length-2]:0}))(d.buyBoxSellerIdHistory||[]),no:d.COUNT_NEW_current==null?-1:d.COUNT_NEW_current}; }); };
   // 가격(센트) — 바이박스 → 신품 최저 → 아마존가 · 30·90·180·365일 평균을 구간으로 풀어 달 나이에 맞춘다(kbeauty/keepa.js 와 같은 식 · 2026-10-21 금액 환산)

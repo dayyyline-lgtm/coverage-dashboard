@@ -15,7 +15,7 @@
 window.KBPHEU={}; if(!window.KBPH||!window.KBPH.dump) window.KBPH=window.KBPHEU;
 (function(K){
   const api=()=>document.querySelector('.ag-root-wrapper').__agComponent.gridApi;
-  const MAP={"equalberry":"eqqualberry","clio professional":"clio","d'alba":"d'alba piedmont","centellian24":"centellian 24","cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum37":"su:m37","dr. groot":"dr.groot","april skin":"aprilskin","miseenscene":"mise en scene","mise en scène":"mise en scene","etude house":"etude","skinfood 1957":"skinfood","apieu":"a'pieu","アピュー":"a'pieu"};   // 가운데 다섯 = LG생활건강 표기 합치기(2026-11-03 · phase_keepa.js LGV 와 같게) · 뒤 여섯 = 2026-11-26 추가 브랜드(phase_keepa.js NEW26V 와 같게)
+  const MAP={"equalberry":"eqqualberry","clio professional":"clio","d'alba":"d'alba piedmont","centellian24":"centellian 24","cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum37":"su:m37","dr. groot":"dr.groot","april skin":"aprilskin","miseenscene":"mise en scene","mise en scène":"mise en scene","etude house":"etude","skinfood 1957":"skinfood","apieu":"a'pieu","アピュー":"a'pieu","dr. melaxin":"dr.melaxin","melaxin":"dr.melaxin","barber 501":"barber501","maison de pensee":"maison de p:ensee","seriesy":"series y"};   // 가운데 다섯 = LG생활건강 표기 합치기(2026-11-03 · phase_keepa.js LGV 와 같게) · 뒤 여섯 = 2026-11-26 추가 브랜드(phase_keepa.js NEW26V 와 같게)
   K.rows={}; K.done=false; K.log=[];
   K.prices=function(st){ const w=k=>{ if(!st||!st[k]) return -1; for(const i of [18,1,0]){ const v=st[k][i]; if(v>0) return v; } return -1; };
     const p30=w('avg30'),p90=w('avg90'),p180=w('avg180'),p365=w('avg365'),cur=w('current'), ok=(x,r)=>x>0&&r>0&&x<r*3&&x>r/3, a=p30>0?p30:cur;
