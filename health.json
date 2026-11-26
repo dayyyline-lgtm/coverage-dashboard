@@ -4,7 +4,7 @@
   "msg": "인증 실패(쇼핑인사이트 권한 없음) legacy 401 {\"errorMessage\":\"Scope Status Invalid : Authentication failed. (인증에 실"
  },
  "게임머니": {
-  "t": "2026-11-26 05:21",
+  "t": "2026-11-26 13:04",
   "msg": "러너 IP 차단 — 아이템매니아가 TCP 연결을 안 받음(클라우드 대역 드롭 · 2026-09-09 진단). 한국 IP(kr_collect.py)에서만 수집 가능 (종료코드 1)"
  },
  "K-pop 투어": {
