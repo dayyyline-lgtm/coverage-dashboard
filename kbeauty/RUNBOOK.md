@@ -69,6 +69,10 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
 
 ## 1-c-2'. 틱톡샵은 EchoTik 으로 (2026-11-23~ · FastMoss 구독 끝 → EchoTik Pro · 아래 1-c-2 는 옛 경로)
 
+> **2026-11-26~ 틱톡샵 판매량·판매액은 Kalodata 한 출처**(`kbeauty/kalodata.py` · GitHub Actions `kalodata.yml` 이 매일 받는다 · 크롬 불필요 · CLAUDE.md 'Kalodata' 절).
+> Kalodata 소급이 끝나면(`kbeauty/data/kalo/meta.json` 의 complete) 국면·회사 채널이 아래 EchoTik 의 판매(D 줄)를 **읽지 않는다** — EchoTik 은 틱톡 소셜(새 홍보 영상·크리에이터 · V 줄)용으로만 남는다.
+> 그래서 아래 절차는 그대로 돌려도 되고, 로그인이 풀려 건너뛰어도 판매 숫자는 멈추지 않는다.
+
 사용자: "FastMoss 너무 비싸서 EchoTik 으로" → Pro 결제(샵 상세 하루 500 · 90일 · 전 지역 · Basic 은 '샵 판매 분석 불가'라 안 된다).
 1. 크롬 새 탭 `https://echotik.live/board`(사용자 탭은 건드리지 않는다) → javascript_tool 로 불러오기:
    ```js

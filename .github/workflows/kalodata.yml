@@ -1,0 +1,126 @@
+# 틱톡샵 미국 공식 샵 일별 판매량·판매액 — Kalodata 오픈 API(kbeauty/kalodata.py) (2026-11-26 신설)
+#
+# 판매량·판매액·단가를 한 출처에서 받는다(EchoTik 판매액은 표시 가격이라 못 쓴다 — kalodata.py 맨 위).
+# 키 = Secrets KALODATA_API_KEY(사람이 넣는다) · 크레딧은 Kalodata 계정에서 사람이 충전한다(하루 약 2.4크레딧 ≈ $0.24).
+# 두 잡: 받기(repo-write 밖 · 소급은 40분 넘게 걸린다) → 올리기(repo-write 안 · 최신 main 위에서 블록만 다시).
+# 소급: Actions → kalodata → Run workflow · from 비우면 2026-04-01 부터 빠진 날 전부 · max_credits 700.
+# 소급이 끝나(meta complete) 국면(KBPH)·회사 채널(KBCH)이 틱톡샵을 Kalodata 하나로 읽는다 — 그 전엔 예전 값 그대로.
+name: kalodata
+
+on:
+  schedule:
+    - cron: "17 9 * * *"            # UTC 09:17 = KST 18:17 — 어제(Kalodata 일자) 값이 들어온 뒤
+    - cron: "17 14 * * *"           # 백업 — 아침 회차 때 아직 비어 있던 날
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "받을 첫날(비우면 2026-04-01 부터 빠진 날)"
+        required: false
+        default: ""
+      max_credits:
+        description: "이번에 쓸 크레딧 한도"
+        required: false
+        default: "30"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kalodata
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    outputs:
+      changed: ${{ steps.f.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Kalodata 받기
+        id: f
+        env:
+          PYTHONIOENCODING: utf-8
+          KALODATA_API_KEY: ${{ secrets.KALODATA_API_KEY }}
+        run: |
+          set +e
+          before=$(sha1sum kbeauty/data/kalo/daily.csv 2>/dev/null | cut -c1-40)
+          args="--max-credits ${{ inputs.max_credits || '12' }} --max-min 75"
+          if [ -n "${{ inputs.from }}" ]; then args="$args --from ${{ inputs.from }}"; fi
+          python -u kbeauty/kalodata.py $args
+          rc=$?
+          after=$(sha1sum kbeauty/data/kalo/daily.csv 2>/dev/null | cut -c1-40)
+          if [ "$before" != "$after" ] || [ $rc -ne 0 ]; then echo "changed=1" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+      - uses: actions/upload-artifact@v4
+        if: steps.f.outputs.changed == '1'
+        with:
+          name: kalo
+          path: |
+            kbeauty/data/kalo/
+            health.json
+          retention-days: 3
+
+  commit:
+    needs: fetch
+    if: needs.fetch.outputs.changed == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: repo-write
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: kalo
+          path: /tmp/kalo
+      - name: 끼우고 블록 다시
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          mkdir -p kbeauty/data/kalo
+          cp /tmp/kalo/kbeauty/data/kalo/* kbeauty/data/kalo/
+          python - <<'EOF'
+          import json
+          src = json.load(open("/tmp/kalo/health.json", encoding="utf-8")) if __import__("os").path.exists("/tmp/kalo/health.json") else {}
+          try:
+              cur = json.load(open("health.json", encoding="utf-8"))
+          except Exception:
+              cur = {}
+          k = "Kalodata 틱톡샵"
+          if k in src:
+              cur[k] = src[k]
+          else:
+              cur.pop(k, None)
+          json.dump(cur, open("health.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+          EOF
+          python kbeauty/ingest.py --inject
+          python kbeauty/phase.py
+      - name: 커밋
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kbeauty/data/kalo public/index.html health.json
+          if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
+          git commit -m "틱톡샵 Kalodata $(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M KST') [CI Skip]"
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "푸시 밀림 - 재시도 $i"
+            git fetch origin main
+            if ! git rebase origin/main; then
+              if python merge_blocks.py && GIT_EDITOR=true git rebase --continue; then
+                sleep $((i * 3)); continue
+              fi
+              git rebase --abort || true
+              echo "리베이스 충돌 - 이번 회차 포기(다음 회차가 다시)"; exit 0
+            fi
+            sleep $((i * 3))
+          done
+          echo "푸시 5회 실패"; exit 1

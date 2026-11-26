@@ -338,11 +338,23 @@ def _amz_day(amz, k):
     return out
 
 
+def _kalo():
+    """Kalodata 일별(kbeauty/kalodata.py) — 소급이 끝났을 때만(아니면 None → 예전 FastMoss·EchoTik 덤프)"""
+    try:
+        sys.path.insert(0, str(HERE))
+        import kalodata
+        return kalodata.load()
+    except Exception as e:
+        print(f"[KBPH] Kalodata 읽기 실패 — 예전 덤프로: {e}")
+        return None
+
+
 def build_tt(keys, amz=None):
     """FastMoss 덤프를 **전부** 이어 붙인다(같은 샵·같은 날은 나중 덤프가 이긴다 · 덤프마다 받은 날과 그 뒤는 진행 중이라 버린다).
     FastMoss 는 180일만 주므로 매주 받은 덤프를 버리지 않고 이어야 '평소'·꼬리가 길어진다(2026-10-21)."""
     files = sorted((SRC / "fm").glob("20??-??-??.txt"))
-    if not files:
+    KL = _kalo()
+    if not files and not KL:
         return None
     S, day, fhs = {}, {}, []
     for path in files:
@@ -364,6 +376,12 @@ def build_tt(keys, amz=None):
                         dd[t] = (u, v)
         if fh:
             fhs.append(fh)
+    if KL:
+        # Kalodata 한 출처(2026-11-26) — 샵 목록은 지금까지 국면 덤프에 든 샵 그대로(바구니를 바꾸지 않는다) · 판매량·판매액은 전부 Kalodata.
+        #   FastMoss·EchoTik 일별은 안 섞는다. 늦게 들어온 샵의 아마존 채움(late·est)도 쓸 일이 없다 — Kalodata 가 그 샵의 앞 기간도 준다.
+        seen = set(day) | set(S)
+        day = {sid: dict(KL["day"][sid]) for sid in seen if sid in KL["day"]}
+        fhs = [(dt.date.fromisoformat(KL["meta"]["to"]) + dt.timedelta(days=1)).isoformat()]
     if not day:
         return None
     # 끝날 = 지금 받는 샵들이 다 가진 마지막 날 — 한 샵만 하루 늦게 받으면(10/22 ZEROID 를 따로 받음) 나머지가 그날 0 으로 보여 주 칸이 밀린다
@@ -395,6 +413,8 @@ def build_tt(keys, amz=None):
         for r in csv.DictReader(shp.open(encoding="utf-8")):
             if r.get("w0"):
                 w0s[r["s"]] = r["w0"]
+    if KL:
+        w0s = {}
     for sid, dd in day.items():
         k = TT_MAP.get(S.get(sid, {}).get("k"))
         if not k or k not in keys:
@@ -426,7 +446,7 @@ def build_tt(keys, amz=None):
         V = [dd[t][1] for t in ds]
         # 판매액 단가 오류 고침 — ingest.build_block 과 같은 규칙(위로 튄 날만 · 직전 28일 중앙 단가의 2.5배 초과 → 판매량 × 중앙 단가)
         fixed = []
-        for i in range(len(U)):
+        for i in range(len(U) if not KL else 0):           # Kalodata 는 실제 판매가 — FastMoss 단가 튐 고침을 안 쓴다(할인·묶음 판매도 그대로)
             if U[i] <= 0:
                 continue
             past = sorted(V[j] / U[j] for j in range(max(0, i - 28), i) if U[j] > 0 and V[j] > 0 and j not in fixed)
@@ -489,7 +509,9 @@ def build_tt(keys, amz=None):
     r30 = [(end - dt.timedelta(days=29)).isoformat(), end.isoformat(), (end - dt.timedelta(days=59)).isoformat(), (end - dt.timedelta(days=30)).isoformat()]
     return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "rw": rwm, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
             "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)), "late": late, "est": est,
-            "src": f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss ~11/14 · EchoTik 11/15~ 이어 붙임 · 덤프 {len(files)}개)", "b": b}
+            "src": (f"틱톡샵 미국 공식 샵 {len(day)}곳 · Kalodata 일별 판매량·판매액({start.isoformat()}~{end.isoformat()} · 뷰티 카테고리 · 한 출처)" if KL else
+                    f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss ~11/14 · EchoTik 11/15~ 이어 붙임 · 덤프 {len(files)}개)"),
+            "kalo": bool(KL), "b": b}
 
 
 def inject(block):

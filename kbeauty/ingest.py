@@ -239,6 +239,17 @@ def save_keepa(res, raw_text):
 
 # ───────────────────────── FastMoss ─────────────────────────
 
+def _kalo():
+    """Kalodata 일별(kbeauty/kalodata.py) — 소급이 끝났을 때만(아니면 None → fm_daily.csv 그대로)"""
+    try:
+        sys.path.insert(0, str(HERE))
+        import kalodata
+        return kalodata.load()
+    except Exception as e:
+        print(f"[KBCH] Kalodata 읽기 실패 — fm_daily 로: {e}")
+        return None
+
+
 def parse_fm(lines):
     """FH|v|날짜|샵 수 · S|샵ID|지역|브랜드키|통화|이름|첫날 · D|샵ID|첫날|u…|v… (일별 36진수, v 는 통화 단위 정수) · E|샵ID|사유"""
     H = next((l for l in lines if l.startswith("FH|")), None)
@@ -398,6 +409,10 @@ def build_block():
     daily = {}
     for r in load_csv(DATA / "fm_daily.csv"):
         daily.setdefault(r["s"], []).append(r)
+    KL = _kalo()
+    if KL:
+        # Kalodata 한 출처(2026-11-26 · kbeauty/kalodata.py) — 샵 목록은 그대로(fm_daily 에 있던 샵) · 판매량·판매액은 전부 Kalodata
+        daily = {s: [{"date": t.isoformat(), "u": u, "v": v} for t, (u, v) in sorted(KL["day"][s].items())] for s in daily if s in KL["day"]}
     tt = {}
     fm_last = ""
     for s, rs in daily.items():
@@ -413,7 +428,7 @@ def build_block():
         # (7/21~27 · 10/13~19 메디큐브 미국 $30 → $112~261 · 바이오던스 $29 → $77~553 — 두 샵이 같은 날짜, 코스알엑스는 그대로) → 직전 28일 중앙 단가 × 판매량으로 바꾼다.
         # 위로 튄 날만 고친다 — 단가가 떨어진 날은 판매량도 같이 뛴 할인 행사였다(10/4 리쥬란 판매량 8배 · 단가 0.4배). 2배로 낮추면 작은 샵의 묶음 판매 날까지 걸린다(10/21 시험).
         fixed = []
-        for i in range(n):
+        for i in range(n if not KL else 0):              # Kalodata 는 실제 판매가 — FastMoss 단가 튐 고침을 안 쓴다
             if U[i] <= 0:
                 continue
             past = sorted(V[j] / U[j] for j in range(max(0, i - 28), i) if U[j] > 0 and V[j] > 0 and j not in fixed)
@@ -460,7 +475,7 @@ def build_block():
         "asOf": max(meta.get("date", ""), fm_last),
         "kp": {"asOf": meta.get("date", ""), "months": yms, "b": kpb, "r30": k30, "h30": hist30, "top": top, "curves": curves,
                "fail": meta.get("fail", [])},
-        "tt": {"asOf": fm_last, "s": tt, "w": snap, "so": social},
+        "tt": {"asOf": fm_last, "s": tt, "w": snap, "so": social, "src": "Kalodata" if KL else "FastMoss·EchoTik"},
         "fx": {"cols": ["USD", "GBP", "EUR", "JPY", "CAD"], "m": fx},
         "dom": {k: v[:2] for k, v in cfg["domains"].items()},
         "co": cfg["companies"],
