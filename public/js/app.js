@@ -2309,14 +2309,14 @@ function injectCompanyStack(items, opt){
     const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][ln]||0)-(a[1][ln]||0));
     // 그 밖 = 총계 − 12개국 — 한 나라라도 빈 달(속보: 미국·캐나다 없음)은 그 밖도 비운다(빈 나라가 그 밖으로 새지 않게)
     rows.push(["그 밖",M.map((m,j)=>map[m]==null||codes.some(c=>N.v[c][map[m]]==null)?null:Math.max(0,T[j]-codes.reduce((t,c)=>t+(N.v[c][map[m]]||0),0)))]);
-    build("방한 외래관광객 · 국적별",rows,{minPts:M.length, srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)"+(ln===li&&FL?` · ${mon}월은 문체부 보도자료 누계 − 데이터랩 앞 달(미국·캐나다·그 밖은 공표 대기)`:""),
+    build("방한 외래관광객 · 국적별",rows,{minPts:M.length, stackTot:T, srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)"+(ln===li&&FL?` · ${mon}월은 문체부 보도자료 누계 − 데이터랩 앞 달(미국·캐나다·그 밖은 공표 대기)`:""),
       reviewNote:`${mon}월 · `+rows.filter(r=>r[1][ln]!=null).slice(0,6).map(r=>`${r[0]} ${man(r[1][ln])}(${sg(pct(r[1][ln],r[1][ln-12]))})`).join(" · ")
         +(ln===li&&FL?` · ${mon}월은 문체부 보도자료 속보`:"")});
   }
   const P=TOURISM.ports;
   if(P&&P.v){
     const rows=P.names.map((n,i)=>[n,P.v[i]]);
-    build("방한 외래관광객 · 입국 공항·항구별",rows,{minPts:M.length, srcName:src+" · 입국한 공항·항구 기준(제주공항·제주항 = 제주 직항·크루즈)",
+    build("방한 외래관광객 · 입국 공항·항구별",rows,{minPts:M.length, stackTot:T, srcName:src+" · 입국한 공항·항구 기준(제주공항·제주항 = 제주 직항·크루즈)",
       reviewNote:`${mop}월 · `+rows.filter(r=>r[1][lp]>0).sort((a,b)=>b[1][lp]-a[1][lp]).slice(0,6).map(r=>`${r[0]} ${man(r[1][lp])}(${sg(pct(r[1][lp],r[1][lp-12]))})`).join(" · ")});
   }
   /* 외국인 신용카드 관광소비(2026-11-26 · TOURISM.card = 데이터랩 NAT_11_02_001 전국 · 억 원 · 2018-01~) — 문체부 '관광 분야 카드 소비액' 합계와 같은 값.
@@ -2344,7 +2344,7 @@ function injectCompanyStack(items, opt){
     const i0=IM.indexOf(`${iyr}01`), ytd=k=>i0<0?null:I.v[k].slice(i0,ii+1).reduce((t,v)=>t+(v||0),0), ytdP=k=>i0<12?null:I.v[k].slice(i0-12,ii-11).reduce((t,v)=>t+(v||0),0);
     const ctot=I.keys.reduce((t,_,k)=>t+(ytd(k)||0),0), ne=EM.filter(Boolean).length, fa=EM.indexOf(0);
     build("외국인 카드 관광소비 · 업종별",I.keys.map((k,i)=>[k,I.v[i]]),{months:IM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), unit:"억원(월)", unitShort:"억원", realFmt:eok,
-      estMask:EM, minPts:IM.length, endPad:104,
+      estMask:EM, minPts:IM.length, endPad:104, stackTot:tot.length===IM.length?tot:true,
       srcName:(I.src||"문체부 보도자료")+(ne?` · ${IM[0].slice(0,4)}.${+IM[0].slice(4,6)}~ 중 ${ne}개월은 추정(점선) — ${X.src||"시도 합 × 비율"} · 한 달씩 빼고 맞힌 평균 오차 `
         +I.keys.map((k,i)=>`${k.replace("업","")} ${(X.loo||[])[i]}%`).join(" · ")+" · 2018~2022 는 시도 몫이 지금과 달라 숙박·기타를 덜 믿을 것":""),
       reviewNote:`${iyr}년 ${imo}월${EM[ii]?"(추정)":""} · `+I.keys.map((k,i)=>`${k.replace("업","")} ${eok(I.v[i][ii])}(${share(i,ii)} · 전년동월비 ${sg(pct(I.v[i][ii],I.v[i][ii-12]))})`).join(" · ")
@@ -2522,7 +2522,7 @@ const topicsOf0=n=>{
       const qs=q.every(x=>x!=null)?q.reduce((x,y)=>x+y,0):null, qys=qy.length===3&&qy.every(x=>x!=null)?qy.reduce((x,y)=>x+y,0):null;
       return `${r[0]} ${mo}월 ${ek(a[li])}(전년동월비 ${sg(yoyAt(i,li))})`+(qs!=null?` · 최근 3개월 ${ek(qs)}(전년비 ${sg(pct(qs,qys))})`:""); });
     groups[ch]={products:rows.map(r=>r[0]), productsGoogle:rows.map(r=>r[0]), months:M.map(lab), naver:norm, google:norm, rawSer:raw, rawFull:raw,
-      yoyAt, only:"naver", freq:"month", peak, unit:"억원(월 · 조사표본 기준 추정)", unitShort:"억원", realFmt:ek, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0],
+      yoyAt, only:"naver", freq:"month", peak, unit:"억원(월 · 조사표본 기준 추정)", unitShort:"억원", realFmt:ek, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0], stackTot:0,
       srcName:`산업통상부 주요 유통업체 매출 동향(월간 · ${RETAIL.release||""}) · 실액 = 조사표본 기준 추정('26.08~ 작년 같은 달 × (1+공식 전년비)) · 품목군 = 실액 × 붙임 품목 비중 · 변화는 작년 같은 달과 비교(계절이 커서 전월비는 안 씀)`,
       reviewNote:notes.join(" · ")};
   });
@@ -2554,7 +2554,7 @@ const topicsOf0=n=>{
   const name="전국 호텔 숙박료(소비자물가)";
   TREND.groups[name]={products:C.map(c=>c[1]), productsGoogle:C.map(c=>c[1]), months:M.map(m=>`${m.slice(2,4)}.${+m.slice(5,7)}`),
     naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt, only:"naver", freq:"month", peak,
-    unit:"지수(2020=100 · 월)", unitShort:"", realFmt:ix, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0], sigTh:10,
+    unit:"지수(2020=100 · 월)", unitShort:"", realFmt:ix, niceTicks:true, minPts:25, peakDot:true, yoyCmp:true, sigIdx:[0], sigTh:10, noCombo:true,
     srcName:"국가데이터처(옛 통계청) 소비자물가지수 · 한국은행 ECOS 901Y009 · 2020=100 · 전국 40개 도시 표본 업소에서 누구나 내는 그달 요금(세금 포함 · 쿠폰·회원가 제외 · 서비스 품목은 매달 21~25일 조사) · 여름 휴양지 몫이 커서 작년 같은 달과 비교",
     reviewNote:notes.join(" · ")};
   ["호텔신라","GS피앤엘","서부T&D","파라다이스","롯데관광개발"].forEach(stock=>{
@@ -2594,7 +2594,7 @@ const topicsOf0=n=>{
     const raw=cols.map(([,f])=>ser(stock,f)), G=grp(raw,{products:cols.map(c=>c[0])});
     const hl=hold(stock), hy=hl[li]!=null&&hl[li-12]!=null?hl[li]-hl[li-12]:null;
     const name=`${stock} 카지노 월 공시`;
-    TREND.groups[name]=Object.assign(G,{unit:"억원(월 · 공시)", unitShort:"억원", realFmt:ek, yoyCmp:true, sigIdx:[],
+    TREND.groups[name]=Object.assign(G,{unit:"억원(월 · 공시)", unitShort:"억원", realFmt:ek, yoyCmp:true, sigIdx:[], stackTot:cols.length===3?0:undefined,
       srcName:`${SRC} · 계절과 명절이 커서 작년 같은 달과 비교 · 테이블 드롭은 '카지노 3사 테이블 드롭'에`,
       reviewNote:`${upd} · `+cols.map(([n],i)=>`${n} ${ek(raw[i][li])}(전년동월비 ${sg(G.yoyAt(i,li))})`).join(" · ")
         +` · 테이블 홀드율 ${pc(hl[li])}`+(hy==null?"":`(작년 같은 달 ${pc(hl[li-12])} · ${hy>=0?"+":""}${hy.toFixed(1)}%p)`)});
@@ -2613,7 +2613,7 @@ const topicsOf0=n=>{
   });
   { const raw=CO.map(hold), name="카지노 3사 테이블 홀드율(월)";
     const G=grp(raw,{products:CO}); G.yoyAt=()=>null;           // 카드·표에 '홀드율의 증감률'을 안 낸다(%p 는 요약 줄)
-    TREND.groups[name]=Object.assign(G,{unit:"%(테이블 매출 ÷ 테이블 드롭)", unitShort:"%", realFmt:pc, yoyCmp:true, sigIdx:[],
+    TREND.groups[name]=Object.assign(G,{unit:"%(테이블 매출 ÷ 테이블 드롭)", unitShort:"%", realFmt:pc, yoyCmp:true, sigIdx:[], noCombo:true,
       srcName:`${SRC} · 홀드율 = 테이블 매출 ÷ 테이블 드롭(계산값 · 롤링 커미션·VIP 비중에 따라 회사마다 수준이 다르고, 한 달 값은 운에 크게 흔들린다)`,
       reviewNote:`${upd} · `+CO.map((c,i)=>{ const a=raw[i][li], b=raw[i][li-12];
         return `${c} ${pc(a)}(작년 같은 달 ${pc(b)}`+(a!=null&&b!=null?` · ${a-b>=0?"+":""}${(a-b).toFixed(1)}%p`:"")+")"; }).join(" · ")});
@@ -2667,7 +2667,7 @@ const ADR_MAP={
       const raw=kk.map(k=>{ const m={}; KY[k].m.forEach(r=>{ if(r[3]!=="c"&&r[2]!=null) m[r[0]]=Math.round(r[2])/10; }); return yms.map(y=>m[y]==null?null:m[y]); });
       const name=`${stock} 월별 검색가(KAYAK)`, labs=kk.map(k=>SHORT[k]||KY[k].n);
       const qn=k=>{ const q=(KY[k].q||[]).filter(r=>r[2]===3).pop(); return q?`${SHORT[k]||KY[k].n} ${q[0].slice(-1)}Q${q[0].slice(2,4)} ${man(Math.round(q[1])/10)}`+(q[3]!=null?`(전분기비 ${sg(q[3])})`:""):""; };
-      TREND.groups[name]=group(raw,{products:labs, months:yms.map(y=>`${y.slice(2,4)}.${+y.slice(5,7)}`), freq:"month", unit:"만원(1박 · 검색가 월평균)",
+      TREND.groups[name]=group(raw,{products:labs, months:yms.map(y=>`${y.slice(2,4)}.${+y.slice(5,7)}`), freq:"month", noCombo:true, unit:"만원(1박 · 검색가 월평균)",
         srcName:"KAYAK 호텔 페이지 · 사용자가 지난 12개월 검색한 요금의 숙박월별 평균(전 객실 타입 · 세금 포함) · 그달 평균 원/달러로 환산 · 수준은 실제 ADR 보다 높아 변화만 볼 것 · 지난 달은 끝난 뒤 첫 수집 값 · 주 1회 수집 · 진행 중인 달은 뺌",
         reviewNote:kk.map(qn).filter(Boolean).join(" · ")});
       add.push(name);
@@ -3250,10 +3250,12 @@ let trendSmooth=(()=>{ try{ return localStorage.getItem("trendTrendline")==="1";
    ⚠ 2026-09-26 엔 '계열 셋 이상에 최고값이 5배 넘게 벌어지면 자동으로 나눠 보기'였는데, 그러면 경쟁 비교 그룹이 거의 다 갈라졌다
      (스킨부스터 = 리쥬란·리투오·셀르디엠·셀리비온 → 계열마다 따로 축이라 누가 큰지 못 본다). 2026-10-24 사용자 "스킨부스터처럼 서로 경쟁하는 거나
      게임은 겹쳐 보는 칸이 필수인데 보기 힘들어졌다" → 자동 나눠 보기를 없앴다. 작은 계열의 움직임은 '나눠 보기' 버튼으로 본다. **자동으로 되돌리지 말 것.** */
-let trendLayout=null, _trendLayoutFor="";
+let trendLayout=null, _trendLayoutFor="", trendComboPick=null;
 function trendLayoutOf(G){
-  if(_trendLayoutFor!==trendGroup){ _trendLayoutFor=trendGroup; trendLayout=null; }
-  return trendLayout||"overlay";
+  if(_trendLayoutFor!==trendGroup){ _trendLayoutFor=trendGroup; trendLayout=null; trendComboPick=null; }
+  const ok=!!trendComboY(G);
+  if(trendLayout) return trendLayout==="combo"&&!ok?"overlay":trendLayout;
+  return ok&&trendComboDefault(G)?"combo":"overlay";       // 막대+전년비는 계열 하나·쌓을 수 있는 그룹만 기본(경쟁 비교 그룹은 선 겹쳐 보기가 기본)
 }
 /* 일별 주간 변화 — 마지막 값이 있는 날까지 7일 합 vs 그 앞 7일 합. 양쪽 다 5일 이상 있어야 낸다. */
 function weekOverWeek(ser){
@@ -3503,6 +3505,11 @@ function drawTrendOne(src){
     fillTrendLegendTable(G, PRODUCTS, series, M, U);
     return;
   }
+  if(trendLayoutOf(G)==="combo"&&trendComboY(G)){         // 막대(실제 값) + 선(전년비) — 월별 실측 통계의 기본 보기
+    drawTrendCombo(box, G0, G, PRODUCTS, series, M, gc, mut, trendEstFn(G0, M));
+    fillTrendLegendTable(G, PRODUCTS, series, M, U);
+    return;
+  }
   if(!G.snapshot && !G.rankN && series.length>=2 && trendLayoutOf(G)==="split"){
     drawTrendGrid(box, G, PRODUCTS, series, M, gc, mut, {own:true});
     fillTrendLegendTable(G, PRODUCTS, series, M, U);
@@ -3663,6 +3670,129 @@ function drawTrendYoY(G0, G, PRODUCTS, series, M, W, pad, sx, EST){
       return `<div class="tt-h">${M[i]} ${Y.lab}${estAt(i)?` <span style="color:var(--muted);font-weight:600">· 추정 포함</span>`:""}</div>`+rows.map(r=>
         `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
         +`<span class="v"><span class="${cls(r.v)}">${pcs(r.v)}</span> <span style="color:var(--muted);font-weight:600;font-size:10.5px">${rf(r.b)} → ${rf(r.a)}</span></span></div>`).join("");
+    }});
+}
+
+/* ══ 막대 + 전년비 선 (2026-11-26 · 사용자 "보통 실데이터를 막대로, yoy 를 꺾은선으로 하긴 해") ══
+   월별 실측 통계(유량 — 방한객·카드 소비·유통 실액·카지노·수출·B/L)의 기본 보기: 막대 = 실제 값(왼쪽 축) · 선 = 전년동월비(오른쪽 축 %).
+   stackTot 를 단 그룹은 세부 계열을 쌓고 선은 합계의 전년비 — 숫자 = 그 번호 계열이 합계(유통 업태·카지노) · 배열 = 전체 달 합계(국적·공항·업종) · true = 계열 합.
+   쌓은 세부가 합계보다 모자란 달(속보 · 공표 대기)은 모자란 만큼을 회색 칸으로 — 막대 높이는 늘 합계. 세부 하나의 전년비는 고르기 칸에서 그 계열을 고른다.
+   계열이 여럿인데 쌓을 수 없는 그룹(경쟁 비교 · 지역 vs 전국)은 선 겹쳐 보기가 기본이고 이 보기에선 한 계열씩(기본 = 지금 종목의 계열).
+   값(지수·가격·비율)은 막대 높이에 뜻이 없어 noCombo 로 뺀다(호텔 숙박료 물가 · 홀드율 · KAYAK 검색가). 점은 안 찍는다(고점 규칙 — 막대가 값이다). */
+function trendComboY(G){
+  const G0=TREND.groups[trendGroup]; if(!G0||!G||G0.noCombo) return null;
+  const series=G[trendSrc]||G.naver||[]; if(!series.length) return null;
+  const Y=trendYoYFn(G0,G,series,trendSrc); if(!Y) return null;
+  let k=0; for(let i=0;i<series[0].length&&k<3;i++) if(Y.cur(0,i)!=null&&Y.at(0,i)!=null) k++;
+  return k>=3?Y:null;
+}
+function trendComboDefault(G){
+  const G0=TREND.groups[trendGroup], series=(G&&(G[trendSrc]||G.naver))||[];
+  return series.length===1||!!(G0&&G0.stackTot!=null);
+}
+function trendComboPickOf(G0,G,PRODUCTS){
+  const n=(G[trendSrc]||G.naver||[]).length, stk=G0.stackTot!=null, TI=typeof G0.stackTot==="number"?G0.stackTot:-1;
+  if(trendComboPick==="tot"&&stk) return "tot";
+  if(typeof trendComboPick==="number"&&trendComboPick<n&&trendComboPick!==TI) return trendComboPick;
+  if(stk) return "tot";
+  const own=TREND_OWNER[trendGroup]; if(own){ const k=(PRODUCTS||[]).findIndex(p=>own[p]===trendStock); if(k>=0) return k; }
+  return 0;
+}
+function drawTrendCombo(box, G0, G, PRODUCTS, series, M, gc, mut, EST){
+  const Y=trendComboY(G); if(!Y) return;
+  const n=M.length, lag=Y.lag, pick=trendComboPickOf(G0,G,PRODUCTS), stk=pick==="tot";
+  const TI=typeof G0.stackTot==="number"?G0.stackTot:-1, TA=Array.isArray(G0.stackTot)?G0.stackTot:null, oA=TA?TA.length-n:0;
+  const parts=stk?series.map((_,pi)=>pi).filter(pi=>pi!==TI):[pick];
+  const fin=v=>v==null||!isFinite(v)?null:v;
+  const cur=(p,i)=>fin(Y.cur(p,i)), prv=(p,i)=>fin(Y.prev(p,i));
+  const sumP=(i,f)=>{ let t=0; for(const p of parts){ const v=f(p,i); if(v==null) return null; t+=v; } return t; };
+  const taAt=j=>TA&&j>=0&&j<TA.length?fin(TA[j]):null;
+  const totAt=i=>!stk?cur(pick,i):TI>=0?cur(TI,i):TA?taAt(i+oA):sumP(i,cur);
+  const totPrev=i=>!stk?prv(pick,i):TI>=0?prv(TI,i):TA?taAt(i+oA-lag):sumP(i,prv);
+  const yoyAt=i=>{ if(!stk||TI>=0) return fin(Y.at(stk?TI:pick,i)); const a=totAt(i), b=totPrev(i); return a!=null&&b>0?(a/b-1)*100:null; };
+  const estAt=i=>!!EST&&(!!EST(i)||(i-lag>=0?!!EST(i-lag):!!(G0.estMask&&G0.estMask[i+G0.estMask.length-n-lag])));
+  // 막대 칸 — 세부(있는 것만) + 합계에 모자란 몫(회색)
+  const segs=M.map((_,i)=>{
+    const t=totAt(i); let acc=0; const L=[];
+    if(stk) parts.forEach(p=>{ const v=cur(p,i); if(v!=null&&v>0){ L.push({p,v}); acc+=v; } });
+    else if(t!=null&&t>0){ L.push({p:pick,v:t}); acc=t; }
+    const rem=(stk&&t!=null&&t-acc>Math.max(t*0.01,1e-9))?t-acc:0;
+    return {L,rem,top:Math.max(acc+rem,t||0)};
+  });
+  const tops=segs.map(x=>x.top).filter(v=>v>0); if(!tops.length) return;
+  const rf=x=>x==null?"—":(G.realFmt?G.realFmt(x):trendRealFmt(G,x));
+  const st0=(()=>{ const r=Math.max(...tops)/4, e=Math.pow(10,Math.floor(Math.log10(r))), f=r/e; return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e; })();
+  const ymax=Math.ceil(Math.max(...tops)*1.04/st0)*st0;
+  const lticks=[]; for(let v=0;v<=ymax+st0*1e-6;v+=st0) lticks.push(v);
+  const llab=lticks.map(v=>v===0?"0":String(rf(v)).replace(/(\.\d*?)0+(?=\D|$)/,"$1").replace(/\.(?=\D|$)/,""));   // 축은 300.0만명 → 300만명
+  const tw=t=>[...String(t)].reduce((a,c)=>a+(/[가-힣]/.test(c)?11:6.6),0);
+  const W=box.clientWidth||1000, H=trendH;
+  const pad={l:Math.max(40,Math.min(110,14+Math.max(...llab.map(tw)))), r:52, t:26, b:36};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  const sx=i=>pad.l+(i+0.5)/n*pw;
+  const sy=v=>H-pad.b-v/ymax*ph;
+  // 오른쪽 축(전년비 %) — 최근 25개 달의 폭 × 1.6 에서 자른다. 코로나 기저(2020 −98% · 2022~23 +500%)를 축에 다 넣으면
+  //   지금 +24% 가 0 선에 붙어 안 읽힌다 — 자른 구간은 선이 축 끝을 따라가고 구간마다 최고·최저 값을 ▲▼ 로 적는다(툴팁엔 실제 %)
+  const YV=M.map((_,i)=>yoyAt(i)), vals=YV.filter(v=>v!=null);
+  const rec=vals.slice(-25).map(Math.abs), cap=Math.max(20,(rec.length?Math.max(...rec):10)*1.6);
+  let hi=Math.min(cap,Math.max(0,...vals)), lo=Math.max(-cap,-100,Math.min(0,...vals));
+  if(hi-lo<10){ hi=Math.max(hi,5); lo=Math.min(lo,-5); }
+  const rst=[1,2,5,10,20,25,50,100,200,500,1000].find(x=>(hi-lo)/x<=5)||1000;
+  hi=Math.ceil(hi/rst)*rst; lo=Math.floor(lo/rst)*rst;
+  const clip=v=>Math.max(lo,Math.min(hi,v));
+  const ry=v=>pad.t+(hi-clip(v))/(hi-lo)*ph;
+  const pcs=v=>(v>=0?"+":"")+(Math.abs(v)>=100?Math.round(v):v.toFixed(1))+"%";
+  const txt=getComputedStyle(document.documentElement).getPropertyValue('--text')||"#222";
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  const what=stk?(TI>=0?PRODUCTS[TI]:"합계")+" — 세부 쌓기":PRODUCTS[pick];
+  const anyRem=segs.some(x=>x.rem>0), anyEst=EST&&M.some((_,i)=>EST(i));
+  s+=`<text x="2" y="12" font-size="10.5" font-weight="700" fill="${mut}">${W<640?`막대 = 실제 값 · 선 = ${Y.lab}(오른쪽)`
+    :`막대 = ${what} (${shortUnit(G)||"실제 값"} · 왼쪽 축) · 선 = ${Y.lab} (오른쪽 축)${anyEst?" · 흐린 막대·점선 = 추정":""}${anyRem?" · 회색 = 세부 공표 대기":""}`}</text>`;
+  lticks.forEach((v,k)=>{ const y=sy(v);
+    s+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${gc}" stroke-width="1"/>`;
+    s+=`<text x="${pad.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="${mut}">${llab[k]}</text>`; });
+  for(let t=lo;t<=hi+1e-9;t+=rst) s+=`<text x="${W-pad.r+6}" y="${ry(t)+4}" font-size="10.5" fill="${mut}">${t>0?"+":""}${t}%</text>`;
+  const step=Math.max(1,Math.ceil(n/12),Math.ceil(n*38/pw));
+  M.forEach((m,i)=>{ const end=n-1; if(i===end||(i%step===0&&end-i>=step)) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`; });
+  const bw=Math.max(1.5,Math.min(26,pw/n*0.72));
+  segs.forEach((x,i)=>{
+    const e=!!(EST&&EST(i)), op=e?.35:.85; let base=0;
+    const bar=(v,fill,o,ttl)=>{ const y0=sy(base), y1=sy(base+v); base+=v;
+      s+=`<rect x="${(sx(i)-bw/2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(.5,y0-y1).toFixed(1)}" fill="${fill}" fill-opacity="${o}"/>`; };
+    x.L.forEach(sg=>bar(sg.v,TREND.colors[sg.p]||"var(--accent)",op));
+    if(x.rem>0) bar(x.rem,"var(--muted)",.3);
+  });
+  // 전년비 0 선 — 오른쪽 축 기준(점선)
+  s+=`<line x1="${pad.l}" y1="${ry(0).toFixed(1)}" x2="${W-pad.r}" y2="${ry(0).toFixed(1)}" stroke="${mut}" stroke-width="1" stroke-dasharray="3 3" stroke-opacity=".7"/>`;
+  s+=`<path d="${trendPathSeg(YV,sx,ry,estAt,true)}" fill="none" stroke="${txt}" stroke-width="1.8" stroke-dasharray="4 3" stroke-opacity=".5"/>`;
+  s+=`<path d="${trendPathSeg(YV,sx,ry,estAt,false)}" fill="none" stroke="var(--panel)" stroke-width="4.5" stroke-linejoin="round" stroke-opacity=".75"/>`;   // 막대 위에서도 선이 읽히게 바탕색 테두리
+  s+=`<path d="${trendPathSeg(YV,sx,ry,estAt,false)}" fill="none" stroke="${txt}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  { let k=0; while(k<n){ const v=YV[k]; if(v==null||(v<=hi&&v>=lo)){ k++; continue; }
+      const up=v>hi; let j=k, b=k; while(j<n&&YV[j]!=null&&(up?YV[j]>hi:YV[j]<lo)){ if(up?YV[j]>YV[b]:YV[j]<YV[b]) b=j; j++; }
+      s+=`<text x="${sx(b).toFixed(1)}" y="${up?pad.t-3:H-pad.b-4}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${txt}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${up?"▲":"▼"} ${pcs(YV[b])}</text>`;
+      k=j; } }
+  // 마지막 달 — 전년비 숫자를 선 끝에
+  const li=YV.map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
+  if(li!=null){ const v=YV[li], ly=ry(v);
+    s+=`<text x="${(sx(li)-4).toFixed(1)}" y="${(ly<pad.t+14?ly+14:ly-7).toFixed(1)}" text-anchor="end" font-size="11.5" font-weight="700" fill="${v>=0?"var(--up)":"var(--down)"}" style="paint-order:stroke;stroke:var(--panel);stroke-width:3px">${pcs(v)}</text>`; }
+  s+="</svg>";
+  box.innerHTML=s;
+  attachChartTip(box,{W,H,pad,n,xOf:sx,
+    pts:i=>YV[i]==null?[]:[{y:ry(YV[i]),c:txt}],
+    xLab:i=>M[i], yLab:Yp=>rf(Math.max(0,(H-pad.b-Yp)/ph*ymax)),
+    html:i=>{
+      const t=totAt(i), y=YV[i], pt=totPrev(i), x=segs[i];
+      if(t==null&&!x.L.length) return null;
+      let h=`<div class="tt-h">${M[i]}${EST&&EST(i)?` <span style="color:var(--muted);font-weight:600">· 추정</span>`:""}</div>`;
+      h+=`<div class="tt-r"><span class="k"><b>${stk?(TI>=0?PRODUCTS[TI]:"합계"):PRODUCTS[pick]}</b></span><span class="v">${rf(t)}${y==null?"":` <span class="${cls(y)}" style="font-size:10.5px">${Y.lab} ${pcs(y)}</span>`}</span></div>`;
+      if(pt!=null) h+=`<div class="tt-r"><span class="k" style="color:var(--muted)">작년 같은 ${lag===12?"달":"분기"}</span><span class="v" style="color:var(--muted);font-weight:600">${rf(pt)}</span></div>`;
+      if(stk){
+        x.L.slice().sort((a,b)=>b.v-a.v).forEach(sg=>{ const yy=fin(Y.at(sg.p,i));
+          h+=`<div class="tt-r"><span class="k"><span class="dot" style="background:${TREND.colors[sg.p]};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${PRODUCTS[sg.p]}</span>`
+            +`<span class="v">${rf(sg.v)}${t>0?` <span style="color:var(--muted);font-weight:600;font-size:10.5px">${(sg.v/t*100).toFixed(1)}%</span>`:""}${yy==null?"":` <span class="${cls(yy)}" style="font-size:10.5px">${pcs(yy)}</span>`}</span></div>`; });
+        if(x.rem>0) h+=`<div class="tt-r"><span class="k" style="color:var(--muted)">세부 공표 대기</span><span class="v" style="color:var(--muted)">${rf(x.rem)}</span></div>`;
+      }
+      return h;
     }});
 }
 
@@ -7125,14 +7255,35 @@ function renderTrendSegs(){
     let lseg=document.getElementById("trendLayoutSeg");
     if(!lseg){
       lseg=document.createElement("div"); lseg.className="seg"; lseg.id="trendLayoutSeg"; lseg.style.marginLeft="6px";
-      lseg.innerHTML=`<button data-l="overlay" title="한 축에 겹쳐 — 크기를 서로 견줄 때">겹쳐 보기</button><button data-l="split" title="계열마다 자기 축 — 작은 계열의 움직임까지 볼 때">나눠 보기</button>`;
       lseg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return;
         trendLayout=b.dataset.l; renderTrendSegs(); drawTrend(); });
       frow.appendChild(lseg);
     }
-    const VG=viewGroup(G), canSplit=!!(VG&&!VG.multi&&!VG.stack&&!VG.snapshot&&!VG.rankN&&((VG[trendSrc]||VG.naver||[]).length>=2));
-    lseg.style.display=canSplit?"":"none";
-    lseg.querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.l===trendLayoutOf(VG)));
+    const VG=viewGroup(G), VS=(VG&&(VG[trendSrc]||VG.naver))||[], canSplit=!!(VG&&!VG.multi&&!VG.stack&&!VG.snapshot&&!VG.rankN&&VS.length>=2);
+    // 막대+전년비(월별 실측 통계 · 2026-11-26) — 버튼은 그 보기가 되는 그룹에만
+    const canCombo=!!trendComboY(VG), lay=trendLayoutOf(VG);
+    lseg.innerHTML=(canCombo?`<button data-l="combo" title="막대 = 실제 값(왼쪽 축) · 선 = 작년 같은 달 대비(오른쪽 축)">막대+전년비</button>`:"")
+      +`<button data-l="overlay" title="한 축에 선으로 겹쳐 — 크기를 서로 견줄 때(전년비는 아래 칸)">${canCombo?(VS.length>1?"선 겹쳐 보기":"선 보기"):"겹쳐 보기"}</button>`
+      +(canSplit?`<button data-l="split" title="계열마다 자기 축 — 작은 계열의 움직임까지 볼 때">나눠 보기</button>`:"");
+    lseg.style.display=(canCombo||canSplit)?"":"none";
+    lseg.querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.l===lay));
+    // 막대+전년비에서 무엇을 막대로 — 쌓을 수 있는 그룹은 합계(세부 쌓기) + 세부 하나씩 · 그 밖은 계열 하나씩
+    let csel=document.getElementById("trendComboSel");
+    if(!csel){
+      csel=document.createElement("select"); csel.id="trendComboSel"; csel.className="theme-btn";
+      csel.style.cssText="margin-left:6px;padding:5px 8px;font-weight:600;font-size:12px;max-width:220px";
+      csel.title="막대로 볼 계열 — 세부 하나를 고르면 막대·전년비 선이 그 계열로 바뀐다";
+      csel.addEventListener("change",()=>{ trendComboPick=csel.value==="tot"?"tot":+csel.value; drawTrend(); });
+      frow.appendChild(csel);
+    }
+    const showSel=canCombo&&lay==="combo"&&VS.length>=2;
+    csel.style.display=showSel?"":"none";
+    if(showSel){
+      const G0c=TREND.groups[trendGroup], stk=G0c.stackTot!=null, TI=typeof G0c.stackTot==="number"?G0c.stackTot:-1, PR=VG.products||[];
+      csel.innerHTML=(stk?`<option value="tot">${TI>=0?PR[TI]:"합계"} · 세부 쌓기</option>`:"")
+        +PR.map((p,i)=>i===TI?"":`<option value="${i}">${p}${stk?" 만":""}</option>`).join("");
+      csel.value=String(trendComboPickOf(G0c,VG,PR));
+    }
   }else{
     frow.style.display="none";
   }
