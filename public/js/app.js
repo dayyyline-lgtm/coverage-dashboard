@@ -12392,7 +12392,8 @@ function renderCosPhase(){
   const QDAw={"성장 가속":`비중 YoY↑ · ${SQ(xw)}↑`,"성장 둔화":`비중 YoY↑ · ${SQ(xw)}↓`,"반등 중":`비중 YoY↓ · ${SQ(xw)}↑`,"하락 지속":`비중 YoY↓ · ${SQ(xw)}↓`};
   const n1M=mode==="sum"?n1S:n1T, QDT={"성장 가속":`비중 ${n3M}↑ · ${n1M}↑`,"성장 둔화":`비중 ${n3M}↑ · ${n1M}↓`,"반등 중":`비중 ${n3M}↓ · ${n1M}↑`,"하락 지속":`비중 ${n3M}↓ · ${n1M}↓`};
   const aW=r=>r.a?{m:xw===3?r.a.m3:r.a.m1, d:xw===3?r.a.d3:r.a.d1, q:xw===3?r.a.q:r.a.q1}:null;   // 아마존 — 고른 길이
-  const tEst=CT&&CT.win("medicube",3).est, sEst=CS&&CS.win("medicube",3).est;   // 틱톡샵 3개월 창에 4월 추정이 들어가나
+  const pkT=KBV().b.medicube?"medicube":Object.keys((KBV().tt||{}).b||{}).find(k=>/에이피알/.test(k))||Object.keys((KBV().tt||{}).b||{})[0];   // 2026-11-26 — '에이피알' 모아보기를 켜면 medicube 가 합 한 줄로 빠져 win("medicube") 가 터졌다
+  const tEst=CT&&pkT&&CT.win(pkT,3).est, sEst=CS&&pkT&&CS.win(pkT,3).est;   // 틱톡샵 3개월 창에 4월 추정이 들어가나
   // 비상장 소형 켜고 끄기(2026-10-21 사용자 "하루하루원더 같은 비상장 스몰캡 끄고 켜기") — 상장사 없음 + 두 채널 비중 모두 2% 미만.
   //   끄면 지도·목록·증가율·표에서만 뺀다. 바구니(비중의 분모)는 그대로라 남은 브랜드의 비중·평소比·직전比는 안 바뀐다. 상장사는 비중이 작아도 늘 보인다.
   //   2026-10-21 사용자 "비상장 보고 안 보고 버튼" → 버튼 셋: 전부 · 비상장 소형 숨김(기본) · 비상장 숨김(상장사 + 엔에프씨 ODM 고객사만).
