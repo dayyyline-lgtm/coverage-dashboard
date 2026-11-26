@@ -18,7 +18,17 @@
 //   더크렘샵(미국 태생 · 미국 SKU 1,300여 개)·피지오겔(유럽 태생)은 K뷰티 비중의 분모를 키워 넣지 않는다. 표기 여럿 → LGV 로 하나로 합친다.
 var LG_BRANDS=["the face shop","cnp","cnp laboratory","vdl","hince","o hui","ohui","whoo","the history of whoo","su:m37","sum37","dr.groot","dr. groot"];
 var LGV={"cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum37":"su:m37","dr. groot":"dr.groot"};
-var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"].concat(LG_BRANDS);
+// 2026-11-26 상장사 2·3선 브랜드 추가(사용자 "내 화장품 유니버스에 왜 아로마티카는 없음 — keepa·틱톡" → "다 넣어보는게 좋을듯 묶기 버튼도") — 11/03 LG 때 찾고 묻힌 목록 전부:
+//   아로마티카 · 에이피알 에이프릴스킨 · 아모레퍼시픽 일리윤·에스트라·미쟝센·려·헤라·아이오페·프리메라 · 아모레퍼시픽홀딩스 에뛰드·에스쁘아 · 구다이글로벌 티르티르·라카·스킨푸드 · 에이블씨엔씨 어퓨.
+//   11/26 미국 Finder(배지 피크 ≥ 50)로 표기 확인: 실제 잡힌 것 = aromatica·aprilskin·illiyoon·aestura·mise en scene·ryo·hera·iope·primera·etude·espoir·tirtir·laka·skinfood 1957·a'pieu
+//   (스킨푸드는 아마존 브랜드가 'SKINFOOD 1957' — 'skinfood' 단독은 없다 · 나머지 변형은 0개지만 표기가 생기면 저절로 합쳐지게 넣어 둔다).
+//   ⚠ 동명 상품: 프리메라 = 라벨 프린터 잉크 카트리지(Primera Technology) · 헤라 = 사프란 · 아이오페 = 남의 세럼(Moptrek) — 제목으로 뺀다(NEW26_X).
+var NEW26=["aromatica","aprilskin","april skin","illiyoon","aestura","mise en scene","miseenscene","mise en scène","ryo","hera","iope","primera","etude","etude house","espoir","tirtir","laka","skinfood","skinfood 1957","a'pieu","apieu"];
+var NEW26V={"april skin":"aprilskin","miseenscene":"mise en scene","mise en scène":"mise en scene","etude house":"etude","skinfood 1957":"skinfood","apieu":"a'pieu"};
+var NEW26_X=/saffron|\bspice|\bink\b|cartridge|printer|moptrek/i;
+// 일본 표기(keepa_week.js 의 JP 목록에 붙는다) — 11/26 .co.jp 자동완성: 어퓨는 가타카나 'アピュー'(199개 · a'pieu 는 없다) · 티르티르·에뛰드·라카·아로마티카·에이프릴스킨·미쟝센·스킨푸드(1957)는 미국과 같은 라틴 표기
+var NEW26_JP=["アピュー"];
+var BRANDS=["abib","anua","atopalm","axis-y","beauty of joseon","belif","biodance","celimax","centellian 24","clio","clio professional","cosrx","d'alba piedmont","dr.althea","eqqualberry","equalberry","goodal","haruharu","innisfree","isntree","laneige","ma:nyo","medi-peel","medicube","missha","mixsoon","numbuzin","peripera","real barrier","rejuran","rom&nd","round lab","skin1004","some by mi","sulwhasoo","tonymoly","torriden","vt cosmetics","zeroid"].concat(LG_BRANDS,NEW26);   // ⚠ 73개 — Finder 브랜드 칸은 앞 50개만 먹는다: 주간 통합(keepa_week.js)은 50개씩 나눠 부른다 · 아래 KBPH_QUERY 를 손으로 쓸 땐 나눠서
 var KBPH_QUERY={f:{productType:{values:["0"],filterType:"set"},brand:{filterType:"autocomplete",filter:BRANDS.join("###"),type:"isOneOf"},monthlySoldPeak:{filterType:"number",type:"greaterThanOrEqual",filter:50,filterTo:null}},s:[{colId:"monthlySold",sort:"desc"}],t:"g"};
 // 배지 없는 상품(세트·듀오·번들) 두 번째 질의(2026-10-23 · 사용자 "Keepa 번들 놓치는 거 개선 안 됨?") — 아마존이 세트 상품엔 '지난달 N개 구매' 배지를 안 붙여서
 //   위 질의(역대 배지 피크 ≥ 50)에 아예 안 걸린다. 10/22 확인: 세부 카테고리 Top100 에 든 바구니 브랜드 SKU 488개 중 68개(14%)가 바구니 밖이었고 거의 다 세트·번들
@@ -32,7 +42,7 @@ window.KBPH=window.KBPH||{};
   K.rows={}; K.done=false; K.log=[]; K.nbq=false; K.nbMax=0; K.sn=new Set();
   K.collect=function(){ (window.__kwNodes?(f=>window.__kwNodes.forEach(d=>f({data:d}))):(f=>api().forEachNode(f)))(n=>{ const d=n.data; if(!d||!d.asin||d.domainId!==1) return; const s=d.stats||{}, g=(a,i)=>a&&a[i]!=null?a[i]:-1;
     if(K.nbq){ const rc=(s.current&&s.current[3])||-1; if(rc>K.nbMax) K.nbMax=rc; K.sn.add(d.asin); if(K.rows[d.asin]) return; }
-    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':(LGV[b]||b))((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
+    K.rows[d.asin]={nbq:K.nbq?1:0,a:d.asin,p:d.parentAsin||d.asin,rb:(d.brand||'').toLowerCase(),b:(b=>b==='equalberry'?'eqqualberry':b==='clio professional'?'clio':(LGV[b]||NEW26V[b]||b))((d.brand||'').toLowerCase()),t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],
       bb:[g(s.current,18),g(s.avg90,18),g(s.avg365,18)],pr:K.prices(s),cat:d.salesRankReference||0,hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1,
       bx:(h=>({s:h.length?String(h[h.length-1]):'',t:h.length>1?+h[h.length-2]:0}))(d.buyBoxSellerIdHistory||[]),no:d.COUNT_NEW_current==null?-1:d.COUNT_NEW_current}; }); };
   // 가격(센트) — 바이박스 → 신품 최저 → 아마존가 · 30·90·180·365일 평균을 구간으로 풀어 달 나이에 맞춘다(kbeauty/keepa.js 와 같은 식 · 2026-10-21 금액 환산)
@@ -68,7 +78,7 @@ window.KBPH=window.KBPH||{};
       const at=t=>{ let v=0; for(let i=0;i<pts.length&&pts[i][0]<=t;i++) v=Math.max(pts[i][1],0); return v; };
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
         a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
-    const B={}, rows=Object.values(K.rows).filter(r=>!(LG_BRANDS.includes(r.rb)&&/\bbike|bicycle|ebike|\bcable|charg|\busb\b|\btire|scooter|battery|phone case|motor|helmet|\bpedal/i.test(r.t))).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
+    const B={}, rows=Object.values(K.rows).filter(r=>!(NEW26.includes(r.rb)&&NEW26_X.test(r.t))).filter(r=>!(LG_BRANDS.includes(r.rb)&&/\bbike|bicycle|ebike|\bcable|charg|\busb\b|\btire|scooter|battery|phone case|motor|helmet|\bpedal/i.test(r.t))).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); for(let i=1;i<r.msh.length;i+=2) if(r.msh[i]>0){ r.first=KM(r.msh[i-1]); break; } r.nb=r.nbq&&!r.first?1:0; });
     // ── 배지 구간 안의 위치를 순위로 정한다(2026-10-22 · 사용자 "구간이 거칠다 — 20~30% 변화가 안 보인다") ──
     //   배지 = 구간 아랫값(50·100·200…900·1천·2천…9천·1만·2만…·10만+). 구간 안 어디쯤인지는 그달 평균 판매 순위(historicalSalesRankAverages · 이번 달 = 30일 평균)로 정한다:
@@ -86,8 +96,9 @@ window.KBPH=window.KBPH||{};
       const pts=[]; for(const b in bins){ const ys=bins[b].sort((p,q)=>p-q); if(ys.length<6) continue; pts.push([(+b+0.5)*0.25,ys[ys.length>>1],Math.sqrt(ys.length)]); }
       const S=[[0,0,0],[0,0,0],[0,0,0]],T=[0,0,0]; pts.forEach(([x,y,w])=>{ const z=[1,Math.min(x,X0),Math.max(0,x-X0)]; for(let i=0;i<3;i++){ T[i]+=w*z[i]*y; for(let k=0;k<3;k++) S[i][k]+=w*z[i]*z[k]; } });
       const det3=m=>m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])-m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])+m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
-      const D=det3(S), C=Math.abs(D)>1e-9?[0,1,2].map(k=>det3(S.map((row,i)=>row.map((v,q)=>q===k?T[i]:v)))/D):null;
-      if(C&&pts.length>=6){ const f=x=>Math.exp(C[0]+C[1]*Math.min(x,X0)+C[2]*Math.max(0,x-X0));
+      const D=det3(S), C=K.fixC?[K.fixC.a,K.fixC.b1,K.fixC.b2]:Math.abs(D)>1e-9?[0,1,2].map(k=>det3(S.map((row,i)=>row.map((v,q)=>q===k?T[i]:v)))/D):null;
+      // K.fixC = {a,b1,b2}(2026-11-26) — 브랜드 몇 개만 따로 받아 기존 회차 파일에 붙일 때 그 회차의 곡선(fit)을 그대로 쓴다(브랜드 몇 개로 곡선을 다시 맞추면 바구니와 잣대가 달라진다 · 11/03 LG 때 손으로 한 것)
+      if(C&&(K.fixC||pts.length>=6)){ const f=x=>Math.exp(C[0]+C[1]*Math.min(x,X0)+C[2]*Math.max(0,x-X0));
         const cur=r=>{ const x=Math.log(r); return x<XL?f(XL)*Math.pow(20/r,0.35):x>XH?f(XH)*Math.pow(30000/r,1.4):f(x); };
         const off={}; for(let j=0;j<35;j++) G[j].forEach(g=>{ if(g.lo<50) return; (off[g.p]=off[g.p]||[]).push(Math.log(Math.sqrt(g.lo*g.hi)/cur(g.rk))); });
         const ko={}; for(const p in off){ const a=off[p].sort((x,y)=>x-y); ko[p]=a.length>=4?a[a.length>>1]:0; }

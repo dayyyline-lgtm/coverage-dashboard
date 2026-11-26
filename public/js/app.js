@@ -12238,11 +12238,15 @@ const COS_GRP=[
   {id:"clio", k:"클리오 3브랜드", co:"클리오", lab:"클리오", t:b=>b.co==="클리오", what:"클리오의"},
   // 2026-10-21 사용자 "아모레퍼시픽도 모으기 · 구다이글로벌도 모으기" — 아모레 = 아모레퍼시픽(090430) 브랜드만(이니스프리는 홀딩스라 빠진다)
   {id:"amore", k:"아모레퍼시픽 브랜드", co:"아모레퍼시픽", lab:"아모레퍼시픽", t:b=>b.co==="아모레퍼시픽", what:"아모레퍼시픽의"},
-  //   구다이글로벌(상장 준비) — 바구니엔 조선미녀·스킨1004·라운드랩(티르티르·스킨푸드·라카는 바구니 밖). (10/21 조선미녀를 엔에프씨에서 뺀 뒤로 엔에프씨와 같이 켤 수 있다)
+  //   구다이글로벌(상장 준비) — 조선미녀·스킨1004·라운드랩 + 티르티르·라카·스킨푸드(2026-11-26 바구니에 넣음). (10/21 조선미녀를 엔에프씨에서 뺀 뒤로 엔에프씨와 같이 켤 수 있다)
   {id:"neo", k:"네오팜 브랜드", co:"네오팜", lab:"네오팜", t:b=>b.co==="네오팜", what:"네오팜의"},
   // 2026-11-03 사용자 "lg생건 브랜드사 통합으로 뜨게" — 빌리프·더페이스샵·CNP·VDL·힌스·오휘·후·숨37·닥터그루트(더크렘샵·피지오겔은 K뷰티 바구니 밖). 멤버 2개 이상이 바구니에 들어야 버튼이 뜬다.
   {id:"lgh", k:"LG생활건강 브랜드", co:"LG생활건강", lab:"LG생활건강", t:b=>b.co==="LG생활건강", what:"LG생활건강의"},
-  {id:"goodai", k:"구다이글로벌 브랜드", co:"구다이글로벌", lab:"구다이글로벌", t:(b,k)=>["beauty of joseon","skin1004","round lab"].includes(k), what:"구다이글로벌(상장 준비)의"}];
+  {id:"goodai", k:"구다이글로벌 브랜드", co:"구다이글로벌", lab:"구다이글로벌", t:(b,k)=>["beauty of joseon","skin1004","round lab","tirtir","laka","skinfood"].includes(k), what:"구다이글로벌(상장 준비)의"},
+  // 2026-11-26 사용자 "다 넣어보는게 좋을듯 묶기 버튼도 만들건 만들고" — 바구니에 2선 브랜드를 넣으며 멤버가 둘 이상이 된 회사(아모레·구다이는 위에서 저절로 늘어난다 · 아로마티카는 한 브랜드라 버튼 없음)
+  {id:"apr", k:"에이피알 브랜드", co:"에이피알", lab:"에이피알", t:b=>b.co==="에이피알", what:"에이피알의"},
+  {id:"amoreh", k:"아모레퍼시픽홀딩스 브랜드", co:"아모레퍼시픽홀딩스", lab:"아모레퍼시픽홀딩스", t:b=>b.co==="아모레퍼시픽홀딩스", what:"아모레퍼시픽홀딩스(이니스프리·에뛰드·에스쁘아)의"},
+  {id:"able", k:"에이블씨엔씨 브랜드", co:"에이블씨엔씨", lab:"에이블씨엔씨", t:b=>b.co==="에이블씨엔씨", what:"에이블씨엔씨의"}];
 let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id, g.id==="nfc"?cosLs("cosNfc","0"):"0")==="1"; }); return o; })();
 // 아마존 시장 고르기(2026-10-21 사용자 "유럽도 아마존 좀 해 주라") — 국면 칸 전부가 KBB() 를 바탕으로 쓴다(KBV 모아보기도 그 위에서).
 //   미국 = KBPH 그대로(틱톡샵 포함) · 유럽 = KBPH.mk 의 나라(영·독·프·이·스 · 유럽 5개국 = 다섯 나라 합) — 틱톡샵은 미국만이라 없다(아마존 보기만).
@@ -12476,7 +12480,7 @@ function renderCosPhase(){
       ${cosBxNote(R.mem?null:R.k)}${cosNbNote(R.k,R.mem)}
       <div class="cp-kvs">
         ${kv(`아마존 ${MKL} (Keepa · ${L3.cur})`, a&&a.q?`${pillQ(a.q,KBPH_Q[a.q])} 비중 ${cosPf(a.s3*100)}`:"—", a&&a.q?mt([[y3N,a.m3,vs(Y3)],[yN(n1A),a.m1,vs(Y1)],[n3A,a.d3,vs(D3)],[n1A,a.d1,vs(D1)]]):"")}
-        ${CT?kv(`틱톡샵 (FastMoss · ${LT3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:'<span class="g">미국 공식 샵 없음</span>', t&&t.q?mt([[n3T,t.m3,vs(LT3)],[n1T,t.m1,vs(LT1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
+        ${CT?kv(`틱톡샵 (FastMoss · ${LT3.cur})`, t&&t.q?`${pillQ(t.q,KBPH_Q[t.q])} 비중 ${cosPf(t.s3*100)}`:(((KBPH.tt||{}).late||{})[R.k]?`<span class="g" title="EchoTik 은 90일만 줘서 그 앞 판매를 모른다 — 바구니에 넣으면 이 샵이 잡힌 달부터 분모가 갑자기 커져 다른 브랜드 몫이 일제히 꺾여 보인다(2026-11-26)">미국 공식 샵 수집 중(${KBPH.tt.late[R.k].slice(5).replace("-","/")}~ · 직전 3달이 없어 아직 바구니 밖)</span>`:'<span class="g">미국 공식 샵 없음</span>'), t&&t.q?mt([[n3T,t.m3,vs(LT3)],[n1T,t.m1,vs(LT1)]])+`3M 판매액 $${t.v3>=1e6?(t.v3/1e6).toFixed(1)+"M":Math.round(t.v3/1e3)+"K"}`:""):""}
         ${CT?(()=>{ const sm=cosSumStat(R.k, CS);   // 합산(2026-10-21 사용자 "각각 남기고 합산도") — 아마존+틱톡샵 판매량을 더한 비중·판매 증감
           return kv(`${cosMk==="all"?"전 지역 합산 (아마존 8개국 + 틱톡샵":"미국 합산 (아마존 + 틱톡샵"} · ${LS3.cur})`, sm?`${R.s&&R.s.q?pillQ(R.s.q,KBPH_Q[R.s.q])+" ":""}비중 ${cosPf(sm.s3*100)}`:'<span class="g">—</span>',
             sm?mt([[n3S,sm.m3,vs(LS3)+(sm.est?" · 4월 틱톡샵 앞부분 추정":"")],[n1S,sm.m1,vs(LS1)]])+`${CS&&CS.ra?"3달":"3M"} 판매량 ${cosNum(sm.u3)}개 <span class="g">(틱톡 ${Math.round(sm.tf*100)}%)</span>`:""); })():""}

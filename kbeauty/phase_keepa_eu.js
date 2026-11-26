@@ -15,7 +15,7 @@
 window.KBPHEU={}; if(!window.KBPH||!window.KBPH.dump) window.KBPH=window.KBPHEU;
 (function(K){
   const api=()=>document.querySelector('.ag-root-wrapper').__agComponent.gridApi;
-  const MAP={"equalberry":"eqqualberry","clio professional":"clio","d'alba":"d'alba piedmont","centellian24":"centellian 24","cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum37":"su:m37","dr. groot":"dr.groot"};   // 뒤 다섯 = LG생활건강 표기 합치기(2026-11-03 · phase_keepa.js LGV 와 같게)
+  const MAP={"equalberry":"eqqualberry","clio professional":"clio","d'alba":"d'alba piedmont","centellian24":"centellian 24","cnp laboratory":"cnp","ohui":"o hui","the history of whoo":"whoo","sum37":"su:m37","dr. groot":"dr.groot","april skin":"aprilskin","miseenscene":"mise en scene","mise en scène":"mise en scene","etude house":"etude","skinfood 1957":"skinfood","apieu":"a'pieu","アピュー":"a'pieu"};   // 가운데 다섯 = LG생활건강 표기 합치기(2026-11-03 · phase_keepa.js LGV 와 같게) · 뒤 여섯 = 2026-11-26 추가 브랜드(phase_keepa.js NEW26V 와 같게)
   K.rows={}; K.done=false; K.log=[];
   K.prices=function(st){ const w=k=>{ if(!st||!st[k]) return -1; for(const i of [18,1,0]){ const v=st[k][i]; if(v>0) return v; } return -1; };
     const p30=w('avg30'),p90=w('avg90'),p180=w('avg180'),p365=w('avg365'),cur=w('current'), ok=(x,r)=>x>0&&r>0&&x<r*3&&x>r/3, a=p30>0?p30:cur;
@@ -68,7 +68,8 @@ window.KBPHEU={}; if(!window.KBPH||!window.KBPH.dump) window.KBPH=window.KBPHEU;
       const at=t=>{ let v=0; for(let i=0;i<pts.length&&pts[i][0]<=t;i++) v=Math.max(pts[i][1],0); return v; };
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
         a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
-    const B={}, rows=Object.values(K.rows).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
+    const NX=/saffron|\bspice|\bink\b|cartridge|printer|moptrek/i, NB26=['primera','hera','iope'];   // 동명 상품 빼기(2026-11-26 · phase_keepa.js NEW26_X 와 같게)
+    const B={}, rows=Object.values(K.rows).filter(r=>!(NB26.includes(r.b)&&NX.test(r.t))).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); });
     K.fit=K.refine(rows,months);
     rows.forEach(r=>{ const m=r.m, o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),n:0}; o.n++;

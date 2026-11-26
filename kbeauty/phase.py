@@ -247,6 +247,8 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "biodance": "biodance", "equalberry": "eqqualberry",
           "tfs": "the face shop", "drgroot": "dr.groot", "hince": "hince",   # LG생활건강 미국 공식 샵(2026-11-03 · 키는 KBCH fm_shops.csv 와 같다)
           "clio": "clio",
+          "aromatica": "aromatica", "aprilskin": "aprilskin", "illiyoon": "illiyoon", "mise": "mise en scene",   # 2026-11-26 추가 브랜드 — KBCH fm_shops.csv 가 이미 받던 미국 공식 샵 넷
+          "tirtir": "tirtir", "laka": "laka", "etude": "etude", "espoir": "espoir", "hera": "hera", "skinfood": "skinfood",   # 같은 날 EchoTik 에서 찾은 미국 공식 샵 여섯(fm_shops.csv 에 넣음 · 90일치뿐이라 build_tt 가 late 로 뺀다)
           "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
 RW_N = 7              # 3달·1달 창의 기준점 수(14일 간격 · 최근 12주) — phase_keepa.js 의 RWN 과 같게
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
@@ -302,11 +304,24 @@ def build_tt(keys):
         m = dt.date(m.year + (m.month == 12), m.month % 12 + 1, 1)
     nxt = end + dt.timedelta(days=1)
     partial = months[-1] if months and nxt.month == end.month else None
-    b, miss = {}, []
+    b, miss, late = {}, [], {}
+    # 늦게 들어온 샵(2026-11-26) — 받기 시작한 날(fm_shops.csv w0)이 바구니 시작보다 30일 넘게 늦은 샵은 그 앞 판매를 모른다(EchoTik 은 90일만 준다).
+    #   바구니에 넣으면 그 샵이 잡히기 시작한 달부터 분모가 갑자기 커져 다른 브랜드 몫이 일제히 꺾여 보인다(라카 미국 공식 샵 = 주 5.8만 개 — 메디큐브 다음 급).
+    #   그래서 수집은 하되 바구니에서는 빼고 late 에 첫날을 적는다. 3달 비교 창(직전 3달 포함)이 채워지면 넣을지 사용자에게 물을 것.
+    w0s = {}
+    shp = HERE / "data" / "fm_shops.csv"
+    if shp.exists():
+        import csv
+        for r in csv.DictReader(shp.open(encoding="utf-8")):
+            if r.get("w0"):
+                w0s[r["s"]] = r["w0"]
     for sid, dd in day.items():
         k = TT_MAP.get(S.get(sid, {}).get("k"))
         if not k or k not in keys:
             miss.append(S.get(sid, {}).get("k", sid))
+            continue
+        if sid in w0s and dt.date.fromisoformat(w0s[sid]) > start + dt.timedelta(days=30):
+            late[k] = min(late.get(k, w0s[sid]), w0s[sid])
             continue
         ds = sorted(dd)
         U = [dd[t][0] for t in ds]
@@ -375,7 +390,7 @@ def build_tt(keys):
            "e3": [int(gap > 0 and a - dt.timedelta(days=179) < start) for a in anc], "e1": [int(gap > 0 and a - dt.timedelta(days=59) < start) for a in anc]}
     r30 = [(end - dt.timedelta(days=29)).isoformat(), end.isoformat(), (end - dt.timedelta(days=59)).isoformat(), (end - dt.timedelta(days=30)).isoformat()]
     return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "rw": rwm, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
-            "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)),
+            "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)), "late": late,
             "src": f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss ~11/14 · EchoTik 11/15~ 이어 붙임 · 덤프 {len(files)}개)", "b": b}
 
 
@@ -416,7 +431,7 @@ def main():
         if shp.exists():
             import csv
             for r in csv.DictReader(shp.open(encoding="utf-8")):
-                if r.get("r") == "US" and r.get("k") in ("tfs", "drgroot", "hince") and r["s"] not in seen:   # LG 셋만 — 다른 브랜드의 둘째 샵(메디큐브 USA 등)은 국면에 안 넣는다
+                if r.get("r") == "US" and r.get("k") in ("tfs", "drgroot", "hince", "aromatica", "aprilskin", "illiyoon", "mise") and r["s"] not in seen:   # LG 셋 + 2026-11-26 추가 넷만 — 다른 브랜드의 둘째 샵(메디큐브 USA 등)은 국면에 안 넣는다
                     seen[r["s"]] = (r["k"], r.get("name", ""))
         for sid, (k, nm) in seen.items():
             print(f"{sid}\tawait window.__FMX.grab('{sid}','US','{k}')\t# {nm}")
