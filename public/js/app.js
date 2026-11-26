@@ -2580,7 +2580,9 @@ const topicsOf0=n=>{
   const sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
   const ser=(c,f)=>M.map(m=>{ const r=CASINO.m[c][m]; const v=r?r[f]:null; return v==null||v===""?null:Math.round(v*100)/10; });   // 십억원 → 억원(소수 1자리)
   const hold=c=>M.map(m=>{ const r=CASINO.m[c][m]; return r&&r.t!=null&&r.d>0?Math.round(r.t/r.d*1000)/10:null; });
-  const grp=(raw,o)=>{ const peak=Math.max(1e-9,...raw.flat().filter(v=>v!=null));
+  // 중간에 빈 달이 있으면 그 앞은 버린다 — 선이 끊기면 흉하다(2026-11-26 사용자 · GKL 2024-10 공시에 드롭이 없어 2024-09 한 점이 떨어져 있었다)
+  const tail=a=>{ let l=a.length-1; while(l>=0&&a[l]==null) l--; let f=l; while(f>0&&a[f-1]!=null) f--; return a.map((v,i)=>i<f?null:v); };
+  const grp=(raw0,o)=>{ const raw=raw0.map(tail), peak=Math.max(1e-9,...raw.flat().filter(v=>v!=null));
     const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
     const yoyAt=(i,j)=>(j>=12&&raw[i][j]!=null&&raw[i][j-12]>0)?(raw[i][j]/raw[i][j-12]-1)*100:null;
     return Object.assign({productsGoogle:o.products, months:M.map(lab), naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt, only:"naver", freq:"month", peak,
@@ -2677,17 +2679,23 @@ const ADR_MAP={
         reviewNote:kk.map(qn).filter(Boolean).join(" · ")+(cy?` · ${+cy.slice(5,7)}월 진행 중: `+kk.map((k,i)=>{ const v=raw[i][raw[i].length-1]; return v==null?"":`${labs[i]} ${man(v)}`; }).filter(Boolean).join(" · "):"")});
       add.push(name);
     }
-    // ③ 리츠 실측 ADR(월 · 2019-12~) — KAYAK 은 그 사이트가 지난 12개월만 줘서 2026-01 보다 앞을 못 채운다(웨이백·커먼 크롤도 없음 — 확인함).
-    //    길게 보는 호텔 가격은 이것(2026-11-26 사용자 "KAYAK 시계열 늘려 줘"). 리츠 IR 차트 판독값 · 투숙률·RevPAR 은 툴팁(reviewNote)에.
-    const RH=(ADR.reit||{}).h||{}, rk=(cfg.reit||[]).filter(k=>RH[k]&&(RH[k].m||[]).length);
-    if(rk.length){
-      const all=rk.flatMap(k=>RH[k].m.map(r=>r[0])).sort(), ym=[];
-      for(let y=+all[0].slice(0,4), m=+all[0].slice(5,7); `${y}-${String(m).padStart(2,"0")}`<=all[all.length-1]; m=m===12?(y++,1):m+1) ym.push(`${y}-${String(m).padStart(2,"0")}`);
+    // ③ 리츠 실측 ADR(월) — KAYAK 은 그 사이트가 지난 12개월만 줘서 2026-01 보다 앞을 못 채운다(웨이백·커먼 크롤도 없음 — 확인함).
+    //    길게 보는 호텔 가격은 이것(2026-11-26 사용자 "KAYAK 시계열 늘려 줘"). 리츠 IR 차트 판독값 · 투숙률은 reviewNote 에.
+    //    같은 날 사용자 "시계열이 중간에 비면 흉하다 — 최근까지 다 있거나 아니면 쓰지 말 것" → ① 리츠 자료 마지막 달까지 있는 호텔만(나인트리 동대문 2026-02 매각 → 뺌)
+    //    ② 빈 달 없이 이어진 마지막 구간만(2020~2022 의 IR 공백 앞은 자른다). 남는 게 2년 안 되면 그룹을 안 만든다.
+    const RH=(ADR.reit||{}).h||{}, ymI=y=>+y.slice(0,4)*12+ +y.slice(5,7)-1, ymS=i=>`${Math.floor(i/12)}-${String(i%12+1).padStart(2,"0")}`;
+    const runOf=k=>{ const ms=(RH[k].m||[]).filter(r=>r[1]!=null).map(r=>ymI(r[0])); if(!ms.length) return null;
+      let a=ms[ms.length-1]; for(let j=ms.length-2;j>=0&&ms[j]===a-1;j--) a=ms[j]; return {a, b:ms[ms.length-1]}; };
+    const lastAll=Math.max(...Object.keys(RH).map(k=>(runOf(k)||{b:-1}).b));
+    const rk=(cfg.reit||[]).filter(k=>RH[k]&&runOf(k)&&runOf(k).b===lastAll);
+    const a0=rk.length?Math.max(...rk.map(k=>runOf(k).a)):0;
+    if(rk.length&&lastAll-a0+1>=24){
+      const ym=[]; for(let i=a0;i<=lastAll;i++) ym.push(ymS(i));
       const raw=rk.map(k=>{ const o={}; RH[k].m.forEach(r=>{ if(r[1]!=null) o[r[0]]=Math.round(r[1])/10; }); return ym.map(y=>o[y]==null?null:o[y]); });
       const name=`${stock} 실측 ADR(리츠 · 월)`, labs=rk.map(k=>SHORT[k]||((ADR.hotels||{})[k]||[k])[0]);
       const last=k=>{ const r=RH[k].m[RH[k].m.length-1]; return `${SHORT[k]||k} ${+r[0].slice(5,7)}월 ${man(Math.round(r[1])/10)}${r[2]!=null?` · 투숙률 ${r[2]}%`:""}${r[4]!=null?` · 전년비 ${sg(r[4])}`:""}`; };
       TREND.groups[name]=group(raw,{products:labs, months:ym.map(y=>`${y.slice(2,4)}.${+y.slice(5,7)}`), freq:"month", unit:"만원(객실 1박 평균 판매가 · ADR)", minPts:ym.length,
-        srcName:"신한서부티엔디리츠 IR 월별 ADR(차트 판독 · 표가 있는 달은 정확한 값) · 리츠가 가진 호텔만 — 회사 전체 ADR 아님 · 빈 달 = IR 에 없는 달(2020-05~11 등)",
+        srcName:`신한서부티엔디리츠 IR 월별 ADR(차트 판독 · 표가 있는 달은 정확한 값) · 리츠가 가진 호텔만 — 회사 전체 ADR 아님 · 리츠 IR 이 나와야 다음 달이 붙는다(지금 ${ymS(lastAll).replace("-",".")}까지)`,
         reviewNote:rk.map(last).join(" · ")});
       add.push(name);
     }
