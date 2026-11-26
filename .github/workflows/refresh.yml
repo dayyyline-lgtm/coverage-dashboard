@@ -387,7 +387,7 @@ jobs:
           if git diff --quiet --cached -- . && git diff --quiet -- public/index.html notified.json health.json watchdog_state.json; then
             echo "변경 없음 - 커밋 생략"; exit 0
           fi
-          git add public/index.html notified.json health.json watchdog_state.json 2>/dev/null || true
+          git add public/index.html notified.json health.json watchdog_state.json tourism_regind.csv 2>/dev/null || true
           # Cloudflare Pages 는 푸시 1건 = 빌드 1건이고 무료 한도가 월 500건이다(공개해도 이건 그대로).
           # 수집은 매시간 하되 '배포(빌드)'는 deploy_slot() 이 정한 시각에만 — 사이 회차 커밋엔
           # '[CI Skip]' 을 달아 Cloudflare 가 건너뛰게 하고, 다음 배포가 그 데이터까지 같이 싣는다.

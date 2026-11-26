@@ -409,7 +409,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
-          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart 2>/dev/null || true
+          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart tourism_regind.csv 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else

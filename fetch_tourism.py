@@ -20,6 +20,11 @@
     방한객 총계보다 먼저 올라온다(2026-10분: 11/26 아침에 카드는 있고 총계는 0).
   · 업종별 금액(쇼핑·숙박·의료웰니스·식음료)은 데이터랩이 전국 단위로 안 준다 — 국가별은 비율(%)만(NAT_11_02_003 tarCd),
     시도별 합(LN_10_02_002)은 지역에 안 붙는 결제(숙박 예약·운송)가 빠져 전국의 78%뿐. 그래서 보도자료 표를 tourism_mcst.json 에 손으로 옮긴다.
+  · 보도자료가 없는 달(2018-01~2025-12 · 보도자료 전에 카드가 먼저 뜬 달)은 **추정**한다(2026-11-26 사용자 "업종별도 길게"):
+    17개 시도 합(LN_10_02_002 · tourism_regind.csv · 억 원) × 업종별 '보도자료 ÷ 시도 합' 평균 비율. 쇼핑 1.06 · 의료웰니스 1.10 · 식음료 1.12 는
+    2026년 열 달 내내 거의 같고(변동계수 0.4~0.8%), 숙박 1.87 · 기타 2.38 은 흔들려서(5%) 전국 합계(카드) − 앞의 셋을 둘이 나눠 갖게 한다.
+    한 달씩 빼고 맞혀 보면 평균 오차 쇼핑 0.3 · 의료 0.5 · 식음료 0.6 · 숙박 2.2 · 기타 3.2%. 2018~2022 는 시도 몫이 지금과 달라
+    (비율 그대로면 전국 합계와 5~16% 어긋남) 그 차이가 숙박·기타로 가므로 그 둘은 덜 믿는다(e = 2).
   · flash = 데이터랩 공표 전 달의 총계(보도자료 누계 − 데이터랩 앞 달들). 그 달이 데이터랩에 올라오면 저절로 빠진다.
 
   python fetch_tourism.py              # 수집·기록(국적은 빠진 달 + 최근 3개월)
@@ -30,6 +35,12 @@ import os, re, json, sys, time, datetime, urllib.request, urllib.parse
 
 HTML = "public/index.html"
 MCST = "tourism_mcst.json"        # 문체부 보도자료에서 손으로 옮기는 값(업종별 카드 소비 · 공표 전 총계)
+REGIND = "tourism_regind.csv"     # 17개 시도 합 업종별 외국인 카드 관광소비(억 원) — 보도자료 없는 달의 업종별 추정 재료
+SIDO = ["11", "26", "27", "28", "29", "30", "31", "36", "41", "51", "43", "44", "52", "46", "47", "48", "50"]   # 강원 51 · 전북 52(새 코드 · 옛 42·45 는 빈 응답)
+REG_CATS = ["전체", "쇼핑업", "숙박업", "의료웰니스업", "식음료업", "운송업", "여가서비스업", "여행업"]
+IND_MAP = {"쇼핑업": ["쇼핑업"], "숙박업": ["숙박업"], "의료웰니스업": ["의료웰니스업"], "식음료업": ["식음료업"],
+           "기타": ["운송업", "여가서비스업", "여행업"]}
+IND_FIX = ["쇼핑업", "의료웰니스업", "식음료업"]   # 비율이 안정 — 그대로 곱한다. 나머지(숙박·기타)는 전국 합계에 맞춰 나눠 갖는다
 CARD_START = "201801"
 KST = datetime.timezone(datetime.timedelta(hours=9))
 URL = "https://datalab.visitkorea.or.kr/visualize/getTempleteData.do"
@@ -76,7 +87,78 @@ def card_block(rows):
             "src": "한국관광 데이터랩 · 외국인 신용카드 관광소비액(국가별 방한현황(빅데이터) · 전국) · 억 원"}
 
 
-def apply_mcst(tourism, path=MCST):
+def regind_load(path=REGIND):
+    if not os.path.exists(path):
+        return {}
+    import csv
+    return {r["ym"]: {k: float(v) for k, v in r.items() if k != "ym"} for r in csv.DictReader(open(path, encoding="utf-8"))}
+
+
+def regind_update(end, path=REGIND):
+    """시도 합 CSV 를 마지막 달 다음부터 end 까지 잇는다(17 요청 · 짧은 기간). 서울에 그 달이 없으면 공표 전으로 본다."""
+    reg = regind_load(path)
+    last = max(reg) if reg else "201712"
+    nxt = f"{int(last[:4]) + (last[4:] == '12')}{(int(last[4:]) % 12) + 1:02d}"
+    if nxt > end:
+        return reg
+    acc = {}
+    for sd in SIDO:
+        p = {"qid": "LN_10_02_002", "SGG_CD": sd, "BASE_YM1": nxt, "BASE_YM2": end, "tabDiv": "2", "srchAreaDate": "1",
+             "sggIntgYnFlag": "N", "dnname": "x"}
+        req = urllib.request.Request(URL, data=urllib.parse.urlencode(p).encode(), headers={
+            "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            L = json.loads(r.read().decode("utf-8")).get("list") or []
+        for x in L:
+            m, c = x.get("BASE_YM"), x.get("DPTR_REGN_NM")
+            if c in REG_CATS and x.get("TOU_NUM"):
+                acc.setdefault(m, {}).setdefault(sd, {})[c] = float(x["TOU_NUM"])
+        time.sleep(0.3)
+    new = [m for m in sorted(acc) if "11" in acc[m] and acc[m]["11"].get("전체") and len(acc[m]) >= 15]
+    if not new:
+        return reg
+    for m in new:
+        reg[m] = {c: round(sum(acc[m][sd].get(c, 0) for sd in acc[m]) / 1e5, 1) for c in REG_CATS}   # 천 원 → 억 원
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("ym," + ",".join(REG_CATS) + "\n")
+        for m in sorted(reg):
+            f.write(m + "," + ",".join(f"{reg[m].get(c, 0):.1f}" for c in REG_CATS) + "\n")
+    print(f"  시도 합 업종별 카드: {new[0]}~{new[-1]} 추가({len(new)}개월)")
+    return reg
+
+
+def ind_estimate(keys, ind, reg, cby):
+    """보도자료 없는 달의 업종별 추정 — {달: [업종…]} · 비율 · 한 달씩 빼고 맞힌 평균 오차(%) · 비율 그대로일 때 전국 합계와의 차이(%)."""
+    if any(k not in IND_MAP for k in keys):
+        return None
+    rk = lambda m: [sum(reg[m].get(c, 0) for c in IND_MAP[k]) for k in keys]
+    A = [m for m in sorted(ind) if m in reg and all(x > 0 for x in rk(m))]
+    if len(A) < 3:
+        return None
+    FIX = [keys.index(k) for k in IND_FIX]
+    FLEX = [i for i in range(len(keys)) if i not in FIX]
+    ratios = lambda ms: [sum(ind[m][i] / rk(m)[i] for m in ms) / len(ms) for i in range(len(keys))]
+
+    def est(m, r):
+        e = [r[i] * x for i, x in enumerate(rk(m))]
+        t, gap = cby.get(m), None
+        if t:
+            gap = sum(e) / t - 1
+            res, s = t - sum(e[i] for i in FIX), sum(e[i] for i in FLEX)
+            if s > 0 and 0.3 < res / s < 3:
+                for i in FLEX:
+                    e[i] *= res / s
+            else:
+                e = [x * t / sum(e) for x in e]
+        return e, gap
+    r = ratios(A)
+    errs = [[est(a, ratios([m for m in A if m != a]))[0][i] / ind[a][i] - 1 for i in range(len(keys))] for a in A]
+    loo = [round(sum(abs(x[i]) for x in errs) / len(errs) * 100, 1) for i in range(len(keys))]
+    out = {m: est(m, r) for m in sorted(reg) if m not in ind and m in cby}
+    return {"rows": out, "r": [round(x, 3) for x in r], "loo": loo, "n": len(A)}
+
+
+def apply_mcst(tourism, path=MCST, reg=None):
     """tourism_mcst.json(문체부 보도자료 손 입력)을 블록에 합친다 — ind(업종별 카드 소비) · flash(공표 전 총계).
     ind 는 행 합 = 전체(±3억 · 반올림) · 전체 = 데이터랩 카드 합계(±2억)인지 검산하고 어긋나면 경고만 한다."""
     if not os.path.exists(path):
@@ -93,8 +175,19 @@ def apply_mcst(tourism, path=MCST):
                 print(f"  ⚠ 업종별 카드 {m}: 업종 합 {sum(row[:len(keys)]):,} ≠ 전체 {row[len(keys)]:,} — 옮겨 적기 확인")
             if m in cby and abs(cby[m] - row[len(keys)]) > 2:
                 print(f"  ⚠ 업종별 카드 {m}: 보도자료 전체 {row[len(keys)]:,}억 ≠ 데이터랩 {cby[m]:,.1f}억")
-        tourism["ind"] = {"keys": keys, "months": ms, "v": [[ind[m][i] for m in ms] for i in range(len(keys))],
-                          "tot": [ind[m][len(keys)] for m in ms], "src": J.get("ind_src") or "문체부 보도자료"}
+        rows = {m: (ind[m][:len(keys)], ind[m][len(keys)], 0) for m in ms}
+        E = ind_estimate(keys, ind, reg if reg is not None else regind_load(), cby) if cby else None
+        if E:
+            for m, (e, gap) in E["rows"].items():
+                rows[m] = ([round(x) for x in e], round(cby[m]), 2 if gap is not None and abs(gap) > 0.05 else 1)
+        mm = sorted(rows)
+        tourism["ind"] = {"keys": keys, "months": mm, "v": [[rows[m][0][i] for m in mm] for i in range(len(keys))],
+                          "tot": [rows[m][1] for m in mm], "e": [rows[m][2] for m in mm], "src": J.get("ind_src") or "문체부 보도자료"}
+        if E:
+            tourism["ind"]["est"] = {"r": E["r"], "loo": E["loo"], "n": E["n"],
+                                     "src": "17개 시도 합(데이터랩 LN_10_02_002) × 업종별 '보도자료 ÷ 시도 합' 비율 · 숙박·기타는 전국 합계(카드)에 맞춤"}
+            ne = sum(1 for m in mm if rows[m][2])
+            print(f"  업종별 카드: 실측 {len(ms)}개월 + 추정 {ne}개월({mm[0]}~) · 비율 {E['r']} · 한 달 빼고 맞힌 오차 {E['loo']}%")
     # 공표 전 총계 — 데이터랩 마지막 달 바로 다음 달만 붙인다(그 달이 올라오면 이 줄은 아무 일도 안 한다)
     M, T = tourism["months"], tourism["total"]
     for m in sorted(J.get("flash") or {}):
@@ -223,7 +316,13 @@ def main():
         tourism["card"] = old.get("card")
     if not tourism.get("card"):
         tourism.pop("card", None)
-    apply_mcst(tourism)
+    reg = regind_load()
+    if tourism.get("card") and "--dry-run" not in sys.argv:
+        try:
+            reg = regind_update(tourism["card"]["months"][-1])
+        except Exception as e:
+            print(f"  시도 합 업종별 카드 실패: {str(e)[:100]} — 이전 CSV 로 추정")
+    apply_mcst(tourism, reg=reg)
     lm = tourism["months"][-1]
 
     if "--dry-run" in sys.argv:

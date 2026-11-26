@@ -1595,6 +1595,16 @@ function trendOwnerOf(gname, prod, fb){
   const m=TREND_OWNER[gname]; if(!m) return fb;
   const s=m[prod]; return (s&&(TREND_STOCK[s]||[]).includes(gname))?s:null;
 }
+/* 트렌드 계열 색 — TREND.colors(fetch_trends 의 COLORS)는 8색뿐이라 계열이 9개 넘는 그룹(방한객 국적별 13 · 공항·항구 9)은
+   9번째부터 색이 undefined 로 검은 점·검은 선이 됐다(2026-11-26 발견). 같은 벌 14색으로 늘리고 그 뒤는 돌려 쓴다. */
+(function extendTrendColors(){
+  if(typeof TREND==="undefined"||!TREND) return;
+  const EXT=["#d8b46a","#6fa8dc","#e07a5f","#81b29a","#c98aa6","#5fb3b3","#9aa5b1","#a8b561","#c7a27c","#e5989b","#7d9bc1","#b5838d","#90a955","#d69f7e"];
+  const c=Array.isArray(TREND.colors)&&TREND.colors.length?TREND.colors.slice():EXT.slice(0,8);
+  for(let i=c.length;i<EXT.length;i++) c.push(EXT[i]);
+  for(let i=c.length;i<40;i++) c.push(c[i%EXT.length]);
+  TREND.colors=c;
+})();
 /* Steam 동접을 트렌드 비교 탭에 편입 — 게임사는 검색보다 동접·리뷰가 실측 신호라
    같은 탭에서 검색트렌드와 나란히 고르게 한다. 별도 탭을 두면 헷갈리고 과하다.
    차트가 0–100 상대값이라 동접(명)도 자기 최고=100 으로 정규화하고, peak 로 실제 명수를
@@ -2288,7 +2298,7 @@ function injectCompanyStack(items, opt){
   // 마지막 달이 문체부 보도자료 속보치(flash · 2026-11-26)면 총계만 있고 국적·공항별은 데이터랩 공표 대기 — 그 두 그룹의 요약은 직전 달로
   const FL=TOURISM.flash&&TOURISM.flash.ym===M[li]?TOURISM.flash:null, lp=FL?li-1:li, mop=+M[lp].slice(4,6);
   const ln=FL&&FL.nat&&FL.nat.length?li:lp, mon=+M[ln].slice(4,6);   // 국적은 보도자료 누계로 속보를 낼 수 있다(미국·캐나다 빼고) — 공항별은 데이터랩을 기다린다
-  build("방한 외래관광객",[["방한 외래관광객",T]],{sigIdx:[0], srcName:src+(FL?` · ${mo}월은 ${FL.src}`:""),
+  build("방한 외래관광객",[["방한 외래관광객",T]],{sigIdx:[0], minPts:M.length, endPad:124, srcName:src+(FL?` · ${mo}월은 ${FL.src}`:""),
     reviewNote:`${yr}년 ${mo}월 ${man(T[li])}(전년동월비 ${sg(pct(T[li],T[li-12]))} · 2019년 같은 달 대비 ${sg(y19>=0?pct(T[li],T[y19]):null)})`
       +(ytd!=null?` · 1~${mo}월 누적 ${man(ytd)}(전년비 ${sg(pct(ytd,ytdP))} · 2019년 대비 ${sg(pct(ytd,ytd19))})`:"")
       +(FL?` · ${mo}월은 문체부 보도자료 속보(국적·공항별은 데이터랩 공표 대기)`:"")});
@@ -2299,19 +2309,20 @@ function injectCompanyStack(items, opt){
     const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][ln]||0)-(a[1][ln]||0));
     // 그 밖 = 총계 − 12개국 — 한 나라라도 빈 달(속보: 미국·캐나다 없음)은 그 밖도 비운다(빈 나라가 그 밖으로 새지 않게)
     rows.push(["그 밖",M.map((m,j)=>map[m]==null||codes.some(c=>N.v[c][map[m]]==null)?null:Math.max(0,T[j]-codes.reduce((t,c)=>t+(N.v[c][map[m]]||0),0)))]);
-    build("방한 외래관광객 · 국적별",rows,{srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)"+(ln===li&&FL?` · ${mon}월은 문체부 보도자료 누계 − 데이터랩 앞 달(미국·캐나다·그 밖은 공표 대기)`:""),
+    build("방한 외래관광객 · 국적별",rows,{minPts:M.length, srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)"+(ln===li&&FL?` · ${mon}월은 문체부 보도자료 누계 − 데이터랩 앞 달(미국·캐나다·그 밖은 공표 대기)`:""),
       reviewNote:`${mon}월 · `+rows.filter(r=>r[1][ln]!=null).slice(0,6).map(r=>`${r[0]} ${man(r[1][ln])}(${sg(pct(r[1][ln],r[1][ln-12]))})`).join(" · ")
         +(ln===li&&FL?` · ${mon}월은 문체부 보도자료 속보`:"")});
   }
   const P=TOURISM.ports;
   if(P&&P.v){
     const rows=P.names.map((n,i)=>[n,P.v[i]]);
-    build("방한 외래관광객 · 입국 공항·항구별",rows,{srcName:src+" · 입국한 공항·항구 기준(제주공항·제주항 = 제주 직항·크루즈)",
+    build("방한 외래관광객 · 입국 공항·항구별",rows,{minPts:M.length, srcName:src+" · 입국한 공항·항구 기준(제주공항·제주항 = 제주 직항·크루즈)",
       reviewNote:`${mop}월 · `+rows.filter(r=>r[1][lp]>0).sort((a,b)=>b[1][lp]-a[1][lp]).slice(0,6).map(r=>`${r[0]} ${man(r[1][lp])}(${sg(pct(r[1][lp],r[1][lp-12]))})`).join(" · ")});
   }
   /* 외국인 신용카드 관광소비(2026-11-26 · TOURISM.card = 데이터랩 NAT_11_02_001 전국 · 억 원 · 2018-01~) — 문체부 '관광 분야 카드 소비액' 합계와 같은 값.
      방한객 총계보다 먼저 올라오는 달이 있어 자기 달 축을 쓴다. 매달 +20~60% 라 문턱 신호는 안 쓴다(sigIdx:[] · 백화점 카드결제와 같은 이유).
-     업종별(TOURISM.ind)은 데이터랩에 전국 금액이 없어 문체부 보도자료 표를 손으로 옮긴 것(tourism_mcst.json) — 2026-01~ 뿐이라 전년비가 없다. */
+     업종별(TOURISM.ind)은 데이터랩에 전국 금액이 없어 문체부 보도자료 표를 손으로 옮긴 것(tourism_mcst.json · 2026-01~) + 그 앞(2018-01~)은 추정(2026-11-26 사용자 "업종별도 길게"):
+     17개 시도 합(LN_10_02_002) × 업종별 '보도자료 ÷ 시도 합' 비율 · 숙박·기타는 전국 합계(카드)에 맞춤 → I.e(1 추정 · 2 추정 · 숙박·기타 오차 큼)를 estMask 로 넘겨 점선·흐린 막대로 가른다. */
   const eok=v=>v==null||isNaN(v)?"—":(v>=1e4?(v/1e4).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2})+"조":Math.round(v).toLocaleString()+"억")+"원";
   const C=TOURISM.card;
   if(C&&C.months&&C.months.length>13){
@@ -2328,13 +2339,17 @@ function injectCompanyStack(items, opt){
   }
   const I=TOURISM.ind;
   if(I&&I.months&&I.months.length>=2){
-    const IM=I.months, ii=IM.length-1, imo=+IM[ii].slice(4,6), tot=I.tot||[];
+    const IM=I.months, ii=IM.length-1, imo=+IM[ii].slice(4,6), iyr=IM[ii].slice(0,4), tot=I.tot||[], EM=I.e||IM.map(()=>0), X=I.est||{};
     const share=(k,j)=>tot[j]>0?`${(I.v[k][j]/tot[j]*100).toFixed(1)}%`:"—";
-    const cum=k=>I.v[k].reduce((t,v)=>t+(v||0),0), ctot=tot.reduce((t,v)=>t+(v||0),0);
+    const i0=IM.indexOf(`${iyr}01`), ytd=k=>i0<0?null:I.v[k].slice(i0,ii+1).reduce((t,v)=>t+(v||0),0), ytdP=k=>i0<12?null:I.v[k].slice(i0-12,ii-11).reduce((t,v)=>t+(v||0),0);
+    const ctot=I.keys.reduce((t,_,k)=>t+(ytd(k)||0),0), ne=EM.filter(Boolean).length, fa=EM.indexOf(0);
     build("외국인 카드 관광소비 · 업종별",I.keys.map((k,i)=>[k,I.v[i]]),{months:IM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), unit:"억원(월)", unitShort:"억원", realFmt:eok,
-      yoyCmp:false, minPts:IM.length, endPad:104, srcName:(I.src||"문체부 보도자료")+" · 통계 한국관광 데이터랩(관광공사) · 전년 같은 달 업종별 표가 없어 전월과 비교",
-      reviewNote:`${IM[ii].slice(0,4)}년 ${imo}월 · `+I.keys.map((k,i)=>`${k.replace("업","")} ${eok(I.v[i][ii])}(${share(i,ii)})`).join(" · ")
-        +` · 1~${imo}월 비중 `+I.keys.map((k,i)=>`${k.replace("업","")} ${(cum(i)/ctot*100).toFixed(1)}%`).join(" · ")});
+      estMask:EM, minPts:IM.length, endPad:104,
+      srcName:(I.src||"문체부 보도자료")+(ne?` · ${IM[0].slice(0,4)}.${+IM[0].slice(4,6)}~ 중 ${ne}개월은 추정(점선) — ${X.src||"시도 합 × 비율"} · 한 달씩 빼고 맞힌 평균 오차 `
+        +I.keys.map((k,i)=>`${k.replace("업","")} ${(X.loo||[])[i]}%`).join(" · ")+" · 2018~2022 는 시도 몫이 지금과 달라 숙박·기타를 덜 믿을 것":""),
+      reviewNote:`${iyr}년 ${imo}월${EM[ii]?"(추정)":""} · `+I.keys.map((k,i)=>`${k.replace("업","")} ${eok(I.v[i][ii])}(${share(i,ii)} · 전년동월비 ${sg(pct(I.v[i][ii],I.v[i][ii-12]))})`).join(" · ")
+        +(i0>=0?` · 1~${imo}월 누적 `+I.keys.map((k,i)=>`${k.replace("업","")} ${(ytd(i)/ctot*100).toFixed(1)}%(${sg(pct(ytd(i),ytdP(i)))})`).join(" · "):"")
+        +(fa>0&&EM[fa-12]!==undefined?` · ${IM[fa].slice(0,4)}년 전년비는 작년 추정치 대비`:"")});
   }
   ["파라다이스","롯데관광개발","GKL","호텔신라","현대백화점","신세계","GS피앤엘","서부T&D","파마리서치"].forEach(s=>{
     ["방한 외래관광객","방한 외래관광객 · 국적별","방한 외래관광객 · 입국 공항·항구별","외국인 카드 관광소비","외국인 카드 관광소비 · 업종별"].forEach(g=>{
@@ -3341,7 +3356,9 @@ function winPlan(G, days){
     if(G.preferWeek && wk && wk.n>=MIN_PTS.week && days>=21) pick=wk;
     else pick=(d && d.n>=5 && (d.days>=days*0.66 || !w || w.days<=d.days*1.5)) ? d : w;
   }
-  const n=days==null?pick.n:Math.min(pick.n, Math.max(MIN_PTS[pick.f], G.minPts||0, Math.ceil(days/FREQ_DAYS[pick.f])));   // minPts = 그룹이 정한 최소 점 수(유통 월 매출 = 2년 + 1달 — 작년 같은 달이 보이게)
+  // 월별 실측 통계(rawSer·peak — 수출·B/L·검색가…)는 minPts 를 안 단 그룹도 기본 2년 + 1달 — 전년비 패널에 1년 넘게 보이게(2026-11-26)
+  const mp=G.minPts||(pick.f==="month"&&(G.rawSer||G.peak)&&!G.rankN&&!G.stack&&!G.snapshot?25:0);
+  const n=days==null?pick.n:Math.min(pick.n, Math.max(MIN_PTS[pick.f], mp, Math.ceil(days/FREQ_DAYS[pick.f])));   // minPts = 그룹이 정한 최소 점 수(유통 월 매출 = 2년 + 1달 — 작년 같은 달이 보이게)
   return {days, name:winName(days), freq:pick.f, n, total:pick.n, maxDays, label:`${n}${FREQ_UNIT[pick.f]}`};
 }
 /* 현재 구간에 맞는 뷰 — 빈도를 고르고 뒤에서 n 개만 남긴다(months·naver·google·rawSer 를 같이 자른다).
@@ -3433,8 +3450,8 @@ function trendYLab(G,v){
 /* 두 출처가 다 있는 주제는 네이버·구글 차트를 위아래로 같이 그린다(2026-11-06 사용자 "네이버도 있고 구글도 있고 다 해 줘야지").
    버튼으로 번갈아 보면 구글 쪽을 못 보고 지나간다. 날짜축이 같아 위아래로 견주면 괴리가 바로 보인다.
    ⚠ 값은 출처마다 자기 고점=100 이라 높이끼리 견주면 안 된다 — 머리줄에 적어 둔다. 한 출처만 보는 버튼은 그대로 있다. */
-const TREND_EL=[{chart:"trendChart",legend:"trendLegend",table:"trendTable",title:"trendTblTitle"},
-                {chart:"trendChart2",legend:"trendLegend2",table:"trendTable2",title:"trendTblTitle2"}];
+const TREND_EL=[{chart:"trendChart",legend:"trendLegend",table:"trendTable",title:"trendTblTitle",yoy:"trendYoy"},
+                {chart:"trendChart2",legend:"trendLegend2",table:"trendTable2",title:"trendTblTitle2",yoy:"trendYoy2"}];
 let trendEl=TREND_EL[0], trendH=360;
 function drawTrend(){
   const $=id=>document.getElementById(id), G0=TREND.groups[trendGroup], V=viewGroup(G0), avail=srcOfGroup(V);
@@ -3451,6 +3468,7 @@ function drawTrend(){
 }
 function drawTrendOne(src){
   const box=document.getElementById(trendEl.chart); if(!box) return;
+  const yb=document.getElementById(trendEl.yoy); if(yb){ yb.style.display="none"; yb.innerHTML=""; }   // 전년비 패널은 겹쳐 보기에서만 다시 그린다
   const G0=TREND.groups[trendGroup];
   if(!G0){                                  // 종목 미선택 상태
     box.innerHTML=`<div class="ov-empty">위에서 <b>종목</b>을 고르면 트렌드가 표시됩니다.</div>`;
@@ -3508,11 +3526,16 @@ function drawTrendOne(src){
   const step=Math.max(1,Math.ceil(M.length/12),Math.ceil(M.length*38/(W-pad.l-pad.r)));   // 라벨이 빽빽하면 솎아낸다(일별 대응 · 휴대폰 폭은 라벨 하나에 38px)
   M.forEach((m,i)=>{ const end=M.length-1; if(i===end || (i%step===0 && end-i>=step)) s+=`<text x="${sx(i)}" y="${H-pad.b+18}" text-anchor="middle" font-size="10.5" fill="${mut}">${m}</text>`;});
   const SM=(G.smooth&&G.smooth[trendSrc])||null;          // 7일 추세선(일별 계열 · 켰을 때만)
+  const EST=trendEstFn(G0, M);                            // 추정 달(estMask · 전체 달 기준) → 보이는 창의 i
   const ends=[];
   series.forEach((ser,pi)=>{
     const c=TREND.colors[pi];
     // 추세선(켰을 때만) — 원값 밑에 얇은 점선으로. 원값을 대신하지 않는다.
     if(SM&&SM[pi]) s+=`<path d="${trendPath(SM[pi],sx,sy)}" fill="none" stroke="${c}" stroke-width="1.4" stroke-dasharray="5 4" stroke-opacity=".8" stroke-linejoin="round"/>`;
+    if(EST&&ser.some((v,i)=>v!=null&&EST(i))){            // 추정 구간(estMask)은 흐린 점선으로 따로 — 실측과 한 선에 섞지 않는다
+      s+=`<path d="${trendPathSeg(ser,sx,sy,EST,true)}" fill="none" stroke="${c}" stroke-width="2" stroke-dasharray="4 3" stroke-opacity=".55" stroke-linejoin="round"/>`;
+      s+=`<path d="${trendPathSeg(ser,sx,sy,EST,false)}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    } else
     s+=`<path d="${trendPath(ser,sx,sy)}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
     if(G.peakDot){ const vs=ser.filter(v=>v!=null), pk=vs.length?ser.indexOf(Math.max(...vs)):-1;          // 점은 고점에만(유통 월 매출 · 사용자 규칙)
       if(pk>=0) s+=`<circle cx="${sx(pk)}" cy="${sy(ser[pk])}" r="3.4" fill="${c}"><title>${PRODUCTS[pi]} ${M[pk]} 고점</title></circle>`; }
@@ -3523,8 +3546,9 @@ function drawTrendOne(src){
   // 끝 라벨 겹침 풀기 — 같은 값(특히 0)에서 끝나는 계열이 여럿이면 이름이 한 줄에 뭉개졌다
   ends.sort((a,b)=>a.y-b.y);
   for(let k=1;k<ends.length;k++) if(ends[k].y-ends[k-1].y<13) ends[k].y=ends[k-1].y+13;
-  const over=ends.length?ends[ends.length-1].y-(H-4):0;
-  if(over>0) for(let k=ends.length-1;k>=0;k--){ ends[k].y-=over; if(k>0&&ends[k].y-ends[k-1].y<13) ends[k-1].y=ends[k].y-13; }
+  // 아래로 넘치면 맨 아래를 바닥에 붙이고 위로 13px 간격만 지킨다(2026-11-26 고침 — 예전 식은 넘친 만큼을 위 라벨마다 또 빼서
+  //   계열이 많은 그룹(국적별 13개)은 라벨이 49px 간격으로 벌어져 위쪽 다섯 개가 차트 밖으로 나갔다)
+  if(ends.length&&ends[ends.length-1].y>H-4){ ends[ends.length-1].y=H-4; for(let k=ends.length-2;k>=0;k--) ends[k].y=Math.min(ends[k].y, ends[k+1].y-13); }
   ends.forEach(e=>{ s+=`<text x="${W-pad.r+8}" y="${e.y.toFixed(1)}" font-size="12" font-weight="700" fill="${e.c}">${e.t}</text>`; });
   s+="</svg>";
   box.innerHTML=s;
@@ -3543,7 +3567,7 @@ function drawTrendOne(src){
       .filter(r=>r.v!=null)
       .sort((a,b)=>b.v-a.v);                 // 큰 것부터 — 차트에서 위에 있는 선 순서와 같다
     if(!rows.length) return null;
-    return `<div class="tt-h">${M[i]}</div>`+rows.map(r=>
+    return `<div class="tt-h">${M[i]}${EST&&EST(i)?` <span style="color:var(--muted);font-weight:600">· 추정</span>`:""}</div>`+rows.map(r=>
       `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
       +`<span class="v">${r.r0!=null?"":r.v}${(r.r0!=null||G.peak)?`<span style="color:var(--muted);font-weight:600;font-size:10.5px">${r.r0!=null?"":" · "}${G.realFmt?G.realFmt(r.r0!=null?r.r0:r.v*G.peak/100):fmt0(r.r0!=null?r.r0:r.v*G.peak/100)+(G.unitShort||"건")}</span>`:""}`
       +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}`
@@ -3551,7 +3575,95 @@ function drawTrendOne(src){
           return y==null?"":` <span class="${cls(y)}" style="font-size:10.5px">전년비 ${sign(y,1)}%</span>`; })():""}`
       +`${r.a!=null?` <span style="color:var(--muted);font-weight:600;font-size:10.5px">· 7일평균 ${G.rawSer?(G.fmt?G.fmt(r.a):r.a):r.a}</span>`:""}</span></div>`).join("");
   }});
+  drawTrendYoY(G0, G, PRODUCTS, series, M, W, pad, sx, EST);
   fillTrendLegendTable(G, PRODUCTS, series, M, U);
+}
+/* 추정 달 — G0.estMask 는 그룹 전체 달(G0.months)과 같은 길이(0 = 실측 · 1 = 추정 · 2 = 추정 · 오차 큼). 보이는 창(M)은 끝에서 자른 것이라 앞을 띄운다. */
+function trendEstFn(G0, M){
+  const mk=G0&&G0.estMask; if(!mk||!mk.length) return null;
+  const off=mk.length-M.length; if(off<0) return null;
+  return i=>{ const j=i+off; return j>=0&&j<mk.length?(mk[j]||0):0; };
+}
+/* null 에서 끊기고, 구간 종류(추정/실측)가 바뀌면 새로 긋는 path — want=true 면 추정에 걸친 구간만, false 면 실측끼리만 */
+function trendPathSeg(ser,sx,sy,isEst,want){
+  let d="", last=-2;
+  for(let i=1;i<ser.length;i++){
+    const a=ser[i-1], b=ser[i]; if(a==null||b==null) continue;
+    const e=!!(isEst(i-1)||isEst(i)); if(e!==want) continue;
+    if(last!==i-1) d+=`M${sx(i-1).toFixed(1)},${sy(a).toFixed(1)} `;
+    d+=`L${sx(i).toFixed(1)},${sy(b).toFixed(1)} `; last=i;
+  }
+  return d.trim()||"M0,0";
+}
+/* ══ 전년 같은 달 대비 패널 (2026-11-26 · 사용자 "yoy 도 같이 볼 수 있게 — 실질 데이터랑 더불어서, 이런 통계류 전부") ══
+   월별 실측 통계(방한객·카드 소비·유통 실액·물가·온라인쇼핑·카지노·지역 수출·B/L…)는 본 차트(실제 값) 바로 밑에 **같은 x축으로** 전년비(%)를 그린다.
+   계열 하나면 막대(오르면 빨강 · 내리면 파랑) · 여럿이면 본 차트와 같은 색의 선. 코로나 기저(+300%대) 같은 튐은 축 끝에서 자르고 ▲▼ · 툴팁에 실제 %.
+   추정 달(estMask)이 끼면(그 달이든 작년 같은 달이든) 막대는 흐리게 · 선은 점선.
+   대상 = trendYoYFn 이 함수를 주는 그룹 — yoyAt+rawFull 을 단 그룹(계절이 큰 월 통계)이나, 월별 실측 값(rawSer·peak)이 있는 그룹. 검색 지수·순위·누적 막대는 뺀다. */
+function trendYoYFn(G0, G, series, src){
+  const FREQ=G.freq||(G.daily?"date":"month"), n=(series[0]||[]).length;
+  if(FREQ!=="month"||!n||G.rankN||G.stack||G.snapshot||G.multi||(G0.freq&&G0.freq!=="month")) return null;
+  if(G.yoyAt&&G.rawFull){
+    const lag=G.yoyLag||12, off=(G.rawFull[0]||[]).length-n; if(off<0) return null;
+    return {lab:G.yoyLab||"전년동월비", lag, at:(pi,i)=>G.yoyAt(pi,i+off), cur:(pi,i)=>(G.rawFull[pi]||[])[i+off], prev:(pi,i)=>(G.rawFull[pi]||[])[i+off-lag]};
+  }
+  if(!(G0.rawSer||G0.peak)) return null;
+  const full=G0.rawSer||G0[src]||G0.naver; if(!full||!full[0]) return null;
+  const off=full[0].length-n, lag=12; if(off<0) return null;
+  const rv=(pi,j)=>{ const a=full[pi]||[]; const v=a[j]; return v==null?null:(G0.rawSer?v:v*G0.peak/100); };
+  return {lab:"전년동월비", lag, at:(pi,i)=>{ const a=rv(pi,i+off), b=rv(pi,i+off-lag); return (a!=null&&b>0)?(a/b-1)*100:null; },
+          cur:(pi,i)=>rv(pi,i+off), prev:(pi,i)=>rv(pi,i+off-lag)};
+}
+function drawTrendYoY(G0, G, PRODUCTS, series, M, W, pad, sx, EST){
+  const el=document.getElementById(trendEl.yoy); if(!el) return;
+  const Y=trendYoYFn(G0, G, series, trendSrc); if(!Y) return;
+  const n=M.length, P=series.length, vals=[];
+  const V=series.map((_,pi)=>M.map((_,i)=>{ const v=Y.at(pi,i); if(v==null||!isFinite(v)) return null; vals.push(v); return v; }));
+  if(vals.length<3) return;
+  const estAt=i=>!!EST&&(!!EST(i)||(i-Y.lag>=0?!!EST(i-Y.lag):!!(G0.estMask&&G0.estMask[i+G0.estMask.length-n-Y.lag])));
+  // 축 — 92% 분위 × 1.4 에서 자른다(2021→2022 같은 기저 효과가 축을 다 먹지 않게)
+  const ab=vals.map(Math.abs).sort((a,b)=>a-b), q=ab[Math.floor((ab.length-1)*0.92)], cap=Math.max(10,q*1.4);
+  let hi=Math.min(cap,Math.max(0,...vals)), lo=Math.max(-cap,-100,Math.min(0,...vals));
+  if(hi-lo<10){ hi=Math.max(hi,5); lo=Math.min(lo,-5); }
+  const st=[1,2,5,10,20,25,50,100,200,500,1000].find(x=>(hi-lo)/x<=5)||1000;
+  hi=Math.ceil(hi/st)*st; lo=Math.floor(lo/st)*st;
+  const H=trendH>300?170:140, pd={l:pad.l,r:pad.r,t:22,b:22}, ih=H-pd.t-pd.b;
+  const sy=v=>pd.t+(hi-Math.max(lo,Math.min(hi,v)))/(hi-lo)*ih;
+  const gc=getComputedStyle(document.documentElement).getPropertyValue('--line'), mut=getComputedStyle(document.documentElement).getPropertyValue('--muted');
+  const pcs=v=>(v>=0?"+":"")+(Math.abs(v)>=100?Math.round(v):v.toFixed(1))+"%";
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="inherit">`;
+  s+=`<text x="2" y="12" font-size="10.5" font-weight="700" fill="${mut}">${Y.lab}(%) · ${Y.lag===12?"작년 같은 달":"작년 같은 분기"} 대비${EST?" · 흐린 칸 = 추정이 낀 달":""}</text>`;
+  for(let t=lo;t<=hi+1e-9;t+=st){ const y=sy(t);
+    s+=`<line x1="${pd.l}" y1="${y}" x2="${W-pd.r}" y2="${y}" stroke="${gc}" stroke-width="${t===0?1.6:1}"${t===0?` stroke-opacity="1"`:""}/>`;
+    s+=`<text x="${pd.l-8}" y="${y+4}" text-anchor="end" font-size="10.5" fill="${mut}">${t>0?"+":""}${t}%</text>`; }
+  const step=Math.max(1,Math.ceil(n/12),Math.ceil(n*38/(W-pd.l-pd.r)));
+  M.forEach((m,i)=>{ const end=n-1; if(i===end||(i%step===0&&end-i>=step)) s+=`<text x="${sx(i)}" y="${H-6}" text-anchor="middle" font-size="10" fill="${mut}">${m}</text>`; });
+  const z=sy(0);
+  if(P===1){
+    const bw=Math.max(1.5,Math.min(14,(W-pd.l-pd.r)/Math.max(1,n)*0.7));
+    V[0].forEach((v,i)=>{ if(v==null) return; const y=sy(v), c=v>=0?"var(--up)":"var(--down)", e=estAt(i);
+      s+=`<rect x="${(sx(i)-bw/2).toFixed(1)}" y="${Math.min(y,z).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,Math.abs(z-y)).toFixed(1)}" fill="${c}" fill-opacity="${e?.38:.85}"/>`;
+      if(v>hi||v<lo) s+=`<text x="${sx(i)}" y="${v>hi?pd.t-3:H-pd.b+9}" text-anchor="middle" font-size="8" fill="${c}">${v>hi?"▲":"▼"}</text>`; });
+    const li=V[0].map((v,i)=>v==null?-1:i).filter(i=>i>=0).pop();
+    if(li!=null) s+=`<text x="${W-pd.r+8}" y="${(sy(V[0][li])+4).toFixed(1)}" font-size="11.5" font-weight="700" fill="${V[0][li]>=0?"var(--up)":"var(--down)"}">${pcs(V[0][li])}</text>`;
+  } else {
+    V.forEach((ser,pi)=>{ const c=TREND.colors[pi];
+      s+=`<path d="${trendPathSeg(ser,sx,sy,estAt,true)}" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="4 3" stroke-opacity=".55"/>`;
+      s+=`<path d="${trendPathSeg(ser,sx,sy,estAt,false)}" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"/>`; });
+  }
+  s+="</svg>";
+  el.innerHTML=s; el.style.display="";
+  const rf=x=>x==null?"—":(G.realFmt?G.realFmt(x):trendRealFmt(G,x));
+  attachChartTip(el,{W,H,pad:pd,n,xOf:sx,
+    pts:i=>P===1?[]:V.map((ser,pi)=>ser[i]==null?null:{y:sy(ser[i]),c:TREND.colors[pi]}),
+    xLab:i=>M[i], yLab:Yp=>pcs(lo+(pd.t+ih-Yp)/ih*(hi-lo)),
+    html:i=>{
+      const rows=V.map((ser,pi)=>({p:PRODUCTS[pi],c:TREND.colors[pi],v:ser[i],a:Y.cur(pi,i),b:Y.prev(pi,i)})).filter(r=>r.v!=null).sort((x,y)=>y.v-x.v);
+      if(!rows.length) return null;
+      return `<div class="tt-h">${M[i]} ${Y.lab}${estAt(i)?` <span style="color:var(--muted);font-weight:600">· 추정 포함</span>`:""}</div>`+rows.map(r=>
+        `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
+        +`<span class="v"><span class="${cls(r.v)}">${pcs(r.v)}</span> <span style="color:var(--muted);font-weight:600;font-size:10.5px">${rf(r.b)} → ${rf(r.a)}</span></span></div>`).join("");
+    }});
 }
 
 /* 계열별 미니 차트 격자. y축은 0–100 고정 —
