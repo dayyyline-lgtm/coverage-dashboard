@@ -2285,28 +2285,57 @@ function injectCompanyStack(items, opt){
   const T=TOURISM.total, y0=at(`${yr}01`), y19=at(`2019${M[li].slice(4,6)}`);
   const ytd=y0>=0?sum(T,y0,li):null, ytdP=y0>=12?sum(T,y0-12,li-12):null, ytd19=at("201901")>=0?sum(T,at("201901"),at("201901")+(li-y0)):null;
   const src="한국관광 데이터랩 · 한국관광통계(법무부 출입국 · 승무원 제외 · 교포 포함) · 매달 말 전월분 공표";
-  build("방한 외래관광객",[["방한 외래관광객",T]],{sigIdx:[0], srcName:src,
+  // 마지막 달이 문체부 보도자료 속보치(flash · 2026-11-26)면 총계만 있고 국적·공항별은 데이터랩 공표 대기 — 그 두 그룹의 요약은 직전 달로
+  const FL=TOURISM.flash&&TOURISM.flash.ym===M[li]?TOURISM.flash:null, lp=FL?li-1:li, mop=+M[lp].slice(4,6);
+  build("방한 외래관광객",[["방한 외래관광객",T]],{sigIdx:[0], srcName:src+(FL?` · ${mo}월은 ${FL.src}`:""),
     reviewNote:`${yr}년 ${mo}월 ${man(T[li])}(전년동월비 ${sg(pct(T[li],T[li-12]))} · 2019년 같은 달 대비 ${sg(y19>=0?pct(T[li],T[y19]):null)})`
-      +(ytd!=null?` · 1~${mo}월 누적 ${man(ytd)}(전년비 ${sg(pct(ytd,ytdP))} · 2019년 대비 ${sg(pct(ytd,ytd19))})`:"")});
+      +(ytd!=null?` · 1~${mo}월 누적 ${man(ytd)}(전년비 ${sg(pct(ytd,ytdP))} · 2019년 대비 ${sg(pct(ytd,ytd19))})`:"")
+      +(FL?` · ${mo}월은 문체부 보도자료 속보(국적·공항별은 데이터랩 공표 대기)`:"")});
   const N=TOURISM.nat;
   if(N&&N.months&&N.months.length>12){
     const map=Object.fromEntries(N.months.map((m,i)=>[m,i]));
     const codes=Object.keys(N.v||{}), row=c=>M.map(m=>map[m]==null?null:N.v[c][map[m]]);
-    const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][li]||0)-(a[1][li]||0));
+    const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][lp]||0)-(a[1][lp]||0));
     rows.push(["그 밖",M.map((m,j)=>map[m]==null?null:Math.max(0,T[j]-codes.reduce((t,c)=>t+(N.v[c][map[m]]||0),0)))]);
     build("방한 외래관광객 · 국적별",rows,{srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)",
-      reviewNote:`${mo}월 · `+rows.slice(0,6).map(r=>`${r[0]} ${man(r[1][li])}(${sg(pct(r[1][li],r[1][li-12]))})`).join(" · ")});
+      reviewNote:`${mop}월 · `+rows.slice(0,6).map(r=>`${r[0]} ${man(r[1][lp])}(${sg(pct(r[1][lp],r[1][lp-12]))})`).join(" · ")});
   }
   const P=TOURISM.ports;
   if(P&&P.v){
     const rows=P.names.map((n,i)=>[n,P.v[i]]);
     build("방한 외래관광객 · 입국 공항·항구별",rows,{srcName:src+" · 입국한 공항·항구 기준(제주공항·제주항 = 제주 직항·크루즈)",
-      reviewNote:`${mo}월 · `+rows.filter(r=>r[1][li]>0).sort((a,b)=>b[1][li]-a[1][li]).slice(0,6).map(r=>`${r[0]} ${man(r[1][li])}(${sg(pct(r[1][li],r[1][li-12]))})`).join(" · ")});
+      reviewNote:`${mop}월 · `+rows.filter(r=>r[1][lp]>0).sort((a,b)=>b[1][lp]-a[1][lp]).slice(0,6).map(r=>`${r[0]} ${man(r[1][lp])}(${sg(pct(r[1][lp],r[1][lp-12]))})`).join(" · ")});
+  }
+  /* 외국인 신용카드 관광소비(2026-11-26 · TOURISM.card = 데이터랩 NAT_11_02_001 전국 · 억 원 · 2018-01~) — 문체부 '관광 분야 카드 소비액' 합계와 같은 값.
+     방한객 총계보다 먼저 올라오는 달이 있어 자기 달 축을 쓴다. 매달 +20~60% 라 문턱 신호는 안 쓴다(sigIdx:[] · 백화점 카드결제와 같은 이유).
+     업종별(TOURISM.ind)은 데이터랩에 전국 금액이 없어 문체부 보도자료 표를 손으로 옮긴 것(tourism_mcst.json) — 2026-01~ 뿐이라 전년비가 없다. */
+  const eok=v=>v==null||isNaN(v)?"—":(v>=1e4?(v/1e4).toLocaleString("ko-KR",{minimumFractionDigits:2,maximumFractionDigits:2})+"조":Math.round(v).toLocaleString()+"억")+"원";
+  const C=TOURISM.card;
+  if(C&&C.months&&C.months.length>13){
+    const CM=C.months, ci=CM.length-1, cmo=+CM[ci].slice(4,6), cyr=CM[ci].slice(0,4), cat=ym=>CM.indexOf(ym), V=C.v;
+    const c0=cat(`${cyr}01`), cytd=c0>=0?sum(V,c0,ci):null, cytdP=c0>=12?sum(V,c0-12,ci-12):null;
+    const pc=ym=>{ const a=cat(ym), b=at(ym); return a>=0&&b>=0&&T[b]>0?V[a]*1e8/T[b]:null; };   // 1인당(원) = 카드 ÷ 방한객
+    const pcm=v=>v==null?"—":`${(v/1e4).toFixed(1)}만원`, ly=`${cyr-1}${CM[ci].slice(4,6)}`;
+    build("외국인 카드 관광소비",[["외국인 카드 관광소비",V]],{months:CM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), unit:"억원(월)", unitShort:"억원", realFmt:eok,
+      srcName:(C.src||"한국관광 데이터랩 · 외국인 신용카드 관광소비액")+" · 신용카드만(간편결제·현금 제외) · 문체부 '관광 분야 카드 소비액' 합계와 같은 값",
+      reviewNote:`${cyr}년 ${cmo}월 ${eok(V[ci])}(전년동월비 ${sg(pct(V[ci],V[ci-12]))})`
+        +(cytd!=null?` · 1~${cmo}월 누적 ${eok(cytd)}(전년비 ${sg(pct(cytd,cytdP))})`:"")
+        +(pc(CM[ci])!=null?` · 방한객 1인당 ${pcm(pc(CM[ci]))}(작년 같은 달 ${pcm(pc(ly))})`:"")});
+  }
+  const I=TOURISM.ind;
+  if(I&&I.months&&I.months.length>=2){
+    const IM=I.months, ii=IM.length-1, imo=+IM[ii].slice(4,6), tot=I.tot||[];
+    const share=(k,j)=>tot[j]>0?`${(I.v[k][j]/tot[j]*100).toFixed(1)}%`:"—";
+    const cum=k=>I.v[k].reduce((t,v)=>t+(v||0),0), ctot=tot.reduce((t,v)=>t+(v||0),0);
+    build("외국인 카드 관광소비 · 업종별",I.keys.map((k,i)=>[k,I.v[i]]),{months:IM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), unit:"억원(월)", unitShort:"억원", realFmt:eok,
+      yoyCmp:false, minPts:2, endPad:104, srcName:(I.src||"문체부 보도자료")+" · 통계 한국관광 데이터랩(관광공사) · 전년 같은 달 업종별 표가 없어 전월과 비교",
+      reviewNote:`${IM[ii].slice(0,4)}년 ${imo}월 · `+I.keys.map((k,i)=>`${k.replace("업","")} ${eok(I.v[i][ii])}(${share(i,ii)})`).join(" · ")
+        +` · 1~${imo}월 비중 `+I.keys.map((k,i)=>`${k.replace("업","")} ${(cum(i)/ctot*100).toFixed(1)}%`).join(" · ")});
   }
   ["파라다이스","롯데관광개발","GKL","호텔신라","현대백화점","신세계","GS피앤엘","서부T&D","파마리서치"].forEach(s=>{
-    ["방한 외래관광객","방한 외래관광객 · 국적별","방한 외래관광객 · 입국 공항·항구별"].forEach(g=>{
+    ["방한 외래관광객","방한 외래관광객 · 국적별","방한 외래관광객 · 입국 공항·항구별","외국인 카드 관광소비","외국인 카드 관광소비 · 업종별"].forEach(g=>{
       if(!TREND.groups[g]) return;
-      if(s==="파마리서치"&&g!=="방한 외래관광객") return;   // 파마리서치는 외국인 시술 손님 — 총계만
+      if(s==="파마리서치"&&/국적별|공항/.test(g)) return;   // 파마리서치는 외국인 시술 손님 — 총계·카드(의료웰니스)만
       (TREND_STOCK[s]=TREND_STOCK[s]||[]).push(g);
     });
   });
@@ -3157,7 +3186,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭|외국인 카드결제/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭|외국인 카드결제|카드 관광소비/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -3172,7 +3201,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|카지노|외국인 카드결제/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|카지노|외국인 카드결제|카드 관광소비/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";
