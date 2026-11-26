@@ -1,7 +1,7 @@
 {
- "t": "2026-11-26 13:10:41 KST",
+ "t": "2026-11-26 13:12:10 KST",
  "runner": {
-  "ip": "20.109.95.66",
+  "ip": "4.150.99.139",
   "org": "AS8075 Microsoft Corporation",
   "country": "US",
   "region": "Virginia",
@@ -12,41 +12,40 @@
    "name": "itemmania XML(수집기 헤더)",
    "url": "https://www.itemmania.com/_xml/gamemoney_avg.xml.php",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.12
+   "sec": 20.14
   },
   {
    "name": "itemmania XML(헤더 없음)",
    "url": "https://www.itemmania.com/_xml/gamemoney_avg.xml.php",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.13
+   "sec": 20.15
   },
   {
    "name": "itemmania rank(doc)",
    "url": "https://www.itemmania.com/game_info/rank_game/",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.13
+   "sec": 20.14
   },
   {
    "name": "itemmania 홈(http 80)",
    "url": "http://www.itemmania.com/",
    "err": "URLError: <urlopen error timed out>",
-   "sec": 20.12
+   "sec": 20.03
   },
   {
    "name": "oliveyoung best(doc)",
    "url": "https://www.oliveyoung.co.kr/store/main/getBestList.do",
-   "status": 200,
-   "bytes": 423699,
-   "sec": 0.87,
+   "status": 403,
+   "sec": 0.23,
    "server": "cloudflare",
-   "head": "\n\n\n\n\n\n\n\n\n<!DOCTYPE html>\n<html lang=\"ko\">\n\t<head>\n\t<meta charset=\"utf-8\">\n\t\n\t\n<script>\nwin"
+   "err_head": "<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\" />\n    <meta http-equiv=\"Pragma\" content=\"no-cache\" />\n    <meta http-equiv=\"Cache-Control\" content=\"no-cache\" />\n    <meta http-equiv=\"X-UA-Compatible\" conten"
   },
   {
    "name": "oliveyoung 홈(doc)",
    "url": "https://www.oliveyoung.co.kr/store/main/main.do",
    "status": 200,
    "bytes": 2544,
-   "sec": 0.61,
+   "sec": 0.43,
    "server": "cloudflare",
    "head": "\n\n   \n\n\n\n\n\n\n\n<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n<meta charset=\"utf-8\">\n<meta http-equ"
   },
@@ -55,16 +54,16 @@
    "url": "https://global.oliveyoung.com/",
    "status": 200,
    "bytes": 405796,
-   "sec": 0.7,
+   "sec": 0.67,
    "server": "cloudflare",
-   "head": "<!DOCTYPE html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta name=\"_csrf\" content=\"9a13a1e4-5cc2-44c2-"
+   "head": "<!DOCTYPE html>\n<html lang=\"en\">\n\t<head>\n\t\t<meta name=\"_csrf\" content=\"0010aa6f-b8af-4188-"
   },
   {
    "name": "megabox schedulePage POST",
    "url": "https://www.megabox.co.kr/on/oh/ohc/Brch/schedulePage.do",
    "status": 200,
    "bytes": 37805,
-   "sec": 1.29,
+   "sec": 1.32,
    "server": null,
    "head": "{\"statCd\":0,\"msg\":\"\\uC694\\uCCAD\\uC774 \\uC815\\uC0C1\\uC801\\uC73C\\uB85C \\uCC98\\uB9AC\\uB418\\uC"
   },
@@ -73,7 +72,7 @@
    "url": "https://www.megabox.co.kr/",
    "status": 200,
    "bytes": 149619,
-   "sec": 1.62,
+   "sec": 1.82,
    "server": null,
    "head": "\n\n\n\n\n\n\n\n\n\n\n<!doctype html>\n<!--[if lt IE 10]><html class=\"lt-ie9\" lang=\"ko\"><![endif]-->\n<"
   },
@@ -81,7 +80,7 @@
    "name": "대조군 CGV",
    "url": "https://www.cgv.co.kr/",
    "status": 403,
-   "sec": 1.75,
+   "sec": 1.68,
    "server": "cloudflare",
    "err_head": "\n<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\">\n    <style>/* container */\n.container [id=\"contentArea\"] {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 0 !important;\n  background-color: #ffffff !important;\n}\n\n/* errorPage 기본 */\n.errorPage {\n  max-widt"
   },
@@ -89,7 +88,7 @@
    "name": "CGV 예매 상영작 목록",
    "url": "https://cgv.co.kr/api/v1/booking/searchAtktTopPostrList",
    "status": 403,
-   "sec": 0.48,
+   "sec": 0.36,
    "server": "cloudflare",
    "err_head": "\n<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\">\n    <style>/* container */\n.container [id=\"contentArea\"] {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 0 !important;\n  background-color: #ffffff !important;\n}\n\n/* errorPage 기본 */\n.errorPage {\n  max-widt"
   },
@@ -97,7 +96,7 @@
    "name": "CGV 예매 회차(강변)",
    "url": "https://cgv.co.kr/api/v1/booking/searchMovScnInfo",
    "status": 403,
-   "sec": 0.36,
+   "sec": 0.47,
    "server": "cloudflare",
    "err_head": "\n<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\">\n    <style>/* container */\n.container [id=\"contentArea\"] {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 0 !important;\n  background-color: #ffffff !important;\n}\n\n/* errorPage 기본 */\n.errorPage {\n  max-widt"
   },
@@ -106,7 +105,7 @@
    "url": "https://www.lottecinema.co.kr/NLCHS/Ticketing",
    "status": 200,
    "bytes": 12322,
-   "sec": 1.44,
+   "sec": 1.35,
    "server": null,
    "head": "\r\n\r\n\r\n<!DOCTYPE html>\r\n<html lang=\"ko\">\r\n<head>\r\n    <title>예매 - 롯데시네마</titl"
   },
@@ -115,7 +114,7 @@
    "url": "https://newelitalco.kz/ru/catalog/cigarettes/",
    "status": 200,
    "bytes": 788020,
-   "sec": 2.33,
+   "sec": 3.37,
    "server": "nginx",
    "head": "<!DOCTYPE html>\n<!--[if IE 7]>    <html lang=\"rus\" class=\"no-js ie7 oldie\"> <![endif]-->\n<"
   },
@@ -124,7 +123,7 @@
    "url": "https://kaspi.kz/yml/product-view/pl/results",
    "status": 200,
    "bytes": 35046,
-   "sec": 1.58,
+   "sec": 1.6,
    "server": null,
    "head": "{\"data\":[{\"id\":\"145958921\",\"configSku\":\"145958921\",\"title\":\"IQOS ILUMA i ONE черный "
   },
@@ -132,17 +131,17 @@
    "name": "KZ hh.kz(doc)",
    "url": "https://hh.kz/search/vacancy",
    "status": 200,
-   "bytes": 758431,
-   "sec": 2.06,
+   "bytes": 758396,
+   "sec": 2.23,
    "server": "Angie",
-   "head": "<!DOCTYPE html>\n<html class=\"desktop\" lang=\"ru\">\n<!-- request: 1795666245279a09e8ec4c59474"
+   "head": "<!DOCTYPE html>\n<html class=\"desktop\" lang=\"ru\">\n<!-- request: 1795666333002930680d181253a"
   },
   {
    "name": "대조군 네이버",
    "url": "https://www.naver.com/",
    "status": 200,
-   "bytes": 230348,
-   "sec": 0.9,
+   "bytes": 284118,
+   "sec": 1.07,
    "server": "nfront",
    "head": " <!doctype html> <html lang=\"ko\" class=\"fzoom\"> <head> <meta charset=\"utf-8\"> <meta name=\""
   },
@@ -151,7 +150,7 @@
    "url": "https://gamebit.co.kr/jdata2/zeus/total_status.json",
    "status": 200,
    "bytes": 9632,
-   "sec": 0.93,
+   "sec": 0.84,
    "server": "openresty",
    "head": "{\"2794301\":{\"id\":2794301,\"server_name\":\"아르테미스01\",\"server_slug\":\"zeus_artemis01\","
   },
@@ -159,8 +158,8 @@
    "name": "JP qoo10 best beauty(doc)",
    "url": "https://www.qoo10.jp/gmkt.inc/Bestsellers/",
    "status": 200,
-   "bytes": 1093806,
-   "sec": 0.56,
+   "bytes": 1094012,
+   "sec": 0.61,
    "server": null,
    "head": "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml"
   },
@@ -168,8 +167,8 @@
    "name": "JP qoo10 search(doc)",
    "url": "https://www.qoo10.jp/s/medicube",
    "status": 200,
-   "bytes": 529157,
-   "sec": 1.39,
+   "bytes": 529363,
+   "sec": 1.31,
    "server": null,
    "head": "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml"
   },
@@ -177,8 +176,8 @@
    "name": "TG kmj_retailcosmetics(doc)",
    "url": "https://t.me/s/kmj_retailcosmetics",
    "status": 200,
-   "bytes": 137996,
-   "sec": 0.73,
+   "bytes": 137999,
+   "sec": 0.64,
    "server": "nginx/1.30.7",
    "head": "<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\">\n    <title>[한투증권 김명"
   },
@@ -187,7 +186,7 @@
    "url": "https://www.mcst.go.kr/site/s_notice/press/pressList.jsp",
    "status": 200,
    "bytes": 148202,
-   "sec": 2.85,
+   "sec": 3.03,
    "server": "Apache",
    "head": "\r\n\r\n<!doctype html>\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\r\n\r\n\r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n \r\n "
   }
@@ -202,19 +201,19 @@
    "dns": 0.0,
    "ip": "162.159.142.222",
    "tcp": 0.01,
-   "tls": 0.02,
+   "tls": 0.03,
    "tls_ver": "TLSv1.3"
   },
   "www.megabox.co.kr": {
    "dns": 0.0,
    "ip": "203.249.159.20",
    "tcp": 0.17,
-   "tls": 0.2,
+   "tls": 0.19,
    "tls_ver": "TLSv1.3"
   },
   "www.cgv.co.kr": {
    "dns": 0.0,
-   "ip": "104.18.22.5",
+   "ip": "104.18.23.5",
    "tcp": 0.01,
    "tls": 0.02,
    "tls_ver": "TLSv1.3"
@@ -237,8 +236,8 @@
     "cfMitigated": null,
     "location": null,
     "dataLen": null,
-    "len": 88999,
-    "ms": 1325,
+    "len": 89011,
+    "ms": 573,
     "err": null,
     "head": "<!DOCTYPE html><html lang=\"ko\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1, viewp"
    },
@@ -250,7 +249,7 @@
     "location": "https://cgv.co.kr",
     "dataLen": null,
     "len": 162,
-    "ms": 1247,
+    "ms": 595,
     "err": null,
     "head": "<html>\r\n<head><title>301 Moved Permanently</title></head>\r\n<body>\r\n<center><h1>301 Moved Permanently</h1></center>\r\n<hr><center>nginx</center>\r\n</body"
    },
@@ -262,7 +261,7 @@
     "location": null,
     "dataLen": 168,
     "len": 26153,
-    "ms": 241,
+    "ms": 228,
     "err": null
    },
    {
@@ -273,7 +272,7 @@
     "location": null,
     "dataLen": 41,
     "len": 61880,
-    "ms": 344,
+    "ms": 317,
     "err": null
    },
    {
@@ -284,7 +283,7 @@
     "location": null,
     "dataLen": 60,
     "len": 90605,
-    "ms": 372,
+    "ms": 379,
     "err": null
    },
    {
@@ -295,7 +294,7 @@
     "location": null,
     "dataLen": 168,
     "len": 26153,
-    "ms": 244,
+    "ms": 229,
     "err": null
    },
    {
@@ -306,14 +305,14 @@
     "location": null,
     "dataLen": null,
     "len": 13268,
-    "ms": 10,
+    "ms": 8,
     "err": null,
-    "head": "비정상적으로 CGV에 접속한 것이 확인되어 이용이 제한되었어요. 자세한 내용은 고객센터( 1544-1122 )로 문의해 주세요. RAY_ID a6060c1b4d3eec0a CLIENT_IP 2a06:98c0:3600::103"
+    "head": "비정상적으로 CGV에 접속한 것이 확인되어 이용이 제한되었어요. 자세한 내용은 고객센터( 1544-1122 )로 문의해 주세요. RAY_ID a6060e38b8a9c9ad CLIENT_IP 2a06:98c0:3600::103"
    }
   ],
   "timing": {
-   "upload_s": 0.93,
-   "call_s": 4.27
+   "upload_s": 1.13,
+   "call_s": 2.61
   }
  },
  "cgv_relay_test": {
@@ -355,6 +354,16 @@
   }
  },
  "mcst": {
-  "err": "RemoteDisconnected: Remote end closed connection without response"
+  "found": [
+   [
+    "2026-11-26",
+    "4개월 연속, 방한 외국인 관광객 월 200만 명 돌파"
+   ]
+  ],
+  "sec": 29.0,
+  "pdf_bytes": 343671,
+  "ym": "202610",
+  "ind_months": 10,
+  "cum_total": 19266268
  }
 }
