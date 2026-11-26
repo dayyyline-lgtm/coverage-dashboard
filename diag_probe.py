@@ -114,6 +114,8 @@ def main():
         ("JP qoo10 search(doc)", "https://www.qoo10.jp/s/medicube?keyword=medicube", ua(referer="https://www.qoo10.jp/", doc=True), None),
         # 한투 김명주 텔레그램(fetch_kmj.py · 2026-09-29) — 이 PC 에선 200·119KB. refresh.yml 이 매시간 부르니 러너에서도 열려야 한다.
         ("TG kmj_retailcosmetics(doc)", "https://t.me/s/kmj_retailcosmetics", ua(referer="https://t.me/s/kmj_retailcosmetics", doc=True), None),
+        # 문체부 보도자료 게시판(mcst_press.py · 2026-11-26) — '방한 관광 동향' PDF 자동 수집. 러너에서 열리는지
+        ("MCST 보도자료 목록(doc)", "https://www.mcst.go.kr/site/s_notice/press/pressList.jsp?pCurrentPage=1", ua(doc=True), None),
     ]
     with cf.ThreadPoolExecutor(8) as ex:
         futs = [ex.submit(http, *j) for j in jobs]
@@ -132,6 +134,18 @@ def main():
         OUT["cgv_relay_test"] = diag_cgv_worker.relay_test()
     except Exception as e:
         OUT["cgv_relay_test"] = {"err": f"{type(e).__name__}: {str(e)[:200]}"}
+    # 문체부 '방한 관광 동향' 보도자료 — 게시판 → 글 → PDF → 표 읽기까지 끝까지(파일은 안 바꾼다)
+    try:
+        import mcst_press, time
+        t0 = time.time(); rel = mcst_press.find_release()
+        o = {"found": [[str(d), t[:40]] for d, t, u in rel], "sec": round(time.time() - t0, 1)}
+        if rel:
+            raw = mcst_press._get(rel[0][2], doc=False, timeout=60); o["pdf_bytes"] = len(raw)
+            r = mcst_press.parse_text(mcst_press.pdf_text(raw))
+            o["ym"] = r["ym"]; o["ind_months"] = len(r["ind"]); o["cum_total"] = r["cum"]["total"]
+        OUT["mcst"] = o
+    except Exception as e:
+        OUT["mcst"] = {"err": f"{type(e).__name__}: {str(e)[:300]}"}
     import os
     os.makedirs("diag", exist_ok=True)
     json.dump(OUT, open("diag/net_probe.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)

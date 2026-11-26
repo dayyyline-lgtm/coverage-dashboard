@@ -148,8 +148,10 @@ jobs:
       # 방한 외래관광객 월별(호텔/면세/카지노). 한국관광 데이터랩 내부 JSON, 키 불필요.
       - name: 방한 외래관광객 수집
         continue-on-error: true
-        timeout-minutes: 3
-        run: python runstep.py "방한관광" fetch_tourism.py
+        timeout-minutes: 4
+        run: |
+          pip install --quiet pdfplumber || true   # 문체부 '방한 관광 동향' 보도자료 PDF — mcst_press.py(20일 뒤 지난달치가 없을 때만)
+          python runstep.py "방한관광" fetch_tourism.py
 
       # 백화점 3사 외국인 노출도(2026-11-25 · DEPTFRN) — 점포 상권 외국인 카드결제 + 소재 구 외국인 방문. 데이터랩 내부 JSON, 키 불필요.
       #   새 달이 없으면 2요청으로 끝난다 · 새 달이 뜨면 그 달 + 직전 달(수정 반영) 약 64요청.
@@ -409,7 +411,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
-          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart tourism_regind.csv 2>/dev/null || true
+          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart tourism_regind.csv tourism_mcst.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else

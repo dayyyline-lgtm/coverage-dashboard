@@ -190,13 +190,31 @@ def apply_mcst(tourism, path=MCST, reg=None):
             print(f"  업종별 카드: 실측 {len(ms)}개월 + 추정 {ne}개월({mm[0]}~) · 비율 {E['r']} · 한 달 빼고 맞힌 오차 {E['loo']}%")
     # 공표 전 총계 — 데이터랩 마지막 달 바로 다음 달만 붙인다(그 달이 올라오면 이 줄은 아무 일도 안 한다)
     M, T = tourism["months"], tourism["total"]
-    for m in sorted(J.get("flash") or {}):
+    FL = dict(J.get("flash") or {})
+    # 누계(cum · mcst_press.py 가 보도자료 붙임에서 자동으로 읽는다) − 데이터랩 그해 1~(N−1)월 = N월 속보 (2026-11-26)
+    for m, c in sorted((J.get("cum") or {}).items()):
+        if m in FL or m in M:
+            continue
+        y, n = m[:4], int(m[4:])
+        prev = [f"{y}{k:02d}" for k in range(1, n)]
+        if not all(p in M for p in prev):
+            continue
+        tv = dict(zip(M, T))
+        f = {"total": int(c["total"]) - sum(int(tv[p]) for p in prev),
+             "src": f"{c.get('src') or '문체부 보도자료'} {int(c['total']):,}명 − 데이터랩 1~{n - 1}월 {sum(int(tv[p]) for p in prev):,}명"}
+        N0 = tourism.get("nat") or {}
+        if N0.get("months") and all(p in N0["months"] for p in prev):
+            ix = [N0["months"].index(p) for p in prev]
+            f["nat"] = {cc: int(v) - sum(N0["v"][cc][i] or 0 for i in ix) for cc, v in (c.get("nat") or {}).items()
+                        if cc in N0["v"] and all(N0["v"][cc][i] is not None for i in ix)}
+        FL[m] = f
+    for m in sorted(FL):
         if m in M:
             continue
         nxt = f"{int(M[-1][:4]) + (M[-1][4:] == '12')}{(int(M[-1][4:]) % 12) + 1:02d}"
         if m != nxt:
             print(f"  ⚠ flash {m} 는 데이터랩 마지막 달({M[-1]}) 바로 다음이 아니라 건너뜀"); continue
-        f = J["flash"][m]
+        f = FL[m]
         M.append(m); T.append(int(f["total"]))
         for row in tourism["ports"]["v"]:
             row.append(None)
@@ -322,6 +340,13 @@ def main():
             reg = regind_update(tourism["card"]["months"][-1])
         except Exception as e:
             print(f"  시도 합 업종별 카드 실패: {str(e)[:100]} — 이전 CSV 로 추정")
+    # 문체부 '방한 관광 동향' 보도자료 → tourism_mcst.json(업종별 카드 · 1~N월 누계) — 20일 뒤 지난달이 없을 때만 게시판을 본다(2026-11-26 자동화)
+    if "--dry-run" not in sys.argv:
+        try:
+            import mcst_press
+            mcst_press.update()
+        except Exception as e:
+            print(f"  문체부 보도자료 자동 갱신 건너뜀 — {type(e).__name__}: {e}")
     apply_mcst(tourism, reg=reg)
     lm = tourism["months"][-1]
 

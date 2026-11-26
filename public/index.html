@@ -954,7 +954,12 @@
     <div id="jobsSec"></div>
     <div id="trendHighlights" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px"></div>
     <div class="trend-ctl">
-      <div class="ctl-row"><span class="ctl-label">종목</span><div class="seg" id="trendGroupSeg"></div></div>
+      <div class="ctl-row"><span class="ctl-label">종목</span><div class="seg" id="trendGroupSeg"></div>
+        <!-- 트렌드 엑셀(2026-11-26) — 위쪽 유니버스 엑셀과 별개 · 같은 양식. 이 차트 = 지금 주제 · 종목 전체 = 주제 전부 + 목차 -->
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="theme-btn" data-txlsx="one" style="font-weight:700;font-size:12px" title="지금 보는 주제를 엑셀(.xlsx)로 — 전체 기간 · 실제 값 + 전년비">⬇ 트렌드 엑셀 · 이 차트</button>
+          <button class="theme-btn" data-txlsx="all" style="font-size:12px" title="지금 고른 종목의 주제 전부 — 주제마다 시트 하나 + 목차">⬇ 종목 전체</button>
+        </span></div>
       <!-- 분류 — 주제가 많은 종목(펄어비스 20개·탑코미디어 21개)은 주제 버튼만으로 화면 한 판이 찬다.
            지표 종류로 한 번 걸러 준다. 주제가 적은 종목에서는 이 줄이 뜨지 않는다. -->
       <div class="ctl-row" id="trendKindRow" style="display:none"><span class="ctl-label">분류</span><div class="seg" id="trendKindSeg"></div></div>

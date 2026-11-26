@@ -2660,16 +2660,21 @@ const ADR_MAP={
         reviewNote:`${md(O.last)} 관측 · 숙박일 ${stays} · `+labs.map((n,i)=>`${n} ${man(raw[i][raw[i].length-1])}`).join(" · ")});
       add.push(name);
     }
-    // ② KAYAK — 끝난 달만(천원 → 만원)
+    // ② KAYAK — 끝난 달 + 진행 중인 달(천원 → 만원). 진행 달(r[3]==="c")은 마지막 수집 값(그달 숙박 검색가 평균 · 달이 끝나면 첫 수집 값으로 굳는다)을
+    //    점선으로 잇는다(estMask 1 · 2026-11-26 사용자 "KAYAK 도 현월 점선으로 — 아직 마감 안 됐어도 그달 평균으로")
     const kk=cfg.kayak.filter(k=>KY[k]&&(KY[k].m||[]).some(r=>r[3]!=="c"&&r[2]!=null));
-    const yms=[...new Set(kk.flatMap(k=>KY[k].m.filter(r=>r[3]!=="c"&&r[2]!=null).map(r=>r[0])))].sort();
-    if(yms.length>=2){
-      const raw=kk.map(k=>{ const m={}; KY[k].m.forEach(r=>{ if(r[3]!=="c"&&r[2]!=null) m[r[0]]=Math.round(r[2])/10; }); return yms.map(y=>m[y]==null?null:m[y]); });
+    const yms=[...new Set(kk.flatMap(k=>KY[k].m.filter(r=>r[2]!=null).map(r=>r[0])))].sort();
+    const cur=new Set(kk.flatMap(k=>KY[k].m.filter(r=>r[3]==="c"&&r[2]!=null).map(r=>r[0])));
+    if(yms.filter(y=>!cur.has(y)).length>=2){
+      const raw=kk.map(k=>{ const m={}; KY[k].m.forEach(r=>{ if(r[2]!=null) m[r[0]]=Math.round(r[2])/10; }); return yms.map(y=>m[y]==null?null:m[y]); });
       const name=`${stock} 월별 검색가(KAYAK)`, labs=kk.map(k=>SHORT[k]||KY[k].n);
       const qn=k=>{ const q=(KY[k].q||[]).filter(r=>r[2]===3).pop(); return q?`${SHORT[k]||KY[k].n} ${q[0].slice(-1)}Q${q[0].slice(2,4)} ${man(Math.round(q[1])/10)}`+(q[3]!=null?`(전분기비 ${sg(q[3])})`:""):""; };
+      const cy=[...cur].sort().pop(), snap=cy?Math.max(...kk.map(k=>{ const r=KY[k].m.find(r=>r[0]===cy); return r&&r[4]?Date.parse(r[4]):0; })):0;
+      const curNote=cy?` · ${+cy.slice(5,7)}월(진행 중 · 점선) = ${snap?md(new Date(snap).toISOString().slice(0,10))+" ":""}수집 값 — 그달 숙박 검색가 평균(달이 끝나면 첫 수집 값으로 굳는다) · 원/달러는 그달 지금까지 평균`:"";
       TREND.groups[name]=group(raw,{products:labs, months:yms.map(y=>`${y.slice(2,4)}.${+y.slice(5,7)}`), freq:"month", noCombo:true, unit:"만원(1박 · 검색가 월평균)",
-        srcName:"KAYAK 호텔 페이지 · 사용자가 지난 12개월 검색한 요금의 숙박월별 평균(전 객실 타입 · 세금 포함) · 그달 평균 원/달러로 환산 · 수준은 실제 ADR 보다 높아 변화만 볼 것 · 지난 달은 끝난 뒤 첫 수집 값 · 주 1회 수집 · 진행 중인 달은 뺌",
-        reviewNote:kk.map(qn).filter(Boolean).join(" · ")});
+        estMask:yms.map(y=>cur.has(y)?1:0), estLab:"진행 중",
+        srcName:"KAYAK 호텔 페이지 · 사용자가 지난 12개월 검색한 요금의 숙박월별 평균(전 객실 타입 · 세금 포함) · 그달 평균 원/달러로 환산 · 수준은 실제 ADR 보다 높아 변화만 볼 것 · 지난 달은 끝난 뒤 첫 수집 값 · 주 1회 수집"+curNote,
+        reviewNote:kk.map(qn).filter(Boolean).join(" · ")+(cy?` · ${+cy.slice(5,7)}월 진행 중: `+kk.map((k,i)=>{ const v=raw[i][raw[i].length-1]; return v==null?"":`${labs[i]} ${man(v)}`; }).filter(Boolean).join(" · "):"")});
       add.push(name);
     }
     (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).unshift(...add);
@@ -3574,7 +3579,7 @@ function drawTrendOne(src){
       .filter(r=>r.v!=null)
       .sort((a,b)=>b.v-a.v);                 // 큰 것부터 — 차트에서 위에 있는 선 순서와 같다
     if(!rows.length) return null;
-    return `<div class="tt-h">${M[i]}${EST&&EST(i)?` <span style="color:var(--muted);font-weight:600">· 추정</span>`:""}</div>`+rows.map(r=>
+    return `<div class="tt-h">${M[i]}${EST&&EST(i)?` <span style="color:var(--muted);font-weight:600">· ${G0.estLab||"추정"}</span>`:""}</div>`+rows.map(r=>
       `<div class="tt-r"><span class="k"><span class="dot" style="background:${r.c};width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:5px"></span>${r.p}</span>`
       +`<span class="v">${r.r0!=null?"":r.v}${(r.r0!=null||G.peak)?`<span style="color:var(--muted);font-weight:600;font-size:10.5px">${r.r0!=null?"":" · "}${G.realFmt?G.realFmt(r.r0!=null?r.r0:r.v*G.peak/100):fmt0(r.r0!=null?r.r0:r.v*G.peak/100)+(G.unitShort||"건")}</span>`:""}`
       +`${r.d==null?"":` <span class="${cls(r.d)}" style="font-size:10.5px">${sign(r.d,0)}%</span>`}`
@@ -3783,7 +3788,7 @@ function drawTrendCombo(box, G0, G, PRODUCTS, series, M, gc, mut, EST){
     html:i=>{
       const t=totAt(i), y=YV[i], pt=totPrev(i), x=segs[i];
       if(t==null&&!x.L.length) return null;
-      let h=`<div class="tt-h">${M[i]}${EST&&EST(i)?` <span style="color:var(--muted);font-weight:600">· 추정</span>`:""}</div>`;
+      let h=`<div class="tt-h">${M[i]}${EST&&EST(i)?` <span style="color:var(--muted);font-weight:600">· ${G0.estLab||"추정"}</span>`:""}</div>`;
       h+=`<div class="tt-r"><span class="k"><b>${stk?(TI>=0?PRODUCTS[TI]:"합계"):PRODUCTS[pick]}</b></span><span class="v">${rf(t)}${y==null?"":` <span class="${cls(y)}" style="font-size:10.5px">${Y.lab} ${pcs(y)}</span>`}</span></div>`;
       if(pt!=null) h+=`<div class="tt-r"><span class="k" style="color:var(--muted)">작년 같은 ${lag===12?"달":"분기"}</span><span class="v" style="color:var(--muted);font-weight:600">${rf(pt)}</span></div>`;
       if(stk){
@@ -10901,7 +10906,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
      셀 값이 35.6 이라, 그 칸으로 수식을 걸면 100배 틀린 답이 나오고
      수식 입력줄에 35.625913591223515 가 떠서 화면 표시와 어긋났다.
      이제 값을 0.356 으로 넣고 서식이 %를 만든다 — 표시는 같고 계산이 맞는다. */
-  const NF={g:0,n1:164,n0:3,nd:165,dt:166,pct:169,mult:168};
+  const NF={g:0,n1:164,n0:3,nd:165,dt:166,pct:169,mult:168,n2:170};
   const PCT_SCALE=0.01;                     // pct 열 값 변환 계수 (35.6 -> 0.356)
   const xfs=[],xfIdx={};
   function ST(o){
@@ -10918,7 +10923,7 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
 
   const styleXml=()=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<numFmts count="5"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/><numFmt numFmtId="169" formatCode="0.0%"/><numFmt numFmtId="168" formatCode="0.0&quot;x&quot;"/></numFmts>'
+    +'<numFmts count="6"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="#,##0.0"/><numFmt numFmtId="166" formatCode="yyyy-mm-dd"/><numFmt numFmtId="169" formatCode="0.0%"/><numFmt numFmtId="168" formatCode="0.0&quot;x&quot;"/><numFmt numFmtId="170" formatCode="#,##0.00"/></numFmts>'
     +'<fonts count="3"><font><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><name val="맑은 고딕"/></font>'
     +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="맑은 고딕"/></font></fonts>'
@@ -11141,6 +11146,8 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     ]);
   }
 
+  // 트렌드 엑셀(아래)이 같은 쓰기 도구·서식 레지스트리를 쓴다 — 양식을 유니버스 시트와 맞추려고(2026-11-26)
+  window.__XL={ST,cn,esc,zip,styleXml,enc,scale,TITLE_BG,HDR1,HDR2,PCT_SCALE};
   const btns=[...document.querySelectorAll(".xlsxBtn")];
   if(!btns.length) return;
   btns.forEach(btn=>btn.addEventListener("click",function(){
@@ -11154,6 +11161,211 @@ document.addEventListener("click",e=>{const el=e.target.closest("[data-stock]");
     }catch(e){ alert("엑셀 생성 실패: "+e.message); }
   }));
 })();
+
+/* ==== 트렌드 엑셀 (2026-11-26 · 사용자 "상단 엑셀이랑 별개로 트렌드 엑셀 뽑는 버튼 — 양식은 상단 엑셀 참고") ====
+   유니버스 시트와 같은 양식: A~C 좁은 여백 · 2행 날짜 · 3행 남색 제목 띠 · 4행 짙은 회색 묶음 머리 · 5행 옅은 회색 소제목(아래 이중선) ·
+   묶음 경계 굵은 세로선 · 전년비 칸은 상승 빨강/하락 파랑 음영(-40~+40%) · 헤더 고정 · 눈금선 없음.
+   값은 화면과 같은 실제 단위(trendReal · 월별 통계는 trendYoYFn 의 cur)로 **그룹 전체 기간**을 싣는다(화면 창으로 자르지 않는다).
+   '이 차트' = 지금 주제(두 출처면 시트 둘) · '종목 전체' = 지금 종목의 주제 전부 + 맨 앞 목차 시트(누르면 그 시트로). */
+function trendXlsxDates(M){
+  const now=new Date(Date.now()+9*3600e3); let y=now.getUTCFullYear(); const cm=now.getUTCMonth()+1;
+  const out=new Array(M.length), p2=v=>String(v).padStart(2,"0"); let nextM=null;
+  for(let i=M.length-1;i>=0;i--){
+    const s=String(M[i]); let m;
+    if((m=s.match(/^(\d{2})\.(\d{1,2})$/))){ out[i]=`20${m[1]}-${p2(m[2])}`; continue; }
+    if((m=s.match(/^(\d{4})[-.](\d{1,2})$/))){ out[i]=`${m[1]}-${p2(m[2])}`; continue; }
+    if((m=s.match(/^(\d{2})W(\d{1,2})$/))){ out[i]=`20${m[1]}년 ${+m[2]}주`; continue; }
+    let mo=null, d=null;
+    if((m=s.match(/^(\d{1,2})\/(\d{1,2})$/))){ mo=+m[1]; d=+m[2]; }
+    else if((m=s.match(/^(\d{1,2})월$/))) mo=+m[1];
+    else { out[i]=s; continue; }
+    if(nextM==null){ if(mo>cm) y--; }          // 마지막 칸 = 올해(오늘보다 뒤 달이면 작년)
+    else if(mo>nextM) y--;                     // 거꾸로 가다 1월 → 12월을 넘으면 한 해 앞
+    nextM=mo;
+    out[i]=d==null?`${y}-${p2(mo)}`:`${y}-${p2(mo)}-${p2(d)}`;
+  }
+  return out;
+}
+function trendXlsxSheet(name, src, stock){
+  const X=window.__XL, G0=TREND.groups[name]; if(!X||!G0) return null;
+  const series=G0[src]; if(!Array.isArray(series)||!series.length) return null;
+  const n=(series[0]||[]).length; if(!n) return null;
+  const M=(G0.months||TREND.months).slice(-n), D=trendXlsxDates(M);
+  const PR=(src==="google"&&G0.productsGoogle)?G0.productsGoogle:G0.products;
+  const Y=trendYoYFn(G0,G0,series,src), EST=trendEstFn(G0,M);
+  const fin=v=>v==null||!isFinite(v)?null:v;
+  const val=(pi,i)=>fin(Y?Y.cur(pi,i):trendReal(G0,pi,i,src));
+  const isIdx=!(G0.rawSer||G0.peak||G0.rawFull||G0.stack||G0.rankN);
+  const unit=G0.rankN?"순위":isIdx?(G0.selfNorm?"지수(계열마다 고점=100)":"검색 지수(고점=100)"):(shortUnit(G0)||"값");
+  const cols=[];      // {g, s, get(i), nf, yoy}
+  const valCols=(g,get,yoyGet)=>{
+    const vs=[]; for(let i=0;i<n;i++){ const v=get(i); if(v!=null) vs.push(v); }
+    if(!vs.length) return;
+    const mx=Math.max(...vs.map(Math.abs)), intOnly=vs.every(v=>Math.abs(v-Math.round(v))<1e-9);
+    const nf=G0.rankN||intOnly||mx>=1000?"n0":mx<10?"n2":"nd";
+    cols.push({g, s:unit, get, nf});
+    let hasY=false; if(yoyGet) for(let i=0;i<n&&!hasY;i++) if(yoyGet(i)!=null) hasY=true;     // 작년 값이 없으면(KAYAK 2026~ 등) 전년비 칸을 안 만든다
+    if(hasY) cols.push({s:Y?Y.lab:"전년비", get:yoyGet, nf:"pct", yoy:1});
+  };
+  // 합계(세부 쌓기 그룹) — 배열이면 그 합계 · true 면 세부 합 · 번호면 그 계열이 이미 합계
+  const TA=Array.isArray(G0.stackTot)?G0.stackTot:null;
+  if(TA||G0.stackTot===true){
+    const oA=TA?TA.length-n:0, lag=Y?Y.lag:12;
+    const tot=i=>{ if(TA) return fin(TA[i+oA]); let t=0; for(let p=0;p<series.length;p++){ const v=val(p,i); if(v==null) return null; t+=v; } return t; };
+    valCols("합계", tot, Y?(i=>{ const a=tot(i), b=i-lag>=0?tot(i-lag):null; return a!=null&&b>0?(a/b-1)*100:null; }):null);
+  }
+  series.forEach((_,pi)=>valCols(PR[pi]||`계열${pi+1}`, i=>val(pi,i), Y?(i=>fin(Y.at(pi,i))):null));
+  if(!cols.length) return null;
+  // 비고 — 추정 달 · 방한 속보 달 · 세부 공표 대기
+  const FL=(typeof TOURISM!=="undefined")&&TOURISM.flash, isTour=/^방한 외래관광객/.test(name);
+  const note=i=>{ const a=[];
+    if(EST&&EST(i)) a.push(EST(i)===2?"추정(숙박·기타 오차 큼)":(G0.estLab||"추정"));
+    if(FL&&isTour&&D[i]===`${FL.ym.slice(0,4)}-${FL.ym.slice(4)}`) a.push(/공항/.test(name)?"공항별 데이터랩 공표 대기":"속보(문체부 보도자료)");
+    return a.join(" · "); };
+  const hasNote=D.some((_,i)=>note(i));
+  // 시트 그리기 — 유니버스 build() 와 같은 틀
+  const OFF=3, rows=[], merges=[], put=(r,c,v)=>{ (rows[r]=rows[r]||[])[c]=v; };
+  const head=[{g:"기간", s:({date:"일",week:"주",month:"월"})[G0.freq||(G0.daily?"date":"month")]||"", get:i=>D[i], left:1}].concat(cols)
+    .concat(hasNote?[{g:"비고", s:"", get:i=>note(i), left:1}]:[]);
+  const N=head.length, gs=head.map(c=>c.g!==undefined), ge=head.map((_,i)=>i===N-1||gs[i+1]);
+  const Ld=i=>gs[i]?"medium":"thin", Rd=i=>ge[i]?"medium":undefined;
+  for(let i=0;i<4;i++) put(1,OFF+i,{v:"",s:X.ST({left:1})});
+  put(1,OFF,{v:`다운로드 ${TODAY} · 데이터 ${D[0]} ~ ${D[n-1]}`, s:X.ST({left:1})});
+  for(let i=0;i<N;i++) put(2,OFF+i,{v:"",s:X.ST({fill:X.TITLE_BG,white:1,left:1})});
+  put(2,OFF,{v:`${stock?stock+" 트렌드 — ":""}${name}${src==="google"&&!G0.only?" (구글)":src==="naver"&&!G0.only&&G0.google?" (네이버)":""}`, s:X.ST({fill:X.TITLE_BG,white:1,left:1})});
+  merges.push(X.cn(OFF)+"3:"+X.cn(OFF+N-1)+"3");
+  head.forEach((c,i)=>{
+    put(3,OFF+i,{v:c.g!==undefined?c.g:"", s:X.ST({fill:X.HDR1,bold:1,center:1,wrap:1,bd:{l:gs[i]?"medium":undefined,r:Rd(i),t:"medium",bo:"thin"}})});
+    put(4,OFF+i,{v:c.s||"", s:X.ST({fill:X.HDR2,bold:1,center:1,wrap:1,bd:{l:Ld(i),r:Rd(i),bo:"double"}})});
+  });
+  head.forEach((c,i)=>{ if(!gs[i]) return; let j=i; while(j+1<N&&!gs[j+1]) j++; if(j>i) merges.push(X.cn(OFF+i)+"4:"+X.cn(OFF+j)+"4"); });
+  for(let i=0;i<n;i++){
+    const ri=5+i, last=i===n-1, yr=String(D[i]).slice(0,4), pyr=i?String(D[i-1]).slice(0,4):yr;
+    const top=i===0?"medium":(yr!==pyr&&/^\d{4}/.test(yr)?"thin":undefined);      // 해가 바뀌는 줄에 가는 가로선
+    head.forEach((c,ci)=>{
+      let v=c.get(i); if(v==null||(typeof v==="number"&&!isFinite(v))) v="";
+      const bd={l:Ld(ci),r:Rd(ci),t:top}; if(last) bd.bo="medium";
+      const fill=c.yoy&&v!==""?X.scale(v,-40,40):null;
+      if(c.nf==="pct"&&v!=="") v*=X.PCT_SCALE;
+      put(ri,OFF+ci,{v, s:X.ST({nf:c.nf,fill,center:!c.left,left:!!c.left,bd})});
+    });
+  }
+  // 아래 메모 — 단위 · 출처
+  const notes=[`단위 · ${G0.unit||unit}${Y&&cols.some(c=>c.yoy)?` · ${Y.lab} = 작년 같은 ${Y.lag===12?"달":"분기"} 대비`:""}`];
+  if(G0.srcName) notes.push(`출처 · ${String(G0.srcName).replace(/<[^>]+>/g,"")}`);
+  if(isIdx&&!G0.srcName) notes.push("출처 · 네이버 데이터랩·구글 트렌드 — 값은 그 요청 안 최고=100(키워드끼리만 견줄 수 있다)");
+  // 열 너비 — 한글 2 · 그 밖 1 (유니버스와 같은 셈)
+  const wlen=t=>[...String(t==null?"":t)].reduce((a,ch)=>a+(/[가-힣]/.test(ch)?2:1),0);
+  const widths=head.map(c=>{ let w=Math.max(wlen(c.s), gs[head.indexOf(c)]&&ge[head.indexOf(c)]?wlen(c.g):0);
+    for(let i=0;i<n;i+=Math.max(1,Math.floor(n/60))){ const v=c.get(i); w=Math.max(w, typeof v==="number"?(c.nf==="pct"?7:Math.round(Math.abs(v)).toLocaleString("en-US").length+(c.nf==="n0"?0:3)):wlen(v)); }
+    return Math.max(7,Math.min(c.left?28:18,w+3)); });
+  // 메모는 표 폭에 맞춰 여러 줄로 — 한 칸에 길게 두면 인쇄 폭이 메모 길이로 늘어나 표가 작아진다
+  const TW=Math.max(60,widths.reduce((a,b)=>a+b,0)*1.05), lines=[];
+  notes.forEach(t=>{ let cur="", w=0; for(const tok of String(t).split(/(?<= · )/)){ const tw=wlen(tok);
+      if(w+tw>TW&&cur){ lines.push(cur.trimEnd()); cur="   "; w=3; }
+      if(tw>TW){ for(const ch of tok){ const cw=wlen(ch); if(w+cw>TW){ lines.push(cur); cur="   "; w=3; } cur+=ch; w+=cw; } }
+      else { cur+=tok; w+=tw; } }
+    if(cur.trim()) lines.push(cur.trimEnd()); });
+  lines.forEach((t,k)=>put(5+n+1+k,OFF,{v:t,s:X.ST({left:1})}));
+  return {rows, merges, widths, freeze:{x:OFF+1, y:5}, n};
+}
+function trendXlsxSheetXml(sh, links){
+  const X=window.__XL;
+  const cols='<col min="1" max="3" width="2.5" customWidth="1"/>'+sh.widths.map((w,i)=>`<col min="${4+i}" max="${4+i}" width="${w}" customWidth="1"/>`).join("");
+  const body=sh.rows.map((r,ri)=>{
+    const cells=(r||[]).map((c,ci)=>{
+      if(!c) return ""; const ref=X.cn(ci)+(ri+1), st=c.s||0, v=c.v;
+      if(v===""||v==null) return `<c r="${ref}" s="${st}"/>`;
+      if(typeof v==="number"&&isFinite(v)) return `<c r="${ref}" s="${st}"><v>${v}</v></c>`;
+      return `<c r="${ref}" t="inlineStr" s="${st}"><is><t xml:space="preserve">${X.esc(v)}</t></is></c>`;
+    }).join("");
+    const h=ri===2?' ht="21" customHeight="1"':(ri===3||ri===4)?' ht="30" customHeight="1"':'';
+    return cells?`<row r="${ri+1}"${h}>${cells}</row>`:"";
+  }).join("");
+  const fz=sh.freeze?`<pane xSplit="${sh.freeze.x}" ySplit="${sh.freeze.y}" topLeftCell="${X.cn(sh.freeze.x)}${sh.freeze.y+1}" activePane="bottomRight" state="frozen"/>`:"";
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    +'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'          // 인쇄 = 가로 한 장 폭에 맞춤
+    +`<sheetViews><sheetView showGridLines="0" workbookViewId="0">${fz}</sheetView></sheetViews>`
+    +`<sheetFormatPr defaultRowHeight="16.5"/><cols>${cols}</cols><sheetData>${body}</sheetData>`
+    +(sh.merges.length?`<mergeCells count="${sh.merges.length}">${sh.merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`:"")
+    +(links&&links.length?`<hyperlinks>${links.map(l=>`<hyperlink ref="${l.ref}" location="${X.esc(l.loc)}" display="${X.esc(l.disp)}"/>`).join("")}</hyperlinks>`:"")
+    +'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+    +'</worksheet>';
+}
+function trendXlsxBook(sheets){        // [{name, xml}] → Blob
+  const X=window.__XL, F=(nm,t)=>({name:nm,data:X.enc.encode(t)});
+  const ct=sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
+  const wb=sheets.map((s,i)=>`<sheet name="${X.esc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("");
+  const rel=sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("");
+  return X.zip([
+    F("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+ct+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'),
+    F("_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
+    F("xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+wb+'</sheets></workbook>'),
+    F("xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+rel+`<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
+    // 시트 XML 을 먼저 다 만든 뒤에 서식표를 쓴다 — 시트를 만들며 서식이 레지스트리에 늘어난다
+    F("xl/styles.xml",X.styleXml()),
+    ...sheets.map((s,i)=>F(`xl/worksheets/sheet${i+1}.xml`,s.xml)),
+  ]);
+}
+/* 시트 이름 — 31자 · []:*?/\ 금지 · 겹치면 ~2 */
+function trendXlsxName(nm, used){
+  let b=String(nm).replace(/[\[\]:*?\/\\]/g," ").replace(/'/g,"’").replace(/\s+/g," ").trim()||"시트";
+  let s=b.slice(0,31), k=2; while(used.has(s)){ const t=`~${k++}`; s=b.slice(0,31-t.length)+t; }
+  used.add(s); return s;
+}
+const trendHasSrc=(G0,src)=>Array.isArray(G0[src])&&G0[src].some(a=>Array.isArray(a)&&a.some(v=>v!=null));
+function trendXlsxSrcs(G0){ return srcOfGroup(G0).filter(s=>trendHasSrc(G0,s)); }
+function trendXlsxBuild(mode){
+  if(!window.__XL) throw new Error("엑셀 도구가 아직 안 불러졌다");
+  const stock=trendStock||"", used=new Set(), out=[], toc=[];
+  const groups=mode==="all"?topicsOf(stock):[trendGroup];
+  groups.forEach(g=>{
+    const G0=TREND.groups[g]; if(!G0) return;
+    let srcs=trendXlsxSrcs(G0);
+    if(mode!=="all"&&trendSrcPick!=="both"&&srcs.includes(trendSrcPick)) srcs=[trendSrcPick];
+    srcs.forEach(src=>{
+      const sh=trendXlsxSheet(g,src,stock); if(!sh) return;
+      const nm=trendXlsxName(srcs.length>1?`${g} (${src==="google"?"구글":"네이버"})`:g, used);
+      out.push({name:nm, xml:trendXlsxSheetXml(sh)});
+      const M=(G0.months||TREND.months), Dd=trendXlsxDates(M.slice(-sh.n));
+      toc.push({nm, g, src:srcs.length>1?(src==="google"?"구글":"네이버"):"", freq:({date:"일별",week:"주별",month:"월별"})[G0.freq||(G0.daily?"date":"month")]||"", from:Dd[0], to:Dd[Dd.length-1],
+        ser:((src==="google"&&G0.productsGoogle)||G0.products||[]).join(", "), tier:typeof topicTier==="function"?topicTier(g):""});
+    });
+  });
+  if(!out.length) throw new Error("내보낼 트렌드 데이터가 없다");
+  if(mode==="all"){
+    // 목차 시트 — 같은 틀 · 주제 이름을 누르면 그 시트로
+    const X=window.__XL, OFF=3, rows=[], merges=[], put=(r,c,v)=>{ (rows[r]=rows[r]||[])[c]=v; };
+    const hasSrc=toc.some(t=>t.src);
+    const H=["#","주제","중요도"].concat(hasSrc?["출처"]:[]).concat(["주기","기간","계열"]), N=H.length;
+    put(1,OFF,{v:`다운로드 ${TODAY} · 시트 ${out.length}개`, s:X.ST({left:1})});
+    for(let i=0;i<N;i++) put(2,OFF+i,{v:"",s:X.ST({fill:X.TITLE_BG,white:1,left:1})});
+    put(2,OFF,{v:`${stock} 트렌드 — 목차`, s:X.ST({fill:X.TITLE_BG,white:1,left:1})});
+    merges.push(X.cn(OFF)+"3:"+X.cn(OFF+N-1)+"3");
+    H.forEach((h,i)=>{ put(3,OFF+i,{v:h,s:X.ST({fill:X.HDR1,bold:1,center:1,bd:{l:i?"thin":"medium",r:i===N-1?"medium":undefined,t:"medium",bo:"double"}})}); });
+    const TIER={1:"★ 핵심",2:"보조",3:"참고"};
+    const links=[];
+    toc.forEach((t,k)=>{ const ri=4+k, last=k===toc.length-1;
+      const cells=[k+1, t.nm, TIER[t.tier]||""].concat(hasSrc?[t.src||""]:[]).concat([t.freq, `${t.from} ~ ${t.to}`, t.ser]);
+      const ctr=i=>H[i]==="#"||H[i]==="중요도"||H[i]==="출처"||H[i]==="주기";
+      cells.forEach((v,i)=>put(ri,OFF+i,{v, s:X.ST({bold:i===1,center:ctr(i),left:!ctr(i),bd:{l:i?"thin":"medium",r:i===N-1?"medium":undefined,t:k?undefined:"medium",bo:last?"medium":"thin"}})}));
+      links.push({ref:X.cn(OFF+1)+(ri+1), loc:`'${t.nm}'!A1`, disp:t.nm}); });
+    const sh={rows, merges, widths:[5,34,9].concat(hasSrc?[8]:[]).concat([8,26,60]), freeze:{x:OFF, y:4}};
+    out.unshift({name:trendXlsxName("목차",used), xml:trendXlsxSheetXml(sh,links)});
+  }
+  return trendXlsxBook(out);
+}
+function trendXlsxDownload(mode){
+  try{
+    const blob=trendXlsxBuild(mode), a=document.createElement("a");
+    const safe=s=>String(s||"").replace(/[\\\/:*?"<>|]/g," ").replace(/\s+/g," ").trim().slice(0,40);
+    a.href=URL.createObjectURL(blob);
+    a.download=`${DATA.analyst||"신주현"}_트렌드_${safe(trendStock)}_${mode==="all"?"전체":safe(trendGroup)}_${TODAY_C}.xlsx`;
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+  }catch(e){ alert("트렌드 엑셀 생성 실패: "+e.message); }
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-txlsx]"); if(b){ e.preventDefault(); trendXlsxDownload(b.dataset.txlsx); } });
 
 /* 모든 데이터 const 초기화 후에 섹션 헤더 타임스탬프를 채운다(TREND 등 TDZ 회피) */
 setSecUpdates();
@@ -14371,6 +14583,9 @@ function adrLine(el, o){
     const op=se.op?` opacity="${se.op}"`:"", d=path(se.v);
     if(d) s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||2}" stroke-linejoin="round" stroke-linecap="round"${se.dash?` stroke-dasharray="${se.dash}"`:""}${op}/>`;
     se.v.forEach((x,i)=>{ if(x!=null&&(i===0||se.v[i-1]==null)&&(i===n-1||se.v[i+1]==null)) s+=`<circle cx="${sx(i).toFixed(1)}" cy="${sy(x).toFixed(1)}" r="2.6" fill="${se.c}"${op}/>`; });
+    // 진행 중(부분) 점 = 빈 원 + 바로 앞 점에서 점선으로 잇는다(2026-11-26 사용자 "현월도 점선으로") — 실선과는 섞지 않는다
+    (se.pv||[]).forEach((x,i)=>{ if(x==null) return; let j=i-1; while(j>=0&&se.v[j]==null&&(se.pv[j]==null)) j--;
+      if(j>=0){ const y0=se.v[j]!=null?se.v[j]:se.pv[j]; s+=`<line x1="${sx(j).toFixed(1)}" y1="${sy(y0).toFixed(1)}" x2="${sx(i).toFixed(1)}" y2="${sy(x).toFixed(1)}" stroke="${se.c}" stroke-width="${Math.max(1.4,(se.w||2)-0.6)}" stroke-dasharray="4 3" stroke-linecap="round"${op}/>`; } });
     (se.pv||[]).forEach((x,i)=>{ if(x!=null) s+=`<circle cx="${sx(i).toFixed(1)}" cy="${sy(x).toFixed(1)}" r="4" fill="${pan}" stroke="${se.c}" stroke-width="1.8"/>`; });
     if(!o.zero){ let pk=-1; se.v.forEach((x,i)=>{ if(x!=null&&(pk<0||x>se.v[pk])) pk=i; });
       if(pk>=0) s+=`<circle cx="${sx(pk).toFixed(1)}" cy="${sy(se.v[pk]).toFixed(1)}" r="3.6" fill="${se.c}" stroke="${pan}" stroke-width="2"/>`; }

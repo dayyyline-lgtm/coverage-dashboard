@@ -116,6 +116,15 @@ def tourism_stale(html_path="public/index.html"):
     25일부터 회차마다 이걸 보고, 지난달이 없으면 fetch_tourism.py 를 돌린다(4요청 남짓).
     """
     now = datetime.datetime.now(KST)
+    # 문체부 '방한 관광 동향' 보도자료(업종별 카드 · 1~N월 누계)는 20일께부터 나온다 — 지난달치가 tourism_mcst.json 에
+    #   아직 없으면 회차마다 본다(fetch_tourism → mcst_press.update · 게시판 요청 2~4건 · 2026-11-26 자동화)
+    if now.day >= 20:
+        try:
+            prev = (now.replace(day=1) - datetime.timedelta(days=1)).strftime("%Y%m")
+            if prev not in (json.load(open("tourism_mcst.json", encoding="utf-8")).get("ind") or {}):
+                return True
+        except Exception:
+            pass
     if now.day < 25:
         return False
     try:
