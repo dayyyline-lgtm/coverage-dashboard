@@ -110,10 +110,19 @@ def pdf_text(data):
         return "\n".join((pg.extract_text() or "") for pg in p.pages)
 
 
-def _get(url, doc=True, timeout=30):
-    req = urllib.request.Request(url, headers=ua(referer=BASE + "pressList.jsp", doc=doc))
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+def _get(url, doc=True, timeout=30, tries=3):
+    """게시판이 가끔 응답 없이 연결을 끊는다(러너 2026-11-26 RemoteDisconnected) — 3번까지 간격을 늘려 다시."""
+    last = None
+    for k in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=dict(ua(referer=BASE + "pressList.jsp", doc=doc), Connection="close"))
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except Exception as e:
+            last = e
+            if k < tries - 1:
+                nap(3 * (k + 1))
+    raise RuntimeError(f"{url.split('?')[0].rsplit('/', 1)[-1]}: {type(last).__name__}: {last}")
 
 
 def find_release(pages=2, days=45):

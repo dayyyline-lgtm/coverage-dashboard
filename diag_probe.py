@@ -137,7 +137,7 @@ def main():
     # 문체부 '방한 관광 동향' 보도자료 — 게시판 → 글 → PDF → 표 읽기까지 끝까지(파일은 안 바꾼다)
     try:
         import mcst_press, time
-        t0 = time.time(); rel = mcst_press.find_release()
+        t0 = time.time(); rel = mcst_press.find_release()   # 2026-11-26 2회차: 재시도 3번 · 실패하면 어느 요청인지 메시지에
         o = {"found": [[str(d), t[:40]] for d, t, u in rel], "sec": round(time.time() - t0, 1)}
         if rel:
             raw = mcst_press._get(rel[0][2], doc=False, timeout=60); o["pdf_bytes"] = len(raw)
