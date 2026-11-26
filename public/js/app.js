@@ -2287,6 +2287,7 @@ function injectCompanyStack(items, opt){
   const src="한국관광 데이터랩 · 한국관광통계(법무부 출입국 · 승무원 제외 · 교포 포함) · 매달 말 전월분 공표";
   // 마지막 달이 문체부 보도자료 속보치(flash · 2026-11-26)면 총계만 있고 국적·공항별은 데이터랩 공표 대기 — 그 두 그룹의 요약은 직전 달로
   const FL=TOURISM.flash&&TOURISM.flash.ym===M[li]?TOURISM.flash:null, lp=FL?li-1:li, mop=+M[lp].slice(4,6);
+  const ln=FL&&FL.nat&&FL.nat.length?li:lp, mon=+M[ln].slice(4,6);   // 국적은 보도자료 누계로 속보를 낼 수 있다(미국·캐나다 빼고) — 공항별은 데이터랩을 기다린다
   build("방한 외래관광객",[["방한 외래관광객",T]],{sigIdx:[0], srcName:src+(FL?` · ${mo}월은 ${FL.src}`:""),
     reviewNote:`${yr}년 ${mo}월 ${man(T[li])}(전년동월비 ${sg(pct(T[li],T[li-12]))} · 2019년 같은 달 대비 ${sg(y19>=0?pct(T[li],T[y19]):null)})`
       +(ytd!=null?` · 1~${mo}월 누적 ${man(ytd)}(전년비 ${sg(pct(ytd,ytdP))} · 2019년 대비 ${sg(pct(ytd,ytd19))})`:"")
@@ -2295,10 +2296,12 @@ function injectCompanyStack(items, opt){
   if(N&&N.months&&N.months.length>12){
     const map=Object.fromEntries(N.months.map((m,i)=>[m,i]));
     const codes=Object.keys(N.v||{}), row=c=>M.map(m=>map[m]==null?null:N.v[c][map[m]]);
-    const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][lp]||0)-(a[1][lp]||0));
-    rows.push(["그 밖",M.map((m,j)=>map[m]==null?null:Math.max(0,T[j]-codes.reduce((t,c)=>t+(N.v[c][map[m]]||0),0)))]);
-    build("방한 외래관광객 · 국적별",rows,{srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)",
-      reviewNote:`${mop}월 · `+rows.slice(0,6).map(r=>`${r[0]} ${man(r[1][lp])}(${sg(pct(r[1][lp],r[1][lp-12]))})`).join(" · ")});
+    const rows=codes.map(c=>[N.names[c]||c,row(c)]).sort((a,b)=>(b[1][ln]||0)-(a[1][ln]||0));
+    // 그 밖 = 총계 − 12개국 — 한 나라라도 빈 달(속보: 미국·캐나다 없음)은 그 밖도 비운다(빈 나라가 그 밖으로 새지 않게)
+    rows.push(["그 밖",M.map((m,j)=>map[m]==null||codes.some(c=>N.v[c][map[m]]==null)?null:Math.max(0,T[j]-codes.reduce((t,c)=>t+(N.v[c][map[m]]||0),0)))]);
+    build("방한 외래관광객 · 국적별",rows,{srcName:src+" · 상위 12개국 + 그 밖(총계 − 12개국)"+(ln===li&&FL?` · ${mon}월은 문체부 보도자료 누계 − 데이터랩 앞 달(미국·캐나다·그 밖은 공표 대기)`:""),
+      reviewNote:`${mon}월 · `+rows.filter(r=>r[1][ln]!=null).slice(0,6).map(r=>`${r[0]} ${man(r[1][ln])}(${sg(pct(r[1][ln],r[1][ln-12]))})`).join(" · ")
+        +(ln===li&&FL?` · ${mon}월은 문체부 보도자료 속보`:"")});
   }
   const P=TOURISM.ports;
   if(P&&P.v){
@@ -2317,6 +2320,7 @@ function injectCompanyStack(items, opt){
     const pc=ym=>{ const a=cat(ym), b=at(ym); return a>=0&&b>=0&&T[b]>0?V[a]*1e8/T[b]:null; };   // 1인당(원) = 카드 ÷ 방한객
     const pcm=v=>v==null?"—":`${(v/1e4).toFixed(1)}만원`, ly=`${cyr-1}${CM[ci].slice(4,6)}`;
     build("외국인 카드 관광소비",[["외국인 카드 관광소비",V]],{months:CM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), unit:"억원(월)", unitShort:"억원", realFmt:eok,
+      minPts:CM.length,                       // 2026-11-26 사용자 "시계열이 왜 이렇게 좁아" — 기본 창도 2018-01 부터 전부(코로나 바닥·2019 대비가 보이게)
       srcName:(C.src||"한국관광 데이터랩 · 외국인 신용카드 관광소비액")+" · 신용카드만(간편결제·현금 제외) · 문체부 '관광 분야 카드 소비액' 합계와 같은 값",
       reviewNote:`${cyr}년 ${cmo}월 ${eok(V[ci])}(전년동월비 ${sg(pct(V[ci],V[ci-12]))})`
         +(cytd!=null?` · 1~${cmo}월 누적 ${eok(cytd)}(전년비 ${sg(pct(cytd,cytdP))})`:"")
@@ -2328,7 +2332,7 @@ function injectCompanyStack(items, opt){
     const share=(k,j)=>tot[j]>0?`${(I.v[k][j]/tot[j]*100).toFixed(1)}%`:"—";
     const cum=k=>I.v[k].reduce((t,v)=>t+(v||0),0), ctot=tot.reduce((t,v)=>t+(v||0),0);
     build("외국인 카드 관광소비 · 업종별",I.keys.map((k,i)=>[k,I.v[i]]),{months:IM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), unit:"억원(월)", unitShort:"억원", realFmt:eok,
-      yoyCmp:false, minPts:2, endPad:104, srcName:(I.src||"문체부 보도자료")+" · 통계 한국관광 데이터랩(관광공사) · 전년 같은 달 업종별 표가 없어 전월과 비교",
+      yoyCmp:false, minPts:IM.length, endPad:104, srcName:(I.src||"문체부 보도자료")+" · 통계 한국관광 데이터랩(관광공사) · 전년 같은 달 업종별 표가 없어 전월과 비교",
       reviewNote:`${IM[ii].slice(0,4)}년 ${imo}월 · `+I.keys.map((k,i)=>`${k.replace("업","")} ${eok(I.v[i][ii])}(${share(i,ii)})`).join(" · ")
         +` · 1~${imo}월 비중 `+I.keys.map((k,i)=>`${k.replace("업","")} ${(cum(i)/ctot*100).toFixed(1)}%`).join(" · ")});
   }

@@ -126,12 +126,23 @@ def tourism_stale(html_path="public/index.html"):
     if not m:
         return True
     # 마지막 달이 문체부 보도자료 속보치(flash)면 데이터랩 공식치(국적·공항별 포함)가 아직이다 — 계속 따라잡는다(2026-11-26)
-    blk = re.search(r'const TOURISM\s*=\s*\{.*?\};', html, re.S)
-    if blk and '"flash":{' in blk.group(0):
+    blk = re.search(r'const TOURISM\s*=\s*(\{.*?\});', html, re.S)
+    if blk and '"flash":{' in blk.group(1):
         return True
     last = (re.findall(r'"(\d{6})"', m.group(1)) or [""])[-1]
     prev = (now.replace(day=1) - datetime.timedelta(days=1)).strftime("%Y%m")
-    return last < prev
+    if last < prev:
+        return True
+    # 총계는 들어왔는데 국적·공항별이 그 달에 비어 있으면(데이터랩이 나눠서 올리는 날) 계속 따라잡는다
+    try:
+        t = json.loads(blk.group(1))
+        nm = (t.get("nat") or {}).get("months") or []
+        pv = (t.get("ports") or {}).get("v") or []
+        if (nm and nm[-1] < last) or (pv and all(r[-1] is None for r in pv)):
+            return True
+    except Exception:
+        return True
+    return False
 
 
 def trend_daily_stale(html_path="public/index.html"):

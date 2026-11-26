@@ -108,7 +108,15 @@ def apply_mcst(tourism, path=MCST):
         for row in tourism["ports"]["v"]:
             row.append(None)
         tourism["flash"] = {"ym": m, "src": f.get("src") or "문체부 보도자료"}
-        print(f"  {m[:4]}.{m[4:]}: {int(f['total']):,}명 (문체부 보도자료 속보 · 데이터랩 공표 대기)")
+        # 국적 속보 — 보도자료 국가별 1~N월 누계 − 데이터랩 1~(N−1)월. 보도자료에 없는 나라(미국·캐나다 — '미주'로만 나온다)는 None
+        N = tourism.get("nat") or {}
+        fn = f.get("nat") or {}
+        if fn and N.get("months") and m not in N["months"]:
+            N["months"].append(m)
+            for c in N["v"]:
+                N["v"][c].append(int(fn[c]) if c in fn else None)
+            tourism["flash"]["nat"] = sorted(fn)
+        print(f"  {m[:4]}.{m[4:]}: {int(f['total']):,}명 (문체부 보도자료 속보 · 국적 {len(fn)}개국 · 공항별은 데이터랩 공표 대기)")
     return tourism
 
 
@@ -187,6 +195,8 @@ def main():
             if c in NATS:
                 row[c] = int(x.get("TOU_NUM") or 0)
                 names[c] = x.get("NAT_NM")
+        if not any(row.values()):          # 공표 전 달은 국가 목록은 오고 값이 전부 0 이다(2026-11-26 실측) — 0 을 싣지 않는다
+            print(f"  국적 {m}: 아직 0 — 공표 전으로 보고 건너뜀"); continue
         have[m] = row
         time.sleep(0.4)
     nm = [m for m in months if m in have]
