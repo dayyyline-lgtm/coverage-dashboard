@@ -413,6 +413,12 @@ def build_block():
     if KL:
         # Kalodata 한 출처(2026-11-26 · kbeauty/kalodata.py) — 샵 목록은 그대로(fm_daily 에 있던 샵) · 판매량·판매액은 전부 Kalodata
         daily = {s: [{"date": t.isoformat(), "u": u, "v": v} for t, (u, v) in sorted(KL["day"][s].items())] for s in daily if s in KL["day"]}
+    # 회사 채널 모델이 쓰는 샵만 싣는다(2026-11-27 · 국면용으로 미국 공식 샵 99곳을 더 받았다 — config 브랜드가 아닌 샵은 화면이 건너뛰니 블록만 무거워진다).
+    #   틱톡 샵 키가 config 브랜드 키와 다르게 적힌 것은 여기서 맞춘다(국면 phase.TT_MAP 과 같은 짝).
+    TT_KEY = {"centellian": "centellian24", "equalberry": "eqqualberry", "tsshampoo": "ts"}
+    cfg_k = {b["k"] for b in cfg["brands"]}
+    kof = lambda s: TT_KEY.get(shops.get(s, {}).get("k", ""), shops.get(s, {}).get("k", ""))
+    daily = {s: rs for s, rs in daily.items() if kof(s) in cfg_k}
     tt = {}
     fm_last = ""
     for s, rs in daily.items():
@@ -439,7 +445,7 @@ def build_block():
                 V[i] = round(U[i] * med)
                 fixed.append(i)
         sh = shops.get(s, {})
-        tt[s] = {"k": sh.get("k", ""), "r": sh.get("r", ""), "n": sh.get("name", ""), "c": sh.get("cur", "USD"), "d0": d0.isoformat(),
+        tt[s] = {"k": kof(s), "r": sh.get("r", ""), "n": sh.get("name", ""), "c": sh.get("cur", "USD"), "d0": d0.isoformat(),
                  "w0": min(sh.get("w0") or d0.isoformat(), d0.isoformat()), "v": V}
         if fixed:
             tt[s]["fx"] = [len(fixed), (d0 + dt.timedelta(days=fixed[0])).isoformat(), (d0 + dt.timedelta(days=fixed[-1])).isoformat()]
@@ -450,6 +456,8 @@ def build_block():
     for r in load_csv(DATA / "fm_social.csv"):
         sod.setdefault(r["s"], []).append(r)
     for s, rs in sod.items():
+        if kof(s) not in cfg_k:
+            continue
         rs.sort(key=lambda r: r["date"])
         d0 = dt.date.fromisoformat(rs[0]["date"])
         n = (dt.date.fromisoformat(rs[-1]["date"]) - d0).days + 1
@@ -458,7 +466,7 @@ def build_block():
             i = (dt.date.fromisoformat(r["date"]) - d0).days
             A[i], C[i], L[i] = int(r["a"]), int(r["c"]), int(r["l"])
         sh = shops.get(s, {})
-        social[s] = {"k": sh.get("k", ""), "n": sh.get("name", ""), "d0": d0.isoformat(), "a": A, "c": C, "l": L}
+        social[s] = {"k": kof(s), "n": sh.get("name", ""), "d0": d0.isoformat(), "a": A, "c": C, "l": L}
     snap = {}
     for r in load_csv(DATA / "fm_snap.csv"):
         e = snap.setdefault(r["s"], {"r": r["r"], "k": r["k"], "n": r["name"], "h": []})

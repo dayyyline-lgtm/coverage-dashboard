@@ -709,10 +709,11 @@ def rich(d, R, prev, note=None):
         x = C.cmp(next(iter(C.U)), w, w)
         return x and x.get("gb")
 
-    def abs1(C):   # 최근 30일 판매량 합
+    def abs1(C, ks=None):   # 최근 30일 판매량 합 · ks = 이 브랜드들만(지난주 바구니 — 바구니가 늘어난 주의 1주 비교를 같은 브랜드끼리)
+        U_ = [k for k in C.U if ks is None or k in ks]
         if C.W:
-            return sum(C.wv(k, RI["c"][1]) for k in C.U)
-        return sum((C.U[k][C.e] or 0) for k in C.U)
+            return sum(C.wv(k, RI["c"][1]) for k in U_)
+        return sum((C.U[k][C.e] or 0) for k in U_)
 
     def BU(t):
         return f"<b><u>{t}</u></b>"
@@ -727,7 +728,7 @@ def rich(d, R, prev, note=None):
         return B(t) if bold_at is not None and v >= bold_at else t
 
     def nmk(k):
-        return nm(d, k) + ("*" if d["b"].get(k, {}).get("co") else "")
+        return nm(d, k) + ("*" if (d["b"].get(k) or (d.get("meta") or {}).get(k) or {}).get("co") else "")
 
     S1 = {}
     for k in S:
@@ -750,6 +751,12 @@ def rich(d, R, prev, note=None):
             U1C[key_] = {k: C_.R[k][0] for k in C_.U if k in C_.R}
     V = {"a1": {n: abs1(C) for n, C, Y in REG}, "s1": S1, "u1": U1, "u1amz": U1C.get("amz", {}), "u1tt": U1C.get("tt", {}), "b": {k: r["s"] for k, r in S.items()}, "e0": e0.isoformat() if rw else None}
     pa, ps, pu = PV.get("a1") or {}, PV.get("s1") or {}, PV.get("u1") or {}
+    # 바구니가 늘어난 주(2026-11-27 틱톡샵 미국 공식 샵 99곳 추가)는 1주 비교를 지난주에도 있던 브랜드끼리 낸다 — 그냥 견주면 새 샵 몫이 '증가'로 잡힌다
+    PB = set(PV.get("b") or {})
+    NEWK = set(V["b"]) - PB if PB else set()
+    A1L = {n: abs1(C, PB) for n, C, Y in REG} if NEWK else V["a1"]
+    if NEWK:
+        print(f"[KBPH 브리핑] 바구니에 새 브랜드 {len(NEWK)}개 — 1주 비교는 지난주 바구니 {len(PB)}개끼리")
 
     # 행사 — 비교하는 두 기간 중 한쪽에만 든 것(지역별)
     EVT = [("빅딜데이", "2026-10-07", "2026-10-08", ("전 지역 합산", "아마존 전 지역", "아마존 미국", "아마존 유럽5", "아마존 캐나다")),
@@ -818,7 +825,7 @@ def rich(d, R, prev, note=None):
     t = ("<table bordered><caption>지역별 판매 증감</caption><tr>" + _th("지역·채널", "left") + _th("1년") + _th(n3) + _th(n1) + _th("1주") + "</tr>")
     RV = {}
     for n, C, Y in REG:
-        w1 = (V["a1"][n] / pa[n] - 1) if pa.get(n) else None
+        w1 = (A1L[n] / pa[n] - 1) if pa.get(n) else None
         vals = [Y.base(True) if Y is not None else None, gb(C, 3), gb(C, 1), w1]
         RV[n] = vals
         ev = [False, False, HIT.get((n, "1달"), False), HIT.get((n, "1주"), False)]
@@ -848,7 +855,11 @@ def rich(d, R, prev, note=None):
     for k, r in S.items():
         col[k]["3"] = r["x"] / 100 - 1
         col[k]["1"] = r["y"] / 100 - 1
-        if ps.get(k) and k in S1:
+        if NEWK and pu.get(k) and U1.get(k):   # 바구니가 늘어난 주 — 지난주 바구니 안 비중끼리
+            t_, tp_ = sum(U1.get(j, 0) for j in pu), sum(pu.values())
+            if t_ and tp_:
+                col[k]["w"] = (U1[k] / t_) / (pu[k] / tp_) - 1
+        elif ps.get(k) and k in S1:
             col[k]["w"] = S1[k] / ps[k] - 1
         if k in AY:
             col[k]["y"] = AY[k]["x"] / 100 - 1
@@ -926,7 +937,7 @@ def rich(d, R, prev, note=None):
         SC = C.rows(False)
         SY = CY.rows(True) if CY is not None else {}
         u1, pu1 = U1C.get(key) or {}, PV.get("u1" + key) or {}
-        t1, tp1 = sum(u1.values()), sum(pu1.values())
+        t1, tp1 = (sum(v for k, v in u1.items() if k in pu1) if pu1 else sum(u1.values())), sum(pu1.values())   # 지난주에도 있던 브랜드끼리(바구니가 늘어난 주)
         pq_ = pq.get(key) or {}
         col_, gv = {}, {}
         for k, r in SC.items():

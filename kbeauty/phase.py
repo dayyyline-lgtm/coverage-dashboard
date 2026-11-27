@@ -131,14 +131,17 @@ def build(path):
         out["r30t"] = d["r30t"]
     if d.get("rws") and any(b.get("rw") for b in d["b"].values()):
         out["rw"] = {"t": d.get("r30t") or d["asOf"], "s": d["rws"]}   # 기준점 0 = 수집일 · s = 기준점 간격(일)
-    tt = build_tt(set(d["b"]) | set(MK_META), {"months": d["months"], "b": d["b"]})   # 미국 아마존에 없는 브랜드(MK_META)도 틱톡샵 공식 샵이 있으면 받는다
+    tt = build_tt(set(d["b"]) | set(MK_META) | set(TT_META))   # 미국 아마존에 없는 브랜드(MK_META)도 틱톡샵 공식 샵이 있으면 받는다
     if tt:
         out["tt"] = tt
     mk = build_mk(d)
     if mk:
         out["mk"] = mk
-    if d.get("_mkmeta"):
-        out["meta"] = d.pop("_mkmeta")
+    meta = d.pop("_mkmeta", None) or {}
+    if tt:   # 틱톡샵에만 있는 브랜드의 이름·주인(2026-11-27)
+        meta.update({k: TT_META[k] for k in tt["b"] if k in TT_META and k not in d["b"]})
+    if meta:
+        out["meta"] = meta
     return out
 
 
@@ -309,33 +312,55 @@ TT_MAP = {"anua": "anua", "skin1004": "skin1004", "boj": "beauty of joseon", "ce
           "aromatica": "aromatica", "aprilskin": "aprilskin", "illiyoon": "illiyoon", "mise": "mise en scene",   # 2026-11-26 추가 브랜드 — KBCH fm_shops.csv 가 이미 받던 미국 공식 샵 넷
           "tirtir": "tirtir", "laka": "laka", "etude": "etude", "espoir": "espoir", "hera": "hera", "skinfood": "skinfood",   # 같은 날 EchoTik 에서 찾은 미국 공식 샵 여섯(fm_shops.csv 에 넣음 · 90일치뿐이라 build_tt 가 late 로 뺀다)
           "melaxin": "dr.melaxin", "barber501": "barber501",   # 브랜드501(2026-11-26 · 비상장) — 'Brand Dr.Melaxin'(7495830785034323995 · 미국 틱톡샵 상위권) · BARBER501 Global(7496007994044811682 · 누적 7개)
-          "zeroid": "zeroid"}   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
-# 늦게 들어온 샵 중 앞부분을 추정으로 채워 바구니에 넣는 샵(2026-11-26 사용자 "무조건 있거든 — 빨리 넣어 줘") — 샵 ID → 같은 브랜드의 아마존 미국 키.
-#   EchoTik 은 90일만 주고 Pro 는 더 앞 기간 조회가 막힌다(start_time·dateRange custom → 100004). 닥터멜락신은 틱톡샵 미국 판매가 메디큐브 다음 급이라
-#   바구니에서 빼면 틱톡샵 비중이 틀리고, 관측 첫날부터만 넣으면 그 달부터 분모가 갑자기 커진다 → 관측 전 날은
-#   [아마존 미국 같은 브랜드 그달 하루 판매량 × 관측 첫 30일의 틱톡샵 ÷ 아마존 배수] 로 채우고 블록 tt.est 에 적는다(화면 '~8/27 추정').
-#   판매액은 이 샵만 관측 날까지 [판매량 × 아마존 같은 달 단가] — EchoTik 판매액은 정가 쪽이라(아마존 단가의 약 2배) FastMoss 단가로 맞춘 다른 샵과 안 맞는다.
-TT_BACKFILL = {"7495830785034323995": "dr.melaxin"}
+          "zeroid": "zeroid",   # ZEROID Global(네오팜 · 8653940256625430663) — 하루 몇 개라도 있는 숫자는 넣는다(2026-10-22 사용자 "어쨋든 존재하는 숫자잖아")   # Clio Official USA(Stride Leader Corporation) — 클리오·페리페라·구달이 한 샵에 섞여 있어 'clio' 칸에 통째로 넣는다(2026-10-21)
+          # 2026-11-27 사용자 "한국 브랜드 빠진 게 더는 없게" — FastMoss 새 계정으로 미국 공식 샵을 훑어 찾은 한국 브랜드(샵 99곳 · mixsoon-us 는 위 mixsoon 칸에 더한다).
+          #   틱톡샵에만 있는 브랜드는 키 그대로가 바구니 키(아마존 바구니에 없음 · 이름·주인 = TT_META). 안 넣은 샵: Euthymol(LG생활건강 · 영국 태생 — 피지오겔·더크렘샵과 같은 규칙) ·
+          #   Svelta Seoul·Dr.ville·YOUNGPLUS(한국 브랜드인지 확인 못 함 · 덤프·KBCH 원자료엔 남아 있다)
+          "sungboon": "sungboon", "drg": "drg", "biohealboh": "biohealboh", "arencia": "arencia", "colorgram": "colorgram", "drrejuall": "drrejuall",
+          "beplain": "beplain", "oganacell": "oganacell", "growus": "growus", "ongredients": "ongredients", "mediheal": "mediheal",
+          "banilaco": "banilaco", "elroel": "elroel", "drforhair": "drforhair", "ohora": "ohora", "nooni": "nooni", "hetras": "hetras",
+          "iunik": "iunik", "ilso": "ilso", "drjart": "drjart", "klairs": "klairs", "imfrom": "imfrom", "wellage": "wellage",
+          "pyunkangyul": "pyunkangyul", "terezhonor": "terezhonor", "cellfusionc": "cellfusionc", "amuse": "amuse", "tfit": "tfit",
+          "purcell": "purcell", "2an": "2an", "thome": "thome", "siot": "siot", "lactomedi": "lactomedi", "beaund": "beaund", "age20s": "age20s",
+          "tsshampoo": "tsshampoo", "easydew": "easydew", "purito": "purito", "benton": "benton", "jsm": "jsm", "heimish": "heimish",
+          "marymay": "marymay", "holika": "holika", "naturerepublic": "naturerepublic", "drceuracle": "drceuracle", "dermafirm": "dermafirm",
+          "jayjun": "jayjun", "paparecipe": "paparecipe", "unove": "unove", "drdifferent": "drdifferent", "jmsolution": "jmsolution",
+          "rovectin": "rovectin", "wishtrend": "wishtrend", "tcfs": "tcfs", "meditherapy": "meditherapy", "frudia": "frudia", "drpepti": "drpepti",
+          "koelf": "koelf", "touchinsol": "touchinsol", "demaf": "demaf", "leaders": "leaders", "deardahlia": "deardahlia", "makeprem": "makeprem",
+          "tocobo": "tocobo", "jumiso": "jumiso", "kundal": "kundal", "needly": "needly", "skinlab": "skinlab", "mizon": "mizon", "kahi": "kahi",
+          "dashu": "dashu", "cosnori": "cosnori", "wonjin": "wonjin", "lagom": "lagom", "hanskin": "hanskin", "neogen": "neogen", "obge": "obge",
+          "aplb": "aplb", "kocostar": "kocostar", "klavuu": "klavuu", "bonajour": "bonajour"}
+# 늦게 들어온 샵(받기 시작한 날이 바구니 첫날보다 30일 넘게 늦은 샵)은 build_tt 가 관측 전 날을 바구니 모양으로 채운다(2026-11-27 · 예전 TT_BACKFILL 의
+#   '아마존 같은 브랜드 모양' 채움은 닥터멜락신 한 곳용이었다 — 새 계정 FastMoss 로 그 샵도 5/31~ 실측이 생겨 일반 규칙 하나로 합쳤다).
+# 틱톡샵에만 있는 브랜드(아마존 미국 바구니 밖)의 한글 이름 · 주인(2026-11-27) — co = 상장사 · op = 비상장 운영사·모회사(확인된 것만).
+#   build() 가 블록 meta 에 싣는다(화면 이름 · 브리핑 nm). 새 샵을 TT_MAP 에 넣을 때 여기에도 한 줄.
+TT_META = {
+    "sungboon": {"ko": "성분에디터"}, "drg": {"ko": "닥터지", "op": "고운세상코스메틱(로레알)"}, "biohealboh": {"ko": "바이오힐보", "op": "CJ올리브영"},
+    "arencia": {"ko": "아렌시아"}, "colorgram": {"ko": "컬러그램", "op": "CJ올리브영"}, "drrejuall": {"ko": "닥터리쥬올"}, "beplain": {"ko": "비플레인"},
+    "oganacell": {"ko": "오가나셀"}, "growus": {"ko": "그로우어스"}, "ongredients": {"ko": "온그리디언츠"}, "mediheal": {"ko": "메디힐", "op": "엘앤피코스메틱"},
+    "banilaco": {"ko": "바닐라코", "op": "에프앤코"}, "elroel": {"ko": "엘로엘"}, "drforhair": {"ko": "닥터포헤어", "op": "폴리페놀팩토리"},
+    "ohora": {"ko": "오호라", "op": "글루가"}, "nooni": {"ko": "누니"}, "hetras": {"ko": "헤트라스"}, "iunik": {"ko": "아이유닉"}, "ilso": {"ko": "일소"},
+    "drjart": {"ko": "닥터자르트", "op": "에스티로더"}, "klairs": {"ko": "클레어스", "op": "위시컴퍼니"}, "imfrom": {"ko": "아임프롬"},
+    "wellage": {"ko": "웰라쥬", "co": "휴젤"}, "pyunkangyul": {"ko": "편강율"}, "terezhonor": {"ko": "테레즈아너"}, "cellfusionc": {"ko": "셀퓨전씨"},
+    "amuse": {"ko": "어뮤즈", "co": "신세계인터내셔날"}, "tfit": {"ko": "티핏"}, "purcell": {"ko": "퍼셀"}, "2an": {"ko": "투에이엔"}, "thome": {"ko": "티홈"},
+    "siot": {"ko": "시옷"}, "lactomedi": {"ko": "락토메디"}, "beaund": {"ko": "뷰앤드"}, "age20s": {"ko": "에이지투웨니스", "co": "애경산업"},
+    "tsshampoo": {"ko": "TS샴푸", "co": "TS트릴리온"}, "easydew": {"ko": "이지듀", "co": "대웅제약"}, "purito": {"ko": "퓨리토"}, "benton": {"ko": "벤튼"},
+    "jsm": {"ko": "정샘물"}, "heimish": {"ko": "헤이미쉬"}, "marymay": {"ko": "메리메이"}, "holika": {"ko": "홀리카홀리카", "op": "엔프라니"},
+    "naturerepublic": {"ko": "네이처리퍼블릭"}, "drceuracle": {"ko": "닥터수라클"}, "dermafirm": {"ko": "더마펌"}, "jayjun": {"ko": "제이준"},
+    "paparecipe": {"ko": "파파레서피"}, "unove": {"ko": "어노브"}, "drdifferent": {"ko": "닥터디퍼런트"}, "jmsolution": {"ko": "JM솔루션"},
+    "rovectin": {"ko": "로벡틴"}, "wishtrend": {"ko": "위시트렌드", "op": "위시컴퍼니"}, "tcfs": {"ko": "투쿨포스쿨"}, "meditherapy": {"ko": "메디테라피"},
+    "frudia": {"ko": "프루디아"}, "drpepti": {"ko": "닥터펩티"}, "koelf": {"ko": "쁘띠페·코엘프"}, "touchinsol": {"ko": "터치인솔"}, "demaf": {"ko": "데마프"},
+    "leaders": {"ko": "리더스", "co": "산성앨엔에스"}, "deardahlia": {"ko": "디어달리아"}, "makeprem": {"ko": "메이크프렘"}, "tocobo": {"ko": "토코보"},
+    "jumiso": {"ko": "주미소"}, "kundal": {"ko": "쿤달"}, "needly": {"ko": "니들리"}, "skinlab": {"ko": "스킨랩"}, "mizon": {"ko": "미즈온"},
+    "kahi": {"ko": "가히", "op": "코리아테크"}, "dashu": {"ko": "다슈"}, "cosnori": {"ko": "코스노리"}, "wonjin": {"ko": "원진이펙트"}, "lagom": {"ko": "라곰"},
+    "hanskin": {"ko": "한스킨"}, "neogen": {"ko": "네오젠"}, "obge": {"ko": "오브제"}, "aplb": {"ko": "APLB"}, "kocostar": {"ko": "코코스타"},
+    "klavuu": {"ko": "클라뷰"}, "bonajour": {"ko": "보나쥬르"}}
 RW_N = 7              # 3달·1달 창의 기준점 수(14일 간격 · 최근 12주) — phase_keepa.js 의 RWN 과 같게
 TT_MAXW = 52          # 주별 칸 최대 — '평소'를 아마존처럼 1년까지(덤프가 쌓이면 늘어난다)
 
 
 def _b36(s):
     return int(s, 36) if s else 0
-
-
-def _amz_day(amz, k):
-    """아마존 미국 그 브랜드의 [달 → (하루 판매량, 단가)] — 진행 중인 달도 Keepa 값이 이미 한 달치(배지 평균)라 달 일수로 나눈다."""
-    import calendar
-    b = (amz or {}).get("b", {}).get(k)
-    if not b:
-        return {}
-    out = {}
-    for m, u, v in zip(amz["months"], b.get("u") or [], b.get("v") or []):
-        y, mo = int(m[:4]), int(m[5:7])
-        if u:
-            out[m] = (u / calendar.monthrange(y, mo)[1], (v or 0) / u)
-    return out
 
 
 def _kalo():
@@ -349,7 +374,7 @@ def _kalo():
         return None
 
 
-def build_tt(keys, amz=None):
+def build_tt(keys):
     """FastMoss 덤프를 **전부** 이어 붙인다(같은 샵·같은 날은 나중 덤프가 이긴다 · 덤프마다 받은 날과 그 뒤는 진행 중이라 버린다).
     FastMoss 는 180일만 주므로 매주 받은 덤프를 버리지 않고 이어야 '평소'·꼬리가 길어진다(2026-10-21)."""
     files = sorted((SRC / "fm").glob("20??-??-??.txt"))
@@ -410,9 +435,9 @@ def build_tt(keys, amz=None):
     nxt = end + dt.timedelta(days=1)
     partial = months[-1] if months and nxt.month == end.month else None
     b, miss, late, est = {}, [], {}, {}
-    # 늦게 들어온 샵(2026-11-26) — 받기 시작한 날(fm_shops.csv w0)이 바구니 시작보다 30일 넘게 늦은 샵은 그 앞 판매를 모른다(EchoTik 은 90일만 준다).
-    #   바구니에 넣으면 그 샵이 잡히기 시작한 달부터 분모가 갑자기 커져 다른 브랜드 몫이 일제히 꺾여 보인다(라카 미국 공식 샵 = 주 5.8만 개 — 메디큐브 다음 급).
-    #   그래서 수집은 하되 바구니에서는 빼고 late 에 첫날을 적는다. 3달 비교 창(직전 3달 포함)이 채워지면 넣을지 사용자에게 물을 것.
+    # 늦게 들어온 샵 — 받기 시작한 날(fm_shops.csv w0)이 바구니 시작보다 30일 넘게 늦은 샵은 그 앞 판매를 모른다(FastMoss 180일 · EchoTik 90일).
+    #   2026-11-26 엔 바구니에서 빼고 late 에 적었다(라카 = 주 5.8만 개라 넣는 달부터 분모가 튄다). 2026-11-27 부터는 관측 전 날을 바구니 모양으로 채워
+    #   넣는다(아래 루프) — 채울 수 없는 샵(관측 28일 미만)만 late 로 남는다.
     w0s = {}
     shp = HERE / "data" / "fm_shops.csv"
     if shp.exists():
@@ -422,32 +447,55 @@ def build_tt(keys, amz=None):
                 w0s[r["s"]] = r["w0"]
     if KL:
         w0s = {}
+    late_ = lambda sid: sid in w0s and dt.date.fromisoformat(w0s[sid]) > start + dt.timedelta(days=30)
+    # 바구니 하루 판매량 모양(2026-11-27) — 처음부터 받은 샵(늦게 들어오지 않은 샵)의 합. 늦게 들어온 샵의 관측 전 날을 이 모양으로 채운다.
+    base = {}
+    for sid, dd in day.items():
+        k = TT_MAP.get(S.get(sid, {}).get("k"))
+        if not k or k not in keys or late_(sid):
+            continue
+        for t, (u, _v) in dd.items():
+            base[t] = base.get(t, 0) + u
     for sid, dd in day.items():
         k = TT_MAP.get(S.get(sid, {}).get("k"))
         if not k or k not in keys:
             miss.append(S.get(sid, {}).get("k", sid))
             continue
-        if sid in w0s and dt.date.fromisoformat(w0s[sid]) > start + dt.timedelta(days=30):
-            A = _amz_day(amz, TT_BACKFILL.get(sid))
+        if late_(sid):
+            # 늦게 들어온 샵(2026-11-27 개편 · 옛 규칙 = 바구니에서 빼고 late) — FastMoss 는 180일만 줘서 바구니 첫날(4/24)~받기 시작한 날(w0) 앞을 모른다.
+            #   ① w0 뒤에 문을 연 샵(첫 자료가 w0 보다 3일 넘게 늦다) = 그 앞은 판매 0(샵이 없었다) — 채우지 않는다.
+            #   ② w0 부터 팔고 있던 샵 = 관측 전 날을 [바구니 하루 판매량 × 관측 첫 30일의 이 샵 ÷ 바구니 배수] 로 채우고 est 에 적는다
+            #      (판매액 = 그 판매량 × 관측 첫 30일 중앙 단가). 바구니 모양이라 행사·계절은 따라가고, 그 샵만의 출렁임은 없다.
+            #   옛 규칙은 늦게 든 샵이 바구니에 들어가는 달부터 분모가 갑자기 커지는 걸 막으려고 뺐는데, 이 채움이면 분모가 처음부터 이어진다.
             o0 = min(dd) if dd else None
-            obs = [t for t in sorted(dd) if t < o0 + dt.timedelta(days=30)] if o0 else []
-            a30 = sum(A.get(t.isoformat()[:7], (0, 0))[0] for t in obs)
-            if not (A and len(obs) >= 28 and a30 > 0 and all(t.isoformat()[:7] in A for t in (start, o0))):
+            w0 = dt.date.fromisoformat(w0s[sid])
+            if o0 is None:
                 late[k] = min(late.get(k, w0s[sid]), w0s[sid])
                 continue
-            r = sum(dd[t][0] for t in obs) / a30
-            dd = dict(dd)
-            for t in list(dd):                                       # 관측 날 판매액 = 판매량 × 아마존 같은 달 단가
-                p = A.get(t.isoformat()[:7], (0, 0))[1]
-                if p:
-                    dd[t] = (dd[t][0], round(dd[t][0] * p))
-            t = start
-            while t < o0:
-                a, p = A.get(t.isoformat()[:7], (0, 0))
-                dd[t] = (round(a * r), round(a * r * p))
-                t += dt.timedelta(days=1)
-            est[k] = {"to": (o0 - dt.timedelta(days=1)).isoformat(), "from": o0.isoformat(), "r": round(r, 3), "amz": TT_BACKFILL[sid],
-                      "u": sum(dd[x][0] for x in dd if x < o0)}
+            if o0 <= w0 + dt.timedelta(days=3):
+                obs = [t for t in sorted(dd) if t < o0 + dt.timedelta(days=30)]
+                bo = sum(base.get(t, 0) for t in obs)
+                if len(obs) < 28 or bo <= 0:
+                    late[k] = min(late.get(k, w0s[sid]), w0s[sid])
+                    continue
+                r = sum(dd[t][0] for t in obs) / bo
+                pr = sorted(dd[t][1] / dd[t][0] for t in obs if dd[t][0] > 0)
+                p = pr[len(pr) // 2] if pr else 0
+                dd = dict(dd)
+                t, ne = start, 0
+                while t < o0:
+                    u = round(base.get(t, 0) * r)
+                    dd[t] = (u, round(u * p))
+                    ne += u
+                    t += dt.timedelta(days=1)
+                e = est.get(k)
+                to, fr = (o0 - dt.timedelta(days=1)).isoformat(), o0.isoformat()
+                if ne <= 0:   # 관측 첫 30일 판매가 0 이면 채움도 0 — 추정 표시를 안 단다
+                    pass
+                elif e:   # 같은 브랜드 샵이 여럿(홀리카홀리카 셋 · JM솔루션 다섯) — 기간을 넓히고 추정량을 더한다
+                    e.update({"to": max(e["to"], to), "from": min(e["from"], fr), "u": e["u"] + ne})
+                else:
+                    est[k] = {"to": to, "from": fr, "r": round(r, 5), "kind": "tt", "u": ne}
         ds = sorted(dd)
         U = [dd[t][0] for t in ds]
         V = [dd[t][1] for t in ds]
