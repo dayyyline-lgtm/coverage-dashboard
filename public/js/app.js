@@ -2876,7 +2876,7 @@ function dfCalc(mode){
     stocks.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
     const own={}; rows.forEach(r=>own[r.nm]=owner); TREND_OWNER[name]=own;
   };
-  const D=SPOP.dong, rowOf=k=>D[k]&&Object.assign({k, nm:D[k].nm},D[k]);
+  const D=SPOP.dong, rowOf=k=>D[k]&&Object.assign({},D[k],{k, nm:D[k].nm});   // D[k].k 는 이음 배수 — 동 코드가 덮이지 않게 뒤에 둔다
   // ① 호텔 — 새벽(묵는 사람)
   [["서부T&D","11170625","드래곤시티"],["GS피앤엘","11680580","그랜드 인터컨티넨탈·웨스틴"],["호텔신라","11140580","서울신라"]].forEach(([st,k,h])=>{
     const r=rowOf(k); if(!r) return;
@@ -2889,6 +2889,44 @@ function dfCalc(mode){
     if(!rows.length) return;
     build(`${co} 점포 동 외국인 비중(낮 · 서울 생활인구)`,rows,1,[co],co,
       {stackTot:true, srcName:`${SRC} · 낮 10~21시 평균 · 점포가 있는 행정동(${rows.map(r=>`${r.nm}=${r.what}`).join(" · ")}) — 같은 동의 다른 몰·호텔·관광지가 섞인다`});
+  });
+  /* ③ 체류인구(SPOP.stay · OA-22894 · 2026-11-27 사용자 "체류인구인가 뭔가 그것도") — 250m 격자 × 체류 시작 시각 × 머문 시간 · 2025-01~ 같은 방식(전년비 됨) ·
+     이번 달은 날짜 파일(5일 뒤 공개)로 채워 점선(진행 중). 숙박 = 자정에 이미 있었고 4시간 넘게 머문 사람 · 낮 방문 = 10~18시에 들어온 사람 · 평균 체류 = 구간 가운데값 가중.
+     3명 미만 칸은 비식별('*')이라 0 으로 더한다 — 인원은 낮게 잡혀 비중·체류 시간으로만 본다. */
+  const Y=SPOP.stay; if(!Y||!Y.months||Y.months.length<6) return;
+  const YM=Y.months, ymo=YM.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), yl=YM.length-1, P=Y.partial;
+  const est=YM.map((m,i)=>P&&P.ym===m?1:0), pLab=P?`진행 중(${+P.to.slice(4,6)}/${+P.to.slice(6,8)}까지 ${P.n}일)`:"";
+  const ysrc=`서울 체류인구(250m · 단기체류 외국인) · 서울시·KT 통신 기반 · 2025-01~ 같은 방식 · 3명 미만 칸은 비식별이라 인원은 낮게 잡힌다${P?` · ${+P.ym.slice(4,6)}월은 ${pLab} — 점선`:""}`;
+  const mins=v=>v==null||isNaN(v)?"—":`${Math.round(v)}분`;
+  const ybuild=(name,rows,key,stocks,owner,extra)=>{
+    const raw=rows.map(r=>Y.dong[r.k][key]);
+    const yoyAt=(i,k)=>k>=12?pct(raw[i][k],raw[i][k-12]):null;
+    const peak=Math.max(0.01,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    TREND.groups[name]=Object.assign({products:rows.map(r=>r.nm), productsGoogle:rows.map(r=>r.nm), months:ymo, naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt,
+      only:"naver", freq:"month", peak, unit:"%(서울 단기체류 외국인 중 비중)", unitShort:"%", realFmt:f2, niceTicks:true, minPts:YM.length, peakDot:true, yoyCmp:true,
+      sigIdx:[], endPad:110, srcName:ysrc, estMask:est, estLab:"진행 중"}, extra||{});
+    stocks.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
+    const own={}; rows.forEach(r=>own[r.nm]=owner); TREND_OWNER[name]=own;
+  };
+  const yn=(r,key,f)=>`${r.nm} ${f(Y.dong[r.k][key][yl])}`+(yl>=12?`(전년동월 ${f(Y.dong[r.k][key][yl-12])})`:"");
+  [["서부T&D","11170625"],["GS피앤엘","11680580"],["호텔신라","11140580"]].forEach(([st,k])=>{
+    const r=rowOf(k); if(!r||!Y.dong[k]) return;
+    ybuild(`${st} 호텔 동 숙박 외국인 비중(체류인구 · 밤새 머문)`,[r],"o",[st],st,
+      {srcName:`${ysrc} · ${r.nm} = ${r.what} · 숙박 = 자정에 이미 있었고 4시간 넘게 머문 사람(밤을 보낸 사람)`,
+       reviewNote:yn(r,"o",f2)+` · 하루 ${man(Y.dong[k].po[yl])}(비식별 칸 제외)`});
+  });
+  ["현대백화점","롯데쇼핑","신세계"].forEach(co=>{
+    const rows=Object.keys(D).filter(k=>D[k].co.includes(co)&&D[k].use.includes("d")&&Y.dong[k]).map(rowOf);
+    if(!rows.length) return;
+    const what=rows.map(r=>`${r.nm}=${r.what}`).join(" · ");
+    ybuild(`${co} 점포 동 외국인 낮 방문 비중(체류인구)`,rows,"v",[co],co,
+      {stackTot:true, srcName:`${ysrc} · 낮 방문 = 10~18시에 그 동에 들어와 머문 사람(머문 시간 무관) · ${what}`,
+       reviewNote:rows.map(r=>yn(r,"v",f2)).join(" · ")});
+    ybuild(`${co} 점포 동 외국인 평균 체류 시간(체류인구)`,rows,"m",[co],co,
+      {unit:"분(낮 10~18시 방문자 평균 · 구간 가운데값)", unitShort:"분", realFmt:mins,
+       srcName:`${ysrc} · 평균 체류 = 머문 시간 구간(30분 미만·30~60·60~120·120~180·180~240·4시간 이상)의 가운데값(4시간 이상 = 270분) 가중 평균 · ${what}`,
+       reviewNote:rows.map(r=>yn(r,"m",mins)+` · 2시간 이상 ${Y.dong[r.k].l[yl]??"—"}%`).join(" · ")});
   });
 })();
 /* 네이버 쇼핑인사이트(SHOPINS · fetch_shopins.py · 2026-11-03 사용자 "국내 데이터 자동으로 — 네이버 쇼핑인사이트") — 네이버쇼핑 안에서 그 키워드로 상품을 누른 양.

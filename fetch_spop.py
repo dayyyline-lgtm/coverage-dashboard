@@ -27,6 +27,7 @@ from collector_health import note_health
 
 HTML = "public/index.html"
 STORE = "spop/monthly.json"
+STAY = "spop/stay.json"           # 체류인구(OA-22894) 월별·이번 달 날짜별 — 대상 동 + 서울 합만
 KST = datetime.timezone(datetime.timedelta(hours=9))
 URL = "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?useCache=false"
 START = "202301"
@@ -141,6 +142,135 @@ def reduce_zip(b):
     return out
 
 
+# ── 체류인구(OA-22894 · 2026-11-27 사용자 "체류인구인가 뭔가 그것도") ─────────────────────────────
+# '[단기외국인] 서울 체류인구(250m)' — 250m 격자 × 체류 시작 시각 × 체류 시간(분 구간) × 국적 · 2025-01~ 월별 zip(seq YYMM · 약 25MB) + 이번 달은
+# 날짜별 zip(seq YYMMDD · 약 1MB · **5일 뒤** 공개). 행정동 코드가 같이 와서 동으로 바로 묶는다. 같은 방식이 2025-01 부터라 전년비가 된다(2026-01~).
+# 체류 시간 코드 = 구간 아랫값(000 <30분 · 030 · 060 · 120 · 180 · 240 = 4시간 이상) · 시작 00시 = 자정에 이미 있던 사람.
+#   숙박 = 시작 00시 × 240(자정부터 4시간 넘게 머문 사람 = 밤을 보낸 사람) · 낮 방문 = 시작 10~18시(전 구간) · 평균 체류 = 구간 가운데값 가중.
+# ⚠ 격자 × 국적 × 시간 칸이 3명 미만이면 '*'(비식별) — 그 칸은 0 으로 더한다(작은 동·작은 국적일수록 낮게 잡힌다 · 비중으로 본다).
+STY_MID = {"000": 15, "030": 45, "060": 90, "120": 150, "180": 210, "240": 270}
+STY_DAYH = {f"{h:02d}" for h in range(10, 19)}
+
+
+def download_sty(seq, timeout=600):
+    data = urllib.parse.urlencode({"infId": "OA-22894", "seq": seq, "infSeq": "1", "seqNo": ""}).encode()
+    req = urllib.request.Request(URL, data=data, headers={"Referer": "https://data.seoul.go.kr/", "User-Agent": "Mozilla/5.0"})
+    err = None
+    for t in range(3):
+        try:
+            b = urllib.request.urlopen(req, timeout=timeout).read()
+            return b if b[:2] == b"PK" else None
+        except Exception as e:
+            err = e
+            time.sleep(5 * (t + 1))
+    raise err
+
+
+def reduce_sty(b):
+    """zip → {날짜: {"tot": [숙박, 낮 방문, 체류분 합, 2시간+], "d": {동: [...]}}} (그날 합)"""
+    z = zipfile.ZipFile(io.BytesIO(b))
+    out = {}
+    for n in z.namelist():
+        with z.open(n) as fh:
+            for i, line in enumerate(io.TextIOWrapper(fh, encoding="cp949", errors="replace")):
+                if i == 0:
+                    continue
+                r = line.strip().replace('"', "").split(";" if line.count(";") > line.count(",") else ",")
+                if len(r) < 10 or r[9] == "*":
+                    continue
+                try:
+                    v = float(r[9])
+                except ValueError:
+                    continue
+                d, dong, h, m = r[0].strip(), r[1].strip(), r[5].strip().zfill(2), r[6].strip().zfill(3)
+                rec = out.setdefault(d, {"tot": [0.0, 0.0, 0.0, 0.0], "d": {}})
+                a = None
+                if dong in DONG:
+                    a = rec["d"].setdefault(dong, [0.0, 0.0, 0.0, 0.0])
+                if h == "00" and m == "240":
+                    rec["tot"][0] += v
+                    if a: a[0] += v
+                elif h in STY_DAYH:
+                    mm = STY_MID.get(m, 0)
+                    for x in ([rec["tot"], a] if a else [rec["tot"]]):
+                        x[1] += v; x[2] += v * mm
+                        if m in ("120", "180", "240"):
+                            x[3] += v
+    if not out:
+        raise RuntimeError("행을 하나도 못 읽음")
+    return out
+
+
+def sty_month(days):
+    """날짜별 합 → 그달 하루 평균 {"n": 일수, "tot": [...], "d": {...}}"""
+    n = len(days)
+    tot = [round(sum(x["tot"][j] for x in days.values()) / n, 1) for j in range(4)]
+    d = {}
+    for k in DONG:
+        xs = [x["d"].get(k, [0, 0, 0, 0]) for x in days.values()]
+        d[k] = [round(sum(x[j] for x in xs) / n, 1) for j in range(4)]
+    return {"n": n, "tot": tot, "d": d}
+
+
+def update_sty(T, seed, last):
+    """T = {"m": {ym: 월 기록}, "cur": {"ym", "days": {날짜: 그날 합}}} — 끝난 달은 월 파일, 이번 달은 날짜 파일."""
+    T.setdefault("m", {}); T.setdefault("cur", {"ym": None, "days": {}})
+    want = [m for m in _months("202501", last) if m not in T["m"]] if seed else \
+        ([m for m in _months(max(T["m"]), last)[1:]] if T["m"] else _months("202501", last))
+    got = 0
+    for ym in want:
+        b = download_sty(ym[2:])
+        if b is None:
+            print(f"  체류 {ym}: 월 파일 아직 없음"); break
+        days = reduce_sty(b)
+        T["m"][ym] = sty_month(days)
+        got += 1
+        print(f"  체류 {ym}: {len(days)}일 · 서울 숙박 {T['m'][ym]['tot'][0]:,.0f}명/일 · 낮 방문 {T['m'][ym]['tot'][1]:,.0f}명/일")
+    # 이번 달(마지막 월 파일 다음 달) 날짜 파일 — 5일 뒤 공개 · 받은 날은 건너뛴다
+    nxt = _months(max(T["m"]), "209912")[1] if T["m"] else None
+    if not nxt:
+        return got
+    if T["cur"].get("ym") != nxt:
+        T["cur"] = {"ym": nxt, "days": {}}
+    now = datetime.datetime.now(KST).date()
+    d0 = datetime.date(int(nxt[:4]), int(nxt[4:]), 1)
+    miss = 0
+    while d0 <= now - datetime.timedelta(days=4) and d0.strftime("%Y%m") == nxt:
+        k = d0.strftime("%Y%m%d")
+        if k not in T["cur"]["days"]:
+            b = download_sty(k[2:], timeout=120)
+            if b is None:
+                miss += 1
+                if miss >= 2:
+                    break
+            else:
+                T["cur"]["days"].update({dd: v for dd, v in reduce_sty(b).items() if dd.startswith(nxt)})
+                got += 1
+        d0 += datetime.timedelta(days=1)
+    return got
+
+
+def build_sty(T):
+    ms = sorted(T.get("m", {}))
+    recs = [T["m"][m] for m in ms]
+    cur = T.get("cur") or {}
+    part = None
+    if cur.get("days") and cur.get("ym") and cur["ym"] not in T["m"]:
+        recs.append(sty_month(cur["days"])); ms.append(cur["ym"]); part = {"ym": cur["ym"], "n": len(cur["days"]), "to": max(cur["days"])}
+    sh = lambda x, t: round(x / t * 100, 3) if t > 0 else None
+    out = {"months": ms, "partial": part,
+           "tot": {"o": [round(r["tot"][0]) for r in recs], "v": [round(r["tot"][1]) for r in recs]}, "dong": {}}
+    for k in DONG:
+        o = {"o": [], "v": [], "po": [], "pv": [], "m": [], "l": []}
+        for r in recs:
+            x = r["d"].get(k, [0, 0, 0, 0])
+            o["o"].append(sh(x[0], r["tot"][0])); o["v"].append(sh(x[1], r["tot"][1]))
+            o["po"].append(round(x[0])); o["pv"].append(round(x[1]))
+            o["m"].append(round(x[2] / x[1], 1) if x[1] > 0 else None); o["l"].append(round(x[3] / x[1] * 100, 1) if x[1] > 0 else None)
+        out["dong"][k] = o
+    return out
+
+
 def build(S):
     """old·new → 이어 붙인 월별 블록"""
     old, new = S.get("old", {}), S.get("new", {})
@@ -224,12 +354,25 @@ def main():
     if not S["old"]:
         print("[생활인구] 옛 판이 없다 — --seed 를 먼저"); return
     months, tot, dong, oe, nw = build(S)
+    # 체류인구(2026-11-27) — 생활인구와 따로 저장(spop/stay.json) · 막혀도 생활인구는 그대로 낸다
+    T = json.load(open(STAY, encoding="utf-8")) if os.path.exists(STAY) else {}
+    if "--no-stay" not in sys.argv:
+        try:
+            if update_sty(T, "--seed-stay" in sys.argv, last) and not dry:
+                json.dump(T, open(STAY, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        except Exception as e:
+            note_health("서울 체류인구(외국인)", f"{type(e).__name__}: {str(e)[:100]}")
+            print(f"[체류인구] 실패 — 기존 값 유지: {e}")
+        else:
+            note_health("서울 체류인구(외국인)", None)
     html = open(HTML, encoding="utf-8").read()
     old = _const(html, "SPOP") or {}
     out = {"asOf": old.get("asOf"),
            "src": "서울 열린데이터광장 · 서울시·KT 생활인구(단기체류 외국인) — ~2026-07 OA-14993 · 2026-08~ OA-23018(250m 판 · 겹친 2026-06·07 비율로 동마다 이어 붙임)",
            "months": months, "oldEnd": oe, "tot": tot,
            "dong": {k: {"nm": v[0], "what": v[1], "co": v[2], "use": v[3], **dong[k]} for k, v in DONG.items()}}
+    if T.get("m"):
+        out["stay"] = build_sty(T)
     lm = months[-1]
     for k, v in out["dong"].items():
         print(f"  {lm} {v['nm']}: 새벽 비중 {v['s'][0][-1]}% ({v['p'][0][-1]}명) · 낮 비중 {v['s'][1][-1]}% ({v['p'][1][-1]}명) · 이음 배수 {v['k']}")
