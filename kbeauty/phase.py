@@ -357,12 +357,15 @@ def build_tt(keys, amz=None):
     if not files and not KL:
         return None
     S, day, fhs = {}, {}, []
+    eday = set()   # (샵, 날) 중 지금 값이 EchoTik 이어 붙이기(FH|E1)에서 온 것 — FastMoss 덤프가 나중에 덮으면 빠진다(2026-11-27 · 새 계정 FastMoss 로 EchoTik 구간을 덮음)
     for path in files:
         fh = None
+        isE = False
         for l in path.read_text(encoding="utf-8").splitlines():
             f = l.split("|")
             if f[0] == "FH":
                 fh = f[2]
+                isE = str(f[1]).startswith("E")
             elif f[0] == "S":
                 S[f[1]] = {"k": f[3], "name": f[5]}
             elif f[0] == "D" and fh:
@@ -374,6 +377,10 @@ def build_tt(keys, amz=None):
                     t = d0 + dt.timedelta(days=i)
                     if t < cut:
                         dd[t] = (u, v)
+                        if isE:
+                            eday.add((f[1], t))
+                        else:
+                            eday.discard((f[1], t))
         if fh:
             fhs.append(fh)
     if KL:
@@ -510,7 +517,8 @@ def build_tt(keys, amz=None):
     return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "rw": rwm, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
             "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)), "late": late, "est": est,
             "src": (f"틱톡샵 미국 공식 샵 {len(day)}곳 · Kalodata 일별 판매량·판매액({start.isoformat()}~{end.isoformat()} · 뷰티 카테고리 · 한 출처)" if KL else
-                    f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss ~11/14 · EchoTik 11/15~ 이어 붙임 · 덤프 {len(files)}개)"),
+                    f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss" +
+                    (f" · EchoTik 이어 붙인 날 {min(t for _, t in eday).isoformat()}~{max(t for _, t in eday).isoformat()}" if eday else "") + f" · 덤프 {len(files)}개)"),
             "kalo": bool(KL), "b": b}
 
 

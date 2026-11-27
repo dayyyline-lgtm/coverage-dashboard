@@ -475,7 +475,7 @@ def build_block():
         "asOf": max(meta.get("date", ""), fm_last),
         "kp": {"asOf": meta.get("date", ""), "months": yms, "b": kpb, "r30": k30, "h30": hist30, "top": top, "curves": curves,
                "fail": meta.get("fail", [])},
-        "tt": {"asOf": fm_last, "s": tt, "w": snap, "so": social, "src": "Kalodata" if KL else "FastMoss·EchoTik"},
+        "tt": {"asOf": fm_last, "s": tt, "w": snap, "so": social, "src": "Kalodata" if KL else "FastMoss"},
         "fx": {"cols": ["USD", "GBP", "EUR", "JPY", "CAD"], "m": fx},
         "dom": {k: v[:2] for k, v in cfg["domains"].items()},
         "co": cfg["companies"],

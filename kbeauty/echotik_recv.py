@@ -131,6 +131,23 @@ def fm_days():
     return day
 
 
+def fm_last_dump():
+    """샵별 FastMoss 덤프(FH 가 E 로 시작하지 않는 것)의 마지막 관측 날 — fm_daily 는 EchoTik 이어 붙인 날도 담고 있어 따로 본다"""
+    last = {}
+    for path in sorted((PH / "fm").glob("20??-??-??.txt")):
+        fh = ver = None
+        for l in path.read_text(encoding="utf-8").splitlines():
+            f = l.split("|")
+            if f[0] == "FH":
+                ver, fh = f[1], dt.date.fromisoformat(f[2])
+            elif f[0] == "D" and fh and not str(ver).startswith("E"):
+                n = len(f[3].split(","))
+                t = min(dt.date.fromisoformat(f[2]) + dt.timedelta(days=n - 1), fh - dt.timedelta(days=1))
+                if t > last.get(f[1], dt.date.min):
+                    last[f[1]] = t
+    return last
+
+
 def et_daily(x):
     d0 = x["d0"]
     vi, li = x["vi"], x["li"]
@@ -227,6 +244,7 @@ def main(argv):
         return 0
     shops = {r["s"]: r for r in csv.DictReader(open(HERE / "data" / "fm_shops.csv", encoding="utf-8"))}
     fm = fm_days()
+    fmx = fm_last_dump()
     kall = json.loads(KF.read_text(encoding="utf-8")) if KF.exists() else {}
     rows = []
     for s, x in sorted(res["T"].items()):
@@ -268,6 +286,10 @@ def main(argv):
         # 이어 붙이는 자리 = FastMoss 마지막 날(et_k 의 to) — 그 뒤는 회차마다 EchoTik 값으로 다시 쓴다.
         # EchoTik 은 늦게 잡힌 판매를 나중 날짜에 몰아 넣었다가 고친다(9/26~10/12 겹친 구간에서 확인) → 이미 넣은 날도 새 덤프가 이겨야 한다.
         last_fm = dt.date.fromisoformat(kk["to"]) if kk.get("to") else (max(fm[s]) if fm.get(s) else None)
+        # FastMoss 덤프가 et_k 의 to 뒤까지 있으면(2026-11-27 새 계정 FastMoss 로 5/31~11/26 을 다시 받음) 그 마지막 날 뒤부터만 잇는다 —
+        # 안 그러면 EchoTik 이 더 늦은 날짜 파일로 FastMoss 값을 다시 덮는다.
+        if fmx.get(s) and (last_fm is None or fmx[s] > last_fm):
+            last_fm = fmx[s]
         ds = sorted(t for t in et if (last_fm is None or t > last_fm))
         if not ds:
             continue
