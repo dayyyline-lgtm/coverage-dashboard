@@ -349,6 +349,15 @@ jobs:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: python runstep.py "호텔 ADR 공시" hotel_adr/dart.py
 
+      # 리츠 실측 ADR(2026-11-27 · hotel_adr/reit_ir.py) — 신한서부티엔디리츠 홈페이지 IR 게시판에 새 IR 자료가 올라오면
+      #   '호텔 자산 실적' 차트의 올해 선을 읽어 새 달(그랜드 머큐어 · 신라스테이 광화문·마포)을 더한다. 평소 요청 2건(게시판·새 글 없으면 끝).
+      - name: 리츠 실측 ADR(IR 자료)
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          pip install --quiet pdfplumber || true
+          python runstep.py "리츠 IR(호텔 ADR)" hotel_adr/reit_ir.py
+
       # K뷰티 채널 모델 — ECB 월평균 환율(원/USD·GBP·EUR·JPY·CAD) → KBCH 블록 다시 넣기.
       # Keepa·FastMoss 판매 데이터는 크롬 세션이 주 1회 넣는다(kbeauty/RUNBOOK.md) — 여기는 환율만.
       - name: K뷰티 채널 모델 환율
@@ -411,7 +420,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
-          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart tourism_regind.csv tourism_mcst.json 2>/dev/null || true
+          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart hotel_adr/data/reit_monthly.json tourism_regind.csv tourism_mcst.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else

@@ -2689,17 +2689,63 @@ const ADR_MAP={
     const lastAll=Math.max(...Object.keys(RH).map(k=>(runOf(k)||{b:-1}).b));
     const rk=(cfg.reit||[]).filter(k=>RH[k]&&runOf(k)&&runOf(k).b===lastAll);
     const a0=rk.length?Math.max(...rk.map(k=>runOf(k).a)):0;
+    // 리츠 IR 이 아직 안 낸 달(마지막 실측 뒤 ~ 이번 달)은 KAYAK 같은 호텔 검색가의 달 변화로 잇는다(점선 · estMask 1 ·
+    //   2026-11-27 사용자 "10월·11월 채워 주고 앞으로 알아서 · 완결 안 된 달은 점선"). KAYAK 은 원화(그달 평균 환율) · 이번 달은 진행 중 값.
+    //   검증: 리츠 3Q/2Q 와 KAYAK 3Q/2Q 차이 −4~+7%p(2026-10-29) · 10월은 리츠가 +13~33% 인데 KAYAK +7~14% — 큰 달은 덜 따라간다.
+    const kyV=(k,y)=>{ const r=((KY[k]||{}).m||[]).find(r=>r[0]===y); return r&&r[2]!=null?r[2]:null; };
+    const curI=ymI(TODAY.slice(0,7));
+    const real=[];
     if(rk.length&&lastAll-a0+1>=24){
-      const ym=[]; for(let i=a0;i<=lastAll;i++) ym.push(ymS(i));
-      const raw=rk.map(k=>{ const o={}; RH[k].m.forEach(r=>{ if(r[1]!=null) o[r[0]]=Math.round(r[1])/10; }); return ym.map(y=>o[y]==null?null:o[y]); });
+      const ym=[]; for(let i=a0;i<=Math.max(lastAll,curI);i++) ym.push(ymS(i));
+      const raw=rk.map(k=>{ const o={}; RH[k].m.forEach(r=>{ if(r[1]!=null) o[r[0]]=Math.round(r[1])/10; });
+        for(let i=lastAll+1;i<=curI;i++){ const y=ymS(i), p=ymS(i-1), a=kyV(k,p), b=kyV(k,y); o[y]=(o[p]!=null&&a&&b)?Math.round(o[p]*b/a*10)/10:null; }
+        return ym.map(y=>o[y]==null?null:o[y]); });
       const name=`${stock} 실측 ADR(리츠 · 월)`, labs=rk.map(k=>SHORT[k]||((ADR.hotels||{})[k]||[k])[0]);
       const last=k=>{ const r=RH[k].m[RH[k].m.length-1]; return `${SHORT[k]||k} ${+r[0].slice(5,7)}월 ${man(Math.round(r[1])/10)}${r[2]!=null?` · 투숙률 ${r[2]}%`:""}${r[4]!=null?` · 전년비 ${sg(r[4])}`:""}`; };
+      const estN=Math.max(0,curI-lastAll), estMs=ym.slice(ym.length-estN);
+      const estNote=estN?` · 추정(점선): `+estMs.map(y=>`${+y.slice(5,7)}월${ymI(y)===curI?"(진행 중)":""} `+rk.map((k,j)=>{ const v=raw[j][ym.indexOf(y)]; return v==null?"":`${SHORT[k]||k} ${man(v)}`; }).filter(Boolean).join("·")).join(" / "):"";
       TREND.groups[name]=group(raw,{products:labs, months:ym.map(y=>`${y.slice(2,4)}.${+y.slice(5,7)}`), freq:"month", unit:"만원(객실 1박 평균 판매가 · ADR)", minPts:ym.length,
-        srcName:`신한서부티엔디리츠 IR 월별 ADR(차트 판독 · 표가 있는 달은 정확한 값) · 리츠가 가진 호텔만 — 회사 전체 ADR 아님 · 리츠 IR 이 나와야 다음 달이 붙는다(지금 ${ymS(lastAll).replace("-",".")}까지)`,
-        reviewNote:rk.map(last).join(" · ")});
-      add.push(name);
+        estMask:ym.map(y=>ymI(y)>lastAll?1:0), estLab:"추정(KAYAK 변화로 이음)",
+        srcName:`신한서부티엔디리츠 IR 월별 ADR(차트 판독 · 표가 있는 달은 정확한 값) · 리츠가 가진 호텔만 — 회사 전체 ADR 아님 · 실측은 ${ymS(lastAll).replace("-",".")}까지` +
+          (estN?` · 그 뒤(점선) = 마지막 실측 × KAYAK 같은 호텔 검색가 달 변화(원화) — 리츠 IR 이 나오면 실측으로 바뀐다 · 이번 달은 아직 끝나지 않았다`:""),
+        reviewNote:rk.map(last).join(" · ")+estNote});
+      real.push(name);
     }
-    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).unshift(...add);
+    // ④ 공시 ADR(DART · 분기) — 회사 전체(신라 전 사업장 · GS 임차 호텔) · 서부T&D 는 객실·식음이 한 칸이라 가용 객실당 매출(hotel_adr/dart.py → ADR.bu).
+    //    발표 전 분기(마지막 실적 뒤 ~ 이번 분기)는 KAYAK 그 회사 호텔 검색가의 분기 변화로 잇는다(점선) — 이번 분기는 진행 중(지금까지 달 평균).
+    const BU=((ADR.bu||{})[cfg.ir]||{}).q||[], fld=cfg.ir==="seobu"?"rvp":"adr";
+    const qI=q=>+q.slice(0,4)*4+ +q.slice(-1)-1, qS=i=>`${Math.floor(i/4)}Q${i%4+1}`;
+    const bq=BU.filter(r=>r[fld]!=null);
+    if(bq.length>=4){
+      let a=bq.length-1; while(a>0&&qI(bq[a-1].q)===qI(bq[a].q)-1) a--;
+      const run=bq.slice(a), qLast=qI(run[run.length-1].q), qCur=Math.floor(curI/12)*4+Math.floor((curI%12)/3);
+      const qs=[]; for(let i=qI(run[0].q);i<=Math.max(qLast,qCur);i++) qs.push(qS(i));
+      const o={}; run.forEach(r=>{ o[r.q]=Math.round(r[fld])/10; });
+      const kqAvg=(k,q)=>{ const y=+q.slice(0,4), s=(+q.slice(-1)-1)*3, v=[1,2,3].map(j=>kyV(k,`${y}-${String(s+j).padStart(2,"0")}`)).filter(x=>x!=null); return v.length?v.reduce((t,x)=>t+x,0)/v.length:null; };
+      // 호텔마다 마지막 실적 분기 가용 객실(bu.av)로 가중 — 신라는 판매 객실의 80% 넘게가 신라스테이라 단순 평균이면 서울·제주신라가 너무 크다
+      const kk=(cfg.kayak||[]).filter(k=>KY[k]), lav=(run[run.length-1]||{}).av;
+      const AVK={shilla_seoul:0, shilla_jeju:1, stay_all:2, gic:"gic", westin:"westin", pjeju:"pjeju", nt5:"nt"};
+      const wOf=k=>{ const j=AVK[k]; const v=lav==null?null:typeof lav==="number"?lav:lav[j]; return v>0?v:(kk.length===1?1:0); };
+      for(let i=qLast+1;i<=qCur;i++){ const q=qS(i), p=qS(i-1);
+        const rs=kk.map(k=>{ const x=kqAvg(k,p), y=kqAvg(k,q), w=wOf(k); return x&&y&&w?[y/x,w]:null; }).filter(x=>x);
+        const W=rs.reduce((t,r)=>t+r[1],0);
+        o[q]=(o[p]!=null&&W)?Math.round(o[p]*rs.reduce((t,r)=>t+r[0]*r[1],0)/W*10)/10:null; }
+      if(run.length>=4){
+        const raw=[qs.map(q=>o[q]==null?null:o[q])];
+        const lab={shilla:"호텔신라 전 사업장", gs:"GS피앤엘 임차 호텔", seobu:"드래곤시티 가용 객실당 매출"}[cfg.ir];
+        const name=`${stock} 공시 ${fld==="rvp"?"RevPAR":"ADR"}(DART · 분기)`, lr=run[run.length-1];
+        const estN=Math.max(0,qCur-qLast);
+        const ql=q=>`${q.slice(-1)}Q${q.slice(2,4)}`;
+        TREND.groups[name]=group(raw,{products:[lab], months:qs.map(ql), freq:"month", unit:fld==="rvp"?"만원(가용 객실 1실·1박당 매출)":"만원(판매 객실 1박 평균 · ADR)", minPts:Math.min(qs.length,12),
+          yoyLag:4, yoyLab:"전년동분기비", estMask:qs.map(q=>qI(q)>qLast?1:0), estLab:"추정(KAYAK 분기 변화로 이음)",
+          srcName:(fld==="rvp"?"DART 분기보고서 '관광호텔업 · 객실, 식음료수입' ÷ 가용 객실(1,700실 × 일수) — 객실과 식음이 한 칸이라 ADR 이 아니다":"DART 분기보고서 객실 매출 ÷ 판매 객실(객실 수 × 영업일 × 투숙률) — 회사가 낸 숫자로 계산한 실측")+
+            ` · 실측은 ${ql(lr.q)}까지`+(estN?` · 그 뒤(점선) = 마지막 실측 × KAYAK 그 회사 호텔 검색가의 분기 변화 — 분기보고서가 나오면 실측으로 바뀐다 · 이번 분기는 진행 중`:""),
+          reviewNote:`${ql(lr.q)} ${man(Math.round(lr[fld])/10)}`+(lr.yoy!=null?` · 전년비 ${sg(lr.yoy)}`:lr.ryoy!=null?` · 전년비 ${sg(lr.ryoy)}`:"")+(lr.occ!=null?` · 투숙률 ${lr.occ}%`:"")+
+            (estN?" · 추정(점선): "+qs.slice(qs.length-estN).map(q=>`${ql(q)}${qI(q)===qCur?"(진행 중)":""} ${man(o[q])}`).join(" / "):"")});
+        real.push(name);
+      }
+    }
+    (TREND_STOCK[stock]=TREND_STOCK[stock]||[]).unshift(...real, ...add);
   });
 })();
 /* 유럽 운송비(FREIGHT · fetch_freight.py · 2026-11-24 사용자 "유럽 내 운송비 — 에이피알이 영향받는 가격 · 트럭도 세세하게 · 관련 종목 대시보드에").
@@ -3232,7 +3278,7 @@ function topicTier(n){
   let t;
   if(/채용|갤 순위|거래순위|AI 챗봇 경쟁|경쟁\)|캐릭터별|누적|무료순위|웹툰앱 순위/.test(n)) t=3;
   else if(/다운로드순위|유료순위|예약순위|위시리스트/.test(n)) t=2;
-  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|실측 ADR|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭|외국인 카드결제|카드 관광소비/.test(n)) t=1;
+  else if(/매출순위|판매순위|앨범판매|수출|선적|동접|아마존|올리브영|탑툰챗 대화|극장|관광객|업계 매출|숙박료|판매가|검색가|실측 ADR|공시 ADR|공시 RevPAR|온라인쇼핑 거래액|카드 추정매출|카지노 월 공시|카지노 3사 매출|테이블 드롭|외국인 카드결제|카드 관광소비/.test(n)) t=1;
   else t=2;                                      // 시청·스트리밍·리뷰·게임경제·커뮤니티 글 양·검색 트렌드(브랜드·IP)
   // 신호 없는 계열은 뒤로 — 전부 0 이거나 값이 두 점도 안 되는 것
   const src=(G.only==="google"||!G.naver)?"google":"naver", ser=(G[src]||[]);
@@ -3247,7 +3293,7 @@ function topicKind(n){
   if(n.includes("시청(")) return "시청";
   if(/게임머니|거래대금|평균시세|거래순위/.test(n)) return "게임경제";
   if(/디시/.test(n)) return "커뮤니티";
-  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|실측 ADR|카지노|외국인 카드결제|카드 관광소비/.test(n)) return "판매·순위";
+  if(/순위|위시리스트|극장|업계 매출|판매가|검색가|실측 ADR|공시 ADR|공시 RevPAR|카지노|외국인 카드결제|카드 관광소비/.test(n)) return "판매·순위";
   if(n.includes("리뷰")) return "리뷰";
   if(!G.srcName) return "검색";              // srcName 없는 그룹 = 네이버·구글 검색 트렌드
   return "기타";

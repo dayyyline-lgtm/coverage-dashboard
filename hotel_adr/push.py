@@ -20,7 +20,7 @@ import tempfile
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent
 PATHS = ["hotel_adr/data", "public/index.html"]
-KEEP = ["hotel_adr/data"]
+KEEP = ["hotel_adr/data/ota.csv", "hotel_adr/data/kayak.csv"]   # 이 사슬이 쓰는 파일만 — reit_monthly.json 은 러너(reit_ir.py)도 쓴다(2026-11-27)
 SKIP = "[CI " + "Skip]"     # 쪼개 둔 이유: 이 글자가 커밋 메시지 어디에든 있으면 배포가 빠진다(CLAUDE.md)
 
 try:
@@ -84,6 +84,9 @@ def main():
             src = REPO / k
             if src.is_dir():
                 shutil.copytree(src, tmp / k)
+            elif src.is_file():
+                (tmp / k).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, tmp / k)
         git("fetch", "-q", "origin", "main")
         git("reset", "-q", "--hard", "origin/main")
         for k in KEEP:
@@ -91,6 +94,8 @@ def main():
             if src.is_dir():
                 shutil.rmtree(dst, ignore_errors=True)
                 shutil.copytree(src, dst)
+            elif src.is_file():
+                shutil.copy2(src, dst)
         shutil.rmtree(tmp, ignore_errors=True)
         r = subprocess.run([sys.executable, str(HERE / "build.py")], cwd=REPO, capture_output=True, text=True)
         print(r.stdout.strip())
