@@ -12732,28 +12732,31 @@ function renderCosPhase(){
   if(!vis.some(p=>p.r.k===cosSel)) cosSel=(vis.slice().sort((a,b)=>b.s-a.s)[0]||{r:{}}).r.k||"";
   const QN=mode==="x"?COS_X.map(x=>x[0]):KBPH_ORD, QC=q=>mode==="x"?(COS_X.find(x=>x[0]===q)||[0,"var(--muted)"])[1]:KBPH_Q[q];
   const QD=mode==="x"?{"두 채널 다 늘었다":`비중 ${SQ(xw)} 아마존↑ · 틱톡샵↑`,"틱톡샵만 늘었다":`비중 ${SQ(xw)} 아마존↓ · 틱톡샵↑`,"아마존만 늘었다":`비중 ${SQ(xw)} 아마존↑ · 틱톡샵↓`,"두 채널 다 줄었다":`비중 ${SQ(xw)} 아마존↓ · 틱톡샵↓`}:mode==="amz"?QDAw:QDT;
-  // 축 — 점 + 보이는 점들의 꼬리까지 담는다(260 위·10 밑은 끝에 붙인다)
-  // 축 = 로그 눈금 · 범위는 보이는 점 전부 + 보이는 브랜드 꼬리 전부(2026-10-21 사용자 "축을 유연하게 — 센텔리안 추이가 잘 안 보인다").
-  //   예전엔 10~260 에서 잘라 센텔리안24(전년比 477)가 가장자리에 붙었고 꼬리도 눌렸다. 비율이라 로그가 맞다(50 과 200 이 100 에서 같은 거리).
+  // 축 — 범위는 보이는 점 전부 + 보이는 브랜드 꼬리 전부(2026-10-21 사용자 "축을 유연하게 — 센텔리안 추이가 잘 안 보인다").
   //   꼬리까지 범위에 넣어 두므로 커서를 옮겨도 축이 바뀌지 않는다.
-  const CL=v=>Math.max(5,Math.min(3000,v)), LG=v=>Math.log(CL(v));
+  // 눈금 = 변화가 클수록 눌러 그린다(2026-11-27 사용자 "가운데 몰린 걸 자세히 — 증가율 클수록 축소해서") — 자리 = asinh(증감률 ÷ 12%).
+  //   ±12% 안은 거의 그대로, 그보다 크면 로그처럼 눌린다. 예전 비율 로그 눈금은 큰 하락이 끝없이 늘어나(−90% = 로그 −2.3 · +100% 는 +0.7)
+  //   작은 브랜드 꼬리 하나(11/27 리더스 −90%)가 축을 다 먹고 나머지가 가운데 한 줌으로 뭉쳤다. 값·칸 판정은 그대로 — 그리는 자리만 바뀐다.
+  const AX_C=0.12, LG=v=>Math.asinh(Math.max(-0.97,Math.min(30,v/100-1))/AX_C);
   const all=vis.concat(...vis.map(p=>p.T||[]));
-  const rg=a=>{ const lo=Math.min(Math.log(85),...a), hi=Math.max(Math.log(118),...a), m=(hi-lo)*0.06; return [lo-m,hi+m]; };
+  const rg=a=>{ const lo=Math.min(LG(85),...a), hi=Math.max(LG(118),...a), m=(hi-lo)*0.05; return [lo-m,hi+m]; };
   const [x0,x1]=rg(all.filter(p=>p.x!=null).map(p=>LG(p.x))), [y0,y1]=rg(all.filter(p=>p.y!=null).map(p=>LG(p.y)));
   const W=Math.max(320,Math.min(1000,box.clientWidth||760)), H=Math.round(Math.min(520,Math.max(320,W*0.52))), pad={l:44,r:16,t:24,b:40}, nar=W<560;
   const cx_=v=>Math.max(x0,Math.min(x1,LG(v))), cy_=v=>Math.max(y0,Math.min(y1,LG(v)));
   const sx=v=>pad.l+(cx_(v)-x0)/(x1-x0)*(W-pad.l-pad.r), sy=v=>H-pad.b-(cy_(v)-y0)/(y1-y0)*(H-pad.t-pad.b);
   const mxS=Math.max(...vis.map(p=>p.s)), rr=s=>3+Math.sqrt(s/mxS)*(nar?14:20);
-  // 로그 눈금 — 범위 배수에 따라 촘촘함을 고른다(최대 9개쯤)
-  const tick=(lo,hi)=>{ const r=Math.exp(hi-lo), L=r<2.2?[60,70,80,90,100,110,120,130,140,150,175,200]:r<5?[40,50,60,70,80,100,125,150,200,250,300]:r<12?[20,30,40,50,70,100,150,200,300,400,500]:[10,20,30,50,100,200,300,500,1000,2000];
-    return L.filter(v=>Math.log(v)>=lo&&Math.log(v)<=hi); };
+  // 눈금 — 둥근 증감률(±10·20·50·100% …)을 먼저, 빈자리에 ±5·30·75% … 를 채운다. 이미 고른 눈금과 gap 픽셀 안이면 건너뛴다(눌린 쪽은 저절로 성겨진다)
+  const TK=[10,-10,20,-20,50,-50,100,-90,200,500,1000, 5,-5,30,-30,75,-70,150,300,2000].map(g=>100+g);
+  const tick=(lo,hi,px,gap)=>{ const k=px/(hi-lo), out=[100];
+    TK.forEach(v=>{ const u=LG(v); if(u<lo||u>hi||out.some(w=>Math.abs(LG(w)-u)*k<gap)) return; out.push(v); });
+    return out; };
   // 축 글씨 = 쉬운 말(사용자 "그래프가 헷갈린다") — 숫자 기준은 괄호로만
   // 축 글씨 = 쉬운 말 · 기준은 늘 '바로 앞 같은 길이'(괄호에 실제 달)
   const xCap=mode==="x"?`아마존 비중 ${SQ(xw)} → (${vs(Dx)}${exS(Dx)})`:mode==="amz"?`비중 YoY → (${vs(Yx)})`:`${mode==="sum"?"합산 ":""}비중 ${n3M} → (${vs(mode==="sum"?LS3:LT3)}${(mode==="sum"?sEst:tEst)?(mode==="sum"?" · 4월 틱톡샵 앞부분 추정":" · 4월 앞부분 추정"):""})`;
   const yCap=mode==="x"?`↑ 틱톡샵 비중 ${SQ(xw)} (${vs(Lx)}${xw===3&&tEst?" · 4월 앞부분 추정":""})`:mode==="amz"?`↑ 비중 ${SQ(xw)} (${vs(Dx)}${exS(Dx)})`:`↑ ${mode==="sum"?"합산 ":""}비중 ${n1M} (${vs(mode==="sum"?LS1:LT1)})`;
   let svg=`<svg id="cpSvg" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;max-width:${W}px;touch-action:manipulation">`;
-  tick(x0,x1).forEach(v=>{ svg+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--line-soft)"/><text x="${sx(v)}" y="${H-pad.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${v===100?"0":pcx(v)}</text>`; });
-  tick(y0,y1).forEach(v=>{ svg+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line-soft)"/><text x="${pad.l-6}" y="${sy(v)+3.5}" text-anchor="end" font-size="10.5" fill="var(--muted2)">${v===100?"0":pcx(v)}</text>`; });
+  tick(x0,x1,W-pad.l-pad.r,nar?40:46).forEach(v=>{ svg+=`<line x1="${sx(v)}" x2="${sx(v)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--line-soft)"/><text x="${sx(v)}" y="${H-pad.b+14}" text-anchor="middle" font-size="10.5" fill="var(--muted2)">${v===100?"0":pcx(v)}</text>`; });
+  tick(y0,y1,H-pad.t-pad.b,22).forEach(v=>{ svg+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line-soft)"/><text x="${pad.l-6}" y="${sy(v)+3.5}" text-anchor="end" font-size="10.5" fill="var(--muted2)">${v===100?"0":pcx(v)}</text>`; });
   svg+=`<line x1="${sx(100)}" x2="${sx(100)}" y1="${pad.t}" y2="${H-pad.b}" stroke="var(--muted)" stroke-dasharray="4 4"/><line x1="${pad.l}" x2="${W-pad.r}" y1="${sy(100)}" y2="${sy(100)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
   svg+=`<text x="${W-pad.r}" y="${H-6}" text-anchor="end" font-size="11" fill="var(--muted)">${xCap}</text><text x="${pad.l}" y="12" font-size="11" fill="var(--muted)">${yCap}</text>`;
   svg+=`<g id="cpTrail"></g><g id="cpDots">`;
@@ -12861,7 +12864,7 @@ function renderCosPhase(){
     <div class="g" style="font-size:12px;margin:6px 0 2px">${what}</div>
     <div id="cpInfo" class="cp-info"></div>
     <div class="chart-box" id="cpBox" style="margin-top:4px">${svg}</div>
-    <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(${CA.ra?"2주 간격 기준점마다 같은 식으로 다시 푼 점 · 최근 12주":"끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달"})가 꼬리로 · 누르면 고정. 원 크기 = 3개월 비중 · 점선 0 = 변화 없음.</p>
+    <p class="note" style="margin:4px 0 0">점에 커서를 올리면 그 브랜드가 지나온 자리(${CA.ra?"2주 간격 기준점마다 같은 식으로 다시 푼 점 · 최근 12주":"끝 달을 한 달씩 당겨 같은 식으로 다시 푼 점 · 최근 6개월 중 계산되는 달"})가 꼬리로 · 누르면 고정. 원 크기 = 3개월 비중 · 점선 0 = 변화 없음 · 눈금은 0 근처를 넓게, 변화가 클수록 눌러 그린다(값은 그대로).</p>
     ${lists}${selH}
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
