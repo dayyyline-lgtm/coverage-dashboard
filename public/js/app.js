@@ -272,6 +272,7 @@ const FRESH_LIMITS = [
   ["BL","미국 B/L 선적",72],["AMZSUB","아마존 세부 카테고리",48],["AMZL","아마존 7개국 Top100",48],["KBCH","K뷰티 채널(Keepa 주 1회)",192],["KBPH","K뷰티 국면 지도(Keepa 주 1회 · 월요일)",216],["ADR","호텔 ADR(Google 호텔 아침 크롬)",168],
   ["FREIGHT","유럽 운송비(경유가·해상운임)",240],
   ["DEPTFRN","백화점 외국인 노출도(데이터랩 월간)",1080],
+  ["SPOP","서울 생활인구(단기체류 외국인 · 월간)",1440],
 ];
 
 function ageHours(a){
@@ -2851,6 +2852,44 @@ function dfCalc(mode){
   mk("gu","백화점 3사 외국인 방문 · 점포 소재 구","명(월 · 외국인 방문 연인원)","명",
     v=>v==null||isNaN(v)?"—":v>=1e4?`${(v/1e4).toFixed(1)}만명`:`${Math.round(v).toLocaleString("ko-KR")}명`,
     "백화점 점포 소재 구 · 한국관광 데이터랩 외국인 방문자 수(SKT 이동통신 · 하루 누적 일정시간 이상 머문 단기 체류 외국인 · 연인원) · 점포가 있는 서울 구의 합 · 여러 구를 다닌 사람은 구마다 잡혀 인원이 아니라 노출 지수 · 백화점 방문이 아니라 그 구 방문");
+})();
+/* 서울 생활인구 — 단기체류 외국인(SPOP · fetch_spop.py · 2026-11-27 사용자 "백화점 외국인 체류 시간 같은 건 활용 안 하나" → "일단 붙여보자").
+   서울시·KT 통신 기반 · 행정동 × 시간대 · 값 = 그 동의 외국인이 서울 전체 외국인 중 차지하는 비중(%) — 새벽(02~05시 = 묵는 사람 ≈ 호텔 투숙객) · 낮(10~21시 = 상권 방문).
+   ⚠ 수준(인원)은 쓰지 않는다 — 서울 전체가 2023~2026 내내 평평하다(로밍 위주로 잡혀 방한객 증가를 못 따라간다). 비중과 분기 사이 흐름만 본다.
+   검산: 삼성1동 새벽 — 인터컨티넨탈 코엑스 폐관(24Q2→24Q3) −44% · 웨스틴 개관(25Q3→25Q4) +50%. 신호는 안 쓴다(sigIdx 빈 배열 — 보조 지표). */
+(function injectSpopTrends(){
+  if(typeof SPOP==="undefined"||!SPOP.months||SPOP.months.length<13||!SPOP.dong) return;
+  const M=SPOP.months, months=M.map(m=>`${m.slice(2,4)}.${+m.slice(4,6)}`), li=M.length-1, mo=+M[li].slice(4,6);
+  const pct=(a,b)=>(a!=null&&b>0)?((a/b-1)*100):null, sg=v=>v==null?"—":`${v>=0?"+":""}${v.toFixed(1)}%`;
+  const f2=v=>v==null||isNaN(v)?"—":`${v.toFixed(2)}%`, man=v=>v==null?"—":v>=1e4?`${(v/1e4).toFixed(1)}만명`:`${Math.round(v).toLocaleString("ko-KR")}명`;
+  const oe=SPOP.oldEnd, splice=oe&&M.indexOf(oe)>=0&&M.indexOf(oe)<li?` · ${oe.slice(2,4)}.${+oe.slice(4,6)} 뒤는 250m 판을 겹친 두 달 비율로 이어 붙인 값`:"";
+  const SRC=`서울 생활인구(단기체류 외국인) · 서울시·KT 통신 기반 · 그 동 ÷ 서울 전체(같은 시간대) · 수준(인원)은 방한객 증가를 못 따라가 비중만 본다${splice}`;
+  const build=(name,rows,j,stocks,owner,extra)=>{
+    const raw=rows.map(r=>r.s[j]);
+    const yoyAt=(i,k)=>k>=12?pct(raw[i][k],raw[i][k-12]):null;
+    const peak=Math.max(0.01,...raw.flat().filter(v=>v!=null));
+    const norm=raw.map(a=>a.map(v=>v==null?null:Math.round(v/peak*1000)/10));
+    const note=rows.map((r,i)=>`${r.nm} ${mo}월 ${f2(raw[i][li])}(전년동월 ${f2(raw[i][li-12])} · ${man(r.p[j][li])})`).join(" · ");
+    TREND.groups[name]=Object.assign({products:rows.map(r=>r.nm), productsGoogle:rows.map(r=>r.nm), months, naver:norm, google:norm, rawSer:raw, rawFull:raw, yoyAt,
+      only:"naver", freq:"month", peak, unit:"%(서울 단기체류 외국인 중 비중)", unitShort:"%", realFmt:f2, niceTicks:true, minPts:M.length, peakDot:true, yoyCmp:true,
+      sigIdx:[], endPad:110, srcName:SRC, reviewNote:note}, extra||{});
+    stocks.forEach(st=>{ (TREND_STOCK[st]=TREND_STOCK[st]||[]).push(name); });
+    const own={}; rows.forEach(r=>own[r.nm]=owner); TREND_OWNER[name]=own;
+  };
+  const D=SPOP.dong, rowOf=k=>D[k]&&Object.assign({k, nm:D[k].nm},D[k]);
+  // ① 호텔 — 새벽(묵는 사람)
+  [["서부T&D","11170625","드래곤시티"],["GS피앤엘","11680580","그랜드 인터컨티넨탈·웨스틴"],["호텔신라","11140580","서울신라"]].forEach(([st,k,h])=>{
+    const r=rowOf(k); if(!r) return;
+    build(`${st} 호텔 동 외국인 비중(새벽 · 서울 생활인구)`,[r],0,[st],st,
+      {srcName:`${SRC} · ${r.nm} = ${r.what} · 새벽 02~05시 평균 = 그 동에 묵는 외국인(${h} 투숙객이 대부분)`});
+  });
+  // ② 백화점 — 낮(상권 방문) · 점포 동을 쌓고 선 = 합계 전년비
+  [["현대백화점"],["롯데쇼핑"],["신세계"]].forEach(([co])=>{
+    const rows=Object.keys(D).filter(k=>D[k].co.includes(co)&&D[k].use.includes("d")).map(rowOf);
+    if(!rows.length) return;
+    build(`${co} 점포 동 외국인 비중(낮 · 서울 생활인구)`,rows,1,[co],co,
+      {stackTot:true, srcName:`${SRC} · 낮 10~21시 평균 · 점포가 있는 행정동(${rows.map(r=>`${r.nm}=${r.what}`).join(" · ")}) — 같은 동의 다른 몰·호텔·관광지가 섞인다`});
+  });
 })();
 /* 네이버 쇼핑인사이트(SHOPINS · fetch_shopins.py · 2026-11-03 사용자 "국내 데이터 자동으로 — 네이버 쇼핑인사이트") — 네이버쇼핑 안에서 그 키워드로 상품을 누른 양.
    검색 트렌드(관심)보다 구매 쪽에 가깝다. 값 = 요청 안 최고=100(그룹 안 계열끼리만 비교 · 그룹끼리 높이 비교 금지) · 주별 104주 · 완결된 주만.
@@ -7126,6 +7165,7 @@ function renderMovie(){
    소스마다 주기가 다르다: 네이버 검색·편입지표(스포티파이/스팀/유튜브 등)는 매일,
    구글·얀덱스·국가별 검색은 주 1회(월). srcName 으로 소스를 판별해 각 asOf 를 붙인다. */
 const TREND_SRC_ASOF=[
+  ["서울 생활인구", ()=>(typeof SPOP!=="undefined")&&SPOP.asOf],
   ["백화점 점포", ()=>(typeof DEPTFRN!=="undefined")&&DEPTFRN.asOf],   // 한국관광(TOURISM)보다 먼저 — srcName 에 둘 다 들어 있다
   ["Spotify", ()=>(typeof SPOTIFY!=="undefined")&&SPOTIFY.asOf],
   ["스토어", ()=>(typeof STORERANK!=="undefined")&&STORERANK.asOf],

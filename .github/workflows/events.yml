@@ -160,6 +160,13 @@ jobs:
         timeout-minutes: 3
         run: python runstep.py "백화점 외국인" fetch_deptfrn.py
 
+      # 서울 생활인구 — 단기체류 외국인(2026-11-27 · SPOP) — 호텔·백화점 동의 '서울 외국인 중 비중'. 서울 열린데이터광장 월별 zip(키 불필요 · 약 9MB).
+      #   새 달(지난달)이 아직 없으면 요청 1건으로 끝난다 · 공개는 다음 달 하순(10월분 11/26).
+      - name: 서울 생활인구(외국인) 수집
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python runstep.py "서울 생활인구(외국인)" fetch_spop.py
+
       # 써클차트 앨범 판매량(월간·주간) — 엔터 실물 수요. 키 불필요.
       - name: 써클차트 앨범판매 수집
         continue-on-error: true
@@ -420,7 +427,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # health.json 을 빼면 runstep 이 남긴 실패 기록이 원격에 안 올라간다.
-          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart hotel_adr/data/reit_monthly.json tourism_regind.csv tourism_mcst.json 2>/dev/null || true
+          git add public/index.html spotify_debug.json archive health.json watchdog_state.json kbeauty/data hotel_adr/dart hotel_adr/data/reit_monthly.json tourism_regind.csv tourism_mcst.json spop 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "변경 없음 - 커밋 생략"
           else
