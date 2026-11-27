@@ -100,6 +100,14 @@ T 줄(상위 묶음 13개월)은 두 모드가 같다. 2026-10-21 기준 다음 
 새 영상 0.9~1.2배 · 새 크리에이터는 EchoTik 누적 차이가 FastMoss 의 1/2~1/10(정의가 다르다 — 배수로 맞춘다).
 haruharu·isntree 는 양쪽 다 0, MEDICUBE USA(KBCH 쪽 샵)는 FastMoss 자료가 없어 배수 1.
 
+## 1-c-3. FastMoss 판매 구조 · 시장 스냅샷 (2026-11-27 · 구독 있을 때만)
+
+샵 상세 '분석' 칸(채널·방식·크리에이터·광고 영상·상위 상품)과 미국 뷰티 시장 주별 — `kbeauty/fastmoss_x.js`. FastMoss 탭 하나(로그인)에서:
+1. 탭을 새로 연다(훅·IO 바꿈은 새로 고치면 풀린다) → raw.githubusercontent 의 `kbeauty/fastmoss_x.js` 를 받아 인라인 스크립트로 붙인다(1-c-2 의 불러오기와 같은 방법) → `fx v2 ready`.
+2. 샵 목록 = `python3 kbeauty/phase.py --shops` 의 [seller_id, 키] → `__FX.run(목록)` · `__FX.status()` 로 본다(148곳 약 20분 · 오류는 `__FX.err` — miss-… 는 다시 `run` 하면 그 샵만 다시 한다).
+3. 시장 = `__FX.market(['2026-47', …])` — 마지막으로 받은 주 다음부터 지난주까지(진행 중인 주도 받아도 된다 · 다음 덤프가 덮는다).
+4. `__FX.plan(20000)` → 덩어리마다 `__FXD(a,b)` → get_page_text → 파일 → `python3 kbeauty/fmx_recv.py 파일들…` → `python3 kbeauty/phase.py`.
+
 ## 1-c-2. FastMoss (옛 경로 · 2026-11-23 까지) (fastmoss.com 탭 · 사용자 Pro 로그인 세션)
 
 ⚠ **로그인된 브라우저에서만.** 10/21 기준 사용자 노트북 크롬(윈도우)에만 로그인돼 있고 사슬이 도는 집 PC 크롬은 아니다 — 거기 로그인되면 매주 같이 돈다.

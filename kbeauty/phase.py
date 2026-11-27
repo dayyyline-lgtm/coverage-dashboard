@@ -133,6 +133,7 @@ def build(path):
         out["rw"] = {"t": d.get("r30t") or d["asOf"], "s": d["rws"]}   # 기준점 0 = 수집일 · s = 기준점 간격(일)
     tt = build_tt(set(d["b"]) | set(MK_META) | set(TT_META))   # 미국 아마존에 없는 브랜드(MK_META)도 틱톡샵 공식 샵이 있으면 받는다
     if tt:
+        build_fmx(tt)
         out["tt"] = tt
     mk = build_mk(d)
     if mk:
@@ -381,7 +382,7 @@ def build_tt(keys):
     KL = _kalo()
     if not files and not KL:
         return None
-    S, day, fhs = {}, {}, []
+    S, day, fhs, soc = {}, {}, [], {}
     eday = set()   # (샵, 날) 중 지금 값이 EchoTik 이어 붙이기(FH|E1)에서 온 것 — FastMoss 덤프가 나중에 덮으면 빠진다(2026-11-27 · 새 계정 FastMoss 로 EchoTik 구간을 덮음)
     for path in files:
         fh = None
@@ -393,6 +394,16 @@ def build_tt(keys):
                 isE = str(f[1]).startswith("E")
             elif f[0] == "S":
                 S[f[1]] = {"k": f[3], "name": f[5]}
+            elif f[0] == "V" and fh and not isE:
+                # 틱톡 소셜(2026-11-27) — 그날 샵 상품이 걸린 새 영상 · 처음 그 샵을 홍보한 크리에이터 · 라이브(FastMoss 만 · EchoTik 은 정의가 달라 안 쓴다)
+                d0 = dt.date.fromisoformat(f[2])
+                cut = dt.date.fromisoformat(fh)
+                A, C, Lv = ([_b36(x) for x in f[k].split(",")] for k in (3, 4, 5))
+                sv = soc.setdefault(f[1], {})
+                for i, a_ in enumerate(A):
+                    t = d0 + dt.timedelta(days=i)
+                    if t < cut:
+                        sv[t] = (a_, C[i] if i < len(C) else 0, Lv[i] if i < len(Lv) else 0)
             elif f[0] == "D" and fh:
                 d0 = dt.date.fromisoformat(f[2])
                 U, V = [_b36(x) for x in f[3].split(",")], [_b36(x) for x in f[4].split(",")]
@@ -542,6 +553,17 @@ def build_tt(keys):
         o["mu"] = [a + c for a, c in zip(o["mu"], mu)]
         o["mv"] = [a + c for a, c in zip(o["mv"], mv)]
         o["fx"] += len(fixed)
+        sv = soc.get(sid)
+        if sv:
+            # 주별 새 홍보 영상(sa)·새 크리에이터(sc)·라이브(sl) — 소셜 자료가 처음부터 끝까지 다 있는 주만(없는 주 = None)
+            s0 = min(sv)
+            for nm_, ix in (("sa", 0), ("sc", 1), ("sl", 2)):
+                arr = []
+                for w in range(nw):
+                    a0 = first + dt.timedelta(days=7 * w)
+                    arr.append(None if a0 < s0 else sum(sv.get(a0 + dt.timedelta(days=q), (0, 0, 0))[ix] for q in range(7)))
+                prev = o.get(nm_)
+                o[nm_] = arr if prev is None else [None if (x is None or y is None) else x + y for x, y in zip(prev, arr)]
         # 최근 30일 창(2026-10-24) — 끝날까지 30일 · 그 앞 30일(판매량)
         c30 = sum(u for t, u in zip(ds, U) if end - dt.timedelta(days=29) <= t <= end)
         p30 = sum(u for t, u in zip(ds, U) if end - dt.timedelta(days=59) <= t <= end - dt.timedelta(days=30))
@@ -568,6 +590,196 @@ def build_tt(keys):
                     f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss" +
                     (f" · EchoTik 이어 붙인 날 {min(t for _, t in eday).isoformat()}~{max(t for _, t in eday).isoformat()}" if eday else "") + f" · 덤프 {len(files)}개)"),
             "kalo": bool(KL), "b": b}
+
+
+FMX = HERE / "data" / "fmx"   # FastMoss 샵 '분석' 스냅샷 + 미국 틱톡샵 뷰티 시장 일별(fastmoss_x.js 덤프 · 2026-11-27) — data/phase 밖(국면 브리핑을 안 깨운다)
+
+
+def _fmx_read():
+    """fmx 덤프 전부 — 시장 일별은 나중 덤프가 이긴다 · 샵 스냅샷은 덤프 날짜별로 둔다."""
+    mk, avg, snaps = {}, {}, {}
+    for path in sorted(FMX.glob("20??-??-??*.txt")):
+        fh = None
+        for l in path.read_text(encoding="utf-8").splitlines():
+            f = l.split("|")
+            if f[0] == "XH":
+                fh = f[2]
+            elif f[0] == "M":
+                try:
+                    avg[f[1]] = float(f[2]) if f[2] not in ("", "null", "None") else None
+                except ValueError:
+                    avg[f[1]] = None
+                for it in f[3].split(","):
+                    q = it.split(":")
+                    if len(q) >= 7 and q[0]:
+                        vals = [int(float(x)) if x not in ("", "null") else 0 for x in q[1:7]]
+                        if sum(vals) > 0:   # 진행 중인 주의 아직 안 온 날(값이 전부 0)은 버린다
+                            mk[q[0]] = vals + [f[1]]
+            elif f[0] == "X" and fh:
+                try:
+                    snaps.setdefault(fh, {})[f[1]] = json.loads(f[3])
+                except ValueError:
+                    pass
+            elif f[0] == "N":
+                # v2(압축) 시장 줄 — N|ISO주|평균가×100(36진수)|MMDD:판매량:판매상품:신규상품:크리에이터:영상:라이브(36진수),…
+                y, w = (int(x) for x in f[1].split("-"))
+                mon = dt.date.fromisocalendar(y, w, 1)
+                avg[f[1]] = int(f[2], 36) / 100 if f[2] else None
+                for it in f[3].split(","):
+                    q = it.split(":")
+                    if len(q) < 7:
+                        continue
+                    mm, dd = int(q[0][:2]), int(q[0][2:])
+                    d_ = min((dt.date(yy, mm, dd) for yy in (mon.year - 1, mon.year, mon.year + 1)), key=lambda t: abs((t - mon).days))
+                    vals = [_b36s(x) for x in q[1:7]]
+                    if sum(vals) > 0:
+                        mk[d_.isoformat()] = vals + [f[1]]
+            elif f[0] == "Y" and fh:
+                # v2(압축) 샵 줄 — 숫자 27개(36진수) · 크리에이터 상위 3 · 상품 상위 3
+                n = [_b36s(x) for x in f[3].split(",")]
+                if len(n) < 27:
+                    continue
+                ta = [[t[0], _b36s(t[1]), _b36s(t[2]), _b36s(t[3])] for t in (x.split("~") for x in f[4].split(";") if x) if len(t) >= 4]
+                tg = [[t[0], t[1], t[2], f"20{t[3][:2]}-{t[3][2:4]}-{t[3][4:6]}" if len(t[3]) == 6 else "", _b36s(t[4]), _b36s(t[5]), _b36s(t[6]), _b36s(t[7]), t[8]]
+                      for t in (x.split("~") for x in f[5].split(";") if x) if len(t) >= 9]
+                snaps.setdefault(fh, {})[f[1]] = {
+                    "k": f[2], "b": {"pc": n[0]},
+                    "ch": {"u": {"product_card": n[1], "shop_account": n[2], "affiliate": n[3]}, "v": {"product_card": n[4], "shop_account": n[5], "affiliate": n[6]}},
+                    "ct": {"u": {"video": n[7], "live": n[8], "card": n[9]}, "v": {"video": n[10], "live": n[11], "card": n[12]}},
+                    "au": {"n": n[13], "nv": n[14], "nl": n[15], "nn": n[16], "u": n[17], "v": n[18]},
+                    "va": {"all": n[19], "ad": n[20]}, "vs": {"u": n[21], "v": n[22], "p": n[23]},
+                    "ls": {"total_count": n[24], "sold_count": n[25], "sale_amount": n[26]},
+                    "ta": {"l": ta}, "tg": {"l": tg}}
+    return mk, avg, snaps
+
+
+def _b36s(x):
+    x = (x or "").strip()
+    if not x:
+        return 0
+    return -int(x[1:], 36) if x.startswith("-") else int(x, 36)
+
+
+def build_fmx(tt):
+    """틱톡샵 블록에 ① 미국 틱톡샵 뷰티 시장(주별 · 월별) ② 브랜드별 판매 구조 스냅샷(최근 28일)을 붙인다(2026-11-27)."""
+    if not FMX.exists():
+        return
+    mk, avg, snaps = _fmx_read()
+    weeks = tt.get("weeks") or []
+    if mk and weeks:
+        # ① 시장 — FastMoss '시장 개요' 뷰티 & 퍼스널 케어(미국 · 카테고리 id 14) 일별 판매량 · 그 ISO 주 평균 거래가 × 판매량 = 판매액 추정
+        #    바구니 주 칸(끝날 기준 7일)에 맞춰 더한다 — 하루라도 빠진 주는 None
+        dv = {}
+        wk = sorted(avg)
+        for d_, r in mk.items():
+            a = avg.get(r[6])
+            if not a:   # 진행 중인 주는 평균 거래가가 없다 — 바로 앞 주 값
+                prev = [avg[w] for w in wk if w < r[6] and avg.get(w)]
+                a = prev[-1] if prev else None
+            dv[d_] = r[0] * a if a else None
+        wu, wv, wa = [], [], []
+        for w in weeks:
+            e = dt.date.fromisoformat(w)
+            ds = [(e - dt.timedelta(days=q)).isoformat() for q in range(7)]
+            ok = all(x in mk for x in ds)
+            wu.append(sum(mk[x][0] for x in ds) if ok else None)
+            vv = [dv.get(x) for x in ds]
+            wv.append(round(sum(vv)) if ok and all(v is not None for v in vv) else None)
+            wa.append(sum(mk[x][3] for x in ds) if ok else None)   # 크리에이터 수(그날 커머스 크리에이터 · 7일 합)
+        # 월별(전년비용 · 2025-01~) — 그 달을 다 받은 달만 · 끝 달이 안 찼으면 진행 중
+        days = sorted(mk)
+        m0 = dt.date.fromisoformat(days[0][:7] + "-01")
+        last = dt.date.fromisoformat(days[-1])
+        months, mu, mv, mn = [], [], [], []
+        m = m0
+        while m <= last:
+            nxt = dt.date(m.year + (m.month == 12), m.month % 12 + 1, 1)
+            ds = [(m + dt.timedelta(days=q)).isoformat() for q in range((nxt - m).days)]
+            have = [x for x in ds if x in mk]
+            months.append(m.isoformat()[:7])
+            mu.append(sum(mk[x][0] for x in have) if have else None)
+            vv = [dv.get(x) for x in have]
+            mv.append(round(sum(v for v in vv if v is not None)) if have and all(v is not None for v in vv) else None)
+            mn.append(len(have))
+            m = nxt
+        full = [n == ((dt.date(int(ym[:4]) + (ym[5:] == "12"), int(ym[5:]) % 12 + 1, 1) - dt.date.fromisoformat(ym + "-01")).days) for ym, n in zip(months, mn)]
+        tt["mk"] = {"u": wu, "v": wv, "au": wa, "m": {"months": months, "u": mu, "v": mv, "n": mn, "full": full},
+                    "d0": days[0], "d1": days[-1], "last": mk[days[-1]][:6],
+                    "src": "FastMoss 시장 개요 · 미국 틱톡샵 뷰티 & 퍼스널 케어(카테고리 전체) · 일별 판매량 · 판매액 = 판매량 × 그 주 평균 거래가"}
+    if snaps:
+        # ② 브랜드 스냅샷 — 가장 최근 덤프 · 같은 브랜드 샵(메디큐브 둘 · JM솔루션 다섯 …)은 더한다
+        sd = max(snaps)
+        X = snaps[sd]
+        out = {}
+        for sid, r in X.items():
+            k = r.get("k")
+            if k not in tt["b"]:
+                continue
+            o = out.setdefault(k, {"n": 0, "ch": [0, 0, 0], "chv": [0, 0, 0], "ct": [0, 0, 0], "ctv": [0, 0, 0], "au": [0, 0, 0, 0, 0, 0],
+                                   "fr": {}, "ta": [], "tg": [], "pc": 0, "va": [0, 0], "vs": [0, 0, 0], "ls": [0, 0, 0]})
+            o["n"] += 1
+            ch, ct = r.get("ch") or {}, r.get("ct") or {}
+            for i, kk in enumerate(("product_card", "shop_account", "affiliate")):
+                o["ch"][i] += (ch.get("u") or {}).get(kk) or 0
+                o["chv"][i] += (ch.get("v") or {}).get(kk) or 0
+            for i, kk in enumerate(("video", "live", "card")):
+                o["ct"][i] += (ct.get("u") or {}).get(kk) or 0
+                o["ctv"][i] += (ct.get("v") or {}).get(kk) or 0
+            au = r.get("au") or {}
+            for i, kk in enumerate(("n", "nv", "nl", "nn", "u", "v")):
+                o["au"][i] += au.get(kk) or 0
+            for kk, v in (r.get("fr") or {}).items():
+                o["fr"][kk] = o["fr"].get(kk, 0) + (v or 0)
+            o["ta"] += [x for x in ((r.get("ta") or {}).get("l") or [])]
+            o["tg"] += [x for x in ((r.get("tg") or {}).get("l") or [])]
+            o["pc"] += (r.get("b") or {}).get("pc") or 0
+            va = r.get("va") or {}
+            o["va"][0] += va.get("all") or 0
+            o["va"][1] += va.get("ad") or 0
+            vs = r.get("vs") or {}
+            for i, kk in enumerate(("u", "v", "p")):
+                o["vs"][i] += vs.get(kk) or 0
+            ls = r.get("ls") or {}
+            for i, kk in enumerate(("total_count", "sold_count", "sale_amount")):
+                o["ls"][i] += ls.get(kk) or 0
+        for k, o in out.items():
+            # 크리에이터 상위 5 — 샵마다 상위 5를 모아 판매량 순 · 같은 크리에이터는 더한다 · 자체 계정(브랜드 공식 계정)은 표시만
+            ta = {}
+            for x in o["ta"]:
+                t = ta.setdefault(x[0], [x[0], x[1] or 0, 0, 0])
+                t[2] += x[2] or 0
+                t[3] += x[3] or 0
+            o["ta"] = sorted(ta.values(), key=lambda t: -t[2])[:5]
+            o["tg"] = sorted(o["tg"], key=lambda t: -(t[4] or 0))[:5]
+            o["chv"] = [round(v) for v in o["chv"]]
+            o["ctv"] = [round(v) for v in o["ctv"]]
+            o["au"] = [round(v) for v in o["au"]]
+            o["vs"] = [round(v) for v in o["vs"]]
+            o["ls"] = [round(v) for v in o["ls"]]
+            o["ta"] = [[t[0], round(t[1]), round(t[2]), round(t[3])] for t in o["ta"]]
+            o["tg"] = [[t[1], t[2], t[3], round(t[4] or 0), round(t[5] or 0), round(t[6] or 0), round(t[7] or 0), t[8], t[0]] for t in o["tg"]]
+        hist = {}
+        for d_ in sorted(snaps):   # 덤프가 쌓이면 주요 지표 이력(스냅샷 날짜마다 · 브랜드별 [28일 판매량, 인플루언서 %, 영상 %, 라이브 %, 광고 영상 %, 크리에이터, 새 크리에이터])
+            agg = {}
+            for sid, r in snaps[d_].items():
+                k = r.get("k")
+                if k not in tt["b"]:
+                    continue
+                a = agg.setdefault(k, [0, 0, 0, 0, 0, 0, 0, 0])
+                ch, ct, au, va = r.get("ch") or {}, r.get("ct") or {}, r.get("au") or {}, r.get("va") or {}
+                a[0] += sum(v or 0 for v in (ch.get("u") or {}).values())
+                a[1] += (ch.get("u") or {}).get("affiliate") or 0
+                a[2] += (ct.get("u") or {}).get("video") or 0
+                a[3] += (ct.get("u") or {}).get("live") or 0
+                a[4] += va.get("ad") or 0
+                a[5] += va.get("all") or 0
+                a[6] += au.get("n") or 0
+                a[7] += au.get("nn") or 0
+            for k, a in agg.items():
+                hist.setdefault(k, []).append([d_, a[0], round(a[1] / a[0] * 1000) if a[0] else None, round(a[2] / a[0] * 1000) if a[0] else None,
+                                               round(a[3] / a[0] * 1000) if a[0] else None, round(a[4] / a[5] * 1000) if a[5] else None, a[6], a[7]])
+        tt["x"] = {"d": sd, "b": out, "h": hist if len(snaps) > 1 else {},
+                   "src": f"FastMoss 샵 상세 '판매·인플루언서·상품·영상·라이브 분석' · 최근 28일(광고 영상은 최근 180일 게시 영상 수) · {sd} 수집"}
 
 
 def inject(block):
