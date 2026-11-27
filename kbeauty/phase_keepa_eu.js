@@ -25,8 +25,8 @@ window.KBPHEU={}; if(!window.KBPH||!window.KBPH.dump) window.KBPH=window.KBPHEU;
     return [a,s2,s3,s4]; };
   K.collect=function(){ (window.__kwNodes?(f=>window.__kwNodes.forEach(d=>f({data:d}))):(f=>api().forEachNode(f)))(n=>{ const d=n.data; if(!d||!d.asin) return; const s=d.stats||{}; const rb=(d.brand||'').toLowerCase();
     // 일본 표기 'コースアールエックス(cosrx)' 처럼 괄호 안 라틴 이름이 있으면 그걸 키로 · センテリアン24 는 괄호가 없다(2026-10-22)
-    const pm=rb.match(/\(([^)]+)\)\s*$/), key=/センテリアン/.test(rb)?'centellian 24':pm?(MAP[pm[1]]||pm[1]):(MAP[rb]||rb);
-    K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb,b:key,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s),hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1}; }); };
+    const pm=rb.match(/\(([^)]+)\)\s*$/), N7=window.NEW27V||{}, key=/センテリアン/.test(rb)?'centellian 24':pm?(MAP[pm[1]]||N7[pm[1]]||pm[1]):(MAP[rb]||N7[rb]||rb);   // N7 = 2026-11-27 틱톡샵에만 있던 한국 브랜드(phase_keepa.js NEW27V)
+    K.rows[d.asin]={a:d.asin,p:d.parentAsin||d.asin,rb,b:key,t:(d.title||'').slice(0,70),msh:d.monthlySoldHistory||[],pr:K.prices(s),hr:d.historicalSalesRankAverages||[],r30:(s.avg30&&s.avg30[3])||-1,rc:(s.current&&s.current[3])||-1,cat:d.salesRankReference||0}; }); };
   K.run=function(){ (async()=>{ const sl=ms=>new Promise(r=>setTimeout(r,ms)); K.collect(); const tp=api().paginationGetTotalPages(); K.tp=tp;
     for(let p=1;p<tp;p++){ const b=Object.keys(K.rows).length; api().paginationGoToPage(p);
       for(let w=0;w<40;w++){ await sl(500); K.collect(); if(Object.keys(K.rows).length>b+60) break; }
@@ -75,7 +75,10 @@ window.KBPHEU={}; if(!window.KBPH||!window.KBPH.dump) window.KBPH=window.KBPHEU;
       return months.map(([s,e])=>{ e=Math.min(e,now); if(e<=s) return 0; const a=[]; for(let k=0;k<7;k++){ const t=e-1-k*86400000; if(t<s) break; a.push(at(t)); }
         a.sort((x,y)=>x-y); const n=a.length; return n?Math.round(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):0; }); };
     const NX=/saffron|\bspice|\bink\b|cartridge|printer|moptrek|\bwipes?\b/i, NB26=['primera','hera','iope'];   // 동명 상품 빼기(2026-11-26 · phase_keepa.js NEW26_X 와 같게)
-    const B={}, rows=Object.values(K.rows).filter(r=>!(NB26.includes(r.b)&&NX.test(r.t))).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
+    // 2026-11-27 틱톡샵에만 있던 한국 브랜드(NEW27)는 흔한 낱말 이름(ts·amuse·benton·leaders …)이 많아 그 나라 뷰티 카테고리 상품(+ 제목에 화장품 낱말)만 남긴다 — 뷰티 카테고리 = 기존 브랜드 행에서 가장 많은 salesRankReference(덧붙여 받을 땐 메디큐브를 같이 불러 잣대로 쓴다)
+    const N27=new Set(window.NEW27||[]), cc={}; Object.values(K.rows).forEach(r=>{ if(!N27.has(r.rb)&&r.cat>0) cc[r.cat]=(cc[r.cat]||0)+1; }); const BC=+(Object.entries(cc).sort((a,b)=>b[1]-a[1])[0]||[0])[0]||(opt.cat||0);
+    //   뷰티 밖이면 제목에 화장품 낱말 · 흔한 낱말 브랜드(NEW27_RISK)는 순위 없는 상품만
+    const B={}, rows=Object.values(K.rows).filter(r=>{ if(!N27.has(r.rb)||r.cat===BC) return true; const W=window.NEW27_W||/./, RK=window.NEW27_RISK||[]; return (r.cat<=0||!RK.includes(r.rb))&&W.test(r.t); }).filter(r=>!(NB26.includes(r.b)&&NX.test(r.t))).filter(r=>r.b!=='clio'||r.rb==='clio professional'||(/^clio\b/i.test(r.t)&&!/yogurt|fishing|shower|kayak|grab bar|tarp|clip|foot rest|rod |hot chocolate/i.test(r.t)));
     rows.forEach(r=>{ r.mf=ms(r.msh); r.m=r.mf.slice(); });
     K.fit=K.refine(rows,months);
     rows.forEach(r=>{ const m=r.m, o=B[r.b]=B[r.b]||{u:Array(36).fill(0),v:Array(36).fill(0),n:0}; o.n++;

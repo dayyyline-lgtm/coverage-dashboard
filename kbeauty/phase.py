@@ -290,10 +290,10 @@ def build_mk(d):
                 x["rw"] = [[round(y * k) for y in a] for a in x["rw"]]
     meta = {}
     for m, c in out.items():
-        miss = [k for k in c["b"] if k not in d["b"] and k not in MK_META]
+        miss = [k for k in c["b"] if k not in d["b"] and k not in MK_META and k not in TT_META]   # 2026-11-27 틱톡샵에만 있던 한국 브랜드(TT_META)도 아마존 나라 덩어리에 나올 수 있다
         if miss:
             raise SystemExit(f"유럽 {m}: 미국 바구니에 없는 브랜드 {miss}")
-        meta.update({k: MK_META[k] for k in c["b"] if k not in d["b"]})
+        meta.update({k: MK_META.get(k) or TT_META[k] for k in c["b"] if k not in d["b"]})
     if meta:
         d["_mkmeta"] = meta   # 미국에 없는 브랜드의 한글 이름·주인 — build() 가 블록 meta 로 싣는다(화면 KBB·브리핑 nm 이 읽는다)
     return out

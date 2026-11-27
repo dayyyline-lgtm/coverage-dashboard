@@ -53,6 +53,12 @@ NEW_META = {"the face shop": {"ko": "더페이스샵", "co": "LG생활건강"}, 
             "dr.melaxin": {"ko": "닥터멜락신", "op": "브랜드501"}}
 
 
+def _tt_meta():
+    sys.path.insert(0, str(HERE))
+    import phase
+    return phase.TT_META
+
+
 def kst_today():
     return (dt.datetime.utcnow() + dt.timedelta(hours=9)).date().isoformat()
 
@@ -68,7 +74,7 @@ def do_us(t, sku):
     old = json.loads(prev[-1].read_text(encoding="utf-8"))
     miss = []
     for k, x in d["b"].items():
-        o = old["b"].get(k) or NEW_META.get(k)
+        o = old["b"].get(k) or NEW_META.get(k) or _tt_meta().get(k)   # 2026-11-27 틱톡샵에만 있던 한국 브랜드 81개 — 이름·주인은 phase.py TT_META
         if not o:
             miss.append(k)
             continue
