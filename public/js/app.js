@@ -12563,6 +12563,46 @@ let cosGrp=(()=>{ const o={}; COS_GRP.forEach(g=>{ o[g.id]=cosLs("cosGrp_"+g.id,
 const COS_MK=[["all","전 지역"],["us","미국"],["eu","유럽 5개국"],["uk","영국"],["de","독일"],["fr","프랑스"],["it","이탈리아"],["es","스페인"],["jp","일본"],["ca","캐나다"]], COS_EU=["uk","de","fr","it","es"];
 let cosMk=cosLs("cosMk","us");
 const cosMkLab=()=>(COS_MK.find(x=>x[0]===cosMk)||COS_MK[0])[1];
+// 틱톡샵 나라별(2026-11-27 · 사용자 "틱톡은 유럽이나 다른 지역은 왜 안 채웠냐 — FastMoss 로 다 해 줘") — KBPH.ttr = {나라 코드: 미국 tt 와 같은 모양}.
+//   한 나라 = 그 블록 · 유럽 5개국 = 다섯 나라 합 · 전 지역 = 미국 + 미국 밖 전부(동남아·중남미·유럽 소국 포함). 판매액은 phase.py 가 달러로 바꿔 둔다.
+const TT_RG={uk:"GB",de:"DE",fr:"FR",it:"IT",es:"ES",jp:"JP"};
+const TT_RGN={US:"미국",GB:"영국",DE:"독일",FR:"프랑스",IT:"이탈리아",ES:"스페인",JP:"일본",ID:"인도네시아",MY:"말레이시아",PH:"필리핀",TH:"태국",VN:"베트남",SG:"싱가포르",MX:"멕시코",BR:"브라질",IE:"아일랜드",NL:"네덜란드",BE:"벨기에",AT:"오스트리아",PL:"폴란드",PT:"포르투갈",CZ:"체코",HU:"헝가리",GR:"그리스"};
+// 블록 합치기 — 주·달은 이름(주 끝날 · YYYY-MM)으로 맞추고 모든 블록에 있는 칸만 남긴다(나라마다 받기 시작한 날이 다르다 · 미국 4/24~ · 나머지 5/31~).
+//   3달·1달 창은 기준점이 같을 때만 더한다(쓸 수 있나 = 모두 · 채움이 들었나 = 하나라도). 브랜드가 없는 나라는 0(그 나라 공식 샵이 없다).
+function ttSum(L){
+  L=L.filter(t=>t&&t.b&&t.weeks); if(!L.length) return null; if(L.length===1) return L[0];
+  const W=L[0].weeks.filter(w=>L.every(t=>t.weeks.includes(w))), M=L[0].months.filter(m=>L.every(t=>t.months.includes(m)));
+  const R0=L[0].rw, rwOK=!!R0&&L.every(t=>t.rw&&t.rw.t===R0.t&&t.rw.s===R0.s), r30OK=L.every(t=>t.r30&&String(t.r30)===String(L[0].r30));
+  const nA=rwOK?R0.ok3.length:0, b={};
+  L.forEach(t=>{ const wi=W.map(w=>t.weeks.indexOf(w)), mi=M.map(m=>t.months.indexOf(m));
+    Object.entries(t.b).forEach(([k,x])=>{
+      const o=b[k]||(b[k]={n:[], u:W.map(()=>0), v:W.map(()=>0), mu:M.map(()=>0), mv:M.map(()=>0), fx:0, rgs:[], ...(r30OK?{r30:[0,0]}:{}), ...(rwOK?{rw:Array.from({length:nA},()=>Array(6).fill(0))}:{})});
+      o.n=o.n.concat(x.n||[]); o.rgs.push(t.rg||"US"); o.fx+=+x.fx||0;
+      wi.forEach((i,j)=>{ o.u[j]+=x.u[i]||0; o.v[j]+=(x.v||[])[i]||0; });
+      mi.forEach((i,j)=>{ o.mu[j]+=x.mu[i]||0; o.mv[j]+=(x.mv||[])[i]||0; });
+      if(o.r30&&x.r30) o.r30=o.r30.map((y,i)=>y+(x.r30[i]||0));
+      if(o.rw&&x.rw) o.rw=o.rw.map((a,i)=>a.map((y,j)=>y+((x.rw[i]||[])[j]||0))); }); });
+  const st=L.map(t=>t.start).sort().pop(), mest=[...new Set([].concat(...L.map(t=>t.mest||[])))].filter(m=>M.includes(m));
+  const est=Object.assign({}, ...L.map(t=>t.est||{})), late=Object.assign({}, ...L.map(t=>t.late||{}));
+  const rw=rwOK?{t:R0.t, s:R0.s, ok3:R0.ok3.map((_,i)=>L.every(t=>t.rw.ok3[i])?1:0), ok1:R0.ok1.map((_,i)=>L.every(t=>t.rw.ok1[i])?1:0),
+    e3:R0.e3.map((_,i)=>L.some(t=>t.rw.e3[i])?1:0), e1:R0.e1.map((_,i)=>L.some(t=>t.rw.e1[i])?1:0)}:null;
+  const rgs=L.map(t=>t.rg||"US");
+  return {asOf:L.map(t=>t.asOf).sort().pop(), end:L.map(t=>t.end).sort()[0], start:st, weeks:W, months:M, partial:L.every(t=>t.partial===L[0].partial)?L[0].partial:null,
+    mest, est, late, r30:r30OK?L[0].r30:null, rw, nShop:L.reduce((a,t)=>a+(t.nShop||0),0), rgs, b,
+    src:`틱톡샵 ${rgs.length}개국(${rgs.map(r=>TT_RGN[r]||r).join("·")}) 공식 샵 합 · `+L.map(t=>t.src).join(" / ")};
+}
+function ttFor(mk){
+  if(typeof KBPH==="undefined") return null;
+  const R=KBPH.ttr||{};
+  if(mk==="us") return KBPH.tt||null;
+  if(mk==="all") return ttSum([KBPH.tt].concat(Object.values(R)));
+  if(mk==="eu") return ttSum(COS_EU.map(m=>R[TT_RG[m]]));
+  return R[TT_RG[mk]]||null;
+}
+// 지금 보기의 틱톡샵이 미국 샵뿐인가(판매 구조·홍보 활동·시장 개요 = 미국 FastMoss 스냅샷이라 그때만 보인다)
+const cosTtUS=()=>{ const T=KBB()&&KBB().tt; return !!T&&!T.rgs&&(T.rg||"US")==="US"; };
+// 지금 보기의 틱톡샵 이름 — '틱톡샵 미국' · '틱톡샵 영국' · '틱톡샵 유럽 5개국' · '틱톡샵 n개국'
+const cosTtLab=()=>{ const T=KBB()&&KBB().tt; if(!T) return "틱톡샵"; if(T.rgs) return cosMk==="eu"?`틱톡샵 유럽 ${T.rgs.length}개국`:`틱톡샵 ${T.rgs.length}개국`; return "틱톡샵 "+(TT_RGN[T.rg||"US"]||T.rg); };
 function KBB(){
   if(typeof KBPH==="undefined"||!KBPH.b) return KBPH;
   const M=KBPH.mk||{};
@@ -12588,7 +12628,7 @@ function KBB(){
     const U=KBPH.b[k]||(KBPH.meta||{})[k]||{ko:k}; b[k]={ko:U.ko, co:U.co, sup:U.sup, op:U.op, u, v, nsku, mks:all?["us"].concat(have):have, ...(r30?{r30}:{}), ...(rw?{rw}:{})};
   });
   const nm_=m=>(COS_MK.find(x=>x[0]===m)||[0,m])[1];
-  const v={...KBPH, b, tt:all?KBPH.tt:null, rw:rwT0&&Object.values(b).some(x=>x.rw)?{t:rwT0, s:(KBPH.rw||{}).s||14}:null, mkLab:all?"전 지역":cosMkLab(), mks:all?["us"].concat(ms):ms, src:`Keepa Product Finder · 아마존 ${(all?["us"].concat(ms):ms).map(nm_).join("·")}`};
+  const v={...KBPH, b, tt:ttFor(cosMk), rw:rwT0&&Object.values(b).some(x=>x.rw)?{t:rwT0, s:(KBPH.rw||{}).s||14}:null, mkLab:all?"전 지역":cosMkLab(), mks:all?["us"].concat(ms):ms, src:`Keepa Product Finder · 아마존 ${(all?["us"].concat(ms):ms).map(nm_).join("·")}`};
   KBB.c={src:KBPH, mk:cosMk, v}; return v;
 }
 // 모아보기 멤버 = 아마존 바구니 + 틱톡샵 바구니(이 보기에 틱톡샵이 있으면) — 2026-11-27 · 미국엔 브랜드501 이 아마존 닥터멜락신 하나라 버튼이 안 떴다(틱톡샵 바버501 샵이 있는데도)
@@ -12851,20 +12891,20 @@ function renderCosPhase(){
 
   // 두 층(2026-10-22 사용자 "채널 레이어 · 지역 레이어 두 개를 다 채워 달라") — 지역 줄(전 지역·미국·유럽5·나라별) × 채널 줄(아마존×틱톡샵·아마존·틱톡샵·합산).
   //   채널 버튼 넷은 늘 보인다. 틱톡샵이 없는 지역(유럽·일본·캐나다 단독 — FastMoss 구독이 미국만)에서는 틱톡샵이 드는 셋을 흐리게 막고 이유를 단다.
-  const NOTT="틱톡샵은 미국 공식 샵만 받는다(FastMoss 구독이 미국만) — '미국'·'전 지역'에서 보인다";
+  const NOTT="이 지역엔 틱톡샵이 없다(캐나다엔 틱톡샵이 열려 있지 않다) — 다른 나라·유럽·전 지역에서 보인다";
   const modeBtn=(k,t,need)=>need&&!CT?`<button class="cp-dis" disabled title="${attr(NOTT)}" style="opacity:.4;cursor:not-allowed">${t}</button>`:`<button data-cpm="${k}" class="${mode===k?"active":""}">${t}</button>`;
   const perBtns=mode==="tt"||mode==="sum"?"":`<div class="seg">${[[3,`${CA.ra?"3달":"3개월"} · 판정`],[1,`${n1A==="1달"?"1달":n1A==="30일"?"최근 30일":"1개월"} · 조짐`]].map(([v,t])=>[v,mode==="amz"?t:`${SQ(v)} · ${t.split(" · ")[1]}`]).map(([v,t])=>`<button data-cpw="${v}" class="${xw===v?"active":""}">${t}</button>`).join("")}</div>`;
-  const what=mode==="x"?`K뷰티 내 비중 <b>${SQ(xw)}</b> — 아마존 ${MKL} × 틱톡샵 미국 (${vs(Lx)})`
+  const what=mode==="x"?`K뷰티 내 비중 <b>${SQ(xw)}</b> — 아마존 ${MKL} × ${cosTtLab()} (${vs(Lx)})`
     :mode==="amz"?`아마존 ${MKL} ${Object.keys(KBB().b).length}개 브랜드 · 가로 비중 <b>YoY</b> (${vs(Yx)}) · 세로 비중 <b>${SQ(xw)}</b> (${vs(Dx)}${exS(Dx)})`
-    :mode==="sum"?`<b>${cosMk==="all"?"전 지역 합산":"미국 합산"}</b> — 아마존 ${(KBB().mks||["us"]).map(m=>(COS_MK.find(x=>x[0]===m)||[0,m])[1]).join("·")} + 틱톡샵 미국 판매량을 브랜드마다 더한 K뷰티 내 비중 · 가로 <b>${n3S}</b> (${vs(LS3)}${sEst?" · 4월 틱톡샵 앞부분 추정":""}) · 세로 <b>${n1S}</b> (${vs(LS1)}) · 틱톡샵이 4/24~ 라 YoY 없음 · 아마존은 배지를 순위로 구간 안 보정 · 틱톡샵은 주문 수량`
-    :`틱톡샵 미국 공식 샵 ${Object.keys(KBB().tt.b).length}개 · 가로 비중 <b>${n3T}</b> (${vs(LT3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>${n1T}</b> (${vs(LT1)}) · 4/24~ 라 YoY 없음`;
+    :mode==="sum"?`<b>${cosMk==="all"?"전 지역 합산":MKL+" 합산"}</b> — 아마존 ${(KBB().mks||["us"]).map(m=>(COS_MK.find(x=>x[0]===m)||[0,m])[1]).join("·")} + ${cosTtLab()} 판매량을 브랜드마다 더한 K뷰티 내 비중 · 가로 <b>${n3S}</b> (${vs(LS3)}${sEst?" · 4월 틱톡샵 앞부분 추정":""}) · 세로 <b>${n1S}</b> (${vs(LS1)}) · 틱톡샵이 4/24~ 라 YoY 없음 · 아마존은 배지를 순위로 구간 안 보정 · 틱톡샵은 주문 수량`
+    :`${cosTtLab()} 공식 샵 ${Object.keys(KBB().tt.b).length}개 브랜드 · 가로 비중 <b>${n3T}</b> (${vs(LT3)}${tEst?" · 4월 앞부분 추정":""}) · 세로 비중 <b>${n1T}</b> (${vs(LT1)}) · 4/24~ 라 YoY 없음`;
   const mks=(Object.keys(KBPH.mk||{}).length?["all"]:[]).concat(["us"], COS_EU.some(m=>(KBPH.mk||{})[m])?["eu"]:[], COS_MK.map(x=>x[0]).filter(m=>(KBPH.mk||{})[m]));
-  const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 · 순위로 구간 보정)으로 받았다 · 틱톡샵은 미국만이라 유럽에선 아마존 보기만 · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
+  const mkBtns=mks.length>1?`<div class="cp-bar" style="margin-bottom:6px"><span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 0;min-width:30px">지역</span><div class="seg" title="${attr("아마존 시장 — 유럽은 Keepa 를 나라마다 같은 조건(역대 월판매 피크 50개 이상 SKU · 배지 · 순위로 구간 보정)으로 받았다 · 틱톡샵은 나라마다 FastMoss 공식 샵(캐나다는 틱톡샵이 없다) · 비중의 분모(바구니) = 그 시장에 든 브랜드")}">${mks.map(m=>`<button data-cpk="${m}" class="${cosMk===m?"active":""}">${(COS_MK.find(x=>x[0]===m)||[0,m])[1]}</button>`).join("")}</div></div>`:"";
   const US=cosUS(CT, !!cosQuarterVal());   // 추적 브랜드 합계 — 보기·주기·채널·단위 토글 넷(2026-10-24)
   // 추적 브랜드 합계는 탭 맨 위(지역 버튼 바로 아래 · 2026-10-25 사용자 "이거는 거의 맨 위에 올려야 하는 것 아닌가") — 전엔 지도·고른 브랜드 카드 아래(스크롤 약 2,900px)였다.
   //   지역 버튼은 이 칸도 따르므로 그 위에 둔다. 지도 쪽 채널·모아보기·비상장 버튼은 이 칸과 무관하다.
   const allH=`    <div class="cp-all" style="margin:0 0 18px"><div class="cp-selh"><span class="cp-tag all">추적 브랜드 합계</span><span style="font-size:16px;font-weight:800">우리가 추적하는 K뷰티 브랜드 합계</span></div>
-    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBV().b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBV().tt.b).map(k=>cosMeta(k).ko||k).join(" · "):""))}">아마존 ${MKL} <b>${Object.keys(KBB().b).length}개</b>${CT?` · 틱톡샵 미국 공식 샵 <b>${Object.keys(KBV().tt.b).length}개</b>`:""} 브랜드를 더한 값 · <b>비상장 포함</b> · 아래 지도·목록 버튼과 무관 (마우스 = 브랜드 목록)<br>
+    <div class="g" style="font-size:12px;margin-top:4px;line-height:1.6" title="${attr("아마존: "+Object.values(KBV().b).map(v=>v.ko).join(" · ")+(CT?"\n틱톡샵: "+Object.keys(KBV().tt.b).map(k=>cosMeta(k).ko||k).join(" · "):""))}">아마존 ${MKL} <b>${Object.keys(KBB().b).length}개</b>${CT?` · ${cosTtLab()} 공식 샵 <b>${Object.keys(KBV().tt.b).length}개</b>`:""} 브랜드를 더한 값 · <b>비상장 포함</b> · 아래 지도·목록 버튼과 무관 (마우스 = 브랜드 목록)<br>
       K뷰티 시장 전체는 아님 — 아마존은 고른 브랜드만 · 틱톡샵은 찾은 한국 브랜드 미국 공식 샵 전부(대리점·셀러 판매는 빠진다) · 아마존은 '지난달 N개 구매' 배지(구간 아랫값)를 그달 평균 판매 순위로 구간 안에서 보정한 값 — 배지가 안 붙는 세트·묶음 상품은 빠져 실제보다 작다</div>
     ${cosUBar(US,CT)}
     <div class="chart-box" style="margin-top:6px"><div class="asd-h">${cosUHead(US,MKL)}</div><div id="cpU"></div></div>
@@ -12879,7 +12919,7 @@ function renderCosPhase(){
     ${lists}${selH}
     <div class="sub-h" style="margin-top:18px">K뷰티 내 비중 쌓기 · 월별 <span class="th-sub" style="display:inline">바구니 판매량을 100 으로 놓고 브랜드가 얼마씩 가져가나 · 굵은 테두리 = 고른 브랜드</span></div>
     <div class="asd-duo${CT?"":" one"}" style="margin-top:6px">${`<div class="chart-box"><div class="asd-h">아마존<span class="sub">Keepa · 판매량 비중</span></div><div id="cpStA"></div></div>`}${CT?`<div class="chart-box"><div class="asd-h">틱톡샵<span class="sub">FastMoss · 판매량 비중</span></div><div id="cpStT"></div></div>`:""}</div>
-    <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 ${MKL}${CT?" · 틱톡샵 미국":""} · 점선 = 추적 브랜드 합계 · 금색 = 고른 브랜드 · 굵은 이름 = 상장사${CT?" · 틱톡샵·합산 YoY 는 2027-04 부터":""}</span></div>
+    <div class="sub-h" style="margin-top:18px">판매량 증감 · 브랜드별 <span class="th-sub" style="display:inline">아마존 ${MKL}${CT?" · "+cosTtLab():""} · 점선 = 추적 브랜드 합계 · 금색 = 고른 브랜드 · 굵은 이름 = 상장사${CT?" · 틱톡샵·합산 YoY 는 2027-04 부터":""}</span></div>
     <div class="cp-gr4" id="cpGr4"></div>
     <div class="sub-h" style="margin-top:16px">브랜드 표 <span class="th-sub" style="display:inline">${mode==="x"?"두 채널 칸 순":mode==="amz"?"아마존 칸 순":mode==="sum"?"합산 칸 순":"틱톡샵 칸 순"} · 행을 누르면 위에서 그 브랜드</span></div>
     ${tbl}
@@ -12924,7 +12964,7 @@ function renderCosPhase(){
       const tE=((KBV().tt||{}).est||{})[R.k], eTo=tE?Wk.reduce((a,d,i)=>Date.parse(d)-6*864e5<=Date.parse(tE.to)?i:a,-1):null;   // 주 첫날이 추정 끝날 이하인 마지막 주
       cosShareChart(document.getElementById("cpST"),{lab:Wk.map(d=>d.slice(5).replace("-","/")), s:CT.shW[R.k], n0:0, L:Wk.length-1, part:false, unit:"주", eTo:eTo>=0?eTo:null,
         segs:[{a:pa,b:pb,v:t3.sp,lab:LT3.prev},{a:ca,b:cb,v:t3.sc,lab:LT3.cur}]}); }
-    else if(document.getElementById("cpST")) document.getElementById("cpST").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
+    else if(document.getElementById("cpST")) document.getElementById("cpST").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 ${cosTtLab()} 공식 샵을 못 찾았습니다.</p>`; }
   const VK=cosVU==="krw", aKrw=arr=>CA.M.map((m,j)=>(arr[j]||0)*(kbFx("USD",m)||1400)/1e8), tKrw=(arr,ms)=>ms.map((m,j)=>(arr[j]||0)*(kbFx("USD",m)||1400)/1e8);
   const VO=VK?{fmt:cosEok, vlab:"판매액"}:{};
   if(R){ const Ab=KBV().b[R.k];
@@ -12933,7 +12973,7 @@ function renderCosPhase(){
     else cosYoYBars(document.getElementById("cpA"),{...VO, months:CA.M, u:VK?aKrw(Ab.v):Ab.u, partial:KBV().partial, asOf:KBV().asOf});
     const T=KBV().tt, Tb=CT&&T.b[R.k];
     if(Tb&&T.months) cosMonthBars(document.getElementById("cpT"),{...VO, labs:T.months.map(m=>`${+m.slice(5)}월`), full:T.months.map(m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`), u:VK?tKrw(Tb.mv,T.months):Tb.mu, v:VK?null:Tb.mv, pi:T.months.indexOf(T.partial), est:cosProRate(T.partial,T.end), em:(()=>{ const e=(T.est||{})[R.k]; return e?T.months.map((m,j)=>m<=e.to.slice(0,7)?j:-1).filter(j=>j>=0):[]; })(), note:`${(T.mest||[]).length?`${T.mest.map(m=>+m.slice(5)+"월").join("·")}은 ${T.start.slice(5).replace("-","/")}~ (앞부분 추정)`:""}${(T.est||{})[R.k]?` · 빗금 = ${T.est[R.k].to.slice(5).replace("-","/")}까지 추정(${T.est[R.k].kind==="tt"?"바구니 모양":`아마존 모양 × ${T.est[R.k].r}배`} · 관측은 ${T.est[R.k].from.slice(5).replace("-","/")}~)`:""}`});
-    else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 틱톡샵 미국 공식 샵을 못 찾았습니다.</p>`; }
+    else if(document.getElementById("cpT")) document.getElementById("cpT").innerHTML=`<p class="note" style="padding:20px 0">이 브랜드는 ${cosTtLab()} 공식 샵을 못 찾았습니다.</p>`; }
   // 추적 브랜드 합계 · 같은 달 3개년(아마존만 — 틱톡샵은 4/24~ 라 전년이 없다)
   if(US.v==="yoy"&&document.getElementById("cpU")){ const ks=Object.keys(KBV().b), uA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+(KBV().b[k].u[j]||0),0)), vA=CA.M.map((_,j)=>ks.reduce((t,k)=>t+((KBV().b[k].v||[])[j]||0),0));
     const fm=US.u==="usd"?{fmt:v=>"$"+(v>=100?Math.round(v):v>=10?v.toFixed(1):v.toFixed(2))+"M", vlab:"판매액"}:US.u==="krw"?{fmt:cosEok, vlab:"판매액"}:{};
@@ -13261,7 +13301,7 @@ function cosUS(CT, hasQ){
 function cosUBar(S, CT){
   const B=(key,cur,v,t,why)=>`<button data-${key}="${v}" class="${cur===v?"active":""}"${why?` disabled title="${attr(why)}" style="opacity:.38;cursor:not-allowed"`:""}>${t}</button>`;
   const lab=t=>`<span class="g" style="font-size:11.5px;align-self:center;padding:0 6px 0 2px">${t}</span>`, Y=S.v==="yoy";
-  const noT=!CT?"이 지역엔 틱톡샵 자료가 없다(FastMoss 는 미국만)":Y?"틱톡샵은 4/24~ 라 전년 자료가 없다 — 3개년은 아마존만":"";
+  const noT=!CT?"이 지역엔 틱톡샵 자료가 없다(캐나다엔 틱톡샵이 없다)":Y?"틱톡샵은 4/24~ 라 전년 자료가 없다 — 3개년은 아마존만":"";
   return `<div class="cp-bar" style="margin-top:8px;flex-wrap:wrap;gap:6px">`
     +`<div class="seg">${lab("보기")}${B("cuv",S.v,"stk","브랜드 쌓기")}${B("cuv",S.v,"yoy","합계 · 같은 달 3개년")}</div>`
     +`<div class="seg">${lab("주기")}${B("cup",S.p,"m","월")}${B("cup",S.p,"q","분기",Y?"같은 달 3개년은 월별만":!S.hasQ?"가격 자료가 없어 분기 판매액을 못 낸다":"")}</div>`
@@ -13269,7 +13309,7 @@ function cosUBar(S, CT){
     +`<div class="seg">${lab("단위")}${B("cqu",S.u,"krw","판매액 억원",S.hasV?"":"가격 자료가 없다")}${B("cqu",S.u,"usd","판매액 $M",S.hasV?"":"가격 자료가 없다")}${B("cqu",S.u,"u","판매량")}${B("cqu",S.u,"sh","비중",Y?"비중은 브랜드 쌓기에서":"")}</div></div>`;
 }
 function cosUHead(S, MKL){
-  const U={krw:"판매액(억원)",usd:"판매액($M)",u:"판매량",sh:"판매량 비중"}[S.u], C={sum:"아마존 + 틱톡샵",amz:`아마존 ${MKL}`,tt:"틱톡샵 미국"}[S.c];
+  const U={krw:"판매액(억원)",usd:"판매액($M)",u:"판매량",sh:"판매량 비중"}[S.u], C={sum:"아마존 + 틱톡샵",amz:`아마존 ${MKL}`,tt:cosTtLab()}[S.c];
   if(S.v==="yoy") return `합계 · 아마존 ${MKL} ${U} · 같은 달 3개년<span class="sub">Keepa · % = YoY · 빗금 = 진행 중인 달(예측)</span>`;
   return `${C} · ${S.p==="q"?"분기":"월별"} · ${U} · 브랜드 쌓기<span class="sub">${S.u==="sh"?"100% = 그 기간 바구니 판매량":`% = 합계 ${S.p==="q"?"QoQ":"MoM"}`} · 굵은 테두리 = 고른 브랜드${S.c!=="amz"?" · 틱톡샵 자료 4/24~":""}</span>`;
 }   // 분기 판매액 단위(억원·$M)
@@ -13319,7 +13359,7 @@ function cosMonthValHtml(k){
     <details class="fold" data-fold="cosMVtbl"${fo} style="margin-top:6px"><summary>표로 보기 <span class="g">월 · 판매량 · YoY · 판매액 · 단가 · 원/$ · 원화</span></summary>${cosMonthValTbl(k)}</details></div>`;
 }
 function cosMVHead(D){ const q=cosMVP==="q";
-  return `${attr(D.ko)} · ${q?"분기별":"월별"} 판매량 · 판매액 · 단가<span class="sub">${q?"진행 분기 = 지금까지(실선) + 분기말까지 일할 환산(점선)":"최근 13개월"} · 아마존 ${attr(D.mkLab)}${D.T?" · 틱톡샵 미국":""} · 원화 = 그달 평균 환율</span>`; }
+  return `${attr(D.ko)} · ${q?"분기별":"월별"} 판매량 · 판매액 · 단가<span class="sub">${q?"진행 분기 = 지금까지(실선) + 분기말까지 일할 환산(점선)":"최근 13개월"} · 아마존 ${attr(D.mkLab)}${D.T?" · "+cosTtLab():""} · 원화 = 그달 평균 환율</span>`; }
 // 고른 브랜드 분기별 — cosQuarterVal(위 '분기 판매액' 차트와 같은 재료)에서 그 브랜드 줄만. 위 숫자 = 합계 QoQ · 툴팁에 YoY.
 function cosQuarterBrandDraw(el, k){
   const Q=cosQuarterVal(); if(!Q||!Q.A[k]) throw new Error("분기 자료 없음");
@@ -13387,6 +13427,7 @@ function cosMonthValDraw(k){
    재료: KBPH.tt.x(브랜드별 스냅샷 · 같은 브랜드 샵은 더함) · KBPH.tt.b[k].sa/sc/sl(주별) · KBPH.tt.mk(시장 주별·월별). 모아보기(KBV)면 멤버를 더한다. */
 function cosTtMem(k){ const T=KBV().tt, x=T&&T.b&&T.b[k]; return x&&x.mem?x.mem:[k]; }
 function cosTtX(k){
+  if(!cosTtUS()) return null;   // FastMoss 판매 구조 스냅샷은 미국 샵만(2026-11-27 · 나라별 틱톡샵을 넣으며 — 다른 나라가 섞인 보기에 미국 값만 보이지 않게)
   const X=(typeof KBPH!=="undefined"&&KBPH.tt&&KBPH.tt.x)||null; if(!X||!X.b) return null;
   const ms=cosTtMem(k).filter(m=>X.b[m]); if(!ms.length) return null;
   if(ms.length===1) return X.b[ms[0]];
@@ -13408,7 +13449,7 @@ const COS_TTC={card:"color-mix(in srgb, var(--muted) 55%, var(--panel))", aff:"v
 function cosTtXHtml(R){
   const T=KBV().tt; if(!T||!T.b||!T.b[R.k]) return "";
   const X=KBPH.tt&&KBPH.tt.x, x=cosTtX(R.k), ms=cosTtMem(R.k);
-  const hasSoc=ms.some(m=>(KBPH.tt.b[m]||{}).sa);
+  const hasSoc=cosTtUS()&&ms.some(m=>(KBPH.tt.b[m]||{}).sa);   // 홍보 활동(새 영상·크리에이터)도 미국 샵만
   if(!x&&!hasSoc) return "";
   let h=`<div class="sub-h" style="margin-top:16px">${attr(R.ko)} · 틱톡샵 판매 구조 <span class="th-sub" style="display:inline">FastMoss 샵 상세 · 최근 28일 스냅샷${X&&X.d?` · ${X.d.slice(5).replace("-","/")} 수집`:""}${x&&x.n>1?` · 공식 샵 ${x.n}곳 합`:""}</span></div>`;
   if(x){
@@ -13440,7 +13481,7 @@ function cosTtSocDraw(k){
     note:"주 = 끝날 기준 7일(판매량 주 칸과 같다) · 점은 최고점에만"}); }catch(e){ el.innerHTML='<div class="g">자료 없음</div>'; }
 }
 function cosTtMktHtml(CT){
-  const M=CT&&typeof KBPH!=="undefined"&&KBPH.tt&&KBPH.tt.mk; if(!M) return "";
+  const M=CT&&cosTtUS()&&typeof KBPH!=="undefined"&&KBPH.tt&&KBPH.tt.mk; if(!M) return "";   // 시장 개요는 미국만
   return `<div class="chart-box" style="margin-top:10px"><div class="asd-h">틱톡샵 미국 뷰티 시장 · 추적 K뷰티 비중 · 주별<span class="sub">FastMoss 시장 개요(뷰티 & 퍼스널 케어 카테고리 전체) · 막대 = 판매량 · 진한 칸 = 추적 브랜드 공식 샵 · 선 = 비중(오른쪽 축)</span></div><div id="cpMk"></div></div>
     ${M.m&&M.m.months&&M.m.months.length>=13?`<div class="chart-box" style="margin-top:8px"><div class="asd-h">틱톡샵 미국 뷰티 시장 판매량 · 같은 달 연도별<span class="sub">FastMoss · ${M.d0.slice(0,7)}~ · % = YoY · 다 받은 달만</span></div><div id="cpMkY"></div></div>`:""}`;
 }
@@ -13479,7 +13520,7 @@ function cosTtMktDraw(){
     try{ cosYoYBars(ey,{months:ix.map(i=>mm.months[i]), u:ix.map(i=>mm.u[i]||0), partial:null, asOf:M.d1, col:"var(--accent)"}); }catch(e){ ey.innerHTML='<div class="g">자료 없음</div>'; } }
 }
 function cosTtXTbl(){
-  const X=typeof KBPH!=="undefined"&&KBPH.tt&&KBPH.tt.x; if(!X||!X.b) return "";
+  const X=cosTtUS()&&typeof KBPH!=="undefined"&&KBPH.tt&&KBPH.tt.x; if(!X||!X.b) return "";
   const keys=Object.keys(KBV().tt.b).filter(k=>cosTtX(k));
   const rows=keys.map(k=>{ const x=cosTtX(k), u=x.ch.reduce((a,b)=>a+b,0), v=x.chv.reduce((a,b)=>a+b,0); return {k, x, u, v}; }).filter(r=>r.u>0).sort((a,b)=>b.u-a.u);
   const pc=(a,t)=>t>0?`${Math.round(a/t*100)}%`:'<span class="g">—</span>';

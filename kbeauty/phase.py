@@ -135,12 +135,18 @@ def build(path):
     if tt:
         build_fmx(tt)
         out["tt"] = tt
+    ttr = build_ttr(set(d["b"]) | set(MK_META) | set(TT_META))
+    if ttr:
+        out["ttr"] = ttr
+        print("[KBPH] 틱톡샵 미국 밖:", " · ".join(f"{rg} {len(t['b'])}브랜드 {t['nShop']}샵 {t['end']}" for rg, t in ttr.items()))
     mk = build_mk(d)
     if mk:
         out["mk"] = mk
     meta = d.pop("_mkmeta", None) or {}
     if tt:   # 틱톡샵에만 있는 브랜드의 이름·주인(2026-11-27)
         meta.update({k: TT_META[k] for k in tt["b"] if k in TT_META and k not in d["b"]})
+    for t in (ttr or {}).values():
+        meta.update({k: TT_META[k] for k in t["b"] if k in TT_META and k not in d["b"]})
     if meta:
         out["meta"] = meta
     return out
@@ -375,11 +381,52 @@ def _kalo():
         return None
 
 
-def build_tt(keys):
+FMI = HERE / "data" / "fmi"   # 틱톡샵 미국 밖 나라 공식 샵(FastMoss 샵 상세 180일 · 2026-11-27) — data/phase 밖(국면 브리핑을 안 깨운다)
+TT_RG = {"GB": "uk", "DE": "de", "FR": "fr", "IT": "it", "ES": "es", "JP": "jp"}   # 아마존 시장 칸이 있는 나라 — 나머지(동남아·중남미·유럽 소국)는 '전 지역'에만 더한다
+VND_PER_USD = 26300   # 베트남 동은 ECB 기준환율에 없다 — 고정값(2026-11 무렵 · 화면 판매액만 바뀌고 판매량·비중은 그대로)
+
+
+def _fx_usd():
+    """{통화: {ym: 그 통화 1단위 = 달러}} — fx_month.csv(USD·GBP·EUR·JPY·CAD) + fx_tt.csv(IDR·MYR·PHP·THB·SGD·MXN·BRL·PLN·CZK·HUF) · 원화 교차"""
+    import csv
+    krw = {}
+    for name in ("fx_month.csv", "fx_tt.csv"):
+        f = HERE / "data" / name
+        if not f.exists():
+            continue
+        for r in csv.DictReader(f.open(encoding="utf-8")):
+            for c, v in r.items():
+                if c not in ("ym", "days") and v:
+                    krw.setdefault(c, {})[r["ym"]] = float(v)
+    usd = krw.get("USD", {})
+    out = {c: {ym: v / usd[ym] for ym, v in m.items() if usd.get(ym)} for c, m in krw.items()}
+    out["USD"] = {ym: 1.0 for ym in usd}
+    out["VND"] = {ym: 1.0 / VND_PER_USD for ym in usd}
+    return out
+
+
+def _rate(fx, cur, ym):
+    m = fx.get(cur) or {}
+    if ym in m:
+        return m[ym]
+    if not m:
+        return None
+    best = min(m, key=lambda x: abs((dt.date.fromisoformat(x + "-15") - dt.date.fromisoformat(ym + "-15")).days))
+    return m[best]
+
+
+def _tk(fk, keys):
+    """FastMoss 키 → 바구니 키 — TT_MAP 이 먼저, 없으면 키가 바구니에 그대로 있으면 그것(구달·페리페라처럼 미국 틱톡샵 공식 샵이 없던 브랜드 · 2026-11-27)"""
+    k = TT_MAP.get(fk)
+    return k if k else (fk if fk in keys else None)
+
+
+def build_tt(keys, region=None, src=None, fx=None):
     """FastMoss 덤프를 **전부** 이어 붙인다(같은 샵·같은 날은 나중 덤프가 이긴다 · 덤프마다 받은 날과 그 뒤는 진행 중이라 버린다).
-    FastMoss 는 180일만 주므로 매주 받은 덤프를 버리지 않고 이어야 '평소'·꼬리가 길어진다(2026-10-21)."""
-    files = sorted((SRC / "fm").glob("20??-??-??.txt"))
-    KL = _kalo()
+    FastMoss 는 180일만 주므로 매주 받은 덤프를 버리지 않고 이어야 '평소'·꼬리가 길어진다(2026-10-21).
+    region(2026-11-27) = 그 나라 샵만(S 줄 둘째 칸) · src = 덤프 폴더(미국 밖 = data/fmi) · fx = 판매액을 달러로(나라 통화 → 그달 평균 환율)."""
+    files = sorted((src or (SRC / "fm")).glob("20??-??-??*.txt" if src else "20??-??-??.txt"))
+    KL = _kalo() if not region else None
     if not files and not KL:
         return None
     S, day, fhs, soc = {}, {}, [], {}
@@ -393,8 +440,8 @@ def build_tt(keys):
                 fh = f[2]
                 isE = str(f[1]).startswith("E")
             elif f[0] == "S":
-                S[f[1]] = {"k": f[3], "name": f[5]}
-            elif f[0] == "V" and fh and not isE:
+                S[f[1]] = {"k": f[3], "name": f[5], "r": f[2], "c": f[4]}
+            elif f[0] == "V" and fh and not isE and not region:   # 미국 밖은 소셜을 안 싣는다(블록 크기)
                 # 틱톡 소셜(2026-11-27) — 그날 샵 상품이 걸린 새 영상 · 처음 그 샵을 홍보한 크리에이터 · 라이브(FastMoss 만 · EchoTik 은 정의가 달라 안 쓴다)
                 d0 = dt.date.fromisoformat(f[2])
                 cut = dt.date.fromisoformat(fh)
@@ -425,6 +472,14 @@ def build_tt(keys):
         seen = set(day) | set(S)
         day = {sid: dict(KL["day"][sid]) for sid in seen if sid in KL["day"]}
         fhs = [(dt.date.fromisoformat(KL["meta"]["to"]) + dt.timedelta(days=1)).isoformat()]
+    if region:
+        day = {sid: dd for sid, dd in day.items() if S.get(sid, {}).get("r") == region}
+        if fx:   # 판매액 = 현지 통화 → 달러(그달 평균 환율) — 미국 칸과 같은 단위
+            for sid, dd in day.items():
+                c = S[sid].get("c") or "USD"
+                for t, (u, v) in list(dd.items()):
+                    r_ = _rate(fx, c, t.isoformat()[:7])
+                    dd[t] = (u, round(v * r_) if r_ else 0)
     if not day:
         return None
     # 끝날 = 지금 받는 샵들이 다 가진 마지막 날 — 한 샵만 하루 늦게 받으면(10/22 ZEROID 를 따로 받음) 나머지가 그날 0 으로 보여 주 칸이 밀린다
@@ -437,7 +492,9 @@ def build_tt(keys):
     # 첫 달이 1일부터가 아니면(4/24~) 그 달 앞부분은 샵마다 '관측 첫 14일 평균 × 빠진 날수'로 채우고 mest 에 적는다(2026-10-21 · 잣대 통일 —
     # 3개월 비교(7~9월 ÷ 4~6월)에 4월이 필요하다. KBCH 의 kbShopQ 와 같은 채움). 그 달이 3개월 창에서 빠지면(11월~) 추정도 사라진다.
     m0 = dt.date(start.year, start.month, 1)
-    gap = (start - m0).days
+    if region and start.day > 15:   # 미국 밖 = 5/31~ 이라 5월이 하루뿐 — 그 달을 채우지 않고 다음 달부터 센다(주·3달 창은 첫날부터)
+        m0 = dt.date(start.year + (start.month == 12), start.month % 12 + 1, 1)
+    gap = max(0, (start - m0).days)
     mest = [m0.isoformat()[:7]] if gap > 0 else []
     months, m = [], m0
     while m <= end:
@@ -462,13 +519,13 @@ def build_tt(keys):
     # 바구니 하루 판매량 모양(2026-11-27) — 처음부터 받은 샵(늦게 들어오지 않은 샵)의 합. 늦게 들어온 샵의 관측 전 날을 이 모양으로 채운다.
     base = {}
     for sid, dd in day.items():
-        k = TT_MAP.get(S.get(sid, {}).get("k"))
+        k = _tk(S.get(sid, {}).get("k"), keys)
         if not k or k not in keys or late_(sid):
             continue
         for t, (u, _v) in dd.items():
             base[t] = base.get(t, 0) + u
     for sid, dd in day.items():
-        k = TT_MAP.get(S.get(sid, {}).get("k"))
+        k = _tk(S.get(sid, {}).get("k"), keys)
         if not k or k not in keys:
             miss.append(S.get(sid, {}).get("k", sid))
             continue
@@ -586,10 +643,34 @@ def build_tt(keys):
     r30 = [(end - dt.timedelta(days=29)).isoformat(), end.isoformat(), (end - dt.timedelta(days=59)).isoformat(), (end - dt.timedelta(days=30)).isoformat()]
     return {"asOf": fhs[-1], "end": end.isoformat(), "r30": r30 if (end - start).days >= 59 else None, "rw": rwm, "start": start.isoformat(), "weeks": weeks, "months": months, "partial": partial, "mest": mest,
             "nShop": len(day), "nDump": len(files), "miss": sorted(set(miss)), "late": late, "est": est,
-            "src": (f"틱톡샵 미국 공식 샵 {len(day)}곳 · Kalodata 일별 판매량·판매액({start.isoformat()}~{end.isoformat()} · 뷰티 카테고리 · 한 출처)" if KL else
+            "src": (f"틱톡샵 {region} 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss · 판매액은 그달 평균 환율로 달러)" if region else
+                    f"틱톡샵 미국 공식 샵 {len(day)}곳 · Kalodata 일별 판매량·판매액({start.isoformat()}~{end.isoformat()} · 뷰티 카테고리 · 한 출처)" if KL else
                     f"틱톡샵 미국 공식 샵 {len(day)}곳 · 샵 상세 일별 판매량({start.isoformat()}~{end.isoformat()} · FastMoss" +
                     (f" · EchoTik 이어 붙인 날 {min(t for _, t in eday).isoformat()}~{max(t for _, t in eday).isoformat()}" if eday else "") + f" · 덤프 {len(files)}개)"),
-            "kalo": bool(KL), "b": b}
+            "kalo": bool(KL), "b": b, **({"rg": region} if region else {})}
+
+
+def build_ttr(keys):
+    """미국 밖 나라별 틱톡샵(2026-11-27 · 사용자 "틱톡은 유럽이나 다른 지역은 왜 안 채웠냐 — FastMoss 로 다 해 줘").
+    data/fmi 덤프의 S 줄 나라마다 build_tt 를 따로 — {나라 코드: 블록}. 판매액은 달러(그달 평균 환율 · 동은 고정값)."""
+    files = sorted(FMI.glob("20??-??-??*.txt"))
+    if not files:
+        return None
+    rgs = set()
+    for path in files:
+        for l in path.read_text(encoding="utf-8").splitlines():
+            f = l.split("|")
+            if f[0] == "S" and f[2] != "US":
+                rgs.add(f[2])
+    fx = _fx_usd()
+    out = {}
+    for rg in sorted(rgs):
+        t = build_tt(keys, region=rg, src=FMI, fx=fx)
+        if t and t["b"]:
+            for k_ in ("mest", "est", "late"):
+                t.pop(k_, None) if not t.get(k_) else None
+            out[rg] = t
+    return out or None
 
 
 FMX = HERE / "data" / "fmx"   # FastMoss 샵 '분석' 스냅샷 + 미국 틱톡샵 뷰티 시장 일별(fastmoss_x.js 덤프 · 2026-11-27) — data/phase 밖(국면 브리핑을 안 깨운다)

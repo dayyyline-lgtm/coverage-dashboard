@@ -17,6 +17,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "data" / "fx_month.csv"
 CUR = ["USD", "GBP", "JPY", "CAD", "KRW"]
+# 틱톡샵 미국 밖 나라 판매액을 달러로 바꿀 통화(2026-11-27 · FastMoss 나라별 샵) — 따로 fx_tt.csv 에 쓴다(fx_month.csv 를 읽는 곳의 칸 순서는 그대로)
+CUR_TT = ["IDR", "MYR", "PHP", "THB", "SGD", "MXN", "BRL", "PLN", "CZK", "HUF"]
+OUT_TT = HERE / "data" / "fx_tt.csv"
 START = "2023-01"
 API = "https://data-api.ecb.europa.eu/service/data/EXR/{f}.{c}.EUR.SP00.A?startPeriod={s}&format=csvdata"
 
@@ -29,7 +32,7 @@ def get(url):
 
 def series(freq, start):
     """{통화: {기간: 값}} — 값은 통화/EUR"""
-    txt = get(API.format(f=freq, c="+".join(CUR), s=start))
+    txt = get(API.format(f=freq, c="+".join(CUR + CUR_TT), s=start))
     out = {}
     for row in csv.DictReader(io.StringIO(txt)):
         c, p, v = row.get("CURRENCY"), row.get("TIME_PERIOD"), row.get("OBS_VALUE")
@@ -45,7 +48,7 @@ def build():
     rows = {}
     for ym in sorted(m.get("KRW", {})):
         r = {"EUR": m["KRW"][ym]}
-        for c in ("USD", "GBP", "JPY", "CAD"):
+        for c in ("USD", "GBP", "JPY", "CAD") + tuple(CUR_TT):
             if ym in m.get(c, {}):
                 r[c] = m["KRW"][ym] / m[c][ym]
         rows[ym] = r
@@ -58,7 +61,7 @@ def build():
         for ym in sorted({x[:7] for x in d.get("KRW", {})}):
             days = sorted(x for x in d["KRW"] if x.startswith(ym))
             r = {"EUR": sum(d["KRW"][x] for x in days) / len(days)}
-            for c in ("USD", "GBP", "JPY", "CAD"):
+            for c in ("USD", "GBP", "JPY", "CAD") + tuple(CUR_TT):
                 kr = [d["KRW"][x] / d[c][x] for x in days if x in d.get(c, {})]
                 if kr:
                     r[c] = sum(kr) / len(kr)
@@ -81,6 +84,12 @@ def main():
         r = rows[ym]
         lines.append(",".join([ym] + [f"{r[c]:.4f}" if c in r else "" for c in ("USD", "GBP", "EUR", "JPY", "CAD")] + [str(r.get("_days", ""))]))
     text = "\n".join(lines) + "\n"
+    # 틱톡샵 나라 통화(원 / 1단위 · 2026-11-27) — 베트남 동은 ECB 에 없어 phase.py 가 고정값을 쓴다
+    tt = ["ym," + ",".join(CUR_TT)] + [",".join([ym] + [f"{rows[ym][c]:.6f}" if c in rows[ym] else "" for c in CUR_TT]) for ym in sorted(rows)]
+    tt_text = "\n".join(tt) + "\n"
+    if not OUT_TT.exists() or OUT_TT.read_text(encoding="utf-8") != tt_text:
+        OUT_TT.write_text(tt_text, encoding="utf-8", newline="\n")
+        print(f"[FX] 틱톡샵 나라 통화 {len(CUR_TT)}개 · {len(rows)}개월")
     old = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
     if text == old:
         print(f"[FX] 변동 없음 · {len(rows)}개월")
